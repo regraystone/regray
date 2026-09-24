@@ -2,6 +2,7 @@ import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
+import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
@@ -42,7 +43,7 @@ export default function Register() {
                             error={errors.email}
                         />
 
-                        <Field
+                        <PasswordField
                             id="password"
                             type="password"
                             name="password"
@@ -53,7 +54,7 @@ export default function Register() {
                             error={errors.password}
                         />
 
-                        <Field
+                        <PasswordField
                             id="password_confirmation"
                             type="password"
                             name="password_confirmation"

@@ -1,6 +1,6 @@
 import { Form, Head } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Field } from '@/components/ui/field';
+import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
 import {
     Card,
@@ -41,7 +41,7 @@ export default function ConfirmPassword() {
                         >
                             {({ processing, errors }) => (
                                 <>
-                                    <Field
+                                    <PasswordField
                                         id="password"
                                         type="password"
                                         name="password"

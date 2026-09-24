@@ -11,7 +11,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Field } from '@/components/ui/field';
+import { PasswordField } from '@/components/ui/password-field';
 
 // oxfmt-ignore
 type Props = {
@@ -63,7 +63,7 @@ export default function Security(props: Props) {
                         >
                             {({ errors, processing }) => (
                                 <>
-                                    <Field
+                                    <PasswordField
                                         id="current_password"
                                         type="password"
                                         name="current_password"
@@ -74,7 +74,7 @@ export default function Security(props: Props) {
                                         error={errors.current_password}
                                     />
 
-                                    <Field
+                                    <PasswordField
                                         id="password"
                                         type="password"
                                         name="password"
@@ -86,7 +86,7 @@ export default function Security(props: Props) {
                                         error={errors.password}
                                     />
 
-                                    <Field
+                                    <PasswordField
                                         id="password_confirmation"
                                         type="password"
                                         name="password_confirmation"
