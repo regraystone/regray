@@ -30,9 +30,9 @@ export default function AuthSplitLayout({
                                 src="/images/regray-logo.svg"
                                 alt=""
                                 aria-hidden="true"
-                                className="size-7 shrink-0 object-contain invert"
+                                className="size-9 shrink-0 object-contain invert lg:size-10"
                             />
-                            <span className="text-lg font-extrabold">
+                            <span className="text-xl font-extrabold lg:text-2xl">
                                 Regray{' '}
                                 <span className="font-normal text-white/70">
                                     One
@@ -57,16 +57,16 @@ export default function AuthSplitLayout({
                 <div className="w-full max-w-md">
                     <Link
                         href={home()}
-                        className="flex items-center justify-center gap-2 text-center lg:hidden"
+                        className="flex items-center justify-center gap-2.5 text-center lg:hidden"
                         aria-label="Regray One"
                     >
                         <img
                             src="/images/regray-logo.svg"
                             alt=""
                             aria-hidden="true"
-                            className="size-7 shrink-0 object-contain"
+                            className="size-9 shrink-0 object-contain sm:size-10 md:size-12"
                         />
-                        <span className="text-lg font-extrabold">
+                        <span className="text-xl font-extrabold sm:text-2xl md:text-3xl">
                             Regray{' '}
                             <span className="font-normal text-secondary-foreground">
                                 One
