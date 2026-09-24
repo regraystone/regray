@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react';
 import { ArrowDown } from 'lucide-react';
-import FeedCard from '@/components/feed-card';
+import ProductCard from '@/components/product-card';
 import StaggeredGrid from '@/components/staggered-grid';
 import { Button } from '@/components/ui/button';
 import { products, type FeedItem } from '@/data/constant';
@@ -191,7 +191,7 @@ const Home = () => {
             <section
                 id="products"
                 aria-labelledby="products-heading"
-                className="mt-8 md:12"
+                className="md:12 mt-8"
             >
                 <SectionHeading
                     title="Products"
@@ -212,7 +212,7 @@ const Home = () => {
                         </p>
                     }
                     renderItem={(item, aspect) => (
-                        <FeedCard
+                        <ProductCard
                             item={item}
                             aspect={aspect}
                             saved={savedIds.has(item.id)}
