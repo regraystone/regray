@@ -1,7 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import type { StaggeredMode } from '@/lib/staggered-layout';
-import { withStaggeredAspect } from '@/lib/staggered-layout';
+import {
+    STAGGERED_COLUMN_COUNT,
+    withStaggeredAspects,
+} from '@/lib/staggered-layout';
 
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 
@@ -38,11 +41,21 @@ function StaggeredGrid<T extends { id: string }>({
         return <>{emptyState}</>;
     }
 
+    const columns = STAGGERED_COLUMN_COUNT[mode];
+
     return (
         <div className="feed-masonry">
-            {withStaggeredAspect(items, mode).map((item) => (
-                <div key={item.id}>{renderItem(item, item.aspect)}</div>
-            ))}
+            {withStaggeredAspects(items, columns).map(
+                (columnItems, columnIndex) => (
+                    <div key={columnIndex} className="feed-column">
+                        {columnItems.map((item) => (
+                            <div key={item.id}>
+                                {renderItem(item, item.aspect)}
+                            </div>
+                        ))}
+                    </div>
+                ),
+            )}
         </div>
     );
 }
