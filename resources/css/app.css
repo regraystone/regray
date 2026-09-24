@@ -28,6 +28,7 @@
 
     --color-primary: var(--primary);
     --color-primary-foreground: var(--primary-foreground);
+    --color-on-image: var(--on-image);
 
     --color-secondary: var(--secondary);
     --color-secondary-foreground: var(--secondary-foreground);
@@ -88,6 +89,7 @@
     --popover-foreground: oklch(0.145 0 0);
     --primary: oklch(0.205 0 0);
     --primary-foreground: oklch(0.985 0 0);
+    --on-image: oklch(0.985 0 0);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
@@ -218,7 +220,13 @@
         animation: logo-scroll 30s linear infinite;
     }
 
-    .logo-track > * {
+    .logo-group {
+        display: flex;
+        align-items: center;
+        padding-inline-end: 5rem;
+    }
+
+    .logo-group > *:not(:last-child) {
         margin-inline-end: 5rem;
     }
 
@@ -266,7 +274,11 @@
             animation-duration: 22s;
         }
 
-        .logo-track > * {
+        .logo-group {
+            padding-inline-end: 2.5rem;
+        }
+
+        .logo-group > *:not(:last-child) {
             margin-inline-end: 2.5rem;
         }
     }

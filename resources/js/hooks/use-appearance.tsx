@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 export type ResolvedAppearance = 'light' | 'dark';
 export type Appearance = ResolvedAppearance | 'system';
@@ -11,6 +11,7 @@ export type UseAppearanceReturn = {
 
 const listeners = new Set<() => void>();
 let currentAppearance: Appearance = 'system';
+let hasMounted = false;
 
 const prefersDark = (): boolean => {
     if (typeof window === 'undefined') {
@@ -68,7 +69,10 @@ const mediaQuery = (): MediaQueryList | null => {
     return window.matchMedia('(prefers-color-scheme: dark)');
 };
 
-const handleSystemThemeChange = (): void => applyTheme(currentAppearance);
+const handleSystemThemeChange = (): void => {
+    applyTheme(currentAppearance);
+    notify();
+};
 
 export function initializeTheme(): void {
     if (typeof window === 'undefined') {
@@ -80,8 +84,11 @@ export function initializeTheme(): void {
         setCookie('appearance', 'system');
     }
 
-    currentAppearance = getStoredAppearance();
-    applyTheme(currentAppearance);
+    // Apply the stored theme to the DOM immediately to avoid a flash of the wrong
+    // theme, but keep `currentAppearance` on its server snapshot until the effects
+    // run after hydration so the server-rendered HTML and the client's first render
+    // always match.
+    applyTheme(getStoredAppearance());
 
     // Set up system theme change listener
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
@@ -94,9 +101,18 @@ export function useAppearance(): UseAppearanceReturn {
         () => 'system',
     );
 
-    const resolvedAppearance: ResolvedAppearance = isDarkMode(appearance)
-        ? 'dark'
-        : 'light';
+    // Sync the stored theme only after hydration to avoid SSR hydration mismatches.
+    useEffect(() => {
+        if (!hasMounted) {
+            hasMounted = true;
+            currentAppearance = getStoredAppearance();
+            applyTheme(currentAppearance);
+            notify();
+        }
+    }, []);
+
+    const resolvedAppearance: ResolvedAppearance =
+        hasMounted && isDarkMode(appearance) ? 'dark' : 'light';
 
     const updateAppearance = (mode: Appearance): void => {
         currentAppearance = mode;

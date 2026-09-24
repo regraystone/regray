@@ -45,9 +45,7 @@ const FeedCard = ({
             >
                 <Heart
                     className={`size-6 ${
-                        saved
-                            ? 'fill-primary-foreground text-primary-foreground'
-                            : 'text-primary-foreground'
+                        saved ? 'fill-on-image text-on-image' : 'text-on-image'
                     }`}
                     aria-hidden
                 />

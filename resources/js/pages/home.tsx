@@ -4,12 +4,11 @@ import FeedCard from '@/components/feed-card';
 import { Button } from '@/components/ui/button';
 import { products, type FeedItem } from '@/data/catalog';
 
-const adLogo = '/images/ad-logo.svg';
-const dezeenLogo = '/images/dezeen-logo.svg';
-const elleLogo = '/images/elle-decor-logo.svg';
-const wallpaperLogo = '/images/wallpaper-logo.svg';
-const interiorDesignLogo = '/images/interior-design-logo.svg';
-const houzzLogo = '/images/houzz.svg';
+const cucineLogo = '/images/cucine_logo.webp';
+const ascaleLogo = '/images/ascale_logo.webp';
+const faerLogo = '/images/faer_logo.webp';
+const reformLogo = '/images/reform_logo.webp';
+const resLogo = '/images/res_logo.webp';
 const hero = '/images/regray-hero.jpg';
 
 type Filter = 'latest' | 'recommended' | 'liked';
@@ -83,12 +82,11 @@ const SectionHeading = ({
 );
 
 const brandLogos = [
-    { src: adLogo, alt: 'Architectural Digest' },
-    { src: dezeenLogo, alt: 'Dezeen' },
-    { src: elleLogo, alt: 'Elle Decor' },
-    { src: wallpaperLogo, alt: 'Wallpaper' },
-    { src: interiorDesignLogo, alt: 'Interior Design' },
-    { src: houzzLogo, alt: 'Houzz' },
+    { src: cucineLogo, alt: 'Cucine' },
+    { src: ascaleLogo, alt: 'Ascale' },
+    { src: faerLogo, alt: 'Faer' },
+    { src: reformLogo, alt: 'Reform' },
+    { src: resLogo, alt: 'Res' },
 ];
 
 const BrandCarousel = () => (
@@ -98,16 +96,21 @@ const BrandCarousel = () => (
     >
         <div className="brand-marquee">
             <div className="logo-track">
-                {[...brandLogos, ...brandLogos].map((brand, index) => (
-                    <img
-                        key={`${brand.alt}-${index}`}
-                        src={brand.src}
-                        alt={index < brandLogos.length ? brand.alt : ''}
-                        aria-hidden={index >= brandLogos.length}
-                        className={`h-11 shrink-0 object-contain grayscale ${
-                            brand.src === houzzLogo ? 'w-11' : 'w-48'
-                        }`}
-                    />
+                {[brandLogos, brandLogos].map((group, groupIndex) => (
+                    <div
+                        key={`group-${groupIndex}`}
+                        className="logo-group"
+                        aria-hidden={groupIndex > 0}
+                    >
+                        {group.map((brand, index) => (
+                            <img
+                                key={`${brand.alt}-${index}`}
+                                src={brand.src}
+                                alt={groupIndex === 0 ? brand.alt : ''}
+                                className="h-16 shrink-0 object-contain grayscale"
+                            />
+                        ))}
+                    </div>
                 ))}
             </div>
         </div>
@@ -123,7 +126,7 @@ const handleBrowseClick = (e: MouseEvent<HTMLAnchorElement>) => {
 };
 
 const Hero = () => (
-    <section className="relative flex min-h-[280px] items-center overflow-hidden text-primary-foreground sm:min-h-[480px]">
+    <section className="relative flex min-h-[280px] items-center overflow-hidden text-on-image sm:min-h-[480px]">
         <img
             src={hero}
             alt=""
@@ -132,17 +135,15 @@ const Hero = () => (
         />
         <div className="image-tint absolute inset-0" aria-hidden />
         <div className="relative z-10 mx-auto w-full max-w-6xl px-5 py-10 sm:py-20">
-            <p className="eyebrow text-primary-foreground/85">
+            <p className="eyebrow text-on-image/85">
                 Stone &amp; furniture, all in one place
             </p>
-            <h1 className="hero-title mt-5 max-w-3xl text-primary-foreground">
+            <h1 className="hero-title mt-5 max-w-3xl text-on-image">
                 Every brand.
                 <br />
-                <span className="text-primary-foreground/70">
-                    One platform.
-                </span>
+                <span className="text-on-image/70">One platform.</span>
             </h1>
-            <p className="mt-6 hidden max-w-xl text-base leading-relaxed text-primary-foreground/90 sm:block sm:text-lg">
+            <p className="mt-6 hidden max-w-xl text-base leading-relaxed text-on-image/90 sm:block sm:text-lg">
                 Explore a curated catalog of natural stone products and finished
                 projects from leading studios — saved, compared, and requested
                 in a single workspace.
