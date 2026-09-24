@@ -1,18 +1,20 @@
 import { Heart, Star } from 'lucide-react';
-import type { FeedItem } from '@/data/catalog';
+import type { FeedItem } from '@/data/constant';
 
 const FeedCard = ({
     item,
+    aspect,
     saved,
     onToggleSave,
 }: {
     item: FeedItem;
+    aspect: string;
     saved: boolean;
     onToggleSave: () => void;
 }) => (
     <figure className="feed-card border border-sidebar-border bg-background">
         <div
-            className={`feed-card-media relative overflow-hidden bg-background ${item.aspect}`}
+            className={`feed-card-media relative overflow-hidden bg-background ${aspect}`}
         >
             <img
                 src={item.image}

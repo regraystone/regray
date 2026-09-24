@@ -1,14 +1,15 @@
 import { useState, type MouseEvent } from 'react';
 import { ArrowDown } from 'lucide-react';
 import FeedCard from '@/components/feed-card';
+import StaggeredGrid from '@/components/staggered-grid';
 import { Button } from '@/components/ui/button';
-import { products, type FeedItem } from '@/data/catalog';
+import { products, type FeedItem } from '@/data/constant';
 
-const cucineLogo = '/images/cucine_logo.webp';
-const ascaleLogo = '/images/ascale_logo.webp';
-const faerLogo = '/images/faer_logo.webp';
-const reformLogo = '/images/reform_logo.webp';
-const resLogo = '/images/res_logo.webp';
+const cucineLogo = '/images/brands/cucine_logo.webp';
+const ascaleLogo = '/images/brands/ascale_logo.webp';
+const faerLogo = '/images/brands/faer_logo.webp';
+const reformLogo = '/images/brands/reform_logo.webp';
+const resLogo = '/images/brands/res_logo.webp';
 const hero = '/images/regray-hero.jpg';
 
 type Filter = 'latest' | 'recommended' | 'liked';
@@ -175,9 +176,7 @@ const Home = () => {
 
     const visibleItems: FeedItem[] = (() => {
         if (filter === 'recommended') {
-            return [...products].sort(
-                (a, b) => (a.order ?? 0) - (b.order ?? 0),
-            );
+            return products.filter((item) => item.recommended);
         }
         if (filter === 'liked') {
             return products.filter((item) => savedIds.has(item.id));
@@ -204,23 +203,23 @@ const Home = () => {
                     active={filter}
                     onTabChange={setFilter}
                 />
-                {visibleItems.length === 0 ? (
-                    <p className="py-16 text-center text-sm font-semibold text-secondary-foreground">
-                        No liked products yet — tap the heart on a product to
-                        save it here.
-                    </p>
-                ) : (
-                    <div className="feed-masonry">
-                        {visibleItems.map((item) => (
-                            <FeedCard
-                                key={item.id}
-                                item={item}
-                                saved={savedIds.has(item.id)}
-                                onToggleSave={() => toggleSave(item.id)}
-                            />
-                        ))}
-                    </div>
-                )}
+                <StaggeredGrid
+                    items={visibleItems}
+                    emptyState={
+                        <p className="py-16 text-center text-sm font-semibold text-secondary-foreground">
+                            No liked products yet — tap the heart on a product
+                            to save it here.
+                        </p>
+                    }
+                    renderItem={(item, aspect) => (
+                        <FeedCard
+                            item={item}
+                            aspect={aspect}
+                            saved={savedIds.has(item.id)}
+                            onToggleSave={() => toggleSave(item.id)}
+                        />
+                    )}
+                />
             </section>
         </div>
     );
