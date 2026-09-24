@@ -1,8 +1,8 @@
 import { Link } from '@inertiajs/react';
-import heroImage from '@/assets/regray-hero.jpg';
-import logo from '@/assets/regray-logo.svg';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
+
+const heroImage = '/images/regray-hero.jpg';
 
 export default function AuthSplitLayout({
     children,
@@ -27,7 +27,7 @@ export default function AuthSplitLayout({
                             aria-label="Regray One"
                         >
                             <img
-                                src={logo}
+                                src="/images/regray-logo.svg"
                                 alt=""
                                 aria-hidden="true"
                                 className="size-7 shrink-0 object-contain invert"
@@ -61,7 +61,7 @@ export default function AuthSplitLayout({
                         aria-label="Regray One"
                     >
                         <img
-                            src={logo}
+                            src="/images/regray-logo.svg"
                             alt=""
                             aria-hidden="true"
                             className="size-7 shrink-0 object-contain"

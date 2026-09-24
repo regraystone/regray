@@ -41,6 +41,31 @@ test('security page requires password confirmation when enabled', function () {
     $response->assertRedirect(route('password.confirm'));
 });
 
+test('security page requires password confirmation for inertia requests', function () {
+    $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
+
+    if (! file_exists(public_path('build/manifest.json'))) {
+        $this->markTestSkipped('Built Vite manifest is not available.');
+    }
+
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get(route('security.edit'), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => (string) hash_file('xxh128', public_path('build/manifest.json')),
+        'X-Requested-With' => 'XMLHttpRequest',
+        'Accept' => 'text/html, application/xhtml+xml',
+    ]);
+
+    $response
+        ->assertRedirect(route('password.confirm'))
+        ->assertSessionHas('url.intended', route('security.edit'));
+
+    $this->withSession(['auth.password_confirmed_at' => time()])
+        ->get(route('security.edit'))
+        ->assertOk();
+});
+
 test('security page renders without two factor when feature is disabled', function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 

@@ -61,6 +61,22 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+@utility page-enter {
+    animation: page-enter 220ms ease-out both;
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 :root,
 .light {
     color-scheme: light;
@@ -141,5 +157,133 @@
 
     body {
         @apply bg-background text-foreground;
+    }
+}
+
+@layer components {
+    .eyebrow {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--secondary-foreground);
+    }
+
+    .hero-title {
+        font-size: clamp(3rem, 7vw, 5.6rem);
+        line-height: 0.98;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+    }
+
+    .image-tint {
+        background: rgb(0 0 0 / 0.28);
+    }
+
+    .brand-marquee {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .brand-marquee::before,
+    .brand-marquee::after {
+        content: '';
+        position: absolute;
+        inset-block: 0;
+        width: clamp(4rem, 10vw, 10rem);
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .brand-marquee::before {
+        left: 0;
+        background: linear-gradient(to right, var(--background), transparent);
+    }
+
+    .brand-marquee::after {
+        right: 0;
+        background: linear-gradient(to left, var(--background), transparent);
+    }
+
+    .brand-marquee:hover .logo-track,
+    .brand-marquee:focus-within .logo-track {
+        animation-play-state: paused;
+    }
+
+    .logo-track {
+        display: flex;
+        width: max-content;
+        align-items: center;
+        will-change: transform;
+        animation: logo-scroll 30s linear infinite;
+    }
+
+    .logo-track > * {
+        margin-inline-end: 5rem;
+    }
+
+    .feed-masonry {
+        columns: 2;
+        column-gap: 1rem;
+    }
+
+    .feed-card {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+        margin-bottom: 1rem;
+        overflow: hidden;
+        break-inside: avoid;
+    }
+
+    .feed-card .feed-card-media img {
+        transition: transform 700ms ease;
+    }
+
+    .feed-card:hover .feed-card-media img {
+        transform: scale(1.025);
+    }
+
+    @media (min-width: 768px) {
+        .feed-masonry {
+            column-gap: 1.25rem;
+        }
+
+        .feed-card {
+            margin-bottom: 1.25rem;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .feed-masonry {
+            columns: 3;
+            column-gap: 1.25rem;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .logo-track {
+            animation-duration: 22s;
+        }
+
+        .logo-track > * {
+            margin-inline-end: 2.5rem;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .logo-track {
+            animation: none;
+        }
+
+        .feed-card .feed-card-media img {
+            transition: none;
+        }
+    }
+}
+
+@keyframes logo-scroll {
+    to {
+        transform: translateX(-50%);
     }
 }

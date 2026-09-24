@@ -1,7 +1,12 @@
 import { Head } from '@inertiajs/react';
 import AppearanceTabs from '@/components/appearance-tabs';
-import Heading from '@/components/heading';
-import { edit as editAppearance } from '@/routes/appearance';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 
 export default function Appearance() {
     return (
@@ -10,23 +15,18 @@ export default function Appearance() {
 
             <h1 className="sr-only">Appearance settings</h1>
 
-            <div className="space-y-6">
-                <Heading
-                    variant="small"
-                    title="Appearance settings"
-                    description="Update the appearance settings for your account"
-                />
-                <AppearanceTabs />
-            </div>
+            <Card className="rounded-none border-border shadow-none">
+                <CardHeader>
+                    <CardTitle>Appearance settings</CardTitle>
+                    <CardDescription>
+                        Update the appearance settings for your account
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent>
+                    <AppearanceTabs />
+                </CardContent>
+            </Card>
         </>
     );
 }
-
-Appearance.layout = {
-    breadcrumbs: [
-        {
-            title: 'Appearance settings',
-            href: editAppearance(),
-        },
-    ],
-};

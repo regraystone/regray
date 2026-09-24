@@ -1,7 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
-import AuthButton from '@/components/auth/auth-button';
-import AuthField from '@/components/auth/auth-field';
+import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
 import { register } from '@/routes';
@@ -31,7 +31,7 @@ export default function Login({ status, canResetPassword }: Props) {
             >
                 {({ processing, errors }) => (
                     <>
-                        <AuthField
+                        <Field
                             id="email"
                             type="email"
                             name="email"
@@ -43,7 +43,7 @@ export default function Login({ status, canResetPassword }: Props) {
                             error={errors.email}
                         />
 
-                        <AuthField
+                        <Field
                             id="password"
                             type="password"
                             name="password"
@@ -79,16 +79,16 @@ export default function Login({ status, canResetPassword }: Props) {
                             </label>
                         </div>
 
-                        <AuthButton
+                        <Button
                             type="submit"
-                            className="mt-6"
+                            className="mt-6 w-full"
                             tabIndex={3}
                             disabled={processing}
                             data-test="login-button"
                         >
                             {processing && <Spinner />}
                             Sign In
-                        </AuthButton>
+                        </Button>
                     </>
                 )}
             </Form>

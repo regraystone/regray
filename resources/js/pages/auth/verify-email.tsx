@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import AuthButton from '@/components/auth/auth-button';
+import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
@@ -20,10 +20,14 @@ export default function VerifyEmail({ status }: { status?: string }) {
                 <Form {...send.form()} className="flex flex-col gap-6">
                     {({ processing }) => (
                         <>
-                            <AuthButton type="submit" disabled={processing}>
+                            <Button
+                                type="submit"
+                                className="w-full"
+                                disabled={processing}
+                            >
                                 {processing && <Spinner />}
                                 Resend verification email
-                            </AuthButton>
+                            </Button>
 
                             <Link
                                 href={logout()}

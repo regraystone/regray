@@ -1,7 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
-import AuthButton from '@/components/auth/auth-button';
-import AuthField from '@/components/auth/auth-field';
+import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
@@ -19,7 +19,7 @@ export default function Register() {
             >
                 {({ processing, errors }) => (
                     <>
-                        <AuthField
+                        <Field
                             id="name"
                             type="text"
                             name="name"
@@ -31,7 +31,7 @@ export default function Register() {
                             error={errors.name}
                         />
 
-                        <AuthField
+                        <Field
                             id="email"
                             type="email"
                             name="email"
@@ -42,7 +42,7 @@ export default function Register() {
                             error={errors.email}
                         />
 
-                        <AuthField
+                        <Field
                             id="password"
                             type="password"
                             name="password"
@@ -53,7 +53,7 @@ export default function Register() {
                             error={errors.password}
                         />
 
-                        <AuthField
+                        <Field
                             id="password_confirmation"
                             type="password"
                             name="password_confirmation"
@@ -64,16 +64,16 @@ export default function Register() {
                             error={errors.password_confirmation}
                         />
 
-                        <AuthButton
+                        <Button
                             type="submit"
-                            className="mt-6"
+                            className="mt-6 w-full"
                             tabIndex={5}
                             disabled={processing}
                             data-test="register-user-button"
                         >
                             {processing && <Spinner />}
                             Sign Up
-                        </AuthButton>
+                        </Button>
                     </>
                 )}
             </Form>
