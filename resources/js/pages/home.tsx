@@ -191,7 +191,7 @@ const Home = () => {
             <section
                 id="products"
                 aria-labelledby="products-heading"
-                className="mt-12 scroll-mt-24"
+                className="mt-8 md:12"
             >
                 <SectionHeading
                     title="Products"
