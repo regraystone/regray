@@ -5,12 +5,10 @@ const Logo = ({
     className = '',
     compact = false,
     markClassName = '',
-    darkInvert = false,
 }: {
     className?: string;
     compact?: boolean;
     markClassName?: string;
-    darkInvert?: boolean;
 }) => (
     <Link
         href={dashboard()}
@@ -23,9 +21,7 @@ const Logo = ({
             src="/images/regray-logo.svg"
             alt=""
             aria-hidden
-            className={`size-7 shrink-0 object-contain ${markClassName} ${
-                darkInvert ? 'dark:invert' : ''
-            }`}
+            className={`size-7 shrink-0 object-contain ${markClassName}`}
         />
         {!compact && (
             <span className="text-xl font-extrabold whitespace-nowrap">

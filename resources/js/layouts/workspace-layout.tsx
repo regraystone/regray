@@ -13,13 +13,11 @@ import {
     LogOut,
     Menu,
     MessageCircle,
-    Moon,
     Package,
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
     ShieldCheck,
-    Sun,
     Users,
     Wrench,
     X,
@@ -41,7 +39,6 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useInitials } from '@/hooks/use-initials';
-import { useAppearance } from '@/hooks/use-appearance';
 import { index as accountsIndex } from '@/routes/accounts';
 import { dashboard, logout } from '@/routes';
 import { index as inquiryIndex } from '@/routes/inquiry';
@@ -275,8 +272,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         () => !page.props.sidebarOpen,
     );
 
-    const { resolvedAppearance, updateAppearance } = useAppearance();
-
     const user = page.props.auth.user;
 
     useEffect(() => {
@@ -336,7 +331,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         collapsed ? 'justify-center px-0' : 'px-6'
                     }`}
                 >
-                    <Logo compact={collapsed} darkInvert />
+                    <Logo compact={collapsed} />
                 </div>
 
                 <SidebarNav collapsed={collapsed} pathname={url} />
@@ -373,7 +368,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             >
                 <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-sidebar-border bg-background px-5 lg:px-8">
                     <div className="flex min-w-0 items-center gap-4">
-                        <Logo className="shrink-0 lg:hidden" darkInvert />
+                        <Logo className="shrink-0 lg:hidden" />
                         <span
                             className="hidden h-6 w-px shrink-0 bg-sidebar-border sm:block lg:hidden"
                             aria-hidden
@@ -420,38 +415,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        updateAppearance(
-                                            resolvedAppearance === 'dark'
-                                                ? 'light'
-                                                : 'dark',
-                                        )
-                                    }
-                                    aria-label={
-                                        resolvedAppearance === 'dark'
-                                            ? 'Switch to light mode'
-                                            : 'Switch to dark mode'
-                                    }
-                                    className="grid size-9 place-items-center rounded-full border border-sidebar-border text-foreground transition-all duration-300 hover:scale-[1.05] hover:opacity-80"
-                                >
-                                    {resolvedAppearance === 'dark' ? (
-                                        <Sun className="size-4" aria-hidden />
-                                    ) : (
-                                        <Moon className="size-4" aria-hidden />
-                                    )}
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent className="rounded-none">
-                                {resolvedAppearance === 'dark'
-                                    ? 'Switch to light'
-                                    : 'Switch to dark'}
-                            </TooltipContent>
-                        </Tooltip>
-
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button
@@ -547,7 +510,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 }`}
             >
                 <div className="flex h-16 items-center justify-between border-b border-border px-6">
-                    <Logo darkInvert />
+                    <Logo />
                     <button
                         type="button"
                         onClick={() => setDrawerOpen(false)}
