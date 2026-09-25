@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from '@inertiajs/react';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -12,53 +12,8 @@ type StoneProfileProps = {
     stoneId: string;
 };
 
-const anchors = [
-    { number: '01', id: 'gallery', label: 'Gallery' },
-    { number: '02', id: 'facts', label: 'Facts' },
-    { number: '03', id: 'projects', label: 'Projects' },
-];
-
-const scrollToId = (id: string) => {
-    const element = document.getElementById(id);
-
-    if (!element) {
-        return;
-    }
-
-    const prefersReducedMotion = window.matchMedia(
-        '(prefers-reduced-motion: reduce)',
-    ).matches;
-
-    element.scrollIntoView({
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        block: 'start',
-    });
-};
-
-const SectionIntro = ({
-    number,
-    title,
-    id,
-}: {
-    number: string;
-    title: string;
-    id?: string;
-}) => (
-    <div className="mb-8">
-        <p className="mb-2 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-            {number} — {title}
-        </p>
-        <h2
-            id={id}
-            className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
-        >
-            {title}
-        </h2>
-    </div>
-);
-
 const SpecRow = ({ label, value }: { label: string; value: string }) => (
-    <div className="flex items-baseline justify-between gap-6 border-b border-sidebar-border py-3.5 last:border-0">
+    <div className="flex items-baseline justify-between gap-4 border-b border-sidebar-border py-2.5 last:border-0">
         <dt className="text-sm text-secondary-foreground">{label}</dt>
         <dd className="text-right text-base font-semibold text-foreground">
             {value}
@@ -67,7 +22,7 @@ const SpecRow = ({ label, value }: { label: string; value: string }) => (
 );
 
 const BulletedList = ({ items }: { items: string[] }) => (
-    <ul className="space-y-3">
+    <ul className="space-y-2">
         {items.map((item) => (
             <li
                 key={item}
@@ -85,19 +40,14 @@ const BulletedList = ({ items }: { items: string[] }) => (
 
 const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
     const carouselRef = useRef<CarouselHandle>(null);
-    const [activeIndex, setActiveIndex] = useState(0);
-
-    const counter = `${String(activeIndex + 1).padStart(2, '0')} / ${String(
-        images.length,
-    ).padStart(2, '0')}`;
 
     return (
         <Carousel
             ref={carouselRef}
             ariaLabel={`${name} gallery`}
-            onActiveChange={setActiveIndex}
+            dots
+            dotsClassName="absolute bottom-3 left-1/2 -translate-x-1/2"
             className="relative bg-background"
-            viewportClassName="snap-mandatory"
             controls={
                 images.length > 1 ? (
                     <>
@@ -105,7 +55,7 @@ const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
                             type="button"
                             onClick={() => carouselRef.current?.scrollPrev()}
                             aria-label="Previous photo"
-                            className="absolute inset-y-0 left-2 z-10 my-auto grid size-11 place-items-center rounded-full border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
+                            className="absolute inset-y-0 left-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-full border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
                         >
                             <ChevronLeft className="size-5" aria-hidden />
                         </button>
@@ -113,13 +63,10 @@ const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
                             type="button"
                             onClick={() => carouselRef.current?.scrollNext()}
                             aria-label="Next photo"
-                            className="absolute inset-y-0 right-2 z-10 my-auto grid size-11 place-items-center rounded-full border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
+                            className="absolute inset-y-0 right-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-full border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
                         >
                             <ChevronRight className="size-5" aria-hidden />
                         </button>
-                        <span className="absolute right-3 bottom-3 z-10 bg-background/80 px-3 py-1.5 text-[0.7rem] font-bold tracking-[0.2em] text-foreground uppercase">
-                            {counter}
-                        </span>
                     </>
                 ) : undefined
             }
@@ -127,11 +74,12 @@ const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
             {images.map((src, index) => (
                 <div
                     key={src}
-                    className="aspect-[16/9] w-full shrink-0 snap-center"
+                    className="aspect-3/4 w-full shrink-0 snap-center lg:aspect-[16/9]"
                 >
                     <img
                         src={src}
                         alt={`${name} photo ${index + 1}`}
+                        draggable={false}
                         loading={index === 0 ? 'eager' : 'lazy'}
                         className="size-full object-cover"
                     />
@@ -149,6 +97,7 @@ const ProjectCard = ({ id, name, image }: StoneProfile['projects'][number]) => (
                     <img
                         src={image}
                         alt={name}
+                        draggable={false}
                         loading="lazy"
                         className="absolute inset-0 size-full object-cover"
                     />
@@ -177,9 +126,6 @@ const ProjectsCarousel = ({
         <div>
             <div className="mb-8 flex items-end justify-between gap-4">
                 <div>
-                    <p className="mb-2 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                        03 — Projects
-                    </p>
                     <h2
                         id="projects-heading"
                         className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
@@ -191,6 +137,7 @@ const ProjectsCarousel = ({
                     <Button
                         variant="outline"
                         size="icon"
+                        className="cursor-pointer"
                         onClick={() => carouselRef.current?.scrollPrev()}
                         aria-label="Previous projects"
                     >
@@ -199,6 +146,7 @@ const ProjectsCarousel = ({
                     <Button
                         variant="outline"
                         size="icon"
+                        className="cursor-pointer"
                         onClick={() => carouselRef.current?.scrollNext()}
                         aria-label="Next projects"
                     >
@@ -248,11 +196,17 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
         </Button>
     );
 
-    return (
-        <div className="-my-8">
-            {createPortal(floatingBackButton, document.body)}
+    const [mounted, setMounted] = useState(false);
 
-            <section className="relative -mx-5 flex min-h-[55vh] items-center overflow-hidden text-on-image sm:min-h-[68vh] lg:-mx-8">
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    return (
+        <div className="mx-auto w-full max-w-6xl">
+            {mounted && createPortal(floatingBackButton, document.body)}
+
+            <section className="relative flex min-h-[280px] items-center overflow-hidden text-on-image sm:min-h-[480px]">
                 <img
                     src={profile.image}
                     alt=""
@@ -261,9 +215,6 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                 />
                 <div className="image-tint absolute inset-0" aria-hidden />
                 <div className="relative z-10 mx-auto w-full max-w-4xl px-5 py-16 text-center sm:py-24">
-                    <p className="eyebrow text-on-image/85">
-                        {profile.specifications.stoneType}
-                    </p>
                     <h1 className="hero-title mt-5 text-on-image">
                         {profile.name}
                     </h1>
@@ -274,96 +225,64 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                 </div>
             </section>
 
-            <section className="py-16 sm:py-20">
-                <p className="mx-auto max-w-4xl text-center text-lg leading-relaxed text-secondary-foreground sm:text-xl">
+            <section className="py-16 sm:py-12">
+                <p className="mx-auto max-w-4xl text-justify text-sm leading-relaxed text-secondary-foreground sm:text-xl">
                     {profile.description}
                 </p>
             </section>
 
-            <nav
-                aria-label="On this page"
-                className="border-y border-sidebar-border py-4"
-            >
-                <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
-                    {anchors.map(({ number, id, label }) => (
-                        <button
-                            key={id}
-                            type="button"
-                            onClick={() => scrollToId(id)}
-                            className="group flex items-baseline gap-2 text-xs font-bold tracking-[0.18em] text-secondary-foreground uppercase transition hover:text-foreground"
-                        >
-                            <span className="text-secondary-foreground/60">
-                                {number}
-                            </span>
-                            {label}
-                        </button>
-                    ))}
-                </div>
-            </nav>
-
-            <section
-                id="gallery"
-                aria-labelledby="gallery-heading"
-                className="scroll-mt-24 py-16 sm:py-20"
-            >
-                <SectionIntro
-                    number="01"
-                    title="Gallery"
-                    id="gallery-heading"
-                />
+            <section>
                 <StoneGallery images={profile.gallery} name={profile.name} />
             </section>
 
-            <section
-                id="facts"
-                aria-labelledby="facts-heading"
-                className="scroll-mt-24 border-t border-sidebar-border py-16 sm:py-20"
-            >
-                <SectionIntro number="02" title="Facts" id="facts-heading" />
-                <div className="grid gap-12 lg:grid-cols-2">
-                    <div className="border-t border-sidebar-border pt-6">
-                        <h3 className="mb-4 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                            Specifications
-                        </h3>
-                        <dl>
-                            <SpecRow
-                                label="Stone Type"
-                                value={profile.specifications.stoneType}
-                            />
-                            <SpecRow
-                                label="Origin"
-                                value={profile.specifications.origin}
-                            />
-                            <SpecRow
-                                label="Thickness"
-                                value={profile.specifications.thickness}
-                            />
-                        </dl>
-                    </div>
-                    <div className="space-y-12">
-                        <div className="border-t border-sidebar-border pt-6">
-                            <h3 className="mb-4 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                                Applications
+            <section className="py-12 sm:py-16">
+                <h2 className="sr-only">Facts</h2>
+                <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2">
+                    <div className="space-y-10">
+                        <div>
+                            <h3 className="mb-3 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+                                Specifications
                             </h3>
-                            <BulletedList items={profile.applications} />
+                            <dl>
+                                <SpecRow
+                                    label="Stone Type"
+                                    value={profile.specifications.stoneType}
+                                />
+                                <SpecRow
+                                    label="Origin"
+                                    value={profile.specifications.origin}
+                                />
+                                <SpecRow
+                                    label="Thickness"
+                                    value={profile.specifications.thickness}
+                                />
+                            </dl>
                         </div>
-                        <div className="border-t border-sidebar-border pt-6">
-                            <h3 className="mb-4 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+                        <div>
+                            <h3 className="mb-3 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
                                 Available Finishes
                             </h3>
                             <div className="flex flex-wrap gap-2">
                                 {profile.finishes.map((finish) => (
                                     <span
                                         key={finish}
-                                        className="border border-sidebar-border bg-background px-3 py-1.5 text-xs font-bold tracking-[0.05em] text-foreground uppercase"
+                                        className="border border-sidebar-border bg-background px-3 py-1 text-xs font-bold tracking-[0.05em] text-foreground uppercase"
                                     >
                                         {finish}
                                     </span>
                                 ))}
                             </div>
                         </div>
-                        <div className="border-t border-sidebar-border pt-6">
-                            <h3 className="mb-4 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+                    </div>
+                    <div className="space-y-10">
+                        <div>
+                            <h3 className="mb-3 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+                                Applications
+                            </h3>
+                            <BulletedList items={profile.applications} />
+                        </div>
+                        <div>
+                            <h3 className="mb-3 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
                                 Care &amp; Maintenance
                             </h3>
                             <BulletedList items={profile.care} />
@@ -375,7 +294,7 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
             <section
                 id="projects"
                 aria-labelledby="projects-heading"
-                className="scroll-mt-24 border-t border-sidebar-border py-16 sm:py-20"
+                className="scroll-mt-24 pb-16 sm:pb-20"
             >
                 <ProjectsCarousel
                     projects={profile.projects}

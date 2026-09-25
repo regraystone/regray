@@ -7,11 +7,14 @@ import {
     useMemo,
     useRef,
     useState,
+    type PointerEvent as ReactPointerEvent,
     type ReactNode,
 } from 'react';
 import { cn } from '@/lib/utils';
 
-const SCROLL_FRACTION = 0.8;
+const DRAG_COMMIT_FRACTION = 0.2;
+const HORIZONTAL_START_SLOP = 8;
+const VERTICAL_START_SLOP = 8;
 
 const usePrefersReducedMotion = () => {
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -63,6 +66,25 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         const viewportRef = useRef<HTMLDivElement>(null);
         const prefersReducedMotion = usePrefersReducedMotion();
         const [activeDot, setActiveDot] = useState(0);
+        const [isDragging, setIsDragging] = useState(false);
+        const dragState = useRef<{
+            pointerId: number;
+            startX: number;
+            startY: number;
+            startScrollLeft: number;
+            virtualScrollLeft: number;
+            engaged: boolean;
+        } | null>(null);
+        const pendingScrollRef = useRef<number | null>(null);
+        const settleTimerRef = useRef<number | null>(null);
+        // Source of truth for "which slide are we headed to / on", updated
+        // immediately on every programmatic scrollTo call and synced from
+        // real scroll position once we're not mid-animation. Navigating via
+        // scrollPrev/scrollNext steps from this instead of reading live DOM
+        // scroll position, which avoids the race where clicking next/prev
+        // again mid-animation reads an in-between scrollLeft and re-targets
+        // the same slide (looks "stuck").
+        const targetIndexRef = useRef(0);
 
         const slideCount = useMemo(
             () => Children.toArray(children).length,
@@ -73,26 +95,79 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             ? 'auto'
             : 'smooth';
 
-        const updateActiveDot = useCallback(() => {
+        const getCurrentIndex = useCallback(() => {
             const element = viewportRef.current;
 
             if (!element || slideCount <= 1) {
-                setActiveDot(0);
-                onActiveChange?.(0);
-                return;
+                return 0;
             }
 
             const maxScroll = element.scrollWidth - element.clientWidth;
-            const index =
-                maxScroll <= 0
-                    ? 0
-                    : Math.round(
-                          (element.scrollLeft / maxScroll) * (slideCount - 1),
-                      );
+
+            if (maxScroll <= 0) {
+                return 0;
+            }
+
+            return Math.min(
+                Math.round(element.scrollLeft / element.clientWidth),
+                slideCount - 1,
+            );
+        }, [slideCount]);
+
+        const updateActiveDot = useCallback(() => {
+            const index = getCurrentIndex();
 
             setActiveDot(index);
             onActiveChange?.(index);
-        }, [onActiveChange, slideCount]);
+
+            // Only sync the target ref from live scroll position when we're
+            // not mid-way through our own programmatic scroll — otherwise
+            // intermediate positions during that animation would clobber
+            // the intended target and reintroduce the race above.
+            if (pendingScrollRef.current === null) {
+                targetIndexRef.current = index;
+            }
+        }, [getCurrentIndex, onActiveChange]);
+
+        const settleScroll = useCallback(() => {
+            const element = viewportRef.current;
+            const target = pendingScrollRef.current;
+
+            pendingScrollRef.current = null;
+
+            if (!element || target === null) {
+                return;
+            }
+
+            if (Math.abs(element.scrollLeft - target) > 4) {
+                element.scrollLeft = target;
+            }
+
+            updateActiveDot();
+        }, [updateActiveDot]);
+
+        const handleScroll = useCallback(() => {
+            const element = viewportRef.current;
+
+            updateActiveDot();
+
+            if (pendingScrollRef.current === null || !element) {
+                return;
+            }
+
+            if (settleTimerRef.current !== null) {
+                window.clearTimeout(settleTimerRef.current);
+                settleTimerRef.current = null;
+            }
+
+            if (Math.abs(element.scrollLeft - pendingScrollRef.current) < 4) {
+                pendingScrollRef.current = null;
+
+                return;
+            }
+
+            settleTimerRef.current = window.setTimeout(settleScroll, 140);
+        }, [settleScroll, updateActiveDot]);
 
         const scrollTo = useCallback(
             (index: number) => {
@@ -102,44 +177,189 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                     return;
                 }
 
+                const clampedIndex = Math.max(
+                    0,
+                    Math.min(index, slideCount - 1),
+                );
                 const maxScroll = element.scrollWidth - element.clientWidth;
-                const left =
-                    slideCount > 1 ? (maxScroll * index) / (slideCount - 1) : 0;
+                const left = Math.min(
+                    clampedIndex * element.clientWidth,
+                    slideCount > 1 ? maxScroll : 0,
+                );
 
+                targetIndexRef.current = clampedIndex;
+                pendingScrollRef.current = left;
                 element.scrollTo({ left, behavior: scrollBehavior });
             },
             [slideCount, scrollBehavior],
         );
 
         const scrollPrev = useCallback(() => {
-            const element = viewportRef.current;
-
-            if (!element) {
-                return;
-            }
-
-            element.scrollBy({
-                left: -element.clientWidth * SCROLL_FRACTION,
-                behavior: scrollBehavior,
-            });
-        }, [scrollBehavior]);
+            scrollTo((targetIndexRef.current - 1 + slideCount) % slideCount);
+        }, [scrollTo, slideCount]);
 
         const scrollNext = useCallback(() => {
+            scrollTo((targetIndexRef.current + 1) % slideCount);
+        }, [scrollTo, slideCount]);
+
+        const snapBackToCurrent = useCallback(() => {
+            scrollTo(getCurrentIndex());
+        }, [scrollTo, getCurrentIndex]);
+
+        const endDrag = useCallback(
+            (commit: boolean) => {
+                const state = dragState.current;
+
+                if (!state) {
+                    return;
+                }
+
+                dragState.current = null;
+                setIsDragging(false);
+
+                const element = viewportRef.current;
+
+                if (!element) {
+                    return;
+                }
+
+                if (!commit) {
+                    snapBackToCurrent();
+
+                    return;
+                }
+
+                const dragged = state.virtualScrollLeft - state.startScrollLeft;
+                const slideWidth = element.clientWidth;
+
+                if (Math.abs(dragged) >= slideWidth * DRAG_COMMIT_FRACTION) {
+                    // Anchor the step to the slide the drag started from, so
+                    // a long/fast drag always moves exactly one slide instead
+                    // of potentially skipping ahead if the drag distance
+                    // rounds past more than one slide width.
+                    targetIndexRef.current = Math.round(
+                        state.startScrollLeft / slideWidth,
+                    );
+
+                    if (dragged > 0) {
+                        scrollNext();
+                    } else {
+                        scrollPrev();
+                    }
+
+                    return;
+                }
+
+                snapBackToCurrent();
+            },
+            [scrollNext, scrollPrev, snapBackToCurrent],
+        );
+
+        const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+            if (event.button !== 0) {
+                return;
+            }
+
+            pendingScrollRef.current = null;
+
+            if (settleTimerRef.current !== null) {
+                window.clearTimeout(settleTimerRef.current);
+                settleTimerRef.current = null;
+            }
+
             const element = viewportRef.current;
 
             if (!element) {
                 return;
             }
 
-            element.scrollBy({
-                left: element.clientWidth * SCROLL_FRACTION,
-                behavior: scrollBehavior,
-            });
-        }, [scrollBehavior]);
+            if (event.pointerType !== 'mouse') {
+                dragState.current = {
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    startScrollLeft: element.scrollLeft,
+                    virtualScrollLeft: element.scrollLeft,
+                    engaged: false,
+                };
+
+                return;
+            }
+
+            element.setPointerCapture(event.pointerId);
+            dragState.current = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                startScrollLeft: element.scrollLeft,
+                virtualScrollLeft: element.scrollLeft,
+                engaged: true,
+            };
+            setIsDragging(true);
+        };
+
+        const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+            const state = dragState.current;
+
+            if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+
+            const element = viewportRef.current;
+
+            if (!element) {
+                return;
+            }
+
+            if (!state.engaged) {
+                const dx = event.clientX - state.startX;
+                const dy = event.clientY - state.startY;
+
+                if (
+                    Math.abs(dx) < HORIZONTAL_START_SLOP &&
+                    Math.abs(dy) < VERTICAL_START_SLOP
+                ) {
+                    return;
+                }
+
+                if (Math.abs(dy) > Math.abs(dx)) {
+                    dragState.current = null;
+
+                    return;
+                }
+
+                element.setPointerCapture(event.pointerId);
+                state.engaged = true;
+                setIsDragging(true);
+            }
+
+            const virtualScrollLeft =
+                state.startScrollLeft - (event.clientX - state.startX);
+
+            element.scrollLeft = virtualScrollLeft;
+            state.virtualScrollLeft = virtualScrollLeft;
+        };
+
+        const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+            endDrag(event.pointerId === dragState.current?.pointerId);
+        };
+
+        const onPointerCancel = () => {
+            endDrag(false);
+        };
 
         useEffect(() => {
             updateActiveDot();
         }, [updateActiveDot]);
+
+        useEffect(
+            () => () => {
+                if (settleTimerRef.current !== null) {
+                    window.clearTimeout(settleTimerRef.current);
+                }
+            },
+            [],
+        );
 
         useImperativeHandle(ref, () => ({ scrollPrev, scrollNext, scrollTo }), [
             scrollPrev,
@@ -154,7 +374,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                     role="region"
                     aria-label={ariaLabel}
                     tabIndex={0}
-                    onScroll={updateActiveDot}
+                    onScroll={handleScroll}
                     onKeyDown={(event) => {
                         if (event.key === 'ArrowLeft') {
                             event.preventDefault();
@@ -166,8 +386,15 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                             scrollNext();
                         }
                     }}
+                    onPointerDown={onPointerDown}
+                    onPointerMove={onPointerMove}
+                    onPointerUp={onPointerUp}
+                    onPointerCancel={onPointerCancel}
                     className={cn(
-                        'flex snap-x overflow-x-auto overscroll-x-contain',
+                        'flex touch-pan-y overflow-x-auto overscroll-x-contain select-none',
+                        isDragging
+                            ? 'cursor-grabbing snap-none'
+                            : 'cursor-grab snap-x snap-mandatory',
                         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
                         viewportClassName,
                     )}
@@ -193,7 +420,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                                 aria-label={`${ariaLabel}, slide ${index + 1} of ${slideCount}`}
                                 onClick={() => scrollTo(index)}
                                 className={cn(
-                                    'size-2 rounded-full transition-opacity hover:opacity-70',
+                                    'size-2.5 cursor-pointer rounded-full transition-opacity hover:opacity-70',
                                     activeDot === index
                                         ? 'bg-primary'
                                         : 'bg-on-image/50',
