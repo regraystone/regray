@@ -191,7 +191,7 @@ const Home = () => {
                 className="md:12 mt-8"
             >
                 <SectionHeading
-                    title="Products"
+                    title="Stones"
                     tabs={[
                         { value: 'latest', label: 'Latest' },
                         { value: 'recommended', label: 'Recommended' },

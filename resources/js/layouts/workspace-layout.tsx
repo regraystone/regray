@@ -44,7 +44,7 @@ import { dashboard, logout } from '@/routes';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as messageIndex } from '@/routes/message';
 import { index as overviewIndex } from '@/routes/overview';
-import { index as productsIndex } from '@/routes/products';
+import { index as stonesIndex } from '@/routes/stones';
 import { edit as editProfile } from '@/routes/profile';
 import { index as quotationIndex } from '@/routes/quotation';
 import { index as salesIndex } from '@/routes/sales';
@@ -119,9 +119,9 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 icon: MessageCircle,
             },
             {
-                slug: 'products',
-                label: 'Products',
-                href: productsIndex.url(),
+                slug: 'stones',
+                label: 'Stones',
+                href: stonesIndex.url(),
                 icon: Package,
             },
             {

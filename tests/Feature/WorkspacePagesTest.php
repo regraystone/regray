@@ -11,7 +11,7 @@ test('guests are redirected to the login page from workspace pages', function ()
         'inquiry.index',
         'schedule.index',
         'message.index',
-        'products.index',
+        'stones.index',
         'services.index',
         'accounts.index',
     ];
@@ -30,7 +30,7 @@ test('authenticated users can visit every workspace page', function () {
         'inquiry.index',
         'schedule.index',
         'message.index',
-        'products.index',
+        'stones.index',
         'services.index',
         'accounts.index',
     ];
