@@ -294,7 +294,7 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
             <section
                 id="projects"
                 aria-labelledby="projects-heading"
-                className="scroll-mt-24 pb-16 sm:pb-20"
+                className="scroll-mt-24"
             >
                 <ProjectsCarousel
                     projects={profile.projects}
