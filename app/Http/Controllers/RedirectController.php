@@ -16,6 +16,6 @@ class RedirectController extends Controller
 
         $path = config('roles.redirects.'.$role, config('roles.default'));
 
-        return redirect($path);
+        return new RedirectResponse($path);
     }
 }
