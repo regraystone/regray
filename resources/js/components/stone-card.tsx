@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { Heart, Star } from 'lucide-react';
 import type { FeedItem } from '@/data/constant';
+import { show as homeShow } from '@/routes/home';
 
 const StoneCard = ({
     item,
@@ -13,7 +14,7 @@ const StoneCard = ({
     saved: boolean;
     onToggleSave: () => void;
 }) => (
-    <Link href="#" onClick={(e) => e.preventDefault()} className="block">
+    <Link href={homeShow.url({ stone: item.id })} className="block">
         <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
             <div
                 className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}

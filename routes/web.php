@@ -9,6 +9,7 @@ Route::redirect('/', '/login')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [RedirectController::class, 'dashboard'])->name('dashboard');
     Route::get('home', [ViewController::class, 'home'])->name('home.index');
+    Route::get('home/{stone}', [ViewController::class, 'stoneProfile'])->name('home.show');
 
     Route::get('overview', [ViewController::class, 'overview'])->name('overview.index');
     Route::get('saved', [ViewController::class, 'saved'])->name('saved.index');

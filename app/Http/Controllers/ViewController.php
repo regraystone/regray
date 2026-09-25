@@ -53,6 +53,11 @@ class ViewController extends Controller
         return Inertia::render('stones');
     }
 
+    public function stoneProfile(Request $request, string $stone): Response
+    {
+        return Inertia::render('stone-profile', ['stoneId' => $stone]);
+    }
+
     public function services(Request $request): Response
     {
         return Inertia::render('services');

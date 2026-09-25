@@ -38,6 +38,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { stoneProfiles } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as homeIndex } from '@/routes/home';
@@ -307,11 +308,23 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
 
     url.split('/')
         .filter(Boolean)
-        .forEach((segment) => {
+        .forEach((segment, index, segments) => {
             const item = allItems.find((entry) => entry.slug === segment);
 
             if (item) {
                 crumbs.push({ label: item.label, href: item.href });
+
+                return;
+            }
+
+            const previousSegment = segments[index - 1];
+            const profile =
+                previousSegment === 'stones' || previousSegment === 'home'
+                    ? stoneProfiles[segment]
+                    : undefined;
+
+            if (profile) {
+                crumbs.push({ label: profile.name });
             } else {
                 crumbs.push({
                     label: segment.charAt(0).toUpperCase() + segment.slice(1),
