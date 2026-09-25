@@ -2,7 +2,7 @@ import { Link } from '@inertiajs/react';
 import { Heart, Star } from 'lucide-react';
 import type { FeedItem } from '@/data/constant';
 
-const ProductCard = ({
+const StoneCard = ({
     item,
     aspect,
     saved,
@@ -14,9 +14,9 @@ const ProductCard = ({
     onToggleSave: () => void;
 }) => (
     <Link href="#" onClick={(e) => e.preventDefault()} className="block">
-        <figure className="product-card cursor-pointer border border-sidebar-border bg-background">
+        <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
             <div
-                className={`product-card-media relative overflow-hidden bg-background ${aspect}`}
+                className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
             >
                 <img
                     src={item.image}
@@ -65,4 +65,4 @@ const ProductCard = ({
     </Link>
 );
 
-export default ProductCard;
+export default StoneCard;

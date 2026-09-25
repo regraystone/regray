@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react';
 import { ArrowDown } from 'lucide-react';
-import ProductCard from '@/components/product-card';
+import StoneCard from '@/components/stone-card';
 import StaggeredGrid from '@/components/staggered-grid';
 import { Button } from '@/components/ui/button';
 import { products, type FeedItem } from '@/data/constant';
@@ -207,7 +207,7 @@ const Home = () => {
                         </p>
                     }
                     renderItem={(item, aspect) => (
-                        <ProductCard
+                        <StoneCard
                             item={item}
                             aspect={aspect}
                             saved={savedIds.has(item.id)}

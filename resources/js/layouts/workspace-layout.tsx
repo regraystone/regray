@@ -40,7 +40,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useInitials } from '@/hooks/use-initials';
 import { index as accountsIndex } from '@/routes/accounts';
-import { dashboard, logout } from '@/routes';
+import { index as homeIndex } from '@/routes/home';
+import { logout } from '@/routes';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as messageIndex } from '@/routes/message';
 import { index as overviewIndex } from '@/routes/overview';
@@ -68,7 +69,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
             {
                 slug: 'home',
                 label: 'Home',
-                href: dashboard.url(),
+                href: homeIndex.url(),
                 icon: Home,
             },
             {
