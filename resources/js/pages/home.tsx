@@ -12,7 +12,7 @@ const reformLogo = '/images/brands/reform_logo.webp';
 const resLogo = '/images/brands/res_logo.webp';
 const hero = '/images/regray-hero.jpg';
 
-type Filter = 'latest' | 'recommended' | 'liked';
+type Filter = 'latest' | 'recommended';
 
 const SectionHeading = ({
     title,
@@ -178,9 +178,6 @@ const Home = () => {
         if (filter === 'recommended') {
             return products.filter((item) => item.recommended);
         }
-        if (filter === 'liked') {
-            return products.filter((item) => savedIds.has(item.id));
-        }
         return products;
     })();
 
@@ -198,7 +195,6 @@ const Home = () => {
                     tabs={[
                         { value: 'latest', label: 'Latest' },
                         { value: 'recommended', label: 'Recommended' },
-                        { value: 'liked', label: 'Liked' },
                     ]}
                     active={filter}
                     onTabChange={setFilter}
@@ -207,8 +203,7 @@ const Home = () => {
                     items={visibleItems}
                     emptyState={
                         <p className="py-16 text-center text-sm font-semibold text-secondary-foreground">
-                            No liked products yet — tap the heart on a product
-                            to save it here.
+                            No products here yet.
                         </p>
                     }
                     renderItem={(item, aspect) => (
