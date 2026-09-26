@@ -585,7 +585,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 <Button
                     variant="default"
                     size="icon"
-                    className={`fixed top-20 left-4 z-40 size-11 rounded-full shadow-lg ${
+                    className={`fixed top-20 left-4 z-40 size-11 shadow-lg ${
                         collapsed ? 'lg:left-[5.5rem]' : 'lg:left-[17rem]'
                     }`}
                     aria-label="Go back"
@@ -601,7 +601,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         type="button"
                         variant={isSaved ? 'default' : 'outline'}
                         size="icon"
-                        className={`size-11 cursor-pointer rounded-full shadow-lg ${
+                        className={`size-11 cursor-pointer shadow-lg ${
                             isSaved ? '' : 'bg-background'
                         }`}
                         aria-pressed={isSaved}
