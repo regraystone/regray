@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useRef } from 'react';
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
 import { Button } from '@/components/ui/button';
 import { stoneProfiles, type StoneProfile } from '@/data/constant';
-import { index as homeIndex } from '@/routes/home';
 import { index as stonesIndex } from '@/routes/stones';
 
 type StoneProfileProps = {
@@ -182,30 +180,8 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
         );
     }
 
-    const floatingBackButton = (
-        <Button
-            asChild
-            variant="default"
-            size="icon"
-            className="fixed right-4 bottom-4 z-40 size-11 rounded-full"
-            aria-label="Back to Home"
-        >
-            <Link href={homeIndex.url()}>
-                <ArrowLeft className="size-5" aria-hidden />
-            </Link>
-        </Button>
-    );
-
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
     return (
         <div className="mx-auto w-full max-w-6xl">
-            {mounted && createPortal(floatingBackButton, document.body)}
-
             <section className="relative flex min-h-[280px] items-center overflow-hidden text-on-image sm:min-h-[480px]">
                 <img
                     src={profile.image}

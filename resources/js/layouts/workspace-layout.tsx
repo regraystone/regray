@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    ArrowLeft,
     BarChart3,
     Calendar,
     ChevronDown,
@@ -23,7 +24,7 @@ import {
     X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Logo from '@/components/logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -33,6 +34,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import {
     Tooltip,
     TooltipContent,
@@ -40,6 +42,7 @@ import {
 } from '@/components/ui/tooltip';
 import { stoneProfiles } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
+import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as homeIndex } from '@/routes/home';
 import { logout } from '@/routes';
@@ -183,10 +186,12 @@ const navLinkClass = ({
 const SidebarNav = ({
     collapsed,
     pathname,
+    savedCount,
     onNavigate,
 }: {
     collapsed: boolean;
     pathname: string;
+    savedCount: number;
     onNavigate?: () => void;
 }) => (
     <nav
@@ -246,6 +251,13 @@ const SidebarNav = ({
                                             >
                                                 {item.label}
                                             </span>
+                                            {item.slug === 'saved' &&
+                                                savedCount > 0 &&
+                                                !collapsed && (
+                                                    <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[0.65rem] font-bold">
+                                                        {savedCount}
+                                                    </span>
+                                                )}
                                         </Link>
                                     </TooltipTrigger>
                                     {collapsed && (
@@ -274,7 +286,30 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         () => !page.props.sidebarOpen,
     );
 
+    const prevUrlRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        prevUrlRef.current = url;
+    }, [url]);
+
+    const profileSlug = url.split('/')[2];
+    const isStoneProfile =
+        typeof profileSlug === 'string' && Boolean(stoneProfiles[profileSlug]);
+    const activePath =
+        isStoneProfile && prevUrlRef.current ? prevUrlRef.current : url;
+
+    const goBack = () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            router.visit(homeIndex.url());
+        }
+    };
+
     const user = page.props.auth.user;
+    const { savedIds, toggleSave } = useSavedStones();
+    const savedCount = savedIds.size;
+    const isSaved = isStoneProfile && savedIds.has(profileSlug);
 
     useEffect(() => {
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(
@@ -348,7 +383,11 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     <Logo compact={collapsed} />
                 </div>
 
-                <SidebarNav collapsed={collapsed} pathname={url} />
+                <SidebarNav
+                    collapsed={collapsed}
+                    pathname={activePath}
+                    savedCount={savedCount}
+                />
 
                 {/* Collapse / expand toggle (desktop only) */}
                 <div
@@ -536,10 +575,55 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 </div>
                 <SidebarNav
                     collapsed={false}
-                    pathname={url}
+                    pathname={activePath}
+                    savedCount={savedCount}
                     onNavigate={() => setDrawerOpen(false)}
                 />
             </aside>
+
+            {isStoneProfile && (
+                <Button
+                    variant="default"
+                    size="icon"
+                    className={`fixed top-20 left-4 z-40 size-11 rounded-full shadow-lg ${
+                        collapsed ? 'lg:left-[5.5rem]' : 'lg:left-[17rem]'
+                    }`}
+                    aria-label="Go back"
+                    onClick={goBack}
+                >
+                    <ArrowLeft className="size-5" aria-hidden />
+                </Button>
+            )}
+
+            {isStoneProfile && (
+                <div className="fixed right-4 bottom-4 z-40 flex items-center gap-2 sm:right-5 sm:bottom-5">
+                    <Button
+                        type="button"
+                        variant={isSaved ? 'default' : 'outline'}
+                        size="icon"
+                        className={`size-11 cursor-pointer rounded-full shadow-lg ${
+                            isSaved ? '' : 'bg-background'
+                        }`}
+                        aria-pressed={isSaved}
+                        aria-label={
+                            isSaved ? 'Remove from saved' : 'Save to collection'
+                        }
+                        onClick={() => toggleSave(profileSlug)}
+                    >
+                        <Heart
+                            className={`size-5 ${
+                                isSaved
+                                    ? 'fill-primary-foreground text-primary-foreground'
+                                    : 'text-foreground'
+                            }`}
+                            aria-hidden
+                        />
+                    </Button>
+                    <Button asChild className="h-11 px-5 shadow-lg">
+                        <a href="mailto:quotes@regray.com">Inquire now</a>
+                    </Button>
+                </div>
+            )}
         </div>
     );
 };
