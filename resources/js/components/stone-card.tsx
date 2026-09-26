@@ -8,14 +8,16 @@ const StoneCard = ({
     aspect,
     saved,
     onToggleSave,
+    href,
 }: {
     item: FeedItem;
     aspect: string;
     saved: boolean;
     onToggleSave: () => void;
+    href?: string;
 }) => (
-    <Link href={homeShow.url({ stone: item.id })} className="block">
-        <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
+    <Link href={href ?? homeShow.url({ stone: item.id })} className="block">
+        <article className="stone-card border border-sidebar-border bg-background">
             <div
                 className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
             >
@@ -25,17 +27,19 @@ const StoneCard = ({
                     loading="lazy"
                     className="absolute inset-0 size-full object-cover"
                 />
-                <div className="image-tint absolute inset-0" aria-hidden />
-                <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 bg-background py-1 pr-2.5 pl-2">
-                    {item.recommended && (
+                {item.recommended && (
+                    <span className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white">
                         <Star
-                            className="size-4 shrink-0 fill-foreground text-foreground"
-                            aria-label="Highly recommended"
+                            className="size-3 shrink-0 fill-white text-white"
+                            aria-hidden
                         />
-                    )}
-                    <span className="min-w-0 truncate text-[0.65rem] font-bold tracking-[0.05em] text-foreground uppercase sm:text-[0.8rem] sm:tracking-[0.06em]">
-                        {item.name}
+                        Highly recommended
                     </span>
+                )}
+            </div>
+            <div className="flex items-center justify-between gap-2 p-3">
+                <span className="min-w-0 truncate text-sm font-bold text-foreground">
+                    {item.name}
                 </span>
                 <button
                     type="button"
@@ -50,19 +54,19 @@ const StoneCard = ({
                             ? `Remove ${item.name} from saved`
                             : `Save ${item.name}`
                     }
-                    className="absolute top-2.5 right-2.5 grid size-10 cursor-pointer place-items-center transition-opacity hover:opacity-60"
+                    className="grid size-9 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60"
                 >
                     <Heart
-                        className={`size-6 ${
+                        className={`size-5 ${
                             saved
-                                ? 'fill-on-image text-on-image'
-                                : 'text-on-image'
+                                ? 'fill-primary text-primary'
+                                : 'text-secondary-foreground'
                         }`}
                         aria-hidden
                     />
                 </button>
             </div>
-        </figure>
+        </article>
     </Link>
 );
 

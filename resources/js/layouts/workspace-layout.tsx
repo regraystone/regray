@@ -354,7 +354,9 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
 
             const previousSegment = segments[index - 1];
             const profile =
-                previousSegment === 'stones' || previousSegment === 'home'
+                previousSegment === 'stones' ||
+                previousSegment === 'home' ||
+                previousSegment === 'saved'
                     ? stoneProfiles[segment]
                     : undefined;
 
@@ -585,7 +587,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 <Button
                     variant="default"
                     size="icon"
-                    className={`fixed top-20 left-4 z-40 size-11 shadow-lg ${
+                    className={`fixed top-24 left-4 z-40 size-11 cursor-pointer shadow-lg ${
                         collapsed ? 'lg:left-[5.5rem]' : 'lg:left-[17rem]'
                     }`}
                     aria-label="Go back"

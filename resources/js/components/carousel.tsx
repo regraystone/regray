@@ -36,6 +36,8 @@ export type CarouselHandle = {
     scrollPrev: () => void;
     scrollNext: () => void;
     scrollTo: (index: number) => void;
+    isAtStart: () => boolean;
+    isAtEnd: () => boolean;
 };
 
 export type CarouselProps = {
@@ -45,6 +47,7 @@ export type CarouselProps = {
     controls?: ReactNode;
     dots?: boolean;
     dotsClassName?: string;
+    dragEnabled?: boolean;
     onActiveChange?: (index: number) => void;
     viewportClassName?: string;
 };
@@ -58,6 +61,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             controls,
             dots = false,
             dotsClassName,
+            dragEnabled = true,
             onActiveChange,
             viewportClassName,
         },
@@ -91,6 +95,17 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             [children],
         );
 
+        const getSlideWidth = useCallback(() => {
+            const element = viewportRef.current;
+            const first = element?.firstElementChild;
+
+            if (first) {
+                return first.getBoundingClientRect().width;
+            }
+
+            return element?.clientWidth ?? 0;
+        }, []);
+
         const scrollBehavior: ScrollBehavior = prefersReducedMotion
             ? 'auto'
             : 'smooth';
@@ -102,17 +117,17 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                 return 0;
             }
 
-            const maxScroll = element.scrollWidth - element.clientWidth;
+            const slideWidth = getSlideWidth();
 
-            if (maxScroll <= 0) {
+            if (slideWidth <= 0) {
                 return 0;
             }
 
             return Math.min(
-                Math.round(element.scrollLeft / element.clientWidth),
+                Math.round(element.scrollLeft / slideWidth),
                 slideCount - 1,
             );
-        }, [slideCount]);
+        }, [getSlideWidth, slideCount]);
 
         const updateActiveDot = useCallback(() => {
             const index = getCurrentIndex();
@@ -177,30 +192,53 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                     return;
                 }
 
-                const clampedIndex = Math.max(
-                    0,
-                    Math.min(index, slideCount - 1),
-                );
+                const slideWidth = getSlideWidth();
+
+                if (slideWidth <= 0) {
+                    return;
+                }
+
                 const maxScroll = element.scrollWidth - element.clientWidth;
-                const left = Math.min(
-                    clampedIndex * element.clientWidth,
-                    slideCount > 1 ? maxScroll : 0,
+                const maxIndex = Math.max(
+                    0,
+                    Math.round(maxScroll / slideWidth),
                 );
+                const clampedIndex = Math.max(0, Math.min(index, maxIndex));
+                const left = Math.min(clampedIndex * slideWidth, maxScroll);
 
                 targetIndexRef.current = clampedIndex;
                 pendingScrollRef.current = left;
                 element.scrollTo({ left, behavior: scrollBehavior });
             },
-            [slideCount, scrollBehavior],
+            [getSlideWidth, scrollBehavior],
         );
 
         const scrollPrev = useCallback(() => {
-            scrollTo((targetIndexRef.current - 1 + slideCount) % slideCount);
-        }, [scrollTo, slideCount]);
+            scrollTo(targetIndexRef.current - 1);
+        }, [scrollTo]);
 
         const scrollNext = useCallback(() => {
-            scrollTo((targetIndexRef.current + 1) % slideCount);
-        }, [scrollTo, slideCount]);
+            scrollTo(targetIndexRef.current + 1);
+        }, [scrollTo]);
+
+        const isAtStart = useCallback(() => {
+            const element = viewportRef.current;
+
+            return !element || element.scrollLeft <= 1;
+        }, []);
+
+        const isAtEnd = useCallback(() => {
+            const element = viewportRef.current;
+
+            if (!element) {
+                return true;
+            }
+
+            return (
+                element.scrollLeft >=
+                element.scrollWidth - element.clientWidth - 1
+            );
+        }, []);
 
         const snapBackToCurrent = useCallback(() => {
             scrollTo(getCurrentIndex());
@@ -230,7 +268,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                 }
 
                 const dragged = state.virtualScrollLeft - state.startScrollLeft;
-                const slideWidth = element.clientWidth;
+                const slideWidth = getSlideWidth();
 
                 if (Math.abs(dragged) >= slideWidth * DRAG_COMMIT_FRACTION) {
                     // Anchor the step to the slide the drag started from, so
@@ -252,11 +290,11 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
 
                 snapBackToCurrent();
             },
-            [scrollNext, scrollPrev, snapBackToCurrent],
+            [getSlideWidth, scrollNext, scrollPrev, snapBackToCurrent],
         );
 
         const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-            if (event.button !== 0) {
+            if (!dragEnabled || event.button !== 0) {
                 return;
             }
 
@@ -273,29 +311,14 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                 return;
             }
 
-            if (event.pointerType !== 'mouse') {
-                dragState.current = {
-                    pointerId: event.pointerId,
-                    startX: event.clientX,
-                    startY: event.clientY,
-                    startScrollLeft: element.scrollLeft,
-                    virtualScrollLeft: element.scrollLeft,
-                    engaged: false,
-                };
-
-                return;
-            }
-
-            element.setPointerCapture(event.pointerId);
             dragState.current = {
                 pointerId: event.pointerId,
                 startX: event.clientX,
                 startY: event.clientY,
                 startScrollLeft: element.scrollLeft,
                 virtualScrollLeft: element.scrollLeft,
-                engaged: true,
+                engaged: false,
             };
-            setIsDragging(true);
         };
 
         const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -361,11 +384,11 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             [],
         );
 
-        useImperativeHandle(ref, () => ({ scrollPrev, scrollNext, scrollTo }), [
-            scrollPrev,
-            scrollNext,
-            scrollTo,
-        ]);
+        useImperativeHandle(
+            ref,
+            () => ({ scrollPrev, scrollNext, scrollTo, isAtStart, isAtEnd }),
+            [scrollPrev, scrollNext, scrollTo, isAtStart, isAtEnd],
+        );
 
         return (
             <div className={className}>
@@ -392,9 +415,11 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                     onPointerCancel={onPointerCancel}
                     className={cn(
                         'flex touch-pan-y overflow-x-auto overscroll-x-contain select-none',
-                        isDragging
-                            ? 'cursor-grabbing snap-none'
-                            : 'cursor-grab snap-x snap-mandatory',
+                        dragEnabled
+                            ? isDragging
+                                ? 'cursor-grabbing snap-none'
+                                : 'cursor-grab snap-x snap-mandatory'
+                            : 'snap-x snap-mandatory',
                         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
                         viewportClassName,
                     )}

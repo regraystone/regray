@@ -2,7 +2,6 @@ import { useState, type MouseEvent } from 'react';
 import { ArrowDown } from 'lucide-react';
 import SectionHeading from '@/components/section-heading';
 import StoneCard from '@/components/stone-card';
-import StaggeredGrid from '@/components/staggered-grid';
 import { Button } from '@/components/ui/button';
 import { products, type FeedItem } from '@/data/constant';
 
@@ -132,22 +131,17 @@ const Home = () => {
                     active={filter}
                     onTabChange={setFilter}
                 />
-                <StaggeredGrid
-                    items={visibleItems}
-                    emptyState={
-                        <p className="py-16 text-center text-sm font-semibold text-secondary-foreground">
-                            No products here yet.
-                        </p>
-                    }
-                    renderItem={(item, aspect) => (
+                <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                    {visibleItems.map((item) => (
                         <StoneCard
+                            key={item.id}
                             item={item}
-                            aspect={aspect}
+                            aspect="aspect-[4/3]"
                             saved={savedIds.has(item.id)}
                             onToggleSave={() => toggleSave(item.id)}
                         />
-                    )}
-                />
+                    ))}
+                </div>
             </section>
         </div>
     );

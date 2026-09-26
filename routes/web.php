@@ -13,6 +13,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('overview', [ViewController::class, 'overview'])->name('overview.index');
     Route::get('saved', [ViewController::class, 'saved'])->name('saved.index');
+    Route::get('saved/{stone}', [ViewController::class, 'stoneProfile'])->name('saved.show');
     Route::get('sales', [ViewController::class, 'sales'])->name('sales.index');
     Route::get('quotation', [ViewController::class, 'quotation'])->name('quotation.index');
     Route::get('inquiry', [ViewController::class, 'inquiry'])->name('inquiry.index');

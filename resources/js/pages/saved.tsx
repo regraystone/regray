@@ -1,13 +1,13 @@
 import { Link } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Handshake } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
-import StaggeredGrid from '@/components/staggered-grid';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { products, type FeedItem } from '@/data/constant';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import { index as homeIndex } from '@/routes/home';
+import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { show as savedShow } from '@/routes/saved';
 
 const StoneRow = ({
     title,
@@ -21,6 +21,13 @@ const StoneRow = ({
     toggleSave: (id: string) => void;
 }) => {
     const carouselRef = useRef<CarouselHandle>(null);
+    const [atStart, setAtStart] = useState(true);
+    const [atEnd, setAtEnd] = useState(false);
+
+    const syncBounds = () => {
+        setAtStart(carouselRef.current?.isAtStart() ?? true);
+        setAtEnd(carouselRef.current?.isAtEnd() ?? false);
+    };
 
     if (items.length === 0) {
         return (
@@ -40,7 +47,8 @@ const StoneRow = ({
                     <Button
                         variant="outline"
                         size="icon"
-                        className="cursor-pointer"
+                        disabled={atStart}
+                        className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => carouselRef.current?.scrollPrev()}
                         aria-label={`Previous ${title}`}
                     >
@@ -49,7 +57,8 @@ const StoneRow = ({
                     <Button
                         variant="outline"
                         size="icon"
-                        className="cursor-pointer"
+                        disabled={atEnd}
+                        className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => carouselRef.current?.scrollNext()}
                         aria-label={`Next ${title}`}
                     >
@@ -57,15 +66,22 @@ const StoneRow = ({
                     </Button>
                 </div>
             </div>
-            <Carousel ref={carouselRef} ariaLabel={title}>
+            <Carousel
+                ref={carouselRef}
+                ariaLabel={title}
+                dragEnabled={false}
+                viewportClassName="gap-4 md:gap-5"
+                onActiveChange={syncBounds}
+            >
                 {items.map((item) => (
                     <div
                         key={item.id}
-                        className="w-[85%] shrink-0 snap-start sm:w-[55%] lg:w-[42%]"
+                        className="w-[85%] shrink-0 snap-start sm:w-[48%] lg:w-[32%]"
                     >
                         <StoneCard
                             item={item}
                             aspect="aspect-[4/3]"
+                            href={homeShow.url({ stone: item.id })}
                             saved={savedIds.has(item.id)}
                             onToggleSave={() => toggleSave(item.id)}
                         />
@@ -101,9 +117,9 @@ const Saved = () => {
     return (
         <div className="mx-auto w-full max-w-6xl">
             <section>
-                <div className="flex w-full flex-col items-center justify-between gap-6 rounded-xl border border-border bg-primary/5 p-6 sm:flex-row sm:gap-8 sm:px-8 sm:py-7 lg:gap-12 lg:px-10">
+                <div className="flex w-full flex-col items-center justify-between gap-6 border border-border bg-primary/5 p-6 sm:flex-row sm:gap-8 sm:px-8 sm:py-7 lg:gap-12 lg:px-10">
                     <div className="flex w-full flex-col items-center gap-4 text-center sm:w-auto sm:flex-row sm:gap-6 sm:text-left">
-                        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+                        <span className="grid size-12 shrink-0 place-items-center rounded-none bg-primary text-primary-foreground">
                             <Handshake className="size-6" aria-hidden />
                         </span>
                         <div>
@@ -126,17 +142,18 @@ const Saved = () => {
             </section>
 
             <section className="mt-8">
-                <StaggeredGrid
-                    items={savedItems}
-                    renderItem={(item, aspect) => (
+                <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                    {savedItems.map((item) => (
                         <StoneCard
+                            key={item.id}
                             item={item}
-                            aspect={aspect}
+                            aspect="aspect-[4/3]"
+                            href={savedShow.url({ stone: item.id })}
                             saved
                             onToggleSave={() => toggleSave(item.id)}
                         />
-                    )}
-                />
+                    ))}
+                </div>
             </section>
 
             <section className="mt-8">

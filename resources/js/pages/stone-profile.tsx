@@ -1,7 +1,10 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
+import GalleryCarousel, {
+    type GalleryCarouselHandle,
+} from '@/components/gallery-carousel';
 import { Button } from '@/components/ui/button';
 import { stoneProfiles, type StoneProfile } from '@/data/constant';
 import { index as stonesIndex } from '@/routes/stones';
@@ -37,10 +40,10 @@ const BulletedList = ({ items }: { items: string[] }) => (
 );
 
 const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
-    const carouselRef = useRef<CarouselHandle>(null);
+    const carouselRef = useRef<GalleryCarouselHandle>(null);
 
     return (
-        <Carousel
+        <GalleryCarousel
             ref={carouselRef}
             ariaLabel={`${name} gallery`}
             dots
@@ -53,7 +56,7 @@ const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
                             type="button"
                             onClick={() => carouselRef.current?.scrollPrev()}
                             aria-label="Previous photo"
-                            className="absolute inset-y-0 left-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-full border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
+                            className="absolute inset-y-0 left-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-none border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
                         >
                             <ChevronLeft className="size-5" aria-hidden />
                         </button>
@@ -61,7 +64,7 @@ const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
                             type="button"
                             onClick={() => carouselRef.current?.scrollNext()}
                             aria-label="Next photo"
-                            className="absolute inset-y-0 right-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-full border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
+                            className="absolute inset-y-0 right-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-none border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
                         >
                             <ChevronRight className="size-5" aria-hidden />
                         </button>
@@ -83,32 +86,33 @@ const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
                     />
                 </div>
             ))}
-        </Carousel>
+        </GalleryCarousel>
     );
 };
 
-const ProjectCard = ({ id, name, image }: StoneProfile['projects'][number]) => (
-    <div key={id} className="w-[85%] shrink-0 snap-start sm:w-[55%] lg:w-[42%]">
-        <Link href="#" onClick={(e) => e.preventDefault()} className="block">
-            <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
-                <div className="stone-card-media relative aspect-[4/3] overflow-hidden bg-background">
-                    <img
-                        src={image}
-                        alt={name}
-                        draggable={false}
-                        loading="lazy"
-                        className="absolute inset-0 size-full object-cover"
-                    />
-                    <div className="image-tint absolute inset-0" aria-hidden />
-                    <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 bg-background py-1 pr-2.5 pl-2">
-                        <span className="min-w-0 truncate text-[0.65rem] font-bold tracking-[0.05em] text-foreground uppercase sm:text-[0.8rem] sm:tracking-[0.06em]">
-                            {name}
-                        </span>
+const ProjectCard = ({
+    name,
+    image,
+}: Omit<StoneProfile['projects'][number], 'id'>) => (
+    <Link href="#" onClick={(e) => e.preventDefault()} className="block">
+        <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
+            <div className="stone-card-media relative aspect-[4/3] overflow-hidden bg-background">
+                <img
+                    src={image}
+                    alt={name}
+                    draggable={false}
+                    loading="lazy"
+                    className="absolute inset-0 size-full object-cover"
+                />
+                <div className="image-tint absolute inset-0" aria-hidden />
+                <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 bg-background py-1 pr-2.5 pl-2">
+                    <span className="min-w-0 truncate text-[0.65rem] font-bold tracking-[0.05em] text-foreground uppercase sm:text-[0.8rem] sm:tracking-[0.06em]">
+                        {name}
                     </span>
-                </div>
-            </figure>
-        </Link>
-    </div>
+                </span>
+            </div>
+        </figure>
+    </Link>
 );
 
 const ProjectsCarousel = ({
@@ -119,23 +123,29 @@ const ProjectsCarousel = ({
     name: string;
 }) => {
     const carouselRef = useRef<CarouselHandle>(null);
+    const [atStart, setAtStart] = useState(true);
+    const [atEnd, setAtEnd] = useState(false);
+
+    const syncBounds = () => {
+        setAtStart(carouselRef.current?.isAtStart() ?? true);
+        setAtEnd(carouselRef.current?.isAtEnd() ?? false);
+    };
 
     return (
         <div>
             <div className="mb-8 flex items-end justify-between gap-4">
-                <div>
-                    <h2
-                        id="projects-heading"
-                        className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
-                    >
-                        Featured Projects
-                    </h2>
-                </div>
+                <h2
+                    id="projects-heading"
+                    className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
+                >
+                    Featured Projects
+                </h2>
                 <div className="flex shrink-0 items-center gap-2">
                     <Button
                         variant="outline"
                         size="icon"
-                        className="cursor-pointer"
+                        disabled={atStart}
+                        className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => carouselRef.current?.scrollPrev()}
                         aria-label="Previous projects"
                     >
@@ -144,7 +154,8 @@ const ProjectsCarousel = ({
                     <Button
                         variant="outline"
                         size="icon"
-                        className="cursor-pointer"
+                        disabled={atEnd}
+                        className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => carouselRef.current?.scrollNext()}
                         aria-label="Next projects"
                     >
@@ -152,9 +163,20 @@ const ProjectsCarousel = ({
                     </Button>
                 </div>
             </div>
-            <Carousel ref={carouselRef} ariaLabel={`Projects using ${name}`}>
+            <Carousel
+                ref={carouselRef}
+                ariaLabel={`Projects using ${name}`}
+                dragEnabled={false}
+                viewportClassName="gap-4 md:gap-5"
+                onActiveChange={syncBounds}
+            >
                 {projects.map((project) => (
-                    <ProjectCard key={project.id} {...project} />
+                    <div
+                        key={project.id}
+                        className="w-[85%] shrink-0 snap-start sm:w-[48%] lg:w-[32%]"
+                    >
+                        <ProjectCard {...project} />
+                    </div>
                 ))}
             </Carousel>
         </div>
@@ -198,6 +220,15 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                         {profile.specifications.origin} ·{' '}
                         {profile.specifications.thickness}
                     </p>
+                    {profile.recommended && (
+                        <span className="mt-6 inline-flex items-center gap-1 bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
+                            <Star
+                                className="size-3 shrink-0 fill-white text-white"
+                                aria-hidden
+                            />
+                            Recommended
+                        </span>
+                    )}
                 </div>
             </section>
 
