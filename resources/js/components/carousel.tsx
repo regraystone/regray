@@ -49,6 +49,7 @@ export type CarouselProps = {
     dotsClassName?: string;
     dragEnabled?: boolean;
     onActiveChange?: (index: number) => void;
+    onBoundsChange?: (atStart: boolean, atEnd: boolean) => void;
     viewportClassName?: string;
 };
 
@@ -63,6 +64,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             dotsClassName,
             dragEnabled = true,
             onActiveChange,
+            onBoundsChange,
             viewportClassName,
         },
         ref,
@@ -161,10 +163,41 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             updateActiveDot();
         }, [updateActiveDot]);
 
+        const isAtStart = useCallback(() => {
+            return getCurrentIndex() <= 0;
+        }, [getCurrentIndex]);
+
+        const isAtEnd = useCallback(() => {
+            const element = viewportRef.current;
+
+            if (!element) {
+                return true;
+            }
+
+            const slideWidth = getSlideWidth();
+
+            if (slideWidth <= 0) {
+                return true;
+            }
+
+            const maxScroll = Math.max(
+                0,
+                element.scrollWidth - element.clientWidth,
+            );
+            const maxIndex = Math.round(maxScroll / slideWidth);
+
+            return getCurrentIndex() >= maxIndex;
+        }, [getCurrentIndex, getSlideWidth]);
+
+        const reportBounds = useCallback(() => {
+            onBoundsChange?.(isAtStart(), isAtEnd());
+        }, [isAtStart, isAtEnd, onBoundsChange]);
+
         const handleScroll = useCallback(() => {
             const element = viewportRef.current;
 
             updateActiveDot();
+            reportBounds();
 
             if (pendingScrollRef.current === null || !element) {
                 return;
@@ -182,7 +215,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             }
 
             settleTimerRef.current = window.setTimeout(settleScroll, 140);
-        }, [settleScroll, updateActiveDot]);
+        }, [reportBounds, settleScroll, updateActiveDot]);
 
         const scrollTo = useCallback(
             (index: number) => {
@@ -220,25 +253,6 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         const scrollNext = useCallback(() => {
             scrollTo(targetIndexRef.current + 1);
         }, [scrollTo]);
-
-        const isAtStart = useCallback(() => {
-            const element = viewportRef.current;
-
-            return !element || element.scrollLeft <= 1;
-        }, []);
-
-        const isAtEnd = useCallback(() => {
-            const element = viewportRef.current;
-
-            if (!element) {
-                return true;
-            }
-
-            return (
-                element.scrollLeft >=
-                element.scrollWidth - element.clientWidth - 1
-            );
-        }, []);
 
         const snapBackToCurrent = useCallback(() => {
             scrollTo(getCurrentIndex());
@@ -374,6 +388,35 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         useEffect(() => {
             updateActiveDot();
         }, [updateActiveDot]);
+
+        useEffect(() => {
+            const element = viewportRef.current;
+
+            if (!element) {
+                return;
+            }
+
+            const observer = new ResizeObserver(() => {
+                updateActiveDot();
+                reportBounds();
+            });
+
+            observer.observe(element);
+
+            const frame = window.requestAnimationFrame(() => {
+                updateActiveDot();
+                reportBounds();
+            });
+
+            return () => {
+                observer.disconnect();
+                window.cancelAnimationFrame(frame);
+            };
+        }, [reportBounds, updateActiveDot]);
+
+        useEffect(() => {
+            reportBounds();
+        }, [reportBounds, slideCount]);
 
         useEffect(
             () => () => {

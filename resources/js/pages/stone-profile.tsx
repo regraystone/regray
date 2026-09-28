@@ -126,9 +126,9 @@ const ProjectsCarousel = ({
     const [atStart, setAtStart] = useState(true);
     const [atEnd, setAtEnd] = useState(false);
 
-    const syncBounds = () => {
-        setAtStart(carouselRef.current?.isAtStart() ?? true);
-        setAtEnd(carouselRef.current?.isAtEnd() ?? false);
+    const handleBoundsChange = (start: boolean, end: boolean) => {
+        setAtStart(start);
+        setAtEnd(end);
     };
 
     return (
@@ -168,7 +168,7 @@ const ProjectsCarousel = ({
                 ariaLabel={`Projects using ${name}`}
                 dragEnabled={false}
                 viewportClassName="gap-4 md:gap-5"
-                onActiveChange={syncBounds}
+                onBoundsChange={handleBoundsChange}
             >
                 {projects.map((project) => (
                     <div

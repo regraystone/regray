@@ -24,9 +24,9 @@ const StoneRow = ({
     const [atStart, setAtStart] = useState(true);
     const [atEnd, setAtEnd] = useState(false);
 
-    const syncBounds = () => {
-        setAtStart(carouselRef.current?.isAtStart() ?? true);
-        setAtEnd(carouselRef.current?.isAtEnd() ?? false);
+    const handleBoundsChange = (start: boolean, end: boolean) => {
+        setAtStart(start);
+        setAtEnd(end);
     };
 
     if (items.length === 0) {
@@ -71,7 +71,7 @@ const StoneRow = ({
                 ariaLabel={title}
                 dragEnabled={false}
                 viewportClassName="gap-4 md:gap-5"
-                onActiveChange={syncBounds}
+                onBoundsChange={handleBoundsChange}
             >
                 {items.map((item) => (
                     <div
