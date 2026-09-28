@@ -1,8 +1,9 @@
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { ArrowDown } from 'lucide-react';
 import SectionHeading from '@/components/section-heading';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { products, type FeedItem } from '@/data/constant';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
@@ -90,9 +91,62 @@ const Hero = () => (
     </section>
 );
 
+const HomeSkeleton = () => (
+    <div className="mx-auto w-full max-w-6xl">
+        <section className="relative flex min-h-[280px] items-center overflow-hidden sm:min-h-[480px]">
+            <Skeleton className="absolute inset-0 rounded-none" />
+        </section>
+
+        <section className="mt-2 border-y border-sidebar-border bg-background py-10">
+            <div className="flex items-center justify-center gap-8 sm:gap-14">
+                {Array.from({ length: 5 }, (_, index) => (
+                    <Skeleton key={index} className="h-16 w-24 sm:w-32" />
+                ))}
+            </div>
+        </section>
+
+        <section className="md:12 mt-8">
+            <div className="mb-6 border-b border-sidebar-border pb-4">
+                <div className="flex items-end justify-between gap-4">
+                    <Skeleton className="h-8 w-40" />
+                    <div className="hidden items-center gap-5 sm:flex">
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-24" />
+                    </div>
+                </div>
+                <div className="mt-4 flex items-center gap-2.5 sm:hidden">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-28" />
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                {Array.from({ length: 6 }, (_, index) => (
+                    <div
+                        key={index}
+                        className="border border-sidebar-border bg-background"
+                    >
+                        <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                    </div>
+                ))}
+            </div>
+        </section>
+    </div>
+);
+
 const Home = () => {
     const [filter, setFilter] = useState<Filter>('latest');
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => setIsLoading(false), 700);
+
+        return () => window.clearTimeout(timer);
+    }, []);
+
+    if (isLoading) {
+        return <HomeSkeleton />;
+    }
 
     const toggleSave = (id: string) => {
         setSavedIds((prev) => {

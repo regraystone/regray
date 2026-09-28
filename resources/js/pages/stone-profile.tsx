@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
@@ -6,12 +6,100 @@ import GalleryCarousel, {
     type GalleryCarouselHandle,
 } from '@/components/gallery-carousel';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { stoneProfiles, type StoneProfile } from '@/data/constant';
 import { index as stonesIndex } from '@/routes/stones';
 
 type StoneProfileProps = {
     stoneId: string;
 };
+
+const StoneProfileSkeleton = () => (
+    <div className="mx-auto w-full max-w-6xl">
+        <section className="relative flex min-h-[280px] items-center overflow-hidden sm:min-h-[480px]">
+            <Skeleton className="absolute inset-0 rounded-none" />
+            <div className="relative z-10 mx-auto w-full max-w-4xl px-5 py-16 text-center sm:py-24">
+                <Skeleton className="mx-auto h-10 w-2/5 sm:h-14" />
+                <Skeleton className="mx-auto mt-6 h-3 w-40" />
+            </div>
+        </section>
+
+        <section className="py-16 sm:py-12">
+            <div className="mx-auto max-w-4xl space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+            </div>
+        </section>
+
+        <section>
+            <Skeleton className="aspect-3/4 w-full rounded-none lg:aspect-[16/9]" />
+        </section>
+
+        <section className="py-12 sm:py-16">
+            <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2">
+                <div className="space-y-10">
+                    <div>
+                        <Skeleton className="h-3 w-36" />
+                        <div className="mt-4 space-y-3">
+                            {Array.from({ length: 3 }, (_, index) => (
+                                <Skeleton key={index} className="h-6 w-full" />
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <Skeleton className="h-3 w-44" />
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {Array.from({ length: 3 }, (_, index) => (
+                                <Skeleton key={index} className="h-7 w-24" />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="space-y-10">
+                    <div>
+                        <Skeleton className="h-3 w-28" />
+                        <div className="mt-4 space-y-3">
+                            {Array.from({ length: 4 }, (_, index) => (
+                                <Skeleton key={index} className="h-5 w-full" />
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <Skeleton className="h-3 w-44" />
+                        <div className="mt-4 space-y-3">
+                            {Array.from({ length: 4 }, (_, index) => (
+                                <Skeleton key={index} className="h-5 w-full" />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="projects" className="scroll-mt-24">
+            <div className="mb-8 flex items-end justify-between gap-4">
+                <Skeleton className="h-8 w-56" />
+                <div className="flex shrink-0 items-center gap-2">
+                    <Skeleton className="size-10" />
+                    <Skeleton className="size-10" />
+                </div>
+            </div>
+            <div className="flex gap-4 overflow-hidden md:gap-5">
+                {Array.from({ length: 3 }, (_, index) => (
+                    <div
+                        key={index}
+                        className="w-[85%] shrink-0 sm:w-[48%] lg:w-[32%]"
+                    >
+                        <div className="border border-sidebar-border bg-background">
+                            <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    </div>
+);
 
 const SpecRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-baseline justify-between gap-4 border-b border-sidebar-border py-2.5 last:border-0">
@@ -185,6 +273,17 @@ const ProjectsCarousel = ({
 
 const StoneProfile = ({ stoneId }: StoneProfileProps) => {
     const profile = stoneProfiles[stoneId];
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => setIsLoading(false), 700);
+
+        return () => window.clearTimeout(timer);
+    }, []);
+
+    if (isLoading) {
+        return <StoneProfileSkeleton />;
+    }
 
     if (!profile) {
         return (
