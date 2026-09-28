@@ -15,7 +15,7 @@ const Logo = ({
         className={`flex items-center ${
             compact ? 'justify-center' : 'gap-2'
         } ${className}`}
-        aria-label="Regray One home"
+        aria-label="Regray Studio home"
     >
         <img
             src="/images/regray-logo.svg"
@@ -27,7 +27,7 @@ const Logo = ({
             <span className="text-xl font-extrabold whitespace-nowrap">
                 Regray{' '}
                 <span className="font-normal text-secondary-foreground">
-                    One
+                    Studio
                 </span>
             </span>
         )}
