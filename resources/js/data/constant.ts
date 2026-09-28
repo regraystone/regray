@@ -541,7 +541,7 @@ export const conversations: Conversation[] = [
             {
                 id: 'm-8',
                 senderId: 'daniel',
-                text: 'Quotation for the tower lobby is attached for your review.',
+                text: 'Quote for the tower lobby is attached for your review.',
                 sentAt: '2026-09-27T11:20:00.000Z',
             },
             {

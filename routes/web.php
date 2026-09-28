@@ -15,7 +15,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('saved', [ViewController::class, 'saved'])->name('saved.index');
     Route::get('saved/{stone}', [ViewController::class, 'stoneProfile'])->name('saved.show');
     Route::get('sales', [ViewController::class, 'sales'])->name('sales.index');
-    Route::get('quotation', [ViewController::class, 'quotation'])->name('quotation.index');
+    Route::get('quote', [ViewController::class, 'quote'])->name('quote.index');
     Route::get('inquiry', [ViewController::class, 'inquiry'])->name('inquiry.index');
     Route::get('schedule', [ViewController::class, 'schedule'])->name('schedule.index');
     Route::get('message', [ViewController::class, 'message'])->name('message.index');

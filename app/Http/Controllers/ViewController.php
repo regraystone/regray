@@ -28,9 +28,9 @@ class ViewController extends Controller
         return Inertia::render('sales');
     }
 
-    public function quotation(Request $request): Response
+    public function quote(Request $request): Response
     {
-        return Inertia::render('quotation');
+        return Inertia::render('quote');
     }
 
     public function inquiry(Request $request): Response

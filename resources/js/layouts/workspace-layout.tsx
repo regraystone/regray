@@ -51,7 +51,7 @@ import { index as messageIndex } from '@/routes/message';
 import { index as overviewIndex } from '@/routes/overview';
 import { index as stonesIndex } from '@/routes/stones';
 import { edit as editProfile } from '@/routes/profile';
-import { index as quotationIndex } from '@/routes/quotation';
+import { index as quoteIndex } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
 import { index as savedIndex } from '@/routes/saved';
 import { index as scheduleIndex } from '@/routes/schedule';
@@ -100,9 +100,9 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 icon: BarChart3,
             },
             {
-                slug: 'quotation',
-                label: 'Quotation',
-                href: quotationIndex.url(),
+                slug: 'quote',
+                label: 'Quote',
+                href: quoteIndex.url(),
                 icon: Handshake,
             },
             {
