@@ -18,7 +18,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-          MYSQL_DATABASE: regray-one
+          MYSQL_DATABASE: regray-studio
         ports:
           - 3306:3306
         options: >-
