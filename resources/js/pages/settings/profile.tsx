@@ -1,4 +1,5 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { ChevronRight } from 'lucide-react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/delete-user';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
+import { edit as editSecurity } from '@/routes/security';
 import { send } from '@/routes/verification';
 import type { Auth } from '@/types';
 
@@ -115,6 +117,28 @@ export default function Profile({
                         </Form>
                     </CardContent>
                 </Card>
+
+                <Link
+                    href={editSecurity()}
+                    className="block transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                    <Card className="rounded-none border-border shadow-none">
+                        <CardHeader className="flex-row items-center justify-between gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <CardTitle>Security</CardTitle>
+                                <CardDescription>
+                                    Update your password and manage two-factor
+                                    authentication
+                                </CardDescription>
+                            </div>
+
+                            <ChevronRight
+                                className="size-5 shrink-0 text-secondary-foreground"
+                                aria-hidden
+                            />
+                        </CardHeader>
+                    </Card>
+                </Link>
 
                 <Card className="rounded-none border-border shadow-none">
                     <CardHeader>

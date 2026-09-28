@@ -1,4 +1,5 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
 import { useRef } from 'react';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import ManageTwoFactor from '@/components/manage-two-factor';
@@ -12,6 +13,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { PasswordField } from '@/components/ui/password-field';
+import { edit as editProfile } from '@/routes/profile';
 
 // oxfmt-ignore
 type Props = {
@@ -27,6 +29,14 @@ export default function Security(props: Props) {
             <Head title="Security settings" />
 
             <h1 className="sr-only">Security settings</h1>
+
+            <Link
+                href={editProfile()}
+                className="mb-6 inline-flex items-center gap-2 text-sm text-secondary-foreground transition-opacity hover:opacity-70 sm:hidden"
+            >
+                <ArrowLeft className="size-4" aria-hidden />
+                Back to profile
+            </Link>
 
             <div className="space-y-6">
                 <Card className="rounded-none border-border shadow-none">

@@ -92,6 +92,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Route Paths
+    |--------------------------------------------------------------------------
+    |
+    | Here you may override the URI of an individual Fortify route. The
+    | confirm-password gate is moved under the profile section so it sits
+    | alongside the page it guards.
+    |
+    */
+
+    'paths' => [
+        // Nested, not 'password.confirm' => ..., because Fortify reads this
+        // with config('fortify.paths.password.confirm') and a dotted key is
+        // not reachable through dot notation.
+        'password' => [
+            'confirm' => '/profile/confirm-password',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Fortify Routes Middleware
     |--------------------------------------------------------------------------
     |

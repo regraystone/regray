@@ -74,7 +74,7 @@ export default function Login({ status, canResetPassword }: Props) {
                             />
                             <label
                                 htmlFor="remember"
-                                className="text-xs tracking-[0.16em] text-secondary-foreground"
+                                className="text-sm text-secondary-foreground"
                             >
                                 Remember me
                             </label>

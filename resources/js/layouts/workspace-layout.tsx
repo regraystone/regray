@@ -18,7 +18,6 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
-    ShieldCheck,
     Users,
     Wrench,
     X,
@@ -147,17 +146,11 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
         label: 'Settings',
         items: [
             {
-                slug: 'settings',
+                slug: 'profile',
                 label: 'Profile',
                 href: editProfile.url(),
                 icon: CircleUserRound,
-                matchPrefix: '/settings/profile',
-            },
-            {
-                slug: 'security',
-                label: 'Security',
-                href: editSecurity.url(),
-                icon: ShieldCheck,
+                matchPrefix: '/profile',
             },
         ],
     },
@@ -292,11 +285,18 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         prevUrlRef.current = url;
     }, [url]);
 
+    // Fortify's confirm-password page is only a gate in front of Security, so
+    // the chrome should read as if the user is already on that page.
+    const isConfirmPassword = page.component === 'confirm-password';
+    const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
+
     const profileSlug = url.split('/')[2];
     const isStoneProfile =
         typeof profileSlug === 'string' && Boolean(stoneProfiles[profileSlug]);
     const activePath =
-        isStoneProfile && prevUrlRef.current ? prevUrlRef.current : url;
+        isStoneProfile && prevUrlRef.current
+            ? prevUrlRef.current
+            : effectiveUrl;
 
     const goBack = () => {
         if (window.history.length > 1) {
@@ -341,33 +341,45 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         { label: 'Regray' },
     ];
 
-    url.split('/')
-        .filter(Boolean)
-        .forEach((segment, index, segments) => {
-            const item = allItems.find((entry) => entry.slug === segment);
+    if (effectiveUrl.startsWith('/profile')) {
+        // Profile and its Security sub-page are the only pages under this
+        // prefix, so the trail is built by hand instead of by segment.
+        crumbs.push({ label: 'Settings' });
+        crumbs.push({ label: 'Profile', href: editProfile.url() });
 
-            if (item) {
-                crumbs.push({ label: item.label, href: item.href });
+        if (effectiveUrl.startsWith('/profile/security')) {
+            crumbs.push({ label: 'Security' });
+        }
+    } else {
+        url.split('/')
+            .filter(Boolean)
+            .forEach((segment, index, segments) => {
+                const item = allItems.find((entry) => entry.slug === segment);
 
-                return;
-            }
+                if (item) {
+                    crumbs.push({ label: item.label, href: item.href });
 
-            const previousSegment = segments[index - 1];
-            const profile =
-                previousSegment === 'stones' ||
-                previousSegment === 'home' ||
-                previousSegment === 'saved'
-                    ? stoneProfiles[segment]
-                    : undefined;
+                    return;
+                }
 
-            if (profile) {
-                crumbs.push({ label: profile.name });
-            } else {
-                crumbs.push({
-                    label: segment.charAt(0).toUpperCase() + segment.slice(1),
-                });
-            }
-        });
+                const previousSegment = segments[index - 1];
+                const profile =
+                    previousSegment === 'stones' ||
+                    previousSegment === 'home' ||
+                    previousSegment === 'saved'
+                        ? stoneProfiles[segment]
+                        : undefined;
+
+                if (profile) {
+                    crumbs.push({ label: profile.name });
+                } else {
+                    crumbs.push({
+                        label:
+                            segment.charAt(0).toUpperCase() + segment.slice(1),
+                    });
+                }
+            });
+    }
 
     return (
         <div className="min-h-screen bg-background text-foreground">
