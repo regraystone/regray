@@ -28,16 +28,18 @@ const StoneCard = ({
                     className="absolute inset-0 size-full object-cover"
                 />
                 {item.recommended && (
-                    <span className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+                    <span className="absolute top-0 left-0 flex items-center gap-1 bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
                         <Star
                             className="size-3 shrink-0 fill-white text-white"
                             aria-hidden
                         />
-                        Highly recommended
+                        <span className="hidden sm:inline">
+                            Highly Recommended
+                        </span>
                     </span>
                 )}
             </div>
-            <div className="flex items-center justify-between gap-2 p-3">
+            <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <span className="min-w-0 truncate text-sm font-bold text-foreground">
                     {item.name}
                 </span>
