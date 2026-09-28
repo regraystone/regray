@@ -147,6 +147,13 @@
     .brand-marquee {
         position: relative;
         overflow: hidden;
+        cursor: grab;
+        touch-action: pan-y;
+        user-select: none;
+    }
+
+    .brand-marquee[data-dragging='true'] {
+        cursor: grabbing;
     }
 
     .brand-marquee::before,
@@ -169,17 +176,16 @@
         background: linear-gradient(to left, var(--background), transparent);
     }
 
-    .brand-marquee:hover .logo-track,
-    .brand-marquee:focus-within .logo-track {
-        animation-play-state: paused;
-    }
-
     .logo-track {
         display: flex;
         width: max-content;
         align-items: center;
         will-change: transform;
-        animation: logo-scroll 30s linear infinite;
+    }
+
+    .logo-track img {
+        -webkit-user-drag: none;
+        user-select: none;
     }
 
     .logo-group {
@@ -233,10 +239,6 @@
     }
 
     @media (max-width: 767px) {
-        .logo-track {
-            animation-duration: 22s;
-        }
-
         .logo-group {
             padding-inline-end: 2.5rem;
         }
@@ -247,18 +249,8 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .logo-track {
-            animation: none;
-        }
-
         .stone-card .stone-card-media img {
             transition: none;
         }
-    }
-}
-
-@keyframes logo-scroll {
-    to {
-        transform: translateX(-50%);
     }
 }
