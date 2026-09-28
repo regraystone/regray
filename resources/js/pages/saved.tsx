@@ -1,13 +1,66 @@
 import { Link } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Handshake } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { products, type FeedItem } from '@/data/constant';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
+
+const SavedSkeleton = () => (
+    <div className="mx-auto w-full max-w-6xl">
+        <section>
+            <div className="flex w-full flex-col items-center justify-between gap-6 border border-border bg-primary/5 p-6 sm:flex-row sm:gap-8 sm:px-8 sm:py-7 lg:gap-12 lg:px-10">
+                <div className="flex w-full flex-col items-center gap-4 text-center sm:w-auto sm:flex-row sm:gap-6 sm:text-left">
+                    <Skeleton className="size-12 shrink-0" />
+                    <div className="w-full space-y-2 sm:w-64">
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-full" />
+                    </div>
+                </div>
+                <Skeleton className="h-11 w-full sm:w-40" />
+            </div>
+        </section>
+
+        <section className="mt-8">
+            <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                {Array.from({ length: 3 }, (_, index) => (
+                    <div
+                        key={index}
+                        className="border border-sidebar-border bg-background"
+                    >
+                        <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                    </div>
+                ))}
+            </div>
+        </section>
+
+        <section className="mt-8">
+            <div className="mb-8 flex items-end justify-between gap-4">
+                <Skeleton className="h-8 w-56" />
+                <div className="flex shrink-0 items-center gap-2">
+                    <Skeleton className="size-10" />
+                    <Skeleton className="size-10" />
+                </div>
+            </div>
+            <div className="flex gap-4 overflow-hidden md:gap-5">
+                {Array.from({ length: 3 }, (_, index) => (
+                    <div
+                        key={index}
+                        className="w-[85%] shrink-0 sm:w-[48%] lg:w-[32%]"
+                    >
+                        <div className="border border-sidebar-border bg-background">
+                            <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    </div>
+);
 
 const StoneRow = ({
     title,
@@ -94,6 +147,17 @@ const StoneRow = ({
 
 const Saved = () => {
     const { savedIds, toggleSave } = useSavedStones();
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => setIsLoading(false), 700);
+
+        return () => window.clearTimeout(timer);
+    }, []);
+
+    if (isLoading) {
+        return <SavedSkeleton />;
+    }
 
     const savedItems = products.filter((item) => savedIds.has(item.id));
     const recommendedItems = products.filter((item) => item.recommended);
