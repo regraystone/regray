@@ -12,9 +12,11 @@ class RedirectController extends Controller
      */
     public function dashboard(Request $request): RedirectResponse
     {
-        $role = $request->user()->role;
+        $role = $request->user()->primaryRole();
 
-        $path = config('roles.redirects.'.$role, config('roles.default'));
+        $path = $role === null
+            ? config('roles.default')
+            : config('roles.redirects.'.$role, config('roles.default'));
 
         return new RedirectResponse($path);
     }

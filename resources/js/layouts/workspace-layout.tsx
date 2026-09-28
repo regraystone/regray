@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/tooltip';
 import { stoneProfiles } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
+import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as homeIndex } from '@/routes/home';
@@ -62,6 +63,7 @@ type NavItem = {
     label: string;
     href: string;
     icon: LucideIcon;
+    permission: string;
     matchPrefix?: string;
 };
 
@@ -74,18 +76,21 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 label: 'Home',
                 href: homeIndex.url(),
                 icon: Home,
+                permission: 'view home',
             },
             {
                 slug: 'overview',
                 label: 'Overview',
                 href: overviewIndex.url(),
                 icon: LayoutDashboard,
+                permission: 'view overview',
             },
             {
                 slug: 'saved',
                 label: 'Saved',
                 href: savedIndex.url(),
                 icon: Heart,
+                permission: 'view saved',
             },
         ],
     },
@@ -97,48 +102,56 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 label: 'Sales',
                 href: salesIndex.url(),
                 icon: BarChart3,
+                permission: 'view sales',
             },
             {
                 slug: 'quote',
                 label: 'Quote',
                 href: quoteIndex.url(),
                 icon: Handshake,
+                permission: 'view quotation',
             },
             {
                 slug: 'inquiry',
                 label: 'Inquiry',
                 href: inquiryIndex.url(),
                 icon: FileText,
+                permission: 'view inquiry',
             },
             {
                 slug: 'schedule',
                 label: 'Schedule',
                 href: scheduleIndex.url(),
                 icon: Calendar,
+                permission: 'view schedule',
             },
             {
                 slug: 'message',
                 label: 'Message',
                 href: messageIndex.url(),
                 icon: MessageCircle,
+                permission: 'view message',
             },
             {
                 slug: 'stones',
                 label: 'Stones',
                 href: stonesIndex.url(),
                 icon: Package,
+                permission: 'view stones',
             },
             {
                 slug: 'services',
                 label: 'Services',
                 href: servicesIndex.url(),
                 icon: Wrench,
+                permission: 'view services',
             },
             {
                 slug: 'accounts',
                 label: 'Accounts',
                 href: accountsIndex.url(),
                 icon: Users,
+                permission: 'view accounts',
             },
         ],
     },
@@ -150,6 +163,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 label: 'Profile',
                 href: editProfile.url(),
                 icon: CircleUserRound,
+                permission: 'view profile',
                 matchPrefix: '/profile',
             },
         ],
@@ -186,90 +200,103 @@ const SidebarNav = ({
     pathname: string;
     savedCount: number;
     onNavigate?: () => void;
-}) => (
-    <nav
-        className={`flex-1 overflow-y-auto py-5 ${
-            collapsed ? 'space-y-6' : 'space-y-6 px-3'
-        }`}
-    >
-        {navGroups.map((group) => (
-            <div key={group.label}>
-                <p
-                    className={`overflow-hidden pb-2 text-[0.68rem] font-bold tracking-[0.16em] whitespace-nowrap text-secondary-foreground uppercase transition-all duration-300 ${
-                        collapsed
-                            ? 'max-h-0 opacity-0'
-                            : 'max-h-8 px-3 opacity-100'
-                    }`}
-                >
-                    {group.label}
-                </p>
-                <ul className="space-y-1">
-                    {group.items.map((item) => {
-                        const isActive = item.matchPrefix
-                            ? pathname.startsWith(item.matchPrefix)
-                            : pathname === item.href ||
-                              pathname.startsWith(`${item.href}/`);
+}) => {
+    const { can } = usePermissions();
 
-                        return (
-                            <li key={item.slug}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Link
-                                            href={item.href}
-                                            onClick={onNavigate}
-                                            aria-current={
-                                                isActive ? 'page' : undefined
-                                            }
-                                            className={`${navLinkClass({
-                                                isActive,
-                                                collapsed,
-                                            })} w-full`}
-                                        >
-                                            {isActive && (
-                                                <span
-                                                    className="absolute inset-y-0 left-0 w-1 bg-primary-foreground"
+    const visibleGroups = navGroups
+        .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => can(item.permission)),
+        }))
+        .filter((group) => group.items.length > 0);
+
+    return (
+        <nav
+            className={`flex-1 overflow-y-auto py-5 ${
+                collapsed ? 'space-y-6' : 'space-y-6 px-3'
+            }`}
+        >
+            {visibleGroups.map((group) => (
+                <div key={group.label}>
+                    <p
+                        className={`overflow-hidden pb-2 text-[0.68rem] font-bold tracking-[0.16em] whitespace-nowrap text-secondary-foreground uppercase transition-all duration-300 ${
+                            collapsed
+                                ? 'max-h-0 opacity-0'
+                                : 'max-h-8 px-3 opacity-100'
+                        }`}
+                    >
+                        {group.label}
+                    </p>
+                    <ul className="space-y-1">
+                        {group.items.map((item) => {
+                            const isActive = item.matchPrefix
+                                ? pathname.startsWith(item.matchPrefix)
+                                : pathname === item.href ||
+                                  pathname.startsWith(`${item.href}/`);
+
+                            return (
+                                <li key={item.slug}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Link
+                                                href={item.href}
+                                                onClick={onNavigate}
+                                                aria-current={
+                                                    isActive
+                                                        ? 'page'
+                                                        : undefined
+                                                }
+                                                className={`${navLinkClass({
+                                                    isActive,
+                                                    collapsed,
+                                                })} w-full`}
+                                            >
+                                                {isActive && (
+                                                    <span
+                                                        className="absolute inset-y-0 left-0 w-1 bg-primary-foreground"
+                                                        aria-hidden
+                                                    />
+                                                )}
+                                                <item.icon
+                                                    className="size-4 shrink-0"
                                                     aria-hidden
                                                 />
-                                            )}
-                                            <item.icon
-                                                className="size-4 shrink-0"
-                                                aria-hidden
-                                            />
-                                            <span
-                                                className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
-                                                    collapsed
-                                                        ? 'max-w-0 opacity-0'
-                                                        : 'max-w-40 opacity-100'
-                                                }`}
+                                                <span
+                                                    className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
+                                                        collapsed
+                                                            ? 'max-w-0 opacity-0'
+                                                            : 'max-w-40 opacity-100'
+                                                    }`}
+                                                >
+                                                    {item.label}
+                                                </span>
+                                                {item.slug === 'saved' &&
+                                                    savedCount > 0 &&
+                                                    !collapsed && (
+                                                        <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[0.65rem] font-bold">
+                                                            {savedCount}
+                                                        </span>
+                                                    )}
+                                            </Link>
+                                        </TooltipTrigger>
+                                        {collapsed && (
+                                            <TooltipContent
+                                                side="right"
+                                                className="rounded-none"
                                             >
                                                 {item.label}
-                                            </span>
-                                            {item.slug === 'saved' &&
-                                                savedCount > 0 &&
-                                                !collapsed && (
-                                                    <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[0.65rem] font-bold">
-                                                        {savedCount}
-                                                    </span>
-                                                )}
-                                        </Link>
-                                    </TooltipTrigger>
-                                    {collapsed && (
-                                        <TooltipContent
-                                            side="right"
-                                            className="rounded-none"
-                                        >
-                                            {item.label}
-                                        </TooltipContent>
-                                    )}
-                                </Tooltip>
-                            </li>
-                        );
-                    })}
-                </ul>
-            </div>
-        ))}
-    </nav>
-);
+                                            </TooltipContent>
+                                        )}
+                                    </Tooltip>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            ))}
+        </nav>
+    );
+};
 
 const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const page = usePage();
