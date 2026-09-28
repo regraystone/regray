@@ -6,6 +6,7 @@ import {
     ChevronDown,
     CircleUserRound,
     FileText,
+    Folder,
     Handshake,
     Heart,
     HelpCircle,
@@ -49,6 +50,7 @@ import { logout } from '@/routes';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as messageIndex } from '@/routes/message';
 import { index as overviewIndex } from '@/routes/overview';
+import { index as projectsIndex } from '@/routes/projects';
 import { index as stonesIndex } from '@/routes/stones';
 import { edit as editProfile } from '@/routes/profile';
 import { index as quoteIndex } from '@/routes/quote';
@@ -145,6 +147,13 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 href: servicesIndex.url(),
                 icon: Wrench,
                 permission: 'view services',
+            },
+            {
+                slug: 'projects',
+                label: 'Projects',
+                href: projectsIndex.url(),
+                icon: Folder,
+                permission: 'view projects',
             },
             {
                 slug: 'accounts',

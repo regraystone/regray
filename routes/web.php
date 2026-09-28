@@ -22,6 +22,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('stones', [ViewController::class, 'stones'])->name('stones.index');
     Route::get('services', [ViewController::class, 'services'])->name('services.index');
     Route::get('accounts', [ViewController::class, 'accounts'])->name('accounts.index');
+    Route::get('projects', [ViewController::class, 'projects'])->name('projects.index');
 });
 
 require __DIR__.'/settings.php';

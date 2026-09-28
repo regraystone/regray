@@ -15,6 +15,7 @@ test('guests are redirected to the login page from workspace pages', function ()
         'stones.index',
         'services.index',
         'accounts.index',
+        'projects.index',
     ];
 
     foreach ($workspaceRoutes as $name) {
@@ -37,6 +38,7 @@ test('authenticated users can visit every workspace page', function () {
         'stones.index',
         'services.index',
         'accounts.index',
+        'projects.index',
     ];
 
     $user = User::factory()->create();

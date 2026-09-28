@@ -67,4 +67,9 @@ class ViewController extends Controller
     {
         return Inertia::render('accounts');
     }
+
+    public function projects(Request $request): Response
+    {
+        return Inertia::render('projects');
+    }
 }

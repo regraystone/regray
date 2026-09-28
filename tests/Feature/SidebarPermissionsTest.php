@@ -41,6 +41,19 @@ test('each role is shared exactly the permissions it may see', function (string 
     expect($user->getRoleNames()->all())->toBe([$role]);
 })->with(array_keys(RolePermissionSeeder::MATRIX));
 
+test('the projects page is hidden from every role except admin', function (string $role) {
+    $user = User::factory()->role($role)->create();
+
+    expect(RolePermissionSeeder::MATRIX[$role])
+        ->not->toContain('view projects');
+
+    $this->actingAs($user)
+        ->get(route('home.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('auth.permissions', fn (Collection $permissions) => ! $permissions->contains('view projects'))
+        );
+})->with(['client', 'owner', 'acct', 'tech', 'mktg', 'logi', 'sales']);
+
 test('a newly registered user is a client and sees the client permissions', function () {
     $this->skipUnlessFortifyHas(Features::registration());
 

@@ -32,6 +32,7 @@ class RolePermissionSeeder extends Seeder
         'view stones',
         'view services',
         'view accounts',
+        'view projects',
         'view profile',
     ];
 
@@ -57,6 +58,7 @@ class RolePermissionSeeder extends Seeder
             'view stones',
             'view services',
             'view accounts',
+            'view projects',
             'view profile',
         ],
         'owner' => [
@@ -114,9 +116,12 @@ class RolePermissionSeeder extends Seeder
             Role::findOrCreate($roleName, 'web');
         }
 
-        // The package no longer clears its own cache when a permission is
-        // created, so the snapshot taken above is still empty here. Drop it
-        // again or syncPermissions() cannot resolve the names to ids.
+        // The package invalidates its own permission cache from a model's
+        // `saved` event (RefreshesPermissionCache), but DatabaseSeeder runs
+        // under WithoutModelEvents, which swaps in a NullDispatcher and stops
+        // that event firing. So the empty snapshot cached by the first
+        // findOrCreate() above is never dropped, and syncPermissions() would
+        // fail to resolve the names. Flush it explicitly.
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach (self::MATRIX as $roleName => $permissions) {
