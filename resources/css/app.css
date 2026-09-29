@@ -61,7 +61,7 @@
 }
 
 @utility page-enter {
-    animation: page-enter 220ms ease-out both;
+    animation: page-enter 220ms ease-out backwards;
 }
 
 @keyframes page-enter {

@@ -664,3 +664,140 @@ export const conversations: Conversation[] = [
         ],
     },
 ];
+
+export type InquiryStatus =
+    | 'draft'
+    | 'pending'
+    | 'quoted'
+    | 'paid'
+    | 'completed'
+    | 'cancelled';
+
+export type Inquiry = {
+    id: string;
+    reference: string;
+    status: InquiryStatus;
+    createdAt: string;
+    stoneIds: string[];
+    services: string[];
+    projectName: string;
+};
+
+export const inquiries: Inquiry[] = [
+    {
+        id: 'inq-1050',
+        reference: 'INQ-1050',
+        status: 'draft',
+        createdAt: '2026-09-29T01:20:00.000Z',
+        stoneIds: ['patagonia-quartzite', 'marble'],
+        services: ['Site Measurement', 'Fabrication'],
+        projectName: 'Riverside Residence — Kitchen',
+    },
+    {
+        id: 'inq-1048',
+        reference: 'INQ-1048',
+        status: 'pending',
+        createdAt: '2026-09-27T03:40:00.000Z',
+        stoneIds: ['granite', 'quartzite', 'sintered-stone'],
+        services: [
+            'Site Measurement',
+            'Fabrication',
+            'Delivery & Installation',
+        ],
+        projectName: 'Northgate Cafe — Counters',
+    },
+    {
+        id: 'inq-1047',
+        reference: 'INQ-1047',
+        status: 'pending',
+        createdAt: '2026-09-25T07:15:00.000Z',
+        stoneIds: ['marble', 'travertine', 'monumental', 'granite'],
+        services: ['Fabrication', 'Edge Profiling'],
+        projectName: 'Beacon House — Reception Desk',
+    },
+    {
+        id: 'inq-1046',
+        reference: 'INQ-1046',
+        status: 'quoted',
+        createdAt: '2026-09-22T02:30:00.000Z',
+        stoneIds: ['sintered-stone', 'onyx'],
+        services: [
+            'Site Measurement',
+            'Fabrication',
+            'Delivery & Installation',
+            'Sealing & Protection',
+        ],
+        projectName: 'Aurora Tower — Lobby Cladding',
+    },
+    {
+        id: 'inq-1045',
+        reference: 'INQ-1045',
+        status: 'quoted',
+        createdAt: '2026-09-18T09:05:00.000Z',
+        stoneIds: ['quartzite'],
+        services: ['Fabrication'],
+        projectName: 'Lakeside Villa — Staircase',
+    },
+    {
+        id: 'inq-1044',
+        reference: 'INQ-1044',
+        status: 'quoted',
+        createdAt: '2026-09-15T04:50:00.000Z',
+        stoneIds: ['travertine', 'marble'],
+        services: ['Site Measurement', 'Sealing & Protection'],
+        projectName: 'Garden Court — Vanity Tops',
+    },
+    {
+        id: 'inq-1043',
+        reference: 'INQ-1043',
+        status: 'paid',
+        createdAt: '2026-09-11T08:25:00.000Z',
+        stoneIds: ['granite', 'monumental'],
+        services: [
+            'Fabrication',
+            'Sink & Hob Cut-outs',
+            'Delivery & Installation',
+        ],
+        projectName: 'Hillcrest Showroom — Display Units',
+    },
+    {
+        id: 'inq-1042',
+        reference: 'INQ-1042',
+        status: 'paid',
+        createdAt: '2026-09-04T01:10:00.000Z',
+        stoneIds: ['marble'],
+        services: ['Fabrication'],
+        projectName: 'Marlow Street Bathroom',
+    },
+    {
+        id: 'inq-1041',
+        reference: 'INQ-1041',
+        status: 'completed',
+        createdAt: '2026-08-28T05:45:00.000Z',
+        stoneIds: ['quartzite', 'granite', 'marble'],
+        services: [
+            'Site Measurement',
+            'Fabrication',
+            'Delivery & Installation',
+        ],
+        projectName: 'The Grove — Outdoor Kitchen',
+    },
+    {
+        id: 'inq-1040',
+        reference: 'INQ-1040',
+        status: 'completed',
+        createdAt: '2026-08-19T03:20:00.000Z',
+        stoneIds: ['travertine'],
+        services: ['Fabrication', 'Edge Profiling'],
+        projectName: 'Sunset Ridge — Pool Surround',
+    },
+    {
+        id: 'inq-1039',
+        reference: 'INQ-1039',
+        status: 'cancelled',
+        createdAt: '2026-08-12T06:55:00.000Z',
+        stoneIds: ['onyx', 'sintered-stone'],
+        services: ['Fabrication'],
+        projectName: 'Maple Lane — Laundry',
+    },
+];

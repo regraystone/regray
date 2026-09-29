@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 const MessageSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
-        <div className="flex h-[calc(100dvh-8rem)] min-h-[32rem] border border-sidebar-border bg-background">
+        <div className="flex h-[calc(100svh-8rem)] min-h-0 border border-sidebar-border bg-background md:min-h-[32rem]">
             <div className="flex w-full min-w-0 flex-col md:w-80 md:shrink-0 md:border-r md:border-sidebar-border lg:w-96">
                 <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
                     <Skeleton className="h-8 w-32 rounded-none" />
@@ -105,7 +105,7 @@ const Message = () => {
 
     return (
         <div className="mx-auto w-full max-w-6xl">
-            <div className="flex h-[calc(100dvh-8rem)] min-h-[32rem] border border-sidebar-border bg-background">
+            <div className="flex h-[calc(100svh-8rem)] min-h-0 border border-sidebar-border bg-background md:min-h-[32rem]">
                 <ConversationList
                     conversations={conversations}
                     selectedId={selectedId}
