@@ -132,7 +132,7 @@ const EmptyState = ({
 
 const QuoteSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-8 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-8 sm:mb-4 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
                 <Skeleton className="h-8 w-40" />
                 <Skeleton className="h-4 w-56" />
@@ -286,7 +286,7 @@ const InquiryCard = ({
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-52 lg:shrink-0 lg:flex-col">
                     <Button
                         asChild
-                        variant="outline"
+                        variant="default"
                         className={actionClassName}
                     >
                         <Link href={detailsHref}>View details</Link>
