@@ -9,6 +9,11 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
+/*
+ * These tests only care about the props shared with the sidebar, so they read
+ * them from a page every role may open. `view profile` is the one permission
+ * the matrix grants to all of them.
+ */
 beforeEach(function () {
     $this->seed(RolePermissionSeeder::class);
 });
@@ -30,9 +35,9 @@ test('each role is shared exactly the permissions it may see', function (string 
     $expected = RolePermissionSeeder::MATRIX[$role];
 
     $this->actingAs($user)
-        ->get(route('home.index'))
+        ->get(route('profile.edit'))
         ->assertInertia(fn (Assert $page) => $page
-            ->component('home')
+            ->component('settings/profile')
             ->where('auth.roles', [$role])
             ->has('auth.permissions', count($expected))
             ->where('auth.permissions', fn (Collection $permissions) => assertMatchesPermissions($permissions, $role))
@@ -48,7 +53,7 @@ test('the projects page is hidden from every role except admin', function (strin
         ->not->toContain('view projects');
 
     $this->actingAs($user)
-        ->get(route('home.index'))
+        ->get(route('profile.edit'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('auth.permissions', fn (Collection $permissions) => ! $permissions->contains('view projects'))
         );
@@ -71,7 +76,7 @@ test('a newly registered user is a client and sees the client permissions', func
     $user->markEmailAsVerified();
 
     $this->actingAs($user)
-        ->get(route('home.index'))
+        ->get(route('profile.edit'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('auth.roles', [User::DEFAULT_ROLE])
             ->has('auth.permissions', count(RolePermissionSeeder::MATRIX['client']))
@@ -93,7 +98,7 @@ test('syncRoles changes the permissions the next response shares', function () {
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->actingAs($user->fresh())
-        ->get(route('home.index'))
+        ->get(route('profile.edit'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('auth.roles', ['admin'])
             ->has('auth.permissions', count(RolePermissionSeeder::MATRIX['admin']))

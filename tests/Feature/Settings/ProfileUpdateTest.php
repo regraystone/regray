@@ -1,6 +1,15 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
+
+/*
+ * The settings routes are guarded by `view profile`, so the matrix has to exist
+ * before a factory user (a client) can open them.
+ */
+beforeEach(function () {
+    $this->seed(RolePermissionSeeder::class);
+});
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();

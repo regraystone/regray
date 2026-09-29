@@ -1,9 +1,18 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
+
+/*
+ * The settings routes are guarded by `view profile`, so the matrix has to exist
+ * before a factory user (a client) can open them.
+ */
+beforeEach(function () {
+    $this->seed(RolePermissionSeeder::class);
+});
 
 test('security page is displayed', function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
