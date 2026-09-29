@@ -132,7 +132,7 @@ const EmptyState = ({
 
 const QuoteSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-8 sm:mb-4 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-8 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:mb-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
                 <Skeleton className="h-8 w-40" />
                 <Skeleton className="h-4 w-56" />
@@ -431,24 +431,6 @@ const Quote = () => {
         [normalizedSearch],
     );
 
-    const counts = useMemo(() => {
-        const next: Record<StatusFilter, number> = {
-            all: searchMatches.length,
-            draft: 0,
-            pending: 0,
-            quoted: 0,
-            paid: 0,
-            completed: 0,
-            cancelled: 0,
-        };
-
-        searchMatches.forEach((inquiry) => {
-            next[inquiry.status] += 1;
-        });
-
-        return next;
-    }, [searchMatches]);
-
     const visibleInquiries = useMemo(() => {
         const filtered =
             status === 'all'
@@ -635,7 +617,7 @@ const Quote = () => {
                                             value={tab.value}
                                             className="rounded-none"
                                         >
-                                            {tab.label} ({counts[tab.value]})
+                                            {tab.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -703,9 +685,6 @@ const Quote = () => {
                                     }
                                 >
                                     {tab.label}
-                                </span>
-                                <span className="text-xs tabular-nums opacity-60">
-                                    {counts[tab.value]}
                                 </span>
                             </button>
                         );
