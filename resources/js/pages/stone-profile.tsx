@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
 import GalleryCarousel, {
     type GalleryCarouselHandle,
@@ -12,6 +12,7 @@ import {
     type StoneImage,
     type StoneProfile,
 } from '@/data/constant';
+import { index as homeIndex } from '@/routes/home';
 import { index as stonesIndex } from '@/routes/stones';
 
 type StoneProfileProps = {
@@ -291,6 +292,17 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
         return () => window.clearTimeout(timer);
     }, []);
 
+    // The hero sits outside the nav, so the way back belongs to the page. A
+    // direct hit on the URL has no history to pop, so it falls back to the
+    // feed the breadcrumb already treats as this page's parent.
+    const goBack = () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            router.visit(homeIndex.url());
+        }
+    };
+
     if (isLoading) {
         return <StoneProfileSkeleton />;
     }
@@ -321,6 +333,20 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                     className="absolute inset-0 size-full object-cover"
                 />
                 <div className="image-tint absolute inset-0" aria-hidden />
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={goBack}
+                    aria-label="Back"
+                    className="group absolute top-4 left-4 z-20 h-11 w-11 cursor-pointer justify-center gap-2.5 border-white/25 bg-black/55 px-0 tracking-[0.12em] text-white backdrop-blur-md transition-colors duration-200 hover:border-white/40 hover:bg-black/75 hover:opacity-100 focus-visible:ring-white/60 sm:top-6 sm:left-6 sm:w-auto sm:px-4 lg:left-8"
+                >
+                    <ArrowLeft
+                        className="size-4 transition-transform duration-200 group-hover:-translate-x-0.5"
+                        aria-hidden
+                    />
+                    <span className="hidden sm:inline">Back</span>
+                </Button>
                 <div className="relative z-10 mx-auto w-full max-w-4xl px-5 py-16 text-center sm:py-24">
                     <h1 className="hero-title mt-5 text-on-image">
                         {profile.name}

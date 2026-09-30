@@ -1,6 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
-    ArrowLeft,
     BarChart3,
     Calendar,
     ChevronDown,
@@ -347,14 +346,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
           ? prevUrlRef.current
           : effectiveUrl;
 
-    const goBack = () => {
-        if (window.history.length > 1) {
-            window.history.back();
-        } else {
-            router.visit(homeIndex.url());
-        }
-    };
-
     const user = page.props.auth.user;
     const { savedIds, toggleSave } = useSavedStones();
     const savedCount = savedIds.size;
@@ -643,20 +634,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     onNavigate={() => setDrawerOpen(false)}
                 />
             </aside>
-
-            {isStoneProfile && (
-                <Button
-                    variant="default"
-                    size="icon"
-                    className={`fixed top-24 left-4 z-40 size-11 cursor-pointer shadow-lg ${
-                        collapsed ? 'lg:left-[5.5rem]' : 'lg:left-[17rem]'
-                    }`}
-                    aria-label="Go back"
-                    onClick={goBack}
-                >
-                    <ArrowLeft className="size-5" aria-hidden />
-                </Button>
-            )}
 
             {isStoneProfile && (
                 <div className="fixed right-4 bottom-4 z-40 flex items-center gap-2 sm:right-5 sm:bottom-5">
