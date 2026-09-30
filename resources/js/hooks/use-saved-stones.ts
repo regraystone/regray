@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { products } from '@/data/constant';
+import { stones } from '@/data/constant';
 
 const STORAGE_KEY = 'regray:saved-stones';
-const SEED_VERSION = 2;
+// Bumped when the catalogue's ids change, so stored picks are re-seeded instead
+// of being carried over onto stones that no longer exist.
+const SEED_VERSION = 3;
 
-const DEFAULT_SAVED_IDS = products.slice(0, 6).map((product) => product.id);
+const DEFAULT_SAVED_IDS = stones.slice(0, 6).map((stone) => stone.id);
+
+const STONE_IDS = new Set(stones.map((stone) => stone.id));
 
 const EMPTY_SET = new Set<string>();
 
@@ -57,7 +61,16 @@ const readStorage = (): Set<string> => {
             return upgraded;
         }
 
-        return new Set(ids);
+        // A stone that has left the catalogue cannot be rendered as a card, so
+        // its id is dropped rather than left to inflate the saved count.
+        const known = ids.filter((id) => STONE_IDS.has(id));
+        const current = new Set(known);
+
+        if (current.size !== ids.length) {
+            writeStorage(current);
+        }
+
+        return current;
     } catch {
         return EMPTY_SET;
     }

@@ -117,7 +117,7 @@ const StoneCard = ({
                         className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
                     >
                         <img
-                            src={item.image}
+                            src={item.thumbnail}
                             alt=""
                             loading="lazy"
                             className="absolute inset-0 size-full object-cover"
@@ -161,7 +161,7 @@ const StoneCard = ({
                     className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
                 >
                     <img
-                        src={item.image}
+                        src={item.thumbnail}
                         alt={item.name}
                         loading="lazy"
                         className="absolute inset-0 size-full object-cover"

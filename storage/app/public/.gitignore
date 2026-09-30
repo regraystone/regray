@@ -1,2 +1,7 @@
 *
 !.gitignore
+
+# The stone catalogue photographs are content, not runtime uploads, so they are
+# committed and served straight from storage/app/public/stones/.
+!stones/
+!stones/**

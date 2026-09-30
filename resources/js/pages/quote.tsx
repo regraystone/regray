@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
     inquiries,
-    products,
+    stones,
     type FeedItem,
     type Inquiry,
     type InquiryStatus,
@@ -190,12 +190,12 @@ const InquiryCard = ({
     generating: boolean;
     onGetInvoice: (inquiry: Inquiry) => void;
 }) => {
-    const stones = inquiry.stoneIds
-        .map((stoneId) => products.find((product) => product.id === stoneId))
-        .filter((product): product is FeedItem => product !== undefined);
+    const inquiryStones = inquiry.stoneIds
+        .map((stoneId) => stones.find((stone) => stone.id === stoneId))
+        .filter((stone): stone is FeedItem => stone !== undefined);
 
-    const thumbnails = stones.slice(0, 3);
-    const extraStones = stones.length - thumbnails.length;
+    const thumbnails = inquiryStones.slice(0, 3);
+    const extraStones = inquiryStones.length - thumbnails.length;
     const canUpdate =
         inquiry.status === 'draft' || inquiry.status === 'pending';
     const detailsHref = inquiryIndex.url({ query: { inquiry: inquiry.id } });
@@ -237,7 +237,7 @@ const InquiryCard = ({
                                         className="relative size-14 overflow-hidden border border-sidebar-border bg-background"
                                     >
                                         <img
-                                            src={stone.image}
+                                            src={stone.thumbnail}
                                             alt=""
                                             loading="lazy"
                                             className="size-full object-cover"
@@ -260,7 +260,9 @@ const InquiryCard = ({
                                 {inquiry.projectName}
                             </p>
                             <p className="truncate text-xs text-secondary-foreground">
-                                {stones.map((stone) => stone.name).join(', ')}
+                                {inquiryStones
+                                    .map((stone) => stone.name)
+                                    .join(', ')}
                             </p>
 
                             <div className="hidden flex-wrap gap-1.5 sm:flex">

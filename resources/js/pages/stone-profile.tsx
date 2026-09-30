@@ -7,7 +7,11 @@ import GalleryCarousel, {
 } from '@/components/gallery-carousel';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { stoneProfiles, type StoneProfile } from '@/data/constant';
+import {
+    stoneProfiles,
+    type StoneImage,
+    type StoneProfile,
+} from '@/data/constant';
 import { index as stonesIndex } from '@/routes/stones';
 
 type StoneProfileProps = {
@@ -127,7 +131,13 @@ const BulletedList = ({ items }: { items: string[] }) => (
     </ul>
 );
 
-const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
+const StoneGallery = ({
+    images,
+    name,
+}: {
+    images: StoneImage[];
+    name: string;
+}) => {
     const carouselRef = useRef<GalleryCarouselHandle>(null);
 
     return (
@@ -160,14 +170,14 @@ const StoneGallery = ({ images, name }: { images: string[]; name: string }) => {
                 ) : undefined
             }
         >
-            {images.map((src, index) => (
+            {images.map((image, index) => (
                 <div
-                    key={src}
+                    key={image.src}
                     className="aspect-3/4 w-full shrink-0 snap-center lg:aspect-[16/9]"
                 >
                     <img
-                        src={src}
-                        alt={`${name} photo ${index + 1}`}
+                        src={image.src}
+                        alt={`${name} - ${image.name}`}
                         draggable={false}
                         loading={index === 0 ? 'eager' : 'lazy'}
                         className="size-full object-cover"
@@ -305,7 +315,7 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
         <div className="mx-auto w-full max-w-6xl">
             <section className="relative flex min-h-[280px] items-center overflow-hidden text-on-image sm:min-h-[480px]">
                 <img
-                    src={profile.image}
+                    src={profile.thumbnail}
                     alt=""
                     aria-hidden
                     className="absolute inset-0 size-full object-cover"

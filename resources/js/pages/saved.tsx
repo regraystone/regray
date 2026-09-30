@@ -5,7 +5,7 @@ import Carousel, { type CarouselHandle } from '@/components/carousel';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { products, type FeedItem } from '@/data/constant';
+import { stones, type FeedItem } from '@/data/constant';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
@@ -161,8 +161,8 @@ const Saved = () => {
         return <SavedSkeleton />;
     }
 
-    const savedItems = products.filter((item) => savedIds.has(item.id));
-    const recommendedItems = products.filter((item) => item.recommended);
+    const savedItems = stones.filter((item) => savedIds.has(item.id));
+    const recommendedItems = stones.filter((item) => item.recommended);
 
     if (savedItems.length === 0) {
         return (

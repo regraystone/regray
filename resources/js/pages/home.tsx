@@ -12,7 +12,7 @@ import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { products, stoneProfiles, type FeedItem } from '@/data/constant';
+import { stones, stoneProfiles, type FeedItem } from '@/data/constant';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';
@@ -376,8 +376,8 @@ const Home = () => {
     const visibleItems = useMemo<FeedItem[]>(() => {
         const base =
             filter === 'recommended'
-                ? products.filter((item) => item.recommended)
-                : products;
+                ? stones.filter((item) => item.recommended)
+                : stones;
 
         const query = search.trim().toLowerCase();
 

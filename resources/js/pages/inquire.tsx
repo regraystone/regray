@@ -6,7 +6,7 @@ import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { products, stoneProfiles, type FeedItem } from '@/data/constant';
+import { stones, stoneProfiles, type FeedItem } from '@/data/constant';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { show as homeShow } from '@/routes/home';
@@ -100,14 +100,14 @@ const Inquire = () => {
     const visibleStones = useMemo(() => {
         const base = ((): FeedItem[] => {
             if (filter === 'recommended') {
-                return products.filter((product) => product.recommended);
+                return stones.filter((stone) => stone.recommended);
             }
 
             if (filter === 'saved') {
-                return products.filter((product) => savedIds.has(product.id));
+                return stones.filter((stone) => savedIds.has(stone.id));
             }
 
-            return products;
+            return stones;
         })();
 
         const query = search.trim().toLowerCase();
@@ -116,11 +116,11 @@ const Inquire = () => {
             return base;
         }
 
-        return base.filter((product) => {
-            const profile = stoneProfiles[product.id];
+        return base.filter((stone) => {
+            const profile = stoneProfiles[stone.id];
 
             return [
-                product.name,
+                stone.name,
                 profile?.specifications.stoneType,
                 profile?.specifications.origin,
             ]
