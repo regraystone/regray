@@ -1271,12 +1271,136 @@ export type InquiryStatus =
     | 'completed'
     | 'cancelled';
 
+export type ServiceOption = {
+    id: string;
+    name: string;
+    /**
+     * What the service covers, one line per item. These are the bullet points
+     * the picker shows, not a summary, so the wording is the wording.
+     */
+    features: string[];
+    image: string;
+};
+
+/*
+ * The service photos are borrowed from the stone catalogue rather than shot per
+ * service: every one of these services is about working stone, so a stone photo
+ * is honest imagery for it, and it keeps the set to files the project has
+ * already vetted as card-worthy. There is one per stone, so no two services
+ * repeat. Swap a path here to use a dedicated service photo.
+ */
+export const serviceOptions: ServiceOption[] = [
+    {
+        id: 'natural-stone-supply',
+        name: 'Natural Stone Supply',
+        features: [
+            'Premium natural stone slabs',
+            'Marble, Quartzite, Onyx, Granite, Travertine, and other specialty stones',
+            'Sourcing of materials based on project requirements',
+        ],
+        image: '/storage/stones/bac6a5d8d41046a9fe8cb35205cbd34c.png',
+    },
+    {
+        id: 'custom-stone-fabrication',
+        name: 'Custom Stone Fabrication',
+        features: [
+            'Precision cutting and fabrication',
+            'Custom dimensions and designs',
+            'Edge profiling and finishing',
+            'Fabrication for architectural and furniture applications',
+        ],
+        image: '/storage/stones/4b683a754fea6cc2e9c52669a4c2ca34.png',
+    },
+    {
+        id: 'natural-stone-installation',
+        name: 'Natural Stone Installation',
+        features: [
+            'Accent walls and feature walls',
+            'Wall cladding',
+            'Countertops and kitchen islands',
+            'Flooring and other architectural applications',
+            'Nationwide installation services',
+        ],
+        image: '/storage/stones/20845a043f5abd823694192363b27458.png',
+    },
+    {
+        id: 'custom-stone-furniture',
+        name: 'Custom Stone Furniture',
+        features: [
+            'Dining tables',
+            'Center/coffee tables',
+            'Side tables',
+            'Console tables',
+            'Pedestals and other bespoke stone pieces',
+            'Made-to-order designs based on client specifications',
+        ],
+        image: '/storage/stones/a2a72c93b7369e681b72f0e05380df17.png',
+    },
+    {
+        id: 'design-project-consultation',
+        name: 'Design & Project Consultation',
+        features: [
+            'Material selection',
+            'Design consultation',
+            'Project assessment',
+            'Recommendations based on dimensions, application, and design requirements',
+        ],
+        image: '/storage/stones/32429db4b70ad914e80ab79f031e4263.png',
+    },
+    {
+        id: 'site-ocular-technical-assessment',
+        name: 'Site Ocular & Technical Assessment',
+        features: [
+            'Site visits and project assessment',
+            'Measurement and evaluation of site requirements',
+            'Technical recommendations for stone applications and installation',
+        ],
+        image: '/storage/stones/5b7cb3dae550009c37ad0cb518f4d09f.png',
+    },
+    {
+        id: 'stone-relocation-dismantling-reinstallation',
+        name: 'Stone Relocation, Dismantling & Reinstallation',
+        features: [
+            'Professional dismantling of existing stone',
+            'Safe handling and relocation',
+            'Reinstallation while maintaining the integrity of the material',
+        ],
+        image: '/storage/stones/8f7804fd9673f34737ecd0c1dfca9723.png',
+    },
+    {
+        id: 'post-installation-quality-care',
+        name: 'Post-Installation Quality Care',
+        features: [
+            'Final inspection',
+            'Surface and finish checking',
+            'Alignment assessment',
+            'Professional cleaning and polishing before project turnover',
+        ],
+        image: '/storage/stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png',
+    },
+    {
+        id: 'kitchen-cabinetry-solutions',
+        name: 'Kitchen & Cabinetry Solutions',
+        features: [
+            'Custom kitchen cabinetry',
+            'Stainless steel kitchen cabinets',
+            'Custom storage solutions',
+            'Integration of cabinetry with natural stone surfaces',
+        ],
+        image: '/storage/stones/ef03fcfd4ff0e6063df004f6b897fe7a.png',
+    },
+];
+
 export type Inquiry = {
     id: string;
     reference: string;
     status: InquiryStatus;
     createdAt: string;
     stoneIds: string[];
+    /**
+     * Service names rather than ids, because the inquiry list renders them
+     * straight onto badges and never has to look the service up.
+     */
     services: string[];
     projectName: string;
 };
@@ -1293,7 +1417,7 @@ export const inquiries: Inquiry[] = [
         status: 'draft',
         createdAt: '2026-09-29T01:20:00.000Z',
         stoneIds: ['patagonia-quartzite', 'marble'],
-        services: ['Site Measurement', 'Fabrication'],
+        services: ['Kitchen & Cabinetry Solutions', 'Custom Stone Fabrication'],
         projectName: 'Riverside Residence — Kitchen',
     },
     {
@@ -1303,9 +1427,9 @@ export const inquiries: Inquiry[] = [
         createdAt: '2026-09-27T03:40:00.000Z',
         stoneIds: ['granite', 'quartzite', 'crazy-cut'],
         services: [
-            'Site Measurement',
-            'Fabrication',
-            'Delivery & Installation',
+            'Site Ocular & Technical Assessment',
+            'Custom Stone Fabrication',
+            'Natural Stone Installation',
         ],
         projectName: 'Northgate Cafe — Counters',
     },
@@ -1315,7 +1439,10 @@ export const inquiries: Inquiry[] = [
         status: 'quoted',
         createdAt: '2026-09-15T04:50:00.000Z',
         stoneIds: ['travertine', 'marble'],
-        services: ['Site Measurement', 'Sealing & Protection'],
+        services: [
+            'Design & Project Consultation',
+            'Post-Installation Quality Care',
+        ],
         projectName: 'Garden Court — Vanity Tops',
     },
     {
@@ -1325,9 +1452,9 @@ export const inquiries: Inquiry[] = [
         createdAt: '2026-09-11T08:25:00.000Z',
         stoneIds: ['granite', 'monumental'],
         services: [
-            'Fabrication',
-            'Sink & Hob Cut-outs',
-            'Delivery & Installation',
+            'Custom Stone Furniture',
+            'Custom Stone Fabrication',
+            'Natural Stone Installation',
         ],
         projectName: 'Hillcrest Showroom — Display Units',
     },
@@ -1338,9 +1465,9 @@ export const inquiries: Inquiry[] = [
         createdAt: '2026-08-28T05:45:00.000Z',
         stoneIds: ['quartzite', 'granite', 'marble'],
         services: [
-            'Site Measurement',
-            'Fabrication',
-            'Delivery & Installation',
+            'Natural Stone Supply',
+            'Custom Stone Fabrication',
+            'Natural Stone Installation',
         ],
         projectName: 'The Grove — Outdoor Kitchen',
     },
@@ -1350,7 +1477,7 @@ export const inquiries: Inquiry[] = [
         status: 'cancelled',
         createdAt: '2026-08-12T06:55:00.000Z',
         stoneIds: ['onyx', 'cobblestone'],
-        services: ['Fabrication'],
+        services: ['Stone Relocation, Dismantling & Reinstallation'],
         projectName: 'Maple Lane — Laundry',
     },
 ];

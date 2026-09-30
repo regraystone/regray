@@ -2,11 +2,17 @@ import { ArrowLeft, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import InquiryStepper from '@/components/inquiry-stepper';
 import PageHeading from '@/components/page-heading';
+import ServiceCard from '@/components/service-card';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { stones, stoneProfiles, type FeedItem } from '@/data/constant';
+import {
+    serviceOptions,
+    stones,
+    stoneProfiles,
+    type FeedItem,
+} from '@/data/constant';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { show as homeShow } from '@/routes/home';
@@ -14,9 +20,10 @@ import { show as homeShow } from '@/routes/home';
 const STEPS = ['Stones', 'Services', 'Requirements', 'Review'];
 
 const STONES_STEP = 1;
+const SERVICES_STEP = 2;
 
-/** Only the first step is built so far; the rest of the flow is a placeholder. */
-const NEXT_STEP = 2;
+/** Steps 3 and 4 are not built yet, so everything past Services is a placeholder. */
+const NEXT_STEP = SERVICES_STEP + 1;
 
 const SKELETON_MS = 700;
 
@@ -87,6 +94,12 @@ const Inquire = () => {
     const [filter, setFilter] = useState<StoneFilter>('latest');
     const [search, setSearch] = useState('');
     const [selected, setSelected] = useState<string[]>([]);
+    /*
+     * The two steps hold their own selections instead of resetting when the
+     * step changes, because stepping back to swap a stone should not cost the
+     * services already picked, and the same the other way round.
+     */
+    const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
     const { can } = usePermissions();
     const { savedIds, toggleSave } = useSavedStones();
@@ -96,6 +109,14 @@ const Inquire = () => {
 
         return () => window.clearTimeout(timer);
     }, []);
+
+    /*
+     * Both grids are long enough to leave the reader scrolled well past the
+     * heading, so a step change takes them back to the top.
+     */
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [step]);
 
     const visibleStones = useMemo(() => {
         const base = ((): FeedItem[] => {
@@ -137,11 +158,20 @@ const Inquire = () => {
         );
     };
 
+    const toggleSelectedService = (id: string) => {
+        setSelectedServices((previous) =>
+            previous.includes(id)
+                ? previous.filter((entry) => entry !== id)
+                : [...previous, id],
+        );
+    };
+
     if (isLoading) {
         return <InquireSkeleton />;
     }
 
     const hasSelection = selected.length > 0;
+    const hasServices = selectedServices.length > 0;
     const canSeeStoneProfile = can('view home');
 
     const stoneTabs: Array<{ value: StoneFilter; label: string }> = [
@@ -154,7 +184,11 @@ const Inquire = () => {
         <div className="mx-auto w-full max-w-6xl">
             <PageHeading
                 title="Inquire"
-                description="Choose the stones you're interested in"
+                description={
+                    step === STONES_STEP
+                        ? "Choose the stones you're interested in"
+                        : 'Choose the services you need'
+                }
             />
 
             <InquiryStepper steps={STEPS} current={step} />
@@ -337,7 +371,7 @@ const Inquire = () => {
 
                         <Button
                             type="button"
-                            onClick={() => setStep(NEXT_STEP)}
+                            onClick={() => setStep(SERVICES_STEP)}
                             disabled={!hasSelection}
                             className="w-full shrink-0 sm:w-auto"
                         >
@@ -345,19 +379,96 @@ const Inquire = () => {
                         </Button>
                     </div>
                 </>
+            ) : step === SERVICES_STEP ? (
+                <>
+                    <h3 className="text-lg font-bold tracking-[-0.03em]">
+                        Our services
+                    </h3>
+
+                    {/*
+                     * A list, not a grid: step 1 is already a grid of stone
+                     * cards, so the services get rules between full-width rows
+                     * to keep the two steps from reading as the same control
+                     * twice.
+                     */}
+                    <div className="mt-4 divide-y divide-sidebar-border border-y border-sidebar-border">
+                        {serviceOptions.map((service, index) => (
+                            <ServiceCard
+                                key={service.id}
+                                service={service}
+                                index={index}
+                                selected={selectedServices.includes(service.id)}
+                                onSelect={() =>
+                                    toggleSelectedService(service.id)
+                                }
+                            />
+                        ))}
+                    </div>
+
+                    {/* Sticky for the same reason as step 1's. */}
+                    <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                            <p
+                                aria-live="polite"
+                                className="text-sm font-bold text-foreground"
+                            >
+                                {selectedServices.length}{' '}
+                                {selectedServices.length === 1
+                                    ? 'service'
+                                    : 'services'}{' '}
+                                selected
+                            </p>
+                            {hasServices ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedServices([])}
+                                    className="h-7 cursor-pointer px-1.5 text-xs"
+                                >
+                                    Clear
+                                </Button>
+                            ) : (
+                                <p className="text-xs text-secondary-foreground">
+                                    Select at least one service to continue
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setStep(STONES_STEP)}
+                                className="w-full cursor-pointer sm:w-auto"
+                            >
+                                <ArrowLeft aria-hidden />
+                                Back
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={() => setStep(NEXT_STEP)}
+                                disabled={!hasServices}
+                                className="w-full sm:w-auto"
+                            >
+                                Continue
+                            </Button>
+                        </div>
+                    </div>
+                </>
             ) : (
                 <section className="flex min-h-[40vh] flex-col items-center justify-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
                     <p className="text-lg font-bold tracking-[-0.03em]">
-                        Services: coming next
+                        {STEPS[step - 1]}: coming next
                     </p>
                     <p className="max-w-sm text-sm text-secondary-foreground">
-                        The next step picks what you would like done with your
-                        stones. Your selection is kept.
+                        This step is not built yet. Your stones and services are
+                        kept.
                     </p>
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setStep(STONES_STEP)}
+                        onClick={() => setStep(SERVICES_STEP)}
                     >
                         <ArrowLeft aria-hidden />
                         Back

@@ -17,6 +17,11 @@ type InquiryStepperProps = {
  * is positioned under the box and does not count toward the row's width, so a
  * long label ("Requirements") cannot push the connector lines away from its
  * box, and every connector ends up the same length.
+ *
+ * A finished step is filled black with a white tick, the current step is an
+ * empty box inside a black ring, and a step still to come is a grey outline.
+ * The ring is what keeps "here now" from looking like "already done", which is
+ * what happened when both were filled.
  */
 const InquiryStepper = ({ steps, current }: InquiryStepperProps) => {
     const active = steps[current - 1] ?? '';
@@ -53,11 +58,21 @@ const InquiryStepper = ({ steps, current }: InquiryStepperProps) => {
                             <div className="relative shrink-0">
                                 <span
                                     aria-hidden
+                                    /*
+                                     * Three states, and the two that used to
+                                     * share a fill no longer do. A finished step
+                                     * is solid, because it is settled; the
+                                     * current one is a ring on an empty box, the
+                                     * same treatment the selectable stone and
+                                     * service cards use for "chosen", so being
+                                     * the current step looks like being picked
+                                     * rather than like being finished.
+                                     */
                                     className={`grid size-9 place-items-center border text-xs font-bold ${
                                         isActive
-                                            ? 'border-primary bg-primary text-primary-foreground'
+                                            ? 'border-primary bg-background text-foreground ring-2 ring-primary'
                                             : isDone
-                                              ? 'border-foreground text-foreground'
+                                              ? 'border-primary bg-primary text-primary-foreground'
                                               : 'border-sidebar-border text-secondary-foreground'
                                     }`}
                                 >
@@ -69,7 +84,7 @@ const InquiryStepper = ({ steps, current }: InquiryStepperProps) => {
                                 </span>
                                 <span
                                     className={`absolute top-full left-1/2 mt-2 -translate-x-1/2 text-xs font-bold tracking-[0.05em] whitespace-nowrap uppercase ${
-                                        isActive
+                                        isActive || isDone
                                             ? 'text-foreground'
                                             : 'text-secondary-foreground'
                                     }`}
