@@ -1,6 +1,6 @@
 import { Form } from '@inertiajs/react';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
-import { Check, Copy, ScanLine } from 'lucide-react';
+import { Check, Copy, ScanLine, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AlertError from '@/components/alert-error';
 import InputError from '@/components/input-error';
@@ -20,30 +20,54 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { useClipboard } from '@/hooks/use-clipboard';
 import { OTP_MAX_LENGTH } from '@/hooks/use-two-factor-auth';
+import { cn } from '@/lib/utils';
 import { confirm } from '@/routes/two-factor';
 
-function GridScanIcon() {
+const STEPS = ['Scan', 'Verify'] as const;
+
+/**
+ * The step rail, the square blocks and the border-only pieces below are what
+ * make this dialog read as Regray rather than as a stock modal, so every step
+ * in it is built from the app's monochrome tokens and nothing rounded.
+ */
+const otpSlotClasses =
+    'h-14 w-11 rounded-none border-input bg-background text-xl font-bold shadow-none ring-primary first:rounded-none last:rounded-none sm:h-16 sm:w-14';
+
+/**
+ * The square mark that opens each step. The outline keeps the setup step
+ * quiet because the QR code is already the focus there; the filled block gives
+ * the verification step its single point of contrast.
+ */
+function StepMark({ filled = false }: { filled?: boolean }) {
+    const Icon = filled ? ShieldCheck : ScanLine;
+
     return (
-        <div className="mb-3 rounded-full border border-border bg-card p-0.5 shadow-sm">
-            <div className="relative overflow-hidden rounded-full border border-border bg-muted p-2.5">
-                <div className="absolute inset-0 grid grid-cols-5 opacity-50">
-                    {Array.from({ length: 5 }, (_, i) => (
-                        <div
-                            key={`col-${i + 1}`}
-                            className="border-r border-border last:border-r-0"
-                        />
-                    ))}
-                </div>
-                <div className="absolute inset-0 grid grid-rows-5 opacity-50">
-                    {Array.from({ length: 5 }, (_, i) => (
-                        <div
-                            key={`row-${i + 1}`}
-                            className="border-b border-border last:border-b-0"
-                        />
-                    ))}
-                </div>
-                <ScanLine className="relative z-20 size-6 text-foreground" />
-            </div>
+        <span
+            aria-hidden="true"
+            className={cn(
+                'mx-auto grid size-12 shrink-0 place-items-center border',
+                filled
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-secondary text-foreground',
+            )}
+        >
+            <Icon className="size-5" />
+        </span>
+    );
+}
+
+function StepRail({ currentStep }: { currentStep: number }) {
+    return (
+        <div aria-hidden="true" className="flex gap-1">
+            {STEPS.map((step, index) => (
+                <span
+                    key={step}
+                    className={cn(
+                        'h-1 flex-1',
+                        index <= currentStep ? 'bg-primary' : 'bg-border',
+                    )}
+                />
+            ))}
         </div>
     );
 }
@@ -64,69 +88,67 @@ function TwoFactorSetupStep({
     const [copiedText, copy] = useClipboard();
     const IconComponent = copiedText === manualSetupKey ? Check : Copy;
 
+    if (errors?.length) {
+        return <AlertError errors={errors} />;
+    }
+
     return (
-        <>
-            {errors?.length ? (
-                <AlertError errors={errors} />
-            ) : (
-                <>
-                    <div className="mx-auto flex max-w-md overflow-hidden">
-                        <div className="mx-auto aspect-square w-64 rounded-lg border border-border">
-                            <div className="z-10 flex h-full w-full items-center justify-center p-5">
-                                {qrCodeSvg ? (
-                                    <div
-                                        className="aspect-square w-full rounded-lg bg-white p-2 [&_svg]:size-full"
-                                        dangerouslySetInnerHTML={{
-                                            __html: qrCodeSvg,
-                                        }}
-                                    />
-                                ) : (
-                                    <Spinner />
-                                )}
-                            </div>
-                        </div>
+        <div className="w-full space-y-4">
+            <div className="mx-auto w-full max-w-56 border border-border bg-white p-3">
+                {qrCodeSvg ? (
+                    <div
+                        className="aspect-square w-full [&_svg]:size-full"
+                        dangerouslySetInnerHTML={{
+                            __html: qrCodeSvg,
+                        }}
+                    />
+                ) : (
+                    <div className="grid aspect-square w-full place-items-center">
+                        <Spinner />
                     </div>
+                )}
+            </div>
 
-                    <div className="flex w-full space-x-5">
-                        <Button className="w-full" onClick={onNextStep}>
-                            {buttonText}
-                        </Button>
-                    </div>
+            <Button type="button" className="w-full" onClick={onNextStep}>
+                {buttonText}
+            </Button>
 
-                    <div className="relative flex w-full items-center justify-center">
-                        <div className="absolute inset-0 top-1/2 h-px w-full bg-border" />
-                        <span className="relative bg-card px-2 py-1">
-                            or, enter the code manually
-                        </span>
-                    </div>
+            <div className="relative flex items-center justify-center">
+                <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 top-1/2 h-px bg-border"
+                />
+                <span className="relative bg-background px-3 text-[0.65rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                    or enter the key
+                </span>
+            </div>
 
-                    <div className="flex w-full space-x-2">
-                        <div className="flex w-full items-stretch overflow-hidden rounded-xl border border-border">
-                            {!manualSetupKey ? (
-                                <div className="flex h-full w-full items-center justify-center bg-muted p-3">
-                                    <Spinner />
-                                </div>
-                            ) : (
-                                <>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value={manualSetupKey}
-                                        className="h-full w-full bg-background p-3 text-foreground outline-none"
-                                    />
-                                    <button
-                                        onClick={() => copy(manualSetupKey)}
-                                        className="border-l border-border px-3 hover:bg-muted"
-                                    >
-                                        <IconComponent className="w-4" />
-                                    </button>
-                                </>
-                            )}
-                        </div>
+            <div className="flex items-stretch border border-border">
+                {!manualSetupKey ? (
+                    <div className="grid w-full place-items-center bg-secondary p-3">
+                        <Spinner />
                     </div>
-                </>
-            )}
-        </>
+                ) : (
+                    <>
+                        <input
+                            type="text"
+                            readOnly
+                            value={manualSetupKey}
+                            aria-label="Two-factor setup key"
+                            className="min-w-0 flex-1 bg-background px-4 py-3 font-mono text-sm tracking-[0.15em] text-foreground outline-none"
+                        />
+                        <button
+                            type="button"
+                            aria-label="Copy setup key"
+                            onClick={() => copy(manualSetupKey)}
+                            className="border-l border-border px-4 transition-colors hover:bg-secondary"
+                        >
+                            <IconComponent className="size-4" />
+                        </button>
+                    </>
+                )}
+            </div>
+        </div>
     );
 }
 
@@ -146,12 +168,19 @@ function TwoFactorVerificationStep({
         }, 0);
     }, []);
 
+    /*
+     * The slots render from `code`, so a rejected code has to clear that state
+     * alongside the field. Left to `resetOnError` alone the digits would stay
+     * on screen while the input behind them was already empty.
+     */
     return (
         <Form
             {...confirm.form()}
             onSuccess={() => onClose()}
+            onError={() => setCode('')}
             resetOnError
             resetOnSuccess
+            className="w-full"
         >
             {({
                 processing,
@@ -160,62 +189,71 @@ function TwoFactorVerificationStep({
                 processing: boolean;
                 errors?: { confirmTwoFactorAuthentication?: { code?: string } };
             }) => (
-                <>
+                <div className="w-full space-y-6">
                     <div
                         ref={pinInputContainerRef}
-                        className="relative w-full space-y-3"
+                        className="flex w-full flex-col items-center gap-3"
                     >
-                        <div className="flex w-full flex-col items-center space-y-3 py-2">
-                            <InputOTP
-                                id="otp"
-                                name="code"
-                                maxLength={OTP_MAX_LENGTH}
-                                onChange={setCode}
-                                disabled={processing}
-                                pattern={REGEXP_ONLY_DIGITS}
-                                autoFocus
-                            >
-                                <InputOTPGroup>
-                                    {Array.from(
-                                        { length: OTP_MAX_LENGTH },
-                                        (_, index) => (
-                                            <InputOTPSlot
-                                                key={index}
-                                                index={index}
-                                            />
-                                        ),
-                                    )}
-                                </InputOTPGroup>
-                            </InputOTP>
-                            <InputError
-                                message={
-                                    errors?.confirmTwoFactorAuthentication?.code
-                                }
-                            />
-                        </div>
+                        <InputOTP
+                            id="otp"
+                            name="code"
+                            aria-label="Authentication code"
+                            maxLength={OTP_MAX_LENGTH}
+                            value={code}
+                            onChange={setCode}
+                            disabled={processing}
+                            pattern={REGEXP_ONLY_DIGITS}
+                            autoFocus
+                        >
+                            <InputOTPGroup>
+                                {Array.from(
+                                    { length: OTP_MAX_LENGTH },
+                                    (_, index) => (
+                                        <InputOTPSlot
+                                            key={index}
+                                            index={index}
+                                            className={otpSlotClasses}
+                                        />
+                                    ),
+                                )}
+                            </InputOTPGroup>
+                        </InputOTP>
 
-                        <div className="flex w-full space-x-5">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="flex-1"
-                                onClick={onBack}
-                                disabled={processing}
-                            >
-                                Back
-                            </Button>
-                            <Button
-                                type="submit"
-                                className="flex-1"
-                                disabled={
-                                    processing || code.length < OTP_MAX_LENGTH
-                                }
-                            >
-                                Confirm
-                            </Button>
-                        </div>
+                        <InputError
+                            role="alert"
+                            className="text-center"
+                            message={
+                                errors?.confirmTwoFactorAuthentication?.code
+                            }
+                        />
+
+                        <p className="text-center text-[0.8rem] text-secondary-foreground">
+                            Your code refreshes every 30 seconds.
+                        </p>
                     </div>
-                </>
+
+                    <div className="flex gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={onBack}
+                            disabled={processing}
+                        >
+                            Back
+                        </Button>
+                        <Button
+                            type="submit"
+                            className="flex-1"
+                            disabled={
+                                processing || code.length < OTP_MAX_LENGTH
+                            }
+                        >
+                            {processing && <Spinner />}
+                            Confirm
+                        </Button>
+                    </div>
+                </div>
             )}
         </Form>
     );
@@ -248,32 +286,36 @@ export default function TwoFactorSetupModal({
         useState<boolean>(false);
 
     const modalConfig = useMemo<{
+        eyebrow: string;
         title: string;
         description: string;
         buttonText: string;
     }>(() => {
         if (twoFactorEnabled) {
             return {
-                title: 'Two-factor authentication enabled',
+                eyebrow: 'Two-factor authentication',
+                title: 'Two-factor authentication is on',
                 description:
-                    'Two-factor authentication is now enabled. Scan the QR code or enter the setup key in your authenticator app.',
+                    'Every sign-in will now ask for a code from your authenticator app. Keep your recovery codes somewhere safe.',
                 buttonText: 'Close',
             };
         }
 
         if (showVerificationStep) {
             return {
+                eyebrow: `Step 2 of ${STEPS.length} · ${STEPS[1]}`,
                 title: 'Verify authentication code',
                 description:
-                    'Enter the 6-digit code from your authenticator app',
+                    'Enter the current 6-digit code from your authenticator app to finish linking it.',
                 buttonText: 'Continue',
             };
         }
 
         return {
+            eyebrow: `Step 1 of ${STEPS.length} · ${STEPS[0]}`,
             title: 'Enable two-factor authentication',
             description:
-                'To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app',
+                'Scan the QR code with your authenticator app, or enter the setup key by hand.',
             buttonText: 'Continue',
         };
     }, [twoFactorEnabled, showVerificationStep]);
@@ -316,30 +358,43 @@ export default function TwoFactorSetupModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader className="flex items-center justify-center">
-                    <GridScanIcon />
-                    <DialogTitle>{modalConfig.title}</DialogTitle>
-                    <DialogDescription className="text-center">
-                        {modalConfig.description}
-                    </DialogDescription>
-                </DialogHeader>
+            <DialogContent className="gap-0 overflow-hidden rounded-none border-border p-0 sm:max-w-md">
+                {requiresConfirmation && !twoFactorEnabled ? (
+                    <StepRail currentStep={showVerificationStep ? 1 : 0} />
+                ) : null}
 
-                <div className="flex flex-col items-center space-y-5">
-                    {showVerificationStep ? (
-                        <TwoFactorVerificationStep
-                            onClose={handleClose}
-                            onBack={() => setShowVerificationStep(false)}
-                        />
-                    ) : (
-                        <TwoFactorSetupStep
-                            qrCodeSvg={qrCodeSvg}
-                            manualSetupKey={manualSetupKey}
-                            buttonText={modalConfig.buttonText}
-                            onNextStep={handleModalNextStep}
-                            errors={errors}
-                        />
-                    )}
+                {/* The top padding keeps the close button clear of the mark. */}
+                <div className="max-h-[80vh] space-y-5 overflow-y-auto overscroll-contain px-6 pt-9 pb-6">
+                    <DialogHeader className="gap-3 text-center sm:text-center">
+                        <StepMark filled={showVerificationStep} />
+
+                        <p className="eyebrow">{modalConfig.eyebrow}</p>
+
+                        <DialogTitle className="text-2xl leading-tight font-bold tracking-[-0.04em] text-balance">
+                            {modalConfig.title}
+                        </DialogTitle>
+
+                        <DialogDescription className="text-sm leading-relaxed text-secondary-foreground">
+                            {modalConfig.description}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex flex-col items-center">
+                        {showVerificationStep ? (
+                            <TwoFactorVerificationStep
+                                onClose={handleClose}
+                                onBack={() => setShowVerificationStep(false)}
+                            />
+                        ) : (
+                            <TwoFactorSetupStep
+                                qrCodeSvg={qrCodeSvg}
+                                manualSetupKey={manualSetupKey}
+                                buttonText={modalConfig.buttonText}
+                                onNextStep={handleModalNextStep}
+                                errors={errors}
+                            />
+                        )}
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>
