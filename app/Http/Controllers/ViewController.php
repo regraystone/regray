@@ -38,6 +38,11 @@ class ViewController extends Controller
         return Inertia::render('inquiry');
     }
 
+    public function inquire(Request $request): Response
+    {
+        return Inertia::render('inquire');
+    }
+
     public function schedule(Request $request): Response
     {
         return Inertia::render('schedule');

@@ -35,6 +35,7 @@ import {
     type Inquiry,
     type InquiryStatus,
 } from '@/data/constant';
+import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { index as inquiryIndex } from '@/routes/inquiry';
 
 const PAGE_SIZE = 10;
@@ -351,6 +352,9 @@ const InquiryCard = ({
 };
 
 const Quote = () => {
+    // The stepper is an action rather than a page, so it is offered only to the
+    // roles that may raise one, which is what `add inquiry` grants.
+    const inquire = useInquireRoute();
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState<StatusFilter>('all');
@@ -524,7 +528,9 @@ const Quote = () => {
             return;
         }
 
-        router.visit(inquiryIndex.url());
+        if (inquire) {
+            router.visit(inquire.url());
+        }
     };
 
     const handleGetInvoice = async (inquiry: Inquiry) => {
@@ -551,6 +557,7 @@ const Quote = () => {
 
     const hasInquiries = inquiries.length > 0;
     const shownInquiries = visibleInquiries.slice(0, visibleCount);
+    const mayAddInquiry = inquire !== null;
 
     return (
         <div className="mx-auto w-full max-w-6xl">
@@ -558,12 +565,14 @@ const Quote = () => {
                 title="Quote"
                 description="Your inquiries and their progress"
                 action={
-                    <span ref={inquireRef} className="inline-flex">
-                        <Button type="button" onClick={handleInquire}>
-                            <Plus aria-hidden />
-                            Inquire
-                        </Button>
-                    </span>
+                    mayAddInquiry ? (
+                        <span ref={inquireRef} className="inline-flex">
+                            <Button type="button" onClick={handleInquire}>
+                                <Plus aria-hidden />
+                                Inquire
+                            </Button>
+                        </span>
+                    ) : null
                 }
             />
 
@@ -697,9 +706,11 @@ const Quote = () => {
                     title="No inquiries yet"
                     description="Start an inquiry and it will show up here with its progress."
                     action={
-                        <Button asChild>
-                            <Link href={inquiryIndex.url()}>Inquire</Link>
-                        </Button>
+                        inquire ? (
+                            <Button asChild>
+                                <Link href={inquire.url()}>Inquire</Link>
+                            </Button>
+                        ) : null
                     }
                 />
             ) : visibleInquiries.length === 0 ? (
@@ -771,32 +782,31 @@ const Quote = () => {
                             variant="outline"
                             onClick={() => {
                                 setDraftPromptOpen(false);
-                                router.visit(inquiryIndex.url());
+
+                                if (inquire) {
+                                    router.visit(inquire.url());
+                                }
                             }}
                         >
                             Start over
                         </Button>
-                        <Button asChild>
-                            <Link
-                                href={
-                                    draftInquiry
-                                        ? inquiryIndex.url({
-                                              query: {
-                                                  draft: draftInquiry.id,
-                                              },
-                                          })
-                                        : inquiryIndex.url()
-                                }
-                                onClick={() => setDraftPromptOpen(false)}
-                            >
-                                Continue draft
-                            </Link>
-                        </Button>
+                        {inquire && (
+                            <Button asChild>
+                                <Link
+                                    href={inquire.url({
+                                        query: { draft: draftInquiry?.id },
+                                    })}
+                                    onClick={() => setDraftPromptOpen(false)}
+                                >
+                                    Continue draft
+                                </Link>
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {showFloatingInquire && !draftPromptOpen ? (
+            {showFloatingInquire && mayAddInquiry && !draftPromptOpen ? (
                 <Button
                     type="button"
                     className="fixed right-4 bottom-4 z-50 sm:right-5 sm:bottom-5"

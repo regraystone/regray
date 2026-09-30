@@ -42,18 +42,22 @@ import {
 } from '@/components/ui/tooltip';
 import { stoneProfiles } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
+import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as homeIndex } from '@/routes/home';
 import { logout } from '@/routes';
-import { index as inquiryIndex } from '@/routes/inquiry';
+import {
+    index as inquiryIndex,
+    inquire as inquiryInquire,
+} from '@/routes/inquiry';
 import { index as messageIndex } from '@/routes/message';
 import { index as overviewIndex } from '@/routes/overview';
 import { index as projectsIndex } from '@/routes/projects';
 import { index as stonesIndex } from '@/routes/stones';
 import { edit as editProfile } from '@/routes/profile';
-import { index as quoteIndex } from '@/routes/quote';
+import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
 import { index as savedIndex } from '@/routes/saved';
 import { index as scheduleIndex } from '@/routes/schedule';
@@ -310,6 +314,7 @@ const SidebarNav = ({
 const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const page = usePage();
     const url = page.url.split('?')[0];
+    const inquire = useInquireRoute();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [collapsed, setCollapsed] = useState<boolean>(
         () => !page.props.sidebarOpen,
@@ -326,13 +331,21 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const isConfirmPassword = page.component === 'confirm-password';
     const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
 
+    /*
+     * The stepper has no sidebar item of its own; it is nested under the list
+     * the user reads their inquiries on, so that list is what stays lit.
+     */
+    const isInquire =
+        url === quoteInquire.url() || url === inquiryInquire.url();
+
     const profileSlug = url.split('/')[2];
     const isStoneProfile =
         typeof profileSlug === 'string' && Boolean(stoneProfiles[profileSlug]);
-    const activePath =
-        isStoneProfile && prevUrlRef.current
-            ? prevUrlRef.current
-            : effectiveUrl;
+    const activePath = isInquire
+        ? url.slice(0, url.lastIndexOf('/'))
+        : isStoneProfile && prevUrlRef.current
+          ? prevUrlRef.current
+          : effectiveUrl;
 
     const goBack = () => {
         if (window.history.length > 1) {
@@ -669,9 +682,11 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             aria-hidden
                         />
                     </Button>
-                    <Button asChild className="h-11 px-5 shadow-lg">
-                        <a href="mailto:quotes@regray.com">Inquire now</a>
-                    </Button>
+                    {inquire && (
+                        <Button asChild className="h-11 px-5 shadow-lg">
+                            <Link href={inquire.url()}>Inquire now</Link>
+                        </Button>
+                    )}
                 </div>
             )}
         </div>

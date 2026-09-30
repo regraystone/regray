@@ -6,6 +6,7 @@ import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { products, type FeedItem } from '@/data/constant';
+import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
@@ -147,6 +148,7 @@ const StoneRow = ({
 
 const Saved = () => {
     const { savedIds, toggleSave } = useSavedStones();
+    const inquire = useInquireRoute();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -196,12 +198,14 @@ const Saved = () => {
                             </p>
                         </div>
                     </div>
-                    <Button
-                        asChild
-                        className="h-11 w-full shrink-0 sm:h-auto sm:w-auto"
-                    >
-                        <a href="mailto:quotes@regray.com">Request a quote</a>
-                    </Button>
+                    {inquire && (
+                        <Button
+                            asChild
+                            className="h-11 w-full shrink-0 sm:h-auto sm:w-auto"
+                        >
+                            <Link href={inquire.url()}>Request a quote</Link>
+                        </Button>
+                    )}
                 </div>
             </section>
 

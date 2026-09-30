@@ -1,17 +1,18 @@
 import {
     useCallback,
     useEffect,
+    useMemo,
     useRef,
     useState,
     type MouseEvent,
     type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { ArrowDown } from 'lucide-react';
-import SectionHeading from '@/components/section-heading';
+import { ArrowDown, Search, X } from 'lucide-react';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { products, type FeedItem } from '@/data/constant';
+import { products, stoneProfiles, type FeedItem } from '@/data/constant';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';
@@ -20,6 +21,11 @@ const resLogo = '/images/brands/res_logo.webp';
 const hero = '/images/regray-hero.jpg';
 
 type Filter = 'latest' | 'recommended';
+
+const stoneTabs: Array<{ value: Filter; label: string }> = [
+    { value: 'latest', label: 'Latest' },
+    { value: 'recommended', label: 'Recommended' },
+];
 
 const brandLogos = [
     { src: cucineLogo, alt: 'Cucine' },
@@ -328,18 +334,16 @@ const HomeSkeleton = () => (
             </div>
         </section>
 
-        <section className="md:12 mt-8">
+        <section className="mt-8 md:mt-12">
             <div className="mb-6 border-b border-sidebar-border pb-4">
-                <div className="flex items-end justify-between gap-4">
-                    <Skeleton className="h-8 w-40" />
-                    <div className="hidden items-center gap-5 sm:flex">
-                        <Skeleton className="h-5 w-16" />
-                        <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-8 w-40" />
+                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <Skeleton className="h-9 w-full sm:max-w-xs" />
+                    <Skeleton className="hidden h-4 w-64 sm:block" />
+                    <div className="flex items-center gap-2.5 sm:hidden">
+                        <Skeleton className="h-8 w-20" />
+                        <Skeleton className="h-8 w-28" />
                     </div>
-                </div>
-                <div className="mt-4 flex items-center gap-2.5 sm:hidden">
-                    <Skeleton className="h-8 w-20" />
-                    <Skeleton className="h-8 w-28" />
                 </div>
             </div>
             <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
@@ -358,6 +362,7 @@ const HomeSkeleton = () => (
 
 const Home = () => {
     const [filter, setFilter] = useState<Filter>('latest');
+    const [search, setSearch] = useState('');
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
 
@@ -366,6 +371,32 @@ const Home = () => {
 
         return () => window.clearTimeout(timer);
     }, []);
+
+    // Must stay above the early return so hook order never changes.
+    const visibleItems = useMemo<FeedItem[]>(() => {
+        const base =
+            filter === 'recommended'
+                ? products.filter((item) => item.recommended)
+                : products;
+
+        const query = search.trim().toLowerCase();
+
+        if (query === '') {
+            return base;
+        }
+
+        return base.filter((item) => {
+            const profile = stoneProfiles[item.id];
+
+            return [
+                item.name,
+                profile?.specifications.stoneType,
+                profile?.specifications.origin,
+            ]
+                .filter((value): value is string => Boolean(value))
+                .some((value) => value.toLowerCase().includes(query));
+        });
+    }, [filter, search]);
 
     if (isLoading) {
         return <HomeSkeleton />;
@@ -383,13 +414,6 @@ const Home = () => {
         });
     };
 
-    const visibleItems: FeedItem[] = (() => {
-        if (filter === 'recommended') {
-            return products.filter((item) => item.recommended);
-        }
-        return products;
-    })();
-
     return (
         <div className="mx-auto w-full max-w-6xl">
             <Hero />
@@ -397,28 +421,130 @@ const Home = () => {
             <section
                 id="products"
                 aria-labelledby="products-heading"
-                className="md:12 mt-8"
+                className="mt-8 md:mt-12"
             >
-                <SectionHeading
-                    title="Our Stones"
-                    tabs={[
-                        { value: 'latest', label: 'Latest' },
-                        { value: 'recommended', label: 'Recommended' },
-                    ]}
-                    active={filter}
-                    onTabChange={setFilter}
-                />
-                <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                    {visibleItems.map((item) => (
-                        <StoneCard
-                            key={item.id}
-                            item={item}
-                            aspect="aspect-[4/3]"
-                            saved={savedIds.has(item.id)}
-                            onToggleSave={() => toggleSave(item.id)}
-                        />
-                    ))}
+                <div className="mb-6 border-b border-sidebar-border pb-4">
+                    <h2
+                        id="products-heading"
+                        className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
+                    >
+                        Our Stones
+                    </h2>
+
+                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="relative w-full sm:max-w-xs">
+                            <Search
+                                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
+                                aria-hidden
+                            />
+                            <Input
+                                type="search"
+                                value={search}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
+                                }
+                                placeholder="Search stones"
+                                aria-label="Search stones"
+                                className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                            />
+                            {search ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearch('')}
+                                    aria-label="Clear search"
+                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                >
+                                    <X className="size-4" aria-hidden />
+                                </button>
+                            ) : null}
+                        </div>
+
+                        <div
+                            className="hidden items-center gap-5 text-sm sm:ml-auto sm:flex"
+                            role="tablist"
+                            aria-label="Filter Our Stones"
+                        >
+                            {stoneTabs.map((tab) => {
+                                const isActive = filter === tab.value;
+
+                                return (
+                                    <button
+                                        key={tab.value}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={isActive}
+                                        onClick={() => setFilter(tab.value)}
+                                        className={`-my-2.5 px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
+                                            isActive
+                                                ? 'font-bold text-foreground underline decoration-foreground underline-offset-4'
+                                                : 'text-secondary-foreground'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div
+                            className="flex items-center gap-2.5 sm:hidden"
+                            role="tablist"
+                            aria-label="Filter Our Stones"
+                        >
+                            {stoneTabs.map((tab) => {
+                                const isActive = filter === tab.value;
+
+                                return (
+                                    <Button
+                                        key={tab.value}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={isActive}
+                                        variant={
+                                            isActive ? 'default' : 'secondary'
+                                        }
+                                        size="sm"
+                                        className="px-3 py-1.5"
+                                        onClick={() => setFilter(tab.value)}
+                                    >
+                                        {tab.label}
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
+
+                {visibleItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
+                        <p className="text-lg font-bold tracking-[-0.03em]">
+                            No stones found
+                        </p>
+                        <p className="max-w-sm text-sm text-secondary-foreground">
+                            No stone in this filter matches that search.
+                        </p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-1"
+                            onClick={() => setSearch('')}
+                        >
+                            Clear search
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                        {visibleItems.map((item) => (
+                            <StoneCard
+                                key={item.id}
+                                item={item}
+                                aspect="aspect-[4/3]"
+                                saved={savedIds.has(item.id)}
+                                onToggleSave={() => toggleSave(item.id)}
+                            />
+                        ))}
+                    </div>
+                )}
             </section>
         </div>
     );

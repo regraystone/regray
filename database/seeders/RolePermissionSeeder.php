@@ -16,7 +16,13 @@ use Spatie\Permission\PermissionRegistrar;
 class RolePermissionSeeder extends Seeder
 {
     /**
-     * The sidebar pages a user may be granted, one permission per page.
+     * What a user may be granted: one `view` permission per sidebar page, plus
+     * any `add` action that is not a page of its own.
+     *
+     * Only the `view` permissions name a sidebar item, so a permission here is
+     * not a guarantee that the sidebar has an entry for it. `add inquiry` is the
+     * first of the action kind: it guards the inquiry stepper, which both
+     * navigates to and returns to a page rather than being one.
      *
      * @var array<int, string>
      */
@@ -34,6 +40,7 @@ class RolePermissionSeeder extends Seeder
         'view accounts',
         'view projects',
         'view profile',
+        'add inquiry',
     ];
 
     /**
@@ -52,6 +59,7 @@ class RolePermissionSeeder extends Seeder
             'view quotation',
             'view message',
             'view profile',
+            'add inquiry',
         ],
         'admin' => [
             'view overview',
@@ -75,6 +83,7 @@ class RolePermissionSeeder extends Seeder
             'view schedule',
             'view message',
             'view profile',
+            'add inquiry',
         ],
         'sales' => [
             'view overview',
