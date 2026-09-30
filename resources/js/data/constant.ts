@@ -1281,6 +1281,11 @@ export type Inquiry = {
     projectName: string;
 };
 
+/**
+ * One sample inquiry per status, so every stage in the quote flow is visible
+ * in the list without the statuses crowding each other out. Between them the
+ * six cover all nine stones in `stones`. Listed newest first by `createdAt`.
+ */
 export const inquiries: Inquiry[] = [
     {
         id: 'inq-1050',
@@ -1305,38 +1310,6 @@ export const inquiries: Inquiry[] = [
         projectName: 'Northgate Cafe — Counters',
     },
     {
-        id: 'inq-1047',
-        reference: 'INQ-1047',
-        status: 'pending',
-        createdAt: '2026-09-25T07:15:00.000Z',
-        stoneIds: ['marble', 'travertine', 'monumental', 'granite'],
-        services: ['Fabrication', 'Edge Profiling'],
-        projectName: 'Beacon House — Reception Desk',
-    },
-    {
-        id: 'inq-1046',
-        reference: 'INQ-1046',
-        status: 'quoted',
-        createdAt: '2026-09-22T02:30:00.000Z',
-        stoneIds: ['crazy-cut', 'onyx'],
-        services: [
-            'Site Measurement',
-            'Fabrication',
-            'Delivery & Installation',
-            'Sealing & Protection',
-        ],
-        projectName: 'Aurora Tower — Lobby Cladding',
-    },
-    {
-        id: 'inq-1045',
-        reference: 'INQ-1045',
-        status: 'quoted',
-        createdAt: '2026-09-18T09:05:00.000Z',
-        stoneIds: ['quartzite'],
-        services: ['Fabrication'],
-        projectName: 'Lakeside Villa — Staircase',
-    },
-    {
         id: 'inq-1044',
         reference: 'INQ-1044',
         status: 'quoted',
@@ -1359,15 +1332,6 @@ export const inquiries: Inquiry[] = [
         projectName: 'Hillcrest Showroom — Display Units',
     },
     {
-        id: 'inq-1042',
-        reference: 'INQ-1042',
-        status: 'paid',
-        createdAt: '2026-09-04T01:10:00.000Z',
-        stoneIds: ['marble'],
-        services: ['Fabrication'],
-        projectName: 'Marlow Street Bathroom',
-    },
-    {
         id: 'inq-1041',
         reference: 'INQ-1041',
         status: 'completed',
@@ -1379,15 +1343,6 @@ export const inquiries: Inquiry[] = [
             'Delivery & Installation',
         ],
         projectName: 'The Grove — Outdoor Kitchen',
-    },
-    {
-        id: 'inq-1040',
-        reference: 'INQ-1040',
-        status: 'completed',
-        createdAt: '2026-08-19T03:20:00.000Z',
-        stoneIds: ['travertine'],
-        services: ['Fabrication', 'Edge Profiling'],
-        projectName: 'Sunset Ridge — Pool Surround',
     },
     {
         id: 'inq-1039',
