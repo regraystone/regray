@@ -46,6 +46,33 @@ const LOAD_MORE_ROOT_MARGIN = '200px';
 type StatusFilter = 'all' | InquiryStatus;
 type SortOrder = 'newest' | 'oldest';
 
+/*
+ * Why an action is unavailable, per status.
+ *
+ * Written as two small tables rather than a chain of ternaries so the buttons
+ * can be read side by side: what each status may still do, and what it may not.
+ * A status with no entry renders no button at all, which is how `paid` and
+ * `completed` end up with Get invoice instead of Update and Cancel.
+ */
+const UPDATE_BLOCKED_REASON: Partial<Record<InquiryStatus, string>> = {
+    quoted: 'Locked once quoted. Message the team to request changes.',
+    cancelled: 'This inquiry was cancelled.',
+};
+
+const CANCEL_BLOCKED_REASON: Partial<Record<InquiryStatus, string>> = {
+    draft: 'Only pending or quoted inquiries can be cancelled.',
+    cancelled: 'This inquiry is already cancelled.',
+};
+
+/*
+ * The statuses a cancellation is allowed to land on.
+ *
+ * Named once because the button that offers the action and the handler that
+ * applies it have to agree. If they ever drifted apart the page would offer a
+ * cancellation the handler then refuses, or quietly apply one it never offered.
+ */
+const CANCELLABLE_STATUSES: InquiryStatus[] = ['pending', 'quoted'];
+
 const STATUS_TABS: Array<{ value: StatusFilter; label: string }> = [
     { value: 'all', label: 'All' },
     { value: 'pending', label: STATUS_LABELS.pending },
@@ -144,14 +171,48 @@ const QuoteSkeleton = () => (
     </div>
 );
 
+/**
+ * A disabled action that still has to explain itself.
+ *
+ * The button cannot take focus, so the wrapper does: without it a keyboard user
+ * would meet a dead control with no way of finding out why it is dead. Every
+ * locked Update and Cancel on the page goes through here rather than repeating
+ * the wrapper, so the focus ring and the tooltip behave identically everywhere.
+ */
+const LockedAction = ({
+    label,
+    reason,
+    className,
+}: {
+    label: string;
+    reason: string;
+    className: string;
+}) => (
+    <Tooltip>
+        <TooltipTrigger asChild>
+            <span
+                tabIndex={0}
+                className={`${className} focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
+            >
+                <Button variant="outline" disabled className="w-full">
+                    {label}
+                </Button>
+            </span>
+        </TooltipTrigger>
+        <TooltipContent>{reason}</TooltipContent>
+    </Tooltip>
+);
+
 const InquiryCard = ({
     inquiry,
     generating,
     onGetInvoice,
+    onCancel,
 }: {
     inquiry: Inquiry;
     generating: boolean;
     onGetInvoice: (inquiry: Inquiry) => void;
+    onCancel: (inquiry: Inquiry) => void;
 }) => {
     const inquiryStones = inquiry.stoneIds
         .map((stoneId) => stones.find((stone) => stone.id === stoneId))
@@ -161,6 +222,8 @@ const InquiryCard = ({
     const extraStones = inquiryStones.length - thumbnails.length;
     const canUpdate =
         inquiry.status === 'draft' || inquiry.status === 'pending';
+    const updateBlockedReason = UPDATE_BLOCKED_REASON[inquiry.status];
+    const cancelBlockedReason = CANCEL_BLOCKED_REASON[inquiry.status];
     const detailsHref = inquiryIndex.url({ query: { inquiry: inquiry.id } });
     const actionClassName = 'w-full sm:w-auto lg:w-full';
 
@@ -270,28 +333,39 @@ const InquiryCard = ({
                                     : 'Update'}
                             </Link>
                         </Button>
-                    ) : (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span
-                                    tabIndex={0}
-                                    className={`${actionClassName} focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
-                                >
-                                    <Button
-                                        variant="outline"
-                                        disabled
-                                        className="w-full"
-                                    >
-                                        Update
-                                    </Button>
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                Locked once quoted. Message the team to request
-                                changes.
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
+                    ) : updateBlockedReason ? (
+                        <LockedAction
+                            label="Update"
+                            reason={updateBlockedReason}
+                            className={actionClassName}
+                        />
+                    ) : null}
+
+                    {/*
+                     * Cancel sits directly under Update, and is offered for as
+                     * long as the inquiry may still be pulled back. No
+                     * destructive colour: the button reads as an ordinary outline
+                     * action and the dialog is what makes the consequence clear
+                     * before anything is committed.
+                     */}
+                    {CANCELLABLE_STATUSES.includes(inquiry.status) ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onCancel(inquiry)}
+                            aria-label={`Cancel inquiry ${inquiry.reference}`}
+                            className={actionClassName}
+                        >
+                            <X aria-hidden />
+                            Cancel
+                        </Button>
+                    ) : cancelBlockedReason ? (
+                        <LockedAction
+                            label="Cancel"
+                            reason={cancelBlockedReason}
+                            className={actionClassName}
+                        />
+                    ) : null}
 
                     {inquiry.status === 'paid' ||
                     inquiry.status === 'completed' ? (
@@ -329,6 +403,21 @@ const Quote = () => {
     const [showFloatingInquire, setShowFloatingInquire] = useState(false);
     const [draftPromptOpen, setDraftPromptOpen] = useState(false);
     const [generatingId, setGeneratingId] = useState<string | null>(null);
+    // The mock list is a module constant, so it is copied into state: a cancel
+    // has to be able to change what is on screen, and the exported array must
+    // never be mutated.
+    const [items, setItems] = useState<Inquiry[]>(inquiries);
+    const [cancelTarget, setCancelTarget] = useState<Inquiry | null>(null);
+    const [cancellingId, setCancellingId] = useState<string | null>(null);
+    /*
+     * The dialog's wording is snapshotted when it opens rather than read off
+     * `cancelTarget`, which is cleared the moment the dialog closes. The words
+     * therefore never change on the way out, even for the frame in between.
+     */
+    const [cancelLabel, setCancelLabel] = useState({
+        reference: '',
+        projectName: '',
+    });
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const inquireRef = useRef<HTMLSpanElement | null>(null);
 
@@ -382,8 +471,8 @@ const Quote = () => {
     }, [search, status]);
 
     const draftInquiry = useMemo(
-        () => inquiries.find((inquiry) => inquiry.status === 'draft') ?? null,
-        [],
+        () => items.find((inquiry) => inquiry.status === 'draft') ?? null,
+        [items],
     );
 
     const normalizedSearch = search.trim().toLowerCase();
@@ -391,13 +480,13 @@ const Quote = () => {
     const searchMatches = useMemo(
         () =>
             normalizedSearch === ''
-                ? inquiries
-                : inquiries.filter((inquiry) =>
+                ? items
+                : items.filter((inquiry) =>
                       inquiry.reference
                           .toLowerCase()
                           .includes(normalizedSearch),
                   ),
-        [normalizedSearch],
+        [normalizedSearch, items],
     );
 
     const visibleInquiries = useMemo(() => {
@@ -510,6 +599,61 @@ const Quote = () => {
         }
     };
 
+    const openCancelPrompt = (inquiry: Inquiry) => {
+        setCancelLabel({
+            reference: inquiry.reference,
+            projectName: inquiry.projectName,
+        });
+        setCancelTarget(inquiry);
+    };
+
+    const handleCancel = async (inquiry: Inquiry) => {
+        // The dialog disables its own button, but a second click can still land
+        // from a fast double press or a stale render.
+        if (cancellingId !== null) {
+            return;
+        }
+
+        const current = items.find((item) => item.id === inquiry.id);
+
+        // Re-read the status instead of trusting the one the card was rendered
+        // with: an inquiry that was paid or already cancelled while this dialog
+        // was open must not be cancelled by a request made against a live one.
+        if (!current || !CANCELLABLE_STATUSES.includes(current.status)) {
+            setCancelTarget(null);
+            toast.error('Only pending or quoted inquiries can be cancelled.');
+
+            return;
+        }
+
+        setCancellingId(inquiry.id);
+
+        try {
+            /*
+             * TODO: replace with a call to the cancel endpoint once it exists.
+             * This wait is the only thing standing in for it, so swapping this
+             * one function for a real request is the whole change.
+             */
+            await new Promise((resolve) => window.setTimeout(resolve, 900));
+
+            setItems((previous) =>
+                previous.map((item) =>
+                    item.id === inquiry.id
+                        ? { ...item, status: 'cancelled' }
+                        : item,
+                ),
+            );
+            setCancelTarget(null);
+            toast.success(`Inquiry ${inquiry.reference} cancelled`);
+        } catch {
+            // Nothing changed, so the dialog stays open and the user can simply
+            // press the button again rather than start the flow from scratch.
+            toast.error("We couldn't cancel this inquiry. Please try again.");
+        } finally {
+            setCancellingId(null);
+        }
+    };
+
     const clearFilters = () => {
         setSearch('');
         setStatus('all');
@@ -520,9 +664,10 @@ const Quote = () => {
         return <QuoteSkeleton />;
     }
 
-    const hasInquiries = inquiries.length > 0;
+    const hasInquiries = items.length > 0;
     const shownInquiries = visibleInquiries.slice(0, visibleCount);
     const mayAddInquiry = inquire !== null;
+    const isCancelling = cancellingId !== null;
 
     return (
         <div className="mx-auto w-full max-w-6xl">
@@ -701,6 +846,7 @@ const Quote = () => {
                                 inquiry={inquiry}
                                 generating={generatingId === inquiry.id}
                                 onGetInvoice={handleGetInvoice}
+                                onCancel={openCancelPrompt}
                             />
                         ))}
                     </div>
@@ -727,6 +873,60 @@ const Quote = () => {
                     ) : null}
                 </>
             )}
+
+            <Dialog
+                open={cancelTarget !== null}
+                onOpenChange={(open) => {
+                    // Closing is refused while the request is in flight, which
+                    // covers Escape, an outside click and the close button alike.
+                    // Dismissing it then would leave the user unable to tell
+                    // whether the cancel had gone through.
+                    if (!open && !isCancelling) {
+                        setCancelTarget(null);
+                    }
+                }}
+            >
+                <DialogContent className="rounded-none sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
+                            Cancel inquiry {cancelLabel.reference}?
+                        </DialogTitle>
+                        <DialogDescription>
+                            This will cancel {cancelLabel.projectName}. A
+                            cancelled inquiry can&apos;t be reopened. To
+                            continue, you&apos;d need to start a new inquiry.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isCancelling}
+                            onClick={() => setCancelTarget(null)}
+                        >
+                            Keep inquiry
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={isCancelling}
+                            onClick={() => {
+                                // `handleCancel` settles its own failures, so
+                                // there is nothing here for the caller to await.
+                                if (cancelTarget) {
+                                    void handleCancel(cancelTarget);
+                                }
+                            }}
+                        >
+                            {isCancelling ? (
+                                <Spinner className="motion-reduce:animate-none" />
+                            ) : (
+                                <X aria-hidden />
+                            )}
+                            Cancel inquiry
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
                 <DialogContent className="rounded-none sm:max-w-md">
