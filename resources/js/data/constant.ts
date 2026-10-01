@@ -1391,6 +1391,66 @@ export const serviceOptions: ServiceOption[] = [
     },
 ];
 
+/*
+ * The requirements step's fixed option lists. They are plain strings rather
+ * than `{ value, label }` pairs because the value is also the wording the
+ * client reads: splitting the two would let the stored answer drift from the
+ * answer that was offered.
+ */
+/**
+ * What the edge and finish lists end with.
+ *
+ * Appended rather than offered as one of the real options because "I do not know
+ * yet" is a real answer here, and a client who cannot pick from the list still
+ * has to be able to hand the decision back.
+ */
+export const ADVISE_OPTION = 'Not sure yet, advise me';
+
+export const EDGE_PROFILES: readonly string[] = [
+    'Reverse Chamfer',
+    'Full Bullnose',
+    'Double Bullnose',
+    'Half Bullnose',
+    'Straight Edge',
+    'Half Bevel',
+    'Full Bevel',
+    ADVISE_OPTION,
+];
+
+/**
+ * The finishes the works can apply.
+ *
+ * Written down rather than derived from the chosen stones, because these are ones
+ * any of the stones can take: there is nothing a stone's own profile would add,
+ * and a list that changed with step 1 would only make the answer harder to give.
+ */
+export const FINISHES: readonly string[] = [
+    'Leather',
+    'Honed',
+    'Polished',
+    ADVISE_OPTION,
+];
+
+/** Limits the requirements form holds its free text fields to. */
+export const PROJECT_NAME_MAX = 100;
+export const LANDMARK_MAX = 150;
+export const NOTES_MAX = 1000;
+
+/**
+ * An attachment as the step 3 form holds it.
+ *
+ * The `File` is kept rather than a path because nothing has been sent anywhere
+ * yet: there is no upload endpoint, so the bytes live in the browser until the
+ * Review step decides what to do with them.
+ */
+export type InquiryAttachment = {
+    id: string;
+    file: File;
+    status: 'uploading' | 'done';
+    /** 0-100, meaningful only while the status is `uploading`. */
+    progress: number;
+};
+
 export type Inquiry = {
     id: string;
     reference: string;
