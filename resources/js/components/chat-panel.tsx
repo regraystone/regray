@@ -1,9 +1,10 @@
 import { ArrowLeft, Info, Paperclip, Phone, Send } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import InquiryThreadCard from '@/components/inquiry-thread-card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { currentUserId, type Conversation } from '@/data/constant';
+import { currentUserId, inquiries, type Conversation } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
 import { getPerson } from '@/lib/people';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,9 @@ const ChatPanel = ({
     const scrollRef = useRef<HTMLDivElement>(null);
     const messageCount = conversation.messages.length;
     const initials = getInitials(conversation.name);
+    const inquiry = conversation.inquiryId
+        ? inquiries.find((item) => item.id === conversation.inquiryId)
+        : undefined;
 
     useEffect(() => {
         setDraft('');
@@ -116,8 +120,22 @@ const ChatPanel = ({
                 ref={scrollRef}
                 className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-5"
             >
+                {/* The card is part of the thread, so it scrolls with it and is
+                 * the first thing read when the conversation is opened from the
+                 * bottom. It is derived from the inquiry, never a message, so
+                 * `messageCount` below still counts real messages only. */}
+                {inquiry ? <InquiryThreadCard inquiry={inquiry} /> : null}
+
                 {messageCount === 0 ? (
-                    <p className="m-auto px-4 text-center text-sm font-semibold text-secondary-foreground">
+                    <p
+                        className={cn(
+                            'px-4 text-center text-sm font-semibold text-secondary-foreground',
+                            // Centred only while the card is absent. With the card
+                            // above it, `m-auto` would push the hint to the middle
+                            // of the empty space and tear the two apart.
+                            inquiry ? '' : 'm-auto',
+                        )}
+                    >
                         No messages yet — say hello
                     </p>
                 ) : (

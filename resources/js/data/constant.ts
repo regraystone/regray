@@ -1045,6 +1045,8 @@ export type Conversation = {
     unread: boolean;
     memberIds: string[];
     messages: ChatMessage[];
+    /** The inquiry this conversation was opened for, and the thread's first card. */
+    inquiryId?: string;
 };
 
 export const people: Person[] = [
@@ -1069,6 +1071,15 @@ export const people: Person[] = [
 ];
 
 export const conversations: Conversation[] = [
+    {
+        id: 'chat-inq-1048',
+        type: 'group',
+        name: 'Northgate Cafe — Counters',
+        unread: true,
+        memberIds: ['maria', 'daniel'],
+        messages: [],
+        inquiryId: 'inq-1048',
+    },
     {
         id: 'chat-maria',
         type: 'direct',
@@ -1202,6 +1213,7 @@ export const conversations: Conversation[] = [
         name: 'Sofia Bianchi',
         unread: false,
         memberIds: ['sofia'],
+        inquiryId: 'inq-1044',
         messages: [
             {
                 id: 'm-16',

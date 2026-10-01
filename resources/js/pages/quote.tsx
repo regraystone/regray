@@ -1,9 +1,9 @@
 import { Link, router } from '@inertiajs/react';
-import { Check, Download, Plus, Search, X } from 'lucide-react';
+import { Download, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { STATUS_LABELS, StatusBadge } from '@/components/inquiry-status-badge';
 import PageHeading from '@/components/page-heading';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -43,15 +43,6 @@ const SEARCH_DEBOUNCE_MS = 200;
 const LOAD_MORE_DELAY_MS = 400;
 const LOAD_MORE_ROOT_MARGIN = '200px';
 
-const STATUS_LABELS: Record<InquiryStatus, string> = {
-    draft: 'Draft',
-    pending: 'Pending',
-    quoted: 'Quoted',
-    paid: 'Paid',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-};
-
 type StatusFilter = 'all' | InquiryStatus;
 type SortOrder = 'newest' | 'oldest';
 
@@ -83,34 +74,6 @@ const readQueryState = (): { search: string; status: StatusFilter } => {
             ? (status as StatusFilter)
             : 'all',
     };
-};
-
-const StatusBadge = ({ status }: { status: InquiryStatus }) => {
-    const isSolid =
-        status === 'quoted' || status === 'paid' || status === 'completed';
-    const showsCheck = status === 'paid' || status === 'completed';
-
-    const variant = isSolid
-        ? 'default'
-        : status === 'cancelled'
-          ? 'secondary'
-          : 'outline';
-
-    return (
-        <Badge
-            variant={variant}
-            className={`gap-1 rounded-none px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase ${
-                status === 'draft' ? 'border-dashed' : ''
-            }`}
-        >
-            {showsCheck ? <Check className="size-3" aria-hidden /> : null}
-            <span
-                className={status === 'cancelled' ? 'line-through' : undefined}
-            >
-                {STATUS_LABELS[status]}
-            </span>
-        </Badge>
-    );
 };
 
 const EmptyState = ({

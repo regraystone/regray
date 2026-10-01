@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { currentUserId, type Conversation } from '@/data/constant';
+import { currentUserId, inquiries, type Conversation } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
 import { getFirstName } from '@/lib/people';
 import { cn } from '@/lib/utils';
@@ -10,7 +10,14 @@ export const getConversationPreview = (conversation: Conversation): string => {
     const lastMessage = conversation.messages[conversation.messages.length - 1];
 
     if (!lastMessage) {
-        return EMPTY_PREVIEW;
+        // A conversation opened for an inquiry has something to preview before
+        // anyone has written, so the inquiry it was opened for stands in for the
+        // empty thread rather than a flat "no messages".
+        const inquiry = conversation.inquiryId
+            ? inquiries.find((item) => item.id === conversation.inquiryId)
+            : undefined;
+
+        return inquiry ? `New project · ${inquiry.reference}` : EMPTY_PREVIEW;
     }
 
     if (lastMessage.senderId === currentUserId) {
