@@ -20,6 +20,13 @@ export function Field({
     ref,
     ...props
 }: FieldProps) {
+    /*
+     * The error is read out loud, so the input has to both be marked as refused
+     * and point at the words explaining why. Doing it from `error` rather than
+     * at every call site means a form cannot forget.
+     */
+    const errorId = id ? `${id}-error` : undefined;
+
     return (
         <div>
             <div className="flex items-center justify-between gap-2">
@@ -35,10 +42,13 @@ export function Field({
                 id={id}
                 ref={ref}
                 className={cn(inputClasses, className)}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? errorId : undefined}
                 {...props}
             />
             {error ? (
                 <p
+                    id={errorId}
                     role="alert"
                     className="mt-2 text-[0.8rem] font-semibold text-secondary-foreground"
                 >

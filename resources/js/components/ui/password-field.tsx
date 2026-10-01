@@ -23,6 +23,13 @@ export function PasswordField({
 }: PasswordFieldProps) {
     const [showPassword, setShowPassword] = useState(false);
 
+    /*
+     * The error is read out loud, so the input has to both be marked as refused
+     * and point at the words explaining why. Doing it from `error` rather than
+     * at every call site means a form cannot forget.
+     */
+    const errorId = id ? `${id}-error` : undefined;
+
     return (
         <div>
             <div className="flex items-center justify-between gap-2">
@@ -39,6 +46,8 @@ export function PasswordField({
                     id={id}
                     ref={ref}
                     className={cn(inputClasses, 'pr-12', className)}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
                     {...props}
                     type={showPassword ? 'text' : 'password'}
                 />
@@ -58,6 +67,7 @@ export function PasswordField({
             </div>
             {error ? (
                 <p
+                    id={errorId}
                     role="alert"
                     className="mt-2 text-[0.8rem] font-semibold text-secondary-foreground"
                 >
