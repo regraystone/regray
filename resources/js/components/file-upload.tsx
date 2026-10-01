@@ -38,7 +38,8 @@ const nextAttachmentId = (file: File): string => {
     return `${attachmentSequence}-${file.name}`;
 };
 
-const formatSize = (bytes: number): string =>
+/** Exported so the Review step sizes a file the same way this list does. */
+export const formatSize = (bytes: number): string =>
     bytes >= 1024 * 1024
         ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
         : `${Math.max(1, Math.round(bytes / 1024))} KB`;

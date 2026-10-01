@@ -92,6 +92,12 @@ type InquiryRequirementsProps = {
      */
     onSubmit: () => void;
     onBack: () => void;
+    /**
+     * The bar's forward button, which is renamed when this step was reached
+     * from Review: the reader is not going on to the next step but returning to
+     * the sheet they came from.
+     */
+    submitLabel?: string;
 };
 
 /**
@@ -189,6 +195,7 @@ const FormField = ({
 const InquiryRequirements = ({
     onSubmit,
     onBack,
+    submitLabel = 'Continue',
 }: InquiryRequirementsProps) => {
     const {
         register,
@@ -265,7 +272,7 @@ const InquiryRequirements = ({
                                     filter={searchLocations}
                                     listLabel="Cities and municipalities"
                                     placeholder="Search a city or municipality"
-                                    emptyMessage="No Metro Manila city or municipality matches that."
+                                    emptyMessage="No city or municipality matches that."
                                     aria-describedby={accessibility.describedBy}
                                     aria-invalid={accessibility.invalid}
                                     className="rounded-none"
@@ -466,7 +473,7 @@ const InquiryRequirements = ({
                 </FormField>
             </div>
 
-            <div className="mt-8 border-b border-sidebar-border pb-8">
+            <div className="mt-8">
                 <h3 className="text-lg font-bold tracking-[-0.03em]">
                     Attachments and notes
                 </h3>
@@ -597,7 +604,7 @@ const InquiryRequirements = ({
                         disabled={isUploading}
                         className="w-full sm:w-auto"
                     >
-                        Continue
+                        {submitLabel}
                     </Button>
                 </div>
             </div>

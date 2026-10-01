@@ -116,6 +116,95 @@
     }
 }
 
+/*
+ * Inquiry result animations. They match the existing style: defined as
+ * utilities with keyframes, and motion only inside `prefers-reduced-motion:
+ * no-preference`, so users who prefer reduced motion get the final state
+ * immediately.
+ */
+@keyframes badge-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.6);
+    }
+
+    60% {
+        opacity: 1;
+        transform: scale(1.08);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes check-draw {
+    0% {
+        stroke-dashoffset: 18;
+    }
+
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes error-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    10%,
+    50%,
+    90% {
+        transform: translateX(-4px);
+    }
+
+    30%,
+    70% {
+        transform: translateX(4px);
+    }
+}
+
+@keyframes text-rise {
+    0% {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@utility badge-pop {
+    @media (prefers-reduced-motion: no-preference) {
+        animation: badge-pop 360ms ease-out backwards;
+    }
+}
+
+@utility check-draw {
+    @media (prefers-reduced-motion: no-preference) {
+        stroke-dasharray: 18;
+        animation: check-draw 220ms ease-out forwards;
+        animation-delay: 240ms;
+    }
+}
+
+@utility error-shake {
+    @media (prefers-reduced-motion: no-preference) {
+        animation: error-shake 400ms ease-in-out backwards;
+    }
+}
+
+@utility text-rise {
+    @media (prefers-reduced-motion: no-preference) {
+        animation: text-rise 220ms ease-out backwards;
+    }
+}
+
 /* 50ms per sibling, capped at 12 so the last block lands inside ~1s. */
 [data-slot='skeleton']:nth-child(1) {
     --skeleton-delay: 0ms;
