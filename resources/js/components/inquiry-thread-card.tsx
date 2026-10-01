@@ -1,7 +1,12 @@
 import { Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
 import { StatusBadge, STATUS_LABELS } from '@/components/inquiry-status-badge';
-import { stones, type FeedItem, type Inquiry } from '@/data/constant';
+import {
+    stones,
+    type FeedItem,
+    type Inquiry,
+    type InquiryStatus,
+} from '@/data/constant';
 import { index as inquiryIndex } from '@/routes/inquiry';
 
 /**
@@ -31,24 +36,71 @@ const threadTimestampFormatter = new Intl.DateTimeFormat(undefined, {
     minute: '2-digit',
 });
 
+/**
+ * The headline a card announces when it is reporting a status change.
+ *
+ * The opening card of a thread reports no change: the project is arriving, and it
+ * reads "New project" whatever the inquiry has since become. A card posted again
+ * later is announcing something, and there the status is the news and the project
+ * is only the context for it — so "Project cancelled", "Project quoted".
+ *
+ * Keyed by status rather than passed in as a string so that two cards reporting
+ * the same change are worded identically, and so a status added later cannot be
+ * posted with no wording at all.
+ */
+const STATUS_HEADLINES: Record<InquiryStatus, string> = {
+    draft: 'Project drafted',
+    pending: 'Project submitted',
+    quoted: 'Project quoted',
+    paid: 'Project paid',
+    completed: 'Project completed',
+    cancelled: 'Project cancelled',
+};
+
 type InquiryThreadCardProps = {
     inquiry: Inquiry;
+    /**
+     * The status this card announces. Leave it off for the card that opens a
+     * thread, which reports the project rather than a change to it; pass it to
+     * post the card again when the inquiry moves on.
+     *
+     * Its absence is what tells the two apart, so the default is deliberately
+     * not `inquiry.status`: an opening card would then announce whatever state
+     * the inquiry happens to be in now, which is not what it was reporting when
+     * it was posted.
+     */
+    status?: InquiryStatus;
+    /**
+     * When this card was posted into the thread. Defaults to when the inquiry was
+     * raised, which is right for the opening card and wrong for a later one: a
+     * status change is announced when it happened, not when the project began.
+     */
+    occurredAt?: string;
 };
 
 /**
- * The inquiry a conversation was opened for, shown as the thread's first card.
+ * An inquiry shown as a card inside a conversation.
  *
  * It is a link preview rather than a message: the same shape a shared link takes
  * in a chat, because that is what a reader recognises as "this is the thing we
  * came here about". It is derived from the inquiry and never added to `messages`,
  * so it cannot be answered, counted as unread or re-sent, and the grouping of
- * the real messages above it stays exactly as it was.
+ * the real messages around it stays exactly as it was.
+ *
+ * One component covers every status, because the status is a prop rather than
+ * something read off the inquiry. Posting the card again after the inquiry has
+ * moved on needs no second component: it is this card with a `status` and an
+ * `occurredAt`, and it reads as the announcement it is.
  *
  * The card is one link end to end. Nesting the details button inside it the way
  * the Quote page's card does would put a link inside a link, which a screen
  * reader announces as an unreadable nest and a keyboard cannot tab through.
  */
-const InquiryThreadCard = ({ inquiry }: InquiryThreadCardProps) => {
+const InquiryThreadCard = ({
+    inquiry,
+    status,
+    occurredAt = inquiry.createdAt,
+}: InquiryThreadCardProps) => {
     const inquiryStones = inquiry.stoneIds
         .map((stoneId) => stones.find((stone) => stone.id === stoneId))
         .filter((stone): stone is FeedItem => stone !== undefined);
@@ -58,6 +110,14 @@ const InquiryThreadCard = ({ inquiry }: InquiryThreadCardProps) => {
     const detailsHref = inquiryIndex.url({ query: { inquiry: inquiry.id } });
     const serviceCount = inquiry.services.length;
     const hasHero = heroStones.length > 0;
+    /*
+     * The badge always shows the status being reported, which for the opening
+     * card is the inquiry's own: that is the live state a reader opening the
+     * thread is there to see. The headline is narrower, and only speaks up when
+     * there is a change to announce.
+     */
+    const badgeStatus = status ?? inquiry.status;
+    const headline = status ? STATUS_HEADLINES[status] : 'New project';
 
     /*
      * The name and the reference, sitting on the photograph rather than under
@@ -85,26 +145,24 @@ const InquiryThreadCard = ({ inquiry }: InquiryThreadCardProps) => {
     return (
         <>
             <p className="text-center text-xs text-secondary-foreground">
-                <time dateTime={inquiry.createdAt}>
-                    {threadTimestampFormatter.format(
-                        new Date(inquiry.createdAt),
-                    )}
+                <time dateTime={occurredAt}>
+                    {threadTimestampFormatter.format(new Date(occurredAt))}
                 </time>
             </p>
 
             {/*
-             * Centred in the thread and with no avatar. The card is the opening
-             * of the conversation rather than something anyone said, so there is
-             * no sender to sit in the left column and hang the card off: it is
-             * the one thing in the thread that belongs to the thread itself.
+             * Centred in the thread and with no avatar. The card is something the
+             * system posted rather than something anyone said, so there is no
+             * sender to sit in the left column and hang the card off: it belongs
+             * to the thread itself, whichever point in the thread that is.
              */}
             <span className="block text-center text-xs font-bold text-secondary-foreground">
-                New project
+                {headline}
             </span>
 
             <Link
                 href={detailsHref}
-                aria-label={`New project ${inquiry.projectName}, inquiry ${inquiry.reference}, ${STATUS_LABELS[inquiry.status]}. View details`}
+                aria-label={`${headline} ${inquiry.projectName}, inquiry ${inquiry.reference}, ${STATUS_LABELS[badgeStatus]}. View details`}
                 className="mx-auto block w-full max-w-xs overflow-hidden bg-secondary text-left transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
             >
                 {hasHero ? (
@@ -162,7 +220,7 @@ const InquiryThreadCard = ({ inquiry }: InquiryThreadCardProps) => {
 
                 <span className="block space-y-1 p-3">
                     <span className="flex items-center gap-1.5 text-xs text-secondary-foreground">
-                        <StatusBadge status={inquiry.status} />
+                        <StatusBadge status={badgeStatus} />
                         <span aria-hidden="true">·</span>
                         <span>
                             {serviceCount}{' '}
