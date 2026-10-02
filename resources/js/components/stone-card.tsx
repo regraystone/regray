@@ -13,6 +13,7 @@ const StoneCard = ({
     selected = false,
     onSelect,
     viewHref,
+    note,
 }: {
     item: FeedItem;
     aspect: string;
@@ -31,6 +32,16 @@ const StoneCard = ({
     onSelect?: () => void;
     /** An outbound link on the footer, shown only when there is one to show. */
     viewHref?: string;
+    /**
+     * A short tag over the picture, said once and left out when there is none.
+     *
+     * On the inquiry stepper this is how a stone that is already part of another
+     * project says so. It is a tag rather than a dimmed or disabled card because
+     * the same stone in two projects is a real request — a honed floor and a
+     * polished top of one material — and a card that refused the second pick
+     * would say it was not.
+     */
+    note?: string;
 }) => {
     const heart = (
         <button
@@ -129,6 +140,17 @@ const StoneCard = ({
                                 className="absolute top-0 right-0 bg-black p-2 text-white"
                             >
                                 <Check className="size-3 shrink-0" />
+                            </span>
+                        ) : null}
+                        {/*
+                         * Bottom-left, where nothing else sits: the
+                         * recommendation is top-left, the tick top-right, and
+                         * this is the one tag that can appear on a card that is
+                         * also recommended.
+                         */}
+                        {note ? (
+                            <span className="absolute bottom-0 left-0 bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+                                {note}
                             </span>
                         ) : null}
                     </div>

@@ -1,4 +1,4 @@
-export type StoneImage = {
+﻿export type StoneImage = {
     id: string;
     stoneId: string;
     name: string;
@@ -1299,6 +1299,18 @@ export type ServiceOption = {
      */
     features: string[];
     image: string;
+    /**
+     * True for a service that is a whole project on its own, needing no stone to
+     * be chosen or specified first.
+     *
+     * A survey visit, a dismantling and putting back down, and a final inspection
+     * are all work on stone somebody already has — there is nothing to supply, so
+     * asking the reader to pick a material for them would be asking for a fact
+     * they have not got. Set on the catalogue rather than in a list at the point
+     * of use, so that what counts as standalone is one fact about the service
+     * rather than a judgement repeated wherever it is read.
+     */
+    standalone?: boolean;
 };
 
 /*
@@ -1375,6 +1387,7 @@ export const serviceOptions: ServiceOption[] = [
             'Technical recommendations for stone applications and installation',
         ],
         image: '/storage/stones/5b7cb3dae550009c37ad0cb518f4d09f.png',
+        standalone: true,
     },
     {
         id: 'stone-relocation-dismantling-reinstallation',
@@ -1385,6 +1398,7 @@ export const serviceOptions: ServiceOption[] = [
             'Reinstallation while maintaining the integrity of the material',
         ],
         image: '/storage/stones/8f7804fd9673f34737ecd0c1dfca9723.png',
+        standalone: true,
     },
     {
         id: 'post-installation-quality-care',
@@ -1396,6 +1410,7 @@ export const serviceOptions: ServiceOption[] = [
             'Professional cleaning and polishing before project turnover',
         ],
         image: '/storage/stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png',
+        standalone: true,
     },
     {
         id: 'kitchen-cabinetry-solutions',
@@ -1410,11 +1425,35 @@ export const serviceOptions: ServiceOption[] = [
     },
 ];
 
+/**
+ * The services that stand as a project of their own.
+ *
+ * Read off the catalogue's own `standalone` flag rather than written out as ids
+ * here, so a service cannot be one thing to the flow and another to whatever
+ * else lists them. A set rather than a list because the only question ever asked
+ * of it is "is this one of them".
+ */
+export const STANDALONE_SERVICE_IDS: ReadonlySet<string> = new Set(
+    serviceOptions
+        .filter((service) => service.standalone === true)
+        .map((service) => service.id),
+);
+
+/**
+ * What a service is called, by its id.
+ *
+ * Falls back to the id rather than to nothing, because a service dropped from the
+ * catalogue still has to be shown as something: the id is the record of what was
+ * asked for, and a blank would say the reader had chosen nothing.
+ */
+export const serviceName = (id: string): string =>
+    serviceOptions.find((service) => service.id === id)?.name ?? id;
+
 /*
- * The requirements step's fixed option lists. They are plain strings rather
- * than `{ value, label }` pairs because the value is also the wording the
- * client reads: splitting the two would let the stored answer drift from the
- * answer that was offered.
+ * The requirements step's fixed option lists. They are plain strings rather than
+ * `{ value, label }` pairs because the value is also the wording the client
+ * reads: splitting the two would let the stored answer drift from the answer
+ * that was offered.
  */
 /**
  * What the edge and finish lists end with.
@@ -1450,13 +1489,13 @@ export const FINISHES: readonly string[] = [
     ADVISE_OPTION,
 ];
 
-/** Limits the requirements form holds its free text fields to. */
+/** Limits the details form holds its free text fields to. */
 export const PROJECT_NAME_MAX = 100;
 export const LANDMARK_MAX = 150;
 export const NOTES_MAX = 1000;
 
 /**
- * An attachment as the step 3 form holds it.
+ * An attachment as the details step holds it.
  *
  * The `File` is kept rather than a path because nothing has been sent anywhere
  * yet: there is no upload endpoint, so the bytes live in the browser until the
@@ -1473,7 +1512,7 @@ export type InquiryAttachment = {
 /**
  * A file an inquiry carries, reduced to what a record can hold.
  *
- * The step 3 form keeps the live `File` so it can show a thumbnail while the
+ * The details form keeps the live `File` so it can show a thumbnail while the
  * browser still holds the bytes. A stored inquiry has neither: there is no
  * upload endpoint yet, so a record keeps the name, the size and the type, and
  * there is nothing left to download or preview from.
@@ -1501,22 +1540,51 @@ export type Client = {
     address: string;
 };
 
-/** The answers the requirements step collected, one field per question. */
+/** The answers the inquiry-wide details step collected, one field per question. */
 export type InquiryRequirementsRecord = {
     location: string;
     landmark?: string;
-    edge: string;
-    finish: string;
     areaSqm?: number;
     neededBy?: string;
     notes?: string;
     attachments: InquiryFile[];
 };
 
+/**
+ * One stone inside a project: which stone, how many of it, and how it is cut.
+ *
+ * The edge and the finish travel with the stone rather than sitting on the
+ * inquiry, because the same stone is worked differently in two parts of the same
+ * building and a client who wants a honed floor and a polished counter is saying
+ * two real things, not contradicting themselves.
+ */
 export type InquiryStoneSelection = {
     stoneId: string;
     /** Pieces of this stone the client asked for. Always at least one. */
     quantity: number;
+    edge: string;
+    finish: string;
+};
+
+/**
+ * One group of stones, with the services wanted for them and how each is worked.
+ *
+ * `services` are names rather than ids, as `Inquiry.services` already is: the
+ * inquiry list puts them straight onto badges and never looks them up. The
+ * inquiry form works in ids, because that is what the picker hands it.
+ */
+export type InquiryProject = {
+    id: string;
+    /**
+     * What the client called this piece of work — "Kitchen counters", "Pool deck".
+     *
+     * Every project carries one of these because the reader names them as they go,
+     * and because the first one is what the whole request is known by.
+     */
+    name: string;
+    services: string[];
+    /** In the order the client picked them. */
+    stones: InquiryStoneSelection[];
 };
 
 export type InquiryStatusChange = {
@@ -1539,23 +1607,31 @@ export type Inquiry = {
      * officer who will cut it — and empty while nobody has picked it up.
      */
     handledByIds: string[];
+    /** One per group of stones, in the order the client added them. */
+    projects: InquiryProject[];
     /**
-     * The stones the client picked, in the order they picked them, and how many of
-     * each. A selection rather than a bare id list because a client does not ask
-     * for "granite", they ask for six slabs of it — the count belongs to the
-     * choice, so it travels with it.
-     */
-    stoneSelections: InquiryStoneSelection[];
-    /**
-     * Service names rather than ids, because the inquiry list renders them
-     * straight onto badges and never has to look the service up.
+     * Every service across every project, deduplicated. Kept rather than read off
+     * `projects` so the inquiry list's badges have one answer to show and do not
+     * each have to walk the projects to count them.
      */
     services: string[];
-    projectName: string;
     requirements: InquiryRequirementsRecord;
     /** Oldest first, so the newest change is the last entry. */
     statusHistory: InquiryStatusChange[];
 };
+
+/**
+ * The name a request is known by, everywhere it is listed or announced.
+ *
+ * Read off the projects rather than stored beside them, because the reader names
+ * each project as they build it and there is no separate moment at which the
+ * request gets a name of its own. The first project stands in for the request,
+ * which is how a client talks about it too — the main job, then the rest — and
+ * the reference does when there is no project to take a name from.
+ */
+export const inquiryTitle = ({ projects, reference }: Inquiry): string =>
+    projects.find((project) => project.name.trim() !== '')?.name.trim() ??
+    `Inquiry ${reference}`;
 
 /**
  * One client per sample inquiry.
@@ -1627,6 +1703,10 @@ export const clients: Client[] = [
  * data: the draft carries nothing but the required answers, the completed one a
  * landmark, notes several paragraphs long and four attachments, and the rest
  * sit in between.
+ *
+ * Two of the six carry a second project, and one of those uses the same stone in
+ * both with a different edge and finish, so a page that reads the projects
+ * rather than the inquiry's stones has something to show.
  */
 export const inquiries: Inquiry[] = [
     {
@@ -1637,16 +1717,33 @@ export const inquiries: Inquiry[] = [
         updatedAt: '2026-09-29T01:20:00.000Z',
         clientId: 'cl-elena',
         handledByIds: [],
-        stoneSelections: [
-            { stoneId: 'patagonia-quartzite', quantity: 6 },
-            { stoneId: 'marble', quantity: 3 },
+        projects: [
+            {
+                id: 'prj-1050-1',
+                name: 'Riverside Residence — Kitchen',
+                services: [
+                    'Kitchen & Cabinetry Solutions',
+                    'Custom Stone Fabrication',
+                ],
+                stones: [
+                    {
+                        stoneId: 'patagonia-quartzite',
+                        quantity: 6,
+                        edge: 'Full Bullnose',
+                        finish: 'Honed',
+                    },
+                    {
+                        stoneId: 'marble',
+                        quantity: 3,
+                        edge: 'Full Bullnose',
+                        finish: 'Honed',
+                    },
+                ],
+            },
         ],
         services: ['Kitchen & Cabinetry Solutions', 'Custom Stone Fabrication'],
-        projectName: 'Riverside Residence — Kitchen',
         requirements: {
             location: 'Quezon City',
-            edge: 'Full Bullnose',
-            finish: 'Honed',
             attachments: [],
         },
         statusHistory: [{ status: 'draft', at: '2026-09-29T01:20:00.000Z' }],
@@ -1659,22 +1756,67 @@ export const inquiries: Inquiry[] = [
         updatedAt: '2026-09-28T06:15:00.000Z',
         clientId: 'cl-rafael',
         handledByIds: ['daniel', 'maria'],
-        stoneSelections: [
-            { stoneId: 'granite', quantity: 4 },
-            { stoneId: 'quartzite', quantity: 7 },
-            { stoneId: 'crazy-cut', quantity: 2 },
+        projects: [
+            {
+                /*
+                 * The same stone in two projects, cut two different ways: the bar
+                 * top is eased and leathered, the dining floor is squared off and
+                 * polished. Under one flat list of stones there would have been no
+                 * way to say so.
+                 */
+                id: 'prj-1048-1',
+                name: 'Northgate Cafe — Counters and Flooring',
+                services: [
+                    'Site Ocular & Technical Assessment',
+                    'Custom Stone Fabrication',
+                    'Natural Stone Installation',
+                ],
+                stones: [
+                    {
+                        stoneId: 'quartzite',
+                        quantity: 7,
+                        edge: 'Half Bevel',
+                        finish: 'Leather',
+                    },
+                    {
+                        stoneId: 'granite',
+                        quantity: 4,
+                        edge: 'Half Bevel',
+                        finish: 'Leather',
+                    },
+                    {
+                        stoneId: 'crazy-cut',
+                        quantity: 2,
+                        edge: 'Half Bevel',
+                        finish: 'Leather',
+                    },
+                ],
+            },
+            {
+                id: 'prj-1048-2',
+                name: 'Northgate Cafe — Dining Floor',
+                services: [
+                    'Custom Stone Fabrication',
+                    'Natural Stone Installation',
+                ],
+                stones: [
+                    {
+                        stoneId: 'quartzite',
+                        quantity: 9,
+                        edge: 'Straight Edge',
+                        finish: 'Polished',
+                    },
+                ],
+            },
         ],
         services: [
             'Site Ocular & Technical Assessment',
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
-        projectName: 'Northgate Cafe — Counters',
         requirements: {
             location: 'Makati',
             landmark: 'Second floor, beside the mezzanine staircase',
-            edge: 'Half Bevel',
-            finish: 'Leather',
             areaSqm: 18.5,
             neededBy: '2026-11-14',
             notes: 'The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.',
@@ -1709,20 +1851,37 @@ export const inquiries: Inquiry[] = [
         updatedAt: '2026-09-19T09:30:00.000Z',
         clientId: 'cl-nadine',
         handledByIds: ['maria'],
-        stoneSelections: [
-            { stoneId: 'travertine', quantity: 8 },
-            { stoneId: 'marble', quantity: 5 },
+        projects: [
+            {
+                id: 'prj-1044-1',
+                name: 'Garden Court — Vanity Tops',
+                services: [
+                    'Design & Project Consultation',
+                    'Post-Installation Quality Care',
+                ],
+                stones: [
+                    {
+                        stoneId: 'travertine',
+                        quantity: 8,
+                        edge: 'Reverse Chamfer',
+                        finish: 'Honed',
+                    },
+                    {
+                        stoneId: 'marble',
+                        quantity: 5,
+                        edge: 'Reverse Chamfer',
+                        finish: 'Honed',
+                    },
+                ],
+            },
         ],
         services: [
             'Design & Project Consultation',
             'Post-Installation Quality Care',
         ],
-        projectName: 'Garden Court — Vanity Tops',
         requirements: {
             location: 'San Juan',
             landmark: 'Ground floor, beside the garden court entrance',
-            edge: 'Reverse Chamfer',
-            finish: 'Honed',
             areaSqm: 9.75,
             neededBy: '2026-10-30',
             attachments: [],
@@ -1744,20 +1903,38 @@ export const inquiries: Inquiry[] = [
         updatedAt: '2026-09-14T07:40:00.000Z',
         clientId: 'cl-ivan',
         handledByIds: ['priya'],
-        stoneSelections: [
-            { stoneId: 'granite', quantity: 5 },
-            { stoneId: 'monumental', quantity: 2 },
+        projects: [
+            {
+                id: 'prj-1043-1',
+                name: 'Hillcrest Showroom — Display Units',
+                services: [
+                    'Custom Stone Furniture',
+                    'Custom Stone Fabrication',
+                    'Natural Stone Installation',
+                ],
+                stones: [
+                    {
+                        stoneId: 'granite',
+                        quantity: 5,
+                        edge: 'Straight Edge',
+                        finish: 'Polished',
+                    },
+                    {
+                        stoneId: 'monumental',
+                        quantity: 2,
+                        edge: 'Straight Edge',
+                        finish: 'Polished',
+                    },
+                ],
+            },
         ],
         services: [
             'Custom Stone Furniture',
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
-        projectName: 'Hillcrest Showroom — Display Units',
         requirements: {
             location: 'San Juan',
-            edge: 'Straight Edge',
-            finish: 'Polished',
             areaSqm: 12,
             neededBy: '2026-09-26',
             attachments: [
@@ -1787,22 +1964,61 @@ export const inquiries: Inquiry[] = [
         updatedAt: '2026-09-08T04:15:00.000Z',
         clientId: 'cl-haruki',
         handledByIds: ['daniel', 'sofia'],
-        stoneSelections: [
-            { stoneId: 'quartzite', quantity: 12 },
-            { stoneId: 'granite', quantity: 6 },
-            { stoneId: 'marble', quantity: 4 },
+        projects: [
+            {
+                id: 'prj-1041-1',
+                name: 'The Grove — Outdoor Kitchen and Deck',
+                services: [
+                    'Natural Stone Supply',
+                    'Custom Stone Fabrication',
+                    'Natural Stone Installation',
+                ],
+                stones: [
+                    {
+                        stoneId: 'quartzite',
+                        quantity: 12,
+                        edge: 'Full Bevel',
+                        finish: 'Leather',
+                    },
+                    {
+                        stoneId: 'granite',
+                        quantity: 6,
+                        edge: 'Full Bevel',
+                        finish: 'Leather',
+                    },
+                    {
+                        stoneId: 'marble',
+                        quantity: 4,
+                        edge: 'Full Bevel',
+                        finish: 'Leather',
+                    },
+                ],
+            },
+            {
+                id: 'prj-1041-2',
+                name: 'The Grove — Pool Deck',
+                services: [
+                    'Natural Stone Supply',
+                    'Natural Stone Installation',
+                ],
+                stones: [
+                    {
+                        stoneId: 'travertine',
+                        quantity: 20,
+                        edge: 'Straight Edge',
+                        finish: 'Honed',
+                    },
+                ],
+            },
         ],
         services: [
             'Natural Stone Supply',
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
-        projectName: 'The Grove — Outdoor Kitchen',
         requirements: {
             location: 'Muntinlupa',
             landmark: 'Pool deck, beside the barbecue counter',
-            edge: 'Full Bevel',
-            finish: 'Leather',
             areaSqm: 24.25,
             neededBy: '2026-09-05',
             notes: [
@@ -1864,16 +2080,30 @@ export const inquiries: Inquiry[] = [
         updatedAt: '2026-08-14T01:10:00.000Z',
         clientId: 'cl-grace',
         handledByIds: ['sofia'],
-        stoneSelections: [
-            { stoneId: 'onyx', quantity: 3 },
-            { stoneId: 'cobblestone', quantity: 10 },
+        projects: [
+            {
+                id: 'prj-1039-1',
+                name: 'Maple Lane — Laundry',
+                services: ['Stone Relocation, Dismantling & Reinstallation'],
+                stones: [
+                    {
+                        stoneId: 'onyx',
+                        quantity: 3,
+                        edge: 'Half Bullnose',
+                        finish: 'Honed',
+                    },
+                    {
+                        stoneId: 'cobblestone',
+                        quantity: 10,
+                        edge: 'Half Bullnose',
+                        finish: 'Honed',
+                    },
+                ],
+            },
         ],
         services: ['Stone Relocation, Dismantling & Reinstallation'],
-        projectName: 'Maple Lane — Laundry',
         requirements: {
             location: 'Quezon City',
-            edge: 'Half Bullnose',
-            finish: 'Honed',
             attachments: [],
         },
         statusHistory: [

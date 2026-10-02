@@ -10,13 +10,14 @@ type InquiryStepperProps = {
  *
  * It is presentational: it shows where the user is and does not move them, so
  * every step can decide for itself what the next one is called. Below `sm` the
- * rail is replaced by a single line, because four labelled boxes do not fit
- * across 360px.
+ * rail is replaced by a single line, because a row of labelled boxes does not
+ * fit across 360px — and the line is where the count lives, so "Step 3 of 5"
+ * reads the same whether or not the rail is on screen.
  *
  * Each step's box is the only thing that takes up room in the row. The label
  * is positioned under the box and does not count toward the row's width, so a
- * long label ("Requirements") cannot push the connector lines away from its
- * box, and every connector ends up the same length.
+ * long label ("Services") cannot push the connector lines away from its box,
+ * and every connector ends up the same length however many steps there are.
  *
  * A finished step is filled black with a white tick, the current step is an
  * empty box inside a black ring, and a step still to come is a grey outline.

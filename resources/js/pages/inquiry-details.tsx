@@ -23,12 +23,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
     clients,
     inquiries,
+    inquiryTitle,
     people,
     serviceOptions,
     stones,
     type Client,
     type FeedItem,
     type InquiryFile,
+    type InquiryStoneSelection,
     type Person,
 } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
@@ -167,6 +169,21 @@ const CountBadge = ({ count }: { count: number }) => (
     >
         {count}
     </Badge>
+);
+
+/**
+ * The name a project was given while it was being asked for.
+ *
+ * The one thing on this page that connects a project's stones to the services
+ * wanted for them, so it heads a block in both of those cards. The client's own
+ * words come first, with its position behind it, because on a request holding
+ * several projects the number is the only thing that tells two blocks apart when
+ * the names are similar — and the name is what the team will be quoted under.
+ */
+const ProjectLabel = ({ index, name }: { index: number; name: string }) => (
+    <h3 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+        Project {index + 1} · {name}
+    </h3>
 );
 
 /** One way to reach the client, with the icon naming what it is. */
@@ -334,33 +351,54 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
         .map((id) => people.find((entry) => entry.id === id))
         .filter((person): person is Person => person !== undefined);
     /*
-     * Resolved in the order the client picked them rather than in catalogue
-     * order, and through a map so that a stone dropped from `stones` since the
-     * inquiry was raised falls off the page instead of crashing it.
+     * Resolved per project rather than as one list over the inquiry, and through
+     * a map so that a stone dropped from `stones` since the inquiry was raised
+     * falls off the page instead of crashing it. A project's stones, their
+     * counts and how each is worked are that project's own answer: the same
+     * stone in two projects is two lots of it, cut two ways.
      */
-    const inquiryStones = inquiry.stoneSelections
-        .map((selection) => {
-            const stone = stones.find(
-                (entry) => entry.id === selection.stoneId,
-            );
+    const inquiryProjects = inquiry.projects
+        .map((project) => ({
+            id: project.id,
+            name: project.name,
+            services: project.services,
+            stones: project.stones
+                .map((selection) => {
+                    const stone = stones.find(
+                        (entry) => entry.id === selection.stoneId,
+                    );
 
-            return stone === undefined
-                ? undefined
-                : { ...stone, quantity: selection.quantity };
-        })
-        .filter(
-            (stone): stone is FeedItem & { quantity: number } =>
-                stone !== undefined,
-        );
+                    return stone === undefined
+                        ? undefined
+                        : { ...stone, ...selection };
+                })
+                .filter(
+                    (stone): stone is FeedItem & InquiryStoneSelection =>
+                        stone !== undefined,
+                ),
+        }))
+        .filter((project) => project.stones.length > 0);
     /*
-     * Pieces rather than types: the count next to a stone name on the tiles is
+     * Pieces rather than types: the count beside a stone name on the tiles is
      * how many were asked for, so the band underneath has to add up to the same
-     * figure the tiles are showing.
+     * figure the tiles are showing. The types are counted across the whole
+     * inquiry and without duplicates, because the same material in two projects
+     * is one material asked about twice.
      */
-    const stoneCount = inquiryStones.reduce(
-        (total, stone) => total + stone.quantity,
+    const stoneCount = inquiryProjects.reduce(
+        (total, project) =>
+            total +
+            project.stones.reduce(
+                (pieces, stone) => pieces + stone.quantity,
+                0,
+            ),
         0,
     );
+    const stoneTypes = new Set(
+        inquiry.projects.flatMap((project) =>
+            project.stones.map((selection) => selection.stoneId),
+        ),
+    ).size;
     const neededBy = formatNeededBy(requirements.neededBy);
     const attachments = requirements.attachments;
 
@@ -377,7 +415,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                     <p className="text-sm break-words text-secondary-foreground">
                         Submitted{' '}
                         {dateTimeFormatter.format(new Date(inquiry.createdAt))}{' '}
-                        · {inquiry.projectName}
+                        · {inquiryTitle(inquiry)}
                     </p>
                 </div>
 
@@ -577,66 +615,76 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                     <DetailsCard
                         title="Stones"
                         name="stones"
-                        badge={<CountBadge count={inquiryStones.length} />}
+                        badge={<CountBadge count={stoneTypes} />}
                         footer={`${stoneCount} ${
                             stoneCount === 1 ? 'piece' : 'pieces'
-                        } of ${inquiryStones.length} ${
-                            inquiryStones.length === 1 ? 'stone' : 'stones'
+                        } of ${stoneTypes} ${
+                            stoneTypes === 1 ? 'stone' : 'stones'
                         }`}
                     >
-                        {inquiryStones.length > 0 ? (
-                            /* Same shape as the review step of the inquiry
-                               stepper: the stone is the answer to a picture, so
-                               they go across rather than down. Fewer columns than
-                               the stepper's, twice over — the card is narrower
-                               than the stepper's sheet, and the longest name in
-                               the catalogue needs room beside its count rather
-                               than under it.
+                        {inquiryProjects.length > 0 ? (
+                            /* One block per project, because the edge and the
+                               finish are a stone's answer inside its own
+                               project: one flat list would have to say one thing
+                               about a material wanted two ways.
 
-                               The edge and the finish travel with the name
-                               rather than sitting in the requirements card,
-                               because a client reads a stone as a picture, a
-                               name and how it is cut. They repeat on every tile
-                               since the requirements step collects one answer
-                               for the whole inquiry. */
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
-                                {inquiryStones.map(
-                                    (
-                                        stone: FeedItem & { quantity: number },
-                                    ) => (
-                                        <div key={stone.id} className="min-w-0">
-                                            <img
-                                                src={stone.thumbnail}
-                                                alt=""
-                                                loading="lazy"
-                                                className="aspect-square w-full object-cover"
+                               Within a block, the stone is the answer to a
+                               picture, so the tiles go across rather than down.
+                               Fewer columns than the stepper's, twice over — the
+                               card is narrower than the stepper's sheet, and the
+                               longest name in the catalogue needs room beside its
+                               count rather than under it. */
+                            <div className="space-y-8">
+                                {inquiryProjects.map((project, index) => (
+                                    <div key={project.id}>
+                                        {inquiryProjects.length > 1 ? (
+                                            <ProjectLabel
+                                                index={index}
+                                                name={project.name}
                                             />
-                                            {/*
-                                             * The count sits opposite the name
-                                             * rather than under it: how many of
-                                             * a stone is part of which stone, so
-                                             * the two read as one line. It holds
-                                             * its width so a long name truncates
-                                             * instead of pushing the count off the
-                                             * tile.
-                                             */}
-                                            <div className="mt-2 flex items-baseline justify-between gap-x-2">
-                                                <p className="truncate text-sm font-bold">
-                                                    {stone.name}
-                                                </p>
-                                                <p className="shrink-0 text-xs font-bold text-secondary-foreground">
-                                                    x{stone.quantity}
-                                                </p>
-                                            </div>
-                                            <p className="mt-1 truncate text-xs text-secondary-foreground">
-                                                {requirements.edge}
-                                            </p>
-                                            <p className="truncate text-xs text-secondary-foreground">
-                                                {requirements.finish}
-                                            </p>
+                                        ) : null}
+
+                                        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
+                                            {project.stones.map((stone) => (
+                                                <div
+                                                    key={stone.id}
+                                                    className="min-w-0"
+                                                >
+                                                    <img
+                                                        src={stone.thumbnail}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        className="aspect-square w-full object-cover"
+                                                    />
+                                                    {/*
+                                                     * The count sits opposite the
+                                                     * name rather than under it:
+                                                     * how many of a stone is part
+                                                     * of which stone, so the two
+                                                     * read as one line. It holds
+                                                     * its width so a long name
+                                                     * truncates instead of pushing
+                                                     * the count off the tile.
+                                                     */}
+                                                    <div className="mt-2 flex items-baseline justify-between gap-x-2">
+                                                        <p className="truncate text-sm font-bold">
+                                                            {stone.name}
+                                                        </p>
+                                                        <p className="shrink-0 text-xs font-bold text-secondary-foreground">
+                                                            x{stone.quantity}
+                                                        </p>
+                                                    </div>
+                                                    <p className="mt-1 truncate text-xs text-secondary-foreground">
+                                                        {stone.edge}
+                                                    </p>
+                                                    <p className="truncate text-xs text-secondary-foreground">
+                                                        {stone.finish}
+                                                    </p>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ),
-                                )}
+                                    </div>
+                                ))}
                             </div>
                         ) : (
                             <p className="text-sm text-secondary-foreground">
@@ -651,36 +699,62 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                         badge={<CountBadge count={inquiry.services.length} />}
                     >
                         {inquiry.services.length > 0 ? (
-                            /* Name and picture only. The bullets are what the
-                               service card in the stepper is for, where a client
-                               is still choosing; here they have already chosen
-                               and the row is a record of what they picked. */
-                            <ul className="divide-y divide-dashed divide-sidebar-border">
-                                {inquiry.services.map((name) => {
-                                    const service = serviceOptions.find(
-                                        (option) => option.name === name,
-                                    );
+                            /*
+                             * Grouped the same way as the stones above, and for
+                             * the same reason: a service is wanted for a
+                             * particular set of stones, so a flat list would say
+                             * a service belongs to the whole inquiry when it
+                             * belongs to one project.
+                             *
+                             * Name and picture only. The bullets are what the
+                             * service card in the stepper is for, where a client
+                             * is still choosing; here they have already chosen
+                             * and the row is a record of what they picked.
+                             */
+                            <div className="space-y-6">
+                                {inquiryProjects.map((project, index) => (
+                                    <div key={project.id}>
+                                        {inquiryProjects.length > 1 ? (
+                                            <ProjectLabel
+                                                index={index}
+                                                name={project.name}
+                                            />
+                                        ) : null}
 
-                                    return (
-                                        <li
-                                            key={name}
-                                            className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
-                                        >
-                                            <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                                {name}
-                                            </p>
-                                            {service ? (
-                                                <img
-                                                    src={service.image}
-                                                    alt=""
-                                                    loading="lazy"
-                                                    className="size-12 shrink-0 object-cover"
-                                                />
-                                            ) : null}
-                                        </li>
-                                    );
-                                })}
-                            </ul>
+                                        <ul className="mt-4 divide-y divide-dashed divide-sidebar-border">
+                                            {project.services.map((name) => {
+                                                const service =
+                                                    serviceOptions.find(
+                                                        (option) =>
+                                                            option.name ===
+                                                            name,
+                                                    );
+
+                                                return (
+                                                    <li
+                                                        key={name}
+                                                        className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                                                    >
+                                                        <p className="min-w-0 flex-1 text-sm font-bold break-words">
+                                                            {name}
+                                                        </p>
+                                                        {service ? (
+                                                            <img
+                                                                src={
+                                                                    service.image
+                                                                }
+                                                                alt=""
+                                                                loading="lazy"
+                                                                className="size-12 shrink-0 object-cover"
+                                                            />
+                                                        ) : null}
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
                         ) : (
                             <p className="text-sm text-secondary-foreground">
                                 No services were asked for on this inquiry.
@@ -689,8 +763,8 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                     </DetailsCard>
 
                     <DetailsCard
-                        title="Project requirements"
-                        name="project requirements"
+                        title="Inquiry details"
+                        name="inquiry details"
                         footer={
                             attachments.length > 0
                                 ? 'Files are not stored in this preview.'
@@ -698,10 +772,6 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                         }
                     >
                         <dl>
-                            <SummaryRow
-                                label="Project name"
-                                value={inquiry.projectName}
-                            />
                             <SummaryRow
                                 label="Location"
                                 value={requirements.location}

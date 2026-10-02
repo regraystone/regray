@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
     inquiries,
+    inquiryTitle,
     stones,
     type FeedItem,
     type Inquiry,
@@ -214,10 +215,21 @@ const InquiryCard = ({
     onGetInvoice: (inquiry: Inquiry) => void;
     onCancel: (inquiry: Inquiry) => void;
 }) => {
-    const inquiryStones = inquiry.stoneSelections
-        .map((selection) =>
-            stones.find((stone) => stone.id === selection.stoneId),
-        )
+    /*
+     * Every stone the inquiry mentions, in the order the client first picked it.
+     * An inquiry can hold several projects and one stone can be in more than one
+     * of them, so the ids are flattened and deduplicated: this row is asking which
+     * materials are involved, and a stone wanted twice is still one material. The
+     * counts and the specifications belong to the details page.
+     */
+    const inquiryStones = [
+        ...new Set(
+            inquiry.projects.flatMap((project) =>
+                project.stones.map((selection) => selection.stoneId),
+            ),
+        ),
+    ]
+        .map((stoneId) => stones.find((stone) => stone.id === stoneId))
         .filter((stone): stone is FeedItem => stone !== undefined);
 
     const thumbnails = inquiryStones.slice(0, 3);
@@ -285,7 +297,7 @@ const InquiryCard = ({
 
                         <div className="min-w-0 flex-1 space-y-2">
                             <p className="truncate text-sm font-bold text-foreground">
-                                {inquiry.projectName}
+                                {inquiryTitle(inquiry)}
                             </p>
                             <p className="truncate text-xs text-secondary-foreground">
                                 {inquiryStones
@@ -418,7 +430,7 @@ const Quote = () => {
      */
     const [cancelLabel, setCancelLabel] = useState({
         reference: '',
-        projectName: '',
+        title: '',
     });
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const inquireRef = useRef<HTMLSpanElement | null>(null);
@@ -604,7 +616,7 @@ const Quote = () => {
     const openCancelPrompt = (inquiry: Inquiry) => {
         setCancelLabel({
             reference: inquiry.reference,
-            projectName: inquiry.projectName,
+            title: inquiryTitle(inquiry),
         });
         setCancelTarget(inquiry);
     };
@@ -894,9 +906,9 @@ const Quote = () => {
                             Cancel inquiry {cancelLabel.reference}?
                         </DialogTitle>
                         <DialogDescription>
-                            This will cancel {cancelLabel.projectName}. A
-                            cancelled inquiry can&apos;t be reopened. To
-                            continue, you&apos;d need to start a new inquiry.
+                            This will cancel {cancelLabel.title}. A cancelled
+                            inquiry can&apos;t be reopened. To continue,
+                            you&apos;d need to start a new inquiry.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>

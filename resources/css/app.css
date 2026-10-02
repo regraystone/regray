@@ -205,6 +205,34 @@
     }
 }
 
+/*
+ * Take away the browser's own stepper from a number field.
+ *
+ * Chrome and Safari draw up and down arrows inside `type="number"`, which is a
+ * second pair of stepper buttons beside the ones the app draws, in a different
+ * style and a different place. Worse, they sit inside the field's padding, so
+ * they push the count off centre even though the field is marked `text-center`:
+ * the text is centred in what is left once the arrows have taken their room.
+ * Firefox draws its own, dropped by the same declaration on the field itself, so
+ * all three go together rather than leaving Firefox with a control that looks
+ * different from the one Chrome was asked to forget.
+ *
+ * Applied only where the app supplies its own stepper. A number field with no
+ * buttons beside it still needs these arrows to be stepped at all, so this is
+ * asked for by name rather than put on every number field in the app.
+ */
+@utility no-stepper {
+    -moz-appearance: textfield;
+    appearance: textfield;
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        appearance: none;
+        margin: 0;
+    }
+}
+
 /* 50ms per sibling, capped at 12 so the last block lands inside ~1s. */
 [data-slot='skeleton']:nth-child(1) {
     --skeleton-delay: 0ms;

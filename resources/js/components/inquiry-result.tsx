@@ -7,7 +7,12 @@ import { index as messageIndex } from '@/routes/message';
 
 type InquiryResultProps = {
     status: 'success' | 'error';
-    projectName: string;
+    /**
+     * What the request is known by, so the reader can recognise it in the list
+     * they are about to be sent to. The name of the first project, which is what
+     * the whole request is called everywhere else.
+     */
+    title: string;
     /** The chat is only offered to someone allowed to open it. */
     canChat: boolean;
     /**
@@ -40,7 +45,7 @@ type InquiryResultProps = {
  */
 const InquiryResult = ({
     status,
-    projectName,
+    title,
     canChat,
     inquiriesHref,
     onTryAgain,
@@ -181,7 +186,7 @@ const InquiryResult = ({
                         Quote requested
                     </h3>
                     <p className="mt-2 max-w-sm text-sm text-foreground">
-                        We&apos;ve received your request for {projectName}.
+                        We&apos;ve received your request for {title}.
                     </p>
                 </>
             ) : (

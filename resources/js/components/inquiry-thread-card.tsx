@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
 import { StatusBadge, STATUS_LABELS } from '@/components/inquiry-status-badge';
 import {
+    inquiryTitle,
     stones,
     type FeedItem,
     type Inquiry,
@@ -104,10 +105,20 @@ const InquiryThreadCard = ({
     occurredAt = inquiry.createdAt,
 }: InquiryThreadCardProps) => {
     const { can } = usePermissions();
-    const inquiryStones = inquiry.stoneSelections
-        .map((selection) =>
-            stones.find((stone) => stone.id === selection.stoneId),
-        )
+    /*
+     * Every stone the inquiry mentions, deduplicated: one stone wanted in two of
+     * its projects is still one material, and a photo strip with the same picture
+     * in it twice reads as a mistake. The counts and the specifications are on
+     * the details page.
+     */
+    const inquiryStones = [
+        ...new Set(
+            inquiry.projects.flatMap((project) =>
+                project.stones.map((selection) => selection.stoneId),
+            ),
+        ),
+    ]
+        .map((stoneId) => stones.find((stone) => stone.id === stoneId))
         .filter((stone): stone is FeedItem => stone !== undefined);
 
     const heroStones = inquiryStones.slice(0, MAX_HERO_STONES);
@@ -145,7 +156,7 @@ const InquiryThreadCard = ({
     const title = (
         <span className="block space-y-0.5 bg-foreground/60 p-3">
             <span className="line-clamp-2 block text-sm font-bold text-background">
-                {inquiry.projectName}
+                {inquiryTitle(inquiry)}
             </span>
 
             <span className="block text-xs text-background/80">
@@ -175,7 +186,7 @@ const InquiryThreadCard = ({
 
             <Link
                 href={detailsHref}
-                aria-label={`${headline} ${inquiry.projectName}, inquiry ${inquiry.reference}, ${STATUS_LABELS[badgeStatus]}. View details`}
+                aria-label={`${headline} ${inquiryTitle(inquiry)}, inquiry ${inquiry.reference}, ${STATUS_LABELS[badgeStatus]}. View details`}
                 className="mx-auto block w-full max-w-xs overflow-hidden bg-secondary text-left transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
             >
                 {hasHero ? (
