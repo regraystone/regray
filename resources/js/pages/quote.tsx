@@ -36,7 +36,7 @@ import {
     type InquiryStatus,
 } from '@/data/constant';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
-import { index as inquiryIndex } from '@/routes/inquiry';
+import { show as quoteShow } from '@/routes/quote';
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -214,8 +214,10 @@ const InquiryCard = ({
     onGetInvoice: (inquiry: Inquiry) => void;
     onCancel: (inquiry: Inquiry) => void;
 }) => {
-    const inquiryStones = inquiry.stoneIds
-        .map((stoneId) => stones.find((stone) => stone.id === stoneId))
+    const inquiryStones = inquiry.stoneSelections
+        .map((selection) =>
+            stones.find((stone) => stone.id === selection.stoneId),
+        )
         .filter((stone): stone is FeedItem => stone !== undefined);
 
     const thumbnails = inquiryStones.slice(0, 3);
@@ -224,7 +226,7 @@ const InquiryCard = ({
         inquiry.status === 'draft' || inquiry.status === 'pending';
     const updateBlockedReason = UPDATE_BLOCKED_REASON[inquiry.status];
     const cancelBlockedReason = CANCEL_BLOCKED_REASON[inquiry.status];
-    const detailsHref = inquiryIndex.url({ query: { inquiry: inquiry.id } });
+    const detailsHref = quoteShow.url({ inquiry: inquiry.id });
     const actionClassName = 'w-full sm:w-auto lg:w-full';
 
     return (

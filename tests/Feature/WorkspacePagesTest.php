@@ -32,6 +32,8 @@ function workspacePages(): array
         'inquiry.index' => [],
         'quote.inquire' => [],
         'inquiry.inquire' => [],
+        'quote.show' => ['inquiry' => 'inq-1048'],
+        'inquiry.show' => ['inquiry' => 'inq-1048'],
         'schedule.index' => [],
         'message.index' => [],
         'stones.index' => [],
@@ -138,6 +140,8 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['inquiry.index', ['view inquiry']],
     ['quote.inquire', ['view quotation', 'add inquiry']],
     ['inquiry.inquire', ['view inquiry', 'add inquiry']],
+    ['quote.show', ['view quotation', 'view inquiry details']],
+    ['inquiry.show', ['view inquiry', 'view inquiry details']],
     ['schedule.index', ['view schedule']],
     ['message.index', ['view message']],
     ['stones.index', ['view stones']],
@@ -245,10 +249,27 @@ test('the inquiry permission is granted to exactly the two roles that use it', f
     expect($holders)->toBe(['client', 'mktg']);
 });
 
+test('the inquiry details permission is granted to every role except admin', function () {
+    // Unlike `add inquiry`, which only client and mktg need, the details page is
+    // read-only and belongs to whoever reads the list it hangs off. So everyone
+    // who reads inquiries at all may open one, and admin — who reads none of
+    // those lists — may not.
+    foreach (['client', 'owner', 'acct', 'tech', 'mktg', 'logi', 'sales'] as $role) {
+        expect(RolePermissionSeeder::MATRIX[$role])
+            ->toContain('view inquiry details');
+    }
+
+    expect(RolePermissionSeeder::MATRIX['admin'])
+        ->not->toContain('view inquiry details');
+});
+
 test('the inquiry permission is the only one that is not a sidebar page', function () {
-    // The sidebar has one item per `view` permission, so anything else in the
-    // list is an action that guards a page no item links to. The stepper is
-    // reached from Quote and Inquiry, and is the first of these.
+    // Anything in the list that is not a `view` permission is an action that
+    // guards a page no sidebar item links to. The stepper is reached from Quote
+    // and Inquiry, and is the only one of these. `view inquiry details` is the
+    // counter-example to the other half of that rule, a `view` permission with no
+    // sidebar item of its own, but it is still a view rather than an action and
+    // so is out of scope here.
     $actions = collect(RolePermissionSeeder::PERMISSIONS)
         ->reject(fn (string $permission) => str_starts_with($permission, 'view '))
         ->values()

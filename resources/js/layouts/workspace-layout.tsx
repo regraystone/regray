@@ -39,7 +39,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { stoneProfiles } from '@/data/constant';
+import { inquiries, stoneProfiles } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -410,8 +410,17 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         ? stoneProfiles[segment]
                         : undefined;
 
+                // An inquiry is addressed by its id but read by its reference,
+                // the same way a stone segment shows the stone's name.
+                const inquiry =
+                    previousSegment === 'quote' || previousSegment === 'inquiry'
+                        ? inquiries.find((entry) => entry.id === segment)
+                        : undefined;
+
                 if (profile) {
                     crumbs.push({ label: profile.name });
+                } else if (inquiry) {
+                    crumbs.push({ label: inquiry.reference });
                 } else {
                     crumbs.push({
                         label:

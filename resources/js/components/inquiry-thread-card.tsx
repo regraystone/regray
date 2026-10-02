@@ -7,7 +7,9 @@ import {
     type Inquiry,
     type InquiryStatus,
 } from '@/data/constant';
-import { index as inquiryIndex } from '@/routes/inquiry';
+import { usePermissions } from '@/hooks/use-permissions';
+import { show as inquiryShow } from '@/routes/inquiry';
+import { show as quoteShow } from '@/routes/quote';
 
 /**
  * Two tiles, not three. The card is a preview, and two photographs already say
@@ -101,13 +103,24 @@ const InquiryThreadCard = ({
     status,
     occurredAt = inquiry.createdAt,
 }: InquiryThreadCardProps) => {
-    const inquiryStones = inquiry.stoneIds
-        .map((stoneId) => stones.find((stone) => stone.id === stoneId))
+    const { can } = usePermissions();
+    const inquiryStones = inquiry.stoneSelections
+        .map((selection) =>
+            stones.find((stone) => stone.id === selection.stoneId),
+        )
         .filter((stone): stone is FeedItem => stone !== undefined);
 
     const heroStones = inquiryStones.slice(0, MAX_HERO_STONES);
     const extraStones = inquiryStones.length - heroStones.length;
-    const detailsHref = inquiryIndex.url({ query: { inquiry: inquiry.id } });
+    /*
+     * The details page sits under whichever list the reader works from, and the
+     * two lists are guarded separately, so the link follows the permission rather
+     * than a guess: a client reading their own quotations goes to the quote URL,
+     * everybody else to the staff one.
+     */
+    const detailsHref = can('view quotation')
+        ? quoteShow.url({ inquiry: inquiry.id })
+        : inquiryShow.url({ inquiry: inquiry.id });
     const serviceCount = inquiry.services.length;
     const hasHero = heroStones.length > 0;
     /*

@@ -43,6 +43,19 @@ class ViewController extends Controller
         return Inertia::render('inquire');
     }
 
+    /**
+     * One inquiry, read only.
+     *
+     * The record itself is mock data that lives in the front end, so the route
+     * only carries the id. Once inquiries are persisted this is where the record
+     * is loaded, and where it is scoped to its owner: a client may only open
+     * their own, whatever the permission said.
+     */
+    public function inquiryDetails(Request $request, string $inquiry): Response
+    {
+        return Inertia::render('inquiry-details', ['inquiryId' => $inquiry]);
+    }
+
     public function schedule(Request $request): Response
     {
         return Inertia::render('schedule');

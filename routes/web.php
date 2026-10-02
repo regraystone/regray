@@ -60,6 +60,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['can:view inquiry', 'can:add inquiry'])
         ->name('inquiry.inquire');
 
+    /*
+     * The inquiry details page hangs off whichever list the user reads their
+     * inquiries on, so there is one route under each and the URL says which.
+     * Each needs two permissions: the one that guards the list it sits under, so
+     * a client cannot reach the staff URL and a staff user cannot reach the
+     * client one, and `view inquiry details` on top, which is the action of
+     * opening a single inquiry. That last permission is granted to every role
+     * except admin, so the list guards are already keeping admin out of both
+     * URLs, but it still has to be checked on its own: a permission that is only
+     * ever checked alongside another is not a permission.
+     *
+     * The parameter is constrained because it would otherwise swallow any
+     * segment, including the static ones registered below.
+     */
+    Route::get('quote/{inquiry}', [ViewController::class, 'inquiryDetails'])
+        ->where('inquiry', '[A-Za-z0-9-]+')
+        ->middleware(['can:view quotation', 'can:view inquiry details'])
+        ->name('quote.show');
+    Route::get('inquiry/{inquiry}', [ViewController::class, 'inquiryDetails'])
+        ->where('inquiry', '[A-Za-z0-9-]+')
+        ->middleware(['can:view inquiry', 'can:view inquiry details'])
+        ->name('inquiry.show');
+
     Route::get('schedule', [ViewController::class, 'schedule'])
         ->middleware('can:view schedule')
         ->name('schedule.index');

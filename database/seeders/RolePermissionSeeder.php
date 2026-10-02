@@ -19,10 +19,13 @@ class RolePermissionSeeder extends Seeder
      * What a user may be granted: one `view` permission per sidebar page, plus
      * any `add` action that is not a page of its own.
      *
-     * Only the `view` permissions name a sidebar item, so a permission here is
-     * not a guarantee that the sidebar has an entry for it. `add inquiry` is the
-     * first of the action kind: it guards the inquiry stepper, which both
-     * navigates to and returns to a page rather than being one.
+     * Most `view` permissions name a sidebar item, so a permission here is
+     * usually a guarantee that the sidebar has an entry for it. `view inquiry
+     * details` is the exception: it names a page that has no item of its own,
+     * because the details page hangs off the list the user reads their inquiries
+     * on, the way the stepper does. `add inquiry` is the first of the action
+     * kind: it guards the inquiry stepper, which both navigates to and returns
+     * to a page rather than being one.
      *
      * @var array<int, string>
      */
@@ -41,6 +44,7 @@ class RolePermissionSeeder extends Seeder
         'view projects',
         'view profile',
         'add inquiry',
+        'view inquiry details',
     ];
 
     /**
@@ -60,6 +64,7 @@ class RolePermissionSeeder extends Seeder
             'view message',
             'view profile',
             'add inquiry',
+            'view inquiry details',
         ],
         'admin' => [
             'view overview',
@@ -76,6 +81,7 @@ class RolePermissionSeeder extends Seeder
             'view schedule',
             'view message',
             'view profile',
+            'view inquiry details',
         ],
         'mktg' => [
             'view overview',
@@ -84,6 +90,7 @@ class RolePermissionSeeder extends Seeder
             'view message',
             'view profile',
             'add inquiry',
+            'view inquiry details',
         ],
         'sales' => [
             'view overview',
@@ -91,6 +98,7 @@ class RolePermissionSeeder extends Seeder
             'view schedule',
             'view message',
             'view profile',
+            'view inquiry details',
         ],
         'acct' => [
             'view overview',
@@ -98,18 +106,21 @@ class RolePermissionSeeder extends Seeder
             'view inquiry',
             'view message',
             'view profile',
+            'view inquiry details',
         ],
         'tech' => [
             'view overview',
             'view inquiry',
             'view message',
             'view profile',
+            'view inquiry details',
         ],
         'logi' => [
             'view overview',
             'view inquiry',
             'view message',
             'view profile',
+            'view inquiry details',
         ],
     ];
 

@@ -1049,12 +1049,19 @@ export type Conversation = {
     inquiryId?: string;
 };
 
+/**
+ * Everyone the business has on the books.
+ *
+ * The four who pick up inquiries are titled by the officer role they hold rather
+ * than by what they used to do, because that is the only thing a staff member
+ * reading an inquiry needs to know about who has it.
+ */
 export const people: Person[] = [
-    { id: 'maria', name: 'Maria Alvarez', role: 'Stone Consultant' },
-    { id: 'daniel', name: 'Daniel Okafor', role: 'Project Manager' },
-    { id: 'sofia', name: 'Sofia Bianchi', role: 'Interior Designer' },
+    { id: 'maria', name: 'Maria Alvarez', role: 'Sales Officer' },
+    { id: 'daniel', name: 'Daniel Okafor', role: 'Technical Officer' },
+    { id: 'sofia', name: 'Sofia Bianchi', role: 'Sales Officer' },
     { id: 'kenji', name: 'Kenji Watanabe', role: 'Procurement Lead' },
-    { id: 'priya', name: 'Priya Raman', role: 'Structural Engineer' },
+    { id: 'priya', name: 'Priya Raman', role: 'Technical Officer' },
     { id: 'lucas', name: 'Lucas Moreau', role: 'Kitchen Studio Owner' },
     { id: 'amara', name: 'Amara Nwosu', role: 'Sales Director' },
     { id: 'tomas', name: 'Tomas Lindqvist', role: 'Logistics Coordinator' },
@@ -1463,24 +1470,163 @@ export type InquiryAttachment = {
     progress: number;
 };
 
+/**
+ * A file an inquiry carries, reduced to what a record can hold.
+ *
+ * The step 3 form keeps the live `File` so it can show a thumbnail while the
+ * browser still holds the bytes. A stored inquiry has neither: there is no
+ * upload endpoint yet, so a record keeps the name, the size and the type, and
+ * there is nothing left to download or preview from.
+ */
+export type InquiryFile = {
+    id: string;
+    name: string;
+    sizeBytes: number;
+    mimeType: string;
+};
+
+/**
+ * Who an inquiry came from.
+ *
+ * Its own list rather than a `people` entry, because a client is somebody the
+ * business is quoting to rather than a member of its team: they have a company
+ * and a site address, which no one on staff has.
+ */
+export type Client = {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    company?: string;
+    address: string;
+};
+
+/** The answers the requirements step collected, one field per question. */
+export type InquiryRequirementsRecord = {
+    location: string;
+    landmark?: string;
+    edge: string;
+    finish: string;
+    areaSqm?: number;
+    neededBy?: string;
+    notes?: string;
+    attachments: InquiryFile[];
+};
+
+export type InquiryStoneSelection = {
+    stoneId: string;
+    /** Pieces of this stone the client asked for. Always at least one. */
+    quantity: number;
+};
+
+export type InquiryStatusChange = {
+    status: InquiryStatus;
+    /** When the status moved to this one, which is all a timeline entry says. */
+    at: string;
+};
+
 export type Inquiry = {
     id: string;
     reference: string;
     status: InquiryStatus;
     createdAt: string;
-    stoneIds: string[];
+    /** When the status last moved, which is the last entry of `statusHistory`. */
+    updatedAt: string;
+    clientId: string;
+    /**
+     * The team members it sits with. More than one where the work needs more
+     * than one pair of hands — a sales officer who raised it and the technical
+     * officer who will cut it — and empty while nobody has picked it up.
+     */
+    handledByIds: string[];
+    /**
+     * The stones the client picked, in the order they picked them, and how many of
+     * each. A selection rather than a bare id list because a client does not ask
+     * for "granite", they ask for six slabs of it — the count belongs to the
+     * choice, so it travels with it.
+     */
+    stoneSelections: InquiryStoneSelection[];
     /**
      * Service names rather than ids, because the inquiry list renders them
      * straight onto badges and never has to look the service up.
      */
     services: string[];
     projectName: string;
+    requirements: InquiryRequirementsRecord;
+    /** Oldest first, so the newest change is the last entry. */
+    statusHistory: InquiryStatusChange[];
 };
+
+/**
+ * One client per sample inquiry.
+ *
+ * The people and their contact details are invented, and the emails use the
+ * reserved `.example` domain, so nothing here can reach a real person. The
+ * company and the address are on the record because a client has both, even
+ * though the details page shows neither: it is a page for reading what was
+ * asked for, not for who asked it.
+ */
+export const clients: Client[] = [
+    {
+        id: 'cl-elena',
+        name: 'Elena Villanueva',
+        email: 'elena.villanueva@brightleafdesign.example',
+        phone: '+63 917 555 0142',
+        company: 'Brightleaf Design Studio',
+        address:
+            '12 Kalachuchi Street, Barangay Commonwealth, Quezon City, 1103',
+    },
+    {
+        id: 'cl-rafael',
+        name: 'Rafael Domingo',
+        email: 'rafael.doming@thenorthgatecafe.example',
+        phone: '+63 2 8123 4409',
+        company: 'The Northgate Cafe',
+        address: 'Unit 4, Dela Paz Compound, Legazpi Village, Makati, 1229',
+    },
+    {
+        id: 'cl-nadine',
+        name: 'Nadine Delacroix',
+        email: 'nadine.delacroix@lumenandco.example',
+        phone: '+63 998 401 2277',
+        company: 'Lumen & Co. Architects',
+        address: '88 Katipunan Avenue, Barangay Juan Lopez, Quezon City, 1108',
+    },
+    {
+        id: 'cl-ivan',
+        name: 'Ivan Mercado',
+        email: 'ivan.mercado@hillcrestshowroom.example',
+        phone: '+63 917 220 8815',
+        company: 'Hillcrest Showroom',
+        address: '3 Greenwood Street, Barangay Addition Hills, San Juan, 1050',
+    },
+    {
+        id: 'cl-haruki',
+        name: 'Haruki Nakamura',
+        email: 'haruki.nakamura@groveresidences.example',
+        phone: '+63 917 630 3345',
+        company: 'The Grove Residences',
+        address: '17 Balete Drive, Barangay Ayala Alabang, Muntinlupa, 1780',
+    },
+    {
+        id: 'cl-grace',
+        name: 'Grace Lim',
+        email: 'grace.lim@maplelane.example',
+        phone: '+63 2 7441 9022',
+        address: '5 Maple Lane, Barangay Tunay, Quezon City, 1105',
+    },
+];
 
 /**
  * One sample inquiry per status, so every stage in the quote flow is visible
  * in the list without the statuses crowding each other out. Between them the
  * six cover all nine stones in `stones`. Listed newest first by `createdAt`.
+ *
+ * The optional answers are left out in different places across the six so that
+ * every state the details page can render for them is reachable from the sample
+ * data: the draft carries nothing but the required answers, the completed one a
+ * landmark, notes several paragraphs long and four attachments, and the rest
+ * sit in between.
  */
 export const inquiries: Inquiry[] = [
     {
@@ -1488,68 +1634,255 @@ export const inquiries: Inquiry[] = [
         reference: 'INQ-1050',
         status: 'draft',
         createdAt: '2026-09-29T01:20:00.000Z',
-        stoneIds: ['patagonia-quartzite', 'marble'],
+        updatedAt: '2026-09-29T01:20:00.000Z',
+        clientId: 'cl-elena',
+        handledByIds: [],
+        stoneSelections: [
+            { stoneId: 'patagonia-quartzite', quantity: 6 },
+            { stoneId: 'marble', quantity: 3 },
+        ],
         services: ['Kitchen & Cabinetry Solutions', 'Custom Stone Fabrication'],
         projectName: 'Riverside Residence — Kitchen',
+        requirements: {
+            location: 'Quezon City',
+            edge: 'Full Bullnose',
+            finish: 'Honed',
+            attachments: [],
+        },
+        statusHistory: [{ status: 'draft', at: '2026-09-29T01:20:00.000Z' }],
     },
     {
         id: 'inq-1048',
         reference: 'INQ-1048',
         status: 'pending',
         createdAt: '2026-09-27T03:40:00.000Z',
-        stoneIds: ['granite', 'quartzite', 'crazy-cut'],
+        updatedAt: '2026-09-28T06:15:00.000Z',
+        clientId: 'cl-rafael',
+        handledByIds: ['daniel', 'maria'],
+        stoneSelections: [
+            { stoneId: 'granite', quantity: 4 },
+            { stoneId: 'quartzite', quantity: 7 },
+            { stoneId: 'crazy-cut', quantity: 2 },
+        ],
         services: [
             'Site Ocular & Technical Assessment',
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
         projectName: 'Northgate Cafe — Counters',
+        requirements: {
+            location: 'Makati',
+            landmark: 'Second floor, beside the mezzanine staircase',
+            edge: 'Half Bevel',
+            finish: 'Leather',
+            areaSqm: 18.5,
+            neededBy: '2026-11-14',
+            notes: 'The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.',
+            attachments: [
+                {
+                    id: 'file-inq-1048-1',
+                    name: 'northgate-bar-layout.pdf',
+                    sizeBytes: 1284096,
+                    mimeType: 'application/pdf',
+                },
+                {
+                    id: 'file-inq-1048-2',
+                    name: 'exposed-concrete-photo.png',
+                    sizeBytes: 486400,
+                    mimeType: 'image/png',
+                },
+            ],
+        },
+        statusHistory: [
+            { status: 'draft', at: '2026-09-27T03:40:00.000Z' },
+            {
+                status: 'pending',
+                at: '2026-09-28T06:15:00.000Z',
+            },
+        ],
     },
     {
         id: 'inq-1044',
         reference: 'INQ-1044',
         status: 'quoted',
         createdAt: '2026-09-15T04:50:00.000Z',
-        stoneIds: ['travertine', 'marble'],
+        updatedAt: '2026-09-19T09:30:00.000Z',
+        clientId: 'cl-nadine',
+        handledByIds: ['maria'],
+        stoneSelections: [
+            { stoneId: 'travertine', quantity: 8 },
+            { stoneId: 'marble', quantity: 5 },
+        ],
         services: [
             'Design & Project Consultation',
             'Post-Installation Quality Care',
         ],
         projectName: 'Garden Court — Vanity Tops',
+        requirements: {
+            location: 'San Juan',
+            landmark: 'Ground floor, beside the garden court entrance',
+            edge: 'Reverse Chamfer',
+            finish: 'Honed',
+            areaSqm: 9.75,
+            neededBy: '2026-10-30',
+            attachments: [],
+        },
+        statusHistory: [
+            { status: 'draft', at: '2026-09-15T04:50:00.000Z' },
+            { status: 'pending', at: '2026-09-16T01:05:00.000Z' },
+            {
+                status: 'quoted',
+                at: '2026-09-19T09:30:00.000Z',
+            },
+        ],
     },
     {
         id: 'inq-1043',
         reference: 'INQ-1043',
         status: 'paid',
         createdAt: '2026-09-11T08:25:00.000Z',
-        stoneIds: ['granite', 'monumental'],
+        updatedAt: '2026-09-14T07:40:00.000Z',
+        clientId: 'cl-ivan',
+        handledByIds: ['priya'],
+        stoneSelections: [
+            { stoneId: 'granite', quantity: 5 },
+            { stoneId: 'monumental', quantity: 2 },
+        ],
         services: [
             'Custom Stone Furniture',
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
         projectName: 'Hillcrest Showroom — Display Units',
+        requirements: {
+            location: 'San Juan',
+            edge: 'Straight Edge',
+            finish: 'Polished',
+            areaSqm: 12,
+            neededBy: '2026-09-26',
+            attachments: [
+                {
+                    id: 'file-inq-1043-1',
+                    name: 'hillcrest-display-units.png',
+                    sizeBytes: 655360,
+                    mimeType: 'image/png',
+                },
+            ],
+        },
+        statusHistory: [
+            { status: 'draft', at: '2026-09-11T08:25:00.000Z' },
+            { status: 'pending', at: '2026-09-12T02:10:00.000Z' },
+            { status: 'quoted', at: '2026-09-12T10:45:00.000Z' },
+            {
+                status: 'paid',
+                at: '2026-09-14T07:40:00.000Z',
+            },
+        ],
     },
     {
         id: 'inq-1041',
         reference: 'INQ-1041',
         status: 'completed',
         createdAt: '2026-08-28T05:45:00.000Z',
-        stoneIds: ['quartzite', 'granite', 'marble'],
+        updatedAt: '2026-09-08T04:15:00.000Z',
+        clientId: 'cl-haruki',
+        handledByIds: ['daniel', 'sofia'],
+        stoneSelections: [
+            { stoneId: 'quartzite', quantity: 12 },
+            { stoneId: 'granite', quantity: 6 },
+            { stoneId: 'marble', quantity: 4 },
+        ],
         services: [
             'Natural Stone Supply',
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
         projectName: 'The Grove — Outdoor Kitchen',
+        requirements: {
+            location: 'Muntinlupa',
+            landmark: 'Pool deck, beside the barbecue counter',
+            edge: 'Full Bevel',
+            finish: 'Leather',
+            areaSqm: 24.25,
+            neededBy: '2026-09-05',
+            notes: [
+                'The counter runs along the pool deck, so it is in full sun for the',
+                'afternoon and under the tree for the morning.',
+                '',
+                'Two things we would rather settle before the slab is ordered:',
+                '1. the grill sits at the left-hand end, so we would cut a recess for',
+                '   it rather than run the top past it;',
+                '2. the drainage channel the drawings show does not line up with the',
+                '   fall of the deck, and we would move it to the far end.',
+                '',
+                'If either of those is already decided, please say so here so the',
+                'workshop is not asked to move the cut once it has started.',
+            ].join('\n'),
+            attachments: [
+                {
+                    id: 'file-inq-1041-1',
+                    name: 'grove-outdoor-kitchen-plan.pdf',
+                    sizeBytes: 2411724,
+                    mimeType: 'application/pdf',
+                },
+                {
+                    id: 'file-inq-1041-2',
+                    name: 'grove-bar-reference.jpg',
+                    sizeBytes: 921600,
+                    mimeType: 'image/jpeg',
+                },
+                {
+                    id: 'file-inq-1041-3',
+                    name: 'quartzite-slabsite-mockup.png',
+                    sizeBytes: 1572864,
+                    mimeType: 'image/png',
+                },
+                {
+                    id: 'file-inq-1041-4',
+                    name: 'grove-drainage-detail.pdf',
+                    sizeBytes: 384512,
+                    mimeType: 'application/pdf',
+                },
+            ],
+        },
+        statusHistory: [
+            { status: 'draft', at: '2026-08-28T05:45:00.000Z' },
+            { status: 'pending', at: '2026-08-29T03:20:00.000Z' },
+            { status: 'quoted', at: '2026-08-31T08:55:00.000Z' },
+            { status: 'paid', at: '2026-09-01T06:30:00.000Z' },
+            {
+                status: 'completed',
+                at: '2026-09-08T04:15:00.000Z',
+            },
+        ],
     },
     {
         id: 'inq-1039',
         reference: 'INQ-1039',
         status: 'cancelled',
         createdAt: '2026-08-12T06:55:00.000Z',
-        stoneIds: ['onyx', 'cobblestone'],
+        updatedAt: '2026-08-14T01:10:00.000Z',
+        clientId: 'cl-grace',
+        handledByIds: ['sofia'],
+        stoneSelections: [
+            { stoneId: 'onyx', quantity: 3 },
+            { stoneId: 'cobblestone', quantity: 10 },
+        ],
         services: ['Stone Relocation, Dismantling & Reinstallation'],
         projectName: 'Maple Lane — Laundry',
+        requirements: {
+            location: 'Quezon City',
+            edge: 'Half Bullnose',
+            finish: 'Honed',
+            attachments: [],
+        },
+        statusHistory: [
+            { status: 'draft', at: '2026-08-12T06:55:00.000Z' },
+            { status: 'pending', at: '2026-08-12T09:30:00.000Z' },
+            {
+                status: 'cancelled',
+                at: '2026-08-14T01:10:00.000Z',
+            },
+        ],
     },
 ];
