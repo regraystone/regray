@@ -139,8 +139,8 @@ const InquiryProjectDetails = ({
 
             <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
                 {needsNeededByTime
-                    ? 'A project is one piece of work, so this is where that work is and when it is wanted. The team has to be here on the day, so this service needs a time as well as a date.'
-                    : 'A project is one piece of work, so this is where that work is and when it is wanted. Only the location is needed.'}
+                    ? 'Tell us where the work is and when you want it. This service needs a date and a time.'
+                    : 'Tell us where the work is. Only the location is needed.'}
             </p>
 
             <div className="mt-4 grid gap-5 md:grid-cols-2">

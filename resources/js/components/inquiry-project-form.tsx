@@ -485,9 +485,8 @@ const InquiryProjectForm = ({
                     </h3>
 
                     <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
-                        This project is named after the service, so there is
-                        nothing to name here. What is left to tell us is where
-                        the work is and when you want it done.
+                        This project is named after the service. Just tell us where the work
+                        is and when you want it done.
                     </p>
                 </header>
             ) : (
