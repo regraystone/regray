@@ -44,6 +44,28 @@ const SEARCH_DEBOUNCE_MS = 200;
 const LOAD_MORE_DELAY_MS = 400;
 const LOAD_MORE_ROOT_MARGIN = '200px';
 
+/** How many service tags a card shows before it tallies the rest. */
+const COLLAPSED_SERVICE_COUNT = 2;
+
+/*
+ * How many stones a card names outright before it tallies the rest.
+ *
+ * The same three also appear as thumbnails above the names, so the two rows
+ * describe one set of stones rather than two: the pictures show the first three,
+ * the names spell out the first three, and the count beside each is the same
+ * number of stones left out.
+ */
+const COLLAPSED_STONE_COUNT = 3;
+
+/*
+ * The service tag. Named once because the tally of hidden tags sits in the same
+ * row and has to look like one of them — a differently sized or coloured thing
+ * in the middle of a set of tags reads as a fourth service rather than as a
+ * count of what the row is not showing.
+ */
+const SERVICE_TAG_CLASS =
+    'border border-sidebar-border px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] text-secondary-foreground uppercase';
+
 type StatusFilter = 'all' | InquiryStatus;
 type SortOrder = 'newest' | 'oldest';
 
@@ -232,8 +254,43 @@ const InquiryCard = ({
         .map((stoneId) => stones.find((stone) => stone.id === stoneId))
         .filter((stone): stone is FeedItem => stone !== undefined);
 
-    const thumbnails = inquiryStones.slice(0, 3);
+    const thumbnails = inquiryStones.slice(0, COLLAPSED_STONE_COUNT);
     const extraStones = inquiryStones.length - thumbnails.length;
+
+    /*
+     * The same stones, spelled out. A multi-project inquiry can run to most of the
+     * catalogue, and a line naming all of them stops being a line a reader reads
+     * and starts being a wall, so it is cut at the same three the thumbnails
+     * above it show — the pictures and the words then account for the same set of
+     * stones, and the count beside each is the same number of names left out.
+     */
+    const hasHiddenStones = inquiryStones.length > COLLAPSED_STONE_COUNT;
+    const hiddenStoneCount = inquiryStones.length - COLLAPSED_STONE_COUNT;
+    const visibleStoneNames = (
+        hasHiddenStones
+            ? inquiryStones.slice(0, COLLAPSED_STONE_COUNT)
+            : inquiryStones
+    ).map((stone) => stone.name);
+
+    /*
+     * An inquiry can ask for most of the catalogue, and every service is a tag on
+     * the card. Past the first few, that row grows until it is the tallest thing
+     * in the card and pushes the actions out of step with the rest of the list, so
+     * the remainder is tallied instead.
+     *
+     * A tally rather than something to open: the card's job is to say what an
+     * inquiry is, not to be the whole of it, and the details page is one click
+     * away with the full list on it. The count is never hidden though, and the
+     * line below the row keeps saying the true total on narrow screens where the
+     * tags themselves do not fit.
+     */
+    const hasHiddenServices = inquiry.services.length > COLLAPSED_SERVICE_COUNT;
+    const hiddenServiceCount =
+        inquiry.services.length - COLLAPSED_SERVICE_COUNT;
+    const visibleServices = hasHiddenServices
+        ? inquiry.services.slice(0, COLLAPSED_SERVICE_COUNT)
+        : inquiry.services;
+
     const canUpdate =
         inquiry.status === 'draft' || inquiry.status === 'pending';
     const updateBlockedReason = UPDATE_BLOCKED_REASON[inquiry.status];
@@ -296,24 +353,46 @@ const InquiryCard = ({
                         </div>
 
                         <div className="min-w-0 flex-1 space-y-2">
+                            {/*
+                             * The stones lead the card, and they are what an
+                             * inquiry is recognised by here. A title above them
+                             * would only have repeated the project name, which
+                             * the details page already says in full, and pushed
+                             * the line the reader scans for a row further down.
+                             *
+                             * The count runs on at the end of the sentence rather
+                             * than sitting in a box of its own: it is a tally of
+                             * what the line leaves out, not a stone, and nothing
+                             * here is meant to be pressed. It is also set back to
+                             * the quiet weight so it reads as arithmetic on the
+                             * names rather than as one more name.
+                             */}
                             <p className="truncate text-sm font-bold text-foreground">
-                                {inquiryTitle(inquiry)}
-                            </p>
-                            <p className="truncate text-xs text-secondary-foreground">
-                                {inquiryStones
-                                    .map((stone) => stone.name)
-                                    .join(', ')}
+                                {visibleStoneNames.join(', ')}
+                                {hasHiddenStones ? (
+                                    <span className="font-normal text-secondary-foreground">
+                                        {', +'}
+                                        {hiddenStoneCount}
+                                    </span>
+                                ) : null}
                             </p>
 
                             <div className="hidden flex-wrap gap-1.5 sm:flex">
-                                {inquiry.services.map((service) => (
+                                {visibleServices.map((service) => (
                                     <span
                                         key={service}
-                                        className="border border-sidebar-border px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] text-secondary-foreground uppercase"
+                                        className={SERVICE_TAG_CLASS}
                                     >
                                         {service}
                                     </span>
                                 ))}
+
+                                {/* A tally of the rest, in the row's own shape. */}
+                                {hasHiddenServices ? (
+                                    <span className={SERVICE_TAG_CLASS}>
+                                        +{hiddenServiceCount}
+                                    </span>
+                                ) : null}
                             </div>
 
                             <p className="text-[0.65rem] font-bold tracking-[0.05em] text-secondary-foreground uppercase sm:hidden">

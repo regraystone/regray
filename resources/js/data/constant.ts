@@ -1540,12 +1540,29 @@ export type Client = {
     address: string;
 };
 
-/** The answers the inquiry-wide details step collected, one field per question. */
+/**
+ * The answers one project's requirements step collected, one field per question.
+ *
+ * Belongs to a project rather than to the inquiry for the same reason the stones
+ * do: these are answers about a piece of work. A countertop wanted in Makati by
+ * November and a floor wanted in Cebu by March are one request and two different
+ * answers to the same four questions, and a record that kept one set of them
+ * would have had to invent a site for half the work.
+ *
+ * There was an inquiry-wide Details step that asked all of this once, over every
+ * project at the same time. It asked the right questions in the wrong place.
+ */
 export type InquiryRequirementsRecord = {
     location: string;
     landmark?: string;
     areaSqm?: number;
     neededBy?: string;
+    /**
+     * The hour of the day, asked for alongside the date by the three services the
+     * team attends at one. A bare `HH:mm` rather than a full timestamp, so it
+     * reads with whatever date sits beside it and cannot disagree with it.
+     */
+    neededByTime?: string;
     notes?: string;
     attachments: InquiryFile[];
 };
@@ -1567,11 +1584,17 @@ export type InquiryStoneSelection = {
 };
 
 /**
- * One group of stones, with the services wanted for them and how each is worked.
+ * One piece of work: the stones, the services wanted for them, how each is cut,
+ * and where and when it has to happen.
  *
  * `services` are names rather than ids, as `Inquiry.services` already is: the
  * inquiry list puts them straight onto badges and never looks them up. The
  * inquiry form works in ids, because that is what the picker hands it.
+ *
+ * Everything here is the project's own answer, and everything the reader enters
+ * in the requirements step lands here. A project with no stones is a real shape:
+ * the three services the team attends at an hour are booked on their own, with
+ * nothing to supply or install, so a project is not defined by having stones.
  */
 export type InquiryProject = {
     id: string;
@@ -1585,6 +1608,8 @@ export type InquiryProject = {
     services: string[];
     /** In the order the client picked them. */
     stones: InquiryStoneSelection[];
+    /** Where the work is, when it is wanted, and what else came with the request. */
+    requirements: InquiryRequirementsRecord;
 };
 
 export type InquiryStatusChange = {
@@ -1607,7 +1632,7 @@ export type Inquiry = {
      * officer who will cut it — and empty while nobody has picked it up.
      */
     handledByIds: string[];
-    /** One per group of stones, in the order the client added them. */
+    /** One per piece of work, in the order the client added them. */
     projects: InquiryProject[];
     /**
      * Every service across every project, deduplicated. Kept rather than read off
@@ -1615,7 +1640,6 @@ export type Inquiry = {
      * each have to walk the projects to count them.
      */
     services: string[];
-    requirements: InquiryRequirementsRecord;
     /** Oldest first, so the newest change is the last entry. */
     statusHistory: InquiryStatusChange[];
 };
@@ -1739,13 +1763,13 @@ export const inquiries: Inquiry[] = [
                         finish: 'Honed',
                     },
                 ],
+                requirements: {
+                    location: 'Quezon City',
+                    attachments: [],
+                },
             },
         ],
         services: ['Kitchen & Cabinetry Solutions', 'Custom Stone Fabrication'],
-        requirements: {
-            location: 'Quezon City',
-            attachments: [],
-        },
         statusHistory: [{ status: 'draft', at: '2026-09-29T01:20:00.000Z' }],
     },
     {
@@ -1791,6 +1815,33 @@ export const inquiries: Inquiry[] = [
                         finish: 'Leather',
                     },
                 ],
+                /*
+                 * The bar layout and the note about clearing the service window
+                 * are about the counters, so they sit with the counters. The
+                 * floor is a separate booking with its own date — it has to be
+                 * down before anything is set on top of it.
+                 */
+                requirements: {
+                    location: 'Makati',
+                    landmark: 'Second floor, beside the mezzanine staircase',
+                    areaSqm: 18.5,
+                    neededBy: '2026-11-14',
+                    notes: 'The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.',
+                    attachments: [
+                        {
+                            id: 'file-inq-1048-1',
+                            name: 'northgate-bar-layout.pdf',
+                            sizeBytes: 1284096,
+                            mimeType: 'application/pdf',
+                        },
+                        {
+                            id: 'file-inq-1048-2',
+                            name: 'exposed-concrete-photo.png',
+                            sizeBytes: 486400,
+                            mimeType: 'image/png',
+                        },
+                    ],
+                },
             },
             {
                 id: 'prj-1048-2',
@@ -1807,6 +1858,14 @@ export const inquiries: Inquiry[] = [
                         finish: 'Polished',
                     },
                 ],
+                requirements: {
+                    location: 'Makati',
+                    landmark: 'Ground floor, under the window wall',
+                    areaSqm: 26,
+                    neededBy: '2026-10-24',
+                    notes: 'Wanted square to the window wall so the joints run with it.\nPlease do the floor before the counters are set.',
+                    attachments: [],
+                },
             },
         ],
         services: [
@@ -1814,27 +1873,6 @@ export const inquiries: Inquiry[] = [
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
-        requirements: {
-            location: 'Makati',
-            landmark: 'Second floor, beside the mezzanine staircase',
-            areaSqm: 18.5,
-            neededBy: '2026-11-14',
-            notes: 'The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.',
-            attachments: [
-                {
-                    id: 'file-inq-1048-1',
-                    name: 'northgate-bar-layout.pdf',
-                    sizeBytes: 1284096,
-                    mimeType: 'application/pdf',
-                },
-                {
-                    id: 'file-inq-1048-2',
-                    name: 'exposed-concrete-photo.png',
-                    sizeBytes: 486400,
-                    mimeType: 'image/png',
-                },
-            ],
-        },
         statusHistory: [
             { status: 'draft', at: '2026-09-27T03:40:00.000Z' },
             {
@@ -1873,19 +1911,25 @@ export const inquiries: Inquiry[] = [
                         finish: 'Honed',
                     },
                 ],
+                requirements: {
+                    location: 'San Juan',
+                    landmark: 'Ground floor, beside the garden court entrance',
+                    areaSqm: 9.75,
+                    neededBy: '2026-10-30',
+                    /*
+                     * A time as well as a day, because both of this project's
+                     * services are ones the team attends at an hour rather than
+                     * delivers against a date.
+                     */
+                    neededByTime: '09:00',
+                    attachments: [],
+                },
             },
         ],
         services: [
             'Design & Project Consultation',
             'Post-Installation Quality Care',
         ],
-        requirements: {
-            location: 'San Juan',
-            landmark: 'Ground floor, beside the garden court entrance',
-            areaSqm: 9.75,
-            neededBy: '2026-10-30',
-            attachments: [],
-        },
         statusHistory: [
             { status: 'draft', at: '2026-09-15T04:50:00.000Z' },
             { status: 'pending', at: '2026-09-16T01:05:00.000Z' },
@@ -1926,6 +1970,19 @@ export const inquiries: Inquiry[] = [
                         finish: 'Polished',
                     },
                 ],
+                requirements: {
+                    location: 'San Juan',
+                    areaSqm: 12,
+                    neededBy: '2026-09-26',
+                    attachments: [
+                        {
+                            id: 'file-inq-1043-1',
+                            name: 'hillcrest-display-units.png',
+                            sizeBytes: 655360,
+                            mimeType: 'image/png',
+                        },
+                    ],
+                },
             },
         ],
         services: [
@@ -1933,19 +1990,6 @@ export const inquiries: Inquiry[] = [
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
-        requirements: {
-            location: 'San Juan',
-            areaSqm: 12,
-            neededBy: '2026-09-26',
-            attachments: [
-                {
-                    id: 'file-inq-1043-1',
-                    name: 'hillcrest-display-units.png',
-                    sizeBytes: 655360,
-                    mimeType: 'image/png',
-                },
-            ],
-        },
         statusHistory: [
             { status: 'draft', at: '2026-09-11T08:25:00.000Z' },
             { status: 'pending', at: '2026-09-12T02:10:00.000Z' },
@@ -1993,6 +2037,48 @@ export const inquiries: Inquiry[] = [
                         finish: 'Leather',
                     },
                 ],
+                /*
+                 * The counter half of the notes and the kitchen's own drawings.
+                 * The deck half — the sun, and the drainage channel the drawings
+                 * disagree with — sits with the deck, because that is the piece of
+                 * work it is about.
+                 */
+                requirements: {
+                    location: 'Muntinlupa',
+                    landmark: 'Under the tree, at the far end of the deck',
+                    areaSqm: 11.5,
+                    neededBy: '2026-09-05',
+                    notes: [
+                        'The counter runs along the pool deck, so it is in full sun for the',
+                        'afternoon and under the tree for the morning.',
+                        '',
+                        'The grill sits at the left-hand end, so we would cut a recess for it',
+                        'rather than run the top past it.',
+                        '',
+                        'If that is already decided, please say so here so the workshop is not',
+                        'asked to move the cut once it has started.',
+                    ].join('\n'),
+                    attachments: [
+                        {
+                            id: 'file-inq-1041-1',
+                            name: 'grove-outdoor-kitchen-plan.pdf',
+                            sizeBytes: 2411724,
+                            mimeType: 'application/pdf',
+                        },
+                        {
+                            id: 'file-inq-1041-2',
+                            name: 'grove-bar-reference.jpg',
+                            sizeBytes: 921600,
+                            mimeType: 'image/jpeg',
+                        },
+                        {
+                            id: 'file-inq-1041-3',
+                            name: 'quartzite-slabsite-mockup.png',
+                            sizeBytes: 1572864,
+                            mimeType: 'image/png',
+                        },
+                    ],
+                },
             },
             {
                 id: 'prj-1041-2',
@@ -2009,6 +2095,27 @@ export const inquiries: Inquiry[] = [
                         finish: 'Honed',
                     },
                 ],
+                requirements: {
+                    location: 'Muntinlupa',
+                    landmark: 'Pool deck, beside the barbecue counter',
+                    areaSqm: 24.25,
+                    neededBy: '2026-08-28',
+                    notes: [
+                        'The drainage channel the drawings show does not line up with the',
+                        'fall of the deck, and we would move it to the far end.',
+                        '',
+                        'The deck goes down before the counter is set, so the earlier date on',
+                        'this one is deliberate.',
+                    ].join('\n'),
+                    attachments: [
+                        {
+                            id: 'file-inq-1041-4',
+                            name: 'grove-drainage-detail.pdf',
+                            sizeBytes: 384512,
+                            mimeType: 'application/pdf',
+                        },
+                    ],
+                },
             },
         ],
         services: [
@@ -2016,51 +2123,6 @@ export const inquiries: Inquiry[] = [
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
-        requirements: {
-            location: 'Muntinlupa',
-            landmark: 'Pool deck, beside the barbecue counter',
-            areaSqm: 24.25,
-            neededBy: '2026-09-05',
-            notes: [
-                'The counter runs along the pool deck, so it is in full sun for the',
-                'afternoon and under the tree for the morning.',
-                '',
-                'Two things we would rather settle before the slab is ordered:',
-                '1. the grill sits at the left-hand end, so we would cut a recess for',
-                '   it rather than run the top past it;',
-                '2. the drainage channel the drawings show does not line up with the',
-                '   fall of the deck, and we would move it to the far end.',
-                '',
-                'If either of those is already decided, please say so here so the',
-                'workshop is not asked to move the cut once it has started.',
-            ].join('\n'),
-            attachments: [
-                {
-                    id: 'file-inq-1041-1',
-                    name: 'grove-outdoor-kitchen-plan.pdf',
-                    sizeBytes: 2411724,
-                    mimeType: 'application/pdf',
-                },
-                {
-                    id: 'file-inq-1041-2',
-                    name: 'grove-bar-reference.jpg',
-                    sizeBytes: 921600,
-                    mimeType: 'image/jpeg',
-                },
-                {
-                    id: 'file-inq-1041-3',
-                    name: 'quartzite-slabsite-mockup.png',
-                    sizeBytes: 1572864,
-                    mimeType: 'image/png',
-                },
-                {
-                    id: 'file-inq-1041-4',
-                    name: 'grove-drainage-detail.pdf',
-                    sizeBytes: 384512,
-                    mimeType: 'application/pdf',
-                },
-            ],
-        },
         statusHistory: [
             { status: 'draft', at: '2026-08-28T05:45:00.000Z' },
             { status: 'pending', at: '2026-08-29T03:20:00.000Z' },
@@ -2099,13 +2161,20 @@ export const inquiries: Inquiry[] = [
                         finish: 'Honed',
                     },
                 ],
+                requirements: {
+                    location: 'Quezon City',
+                    /*
+                     * A time with no date, because the inquiry was cancelled
+                     * before a day was ever agreed. Left as it stands so the
+                     * details page still has a reason to say "not provided"
+                     * rather than every answer being filled in.
+                     */
+                    neededByTime: '08:00',
+                    attachments: [],
+                },
             },
         ],
         services: ['Stone Relocation, Dismantling & Reinstallation'],
-        requirements: {
-            location: 'Quezon City',
-            attachments: [],
-        },
         statusHistory: [
             { status: 'draft', at: '2026-08-12T06:55:00.000Z' },
             { status: 'pending', at: '2026-08-12T09:30:00.000Z' },
