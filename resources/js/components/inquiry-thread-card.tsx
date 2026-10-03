@@ -9,6 +9,7 @@ import {
     type InquiryStatus,
 } from '@/data/constant';
 import { usePermissions } from '@/hooks/use-permissions';
+import { permissions } from '@/layouts/workspace-layout';
 import { show as inquiryShow } from '@/routes/inquiry';
 import { show as quoteShow } from '@/routes/quote';
 
@@ -129,7 +130,7 @@ const InquiryThreadCard = ({
      * than a guess: a client reading their own quotations goes to the quote URL,
      * everybody else to the staff one.
      */
-    const detailsHref = can('view quotation')
+    const detailsHref = can(permissions.quotationsView)
         ? quoteShow.url({ inquiry: inquiry.id })
         : inquiryShow.url({ inquiry: inquiry.id });
     const serviceCount = inquiry.services.length;

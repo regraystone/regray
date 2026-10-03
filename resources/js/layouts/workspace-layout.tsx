@@ -63,12 +63,39 @@ import { index as scheduleIndex } from '@/routes/schedule';
 import { edit as editSecurity } from '@/routes/security';
 import { index as servicesIndex } from '@/routes/services';
 
+/**
+ * The permissions the app knows about, mirroring App\Enums\Permission.
+ *
+ * The server shares the signed-in user's granted names as `auth.permissions`,
+ * so the only thing that has to agree between the two sides is the spelling.
+ * Keeping the union here means the sidebar's `permission` field is checked
+ * against this list rather than being an untyped string.
+ */
+export const permissions = {
+    homeView: 'home.view',
+    overviewView: 'overview.view',
+    savedView: 'saved.view',
+    salesView: 'sales.view',
+    quotationsView: 'quotations.view',
+    inquiriesView: 'inquiries.view',
+    schedulesView: 'schedules.view',
+    messagesView: 'messages.view',
+    stonesView: 'stones.view',
+    servicesView: 'services.view',
+    accountsView: 'accounts.view',
+    projectsView: 'projects.view',
+    profileView: 'profile.view',
+    inquiriesCreate: 'inquiries.create',
+} as const;
+
+export type Permission = (typeof permissions)[keyof typeof permissions];
+
 type NavItem = {
     slug: string;
     label: string;
     href: string;
     icon: LucideIcon;
-    permission: string;
+    permission: Permission;
     matchPrefix?: string;
 };
 
@@ -81,21 +108,21 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 label: 'Home',
                 href: homeIndex.url(),
                 icon: Home,
-                permission: 'view home',
+                permission: permissions.homeView,
             },
             {
                 slug: 'overview',
                 label: 'Overview',
                 href: overviewIndex.url(),
                 icon: LayoutDashboard,
-                permission: 'view overview',
+                permission: permissions.overviewView,
             },
             {
                 slug: 'saved',
                 label: 'Saved',
                 href: savedIndex.url(),
                 icon: Heart,
-                permission: 'view saved',
+                permission: permissions.savedView,
             },
         ],
     },
@@ -107,63 +134,63 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 label: 'Sales',
                 href: salesIndex.url(),
                 icon: BarChart3,
-                permission: 'view sales',
+                permission: permissions.salesView,
             },
             {
                 slug: 'quote',
                 label: 'Quote',
                 href: quoteIndex.url(),
                 icon: Handshake,
-                permission: 'view quotation',
+                permission: permissions.quotationsView,
             },
             {
                 slug: 'inquiry',
                 label: 'Inquiry',
                 href: inquiryIndex.url(),
                 icon: FileText,
-                permission: 'view inquiry',
+                permission: permissions.inquiriesView,
             },
             {
                 slug: 'schedule',
                 label: 'Schedule',
                 href: scheduleIndex.url(),
                 icon: Calendar,
-                permission: 'view schedule',
+                permission: permissions.schedulesView,
             },
             {
                 slug: 'message',
                 label: 'Message',
                 href: messageIndex.url(),
                 icon: MessageCircle,
-                permission: 'view message',
+                permission: permissions.messagesView,
             },
             {
                 slug: 'stones',
                 label: 'Stones',
                 href: stonesIndex.url(),
                 icon: Package,
-                permission: 'view stones',
+                permission: permissions.stonesView,
             },
             {
                 slug: 'services',
                 label: 'Services',
                 href: servicesIndex.url(),
                 icon: Wrench,
-                permission: 'view services',
+                permission: permissions.servicesView,
             },
             {
                 slug: 'projects',
                 label: 'Projects',
                 href: projectsIndex.url(),
                 icon: Folder,
-                permission: 'view projects',
+                permission: permissions.projectsView,
             },
             {
                 slug: 'accounts',
                 label: 'Accounts',
                 href: accountsIndex.url(),
                 icon: Users,
-                permission: 'view accounts',
+                permission: permissions.accountsView,
             },
         ],
     },
@@ -175,7 +202,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 label: 'Profile',
                 href: editProfile.url(),
                 icon: CircleUserRound,
-                permission: 'view profile',
+                permission: permissions.profileView,
                 matchPrefix: '/profile',
             },
         ],

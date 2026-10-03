@@ -2,11 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Enums\Role;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Spatie\Permission\Models\Role;
+use Spatie\Permission\Contracts\Role as RoleContract;
+use Spatie\Permission\Models\Role as RoleModel;
 
 /**
  * @extends Factory<User>
@@ -26,8 +29,21 @@ class UserFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (User $user): void {
-            $user->assignRole(Role::findOrCreate(User::DEFAULT_ROLE, 'web'));
+            $user->assignRole($this->findOrCreateRole(Role::Client));
         });
+    }
+
+    /**
+     * Resolve a role by name, creating it if the seeder has not run yet.
+     *
+     * A factory is used from tests and from seeders, including one that has
+     * not seeded roles itself, so it cannot assume the row already exists.
+     */
+    protected function findOrCreateRole(Role|string $role): RoleContract
+    {
+        $name = $role instanceof Role ? $role->value : $role;
+
+        return RoleModel::findOrCreate($name, RolePermissionSeeder::GUARD);
     }
 
     /**
@@ -52,10 +68,10 @@ class UserFactory extends Factory
     /**
      * Give the user a specific role instead of the default one.
      */
-    public function role(string $role): static
+    public function role(Role|string $role): static
     {
         return $this->afterCreating(function (User $user) use ($role): void {
-            $user->syncRoles([Role::findOrCreate($role, 'web')]);
+            $user->syncRoles([$this->findOrCreateRole($role)]);
         });
     }
 

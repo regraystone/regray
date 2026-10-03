@@ -35,6 +35,7 @@ import {
 } from '@/data/constant';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
+import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as messageIndex } from '@/routes/message';
 import { index as quoteIndex } from '@/routes/quote';
@@ -658,7 +659,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
      * URL that happened to get here. A staff user who reached the quote URL has
      * no quote list to go back to, and vice versa.
      */
-    const backHref = can('view quotation')
+    const backHref = can(permissions.quotationsView)
         ? quoteIndex.url()
         : inquiryIndex.url();
 
@@ -786,7 +787,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                  * question, and a reader with no message page has nothing to ask
                  * it on.
                  */}
-                {can('view message') ? (
+                {can(permissions.messagesView) ? (
                     <Button
                         asChild
                         variant="default"

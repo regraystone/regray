@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -34,19 +35,18 @@ class User extends Authenticatable implements MustVerifyEmail
     use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable;
 
     /**
-     * The role given to a user who has not been assigned one.
-     */
-    public const DEFAULT_ROLE = 'client';
-
-    /**
      * The user's first Spatie role, used for landing-page redirects.
      *
      * A user normally has exactly one role, but nothing here prevents more
-     * from being assigned later, so this is only the first of the list.
+     * from being assigned later, so this is only the first of the list. A user
+     * whose first role is not one the enum knows about resolves to null, which
+     * the redirect treats the same as having no role at all.
      */
-    public function primaryRole(): ?string
+    public function primaryRole(): ?Role
     {
-        return $this->getRoleNames()->first();
+        $name = $this->getRoleNames()->first();
+
+        return $name === null ? null : Role::tryFrom($name);
     }
 
     /**

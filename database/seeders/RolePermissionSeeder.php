@@ -2,125 +2,120 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Permission;
+use App\Enums\Role;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission as PermissionModel;
+use Spatie\Permission\Models\Role as RoleModel;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
- * Creates the Spatie roles and permissions, and the role-to-sidebar matrix.
+ * Creates the Spatie roles and permissions, and the role-to-permission matrix.
  *
  * These records are the source of truth for what a user may see: the shared
  * auth.permissions prop is derived from them, and the sidebar filters on it.
+ * The names come from the App\Enums\Permission and App\Enums\Role enums, so
+ * this file says which bundle goes to whom and nothing else.
  */
 class RolePermissionSeeder extends Seeder
 {
     /**
-     * What a user may be granted: one `view` permission per sidebar page, plus
-     * any `add` action that is not a page of its own.
+     * The guard every role and permission belongs to.
      *
-     * Most `view` permissions name a sidebar item, so a permission here is
-     * usually a guarantee that the sidebar has an entry for it. `view inquiry
-     * details` is the exception: it names a page that has no item of its own,
-     * because the details page hangs off the list the user reads their inquiries
-     * on, the way the stepper does. `add inquiry` is the first of the action
-     * kind: it guards the inquiry stepper, which both navigates to and returns
-     * to a page rather than being one.
-     *
-     * @var array<int, string>
+     * It matches the application's default auth guard, so the user model, the
+     * routes and this seeder all resolve the same roles.
      */
-    public const PERMISSIONS = [
-        'view home',
-        'view overview',
-        'view saved',
-        'view sales',
-        'view quotation',
-        'view inquiry',
-        'view schedule',
-        'view message',
-        'view stones',
-        'view services',
-        'view accounts',
-        'view projects',
-        'view profile',
-        'add inquiry',
-        'view inquiry details',
-    ];
+    public const GUARD = 'web';
+
+    /**
+     * Every permission the app knows about, read off the enum.
+     *
+     * A method rather than a constant because a constant expression cannot
+     * call enum::names(), and hard-coding the list here is exactly the
+     * duplication this enum exists to remove.
+     *
+     * @return array<int, string>
+     */
+    public static function permissions(): array
+    {
+        return Permission::names();
+    }
 
     /**
      * Which permissions each role grants.
      *
-     * Note that the `sales` role and the `view sales` permission are
-     * unrelated: the sales role is a person, `view sales` is the Sales page,
-     * and no role below happens to be granted it by name.
+     * Note that the `sales` role and the `sales.view` permission are unrelated:
+     * the sales role is a person, `sales.view` is the Sales page, and no role
+     * below happens to be granted it by name.
      *
      * @var array<string, array<int, string>>
      */
     public const MATRIX = [
-        'client' => [
-            'view home',
-            'view saved',
-            'view quotation',
-            'view message',
-            'view profile',
-            'add inquiry',
-            'view inquiry details',
+        Role::Client->value => [
+            Permission::HomeView->value,
+            Permission::SavedView->value,
+            Permission::QuotationsView->value,
+            Permission::MessagesView->value,
+            Permission::ProfileView->value,
+            Permission::InquiriesCreate->value,
         ],
-        'admin' => [
-            'view overview',
-            'view stones',
-            'view services',
-            'view accounts',
-            'view projects',
-            'view profile',
+        Role::Admin->value => [
+            Permission::HomeView->value,
+            Permission::OverviewView->value,
+            Permission::SavedView->value,
+            Permission::SalesView->value,
+            Permission::QuotationsView->value,
+            Permission::InquiriesView->value,
+            Permission::SchedulesView->value,
+            Permission::MessagesView->value,
+            Permission::StonesView->value,
+            Permission::ServicesView->value,
+            Permission::AccountsView->value,
+            Permission::ProjectsView->value,
+            Permission::ProfileView->value,
+            Permission::InquiriesCreate->value,
         ],
-        'owner' => [
-            'view overview',
-            'view sales',
-            'view inquiry',
-            'view schedule',
-            'view message',
-            'view profile',
-            'view inquiry details',
+        Role::Owner->value => [
+            Permission::OverviewView->value,
+            Permission::SalesView->value,
+            Permission::InquiriesView->value,
+            Permission::SchedulesView->value,
+            Permission::MessagesView->value,
+            Permission::ProfileView->value,
         ],
-        'mktg' => [
-            'view overview',
-            'view inquiry',
-            'view schedule',
-            'view message',
-            'view profile',
-            'add inquiry',
-            'view inquiry details',
+        Role::Mktg->value => [
+            Permission::OverviewView->value,
+            Permission::InquiriesView->value,
+            Permission::SchedulesView->value,
+            Permission::MessagesView->value,
+            Permission::ProfileView->value,
+            Permission::InquiriesCreate->value,
         ],
-        'sales' => [
-            'view overview',
-            'view inquiry',
-            'view schedule',
-            'view message',
-            'view profile',
-            'view inquiry details',
+        Role::Sales->value => [
+            Permission::OverviewView->value,
+            Permission::InquiriesView->value,
+            Permission::SchedulesView->value,
+            Permission::MessagesView->value,
+            Permission::ProfileView->value,
         ],
-        'acct' => [
-            'view overview',
-            'view sales',
-            'view inquiry',
-            'view message',
-            'view profile',
-            'view inquiry details',
+        Role::Acct->value => [
+            Permission::OverviewView->value,
+            Permission::SalesView->value,
+            Permission::InquiriesView->value,
+            Permission::MessagesView->value,
+            Permission::ProfileView->value,
         ],
-        'tech' => [
-            'view overview',
-            'view inquiry',
-            'view message',
-            'view profile',
-            'view inquiry details',
+        Role::Tech->value => [
+            Permission::OverviewView->value,
+            Permission::InquiriesView->value,
+            Permission::MessagesView->value,
+            Permission::ProfileView->value,
         ],
-        'logi' => [
-            'view overview',
-            'view inquiry',
-            'view message',
-            'view profile',
-            'view inquiry details',
+        Role::Logi->value => [
+            Permission::OverviewView->value,
+            Permission::InquiriesView->value,
+            Permission::MessagesView->value,
+            Permission::ProfileView->value,
         ],
     ];
 
@@ -128,12 +123,12 @@ class RolePermissionSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        foreach (self::PERMISSIONS as $permission) {
-            Permission::findOrCreate($permission, 'web');
+        foreach (self::permissions() as $permission) {
+            PermissionModel::findOrCreate($permission, self::GUARD);
         }
 
         foreach (array_keys(self::MATRIX) as $roleName) {
-            Role::findOrCreate($roleName, 'web');
+            RoleModel::findOrCreate($roleName, self::GUARD);
         }
 
         // The package invalidates its own permission cache from a model's
@@ -145,7 +140,12 @@ class RolePermissionSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach (self::MATRIX as $roleName => $permissions) {
-            Role::findByName($roleName, 'web')->syncPermissions($permissions);
+            RoleModel::findByName($roleName, self::GUARD)->syncPermissions($permissions);
         }
+
+        // syncPermissions() writes the role_has_permissions pivot directly, so
+        // it fires no model event and cannot flush the cache itself. The grants
+        // just changed, so drop the snapshot the loop above rebuilt.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

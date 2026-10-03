@@ -4,7 +4,9 @@ namespace App\Actions\Fortify;
 
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
+use App\Enums\Role as RoleEnum;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 use Spatie\Permission\Models\Role;
@@ -32,8 +34,10 @@ class CreateNewUser implements CreatesNewUsers
         ]);
 
         // findOrCreate so a database that has not been seeded yet can still
-        // register somebody.
-        $user->assignRole(Role::findOrCreate(User::DEFAULT_ROLE, 'web'));
+        // register somebody. Registration is the one place a role is granted
+        // to a user the app did not already know about, and it grants only the
+        // default: nothing a visitor fills in a form can reach an admin page.
+        $user->assignRole(Role::findOrCreate(RoleEnum::Client->value, RolePermissionSeeder::GUARD));
 
         return $user;
     }

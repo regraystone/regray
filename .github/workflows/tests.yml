@@ -13,16 +13,31 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    # composer setup copies .env.example to .env, which names the application's
+    # own database. The Feature suite runs migrate:fresh, so pointing that at
+    # the real database would wipe it. Redirect it to the throwaway one so a
+    # single database serves both the setup migration and the tests.
+    #
+    # Only the name differs: host, port, user, password and driver already
+    # match .env.example, and phpunit.xml repeats them for local runs.
+    env:
+      DB_DATABASE: regray-studio-test
+
     services:
-      mysql:
-        image: mysql:8.0
+      # The same major version the project develops against locally, so the
+      # migrations are proven against the engine they will actually meet.
+      postgres:
+        image: postgres:17
         env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-          MYSQL_DATABASE: regray-studio
+          POSTGRES_DB: regray-studio-test
+          POSTGRES_USER: root
+          # Trust auth matches the local server, which takes `root` with no
+          # password. Nothing here is a real credential.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="pg_isready -U root -d regray-studio-test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
@@ -37,6 +52,9 @@ jobs:
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.5'
+          # pdo_pgsql is not in setup-php's default set, and the whole suite
+          # now runs on Postgres.
+          extensions: pgsql, pdo_pgsql
           tools: composer:v2
           coverage: none
 

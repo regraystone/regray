@@ -1,9 +1,10 @@
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
+import type { Permission } from '@/layouts/workspace-layout';
 import type { Auth } from '@/types';
 
 export function usePermissions(): {
-    can: (permission: string) => boolean;
+    can: (permission: Permission) => boolean;
     permissions: string[];
 } {
     const { permissions } = usePage<{ auth: Auth }>().props.auth;
@@ -11,7 +12,7 @@ export function usePermissions(): {
     const granted = useMemo(() => new Set(permissions), [permissions]);
 
     return {
-        can: (permission: string) => granted.has(permission),
+        can: (permission) => granted.has(permission),
         permissions,
     };
 }

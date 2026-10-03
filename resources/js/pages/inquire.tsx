@@ -46,6 +46,7 @@ import {
     type InquiryFormInput,
     type InquiryFormValues,
 } from '@/lib/inquiry-schema';
+import { permissions } from '@/layouts/workspace-layout';
 import { show as homeShow } from '@/routes/home';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex } from '@/routes/quote';
@@ -1054,10 +1055,10 @@ const Inquire = () => {
 
     const hasSelection = draftStoneIds.length > 0;
     const hasServices = chosenServiceIds.length > 0;
-    const canSeeStoneProfile = can('view home');
-    const canChat = can('view message');
-    const canSeeQuotation = can('view quotation');
-    const canSeeInquiry = can('view inquiry');
+    const canSeeStoneProfile = can(permissions.homeView);
+    const canChat = can(permissions.messagesView);
+    const canSeeQuotation = can(permissions.quotationsView);
+    const canSeeInquiry = can(permissions.inquiriesView);
 
     /*
      * Whichever list this reader actually has open, so the panel's fallback

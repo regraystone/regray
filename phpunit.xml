@@ -23,8 +23,27 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!--
+            Tests run against Postgres, the same engine the app develops on, so
+            a schema that works here works on a laptop and in CI alike.
+
+            DB_DATABASE is deliberately NOT the application's database. The
+            Feature suite uses RefreshDatabase, which runs migrate:fresh and
+            would therefore drop every table in whatever it points at. This
+            database exists only to be thrown away. It does not need to be
+            created by hand: migrate:fresh delegates to a forced migrate, which
+            creates a missing Postgres database on the way in.
+
+            The values below are the ones from .env.example, so a local run
+            needs nothing beyond a running Postgres. CI provisions the same
+            engine, version, user and port.
+        -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="regray-studio-test"/>
+        <env name="DB_USERNAME" value="root"/>
+        <env name="DB_PASSWORD" value=""/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

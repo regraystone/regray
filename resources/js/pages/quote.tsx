@@ -485,7 +485,7 @@ const InquiryCard = ({
 
 const Quote = () => {
     // The stepper is an action rather than a page, so it is offered only to the
-    // roles that may raise one, which is what `add inquiry` grants.
+    // roles that may raise one, which is what `inquiries.create` grants.
     const inquire = useInquireRoute();
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
