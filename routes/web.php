@@ -87,9 +87,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
         ->name('inquiry.show');
 
-    Route::get('schedule', [ViewController::class, 'schedule'])
-        ->middleware(Permission::SchedulesView->middleware())
-        ->name('schedule.index');
+    Route::get('appointment', [ViewController::class, 'appointment'])
+        ->middleware(Permission::AppointmentsView->middleware())
+        ->name('appointment.index');
     Route::get('message', [ViewController::class, 'message'])
         ->middleware(Permission::MessagesView->middleware())
         ->name('message.index');

@@ -45,6 +45,7 @@ import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
+import { index as appointmentIndex } from '@/routes/appointment';
 import { index as homeIndex } from '@/routes/home';
 import { logout } from '@/routes';
 import {
@@ -59,7 +60,6 @@ import { edit as editProfile } from '@/routes/profile';
 import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
 import { index as savedIndex } from '@/routes/saved';
-import { index as scheduleIndex } from '@/routes/schedule';
 import { edit as editSecurity } from '@/routes/security';
 import { index as servicesIndex } from '@/routes/services';
 
@@ -78,7 +78,7 @@ export const permissions = {
     salesView: 'sales.view',
     quotationsView: 'quotations.view',
     inquiriesView: 'inquiries.view',
-    schedulesView: 'schedules.view',
+    appointmentsView: 'appointments.view',
     messagesView: 'messages.view',
     stonesView: 'stones.view',
     servicesView: 'services.view',
@@ -151,11 +151,11 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 permission: permissions.inquiriesView,
             },
             {
-                slug: 'schedule',
-                label: 'Schedule',
-                href: scheduleIndex.url(),
+                slug: 'appointment',
+                label: 'Appointment',
+                href: appointmentIndex.url(),
                 icon: Calendar,
-                permission: permissions.schedulesView,
+                permission: permissions.appointmentsView,
             },
             {
                 slug: 'message',

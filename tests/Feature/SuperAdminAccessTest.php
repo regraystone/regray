@@ -39,7 +39,7 @@ test('the super-admin opens every page', function (string $routeName, array $par
     ['inquiry.inquire', []],
     ['quote.show', ['inquiry' => 'inq-1048']],
     ['inquiry.show', ['inquiry' => 'inq-1048']],
-    ['schedule.index', []],
+    ['appointment.index', []],
     ['message.index', []],
     ['stones.index', []],
     ['services.index', []],
@@ -104,7 +104,7 @@ test('the super-admin is the only role that opens every page', function (string 
         'sales.index' => [],
         'quote.index' => [],
         'inquiry.index' => [],
-        'schedule.index' => [],
+        'appointment.index' => [],
         'message.index' => [],
         'stones.index' => [],
         'services.index' => [],
@@ -205,23 +205,23 @@ test('the super-admin passes the Spatie middleware for an orphaned permission', 
 });
 
 test('the can_any guard admits a holder of any one of its permissions', function () {
-    // Saved is a client page and Schedule is a staff page, and each half has a
+    // Quote is a client page and Sales is a staff page, and each half has a
     // role that holds it and not the other, so both branches are exercised while
     // technical is granted neither. The super-admin holds both, so what is
     // asserted is each half being reachable alone, not exclusivity: check this
     // pair is still one-sided after any matrix edit.
     Route::get('__test/can-any', fn () => 'ok')
-        ->middleware(Permission::anyOfMiddleware(Permission::SavedView, Permission::SchedulesView));
+        ->middleware(Permission::anyOfMiddleware(Permission::QuotationsView, Permission::SalesView));
 
-    expect(RolePermissionSeeder::MATRIX[Role::Client->value])->toContain(Permission::SavedView->value)
-        ->not->toContain(Permission::SchedulesView->value);
+    expect(RolePermissionSeeder::MATRIX[Role::Client->value])->toContain(Permission::QuotationsView->value)
+        ->not->toContain(Permission::SalesView->value);
 
-    expect(RolePermissionSeeder::MATRIX[Role::Owner->value])->toContain(Permission::SchedulesView->value)
-        ->not->toContain(Permission::SavedView->value);
+    expect(RolePermissionSeeder::MATRIX[Role::Owner->value])->toContain(Permission::SalesView->value)
+        ->not->toContain(Permission::QuotationsView->value);
 
     expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
-        ->not->toContain(Permission::SavedView->value)
-        ->not->toContain(Permission::SchedulesView->value);
+        ->not->toContain(Permission::QuotationsView->value)
+        ->not->toContain(Permission::SalesView->value);
 
     $this->actingAs(User::factory()->role(Role::Client)->create())
         ->get('/__test/can-any')

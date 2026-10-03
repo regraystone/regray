@@ -30,7 +30,7 @@ enum Permission: string
     case SalesView = 'sales.view';
     case QuotationsView = 'quotations.view';
     case InquiriesView = 'inquiries.view';
-    case SchedulesView = 'schedules.view';
+    case AppointmentsView = 'appointments.view';
     case MessagesView = 'messages.view';
     case StonesView = 'stones.view';
     case ServicesView = 'services.view';
