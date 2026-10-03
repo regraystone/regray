@@ -17,7 +17,7 @@ test('client users are redirected to the home page', function () {
 });
 
 test('staff users are redirected to the overview page', function () {
-    foreach ([Role::Admin, Role::Owner, Role::Acct, Role::Tech, Role::Mktg, Role::Logi, Role::Sales] as $role) {
+    foreach ([Role::Admin, Role::Owner, Role::Accounting, Role::Technical, Role::Marketing, Role::Logistics, Role::Sales] as $role) {
         $user = User::factory()->role($role)->create();
         $this->actingAs($user)->get(route('dashboard'))->assertRedirect('/overview');
     }
@@ -51,9 +51,9 @@ test('every role in the enum has a landing page', function () {
 });
 
 test('primaryRole resolves the enum case', function () {
-    $user = User::factory()->role(Role::Acct)->create();
+    $user = User::factory()->role(Role::Accounting)->create();
 
-    expect($user->primaryRole())->toBe(Role::Acct);
+    expect($user->primaryRole())->toBe(Role::Accounting);
 });
 
 test('primaryRole is null when the user has no role', function () {

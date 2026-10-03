@@ -125,7 +125,7 @@ test('the super-admin is the only role that opens every page', function (string 
  * middleware and the route errors. Asserting on `Router::getMiddleware()`
  * would not prove it: aliases are attached to the router while the HTTP kernel
  * bootstraps, not when the container resolves it, so reading the map outside a
- * request shows nothing at all — `can:` included. The only thing that settles
+ * request shows nothing at all â€” `can:` included. The only thing that settles
  * it is putting the alias on a route and dispatching it.
  */
 
@@ -139,12 +139,12 @@ test('the permission middleware admits a user who holds the permission', functio
 });
 
 test('the permission middleware rejects a user who does not', function () {
-    $user = User::factory()->role(Role::Tech)->create();
+    $user = User::factory()->role(Role::Technical)->create();
 
     Route::get('__test/permission-no', fn () => 'ok')
         ->middleware('permission:'.Permission::HomeView->value);
 
-    expect(RolePermissionSeeder::MATRIX[Role::Tech->value])
+    expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
         ->not->toContain(Permission::HomeView->value);
 
     $this->actingAs($user)->get('/__test/permission-no')->assertForbidden();
@@ -158,7 +158,7 @@ test('the role middleware admits a user with the role and rejects one without', 
         ->get('/__test/role')
         ->assertOk();
 
-    $this->actingAs(User::factory()->role(Role::Tech)->create())
+    $this->actingAs(User::factory()->role(Role::Technical)->create())
         ->get('/__test/role')
         ->assertForbidden();
 });
@@ -177,7 +177,7 @@ test('the role_or_permission middleware admits either and rejects neither', func
         ->get('/__test/role-or-permission')
         ->assertOk();
 
-    $this->actingAs(User::factory()->role(Role::Tech)->create())
+    $this->actingAs(User::factory()->role(Role::Technical)->create())
         ->get('/__test/role-or-permission')
         ->assertForbidden();
 });
@@ -205,9 +205,11 @@ test('the super-admin passes the Spatie middleware for an orphaned permission', 
 });
 
 test('the can_any guard admits a holder of any one of its permissions', function () {
-    // Saved is a client page and Schedule is a staff page, and no role is
-    // granted both, so each half of the guard has exactly one role that can
-    // reach it and tech is granted neither.
+    // Saved is a client page and Schedule is a staff page, and each half has a
+    // role that holds it and not the other, so both branches are exercised while
+    // technical is granted neither. The super-admin holds both, so what is
+    // asserted is each half being reachable alone, not exclusivity: check this
+    // pair is still one-sided after any matrix edit.
     Route::get('__test/can-any', fn () => 'ok')
         ->middleware(Permission::anyOfMiddleware(Permission::SavedView, Permission::SchedulesView));
 
@@ -217,7 +219,7 @@ test('the can_any guard admits a holder of any one of its permissions', function
     expect(RolePermissionSeeder::MATRIX[Role::Owner->value])->toContain(Permission::SchedulesView->value)
         ->not->toContain(Permission::SavedView->value);
 
-    expect(RolePermissionSeeder::MATRIX[Role::Tech->value])
+    expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
         ->not->toContain(Permission::SavedView->value)
         ->not->toContain(Permission::SchedulesView->value);
 
@@ -229,7 +231,7 @@ test('the can_any guard admits a holder of any one of its permissions', function
         ->get('/__test/can-any')
         ->assertOk();
 
-    $this->actingAs(User::factory()->role(Role::Tech)->create())
+    $this->actingAs(User::factory()->role(Role::Technical)->create())
         ->get('/__test/can-any')
         ->assertForbidden();
 });
@@ -238,7 +240,7 @@ test('the can_any guard admits the super-admin for permissions no role holds', f
     // The details page's guard is the one place the bypass cannot be taken for
     // granted: Gate::any() has to reach the before callbacks the same way `can:`
     // does, or the super-admin would be the one reader locked out. Permissions
-    // outside the matrix are what make this testable — the super-admin holds
+    // outside the matrix are what make this testable â€” the super-admin holds
     // neither of these, so only the callback can let them through.
     PermissionModel::create(['name' => 'settings.manage', 'guard_name' => RolePermissionSeeder::GUARD]);
     PermissionModel::create(['name' => 'billing.manage', 'guard_name' => RolePermissionSeeder::GUARD]);

@@ -31,19 +31,19 @@ enum Role: string
     case Owner = 'owner';
 
     /** Marketing, who raise inquiries. */
-    case Mktg = 'mktg';
+    case Marketing = 'marketing';
 
     /** Sales, who read and work the pipeline. */
     case Sales = 'sales';
 
-    /** Accounts. */
-    case Acct = 'acct';
+    /** Accounting. */
+    case Accounting = 'accounting';
 
     /** The bench technicians. */
-    case Tech = 'tech';
+    case Technical = 'technical';
 
     /** Logistics. */
-    case Logi = 'logi';
+    case Logistics = 'logistics';
 
     /**
      * The role whose Gate::before() bypasses every permission check.

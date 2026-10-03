@@ -83,7 +83,7 @@ class RolePermissionSeeder extends Seeder
             Permission::MessagesView->value,
             Permission::ProfileView->value,
         ],
-        Role::Mktg->value => [
+        Role::Marketing->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
             Permission::SchedulesView->value,
@@ -98,20 +98,20 @@ class RolePermissionSeeder extends Seeder
             Permission::MessagesView->value,
             Permission::ProfileView->value,
         ],
-        Role::Acct->value => [
+        Role::Accounting->value => [
             Permission::OverviewView->value,
             Permission::SalesView->value,
             Permission::InquiriesView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
         ],
-        Role::Tech->value => [
+        Role::Technical->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
         ],
-        Role::Logi->value => [
+        Role::Logistics->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
             Permission::MessagesView->value,

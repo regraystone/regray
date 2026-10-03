@@ -113,11 +113,11 @@ test('syncRoles changes the permissions the next response shares', function () {
 });
 
 test('saving an unrelated attribute leaves the Spatie role alone', function () {
-    $user = User::factory()->role(Role::Tech)->create();
+    $user = User::factory()->role(Role::Technical)->create();
 
     $user->update(['name' => 'Renamed']);
 
-    expect($user->fresh()->getRoleNames()->all())->toBe([Role::Tech->value]);
+    expect($user->fresh()->getRoleNames()->all())->toBe([Role::Technical->value]);
 });
 
 test('the seeder is idempotent', function () {

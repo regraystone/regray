@@ -47,10 +47,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * The inquiry stepper hangs off whichever list the user reads their
      * inquiries on, so there is one route under each and the URL says which.
      * Each needs two permissions: the one that guards the list it sits under,
-     * so a client cannot reach the staff stepper and mktg cannot reach the
+     * so a client cannot reach the staff stepper and marketing cannot reach the
      * client one, and an action permission on top. `quotations.view` is Quote
      * alone and `inquiries.view` is shared by six staff roles, so neither of
-     * them names `client` and `mktg` and nothing else; `inquiries.create` is
+     * them names `client` and `marketing` and nothing else; `inquiries.create` is
      * granted to exactly those two and is what every entry point checks before
      * it offers the button that leads here.
      */

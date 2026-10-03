@@ -32,8 +32,8 @@ test('a seeded account carries its role', function () {
 
     $this->seed(DatabaseSeeder::class);
 
-    expect(User::where('email', Role::Tech->value.'@example.com')->firstOrFail()->getRoleNames()->all())
-        ->toBe([Role::Tech->value]);
+    expect(User::where('email', Role::Technical->value.'@example.com')->firstOrFail()->getRoleNames()->all())
+        ->toBe([Role::Technical->value]);
 });
 
 test('a seed outside local creates no accounts but still seeds the roles', function () {

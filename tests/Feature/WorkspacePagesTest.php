@@ -54,7 +54,7 @@ function workspacePages(): array
  * cannot pass against a permission the routes no longer use.
  *
  * There are two shapes. `can:` carries one permission and the page is opened by
- * holding all of them, so a route may stack several — the stepper does, one for
+ * holding all of them, so a route may stack several â€” the stepper does, one for
  * the list it sits under and one for the action that reaches it. `can_any:`
  * carries a comma-separated list and the page is opened by any one of them,
  * which is what the details page needs since a client reads inquiries on Quote
@@ -290,7 +290,7 @@ test('a role cannot reach the stepper through a list it cannot read', function (
         ->assertForbidden();
 })->with([
     [Role::Client->value, 'inquiry.inquire'],
-    [Role::Mktg->value, 'quote.inquire'],
+    [Role::Marketing->value, 'quote.inquire'],
 ]);
 
 test('the create permission is granted to exactly the two roles that use it', function () {
@@ -304,7 +304,7 @@ test('the create permission is granted to exactly the two roles that use it', fu
 
     // The super-admin holds it too, by having everything, but it is not one of
     // the roles this permission was drawn for.
-    expect($holders)->toBe([Role::Client->value, Role::Mktg->value]);
+    expect($holders)->toBe([Role::Client->value, Role::Marketing->value]);
 });
 
 test('the details page opens for a reader of either list', function (string $routeName) {
@@ -399,9 +399,9 @@ test('an allowed stone profile page renders with its stone', function () {
 test('a denied stone profile is forbidden whatever stone is asked for', function () {
     // The super-admin reaches every page, so the denial is tested on a role
     // that genuinely lacks the permission.
-    $user = User::factory()->role(Role::Tech)->create();
+    $user = User::factory()->role(Role::Technical)->create();
 
-    expect(RolePermissionSeeder::MATRIX[Role::Tech->value])
+    expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
         ->not->toContain(Permission::HomeView->value);
 
     foreach (['patagonia-quartzite', 'no-such-stone', 'granite'] as $stone) {
