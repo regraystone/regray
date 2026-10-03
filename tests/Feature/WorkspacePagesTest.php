@@ -343,6 +343,25 @@ test('the details page is closed to a user who reads neither list', function (st
         ->assertForbidden();
 })->with(['quote.show', 'inquiry.show']);
 
+test('the stepper route is matched ahead of the details route under it', function (string $stepper, string $details) {
+    // `{inquiry}` is not constrained, so it matches any single segment and the
+    // word `inquire` is one of them. Registration order is the only thing
+    // keeping the stepper from being swallowed by the details page, and a later
+    // edit to web.php could undo that without failing anything else.
+    $user = User::factory()->role(Role::Admin->value)->create();
+
+    expect(route($stepper))
+        ->toBe(route($details, 'inquire'));
+
+    $this->actingAs($user)
+        ->get(route($stepper))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('inquire'));
+})->with([
+    ['quote.inquire', 'quote.show'],
+    ['inquiry.inquire', 'inquiry.show'],
+]);
+
 test('the create permission is the only one that is not a view', function () {
     // Anything in the enum whose action is not a form of `view` is an action
     // that guards a page no sidebar item links to. The stepper is reached from

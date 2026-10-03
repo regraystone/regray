@@ -75,15 +75,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * from, which is what the page's own back link uses. One route would be the
      * same authorization with the breadcrumb thrown away.
      *
-     * The parameter is constrained because it would otherwise swallow any
-     * segment, including the static ones registered below.
+     * TODO: the `where('inquiry', ...)` constraint was removed from both of
+     * these on purpose. A route constraint only disambiguates routes: it is not
+     * input validation and never produces a 404. Keep it off, and add no further
+     * `quote/...` or `inquiry/...` route below these two or `{inquiry}` takes it.
      */
     Route::get('quote/{inquiry}', [ViewController::class, 'inquiryDetails'])
-        ->where('inquiry', '[A-Za-z0-9-]+')
         ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
         ->name('quote.show');
     Route::get('inquiry/{inquiry}', [ViewController::class, 'inquiryDetails'])
-        ->where('inquiry', '[A-Za-z0-9-]+')
         ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
         ->name('inquiry.show');
 
