@@ -13,9 +13,11 @@ namespace App\Enums;
  *
  * Most are a `view` permission naming a page of its own, so a permission here
  * is usually a guarantee that the sidebar has an entry for it.
- * `InquiriesCreate` is the exception, and the only action permission: it guards
- * the inquiry stepper, which both navigates to and returns to a page rather
- * than being one.
+ * `InquiriesCreate` and `AgendaCreate` are the exceptions, and the only action
+ * permissions: each guards something a user does rather than somewhere they go.
+ * The stepper is a page reached by doing, so its permission is read by a route;
+ * `AgendaCreate` guards a button on a page the reader is already on, so no
+ * route names it and no sidebar item links to it.
  *
  * The inquiry details page has no permission of its own. It hangs off whichever
  * list the user reads their inquiries on, the way the stepper does, so it is
@@ -30,7 +32,7 @@ enum Permission: string
     case SalesView = 'sales.view';
     case QuotationsView = 'quotations.view';
     case InquiriesView = 'inquiries.view';
-    case AppointmentsView = 'appointments.view';
+    case AgendaView = 'agenda.view';
     case MessagesView = 'messages.view';
     case StonesView = 'stones.view';
     case ServicesView = 'services.view';
@@ -38,6 +40,7 @@ enum Permission: string
     case ProjectsView = 'projects.view';
     case ProfileView = 'profile.view';
     case InquiriesCreate = 'inquiries.create';
+    case AgendaCreate = 'agenda.create';
 
     /**
      * The `can:` middleware string that guards a route with this permission.

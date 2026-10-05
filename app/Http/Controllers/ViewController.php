@@ -72,9 +72,9 @@ class ViewController extends Controller
         return Inertia::render('inquiry-details', ['inquiryId' => $inquiry]);
     }
 
-    public function appointment(Request $request): Response
+    public function agenda(Request $request): Response
     {
-        return Inertia::render('appointment');
+        return Inertia::render('agenda');
     }
 
     public function message(Request $request): Response

@@ -36,7 +36,7 @@ function workspacePages(): array
         'inquiry.inquire' => [],
         'quote.show' => ['inquiry' => 'inq-1048'],
         'inquiry.show' => ['inquiry' => 'inq-1048'],
-        'appointment.index' => [],
+        'agenda.index' => [],
         'message.index' => [],
         'stones.index' => [],
         'services.index' => [],
@@ -192,7 +192,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['inquiry.inquire', [Permission::InquiriesView->value, Permission::InquiriesCreate->value]],
     ['quote.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
     ['inquiry.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
-    ['appointment.index', [Permission::AppointmentsView->value]],
+    ['agenda.index', [Permission::AgendaView->value]],
     ['message.index', [Permission::MessagesView->value]],
     ['stones.index', [Permission::StonesView->value]],
     ['services.index', [Permission::ServicesView->value]],
@@ -239,8 +239,19 @@ test('the details page is the only one guarded by alternatives', function () {
     expect($alternatives)->toBe(['inquiry.show', 'quote.show']);
 });
 
-test('every permission a role is granted guards a page', function () {
-    $granted = collect(RolePermissionSeeder::MATRIX)->flatten()->unique();
+test('every page permission a role is granted guards a page', function () {
+    /*
+     * Only the view permissions, since those are the ones that name a place.
+     *
+     * An action permission guards something a user does rather than somewhere
+     * they go: `inquiries.create` is read by the stepper's route, and
+     * `agenda.create` is read by a button on a page the reader is already on.
+     * Neither is a page guard, so neither belongs in the set checked here.
+     */
+    $granted = collect(RolePermissionSeeder::MATRIX)
+        ->flatten()
+        ->filter(fn (string $permission) => str_starts_with(Permission::from($permission)->action(), 'view'))
+        ->unique();
 
     $used = pageRoutes()->flatMap(fn (RoutingRoute $route) => guardsFor($route->getName()));
 
@@ -307,6 +318,48 @@ test('the create permission is granted to exactly the two roles that use it', fu
     expect($holders)->toBe([Role::Client->value, Role::Marketing->value]);
 });
 
+test('booking a visit is granted to exactly the three roles that book', function () {
+    $holders = collect(RolePermissionSeeder::MATRIX)
+        ->reject(fn (array $permissions, string $role) => $role === Role::superAdmin()->value)
+        ->filter(fn (array $permissions) => in_array(Permission::AgendaCreate->value, $permissions, true))
+        ->keys()
+        ->sort()
+        ->values()
+        ->all();
+
+    /*
+     * A client books their own visit, and marketing and sales book one on
+     * somebody's behalf. The roles that only read the week are not on the list:
+     * the permission decides who is offered the button, so widening it would put
+     * booking in front of people who never arrange a visit.
+     *
+     * The super-admin holds it too, by having everything, but it is not one of
+     * the roles this permission was drawn for.
+     */
+    expect($holders)->toBe([
+        Role::Client->value,
+        Role::Marketing->value,
+        Role::Sales->value,
+    ]);
+});
+
+test('booking a visit is granted to nobody who cannot open the agenda', function () {
+    // The button lives on the agenda page, so a role that may not read the week
+    // has no page to be offered it on.
+    foreach (Role::names() as $role) {
+        if ($role === Role::superAdmin()->value) {
+            continue;
+        }
+
+        if (in_array(Permission::AgendaCreate->value, RolePermissionSeeder::MATRIX[$role], true)) {
+            expect(RolePermissionSeeder::MATRIX[$role])
+                ->toContain(Permission::AgendaView->value);
+        }
+    }
+
+    expect(true)->toBeTrue();
+});
+
 test('the details page opens for a reader of either list', function (string $routeName) {
     // Client reads their inquiries on Quote and staff read them on Inquiry, and
     // the guard is those two permissions joined as an "or", so holding either
@@ -362,18 +415,22 @@ test('the stepper route is matched ahead of the details route under it', functio
     ['inquiry.inquire', 'inquiry.show'],
 ]);
 
-test('the create permission is the only one that is not a view', function () {
+test('the enum declares exactly the two action permissions', function () {
     // Anything in the enum whose action is not a form of `view` is an action
-    // that guards a page no sidebar item links to. The stepper is reached from
-    // Quote and Inquiry, and is the only one of these: every other permission
-    // names a page the sidebar has an item for.
+    // rather than a place, so no sidebar item links to it. The stepper is reached
+    // from Quote and Inquiry; booking a visit is a button on the agenda page the
+    // reader is already on. Both are listed here so that a third one has to be
+    // said out loud rather than appearing because somebody added an enum case.
     $actions = collect(Permission::cases())
         ->reject(fn (Permission $permission) => str_starts_with($permission->action(), 'view'))
         ->map(fn (Permission $permission) => $permission->value)
         ->values()
         ->all();
 
-    expect($actions)->toBe([Permission::InquiriesCreate->value]);
+    expect($actions)->toBe([
+        Permission::InquiriesCreate->value,
+        Permission::AgendaCreate->value,
+    ]);
 });
 
 test('each role can open the landing page it is redirected to', function () {
