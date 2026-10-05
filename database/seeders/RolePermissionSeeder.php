@@ -48,6 +48,14 @@ class RolePermissionSeeder extends Seeder
      * the sales role is a person, `sales.view` is the Sales page, and no role
      * below happens to be granted it by name.
      *
+     * The client holds `profile-agenda.view` where the staff who read the week
+     * hold `agenda.view`: the agenda is one page with two URLs, and each role is
+     * given the door that suits them. A client reaches it from their Profile
+     * page and has no Agenda in the sidebar; owner, marketing and sales reach it
+     * from the sidebar and are not offered the Profile door. The client keeps
+     * `agenda.create` either way, because the Book a visit button lives on the
+     * page itself and it is the same page under either URL.
+     *
      * @var array<string, array<int, string>>
      */
     public const MATRIX = [
@@ -55,9 +63,9 @@ class RolePermissionSeeder extends Seeder
             Permission::HomeView->value,
             Permission::SavedView->value,
             Permission::QuotationsView->value,
-            Permission::AgendaView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
+            Permission::ProfileAgendaView->value,
             Permission::InquiriesCreate->value,
             Permission::AgendaCreate->value,
         ],
@@ -75,6 +83,7 @@ class RolePermissionSeeder extends Seeder
             Permission::AccountsView->value,
             Permission::ProjectsView->value,
             Permission::ProfileView->value,
+            Permission::ProfileAgendaView->value,
             Permission::InquiriesCreate->value,
             Permission::AgendaCreate->value,
         ],

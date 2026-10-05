@@ -13,7 +13,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { PasswordField } from '@/components/ui/password-field';
-import { edit as editProfile } from '@/routes/profile';
+import { edit as editAccountSecurity } from '@/routes/profile';
 
 // oxfmt-ignore
 type Props = {
@@ -31,11 +31,11 @@ export default function Security(props: Props) {
             <h1 className="sr-only">Security settings</h1>
 
             <Link
-                href={editProfile()}
+                href={editAccountSecurity()}
                 className="mb-6 inline-flex items-center gap-2 text-sm text-secondary-foreground transition-opacity hover:opacity-70 sm:hidden"
             >
                 <ArrowLeft className="size-4" aria-hidden />
-                Back to profile
+                Back to account &amp; security
             </Link>
 
             <div className="space-y-6">

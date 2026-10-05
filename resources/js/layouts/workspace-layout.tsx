@@ -17,7 +17,6 @@ import {
     Package,
     PanelLeftClose,
     PanelLeftOpen,
-    Settings,
     Users,
     Wrench,
     X,
@@ -56,7 +55,11 @@ import { index as messageIndex } from '@/routes/message';
 import { index as overviewIndex } from '@/routes/overview';
 import { index as projectsIndex } from '@/routes/projects';
 import { index as stonesIndex } from '@/routes/stones';
-import { edit as editProfile } from '@/routes/profile';
+import {
+    agenda as profileAgenda,
+    edit as editAccountSecurity,
+    show as showProfile,
+} from '@/routes/profile';
 import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
 import { index as savedIndex } from '@/routes/saved';
@@ -70,6 +73,10 @@ import { index as servicesIndex } from '@/routes/services';
  * so the only thing that has to agree between the two sides is the spelling.
  * Keeping the union here means the sidebar's `permission` field is checked
  * against this list rather than being an untyped string.
+ *
+ * `profileAgendaView` is listed but no nav item names it: it is the agenda as
+ * reached from the Profile page, and the button for it is drawn there rather
+ * than in the sidebar. See the Profile hub page.
  */
 export const permissions = {
     homeView: 'home.view',
@@ -85,6 +92,7 @@ export const permissions = {
     accountsView: 'accounts.view',
     projectsView: 'projects.view',
     profileView: 'profile.view',
+    profileAgendaView: 'profile-agenda.view',
     inquiriesCreate: 'inquiries.create',
     agendaCreate: 'agenda.create',
 } as const;
@@ -201,7 +209,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
             {
                 slug: 'profile',
                 label: 'Profile',
-                href: editProfile.url(),
+                href: showProfile.url(),
                 icon: CircleUserRound,
                 permission: permissions.profileView,
                 matchPrefix: '/profile',
@@ -410,12 +418,29 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     ];
 
     if (effectiveUrl.startsWith('/profile')) {
-        // Profile and its Security sub-page are the only pages under this
-        // prefix, so the trail is built by hand instead of by segment.
+        /*
+         * Everything under /profile hangs off the Profile hub, so the trail is
+         * built by hand rather than by segment: the segments would read
+         * "account security security" and say nothing about where the page is.
+         *
+         * Regray / Settings / Profile is the floor every one of these shares,
+         * and Settings is plain text because it names a section rather than
+         * somewhere to go. Each page then adds its own name, and Security adds
+         * the page holding the Security card first, so the trail reads as the
+         * route the reader walked rather than as a list of slugs.
+         */
         crumbs.push({ label: 'Settings' });
-        crumbs.push({ label: 'Profile', href: editProfile.url() });
+        crumbs.push({ label: 'Profile', href: showProfile.url() });
 
-        if (effectiveUrl.startsWith('/profile/security')) {
+        if (effectiveUrl === editAccountSecurity.url()) {
+            crumbs.push({ label: 'Account & Security' });
+        } else if (effectiveUrl === profileAgenda.url()) {
+            crumbs.push({ label: 'Agenda' });
+        } else if (effectiveUrl.startsWith(editSecurity.url())) {
+            crumbs.push({
+                label: 'Account & Security',
+                href: editAccountSecurity.url(),
+            });
             crumbs.push({ label: 'Security' });
         }
     } else {
@@ -588,12 +613,12 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
                                     <Link
-                                        href={editProfile()}
+                                        href={showProfile()}
                                         as="button"
                                         className="block w-full cursor-pointer"
                                     >
-                                        <Settings className="mr-2" />
-                                        Settings
+                                        <CircleUserRound className="mr-2" />
+                                        Profile
                                     </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />

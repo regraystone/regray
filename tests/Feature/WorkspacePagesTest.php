@@ -42,7 +42,9 @@ function workspacePages(): array
         'services.index' => [],
         'accounts.index' => [],
         'projects.index' => [],
+        'profile.show' => [],
         'profile.edit' => [],
+        'profile.agenda' => [],
     ];
 }
 
@@ -198,9 +200,11 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['services.index', [Permission::ServicesView->value]],
     ['accounts.index', [Permission::AccountsView->value]],
     ['projects.index', [Permission::ProjectsView->value]],
+    ['profile.show', [Permission::ProfileView->value]],
     ['profile.edit', [Permission::ProfileView->value]],
     ['profile.update', [Permission::ProfileView->value]],
     ['profile.destroy', [Permission::ProfileView->value]],
+    ['profile.agenda', [Permission::ProfileView->value, Permission::ProfileAgendaView->value]],
     ['security.edit', [Permission::ProfileView->value]],
     ['user-password.update', [Permission::ProfileView->value]],
 ]);
@@ -344,21 +348,62 @@ test('booking a visit is granted to exactly the three roles that book', function
 });
 
 test('booking a visit is granted to nobody who cannot open the agenda', function () {
-    // The button lives on the agenda page, so a role that may not read the week
-    // has no page to be offered it on.
+    /*
+     * The button lives on the agenda page, so a role that may not read the week
+     * has no page to be offered it on.
+     *
+     * Either door counts, because the page is on show at two URLs: the sidebar
+     * one guarded by `agenda.view` and the Profile one by
+     * `profile-agenda.view`. A client books their own visit and reads the week
+     * through the Profile hub, so holding the second without the first is the
+     * arrangement that has to be accepted rather than read as a mistake.
+     */
     foreach (Role::names() as $role) {
         if ($role === Role::superAdmin()->value) {
             continue;
         }
 
         if (in_array(Permission::AgendaCreate->value, RolePermissionSeeder::MATRIX[$role], true)) {
-            expect(RolePermissionSeeder::MATRIX[$role])
-                ->toContain(Permission::AgendaView->value);
+            // At least one door, not both: toContain() here would assert the
+            // opposite of what is being checked.
+            expect(array_intersect(
+                [Permission::AgendaView->value, Permission::ProfileAgendaView->value],
+                RolePermissionSeeder::MATRIX[$role],
+            ))->not->toBeEmpty();
         }
     }
 
     expect(true)->toBeTrue();
 });
+
+test('the two agenda doors are given to roles that do not hold both', function (string $role) {
+    /*
+     * Each role is meant to reach the agenda one way and not the other, so this
+     * pins both halves: a client through the Profile hub with no sidebar entry,
+     * and a staff reader of the week with no Profile door. Without it, granting
+     * a role both permissions would quietly open the other door as well, and
+     * nothing else here would notice.
+     */
+    $granted = RolePermissionSeeder::MATRIX[$role];
+    $bySidebar = in_array(Permission::AgendaView->value, $granted, true);
+    $byProfile = in_array(Permission::ProfileAgendaView->value, $granted, true);
+
+    if ($role === Role::superAdmin()->value) {
+        // The super-admin is granted every permission by having everything, so
+        // it is the one role that opens both doors. It is not one of the roles
+        // the split was drawn for.
+        expect($bySidebar && $byProfile)->toBeTrue();
+
+        return;
+    }
+
+    expect($bySidebar xor $byProfile)->toBeTrue();
+})->with([
+    Role::Client->value,
+    Role::Owner->value,
+    Role::Marketing->value,
+    Role::Sales->value,
+]);
 
 test('the details page opens for a reader of either list', function (string $routeName) {
     // Client reads their inquiries on Quote and staff read them on Inquiry, and

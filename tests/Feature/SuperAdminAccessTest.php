@@ -45,7 +45,9 @@ test('the super-admin opens every page', function (string $routeName, array $par
     ['services.index', []],
     ['accounts.index', []],
     ['projects.index', []],
+    ['profile.show', []],
     ['profile.edit', []],
+    ['profile.agenda', []],
 ]);
 
 test('the super-admin passes a gate check for any permission', function () {

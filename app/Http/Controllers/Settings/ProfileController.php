@@ -15,11 +15,27 @@ use Inertia\Response;
 class ProfileController extends Controller
 {
     /**
-     * Show the user's profile settings page.
+     * Show the Profile hub.
+     *
+     * Not a form: this is the page the sidebar and the header dropdown point at,
+     * and it only lists the doors this reader has. Which of them are drawn is
+     * decided in the front end from the shared `auth.permissions` prop, the same
+     * way the sidebar decides what to hide, so there is nothing to pass here.
+     */
+    public function show(): Response
+    {
+        return Inertia::render('profile/index');
+    }
+
+    /**
+     * Show the user's Account & Security page.
+     *
+     * The name, email, security and delete-account settings, which is what the
+     * old /profile page showed and what it still shows.
      */
     public function edit(Request $request): Response
     {
-        return Inertia::render('settings/profile', [
+        return Inertia::render('profile/account-security', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
         ]);

@@ -13,11 +13,15 @@ namespace App\Enums;
  *
  * Most are a `view` permission naming a page of its own, so a permission here
  * is usually a guarantee that the sidebar has an entry for it.
- * `InquiriesCreate` and `AgendaCreate` are the exceptions, and the only action
- * permissions: each guards something a user does rather than somewhere they go.
- * The stepper is a page reached by doing, so its permission is read by a route;
- * `AgendaCreate` guards a button on a page the reader is already on, so no
- * route names it and no sidebar item links to it.
+ * `ProfileAgendaView` is the one view permission with no sidebar entry: it names
+ * the agenda as reached from the Profile page rather than from the Management
+ * group, so it says which door a role was given rather than which pages it may
+ * see.
+ * `InquiriesCreate` and `AgendaCreate` are the exceptions to the action
+ * permissions, and the only two: each guards something a user does rather than
+ * somewhere they go. The stepper is a page reached by doing, so its permission
+ * is read by a route; `AgendaCreate` guards a button on a page the reader is
+ * already on, so no route names it and no sidebar item links to it.
  *
  * The inquiry details page has no permission of its own. It hangs off whichever
  * list the user reads their inquiries on, the way the stepper does, so it is
@@ -39,6 +43,24 @@ enum Permission: string
     case AccountsView = 'accounts.view';
     case ProjectsView = 'projects.view';
     case ProfileView = 'profile.view';
+
+    /**
+     * The agenda as reached from the Profile page, at /profile/agenda.
+     *
+     * The same page `AgendaView` guards is on show at two URLs, and each role is
+     * given one of them rather than both: a client reads their visits from
+     * their Profile page and has no Agenda in their sidebar, while the staff who
+     * read the week reach it from the sidebar and are not offered the Profile
+     * door. Two permissions rather than one so each door can be given on its
+     * own, and because a role check is not how anything here authorizes.
+     *
+     * It is a `view` permission, so it names a place, but it is the one view
+     * permission with no sidebar entry: the entry for that page belongs to
+     * `AgendaView`, and holding this one is what puts the button on the Profile
+     * hub.
+     */
+    case ProfileAgendaView = 'profile-agenda.view';
+
     case InquiriesCreate = 'inquiries.create';
     case AgendaCreate = 'agenda.create';
 

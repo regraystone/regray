@@ -19,7 +19,7 @@ type PageProps = {
     auth: Auth;
 };
 
-export default function Profile({
+export default function AccountSecurity({
     mustVerifyEmail,
     status,
 }: {
@@ -30,9 +30,9 @@ export default function Profile({
 
     return (
         <>
-            <Head title="Profile settings" />
+            <Head title="Account &amp; Security" />
 
-            <h1 className="sr-only">Profile settings</h1>
+            <h1 className="sr-only">Account &amp; Security</h1>
 
             <div className="space-y-6">
                 <Card className="rounded-none border-border shadow-none">

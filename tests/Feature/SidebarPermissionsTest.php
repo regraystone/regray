@@ -43,7 +43,7 @@ test('each role is shared exactly the permissions it may see', function (string 
     $this->actingAs($user)
         ->get(route('profile.edit'))
         ->assertInertia(fn (Assert $page) => $page
-            ->component('settings/profile')
+            ->component('profile/account-security')
             ->where('auth.roles', [$role])
             ->has('auth.permissions', count($expected))
             ->where('auth.permissions', fn (Collection $permissions) => assertMatchesPermissions($permissions, $role))

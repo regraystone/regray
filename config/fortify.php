@@ -96,8 +96,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | Here you may override the URI of an individual Fortify route. The
-    | confirm-password gate is moved under the profile section so it sits
-    | alongside the page it guards.
+    | confirm-password gate is nested under Account & Security so it sits
+    | alongside the page it guards, rather than hanging off /profile
+    | directly.
     |
     */
 
@@ -106,7 +107,7 @@ return [
         // with config('fortify.paths.password.confirm') and a dotted key is
         // not reachable through dot notation.
         'password' => [
-            'confirm' => '/profile/confirm-password',
+            'confirm' => '/profile/account-security/confirm-password',
         ],
     ],
 
