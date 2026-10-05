@@ -198,8 +198,6 @@ const WeekGrid = ({
     now: Date;
     onSelect: (item: AgendaItem) => void;
 }) => {
-    const isTodayVisible = days.some((day) => isSameDay(day, now));
-
     /*
      * Placements are worked out once per day, up front, because the row heights
      * depend on every day at once: an hour is as tall as its fullest column.
@@ -232,13 +230,6 @@ const WeekGrid = ({
      * It is placed inside whichever hour row it falls in, by how far through the
      * hour it is, so it stays right when that row has grown.
      */
-    const nowHour = now.getHours() + now.getMinutes() / 60;
-    const showNowLine =
-        isTodayVisible && nowHour >= OPEN_HOUR && nowHour < CLOSE_HOUR;
-    const nowSlot = Math.min(HOUR_COUNT - 1, Math.floor(nowHour - OPEN_HOUR));
-    const nowTop = showNowLine
-        ? rowTops[nowSlot] + (nowHour - OPEN_HOUR - nowSlot) * rowHeights[nowSlot]
-        : 0;
 
     /*
      * A floor under the width, so a column is never narrower than a title can be
@@ -309,8 +300,6 @@ const WeekGrid = ({
                                     }}
                                 />
                             ))}
-
-
 
                             {placements.map((placement) => (
                                 <ItemBlock

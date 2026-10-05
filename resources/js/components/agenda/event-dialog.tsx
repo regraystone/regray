@@ -35,14 +35,16 @@ const EventDialog = ({
             }
         }}
     >
-        <DialogContent className="rounded-none sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent
+            className="rounded-none sm:max-w-md"
+            aria-describedby={undefined}
+        >
             {item ? (
                 <>
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
                             {item.title}
                         </DialogTitle>
-
                     </DialogHeader>
 
                     <div className="border border-sidebar-border">

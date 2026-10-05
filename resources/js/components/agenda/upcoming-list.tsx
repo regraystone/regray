@@ -114,7 +114,7 @@ const UpcomingList = ({
     const upcoming = items
         .filter(
             (item) =>
-                (item.status === 'confirmed' || item.status === 'requested'),
+                item.status === 'confirmed' || item.status === 'requested',
         )
         .sort((a, b) => a.arrival.getTime() - b.arrival.getTime())
         .slice(0, 4);

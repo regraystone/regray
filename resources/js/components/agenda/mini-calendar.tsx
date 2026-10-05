@@ -144,11 +144,13 @@ const MiniCalendar = ({
                             aria-current={isToday ? 'date' : undefined}
                             aria-pressed={isSelected}
                             className={cn(
-                                'relative grid aspect-square place-items-center rounded-md text-xs tabular-nums transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none w-full h-full',
+                                'relative grid aspect-square h-full w-full place-items-center rounded-md text-xs tabular-nums transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
                                 isToday
                                     ? 'bg-primary font-bold text-primary-foreground'
-                                    : visibleDays?.some((d) => isSameDay(d, day))
-                                      ? 'font-bold bg-muted'
+                                    : visibleDays?.some((d) =>
+                                            isSameDay(d, day),
+                                        )
+                                      ? 'bg-muted font-bold'
                                       : isSelected
                                         ? 'font-bold ring-1 ring-ring'
                                         : isInMonth

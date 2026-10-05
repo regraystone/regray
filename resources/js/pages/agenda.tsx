@@ -14,7 +14,6 @@ import {
     addDays,
     dayKey,
     formatDayMonth,
-    isSameDay,
     startOfDay,
     startOfWeek,
 } from '@/lib/date';
@@ -108,10 +107,6 @@ const Agenda = () => {
         setAnchor((current) => addDays(current, daysToMove));
 
     const stepLabel = isWide ? 'week' : 'day';
-
-    const weekHasItems = days.some((day) =>
-        items.some((item) => isSameDay(item.arrival, day)),
-    );
 
     /*
      * The days the mini calendar puts a dot under.
