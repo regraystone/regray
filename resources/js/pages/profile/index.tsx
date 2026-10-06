@@ -2,12 +2,6 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Calendar, ChevronRight, LogOut, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import PageHeading from '@/components/page-heading';
-import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { logout } from '@/routes';
@@ -19,11 +13,10 @@ import {
 /**
  * One door on the Profile page.
  *
- * The same shape as the Security card on Account & Security: a title, a line
- * saying what is behind it, and a chevron, so the hub and the page under it are
- * read as the same list of places rather than two different designs.
+ * Each row pairs an icon, title, single-line description, and chevron to present
+ * settings destinations in a dense, thumb-friendly list.
  */
-type HubCard = {
+type HubRow = {
     title: string;
     description: string;
     icon: LucideIcon;
@@ -33,9 +26,8 @@ type HubCard = {
 /**
  * Your account.
  *
- * A hub rather than a page of settings, so the Profile item in the sidebar has
- * somewhere to point that is not one particular set of fields. Every door below
- * is a page of its own and decides for itself what it shows.
+ * Designed mobile-first as a settings hub with labeled sections, grouped
+ * rows, and a quiet, separated logout affordance.
  *
  * The agenda is listed here when this reader may reach it, and nowhere else: a
  * client has no Agenda in the sidebar and comes through this page, while the
@@ -46,10 +38,10 @@ type HubCard = {
 const Profile = () => {
     const { can } = usePermissions();
 
-    const cards: HubCard[] = [];
+    const rows: HubRow[] = [];
 
     if (can(permissions.profileAgendaView)) {
-        cards.push({
+        rows.push({
             title: 'Agenda',
             description: 'Your showroom visits and when to expect them',
             icon: Calendar,
@@ -57,7 +49,7 @@ const Profile = () => {
         });
     }
 
-    cards.push({
+    rows.push({
         title: 'Account & Security',
         description:
             'Update your name, email address, password and two-factor authentication',
@@ -71,74 +63,81 @@ const Profile = () => {
 
             <h1 className="sr-only">Profile</h1>
 
-            <div className="mx-auto w-full max-w-6xl">
+            <div className="mx-auto w-full max-w-2xl">
                 <PageHeading title="Profile" description="Your account" />
 
-                <div className="space-y-4">
-                    {cards.map((card) => (
-                        <Link
-                            key={card.title}
-                            href={card.href}
-                            className="block transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                        >
-                            <Card className="rounded-none border-border shadow-none">
-                                <CardHeader className="flex-row items-center justify-between gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <CardTitle className="flex items-center gap-2">
-                                            <card.icon
-                                                className="size-4 shrink-0 text-secondary-foreground"
-                                                aria-hidden
-                                            />
-                                            {card.title}
-                                        </CardTitle>
-                                        <CardDescription>
-                                            {card.description}
-                                        </CardDescription>
-                                    </div>
+                {/* Settings list section */}
+                <div>
+                    <h3 className="mb-2 text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                        Settings
+                    </h3>
 
-                                    <ChevronRight
+                    <div className="divide-y divide-border border border-border bg-background">
+                        {rows.map((row) => (
+                            <Link
+                                key={row.title}
+                                href={row.href}
+                                className="group flex min-h-[56px] items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                            >
+                                <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
+                                    <row.icon
                                         className="size-5 shrink-0 text-secondary-foreground"
                                         aria-hidden
                                     />
-                                </CardHeader>
-                            </Card>
-                        </Link>
-                    ))}
+                                    <div className="min-w-0 space-y-0.5">
+                                        <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
+                                            {row.title}
+                                        </div>
+                                        <div className="truncate text-xs text-muted-foreground sm:text-sm">
+                                            {row.description}
+                                        </div>
+                                    </div>
+                                </div>
 
-                    {/*
-                        Signing out is here rather than left to the avatar menu
-                        alone, because this is the page a reader lands on when they
-                        came to end the session. Same link, same flush, as the one
-                        in the header.
-                    */}
+                                <ChevronRight
+                                    className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
+                                    aria-hidden
+                                />
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+
+                {/*
+                    Signing out is separated from primary settings navigation,
+                    preserving hit target size while presenting a quieter affordance.
+                */}
+                <div className="mt-6 sm:mt-8">
+                    <h3 className="mb-2 text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                        Session
+                    </h3>
+
                     <Link
                         href={logout()}
                         as="button"
                         onClick={() => router.flushAll()}
                         data-test="logout-button"
-                        className="block w-full cursor-pointer transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                        className="group flex min-h-[56px] w-full cursor-pointer items-center justify-between gap-4 border border-border bg-background p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
                     >
-                        <Card className="rounded-none border-border shadow-none">
-                            <CardHeader className="flex-row items-center justify-between gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <LogOut
-                                            className="size-4 shrink-0 text-secondary-foreground"
-                                            aria-hidden
-                                        />
-                                        Log out
-                                    </CardTitle>
-                                    <CardDescription>
-                                        End this session on this device
-                                    </CardDescription>
+                        <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
+                            <LogOut
+                                className="size-5 shrink-0 text-secondary-foreground"
+                                aria-hidden
+                            />
+                            <div className="min-w-0 space-y-0.5">
+                                <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
+                                    Log out
                                 </div>
+                                <div className="truncate text-xs text-muted-foreground sm:text-sm">
+                                    End this session on this device
+                                </div>
+                            </div>
+                        </div>
 
-                                <ChevronRight
-                                    className="size-5 shrink-0 text-secondary-foreground"
-                                    aria-hidden
-                                />
-                            </CardHeader>
-                        </Card>
+                        <ChevronRight
+                            className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
+                            aria-hidden
+                        />
                     </Link>
                 </div>
             </div>

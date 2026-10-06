@@ -9,7 +9,7 @@ type FieldProps = ComponentProps<'input'> & {
 };
 
 const inputClasses =
-    'mt-2 w-full rounded-none border border-border bg-background px-4 py-3 text-[0.98rem] text-foreground outline-none transition-colors focus:border-2 focus:border-primary';
+    'mt-2 w-full rounded-none border border-border bg-background px-4 py-3 text-base sm:text-[0.98rem] text-foreground outline-none transition-colors focus:border-2 focus:border-primary';
 
 export function Field({
     id,

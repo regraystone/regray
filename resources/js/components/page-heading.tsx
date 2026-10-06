@@ -9,7 +9,7 @@ const PageHeading = ({
     description?: string;
     action?: ReactNode;
 }) => (
-    <div className="mb-8 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-5 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 space-y-1.5">
             <h2 className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
                 {title}
