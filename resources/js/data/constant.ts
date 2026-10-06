@@ -13,12 +13,6 @@ export type FeedItem = {
     recommended: boolean;
 };
 
-export type CatalogItem = FeedItem & {
-    material: string;
-    price: string;
-    category: string;
-};
-
 export type StoneProfile = FeedItem & {
     description: string;
     gallery: StoneImage[];
@@ -99,7 +93,7 @@ const hero = '/images/regray-hero.jpg';
  * array, so a card image and the gallery of the same stone can never disagree
  * about which file is which.
  */
-export const stoneImages: StoneImage[] = [
+const stoneImages: StoneImage[] = [
     {
         id: 'ef03fcfd4ff0e6063df004f6b897fe7a',
         stoneId: 'cobblestone',
@@ -628,7 +622,7 @@ export const stoneImages: StoneImage[] = [
 ];
 
 /** One stone's photographs, most recently catalogued first. */
-export const getStoneGallery = (stoneId: string): StoneImage[] =>
+const getStoneGallery = (stoneId: string): StoneImage[] =>
     stoneImages
         .filter((image) => image.stoneId === stoneId)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -1462,7 +1456,7 @@ export const serviceName = (id: string): string =>
  * yet" is a real answer here, and a client who cannot pick from the list still
  * has to be able to hand the decision back.
  */
-export const ADVISE_OPTION = 'Not sure yet, advise me';
+const ADVISE_OPTION = 'Not sure yet, advise me';
 
 export const EDGE_PROFILES: readonly string[] = [
     'Reverse Chamfer',
@@ -1596,7 +1590,7 @@ export type InquiryStoneSelection = {
  * the three services the team attends at an hour are booked on their own, with
  * nothing to supply or install, so a project is not defined by having stones.
  */
-export type InquiryProject = {
+type InquiryProject = {
     id: string;
     /**
      * What the client called this piece of work — "Kitchen counters", "Pool deck".
@@ -1612,7 +1606,7 @@ export type InquiryProject = {
     requirements: InquiryRequirementsRecord;
 };
 
-export type InquiryStatusChange = {
+type InquiryStatusChange = {
     status: InquiryStatus;
     /** When the status moved to this one, which is all a timeline entry says. */
     at: string;

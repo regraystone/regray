@@ -74,7 +74,7 @@ export const MAX_STONE_QUANTITY = 9999;
  * control to point at, so the sheet has to say it beside the section that says
  * there are none. Two copies of the sentence would be free to disagree about it.
  */
-export const NEEDS_A_PROJECT = 'Add at least one project.';
+const NEEDS_A_PROJECT = 'Add at least one project.';
 
 /**
  * Today, in the reader's own timezone, as the `YYYY-MM-DD` a date input wants.
@@ -479,7 +479,7 @@ const projectDetailsShape = {
  * for: a project whose only service stands on its own has asked for no material,
  * and the step that would normally insist on one is a step it never reaches.
  */
-export const projectSchema = z
+const projectSchema = z
     .object({
         id: z.string(),
         name: projectNameSchema,

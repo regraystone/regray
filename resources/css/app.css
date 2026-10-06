@@ -167,18 +167,6 @@
     }
 }
 
-@keyframes text-rise {
-    0% {
-        opacity: 0;
-        transform: translateY(6px);
-    }
-
-    100% {
-        opacity: 1;
-        transform: none;
-    }
-}
-
 @utility badge-pop {
     @media (prefers-reduced-motion: no-preference) {
         animation: badge-pop 360ms ease-out backwards;
@@ -196,12 +184,6 @@
 @utility error-shake {
     @media (prefers-reduced-motion: no-preference) {
         animation: error-shake 400ms ease-in-out backwards;
-    }
-}
-
-@utility text-rise {
-    @media (prefers-reduced-motion: no-preference) {
-        animation: text-rise 220ms ease-out backwards;
     }
 }
 
@@ -396,20 +378,6 @@
         margin-inline-end: 5rem;
     }
 
-    .feed-masonry {
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .feed-column {
-        display: flex;
-        flex: 1 1 0;
-        flex-direction: column;
-        min-width: 0;
-        gap: 1rem;
-    }
-
     .stone-card {
         position: relative;
         display: block;
@@ -424,16 +392,6 @@
 
     .stone-card:hover .stone-card-media img {
         transform: scale(1.025);
-    }
-
-    @media (min-width: 768px) {
-        .feed-masonry {
-            gap: 1.25rem;
-        }
-
-        .feed-column {
-            gap: 1.25rem;
-        }
     }
 
     @media (max-width: 767px) {

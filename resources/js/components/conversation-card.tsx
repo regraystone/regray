@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 const EMPTY_PREVIEW = 'No messages yet';
 
-export const getConversationPreview = (conversation: Conversation): string => {
+const getConversationPreview = (conversation: Conversation): string => {
     const lastMessage = conversation.messages[conversation.messages.length - 1];
 
     if (!lastMessage) {
