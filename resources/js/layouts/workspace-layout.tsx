@@ -38,7 +38,8 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { inquiries, stoneProfiles } from '@/data/constant';
+import { inquiries } from '@/data/inquiries';
+import { stoneProfiles } from '@/data/stones';
 import { useInitials } from '@/hooks/use-initials';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { usePermissions } from '@/hooks/use-permissions';

@@ -11,7 +11,7 @@ import {
     stoneProfiles,
     type StoneImage,
     type StoneProfile,
-} from '@/data/constant';
+} from '@/data/stones';
 import { index as homeIndex } from '@/routes/home';
 import { index as stonesIndex } from '@/routes/stones';
 

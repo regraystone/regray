@@ -1,4 +1,4 @@
-import { people, type Person } from '@/data/constant';
+import { people, type Person } from '@/data/conversations';
 
 export function getPerson(id: string): Person | undefined {
     return people.find((person) => person.id === id);

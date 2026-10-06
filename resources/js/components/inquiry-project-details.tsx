@@ -9,7 +9,7 @@ import InputError from '@/components/input-error';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { LANDMARK_MAX, NOTES_MAX } from '@/data/constant';
+import { LANDMARK_MAX, NOTES_MAX } from '@/data/inquiries';
 import { searchLocations, LOCATIONS } from '@/data/locations';
 import {
     todayIsoDate,

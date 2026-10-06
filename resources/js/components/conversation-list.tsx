@@ -11,7 +11,7 @@ import {
 import ConversationCard from '@/components/conversation-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { Conversation } from '@/data/constant';
+import type { Conversation } from '@/data/conversations';
 import { cn } from '@/lib/utils';
 
 type ConversationFilter = 'all' | 'unread' | 'groups';

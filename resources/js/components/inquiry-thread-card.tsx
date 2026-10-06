@@ -3,11 +3,10 @@ import { ArrowRight } from 'lucide-react';
 import { StatusBadge, STATUS_LABELS } from '@/components/inquiry-status-badge';
 import {
     inquiryTitle,
-    stones,
-    type Stone,
     type Inquiry,
     type InquiryStatus,
-} from '@/data/constant';
+} from '@/data/inquiries';
+import { stones, type Stone } from '@/data/stones';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { show as inquiryShow } from '@/routes/inquiry';

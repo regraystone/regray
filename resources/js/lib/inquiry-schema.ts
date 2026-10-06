@@ -1,15 +1,12 @@
 ﻿import { z } from 'zod';
 import {
-    EDGE_PROFILES,
-    FINISHES,
     LANDMARK_MAX,
     NOTES_MAX,
     PROJECT_NAME_MAX,
-    serviceOptions,
-    STANDALONE_SERVICE_IDS,
-    stones,
     type InquiryAttachment,
-} from '@/data/constant';
+} from '@/data/inquiries';
+import { serviceOptions, STANDALONE_SERVICE_IDS } from '@/data/services';
+import { EDGE_PROFILES, FINISHES, stones } from '@/data/stones';
 import { LOCATIONS } from '@/data/locations';
 
 /*

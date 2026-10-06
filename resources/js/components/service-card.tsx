@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react';
-import type { ServiceOption } from '@/data/constant';
+import type { ServiceOption } from '@/data/services';
 
 /**
  * One service in the inquiry picker's step 2.

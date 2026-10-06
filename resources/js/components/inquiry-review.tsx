@@ -7,7 +7,8 @@ import InquiryServiceBullets from '@/components/inquiry-service-bullets';
 import StoneTile from '@/components/inquiry-stone-tile';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { serviceOptions, stones, type Stone } from '@/data/constant';
+import { serviceOptions } from '@/data/services';
+import { stones, type Stone } from '@/data/stones';
 import {
     MAX_PROJECTS,
     REQUIREMENTS_STEP,

@@ -7,7 +7,7 @@ import {
     currentUserId,
     type ChatMessage,
     type Conversation,
-} from '@/data/constant';
+} from '@/data/conversations';
 import { cn } from '@/lib/utils';
 
 const MessageSkeleton = () => (

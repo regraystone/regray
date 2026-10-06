@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Check, ExternalLink, Heart, Star } from 'lucide-react';
-import type { Stone } from '@/data/constant';
+import type { Stone } from '@/data/stones';
 import { show as homeShow } from '@/routes/home';
 
 const StoneCard = ({

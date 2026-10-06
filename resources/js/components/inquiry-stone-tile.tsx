@@ -1,4 +1,4 @@
-﻿import type { Stone } from '@/data/constant';
+﻿import type { Stone } from '@/data/stones';
 
 /**
  * One stone on a sheet the reader is checking rather than choosing: what it is,

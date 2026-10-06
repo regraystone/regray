@@ -1,4 +1,4 @@
-﻿import { serviceOptions } from '@/data/constant';
+﻿import { serviceOptions } from '@/data/services';
 
 /**
  * What a project's services cover, as bullets, on the two sheets that list it.

@@ -18,14 +18,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    EDGE_PROFILES,
-    FINISHES,
-    PROJECT_NAME_MAX,
-    serviceName,
-    serviceOptions,
-    stones,
-} from '@/data/constant';
+import { PROJECT_NAME_MAX } from '@/data/inquiries';
+import { serviceName, serviceOptions } from '@/data/services';
+import { EDGE_PROFILES, FINISHES, stones } from '@/data/stones';
 import {
     MAX_STONE_QUANTITY,
     type InquiryDraftInput,

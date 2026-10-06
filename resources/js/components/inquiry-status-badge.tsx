@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { InquiryStatus } from '@/data/constant';
+import type { InquiryStatus } from '@/data/inquiries';
 
 /**
  * What each status is called on screen.

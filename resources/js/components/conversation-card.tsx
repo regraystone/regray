@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { currentUserId, inquiries, type Conversation } from '@/data/constant';
+import { currentUserId, type Conversation } from '@/data/conversations';
+import { inquiries } from '@/data/inquiries';
 import { useInitials } from '@/hooks/use-initials';
 import { getFirstName } from '@/lib/people';
 import { cn } from '@/lib/utils';

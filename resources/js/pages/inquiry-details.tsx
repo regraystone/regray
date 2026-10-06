@@ -20,19 +20,16 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
+import { clients, type Client } from '@/data/clients';
+import { people, type Person } from '@/data/conversations';
 import {
-    clients,
     inquiries,
-    people,
-    serviceOptions,
-    stones,
-    type Client,
-    type Stone,
     type InquiryFile,
     type InquiryRequirementsRecord,
     type InquiryStoneSelection,
-    type Person,
-} from '@/data/constant';
+} from '@/data/inquiries';
+import { serviceOptions } from '@/data/services';
+import { stones, type Stone } from '@/data/stones';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';

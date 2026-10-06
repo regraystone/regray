@@ -31,11 +31,10 @@ import {
 import {
     inquiries,
     inquiryTitle,
-    stones,
-    type Stone,
     type Inquiry,
     type InquiryStatus,
-} from '@/data/constant';
+} from '@/data/inquiries';
+import { stones, type Stone } from '@/data/stones';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { show as quoteShow } from '@/routes/quote';
 

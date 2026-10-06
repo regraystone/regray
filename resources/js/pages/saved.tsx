@@ -5,7 +5,7 @@ import Carousel, { type CarouselHandle } from '@/components/carousel';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { stones, type Stone } from '@/data/constant';
+import { stones, type Stone } from '@/data/stones';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';

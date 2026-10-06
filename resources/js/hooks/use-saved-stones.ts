@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { stones } from '@/data/constant';
+import { stones } from '@/data/stones';
 
 const STORAGE_KEY = 'regray:saved-stones';
 // Bumped when the catalogue's ids change, so stored picks are re-seeded instead

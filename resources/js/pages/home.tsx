@@ -12,7 +12,7 @@ import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { stones, stoneProfiles, type Stone } from '@/data/constant';
+import { stones, stoneProfiles, type Stone } from '@/data/stones';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';

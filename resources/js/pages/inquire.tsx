@@ -26,10 +26,8 @@ import {
     serviceName,
     serviceOptions,
     STANDALONE_SERVICE_IDS,
-    stones,
-    stoneProfiles,
-    type Stone,
-} from '@/data/constant';
+} from '@/data/services';
+import { stones, stoneProfiles, type Stone } from '@/data/stones';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import {

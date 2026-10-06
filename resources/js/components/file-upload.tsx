@@ -8,7 +8,7 @@ import {
     type ReactNode,
 } from 'react';
 import { Spinner } from '@/components/ui/spinner';
-import type { InquiryAttachment } from '@/data/constant';
+import type { InquiryAttachment } from '@/data/inquiries';
 import {
     ATTACHMENT_EXTENSIONS,
     ATTACHMENT_MIME_TYPES,
