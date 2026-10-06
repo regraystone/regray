@@ -1,7 +1,8 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Search, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import EmptyState from '@/components/empty-state';
 import { fieldMessage } from '@/components/form-field';
 import InquiryProjectForm from '@/components/inquiry-project-form';
 import InquiryResult from '@/components/inquiry-result';
@@ -147,24 +148,6 @@ const submitInquiry = (values: InquiryFormValues): Promise<void> =>
 const SKELETON_MS = 700;
 
 type StoneFilter = 'latest' | 'recommended' | 'saved';
-
-const EmptyState = ({
-    title,
-    description,
-    action,
-}: {
-    title: string;
-    description: string;
-    action: ReactNode;
-}) => (
-    <div className="flex flex-col items-center justify-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
-        <p className="text-lg font-bold tracking-[-0.03em]">{title}</p>
-        <p className="max-w-sm text-sm text-secondary-foreground">
-            {description}
-        </p>
-        <div className="mt-1">{action}</div>
-    </div>
-);
 
 /**
  * The strip above steps 1 and 2 saying which project is being built and how to

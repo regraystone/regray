@@ -8,6 +8,7 @@ import {
     type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { ArrowDown, Search, X } from 'lucide-react';
+import EmptyState from '@/components/empty-state';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -516,22 +517,19 @@ const Home = () => {
                 </div>
 
                 {visibleStones.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
-                        <p className="text-lg font-bold tracking-[-0.03em]">
-                            No stones found
-                        </p>
-                        <p className="max-w-sm text-sm text-secondary-foreground">
-                            No stone in this filter matches that search.
-                        </p>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="mt-1"
-                            onClick={() => setSearch('')}
-                        >
-                            Clear search
-                        </Button>
-                    </div>
+                    <EmptyState
+                        title="No stones found"
+                        description="No stone in this filter matches that search."
+                        action={
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setSearch('')}
+                            >
+                                Clear search
+                            </Button>
+                        }
+                    />
                 ) : (
                     <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
                         {visibleStones.map((stone) => (

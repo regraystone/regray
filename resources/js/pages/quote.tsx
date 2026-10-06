@@ -1,7 +1,8 @@
 import { Link, router } from '@inertiajs/react';
 import { Download, Plus, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import EmptyState from '@/components/empty-state';
 import { STATUS_LABELS, StatusBadge } from '@/components/inquiry-status-badge';
 import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
@@ -124,24 +125,6 @@ const readQueryState = (): { search: string; status: StatusFilter } => {
             : 'all',
     };
 };
-
-const EmptyState = ({
-    title,
-    description,
-    action,
-}: {
-    title: string;
-    description: string;
-    action: ReactNode;
-}) => (
-    <div className="flex flex-col items-center justify-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
-        <p className="text-lg font-bold tracking-[-0.03em]">{title}</p>
-        <p className="max-w-sm text-sm text-secondary-foreground">
-            {description}
-        </p>
-        <div className="mt-1">{action}</div>
-    </div>
-);
 
 const QuoteSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
