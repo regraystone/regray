@@ -188,6 +188,91 @@
 }
 
 /*
+ * Image lightbox. The backdrop only ever fades, while the picture scales up
+ * from 0.9 with a small overshoot so it reads as coming forward and settles
+ * back to 0.95 on the way out. Radix keeps the dialog mounted until the
+ * animation named in its `data-state` ends, so both states declare one, and
+ * reduced motion swaps the scale for the same fade the backdrop uses — the
+ * dialog still unmounts on time, it just arrives without the movement.
+ */
+@utility lightbox-fade-in {
+    animation: lightbox-fade-in 240ms ease-out both;
+}
+
+@utility lightbox-fade-out {
+    animation: lightbox-fade-out 150ms ease-in both;
+}
+
+@utility lightbox-content-in {
+    @media (prefers-reduced-motion: reduce) {
+        animation: lightbox-fade-in 150ms ease-out both;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        animation: lightbox-content-in 240ms ease-out both;
+    }
+}
+
+@utility lightbox-content-out {
+    @media (prefers-reduced-motion: reduce) {
+        animation: lightbox-fade-out 150ms ease-in both;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        animation: lightbox-content-out 150ms ease-in both;
+    }
+}
+
+@keyframes lightbox-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes lightbox-fade-out {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes lightbox-content-in {
+    0% {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    60% {
+        opacity: 1;
+        transform: scale(1.03);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes lightbox-content-out {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+/*
  * Take away the browser's own stepper from a number field.
  *
  * Chrome and Safari draw up and down arrows inside `type="number"`, which is a

@@ -5,6 +5,10 @@ import Carousel, { type CarouselHandle } from '@/components/carousel';
 import GalleryCarousel, {
     type GalleryCarouselHandle,
 } from '@/components/gallery-carousel';
+import ImageLightbox, {
+    LightboxTrigger,
+    type LightboxImage,
+} from '@/components/image-lightbox';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -135,9 +139,11 @@ const BulletedList = ({ items }: { items: string[] }) => (
 const StoneGallery = ({
     images,
     name,
+    onOpenImage,
 }: {
     images: StoneImage[];
     name: string;
+    onOpenImage: (image: LightboxImage) => void;
 }) => {
     const carouselRef = useRef<GalleryCarouselHandle>(null);
 
@@ -177,20 +183,28 @@ const StoneGallery = ({
                 ) : undefined
             }
         >
-            {images.map((image, index) => (
-                <div
-                    key={image.src}
-                    className="aspect-3/4 w-full shrink-0 snap-center lg:aspect-[16/9]"
-                >
-                    <img
-                        src={image.src}
-                        alt={`${name} - ${image.name}`}
-                        draggable={false}
-                        loading={index === 0 ? 'eager' : 'lazy'}
-                        className="size-full object-cover"
-                    />
-                </div>
-            ))}
+            {images.map((image, index) => {
+                const alt = `${name} - ${image.name}`;
+
+                return (
+                    <div
+                        key={image.src}
+                        className="aspect-3/4 w-full shrink-0 snap-center lg:aspect-[16/9]"
+                    >
+                        <LightboxTrigger
+                            onOpen={() => onOpenImage({ src: image.src, alt })}
+                        >
+                            <img
+                                src={image.src}
+                                alt={alt}
+                                draggable={false}
+                                loading={index === 0 ? 'eager' : 'lazy'}
+                                className="size-full object-cover"
+                            />
+                        </LightboxTrigger>
+                    </div>
+                );
+            })}
         </GalleryCarousel>
     );
 };
@@ -198,8 +212,9 @@ const StoneGallery = ({
 const ProjectCard = ({
     name,
     image,
-}: Omit<StoneProfile['projects'][number], 'id'>) => (
-    <Link href="#" onClick={(e) => e.preventDefault()} className="block">
+    onOpen,
+}: Omit<StoneProfile['projects'][number], 'id'> & { onOpen: () => void }) => (
+    <LightboxTrigger onOpen={onOpen}>
         <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
             <div className="stone-card-media relative aspect-[4/3] overflow-hidden bg-background">
                 <img
@@ -217,15 +232,17 @@ const ProjectCard = ({
                 </span>
             </div>
         </figure>
-    </Link>
+    </LightboxTrigger>
 );
 
 const ProjectsCarousel = ({
     projects,
     name,
+    onOpenImage,
 }: {
     projects: StoneProfile['projects'];
     name: string;
+    onOpenImage: (image: LightboxImage) => void;
 }) => {
     const carouselRef = useRef<CarouselHandle>(null);
     const [atStart, setAtStart] = useState(true);
@@ -280,7 +297,15 @@ const ProjectsCarousel = ({
                         key={project.id}
                         className="w-[85%] shrink-0 snap-start sm:w-[48%] lg:w-[32%]"
                     >
-                        <ProjectCard {...project} />
+                        <ProjectCard
+                            {...project}
+                            onOpen={() =>
+                                onOpenImage({
+                                    src: project.image,
+                                    alt: project.name,
+                                })
+                            }
+                        />
                     </div>
                 ))}
             </Carousel>
@@ -291,6 +316,9 @@ const ProjectsCarousel = ({
 const StoneProfile = ({ stoneId }: StoneProfileProps) => {
     const profile = stoneProfiles[stoneId];
     const [isLoading, setIsLoading] = useState(true);
+    const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(
+        null,
+    );
 
     useEffect(() => {
         const timer = window.setTimeout(() => setIsLoading(false), 700);
@@ -380,7 +408,11 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
             </section>
 
             <section>
-                <StoneGallery images={profile.gallery} name={profile.name} />
+                <StoneGallery
+                    images={profile.gallery}
+                    name={profile.name}
+                    onOpenImage={setLightboxImage}
+                />
             </section>
 
             <section className="py-12 sm:py-16">
@@ -447,8 +479,14 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                 <ProjectsCarousel
                     projects={profile.projects}
                     name={profile.name}
+                    onOpenImage={setLightboxImage}
                 />
             </section>
+
+            <ImageLightbox
+                image={lightboxImage}
+                onClose={() => setLightboxImage(null)}
+            />
         </div>
     );
 };
