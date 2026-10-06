@@ -155,17 +155,23 @@ const StoneGallery = ({
                             type="button"
                             onClick={() => carouselRef.current?.scrollPrev()}
                             aria-label="Previous photo"
-                            className="absolute inset-y-0 left-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-none border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
+                            className="absolute inset-y-0 left-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center text-white/80 transition hover:text-white sm:left-4"
                         >
-                            <ChevronLeft className="size-5" aria-hidden />
+                            <ChevronLeft
+                                className="size-8 drop-shadow-md"
+                                aria-hidden
+                            />
                         </button>
                         <button
                             type="button"
                             onClick={() => carouselRef.current?.scrollNext()}
                             aria-label="Next photo"
-                            className="absolute inset-y-0 right-2 z-10 my-auto grid size-11 cursor-pointer place-items-center rounded-none border border-sidebar-border bg-background/80 text-foreground backdrop-blur-sm transition hover:bg-background"
+                            className="absolute inset-y-0 right-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center text-white/80 transition hover:text-white sm:right-4"
                         >
-                            <ChevronRight className="size-5" aria-hidden />
+                            <ChevronRight
+                                className="size-8 drop-shadow-md"
+                                aria-hidden
+                            />
                         </button>
                     </>
                 ) : undefined
