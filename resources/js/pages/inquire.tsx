@@ -1,7 +1,9 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
+import { usePage } from '@inertiajs/react';
 import { ArrowLeft, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
 import { fieldMessage } from '@/components/form-field';
 import InquiryProjectForm from '@/components/inquiry-project-form';
@@ -23,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { inquiries } from '@/data/inquiries';
 import {
     serviceName,
     serviceOptions,
@@ -31,6 +34,7 @@ import {
 import { stones, stoneProfiles, type Stone } from '@/data/stones';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
+import { inquiryToFormValues } from '@/lib/inquiry-edit';
 import {
     draftDefaults,
     inquiryDefaults,
@@ -61,6 +65,43 @@ const STEP_DESCRIPTIONS: Record<number, string> = {
     [REQUIREMENTS_STEP]:
         'Name this project, set how each stone is worked, and tell us where and when',
     [REVIEW_STEP]: 'Check your inquiry before sending it',
+};
+
+/**
+ * The draft waiting in the address, when the reader was sent here to continue one.
+ *
+ * Read off `usePage().url` rather than `window.location`, because the page is
+ * also rendered server-side, where there is no `window`: `usePage().url` is the
+ * same requested address on both sides of that line.
+ */
+const readDraftIdFromUrl = (url: string): string | null => {
+    const params = new URLSearchParams(url.split('?')[1] ?? '');
+
+    return params.get('draft') ?? null;
+};
+
+/**
+ * Take the draft off the address, once it no longer names a live record.
+ *
+ * Kept through the edit itself so a refresh reopens the same draft; it is
+ * dropped the moment it would claim something that is not there — a draft that
+ * could not be found, or one the reader has just sent.
+ */
+const clearDraftIdFromUrl = (): void => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (!params.has('draft')) {
+        return;
+    }
+
+    params.delete('draft');
+    const query = params.toString();
+
+    window.history.replaceState(
+        window.history.state,
+        '',
+        `${window.location.pathname}${query ? `?${query}` : ''}`,
+    );
 };
 
 /**
@@ -125,8 +166,16 @@ type InquiryResultState =
  * flat list, because that is how they were asked for; and the attachments are
  * still `File` objects rather than paths, so that post has to be a multipart
  * `FormData` with the files appended as they are, not a JSON body.
+ *
+ * The `_draftId` is the inquiry behind a Continue, or null for a fresh one. It
+ * rides along so the request that carries it back knows which record it is an
+ * update of — a real endpoint would put it in the body of the same post — and
+ * this stand-in has nothing to do with it yet, hence the underscore.
  */
-const submitInquiry = (values: InquiryFormValues): Promise<void> =>
+const submitInquiry = (
+    values: InquiryFormValues,
+    _draftId: string | null,
+): Promise<void> =>
     new Promise((resolve) => {
         /*
          * Scaled by what is going with it, for the same reason the uploader's
@@ -417,11 +466,78 @@ const Inquire = () => {
     const { can } = usePermissions();
     const { savedIds, toggleSave } = useSavedStones();
 
+    /*
+     * The page's own requested address. Read from Inertia rather than from the
+     * browser so the same line works when this page is rendered server-side.
+     */
+    const pageUrl = usePage().url;
+
+    /**
+     * Which draft `?draft=` named, once it has been opened.
+     *
+     * A ref rather than state because nothing rendered depends on it: it is read
+     * back only when the inquiry is sent, where it is the record an update would
+     * write over.
+     */
+    const openDraftIdRef = useRef<string | null>(null);
+
+    /**
+     * Whether the `?draft=` in the address has already been opened.
+     *
+     * An effect runs twice under Strict Mode, and opening the draft twice would
+     * only repeat the same work; the guard makes the second run a return.
+     */
+    const hasOpenedDraftRef = useRef(false);
+
     useEffect(() => {
         const timer = window.setTimeout(() => setIsLoading(false), SKELETON_MS);
 
         return () => window.clearTimeout(timer);
     }, []);
+
+    /*
+     * A `?draft=` address means the reader was sent here to continue a saved
+     * inquiry, which is what this does: the saved projects are loaded into the
+     * form, and Review is the step that reopens a project for editing, so the
+     * draft lands there when it has a project and on the services list when it
+     * has not.
+     *
+     * Held until the skeleton has gone down, so the draft does not arrive
+     * underneath it; nothing is validated on the way in, on the principle that
+     * a reader who was not asked a question should not be told they got it
+     * wrong.
+     */
+    useEffect(() => {
+        if (isLoading || hasOpenedDraftRef.current) {
+            return;
+        }
+
+        hasOpenedDraftRef.current = true;
+
+        const draftId = readDraftIdFromUrl(pageUrl);
+
+        if (draftId === null) {
+            return;
+        }
+
+        const draft = inquiries.find(
+            (inquiry) => inquiry.id === draftId && inquiry.status === 'draft',
+        );
+
+        if (draft === undefined) {
+            // A draft that is no longer there keeps nothing behind: the address
+            // is cleaned and the reader is told, instead of a blank form that
+            // looks like the record they were promised.
+            clearDraftIdFromUrl();
+            toast.error('That draft can no longer be edited.');
+
+            return;
+        }
+
+        openDraftIdRef.current = draftId;
+        reset({ projects: inquiryToFormValues(draft).projects });
+        setStep(draft.projects.length > 0 ? REVIEW_STEP : SERVICES_STEP);
+    }, [isLoading, pageUrl, reset]);
 
     /*
      * Both grids are long enough to leave the reader scrolled well past the
@@ -984,7 +1100,7 @@ const Inquire = () => {
         setIsSending(true);
 
         try {
-            await submitInquiry(getValues());
+            await submitInquiry(getValues(), openDraftIdRef.current);
         } catch {
             isSendingRef.current = false;
             setIsSending(false);
@@ -1008,6 +1124,13 @@ const Inquire = () => {
          */
         reset(inquiryDefaults);
         clearDraft();
+        /*
+         * The draft is no longer a draft once it has been sent, so the address
+         * that reopens it must not survive the send: a refresh afterwards
+         * should sit on the empty services list, not try to revive a record
+         * that is gone.
+         */
+        clearDraftIdFromUrl();
         setSearch('');
         setFilter('latest');
         setValidationAlertErrors([]);

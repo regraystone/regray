@@ -211,11 +211,14 @@ const LockedAction = ({
 const InquiryCard = ({
     inquiry,
     generating,
+    continueHref,
     onGetInvoice,
     onCancel,
 }: {
     inquiry: Inquiry;
     generating: boolean;
+    /** Where a draft's Continue reopens it for editing, resolved by the page. */
+    continueHref: string;
     onGetInvoice: (inquiry: Inquiry) => void;
     onCancel: (inquiry: Inquiry) => void;
 }) => {
@@ -402,7 +405,19 @@ const InquiryCard = ({
                             variant="outline"
                             className={actionClassName}
                         >
-                            <Link href={detailsHref}>
+                            {/*
+                             * A draft's Continue reopens it in the stepper, which
+                             * is the one card action that lets the reader edit;
+                             * an update to a pending inquiry still lands on the
+                             * details page, which is where one is made.
+                             */}
+                            <Link
+                                href={
+                                    inquiry.status === 'draft'
+                                        ? continueHref
+                                        : detailsHref
+                                }
+                            >
                                 {inquiry.status === 'draft'
                                     ? 'Continue'
                                     : 'Update'}
@@ -549,6 +564,17 @@ const Quote = () => {
         () => items.find((inquiry) => inquiry.status === 'draft') ?? null,
         [items],
     );
+
+    /*
+     * Where a draft's Continue sends the reader: the stepper with the draft
+     * opened, or the details page when they may not open the stepper at all.
+     * Shared by the draft card and the draft dialog, so the same action never
+     * offers two destinations for the same draft.
+     */
+    const draftContinueHref = (inquiry: Inquiry): string =>
+        inquire
+            ? inquire.url({ query: { draft: inquiry.id } })
+            : quoteShow.url({ inquiry: inquiry.id });
 
     const normalizedSearch = search.trim().toLowerCase();
 
@@ -920,6 +946,7 @@ const Quote = () => {
                                 key={inquiry.id}
                                 inquiry={inquiry}
                                 generating={generatingId === inquiry.id}
+                                continueHref={draftContinueHref(inquiry)}
                                 onGetInvoice={handleGetInvoice}
                                 onCancel={openCancelPrompt}
                             />
@@ -1030,18 +1057,16 @@ const Quote = () => {
                         >
                             Start over
                         </Button>
-                        {inquire && (
+                        {draftInquiry ? (
                             <Button asChild>
                                 <Link
-                                    href={inquire.url({
-                                        query: { draft: draftInquiry?.id },
-                                    })}
+                                    href={draftContinueHref(draftInquiry)}
                                     onClick={() => setDraftPromptOpen(false)}
                                 >
                                     Continue draft
                                 </Link>
                             </Button>
-                        )}
+                        ) : null}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
