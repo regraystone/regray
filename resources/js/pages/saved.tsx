@@ -5,7 +5,7 @@ import Carousel, { type CarouselHandle } from '@/components/carousel';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { stones, type FeedItem } from '@/data/constant';
+import { stones, type Stone } from '@/data/constant';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
@@ -65,12 +65,12 @@ const SavedSkeleton = () => (
 
 const StoneRow = ({
     title,
-    items,
+    stones,
     savedIds,
     toggleSave,
 }: {
     title: string;
-    items: FeedItem[];
+    stones: Stone[];
     savedIds: Set<string>;
     toggleSave: (id: string) => void;
 }) => {
@@ -83,7 +83,7 @@ const StoneRow = ({
         setAtEnd(end);
     };
 
-    if (items.length === 0) {
+    if (stones.length === 0) {
         return (
             <p className="py-16 text-center text-sm font-semibold text-secondary-foreground">
                 No {title.toLowerCase()} right now — check back soon.
@@ -127,17 +127,17 @@ const StoneRow = ({
                 viewportClassName="gap-4 md:gap-5"
                 onBoundsChange={handleBoundsChange}
             >
-                {items.map((item) => (
+                {stones.map((stone) => (
                     <div
-                        key={item.id}
+                        key={stone.id}
                         className="w-[85%] shrink-0 snap-start sm:w-[48%] lg:w-[32%]"
                     >
                         <StoneCard
-                            item={item}
+                            stone={stone}
                             aspect="aspect-[4/3]"
-                            href={homeShow.url({ stone: item.id })}
-                            saved={savedIds.has(item.id)}
-                            onToggleSave={() => toggleSave(item.id)}
+                            href={homeShow.url({ stone: stone.id })}
+                            saved={savedIds.has(stone.id)}
+                            onToggleSave={() => toggleSave(stone.id)}
                         />
                     </div>
                 ))}
@@ -161,10 +161,10 @@ const Saved = () => {
         return <SavedSkeleton />;
     }
 
-    const savedItems = stones.filter((item) => savedIds.has(item.id));
-    const recommendedItems = stones.filter((item) => item.recommended);
+    const savedStones = stones.filter((stone) => savedIds.has(stone.id));
+    const recommendedStones = stones.filter((stone) => stone.recommended);
 
-    if (savedItems.length === 0) {
+    if (savedStones.length === 0) {
         return (
             <div className="mx-auto w-full max-w-6xl">
                 <section className="mt-8 py-16 text-center">
@@ -211,14 +211,14 @@ const Saved = () => {
 
             <section className="mt-8">
                 <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                    {savedItems.map((item) => (
+                    {savedStones.map((stone) => (
                         <StoneCard
-                            key={item.id}
-                            item={item}
+                            key={stone.id}
+                            stone={stone}
                             aspect="aspect-[4/3]"
-                            href={savedShow.url({ stone: item.id })}
+                            href={savedShow.url({ stone: stone.id })}
                             saved
-                            onToggleSave={() => toggleSave(item.id)}
+                            onToggleSave={() => toggleSave(stone.id)}
                         />
                     ))}
                 </div>
@@ -227,7 +227,7 @@ const Saved = () => {
             <section className="mt-8">
                 <StoneRow
                     title="Recommended for you"
-                    items={recommendedItems}
+                    stones={recommendedStones}
                     savedIds={savedIds}
                     toggleSave={toggleSave}
                 />

@@ -27,7 +27,7 @@ import {
     serviceOptions,
     stones,
     type Client,
-    type FeedItem,
+    type Stone,
     type InquiryFile,
     type InquiryRequirementsRecord,
     type InquiryStoneSelection,
@@ -62,7 +62,7 @@ type ResolvedProject = {
     id: string;
     name: string;
     services: Array<{ name: string; image?: string }>;
-    stones: Array<FeedItem & InquiryStoneSelection>;
+    stones: Array<Stone & InquiryStoneSelection>;
     requirements: InquiryRequirementsRecord;
 };
 
@@ -725,7 +725,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                         : { ...stone, ...selection };
                 })
                 .filter(
-                    (stone): stone is FeedItem & InquiryStoneSelection =>
+                    (stone): stone is Stone & InquiryStoneSelection =>
                         stone !== undefined,
                 ),
             requirements: project.requirements,

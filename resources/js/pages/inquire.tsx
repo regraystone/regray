@@ -28,7 +28,7 @@ import {
     STANDALONE_SERVICE_IDS,
     stones,
     stoneProfiles,
-    type FeedItem,
+    type Stone,
 } from '@/data/constant';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
@@ -457,7 +457,7 @@ const Inquire = () => {
     }, [step, result]);
 
     const visibleStones = useMemo(() => {
-        const base = ((): FeedItem[] => {
+        const base = ((): Stone[] => {
             if (filter === 'recommended') {
                 return stones.filter((stone) => stone.recommended);
             }
@@ -1334,25 +1334,25 @@ const Inquire = () => {
                                     />
                                 ) : (
                                     <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                                        {visibleStones.map((product) => (
+                                        {visibleStones.map((stone) => (
                                             <StoneCard
-                                                key={product.id}
-                                                item={product}
+                                                key={stone.id}
+                                                stone={stone}
                                                 aspect="aspect-[4/3]"
-                                                saved={savedIds.has(product.id)}
+                                                saved={savedIds.has(stone.id)}
                                                 onToggleSave={() =>
-                                                    toggleSave(product.id)
+                                                    toggleSave(stone.id)
                                                 }
                                                 selectable
                                                 selected={draftStoneIds.includes(
-                                                    product.id,
+                                                    stone.id,
                                                 )}
                                                 onSelect={() =>
-                                                    toggleStone(product.id)
+                                                    toggleStone(stone.id)
                                                 }
                                                 note={
                                                     committedStoneIds.has(
-                                                        product.id,
+                                                        stone.id,
                                                     )
                                                         ? 'Already added'
                                                         : undefined
@@ -1364,7 +1364,7 @@ const Inquire = () => {
                                                 viewHref={
                                                     canSeeStoneProfile
                                                         ? homeShow.url({
-                                                              stone: product.id,
+                                                              stone: stone.id,
                                                           })
                                                         : undefined
                                                 }

@@ -1,10 +1,10 @@
 import { Link } from '@inertiajs/react';
 import { Check, ExternalLink, Heart, Star } from 'lucide-react';
-import type { FeedItem } from '@/data/constant';
+import type { Stone } from '@/data/constant';
 import { show as homeShow } from '@/routes/home';
 
 const StoneCard = ({
-    item,
+    stone,
     aspect,
     saved,
     onToggleSave,
@@ -15,7 +15,7 @@ const StoneCard = ({
     viewHref,
     note,
 }: {
-    item: FeedItem;
+    stone: Stone;
     aspect: string;
     saved: boolean;
     onToggleSave: () => void;
@@ -55,7 +55,7 @@ const StoneCard = ({
             }}
             aria-pressed={saved}
             aria-label={
-                saved ? `Remove ${item.name} from saved` : `Save ${item.name}`
+                saved ? `Remove ${stone.name} from saved` : `Save ${stone.name}`
             }
             className="grid size-9 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60"
         >
@@ -76,14 +76,14 @@ const StoneCard = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
-            aria-label={`View ${item.name} (opens in a new tab)`}
+            aria-label={`View ${stone.name} (opens in a new tab)`}
             className="grid size-9 shrink-0 place-items-center text-secondary-foreground transition-opacity hover:opacity-60"
         >
             <ExternalLink className="size-5" aria-hidden />
         </a>
     ) : null;
 
-    const recommended = item.recommended ? (
+    const recommended = stone.recommended ? (
         <span className="absolute top-0 left-0 flex items-center gap-1 bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
             <Star
                 className="size-3 shrink-0 fill-white text-white"
@@ -120,7 +120,7 @@ const StoneCard = ({
                     type="button"
                     role="checkbox"
                     aria-checked={selected}
-                    aria-label={item.name}
+                    aria-label={stone.name}
                     onClick={onSelect}
                     className="block w-full cursor-pointer text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
@@ -128,7 +128,7 @@ const StoneCard = ({
                         className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
                     >
                         <img
-                            src={item.thumbnail}
+                            src={stone.thumbnail}
                             alt=""
                             loading="lazy"
                             className="absolute inset-0 size-full object-cover"
@@ -158,7 +158,7 @@ const StoneCard = ({
                     <span
                         className={`block min-w-0 truncate py-4 pl-3 text-sm font-bold text-foreground ${namePadding}`}
                     >
-                        {item.name}
+                        {stone.name}
                     </span>
                 </button>
 
@@ -177,14 +177,17 @@ const StoneCard = ({
     }
 
     return (
-        <Link href={href ?? homeShow.url({ stone: item.id })} className="block">
+        <Link
+            href={href ?? homeShow.url({ stone: stone.id })}
+            className="block"
+        >
             <article className="stone-card border border-sidebar-border bg-background">
                 <div
                     className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
                 >
                     <img
-                        src={item.thumbnail}
-                        alt={item.name}
+                        src={stone.thumbnail}
+                        alt={stone.name}
                         loading="lazy"
                         className="absolute inset-0 size-full object-cover"
                     />
@@ -192,7 +195,7 @@ const StoneCard = ({
                 </div>
                 <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <span className="min-w-0 truncate text-sm font-bold text-foreground">
-                        {item.name}
+                        {stone.name}
                     </span>
                     {heart}
                     {view}

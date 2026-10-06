@@ -7,7 +7,7 @@ import InquiryServiceBullets from '@/components/inquiry-service-bullets';
 import StoneTile from '@/components/inquiry-stone-tile';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { serviceOptions, stones, type FeedItem } from '@/data/constant';
+import { serviceOptions, stones, type Stone } from '@/data/constant';
 import {
     MAX_PROJECTS,
     REQUIREMENTS_STEP,
@@ -383,7 +383,7 @@ const InquiryReview = ({
                         ),
                     }))
                     .filter(
-                        (entry): entry is typeof entry & { stone: FeedItem } =>
+                        (entry): entry is typeof entry & { stone: Stone } =>
                             entry.stone !== undefined,
                     ),
             })),

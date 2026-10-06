@@ -1,4 +1,4 @@
-﻿import type { FeedItem } from '@/data/constant';
+﻿import type { Stone } from '@/data/constant';
 
 /**
  * One stone on a sheet the reader is checking rather than choosing: what it is,
@@ -30,7 +30,7 @@ export default function StoneTile({
     edge,
     finish,
 }: {
-    stone: FeedItem;
+    stone: Stone;
     quantity: number;
     edge: string;
     finish: string;

@@ -12,7 +12,7 @@ import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { stones, stoneProfiles, type FeedItem } from '@/data/constant';
+import { stones, stoneProfiles, type Stone } from '@/data/constant';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';
@@ -373,10 +373,10 @@ const Home = () => {
     }, []);
 
     // Must stay above the early return so hook order never changes.
-    const visibleItems = useMemo<FeedItem[]>(() => {
+    const visibleStones = useMemo<Stone[]>(() => {
         const base =
             filter === 'recommended'
-                ? stones.filter((item) => item.recommended)
+                ? stones.filter((stone) => stone.recommended)
                 : stones;
 
         const query = search.trim().toLowerCase();
@@ -385,11 +385,11 @@ const Home = () => {
             return base;
         }
 
-        return base.filter((item) => {
-            const profile = stoneProfiles[item.id];
+        return base.filter((stone) => {
+            const profile = stoneProfiles[stone.id];
 
             return [
-                item.name,
+                stone.name,
                 profile?.specifications.stoneType,
                 profile?.specifications.origin,
             ]
@@ -515,7 +515,7 @@ const Home = () => {
                     </div>
                 </div>
 
-                {visibleItems.length === 0 ? (
+                {visibleStones.length === 0 ? (
                     <div className="flex flex-col items-center justify-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
                         <p className="text-lg font-bold tracking-[-0.03em]">
                             No stones found
@@ -534,13 +534,13 @@ const Home = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                        {visibleItems.map((item) => (
+                        {visibleStones.map((stone) => (
                             <StoneCard
-                                key={item.id}
-                                item={item}
+                                key={stone.id}
+                                stone={stone}
                                 aspect="aspect-[4/3]"
-                                saved={savedIds.has(item.id)}
-                                onToggleSave={() => toggleSave(item.id)}
+                                saved={savedIds.has(stone.id)}
+                                onToggleSave={() => toggleSave(stone.id)}
                             />
                         ))}
                     </div>

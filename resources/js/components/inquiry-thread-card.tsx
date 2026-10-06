@@ -4,7 +4,7 @@ import { StatusBadge, STATUS_LABELS } from '@/components/inquiry-status-badge';
 import {
     inquiryTitle,
     stones,
-    type FeedItem,
+    type Stone,
     type Inquiry,
     type InquiryStatus,
 } from '@/data/constant';
@@ -120,7 +120,7 @@ const InquiryThreadCard = ({
         ),
     ]
         .map((stoneId) => stones.find((stone) => stone.id === stoneId))
-        .filter((stone): stone is FeedItem => stone !== undefined);
+        .filter((stone): stone is Stone => stone !== undefined);
 
     const heroStones = inquiryStones.slice(0, MAX_HERO_STONES);
     const extraStones = inquiryStones.length - heroStones.length;

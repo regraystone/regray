@@ -6,14 +6,14 @@
     created_at: string;
 };
 
-export type FeedItem = {
+export type Stone = {
     id: string;
     name: string;
     thumbnail: string;
     recommended: boolean;
 };
 
-export type StoneProfile = FeedItem & {
+export type StoneProfile = Stone & {
     description: string;
     gallery: StoneImage[];
     specifications: {
@@ -27,7 +27,7 @@ export type StoneProfile = FeedItem & {
     projects: Array<{ id: string; name: string; image: string }>;
 };
 
-export const stones: FeedItem[] = [
+export const stones: Stone[] = [
     {
         id: 'cobblestone',
         name: 'Cobblestone',

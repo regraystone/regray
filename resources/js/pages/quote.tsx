@@ -32,7 +32,7 @@ import {
     inquiries,
     inquiryTitle,
     stones,
-    type FeedItem,
+    type Stone,
     type Inquiry,
     type InquiryStatus,
 } from '@/data/constant';
@@ -252,7 +252,7 @@ const InquiryCard = ({
         ),
     ]
         .map((stoneId) => stones.find((stone) => stone.id === stoneId))
-        .filter((stone): stone is FeedItem => stone !== undefined);
+        .filter((stone): stone is Stone => stone !== undefined);
 
     const thumbnails = inquiryStones.slice(0, COLLAPSED_STONE_COUNT);
     const extraStones = inquiryStones.length - thumbnails.length;
