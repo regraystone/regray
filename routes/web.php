@@ -90,6 +90,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('agenda', [ViewController::class, 'agenda'])
         ->middleware(Permission::AgendaView->middleware())
         ->name('agenda.index');
+    Route::get('agenda/book', [ViewController::class, 'agendaBook'])
+        ->middleware([
+            Permission::AgendaView->middleware(),
+            Permission::AgendaCreate->middleware(),
+        ])
+        ->name('agenda.book');
     Route::get('message', [ViewController::class, 'message'])
         ->middleware(Permission::MessagesView->middleware())
         ->name('message.index');

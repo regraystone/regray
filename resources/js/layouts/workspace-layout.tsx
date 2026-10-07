@@ -437,6 +437,9 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             crumbs.push({ label: 'Account & Security' });
         } else if (effectiveUrl === profileAgenda.url()) {
             crumbs.push({ label: 'Agenda' });
+        } else if (effectiveUrl === '/profile/agenda/book') {
+            crumbs.push({ label: 'Agenda', href: profileAgenda.url() });
+            crumbs.push({ label: 'Book' });
         } else if (effectiveUrl.startsWith(editSecurity.url())) {
             crumbs.push({
                 label: 'Account & Security',

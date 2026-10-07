@@ -1,9 +1,10 @@
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, MessageCircle, RotateCcw, X } from 'lucide-react';
+import { ArrowLeft, MessageCircle, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { index as messageIndex } from '@/routes/message';
+import { ResultBadge } from './result-badge';
 
 type InquiryResultProps = {
     status: 'success' | 'error';
@@ -60,44 +61,7 @@ const InquiryResult = ({
         headingRef.current?.focus();
     }, []);
 
-    const badge = (
-        /*
-         * The black square with a white glyph that the cards use for a chosen
-         * stone. `aria-hidden` because the heading beside it already says what
-         * happened, and a bare check mark read aloud would only say "check".
-         */
-        <span
-            aria-hidden
-            className={`grid size-16 shrink-0 place-items-center bg-black text-white ${
-                isSuccess ? 'badge-pop' : 'error-shake'
-            }`}
-        >
-            {isSuccess ? (
-                /*
-                 * The tick draws itself after the badge has popped, which is why
-                 * `pathLength` normalises the stroke: the dash is written in
-                 * fractions of the path rather than in pixels, so the same two
-                 * numbers animate any size of mark.
-                 */
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                    strokeLinecap="square"
-                    className="size-8"
-                >
-                    <path
-                        d="M5 13l4 4 10-11"
-                        pathLength={18}
-                        className="check-draw"
-                    />
-                </svg>
-            ) : (
-                <X className="size-8" />
-            )}
-        </span>
-    );
+    const badge = <ResultBadge status={status} />;
 
     /*
      * The two buttons, stacked on a phone and side by side from `sm`: there is

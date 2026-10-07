@@ -20,8 +20,8 @@ namespace App\Enums;
  * `InquiriesCreate` and `AgendaCreate` are the exceptions to the action
  * permissions, and the only two: each guards something a user does rather than
  * somewhere they go. The stepper is a page reached by doing, so its permission
- * is read by a route; `AgendaCreate` guards a button on a page the reader is
- * already on, so no route names it and no sidebar item links to it.
+ * is read by a route; `AgendaCreate` guards booking a visit, so a route may
+ * name it and pages may link to a booking route when the reader holds it.
  *
  * The inquiry details page has no permission of its own. It hangs off whichever
  * list the user reads their inquiries on, the way the stepper does, so it is

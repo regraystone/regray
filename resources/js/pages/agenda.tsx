@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { Link } from '@inertiajs/react';
 import EventDialog from '@/components/agenda/event-dialog';
 import MiniCalendar from '@/components/agenda/mini-calendar';
 import UpcomingList from '@/components/agenda/upcoming-list';
@@ -9,6 +10,7 @@ import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
 import { mockAgendaItems, type AgendaItem } from '@/data/agenda';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useBookRoute } from '@/hooks/use-book-route';
 import { permissions } from '@/layouts/workspace-layout';
 import {
     addDays,
@@ -120,7 +122,7 @@ const Agenda = () => {
         [items],
     );
 
-    const bookVisit = () => toast.info('Booking a visit is not available yet.');
+    const bookRoute = useBookRoute();
 
     /*
      * Whether this reader may book a visit at all.
@@ -132,13 +134,19 @@ const Agenda = () => {
      */
     const canBook = can(permissions.agendaCreate);
 
-    const bookButton = (variant: 'default' | 'outline' = 'default') =>
-        canBook ? (
-            <Button type="button" variant={variant} onClick={bookVisit}>
-                <Plus aria-hidden />
-                Book a visit
+    const bookButton = (variant: 'default' | 'outline' = 'default') => {
+        if (!canBook || !bookRoute) {
+            return null;
+        }
+        return (
+            <Button asChild type="button" variant={variant}>
+                <Link href={bookRoute.url()}>
+                    <Plus aria-hidden />
+                    Book a visit
+                </Link>
             </Button>
-        ) : null;
+        );
+    };
 
     const reschedule = (item: AgendaItem) =>
         toast.info(`Rescheduling ${item.title} is not available yet.`);

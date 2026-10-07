@@ -52,4 +52,11 @@ Route::middleware(['auth', 'verified', Permission::ProfileView->middleware()])->
             Permission::ProfileAgendaView->middleware(),
         ])
         ->name('profile.agenda');
+    Route::get('profile/agenda/book', [ViewController::class, 'agendaBook'])
+        ->middleware([
+            Permission::ProfileView->middleware(),
+            Permission::ProfileAgendaView->middleware(),
+            Permission::AgendaCreate->middleware(),
+        ])
+        ->name('profile.agenda.book');
 });

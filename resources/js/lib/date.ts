@@ -75,3 +75,7 @@ export const formatFullDate = formatter({
 
 /** `Sep 29`, one end of the week label. */
 export const formatDayMonth = formatter({ month: 'short', day: 'numeric' });
+
+/** `day` at the given hour and minute. */
+export const atTime = (day: Date, hour: number, minute: number): Date =>
+    new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, minute);

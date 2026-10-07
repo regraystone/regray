@@ -77,6 +77,11 @@ class ViewController extends Controller
         return Inertia::render('agenda');
     }
 
+    public function agendaBook(Request $request): Response
+    {
+        return Inertia::render('agenda-book');
+    }
+
     public function message(Request $request): Response
     {
         return Inertia::render('message');

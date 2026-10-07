@@ -1,36 +1,13 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
-    addDays,
     dayKey,
     formatFullDate,
-    formatMonthYear,
     formatWeekday,
     isSameDay,
     startOfDay,
-    startOfWeek,
 } from '@/lib/date';
 import { cn } from '@/lib/utils';
-
-/** Six weeks, so every month fills the same box and it does not jump about. */
-const WEEK_COUNT = 6;
-
-const DAYS_IN_WEEK = 7;
-
-/**
- * The days of `month`, padded out to whole weeks.
- *
- * Starts on the Monday on or before the first of the month, so the columns are
- * the same seven days the week grid uses and a date never changes its weekday
- * between the two views.
- */
-const monthDays = (month: Date): Date[] => {
-    const first = new Date(month.getFullYear(), month.getMonth(), 1);
-
-    return Array.from({ length: WEEK_COUNT * DAYS_IN_WEEK }, (_, index) =>
-        addDays(startOfWeek(first), index),
-    );
-};
+import { CalendarHeader } from './calendar-header';
+import { DAYS_IN_WEEK, monthDays } from '@/lib/calendar';
 
 /**
  * The month, one screen at a time.
@@ -76,34 +53,11 @@ const MiniCalendar = ({
 
     return (
         <div>
-            <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="text-sm font-bold tracking-[-0.02em]">
-                    {formatMonthYear.format(month)}
-                </p>
-
-                <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => changeMonth(-1)}
-                        aria-label="Previous month"
-                        className="size-8 px-0"
-                    >
-                        <ChevronLeft aria-hidden />
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => changeMonth(1)}
-                        aria-label="Next month"
-                        className="size-8 px-0"
-                    >
-                        <ChevronRight aria-hidden />
-                    </Button>
-                </div>
-            </div>
+            <CalendarHeader
+                month={month}
+                onPrevMonth={() => changeMonth(-1)}
+                onNextMonth={() => changeMonth(1)}
+            />
 
             {/*
                 The weekday row, read off the first seven days so the columns

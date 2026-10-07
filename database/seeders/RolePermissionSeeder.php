@@ -53,8 +53,8 @@ class RolePermissionSeeder extends Seeder
      * given the door that suits them. A client reaches it from their Profile
      * page and has no Agenda in the sidebar; owner, marketing and sales reach it
      * from the sidebar and are not offered the Profile door. The client keeps
-     * `agenda.create` either way, because the Book a visit button lives on the
-     * page itself and it is the same page under either URL.
+     * `agenda.create` either way, because booking a visit is allowed from the
+     * appropriate door depending on which URL they use.
      *
      * @var array<string, array<int, string>>
      */
