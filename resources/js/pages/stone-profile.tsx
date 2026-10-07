@@ -385,10 +385,6 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                     <h1 className="hero-title mt-5 text-on-image">
                         {profile.name}
                     </h1>
-                    <p className="mt-6 text-xs font-bold tracking-[0.2em] text-on-image/80 uppercase">
-                        {profile.specifications.origin} ·{' '}
-                        {profile.specifications.thickness}
-                    </p>
                     {profile.recommended && (
                         <span className="mt-6 inline-flex items-center gap-1 bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
                             <Star
@@ -402,7 +398,7 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
             </section>
 
             <section className="py-16 sm:py-12">
-                <p className="mx-auto max-w-4xl text-justify text-sm leading-relaxed text-secondary-foreground sm:text-xl">
+                <p className="mx-auto max-w-4xl text-center text-sm leading-relaxed text-secondary-foreground sm:text-xl">
                     {profile.description}
                 </p>
             </section>
