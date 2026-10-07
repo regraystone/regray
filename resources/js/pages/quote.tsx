@@ -771,210 +771,216 @@ const Quote = () => {
     const isCancelling = cancellingId !== null;
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
-            <PageHeading
-                title="Quote"
-                description="Your inquiries and their progress"
-                action={
-                    mayAddInquiry ? (
-                        <span ref={inquireRef} className="inline-flex">
-                            <Button type="button" onClick={handleInquire}>
-                                <Plus aria-hidden />
-                                Inquire
-                            </Button>
-                        </span>
-                    ) : null
-                }
-            />
-
-            <div className="mb-6 flex flex-col gap-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="relative w-full sm:max-w-xs">
-                        <Search
-                            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
-                            aria-hidden
-                        />
-                        <Input
-                            type="search"
-                            value={search}
-                            onChange={(event) =>
-                                handleSearchChange(event.target.value)
-                            }
-                            placeholder="Search by inquiry no."
-                            aria-label="Search by inquiry number"
-                            className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
-                        />
-                        {search ? (
-                            <button
-                                type="button"
-                                onClick={() => handleSearchChange('')}
-                                aria-label="Clear search"
-                                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                            >
-                                <X className="size-4" aria-hidden />
-                            </button>
-                        ) : null}
-                    </div>
-
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <div className="sm:hidden">
-                            <Select
-                                value={status}
-                                onValueChange={(value) =>
-                                    handleStatusChange(value as StatusFilter)
-                                }
-                            >
-                                <SelectTrigger
-                                    className="w-full rounded-none"
-                                    aria-label="Filter by status"
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-none">
-                                    {STATUS_TABS.map((tab) => (
-                                        <SelectItem
-                                            key={tab.value}
-                                            value={tab.value}
-                                            className="rounded-none"
-                                        >
-                                            {tab.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="w-full sm:w-44">
-                            <Select
-                                value={sort}
-                                onValueChange={(value) =>
-                                    handleSortChange(value as SortOrder)
-                                }
-                            >
-                                <SelectTrigger
-                                    className="w-full rounded-none"
-                                    aria-label="Sort inquiries"
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-none">
-                                    <SelectItem
-                                        value="newest"
-                                        className="rounded-none"
-                                    >
-                                        Newest first
-                                    </SelectItem>
-                                    <SelectItem
-                                        value="oldest"
-                                        className="rounded-none"
-                                    >
-                                        Oldest first
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    className="hidden items-center gap-5 overflow-x-auto py-1 text-sm sm:flex"
-                    role="tablist"
-                    aria-label="Filter by status"
-                >
-                    {STATUS_TABS.map((tab) => {
-                        const isActive = status === tab.value;
-
-                        return (
-                            <button
-                                key={tab.value}
-                                type="button"
-                                role="tab"
-                                aria-selected={isActive}
-                                onClick={() => handleStatusChange(tab.value)}
-                                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
-                                    isActive
-                                        ? 'font-bold text-foreground'
-                                        : 'text-secondary-foreground'
-                                }`}
-                            >
-                                <span
-                                    className={
-                                        isActive
-                                            ? 'underline decoration-foreground underline-offset-4'
-                                            : ''
-                                    }
-                                >
-                                    {tab.label}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {!hasInquiries ? (
-                <EmptyState
-                    title="No inquiries yet"
-                    description="Start an inquiry and it will show up here with its progress."
+        <>
+            <div className="mx-auto w-full max-w-6xl">
+                <PageHeading
+                    title="Quote"
+                    description="Your inquiries and their progress"
                     action={
-                        inquire ? (
-                            <Button asChild>
-                                <Link href={inquire.url()}>Inquire</Link>
-                            </Button>
+                        mayAddInquiry ? (
+                            <span ref={inquireRef} className="inline-flex">
+                                <Button type="button" onClick={handleInquire}>
+                                    <Plus aria-hidden />
+                                    Inquire
+                                </Button>
+                            </span>
                         ) : null
                     }
                 />
-            ) : visibleInquiries.length === 0 ? (
-                <EmptyState
-                    title="No inquiries found"
-                    description="No inquiry matches this search or status filter."
-                    action={
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={clearFilters}
-                        >
-                            Clear filters
-                        </Button>
-                    }
-                />
-            ) : (
-                <>
-                    <div className="flex flex-col gap-4">
-                        {shownInquiries.map((inquiry) => (
-                            <InquiryCard
-                                key={inquiry.id}
-                                inquiry={inquiry}
-                                generating={generatingId === inquiry.id}
-                                continueHref={draftContinueHref(inquiry)}
-                                onGetInvoice={handleGetInvoice}
-                                onCancel={openCancelPrompt}
+
+                <div className="mb-6 flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="relative w-full sm:max-w-xs">
+                            <Search
+                                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
+                                aria-hidden
                             />
-                        ))}
+                            <Input
+                                type="search"
+                                value={search}
+                                onChange={(event) =>
+                                    handleSearchChange(event.target.value)
+                                }
+                                placeholder="Search by inquiry no."
+                                aria-label="Search by inquiry number"
+                                className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                            />
+                            {search ? (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSearchChange('')}
+                                    aria-label="Clear search"
+                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                >
+                                    <X className="size-4" aria-hidden />
+                                </button>
+                            ) : null}
+                        </div>
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <div className="sm:hidden">
+                                <Select
+                                    value={status}
+                                    onValueChange={(value) =>
+                                        handleStatusChange(
+                                            value as StatusFilter,
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger
+                                        className="w-full rounded-none"
+                                        aria-label="Filter by status"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-none">
+                                        {STATUS_TABS.map((tab) => (
+                                            <SelectItem
+                                                key={tab.value}
+                                                value={tab.value}
+                                                className="rounded-none"
+                                            >
+                                                {tab.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="w-full sm:w-44">
+                                <Select
+                                    value={sort}
+                                    onValueChange={(value) =>
+                                        handleSortChange(value as SortOrder)
+                                    }
+                                >
+                                    <SelectTrigger
+                                        className="w-full rounded-none"
+                                        aria-label="Sort inquiries"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-none">
+                                        <SelectItem
+                                            value="newest"
+                                            className="rounded-none"
+                                        >
+                                            Newest first
+                                        </SelectItem>
+                                        <SelectItem
+                                            value="oldest"
+                                            className="rounded-none"
+                                        >
+                                            Oldest first
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                     </div>
 
-                    {isLoadingMore ? (
-                        <div
-                            role="status"
-                            className="mt-6 flex items-center justify-center gap-2 text-sm text-secondary-foreground"
-                        >
-                            <Spinner
-                                aria-hidden
-                                className="motion-reduce:animate-none"
-                            />
-                            Loading more inquiries
-                        </div>
-                    ) : null}
+                    <div
+                        className="hidden items-center gap-5 overflow-x-auto py-1 text-sm sm:flex"
+                        role="tablist"
+                        aria-label="Filter by status"
+                    >
+                        {STATUS_TABS.map((tab) => {
+                            const isActive = status === tab.value;
 
-                    {remainingCount > 0 ? (
-                        <div
-                            ref={loadMoreRef}
-                            aria-hidden="true"
-                            className="h-px"
-                        />
-                    ) : null}
-                </>
-            )}
+                            return (
+                                <button
+                                    key={tab.value}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={isActive}
+                                    onClick={() =>
+                                        handleStatusChange(tab.value)
+                                    }
+                                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
+                                        isActive
+                                            ? 'font-bold text-foreground'
+                                            : 'text-secondary-foreground'
+                                    }`}
+                                >
+                                    <span
+                                        className={
+                                            isActive
+                                                ? 'underline decoration-foreground underline-offset-4'
+                                                : ''
+                                        }
+                                    >
+                                        {tab.label}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {!hasInquiries ? (
+                    <EmptyState
+                        title="No inquiries yet"
+                        description="Start an inquiry and it will show up here with its progress."
+                        action={
+                            inquire ? (
+                                <Button asChild>
+                                    <Link href={inquire.url()}>Inquire</Link>
+                                </Button>
+                            ) : null
+                        }
+                    />
+                ) : visibleInquiries.length === 0 ? (
+                    <EmptyState
+                        title="No inquiries found"
+                        description="No inquiry matches this search or status filter."
+                        action={
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={clearFilters}
+                            >
+                                Clear filters
+                            </Button>
+                        }
+                    />
+                ) : (
+                    <>
+                        <div className="flex flex-col gap-4">
+                            {shownInquiries.map((inquiry) => (
+                                <InquiryCard
+                                    key={inquiry.id}
+                                    inquiry={inquiry}
+                                    generating={generatingId === inquiry.id}
+                                    continueHref={draftContinueHref(inquiry)}
+                                    onGetInvoice={handleGetInvoice}
+                                    onCancel={openCancelPrompt}
+                                />
+                            ))}
+                        </div>
+
+                        {isLoadingMore ? (
+                            <div
+                                role="status"
+                                className="mt-6 flex items-center justify-center gap-2 text-sm text-secondary-foreground"
+                            >
+                                <Spinner
+                                    aria-hidden
+                                    className="motion-reduce:animate-none"
+                                />
+                                Loading more inquiries
+                            </div>
+                        ) : null}
+
+                        {remainingCount > 0 ? (
+                            <div
+                                ref={loadMoreRef}
+                                aria-hidden="true"
+                                className="h-px"
+                            />
+                        ) : null}
+                    </>
+                )}
+            </div>
 
             <Dialog
                 open={cancelTarget !== null}
@@ -988,7 +994,7 @@ const Quote = () => {
                     }
                 }}
             >
-                <DialogContent className="w-[calc(100%-2rem)] rounded-none sm:max-w-md">
+                <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
                             Cancel inquiry {cancelLabel.reference}?
@@ -1031,7 +1037,7 @@ const Quote = () => {
             </Dialog>
 
             <Dialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
-                <DialogContent className="w-[calc(100%-2rem)] rounded-none sm:max-w-md">
+                <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
                             Continue your draft?
@@ -1081,7 +1087,7 @@ const Quote = () => {
                     Inquire
                 </Button>
             ) : null}
-        </div>
+        </>
     );
 };
 

@@ -1714,7 +1714,7 @@ const Inquire = () => {
                     }
                 }}
             >
-                <DialogContent className="rounded-none sm:max-w-md">
+                <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
                             Remove Project {removeProjectNumber}?

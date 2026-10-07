@@ -358,13 +358,13 @@ export default function TwoFactorSetupModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="gap-0 overflow-hidden rounded-none border-border p-0 sm:max-w-md">
+            <DialogContent className="gap-0 overflow-hidden rounded-none border-border px-5 sm:max-w-md sm:px-6">
                 {requiresConfirmation && !twoFactorEnabled ? (
                     <StepRail currentStep={showVerificationStep ? 1 : 0} />
                 ) : null}
 
                 {/* The top padding keeps the close button clear of the mark. */}
-                <div className="max-h-[80vh] space-y-5 overflow-y-auto overscroll-contain px-6 pt-9 pb-6">
+                <div className="max-h-[90dvh] space-y-5 overflow-y-auto overscroll-contain pt-9 sm:max-h-[calc(100dvh-2rem)]">
                     <DialogHeader className="gap-3 text-center sm:text-center">
                         <StepMark filled={showVerificationStep} />
 

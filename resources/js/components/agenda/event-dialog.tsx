@@ -35,10 +35,7 @@ const EventDialog = ({
             }
         }}
     >
-        <DialogContent
-            className="rounded-none sm:max-w-md"
-            aria-describedby={undefined}
-        >
+        <DialogContent aria-describedby={undefined}>
             {item ? (
                 <>
                     <DialogHeader>
