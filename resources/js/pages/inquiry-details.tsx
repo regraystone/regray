@@ -524,7 +524,7 @@ const ProjectCard = ({
                                     : `${project.requirements.areaSqm} sqm`
                             }
                         />
-                        <SummaryRow label="Needed by" value={neededBy} />
+                        <SummaryRow label="Target deadline" value={neededBy} />
                     </dl>
 
                     <div className="mt-5 border-t border-sidebar-border pt-4">

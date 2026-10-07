@@ -633,7 +633,7 @@ const InquiryReview = ({
                                         }
                                     />
                                     <SummaryRow
-                                        label="Needed by"
+                                        label="Target deadline"
                                         value={formatNeededByMoment(
                                             project.neededBy,
                                             project.neededByTime,

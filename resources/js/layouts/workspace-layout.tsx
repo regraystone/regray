@@ -1,7 +1,9 @@
 import { Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import {
     BarChart3,
     Calendar,
+    ArrowLeftRight,
     ChevronDown,
     CircleUserRound,
     FileText,
@@ -41,7 +43,6 @@ import {
 import { inquiries } from '@/data/inquiries';
 import { stoneProfiles } from '@/data/stones';
 import { useInitials } from '@/hooks/use-initials';
-import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
@@ -262,87 +263,74 @@ const SidebarNav = ({
     return (
         <nav
             className={`flex-1 overflow-y-auto py-5 ${
-                collapsed ? 'space-y-6' : 'space-y-6 px-3'
+                collapsed ? 'space-y-6' : 'space-y-1 px-3'
             }`}
         >
-            {visibleGroups.map((group) => (
-                <div key={group.label}>
-                    <p
-                        className={`overflow-hidden pb-2 text-[0.68rem] font-bold tracking-[0.16em] whitespace-nowrap text-secondary-foreground uppercase transition-all duration-300 ${
-                            collapsed
-                                ? 'max-h-0 opacity-0'
-                                : 'max-h-8 px-3 opacity-100'
-                        }`}
-                    >
-                        {group.label}
-                    </p>
-                    <ul className="space-y-1">
-                        {group.items.map((item) => {
-                            const isActive = item.matchPrefix
-                                ? pathname.startsWith(item.matchPrefix)
-                                : pathname === item.href ||
-                                  pathname.startsWith(`${item.href}/`);
+            <ul className="space-y-1">
+                {visibleGroups.flatMap((group) =>
+                    group.items.map((item) => {
+                        const isActive = item.matchPrefix
+                            ? pathname.startsWith(item.matchPrefix)
+                            : pathname === item.href ||
+                              pathname.startsWith(`${item.href}/`);
 
-                            return (
-                                <li key={item.slug}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Link
-                                                href={item.href}
-                                                onClick={onNavigate}
-                                                aria-current={
-                                                    isActive
-                                                        ? 'page'
-                                                        : undefined
-                                                }
-                                                className={`${navLinkClass({
-                                                    isActive,
-                                                    collapsed,
-                                                })} w-full`}
-                                            >
-                                                {isActive && (
-                                                    <span
-                                                        className="absolute inset-y-0 left-0 w-1 bg-primary-foreground"
-                                                        aria-hidden
-                                                    />
-                                                )}
-                                                <item.icon
-                                                    className="size-4 shrink-0"
+                        return (
+                            <li key={item.slug}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Link
+                                            href={item.href}
+                                            onClick={onNavigate}
+                                            aria-current={
+                                                isActive ? 'page' : undefined
+                                            }
+                                            className={`${navLinkClass({
+                                                isActive,
+                                                collapsed,
+                                            })} w-full`}
+                                        >
+                                            {isActive && (
+                                                <span
+                                                    className="absolute inset-y-0 left-0 w-1 bg-primary-foreground"
                                                     aria-hidden
                                                 />
-                                                <span
-                                                    className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
-                                                        collapsed
-                                                            ? 'max-w-0 opacity-0'
-                                                            : 'max-w-40 opacity-100'
-                                                    }`}
-                                                >
-                                                    {item.label}
-                                                </span>
-                                                {item.slug === 'saved' &&
-                                                    savedCount > 0 &&
-                                                    !collapsed && (
-                                                        <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[0.65rem] font-bold">
-                                                            {savedCount}
-                                                        </span>
-                                                    )}
-                                            </Link>
-                                        </TooltipTrigger>
-                                        {collapsed && (
-                                            <TooltipContent
-                                                side="right"
-                                                className="rounded-none"
+                                            )}
+                                            <item.icon
+                                                className="size-4 shrink-0"
+                                                aria-hidden
+                                            />
+                                            <span
+                                                className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
+                                                    collapsed
+                                                        ? 'max-w-0 opacity-0'
+                                                        : 'max-w-40 opacity-100'
+                                                }`}
                                             >
                                                 {item.label}
-                                            </TooltipContent>
-                                        )}
-                                    </Tooltip>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
-            ))}
+                                            </span>
+                                            {item.slug === 'saved' &&
+                                                savedCount > 0 &&
+                                                !collapsed && (
+                                                    <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[0.65rem] font-bold">
+                                                        {savedCount}
+                                                    </span>
+                                                )}
+                                        </Link>
+                                    </TooltipTrigger>
+                                    {collapsed && (
+                                        <TooltipContent
+                                            side="right"
+                                            className="rounded-none"
+                                        >
+                                            {item.label}
+                                        </TooltipContent>
+                                    )}
+                                </Tooltip>
+                            </li>
+                        );
+                    }),
+                )}
+            </ul>
         </nav>
     );
 };
@@ -350,7 +338,6 @@ const SidebarNav = ({
 const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const page = usePage();
     const url = page.url.split('?')[0];
-    const inquire = useInquireRoute();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [collapsed, setCollapsed] = useState<boolean>(
         () => !page.props.sidebarOpen,
@@ -625,6 +612,16 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                         Profile
                                     </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onSelect={() => {
+                                        toast.info(
+                                            'Switch account is coming soon.',
+                                        );
+                                    }}
+                                >
+                                    <ArrowLeftRight className="mr-2" />
+                                    Switch account
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem asChild>
                                     <Link
@@ -725,11 +722,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             aria-hidden
                         />
                     </Button>
-                    {inquire && (
-                        <Button asChild className="h-11 px-4 shadow-lg sm:px-5">
-                            <Link href={inquire.url()}>Inquire now</Link>
-                        </Button>
-                    )}
                 </div>
             )}
         </div>

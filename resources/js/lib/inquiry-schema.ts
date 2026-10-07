@@ -433,7 +433,7 @@ const projectDetailsShape = {
     neededBy: z
         .string()
         .refine((date) => date === '' || date >= todayIsoDate(), {
-            error: 'Needed by cannot be in the past.',
+            error: 'Target deadline cannot be in the past.',
         }),
 
     /*

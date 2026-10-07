@@ -1,13 +1,6 @@
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type MouseEvent,
-    type PointerEvent as ReactPointerEvent,
-} from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { ArrowDown, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
@@ -19,261 +12,59 @@ const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';
 const reformLogo = '/images/brands/reform_logo.webp';
 const resLogo = '/images/brands/res_logo.webp';
+const regrayLogo = '/images/brands/regray-stone.webp';
 const hero = '/images/regray-hero.jpg';
 
 type Filter = 'latest' | 'recommended';
+type Brand = {
+    src: string;
+    alt: string;
+    url?: string;
+};
 
 const stoneTabs: Array<{ value: Filter; label: string }> = [
     { value: 'latest', label: 'Latest' },
     { value: 'recommended', label: 'Recommended' },
 ];
 
-const brandLogos = [
+const brandLogos: Brand[] = [
+    { src: regrayLogo, alt: 'Regray Stone', url: 'https://regraystone.com/' },
     { src: cucineLogo, alt: 'Cucine' },
     { src: ascaleLogo, alt: 'Ascale' },
     { src: reformLogo, alt: 'Reform' },
-    { src: resLogo, alt: 'Res' },
+    { src: resLogo, alt: 'Res Italia' },
 ];
 
-const BRAND_FRAME = 1000 / 60;
-const BRAND_MAX_DELTA = 64;
-const BRAND_SCROLL_SPEED = 40;
-const BRAND_FLING_DECAY = 0.94;
-const BRAND_FLING_CUTOFF = 0.4;
-const BRAND_MAX_FLING = 60;
-const BRAND_VELOCITY_SAMPLE_LIMIT = 120;
-
 const BrandCarousel = () => {
-    const viewportRef = useRef<HTMLDivElement>(null);
-    const trackRef = useRef<HTMLDivElement>(null);
-    const cycleRef = useRef(0);
-    const offsetRef = useRef(0);
-    const renderedOffsetRef = useRef(Number.NaN);
-    const velocityRef = useRef(0);
-    const isDraggingRef = useRef(false);
-    const isHoveredRef = useRef(false);
-    const prefersReducedMotionRef = useRef(false);
-    const dragRef = useRef({
-        pointerId: -1,
-        startX: 0,
-        startOffset: 0,
-        lastX: 0,
-        lastTime: 0,
-    });
-    const [isDragging, setIsDragging] = useState(false);
-
-    const wrapOffset = useCallback((value: number): number => {
-        const cycle = cycleRef.current;
-
-        if (cycle <= 0) {
-            return value;
-        }
-
-        const wrapped = value % cycle;
-
-        return wrapped > 0 ? wrapped - cycle : wrapped;
-    }, []);
-
-    useEffect(() => {
-        const viewport = viewportRef.current;
-        const track = trackRef.current;
-
-        if (!viewport || !track) {
-            return;
-        }
-
-        const motionQuery = window.matchMedia(
-            '(prefers-reduced-motion: reduce)',
-        );
-        prefersReducedMotionRef.current = motionQuery.matches;
-
-        const handleMotionPreference = (event: MediaQueryListEvent) => {
-            prefersReducedMotionRef.current = event.matches;
-        };
-
-        motionQuery.addEventListener('change', handleMotionPreference);
-
-        const measureCycle = () => {
-            cycleRef.current = track.getBoundingClientRect().width / 2;
-        };
-
-        measureCycle();
-
-        const resizeObserver = new ResizeObserver(measureCycle);
-        resizeObserver.observe(track);
-
-        const handlePointerMove = (event: PointerEvent) => {
-            if (
-                !isDraggingRef.current ||
-                event.pointerId !== dragRef.current.pointerId
-            ) {
-                return;
-            }
-
-            offsetRef.current = wrapOffset(
-                dragRef.current.startOffset +
-                    (event.clientX - dragRef.current.startX),
-            );
-
-            const elapsed = event.timeStamp - dragRef.current.lastTime;
-
-            if (elapsed > 0 && elapsed < BRAND_VELOCITY_SAMPLE_LIMIT) {
-                velocityRef.current = Math.min(
-                    Math.max(
-                        (event.clientX - dragRef.current.lastX) /
-                            (elapsed / BRAND_FRAME),
-                        -BRAND_MAX_FLING,
-                    ),
-                    BRAND_MAX_FLING,
-                );
-            } else if (elapsed >= BRAND_VELOCITY_SAMPLE_LIMIT) {
-                velocityRef.current = 0;
-            }
-
-            dragRef.current.lastX = event.clientX;
-            dragRef.current.lastTime = event.timeStamp;
-        };
-
-        const endDrag = (event: PointerEvent, withFling: boolean) => {
-            if (
-                !isDraggingRef.current ||
-                event.pointerId !== dragRef.current.pointerId
-            ) {
-                return;
-            }
-
-            isDraggingRef.current = false;
-            velocityRef.current = withFling ? velocityRef.current : 0;
-            setIsDragging(false);
-        };
-
-        const handlePointerUp = (event: PointerEvent) => endDrag(event, true);
-        const handlePointerCancel = (event: PointerEvent) =>
-            endDrag(event, false);
-        const handleWindowBlur = () => {
-            isDraggingRef.current = false;
-            velocityRef.current = 0;
-            setIsDragging(false);
-        };
-
-        window.addEventListener('pointermove', handlePointerMove);
-        window.addEventListener('pointerup', handlePointerUp);
-        window.addEventListener('pointercancel', handlePointerCancel);
-        window.addEventListener('blur', handleWindowBlur);
-
-        let frameId = 0;
-        let previousTime = performance.now();
-
-        const step = (time: number) => {
-            const delta = Math.min(time - previousTime, BRAND_MAX_DELTA);
-            previousTime = time;
-
-            if (!isDraggingRef.current) {
-                if (Math.abs(velocityRef.current) > BRAND_FLING_CUTOFF) {
-                    const frames = delta / BRAND_FRAME;
-                    offsetRef.current = wrapOffset(
-                        offsetRef.current + velocityRef.current * frames,
-                    );
-                    velocityRef.current *= Math.pow(BRAND_FLING_DECAY, frames);
-                } else {
-                    velocityRef.current = 0;
-
-                    if (
-                        !isHoveredRef.current &&
-                        !prefersReducedMotionRef.current
-                    ) {
-                        offsetRef.current = wrapOffset(
-                            offsetRef.current -
-                                (BRAND_SCROLL_SPEED * delta) / 1000,
-                        );
-                    }
-                }
-            }
-
-            if (offsetRef.current !== renderedOffsetRef.current) {
-                renderedOffsetRef.current = offsetRef.current;
-                track.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
-            }
-
-            frameId = window.requestAnimationFrame(step);
-        };
-
-        frameId = window.requestAnimationFrame(step);
-
-        return () => {
-            window.cancelAnimationFrame(frameId);
-            resizeObserver.disconnect();
-            motionQuery.removeEventListener('change', handleMotionPreference);
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-            window.removeEventListener('pointercancel', handlePointerCancel);
-            window.removeEventListener('blur', handleWindowBlur);
-        };
-    }, [wrapOffset]);
-
-    const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-        if (event.pointerType === 'mouse' && event.button !== 0) {
-            return;
-        }
-
-        isDraggingRef.current = true;
-        velocityRef.current = 0;
-
-        if (event.pointerType === 'mouse') {
-            isHoveredRef.current = true;
-        }
-
-        dragRef.current = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startOffset: offsetRef.current,
-            lastX: event.clientX,
-            lastTime: event.timeStamp,
-        };
-        setIsDragging(true);
-    };
-
     return (
         <section
             aria-label="Featured in"
             className="mt-2 border-y border-sidebar-border bg-background py-10"
         >
-            <div
-                ref={viewportRef}
-                className="brand-marquee"
-                data-dragging={isDragging}
-                onPointerDown={handlePointerDown}
-                onPointerEnter={(event) => {
-                    if (event.pointerType === 'mouse') {
-                        isHoveredRef.current = true;
-                    }
-                }}
-                onPointerLeave={(event) => {
-                    if (
-                        event.pointerType === 'mouse' &&
-                        !isDraggingRef.current
-                    ) {
-                        isHoveredRef.current = false;
-                    }
-                }}
-            >
-                <div ref={trackRef} className="logo-track">
-                    {[brandLogos, brandLogos].map((group, groupIndex) => (
-                        <div
-                            key={`group-${groupIndex}`}
-                            className="logo-group"
-                            aria-hidden={groupIndex > 0}
+            <div className="flex snap-x snap-proximity [scrollbar-width:none] overflow-x-auto overscroll-x-contain md:justify-center md:overflow-x-visible [&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-6 px-4 sm:gap-8 sm:px-5 md:gap-10">
+                    {brandLogos.map((brand) => (
+                        <button
+                            key={brand.alt}
+                            type="button"
+                            onClick={() => {
+                                if (brand.url) {
+                                    window.open(brand.url, '_blank');
+                                } else {
+                                    toast.info(
+                                        'This feature is currently unavailable.',
+                                    );
+                                }
+                            }}
+                            className="group flex shrink-0 cursor-pointer snap-start transition-transform hover:scale-105 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none motion-reduce:transform-none motion-reduce:hover:scale-100"
+                            aria-label={brand.alt}
                         >
-                            {group.map((brand, index) => (
-                                <img
-                                    key={`${brand.alt}-${index}`}
-                                    src={brand.src}
-                                    alt={groupIndex === 0 ? brand.alt : ''}
-                                    draggable={false}
-                                    className="h-16 shrink-0 object-contain grayscale"
-                                />
-                            ))}
-                        </div>
+                            <img
+                                src={brand.src}
+                                alt=""
+                                className="h-12 w-auto object-contain grayscale sm:h-14"
+                            />
+                        </button>
                     ))}
                 </div>
             </div>
@@ -328,9 +119,11 @@ const HomeSkeleton = () => (
         </section>
 
         <section className="mt-2 border-y border-sidebar-border bg-background py-10">
-            <div className="flex items-center justify-center gap-8 sm:gap-14">
+            <div className="flex gap-6 overflow-x-auto px-4 sm:gap-8 sm:px-5">
                 {Array.from({ length: brandLogos.length }, (_, index) => (
-                    <Skeleton key={index} className="h-16 w-24 sm:w-32" />
+                    <div key={index} className="flex shrink-0 items-center">
+                        <Skeleton className="h-12 w-12 sm:h-14 sm:w-14" />
+                    </div>
                 ))}
             </div>
         </section>

@@ -409,60 +409,6 @@
         background: rgb(0 0 0 / 0.28);
     }
 
-    .brand-marquee {
-        position: relative;
-        overflow: hidden;
-        cursor: grab;
-        touch-action: pan-y;
-        user-select: none;
-    }
-
-    .brand-marquee[data-dragging='true'] {
-        cursor: grabbing;
-    }
-
-    .brand-marquee::before,
-    .brand-marquee::after {
-        content: '';
-        position: absolute;
-        inset-block: 0;
-        width: clamp(4rem, 10vw, 10rem);
-        z-index: 1;
-        pointer-events: none;
-    }
-
-    .brand-marquee::before {
-        left: 0;
-        background: linear-gradient(to right, var(--background), transparent);
-    }
-
-    .brand-marquee::after {
-        right: 0;
-        background: linear-gradient(to left, var(--background), transparent);
-    }
-
-    .logo-track {
-        display: flex;
-        width: max-content;
-        align-items: center;
-        will-change: transform;
-    }
-
-    .logo-track img {
-        -webkit-user-drag: none;
-        user-select: none;
-    }
-
-    .logo-group {
-        display: flex;
-        align-items: center;
-        padding-inline-end: 5rem;
-    }
-
-    .logo-group > *:not(:last-child) {
-        margin-inline-end: 5rem;
-    }
-
     .stone-card {
         position: relative;
         display: block;
@@ -477,16 +423,6 @@
 
     .stone-card:hover .stone-card-media img {
         transform: scale(1.025);
-    }
-
-    @media (max-width: 767px) {
-        .logo-group {
-            padding-inline-end: 2.5rem;
-        }
-
-        .logo-group > *:not(:last-child) {
-            margin-inline-end: 2.5rem;
-        }
     }
 
     @media (prefers-reduced-motion: reduce) {

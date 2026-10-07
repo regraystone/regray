@@ -1,11 +1,14 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
+    ArrowLeftRight,
     Calendar,
     ChevronRight,
     HelpCircle,
     LogOut,
+    Receipt,
     ShieldCheck,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import PageHeading from '@/components/page-heading';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
@@ -113,6 +116,46 @@ const Profile = () => {
                         </div>
                     </div>
 
+                    {/* Transaction history section */}
+                    <div>
+                        <h3 className="mb-2 text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                            Transaction history
+                        </h3>
+
+                        <div className="border border-border bg-background">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    toast.info(
+                                        'Transaction history is coming soon.',
+                                    );
+                                }}
+                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                            >
+                                <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
+                                    <Receipt
+                                        className="size-5 shrink-0 text-secondary-foreground"
+                                        aria-hidden
+                                    />
+                                    <div className="min-w-0 space-y-0.5">
+                                        <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
+                                            Transaction history
+                                        </div>
+                                        <div className="truncate text-xs text-muted-foreground sm:text-sm">
+                                            View your payments and past
+                                            transactions
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <ChevronRight
+                                    className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
+                                    aria-hidden
+                                />
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Help section */}
                     <div>
                         <h3 className="mb-2 text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
@@ -158,33 +201,65 @@ const Profile = () => {
                             Session
                         </h3>
 
-                        <Link
-                            href={logout()}
-                            as="button"
-                            onClick={() => router.flushAll()}
-                            data-test="logout-button"
-                            className="group flex min-h-[56px] w-full cursor-pointer items-center justify-between gap-4 border border-border bg-background p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
-                        >
-                            <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
-                                <LogOut
-                                    className="size-5 shrink-0 text-secondary-foreground"
-                                    aria-hidden
-                                />
-                                <div className="min-w-0 space-y-0.5">
-                                    <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
-                                        Log out
-                                    </div>
-                                    <div className="truncate text-xs text-muted-foreground sm:text-sm">
-                                        End this session on this device
+                        <div className="space-y-1 border border-border bg-background">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    toast.info(
+                                        'Switch account is coming soon.',
+                                    );
+                                }}
+                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                            >
+                                <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
+                                    <ArrowLeftRight
+                                        className="size-5 shrink-0 text-secondary-foreground"
+                                        aria-hidden
+                                    />
+                                    <div className="min-w-0 space-y-0.5">
+                                        <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
+                                            Switch account
+                                        </div>
+                                        <div className="truncate text-xs text-muted-foreground sm:text-sm">
+                                            Sign in with a different account
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <ChevronRight
-                                className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
-                                aria-hidden
-                            />
-                        </Link>
+                                <ChevronRight
+                                    className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
+                                    aria-hidden
+                                />
+                            </button>
+
+                            <Link
+                                href={logout()}
+                                as="button"
+                                onClick={() => router.flushAll()}
+                                data-test="logout-button"
+                                className="group flex min-h-[56px] w-full cursor-pointer items-center justify-between gap-4 border-t border-border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                            >
+                                <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
+                                    <LogOut
+                                        className="size-5 shrink-0 text-secondary-foreground"
+                                        aria-hidden
+                                    />
+                                    <div className="min-w-0 space-y-0.5">
+                                        <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
+                                            Log out
+                                        </div>
+                                        <div className="truncate text-xs text-muted-foreground sm:text-sm">
+                                            End this session on this device
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <ChevronRight
+                                    className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
+                                    aria-hidden
+                                />
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>

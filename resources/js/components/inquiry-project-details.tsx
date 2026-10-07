@@ -236,7 +236,7 @@ const InquiryProjectDetails = ({
                 {needsNeededByTime ? (
                     <FormField
                         id={id('needed-by')}
-                        label="Needed by"
+                        label="Target deadline"
                         required
                         /*
                          * The pair is one answer, so the complaint about a missing
@@ -282,7 +282,7 @@ const InquiryProjectDetails = ({
                                      * pointed at the date: without this the second
                                      * control would be announced as an edit box
                                      * with nothing on it. "Time of day" beside
-                                     * "Needed by" says the same thing to a screen
+                                     * "Target deadline" says the same thing to a screen
                                      * reader as the two fields and the word
                                      * between them say to anyone else.
                                      */
@@ -297,7 +297,7 @@ const InquiryProjectDetails = ({
                 ) : (
                     <FormField
                         id={id('needed-by')}
-                        label="Needed by"
+                        label="Target deadline"
                         error={errors.neededBy?.message}
                     >
                         {(accessibility) => (
