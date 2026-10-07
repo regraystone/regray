@@ -12,9 +12,9 @@ import { cn } from '@/lib/utils';
 
 const MessageSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
-        <div className="flex h-[calc(100svh-8rem)] min-h-0 border border-sidebar-border bg-background md:min-h-[32rem]">
+        <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col border border-sidebar-border bg-background md:min-h-[32rem] md:flex-row">
             <div className="flex w-full min-w-0 flex-col md:w-80 md:shrink-0 md:border-r md:border-sidebar-border lg:w-96">
-                <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
+                <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border px-4 sm:h-16">
                     <Skeleton className="h-8 w-32 rounded-none" />
                 </div>
                 <div className="min-h-0 flex-1">
@@ -23,7 +23,7 @@ const MessageSkeleton = () => (
                             key={index}
                             className="flex items-center gap-3 border-b border-sidebar-border px-4 py-3"
                         >
-                            <Skeleton className="size-12 shrink-0 rounded-full" />
+                            <Skeleton className="h-10 w-10 shrink-0 rounded-full sm:h-12 sm:w-12" />
                             <div className="min-w-0 flex-1 space-y-2">
                                 <Skeleton className="h-4 w-1/2 rounded-none" />
                                 <Skeleton className="h-4 w-3/4 rounded-none" />
@@ -34,8 +34,8 @@ const MessageSkeleton = () => (
             </div>
 
             <div className="hidden min-w-0 flex-1 flex-col md:flex">
-                <div className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-4">
-                    <Skeleton className="size-10 shrink-0 rounded-full" />
+                <div className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border px-4 sm:h-16">
+                    <Skeleton className="h-9 w-9 shrink-0 rounded-full sm:h-10 sm:w-10" />
                     <Skeleton className="h-4 w-40 rounded-none" />
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col gap-2 p-4 md:p-5">
@@ -46,7 +46,7 @@ const MessageSkeleton = () => (
                 </div>
                 <div className="flex shrink-0 items-center gap-2 border-t border-sidebar-border p-3">
                     <Skeleton className="h-11 flex-1 rounded-none" />
-                    <Skeleton className="size-11 shrink-0 rounded-none" />
+                    <Skeleton className="h-11 w-11 shrink-0 rounded-none" />
                 </div>
             </div>
         </div>
@@ -105,7 +105,7 @@ const Message = () => {
 
     return (
         <div className="mx-auto w-full max-w-6xl">
-            <div className="flex h-[calc(100svh-8rem)] min-h-0 border border-sidebar-border bg-background md:min-h-[32rem]">
+            <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col border border-sidebar-border bg-background md:min-h-[32rem] md:flex-row">
                 <ConversationList
                     conversations={conversations}
                     selectedId={selectedId}

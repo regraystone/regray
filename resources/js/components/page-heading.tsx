@@ -9,9 +9,9 @@ const PageHeading = ({
     description?: string;
     action?: ReactNode;
 }) => (
-    <div className="mb-5 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
-            <h2 className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
+    <div className="mb-6 flex flex-col gap-4 border-b border-sidebar-border pb-4 sm:mb-8 sm:gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 space-y-2 sm:space-y-1.5">
+            <h2 className="text-xl font-bold tracking-[-0.04em] sm:text-2xl md:text-3xl">
                 {title}
             </h2>
             {description ? (

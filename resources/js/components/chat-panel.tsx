@@ -70,29 +70,29 @@ const ChatPanel = ({
                 className,
             )}
         >
-            <header className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-4">
+            <header className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border px-4 sm:h-16">
                 <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     onClick={onBack}
                     aria-label="Back to conversations"
-                    className="shrink-0 cursor-pointer md:hidden"
+                    className="h-11 w-11 shrink-0 cursor-pointer md:hidden"
                 >
                     <ArrowLeft className="size-5" aria-hidden />
                 </Button>
-                <Avatar className="size-10 border border-border">
+                <Avatar className="h-9 w-9 border border-border sm:h-10 sm:w-10">
                     {conversation.avatar ? (
                         <AvatarImage
                             src={conversation.avatar}
                             alt={conversation.name}
                         />
                     ) : null}
-                    <AvatarFallback className="bg-primary text-sm font-bold text-primary-foreground">
+                    <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground sm:text-sm">
                         {initials}
                     </AvatarFallback>
                 </Avatar>
-                <h2 className="min-w-0 truncate font-bold">
+                <h2 className="min-w-0 truncate text-sm font-bold sm:text-base">
                     {conversation.name}
                 </h2>
                 <div className="ml-auto flex shrink-0 items-center gap-2">

@@ -162,7 +162,7 @@ const Agenda = () => {
                 action={bookButton()}
             />
 
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-3 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
                 {/*
                     The label is the only thing that says where the arrows have
                     taken you, so it is announced when they move: stepping the
@@ -192,7 +192,7 @@ const Agenda = () => {
                         size="icon"
                         onClick={() => step(-dayCount)}
                         aria-label={`Go to previous ${stepLabel}`}
-                        className="size-10"
+                        className="h-11 w-11"
                     >
                         <ChevronLeft aria-hidden />
                     </Button>
@@ -203,14 +203,14 @@ const Agenda = () => {
                         size="icon"
                         onClick={() => step(dayCount)}
                         aria-label={`Go to next ${stepLabel}`}
-                        className="size-10"
+                        className="h-11 w-11"
                     >
                         <ChevronRight aria-hidden />
                     </Button>
                 </div>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <div>
                     <WeekGrid
                         days={days}
@@ -223,10 +223,10 @@ const Agenda = () => {
                 {/*
                     The panel. Beside the calendar only once there is room for
                     both, since seven days and a month side by side need the
-                    width. Below `xl` it lands underneath instead, which is the
+                    width. Below `lg` it lands underneath instead, which is the
                     order a phone reads anyway: the week first, then what else
                     is coming.
-                */}
+                 */}
                 <aside className="space-y-4">
                     <div className="border border-sidebar-border bg-background p-4">
                         <MiniCalendar

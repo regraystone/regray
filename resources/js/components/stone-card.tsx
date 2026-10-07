@@ -47,8 +47,6 @@ const StoneCard = ({
         <button
             type="button"
             onClick={(event) => {
-                // Saved is its own state, and neither the link the card may be
-                // nor the picker it may be should be what a heart click does.
                 event.preventDefault();
                 event.stopPropagation();
                 onToggleSave();
@@ -57,7 +55,7 @@ const StoneCard = ({
             aria-label={
                 saved ? `Remove ${stone.name} from saved` : `Save ${stone.name}`
             }
-            className="grid size-9 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60"
+            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60"
         >
             <Heart
                 className={`size-5 ${
@@ -77,7 +75,7 @@ const StoneCard = ({
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
             aria-label={`View ${stone.name} (opens in a new tab)`}
-            className="grid size-9 shrink-0 place-items-center text-secondary-foreground transition-opacity hover:opacity-60"
+            className="grid h-11 w-11 shrink-0 place-items-center text-secondary-foreground transition-opacity hover:opacity-60"
         >
             <ExternalLink className="size-5" aria-hidden />
         </a>

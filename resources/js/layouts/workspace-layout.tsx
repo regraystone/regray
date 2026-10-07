@@ -522,7 +522,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             collapsed ? 'Expand sidebar' : 'Collapse sidebar'
                         }
                         aria-expanded={!collapsed}
-                        className="grid size-9 place-items-center border border-sidebar-border text-foreground transition-all duration-300 hover:scale-[1.05] hover:opacity-80"
+                        className="grid h-10 w-10 place-items-center border border-sidebar-border text-foreground transition-all duration-300 hover:scale-[1.05] hover:opacity-80"
                     >
                         {collapsed ? (
                             <PanelLeftOpen className="size-4" aria-hidden />
@@ -539,16 +539,16 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     collapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-64'
                 }`}
             >
-                <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-sidebar-border bg-background px-5 lg:px-8">
-                    <div className="flex min-w-0 items-center gap-4">
+                <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-sidebar-border bg-background px-4 sm:px-5 lg:h-16 lg:px-8">
+                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                         <Logo className="shrink-0 lg:hidden" />
                         <span
-                            className="hidden h-6 w-px shrink-0 bg-sidebar-border sm:block lg:hidden"
+                            className="hidden h-6 w-px shrink-0 bg-sidebar-border md:block lg:hidden"
                             aria-hidden
                         />
                         <nav
                             aria-label="Breadcrumb"
-                            className="hidden min-w-0 items-center gap-2 overflow-x-auto text-sm sm:flex"
+                            className="hidden min-w-0 items-center gap-2 overflow-x-auto text-xs md:flex lg:text-sm"
                         >
                             {crumbs.map((crumb, index) => {
                                 const isLast = index === crumbs.length - 1;
@@ -592,16 +592,16 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             <DropdownMenuTrigger asChild>
                                 <button
                                     type="button"
-                                    className="group flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                                    className="group flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-80 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2"
                                     aria-label="Account"
                                 >
-                                    <Avatar className="size-9 border border-border">
+                                    <Avatar className="h-9 w-9 border border-border sm:size-9">
                                         <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
                                             {initials}
                                         </AvatarFallback>
                                     </Avatar>
                                     <ChevronDown
-                                        className="size-4 text-secondary-foreground transition-transform duration-300 ease-in-out group-data-[state=open]:rotate-180"
+                                        className="hidden size-4 text-secondary-foreground transition-transform duration-300 ease-in-out group-data-[state=open]:rotate-180 sm:block"
                                         aria-hidden
                                     />
                                 </button>
@@ -644,7 +644,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         <button
                             type="button"
                             onClick={() => setDrawerOpen(true)}
-                            className="grid size-10 place-items-center transition-opacity hover:opacity-85 lg:hidden"
+                            className="grid h-11 w-11 place-items-center transition-opacity hover:opacity-85 lg:hidden"
                             aria-label="Open navigation"
                             aria-expanded={drawerOpen}
                         >
@@ -653,7 +653,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     </div>
                 </header>
 
-                <main className="flex-1 px-5 py-8 lg:px-8">
+                <main className="flex-1 px-4 py-6 sm:px-5 sm:py-8 lg:px-8">
                     <div
                         key={url}
                         className="page-enter motion-reduce:animate-none"
@@ -702,12 +702,12 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             </aside>
 
             {isStoneProfile && (
-                <div className="fixed right-4 bottom-4 z-40 flex items-center gap-2 sm:right-5 sm:bottom-5">
+                <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 sm:bottom-5">
                     <Button
                         type="button"
                         variant={isSaved ? 'default' : 'outline'}
                         size="icon"
-                        className={`size-11 cursor-pointer shadow-lg ${
+                        className={`h-11 w-11 cursor-pointer shadow-lg ${
                             isSaved ? '' : 'bg-background'
                         }`}
                         aria-pressed={isSaved}
@@ -726,7 +726,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         />
                     </Button>
                     {inquire && (
-                        <Button asChild className="h-11 px-5 shadow-lg">
+                        <Button asChild className="h-11 px-4 shadow-lg sm:px-5">
                             <Link href={inquire.url()}>Inquire now</Link>
                         </Button>
                     )}

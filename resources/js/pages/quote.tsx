@@ -128,7 +128,7 @@ const readQueryState = (): { search: string; status: StatusFilter } => {
 
 const QuoteSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-8 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:mb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
                 <Skeleton className="h-8 w-40" />
                 <Skeleton className="h-4 w-56" />
@@ -988,7 +988,7 @@ const Quote = () => {
                     }
                 }}
             >
-                <DialogContent className="rounded-none sm:max-w-md">
+                <DialogContent className="w-[calc(100%-2rem)] rounded-none sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
                             Cancel inquiry {cancelLabel.reference}?
@@ -1031,7 +1031,7 @@ const Quote = () => {
             </Dialog>
 
             <Dialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
-                <DialogContent className="rounded-none sm:max-w-md">
+                <DialogContent className="w-[calc(100%-2rem)] rounded-none sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
                             Continue your draft?
