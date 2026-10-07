@@ -11,6 +11,13 @@ import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
 
+/**
+ * Width of each stone slide in the carousel must track the saved grid's columns
+ * and gaps: grid is grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3.
+ */
+const STONE_SLIDE_WIDTH =
+    'w-[calc((100%_-_1rem)/2)] md:w-[calc((100%_-_1.25rem)/2)] lg:w-[calc((100%_-_2.5rem)/3)]';
+
 const SavedSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
         <section>
@@ -51,7 +58,7 @@ const SavedSkeleton = () => (
                 {Array.from({ length: 3 }, (_, index) => (
                     <div
                         key={index}
-                        className="w-[85%] shrink-0 sm:w-[48%] lg:w-[32%]"
+                        className={`${STONE_SLIDE_WIDTH} shrink-0`}
                     >
                         <div className="border border-sidebar-border bg-background">
                             <Skeleton className="aspect-[4/3] w-full rounded-none" />
@@ -130,7 +137,7 @@ const StoneRow = ({
                 {stones.map((stone) => (
                     <div
                         key={stone.id}
-                        className="w-[85%] shrink-0 snap-start sm:w-[48%] lg:w-[32%]"
+                        className={`${STONE_SLIDE_WIDTH} shrink-0 snap-start`}
                     >
                         <StoneCard
                             stone={stone}
