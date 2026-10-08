@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Check, ExternalLink, Heart, Star } from 'lucide-react';
 import type { Stone } from '@/data/stones';
-import { show as homeShow } from '@/routes/home';
 
 const StoneCard = ({
     stone,
@@ -174,33 +173,44 @@ const StoneCard = ({
         );
     }
 
-    return (
-        <Link
-            href={href ?? homeShow.url({ stone: stone.id })}
-            className="block"
-        >
-            <article className="stone-card border border-sidebar-border bg-background">
-                <div
-                    className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
-                >
-                    <img
-                        src={stone.thumbnail}
-                        alt={stone.name}
-                        loading="lazy"
-                        className="absolute inset-0 size-full object-cover"
-                    />
-                    {recommended}
-                </div>
-                <div className="flex items-center justify-between gap-2 px-3 py-2">
-                    <span className="min-w-0 truncate text-sm font-bold text-foreground">
-                        {stone.name}
-                    </span>
-                    {heart}
-                    {view}
-                </div>
-            </article>
-        </Link>
+    /*
+     * The card is a link when there is somewhere to send it and plain content
+     * when there is not: a stone profile sits under Home or under Saved, and a
+     * page that may open neither hands over a card that simply shows the
+     * stone. Same answer the project card already gives.
+     */
+    const content = (
+        <article className="stone-card border border-sidebar-border bg-background">
+            <div
+                className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
+            >
+                <img
+                    src={stone.thumbnail}
+                    alt={stone.name}
+                    loading="lazy"
+                    className="absolute inset-0 size-full object-cover"
+                />
+                {recommended}
+            </div>
+            <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0 truncate text-sm font-bold text-foreground">
+                    {stone.name}
+                </span>
+                {heart}
+                {view}
+            </div>
+        </article>
     );
+
+    if (href) {
+        return (
+            <Link href={href} className="block">
+                {content}
+            </Link>
+        );
+    }
+
+    return content;
 };
 
 export default StoneCard;

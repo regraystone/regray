@@ -2,25 +2,28 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
-import GalleryCarousel, {
-    type GalleryCarouselHandle,
-} from '@/components/gallery-carousel';
 import ImageLightbox, {
     LightboxTrigger,
     type LightboxImage,
 } from '@/components/image-lightbox';
+import { FactChip, SpecRow } from '@/components/profile-facts';
+import ProfileGallery from '@/components/profile-gallery';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    stoneProfiles,
-    type StoneImage,
-    type StoneProfile,
-} from '@/data/stones';
-import { index as homeIndex } from '@/routes/home';
+import { projects } from '@/data/projects';
+import { stoneProfiles, type StoneProfile } from '@/data/stones';
+import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { index as stonesIndex } from '@/routes/stones';
 
 type StoneProfileProps = {
     stoneId: string;
+    /**
+     * The project this stone is read under, when it is the nested route.
+     *
+     * A stone reached from Saved has no project above it, so the prop is left
+     * off and the page is exactly what it has always been.
+     */
+    projectId?: string;
 };
 
 const StoneProfileSkeleton = () => (
@@ -110,15 +113,6 @@ const StoneProfileSkeleton = () => (
     </div>
 );
 
-const SpecRow = ({ label, value }: { label: string; value: string }) => (
-    <div className="flex items-baseline justify-between gap-4 border-b border-sidebar-border py-2.5 last:border-0">
-        <dt className="text-sm text-secondary-foreground">{label}</dt>
-        <dd className="text-right text-base font-semibold text-foreground">
-            {value}
-        </dd>
-    </div>
-);
-
 const BulletedList = ({ items }: { items: string[] }) => (
     <ul className="space-y-2">
         {items.map((item) => (
@@ -135,79 +129,6 @@ const BulletedList = ({ items }: { items: string[] }) => (
         ))}
     </ul>
 );
-
-const StoneGallery = ({
-    images,
-    name,
-    onOpenImage,
-}: {
-    images: StoneImage[];
-    name: string;
-    onOpenImage: (image: LightboxImage) => void;
-}) => {
-    const carouselRef = useRef<GalleryCarouselHandle>(null);
-
-    return (
-        <GalleryCarousel
-            ref={carouselRef}
-            ariaLabel={`${name} gallery`}
-            dots
-            dotsClassName="absolute bottom-3 left-1/2 -translate-x-1/2"
-            className="relative bg-background"
-            controls={
-                images.length > 1 ? (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => carouselRef.current?.scrollPrev()}
-                            aria-label="Previous photo"
-                            className="absolute inset-y-0 left-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center text-white/80 transition hover:text-white sm:left-4"
-                        >
-                            <ChevronLeft
-                                className="size-8 drop-shadow-md"
-                                aria-hidden
-                            />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => carouselRef.current?.scrollNext()}
-                            aria-label="Next photo"
-                            className="absolute inset-y-0 right-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center text-white/80 transition hover:text-white sm:right-4"
-                        >
-                            <ChevronRight
-                                className="size-8 drop-shadow-md"
-                                aria-hidden
-                            />
-                        </button>
-                    </>
-                ) : undefined
-            }
-        >
-            {images.map((image, index) => {
-                const alt = `${name} - ${image.name}`;
-
-                return (
-                    <div
-                        key={image.src}
-                        className="aspect-3/4 w-full shrink-0 snap-center lg:aspect-[16/9]"
-                    >
-                        <LightboxTrigger
-                            onOpen={() => onOpenImage({ src: image.src, alt })}
-                        >
-                            <img
-                                src={image.src}
-                                alt={alt}
-                                draggable={false}
-                                loading={index === 0 ? 'eager' : 'lazy'}
-                                className="size-full object-cover"
-                            />
-                        </LightboxTrigger>
-                    </div>
-                );
-            })}
-        </GalleryCarousel>
-    );
-};
 
 const ProjectCard = ({
     name,
@@ -313,8 +234,11 @@ const ProjectsCarousel = ({
     );
 };
 
-const StoneProfile = ({ stoneId }: StoneProfileProps) => {
+const StoneProfile = ({ stoneId, projectId }: StoneProfileProps) => {
     const profile = stoneProfiles[stoneId];
+    const project = projectId
+        ? projects.find((entry) => entry.id === projectId)
+        : undefined;
     const [isLoading, setIsLoading] = useState(true);
     const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(
         null,
@@ -326,10 +250,29 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
         return () => window.clearTimeout(timer);
     }, []);
 
-    // The hero sits outside the nav, so the way back belongs to the page. A
-    // direct hit on the URL has no history to pop, so it falls back to the
+    /*
+     * The nested route says where the stone was read from, so a project the
+     * data does not know, or a stone that is not one of its stones, is the
+     * same miss as an unknown stone id: the page says so rather than the
+     * route. Without a project above it, the stone stands alone and only its
+     * own id is checked, which is what `saved.show` has always done.
+     */
+    const isInProject =
+        projectId === undefined ||
+        (project !== undefined && project.stones.includes(stoneId));
+
+    // The hero sits outside the nav, so the way back belongs to the page. The
+    // nested stone is read inside a project, so its way back is the project
+    // itself rather than wherever the reader happened to come from. A direct
+    // hit on the standalone URL has no history to pop, so it falls back to the
     // feed the breadcrumb already treats as this page's parent.
     const goBack = () => {
+        if (projectId) {
+            router.visit(homeShow.url({ project: projectId }));
+
+            return;
+        }
+
         if (window.history.length > 1) {
             window.history.back();
         } else {
@@ -341,7 +284,7 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
         return <StoneProfileSkeleton />;
     }
 
-    if (!profile) {
+    if (!profile || !isInProject) {
         return (
             <div className="mx-auto w-full max-w-6xl py-16 text-center">
                 <h1 className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
@@ -372,14 +315,16 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                     variant="outline"
                     size="sm"
                     onClick={goBack}
-                    aria-label="Back"
+                    aria-label={projectId ? 'Back to Project' : 'Back'}
                     className="group absolute top-4 left-4 z-20 h-11 w-11 cursor-pointer justify-center gap-2.5 border-white/25 bg-black/55 px-0 tracking-[0.12em] text-white backdrop-blur-md transition-colors duration-200 hover:border-white/40 hover:bg-black/75 hover:opacity-100 focus-visible:ring-white/60 sm:top-6 sm:left-6 sm:w-auto sm:px-4 lg:left-8"
                 >
                     <ArrowLeft
                         className="size-4 transition-transform duration-200 group-hover:-translate-x-0.5"
                         aria-hidden
                     />
-                    <span className="hidden sm:inline">Back</span>
+                    <span className="hidden sm:inline">
+                        {projectId ? 'Back to Project' : 'Back'}
+                    </span>
                 </Button>
                 <div className="relative z-10 mx-auto w-full max-w-4xl px-5 py-16 text-center sm:py-24">
                     <h1 className="hero-title mt-5 text-on-image">
@@ -404,7 +349,7 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
             </section>
 
             <section>
-                <StoneGallery
+                <ProfileGallery
                     images={profile.gallery}
                     name={profile.name}
                     onOpenImage={setLightboxImage}
@@ -440,12 +385,7 @@ const StoneProfile = ({ stoneId }: StoneProfileProps) => {
                             </h3>
                             <div className="flex flex-wrap gap-2">
                                 {profile.finishes.map((finish) => (
-                                    <span
-                                        key={finish}
-                                        className="border border-sidebar-border bg-background px-3 py-1 text-xs font-bold tracking-[0.05em] text-foreground uppercase"
-                                    >
-                                        {finish}
-                                    </span>
+                                    <FactChip key={finish}>{finish}</FactChip>
                                 ))}
                             </div>
                         </div>

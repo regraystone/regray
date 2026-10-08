@@ -20,9 +20,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('home', [ViewController::class, 'home'])
         ->middleware(Permission::HomeView->middleware())
         ->name('home.index');
-    Route::get('home/{stone}', [ViewController::class, 'stoneProfile'])
-        ->middleware(Permission::HomeView->middleware())
+
+    /*
+     * The project profile is the page under Home now, and a stone is read by
+     * its place in a project rather than on its own, so `/home/{stone}` is
+     * gone. Both are guarded by `home-projects.view` rather than `home.view`:
+     * the feed stays open to any reader of Home, while a project is the
+     * portfolio page and says so in its own permission. The parameters stay
+     * plain strings on purpose — see ViewController::project for why existence
+     * cannot be settled before the permission is.
+     */
+    Route::get('home/{project}', [ViewController::class, 'project'])
+        ->middleware(Permission::HomeProjectsView->middleware())
         ->name('home.show');
+    Route::get('home/{project}/{stone}', [ViewController::class, 'homeStone'])
+        ->middleware(Permission::HomeProjectsView->middleware())
+        ->name('home.stone');
 
     Route::get('overview', [ViewController::class, 'overview'])
         ->middleware(Permission::OverviewView->middleware())

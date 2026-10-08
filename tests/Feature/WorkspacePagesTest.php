@@ -25,7 +25,8 @@ function workspacePages(): array
 {
     return [
         'home.index' => [],
-        'home.show' => ['stone' => 'patagonia-quartzite'],
+        'home.show' => ['project' => 'ginza-one'],
+        'home.stone' => ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite'],
         'overview.index' => [],
         'saved.index' => [],
         'saved.show' => ['stone' => 'patagonia-quartzite'],
@@ -183,7 +184,8 @@ test('each page is guarded by the permissions that name it', function (string $r
     expect(guardsFor($routeName))->toBe($permissions);
 })->with([
     ['home.index', [Permission::HomeView->value]],
-    ['home.show', [Permission::HomeView->value]],
+    ['home.show', [Permission::HomeProjectsView->value]],
+    ['home.stone', [Permission::HomeProjectsView->value]],
     ['overview.index', [Permission::OverviewView->value]],
     ['saved.index', [Permission::SavedView->value]],
     ['saved.show', [Permission::SavedView->value]],
@@ -486,29 +488,58 @@ test('each role can open the landing page it is redirected to', function () {
     }
 });
 
+test('an allowed project profile page renders with its project', function () {
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)
+        ->get(route('home.show', 'ginza-one'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('project-profile')
+            ->has('projectId'),
+        );
+});
+
 test('an allowed stone profile page renders with its stone', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('home.show', 'patagonia-quartzite'))
+        ->get(route('home.stone', ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('stone-profile')
-            ->has('stoneId'),
+            ->has('stoneId')
+            ->has('projectId'),
         );
 });
 
-test('a denied stone profile is forbidden whatever stone is asked for', function () {
+test('a denied project profile is forbidden whatever project is asked for', function () {
     // The super-admin reaches every page, so the denial is tested on a role
     // that genuinely lacks the permission.
     $user = User::factory()->role(Role::Technical)->create();
 
     expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
-        ->not->toContain(Permission::HomeView->value);
+        ->not->toContain(Permission::HomeProjectsView->value);
+
+    foreach (['ginza-one', 'no-such-project', 'belo-medical-group'] as $project) {
+        $this->actingAs($user)
+            ->get(route('home.show', ['project' => $project]))
+            ->assertForbidden();
+    }
+});
+
+test('a denied stone profile is forbidden whatever stone is asked for', function () {
+    // The super-admin reaches every page, so the denial is tested on a role
+    // that genuinely lacks the permission. The stone under a project and the
+    // project itself share the one permission, so both are denied for it.
+    $user = User::factory()->role(Role::Technical)->create();
+
+    expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
+        ->not->toContain(Permission::HomeProjectsView->value);
 
     foreach (['patagonia-quartzite', 'no-such-stone', 'granite'] as $stone) {
         $this->actingAs($user)
-            ->get(route('home.show', $stone))
+            ->get(route('home.stone', ['project' => 'ginza-one', 'stone' => $stone]))
             ->assertForbidden();
     }
 });

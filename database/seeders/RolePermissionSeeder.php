@@ -56,11 +56,18 @@ class RolePermissionSeeder extends Seeder
      * `agenda.create` either way, because booking a visit is allowed from the
      * appropriate door depending on which URL they use.
      *
+     * `home-projects.view` goes to the client and to the super-admin and to
+     * nobody else: it names the project profile and the stone profile nested
+     * under it, which are portfolio pages a client reads from Home. The
+     * super-admin is listed for consistency with every other permission, since
+     * `Gate::before` reaches the pages either way.
+     *
      * @var array<string, array<int, string>>
      */
     public const MATRIX = [
         Role::Client->value => [
             Permission::HomeView->value,
+            Permission::HomeProjectsView->value,
             Permission::SavedView->value,
             Permission::QuotationsView->value,
             Permission::MessagesView->value,
@@ -84,6 +91,7 @@ class RolePermissionSeeder extends Seeder
             Permission::ProjectsView->value,
             Permission::ProfileView->value,
             Permission::ProfileAgendaView->value,
+            Permission::HomeProjectsView->value,
             Permission::InquiriesCreate->value,
             Permission::AgendaCreate->value,
         ],

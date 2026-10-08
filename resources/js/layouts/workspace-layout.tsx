@@ -41,13 +41,14 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { inquiries } from '@/data/inquiries';
+import { projects } from '@/data/projects';
 import { stoneProfiles } from '@/data/stones';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as agendaIndex } from '@/routes/agenda';
-import { index as homeIndex } from '@/routes/home';
+import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { logout } from '@/routes';
 import {
     index as inquiryIndex,
@@ -76,9 +77,13 @@ import { index as servicesIndex } from '@/routes/services';
  * Keeping the union here means the sidebar's `permission` field is checked
  * against this list rather than being an untyped string.
  *
- * `profileAgendaView` is listed but no nav item names it: it is the agenda as
- * reached from the Profile page, and the button for it is drawn there rather
- * than in the sidebar. See the Profile hub page.
+ * `profileAgendaView` and `homeProjectsView` are listed but no nav item names
+ * them: each is the permission for a page reached from another page rather
+ * than from the sidebar. `profileAgendaView` is the agenda as reached from the
+ * Profile page, and the button for it is drawn there rather than in the
+ * sidebar — see the Profile hub page. `homeProjectsView` names the project
+ * profile and the stone profile nested under it, both read from Home, where
+ * the project cards are drawn by the page that already holds `homeView`.
  */
 export const permissions = {
     homeView: 'home.view',
@@ -95,6 +100,7 @@ export const permissions = {
     projectsView: 'projects.view',
     profileView: 'profile.view',
     profileAgendaView: 'profile-agenda.view',
+    homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
     agendaCreate: 'agenda.create',
 } as const;
@@ -447,10 +453,27 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 }
 
                 const previousSegment = segments[index - 1];
+
+                /*
+                 * A segment right after `home` is a project, and a segment
+                 * after that project is one of its stones. `home` no longer
+                 * resolves a segment to a stone: a stone is addressed by its
+                 * place in a project now, so `stones` and `saved` are the only
+                 * roots left that read their stone segment directly.
+                 */
+                const project =
+                    previousSegment === 'home'
+                        ? projects.find((entry) => entry.id === segment)
+                        : undefined;
+
+                const underProject =
+                    previousSegment !== undefined &&
+                    projects.some((entry) => entry.id === previousSegment);
+
                 const profile =
                     previousSegment === 'stones' ||
-                    previousSegment === 'home' ||
-                    previousSegment === 'saved'
+                    previousSegment === 'saved' ||
+                    underProject
                         ? stoneProfiles[segment]
                         : undefined;
 
@@ -461,7 +484,21 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         ? inquiries.find((entry) => entry.id === segment)
                         : undefined;
 
-                if (profile) {
+                if (project) {
+                    /*
+                     * Linked while it is a stop on the way and plain text when
+                     * it is the page itself: the trail's last crumb is always
+                     * unlinked, and the renderer reads `href` for the rest.
+                     */
+                    const isLast = index === segments.length - 1;
+
+                    crumbs.push({
+                        label: project.name,
+                        href: isLast
+                            ? undefined
+                            : homeShow.url({ project: project.id }),
+                    });
+                } else if (profile) {
                     crumbs.push({ label: profile.name });
                 } else if (inquiry) {
                     crumbs.push({ label: inquiry.reference });

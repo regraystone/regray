@@ -20,6 +20,9 @@ import {
     type ProjectCategory,
 } from '@/data/projects';
 import { stones } from '@/data/stones';
+import { usePermissions } from '@/hooks/use-permissions';
+import { permissions } from '@/layouts/workspace-layout';
+import { show as homeShow } from '@/routes/home';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';
@@ -165,6 +168,7 @@ const HomeSkeleton = () => (
 );
 
 const Home = () => {
+    const { can } = usePermissions();
     const [search, setSearch] = useState('');
     const [selectedStone, setSelectedStone] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -346,6 +350,17 @@ const Home = () => {
                                 key={project.id}
                                 project={project}
                                 aspect="aspect-[4/3]"
+                                // The feed reads as Home; the project behind a
+                                // card is its own page and says so in its own
+                                // permission, so a reader of the feed who holds
+                                // neither sees the card and not the link.
+                                href={
+                                    can(permissions.homeProjectsView)
+                                        ? homeShow.url({
+                                              project: project.id,
+                                          })
+                                        : undefined
+                                }
                             />
                         ))}
                     </div>

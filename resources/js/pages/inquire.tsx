@@ -50,9 +50,9 @@ import {
     type InquiryFormValues,
 } from '@/lib/inquiry-schema';
 import { permissions } from '@/layouts/workspace-layout';
-import { show as homeShow } from '@/routes/home';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex } from '@/routes/quote';
+import { show as savedShow } from '@/routes/saved';
 
 const STEPS = ['Services', 'Stones', 'Requirements', 'Review'];
 
@@ -1159,7 +1159,9 @@ const Inquire = () => {
 
     const hasSelection = draftStoneIds.length > 0;
     const hasServices = chosenServiceIds.length > 0;
-    const canSeeStoneProfile = can(permissions.homeView);
+    // A stone that stands alone is read under Saved, so that is what opens
+    // one in a new tab.
+    const canSeeStoneProfile = can(permissions.savedView);
     const canChat = can(permissions.messagesView);
     const canSeeQuotation = can(permissions.quotationsView);
     const canSeeInquiry = can(permissions.inquiriesView);
@@ -1461,13 +1463,14 @@ const Inquire = () => {
                                                         ? 'Already added'
                                                         : undefined
                                                 }
-                                                // A stone profile is the Home page,
-                                                // so without that permission the
-                                                // new tab would only show the
-                                                // forbidden page.
+                                                // A standalone stone profile
+                                                // lives under Saved, so
+                                                // without that permission
+                                                // the new tab would only show
+                                                // the forbidden page.
                                                 viewHref={
                                                     canSeeStoneProfile
-                                                        ? homeShow.url({
+                                                        ? savedShow.url({
                                                               stone: stone.id,
                                                           })
                                                         : undefined

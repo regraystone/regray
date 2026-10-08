@@ -13,10 +13,14 @@ namespace App\Enums;
  *
  * Most are a `view` permission naming a page of its own, so a permission here
  * is usually a guarantee that the sidebar has an entry for it.
- * `ProfileAgendaView` is the one view permission with no sidebar entry: it names
- * the agenda as reached from the Profile page rather than from the Management
+ * `ProfileAgendaView` is the first exception and `HomeProjectsView` the second:
+ * each is a view permission with no sidebar entry, naming a place reached from
+ * another page rather than a page of its own. `ProfileAgendaView` names the
+ * agenda as reached from the Profile page rather than from the Management
  * group, so it says which door a role was given rather than which pages it may
- * see.
+ * see. `HomeProjectsView` names the project profile and the stone profile
+ * nested under it, both reached from the Home page, and the entry for that
+ * page belongs to `HomeView`.
  * `InquiriesCreate` and `AgendaCreate` are the exceptions to the action
  * permissions, and the only two: each guards something a user does rather than
  * somewhere they go. The stepper is a page reached by doing, so its permission
@@ -54,12 +58,29 @@ enum Permission: string
      * door. Two permissions rather than one so each door can be given on its
      * own, and because a role check is not how anything here authorizes.
      *
-     * It is a `view` permission, so it names a place, but it is the one view
-     * permission with no sidebar entry: the entry for that page belongs to
-     * `AgendaView`, and holding this one is what puts the button on the Profile
-     * hub.
+     * It is a `view` permission, so it names a place, but it is one of the two
+     * view permissions with no sidebar entry: the entry for that page belongs
+     * to `AgendaView`, and holding this one is what puts the button on the
+     * Profile hub.
      */
     case ProfileAgendaView = 'profile-agenda.view';
+
+    /**
+     * The project profile and the stone profile nested under it, both reached
+     * from the Home page.
+     *
+     * A project is addressed by its id at `/home/{project}`, and one of that
+     * project's stones by its place under it at `/home/{project}/{stone}`, so
+     * two routes and one page each. It is a `view` permission, so it names a
+     * place, but like `ProfileAgendaView` it is one of the two with no sidebar
+     * entry: the entry for the Home page belongs to `HomeView`, and holding
+     * this one is what lets a reader open a project there and a stone under it.
+     *
+     * It is given to the client, who reads the portfolio, and to the
+     * super-admin for consistency with the rest of the matrix even though
+     * `Gate::before` bypasses the check for them anyway.
+     */
+    case HomeProjectsView = 'home-projects.view';
 
     case InquiriesCreate = 'inquiries.create';
     case AgendaCreate = 'agenda.create';

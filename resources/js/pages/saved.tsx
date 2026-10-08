@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { stones, type Stone } from '@/data/stones';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { index as homeIndex } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
 
 /**
@@ -142,7 +142,7 @@ const StoneRow = ({
                         <StoneCard
                             stone={stone}
                             aspect="aspect-[4/3]"
-                            href={homeShow.url({ stone: stone.id })}
+                            href={savedShow.url({ stone: stone.id })}
                             saved={savedIds.has(stone.id)}
                             onToggleSave={() => toggleSave(stone.id)}
                         />

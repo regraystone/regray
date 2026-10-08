@@ -15,6 +15,8 @@ export type Project = {
     id: string;
     name: string;
     completedYear: number;
+    location: string; // free-form address line shown on the project profile page
+    overview: string; // the short "about" text shown on the project profile page
     thumbnail: string;
     gallery: ProjectImage[];
     stones: string[];
@@ -41,6 +43,9 @@ export const projects: Project[] = [
         id: 'recidencia-del-hamor',
         name: 'Recidencia Del Hamor',
         completedYear: 2025,
+        location: 'Casiguran, Sorsogon',
+        overview:
+            'Recidencia Del Hamor is a commercial spaces project in Casiguran, Sorsogon, completed in 2025. The project features marble and quartzite, with wall accents that bring out the natural veining and character of each stone. Explore the stones used in this project below.',
         thumbnail: '/storage/projects/9c2e5a1f8b4d7c3e6a9f2c5e8a1d4b7f.jpg',
         gallery: [
             {
@@ -66,6 +71,9 @@ export const projects: Project[] = [
         id: 'belo-medical-group',
         name: 'Belo Medical Group',
         completedYear: 2026,
+        location: 'Proscenium Rockwell, Makati City',
+        overview:
+            "Belo Medical Group is one of the Philippines' most established names in medical aesthetics, known for its expertise in advanced cosmetic dermatology and plastic surgery. With more than three decades of practice and a growing network of clinics nationwide, the brand combines clinical precision, innovation, and refined patient care to deliver a highly sophisticated approach to modern aesthetics. Completed in 2026 at Proscenium Rockwell, Makati City, this commercial space features marble wall accents.",
         thumbnail: '/storage/projects/3e7b1c4f9a6d2e8c5f1a3b7e9c2d5f8a.png',
         gallery: [
             {
@@ -91,6 +99,9 @@ export const projects: Project[] = [
         id: 'ayala-land',
         name: 'Ayala Land',
         completedYear: 2025,
+        location: 'Ayala Land Tower 1, Makati City',
+        overview:
+            'Ayala Land is a commercial spaces project at Ayala Land Tower 1 in Makati City, completed in 2025. The project features quartzite, a durable natural stone well suited to commercial settings. Explore the stone used in this project below.',
         thumbnail: '/storage/projects/6c9a2e5f1b8d3c7a4e0f1b8c5d9e2a7f.jpg',
         gallery: [
             {
@@ -116,6 +127,9 @@ export const projects: Project[] = [
         id: 'ginza-one',
         name: 'Ginza One',
         completedYear: 2024,
+        location: 'Chino Roces Ext., Makati City',
+        overview:
+            'Ginza One is a commercial spaces project on Chino Roces Ext., Makati City, completed in 2024. The project spans wall accents as well as countertops & backsplash, and features patagonia quartzite and onyx. Explore the stones used in this project below.',
         thumbnail: '/storage/projects/1a5d7e3c6f8b2a4f9c1e5d8a3b6f0e9c.jpg',
         gallery: [
             {
@@ -145,6 +159,9 @@ export const projects: Project[] = [
         id: 'restaurant-idalia',
         name: 'Restaurant Idalia',
         completedYear: 2025,
+        location: 'Valero St., Makati City',
+        overview:
+            'Restaurant Idalia is a commercial spaces project on Valero St., Makati City, completed in 2025. The project features onyx wall accents, a natural stone prized for its dramatic veining and translucent quality. Explore the stone used in this project below.',
         thumbnail: '/storage/projects/2d9e4c1f8a5b6f3e7c0a1d9b4e2f6c8a.jpg',
         gallery: [
             {
@@ -170,6 +187,9 @@ export const projects: Project[] = [
         id: 'lazy-suzy-restaurant',
         name: 'Lazy Suzy Restaurant',
         completedYear: 2025,
+        location: 'Podium Mall, Mandaluyong City',
+        overview:
+            'Lazy Suzy Restaurant is a commercial spaces project at Podium Mall, Mandaluyong City, completed in 2025. The project features onyx wall accents, a natural stone prized for its dramatic veining and translucent quality. Explore the stone used in this project below.',
         thumbnail: '/storage/projects/a3f1c8d5e9b4726f0a2e5c8b1d4f7a9e.jpg',
         gallery: [
             {

@@ -28,7 +28,8 @@ test('the super-admin opens every page', function (string $routeName, array $par
         ->assertOk();
 })->with([
     ['home.index', []],
-    ['home.show', ['stone' => 'patagonia-quartzite']],
+    ['home.show', ['project' => 'ginza-one']],
+    ['home.stone', ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite']],
     ['overview.index', []],
     ['saved.index', []],
     ['saved.show', ['stone' => 'patagonia-quartzite']],
