@@ -24,7 +24,6 @@ export type StoneProfile = Stone & {
     applications: string[];
     finishes: string[];
     care: string[];
-    projects: Array<{ id: string; name: string; image: string }>;
 };
 
 export const stones: Stone[] = [
@@ -83,7 +82,7 @@ export const stones: Stone[] = [
         recommended: false,
     },
 ];
-const hero = '/images/regray-hero.jpg';
+
 /**
  * One row per stone photograph, in the order the catalogue lists them.
  *
@@ -593,7 +592,7 @@ const stoneImages: StoneImage[] = [
         id: 'ce31a253387dfbda62aa77552d66dea5',
         stoneId: 'quartzite',
         name: 'Taj Mahal (leather)',
-        src: '/storage/stones/ce31a253387dfbda62aa77552d66dea5.png',
+        src: '/storage/stones/51500690352a53c1478bb7c601d0ffa6.png',
         created_at: '2026-09-30T01:11:00.000Z',
     },
     {
@@ -656,18 +655,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Avoid pressure washing into the joints',
             'Always use trivets for hot pans on counters',
         ],
-        projects: [
-            {
-                id: 'cobblestone-driveway',
-                name: 'Cypress Driveway',
-                image: '/storage/stones/ef03fcfd4ff0e6063df004f6b897fe7a.png',
-            },
-            {
-                id: 'cobblestone-court',
-                name: 'Haven Courtyard',
-                image: hero,
-            },
-        ],
     },
     'crazy-cut': {
         id: 'crazy-cut',
@@ -699,18 +686,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Avoid acidic cleaners on marble and limestone',
             'Use soft microfiber cloths',
         ],
-        projects: [
-            {
-                id: 'crazy-cut-patio',
-                name: 'Lantern Courtyard Patio',
-                image: '/storage/stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png',
-            },
-            {
-                id: 'crazy-cut-wall',
-                name: 'Alabaster Feature Wall',
-                image: hero,
-            },
-        ],
     },
     granite: {
         id: 'granite',
@@ -741,18 +716,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Avoid abrasive pads',
             'Always use trivets for hot pans',
         ],
-        projects: [
-            {
-                id: 'granite-island',
-                name: 'Cloud Kitchen Island',
-                image: '/storage/stones/8f7804fd9673f34737ecd0c1dfca9723.png',
-            },
-            {
-                id: 'granite-vanity',
-                name: 'Rue Est Vanity',
-                image: hero,
-            },
-        ],
     },
     marble: {
         id: 'marble',
@@ -782,18 +745,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Wipe spills immediately',
             'Avoid acidic cleaners like lemon and vinegar',
             'Protect from staining liquids such as wine and coffee',
-        ],
-        projects: [
-            {
-                id: 'marble-bath',
-                name: 'Palazzo Bath Suite',
-                image: '/storage/stones/a2a72c93b7369e681b72f0e05380df17.png',
-            },
-            {
-                id: 'marble-wall',
-                name: 'Gallery Wall Cladding',
-                image: hero,
-            },
         ],
     },
     monumental: {
@@ -826,18 +777,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Use cutting mats',
             'Protect from heavy impact',
         ],
-        projects: [
-            {
-                id: 'monumental-island',
-                name: 'Foundry Kitchen Island',
-                image: '/storage/stones/20845a043f5abd823694192363b27458.png',
-            },
-            {
-                id: 'monumental-terrace',
-                name: 'Avenue Ref Landscape',
-                image: hero,
-            },
-        ],
     },
     onyx: {
         id: 'onyx',
@@ -868,18 +807,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Avoid acidic and abrasive cleaners',
             'Use soft microfiber cloths',
             'Avoid direct heavy impact',
-        ],
-        projects: [
-            {
-                id: 'onyx-bar',
-                name: 'Amber Bar Front',
-                image: '/storage/stones/4b683a754fea6cc2e9c52669a4c2ca34.png',
-            },
-            {
-                id: 'onyx-wall',
-                name: 'Nocturne Feature Wall',
-                image: hero,
-            },
         ],
     },
     'patagonia-quartzite': {
@@ -912,18 +839,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Use soft microfiber cloths',
             'Protect from heavy impact',
         ],
-        projects: [
-            {
-                id: 'patagonia-island',
-                name: "L'Atelier Kitchen Island",
-                image: '/storage/stones/32429db4b70ad914e80ab79f031e4263.png',
-            },
-            {
-                id: 'patagonia-cladding',
-                name: 'Soho Penthouse Cladding',
-                image: hero,
-            },
-        ],
     },
     quartzite: {
         id: 'quartzite',
@@ -955,18 +870,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Use soft microfiber cloths',
             'Protect from heavy impact',
         ],
-        projects: [
-            {
-                id: 'quartzite-counter',
-                name: 'Brew House Counter',
-                image: '/storage/stones/5b7cb3dae550009c37ad0cb518f4d09f.png',
-            },
-            {
-                id: 'quartzite-terrace',
-                name: 'Solstice Terrace Bar',
-                image: hero,
-            },
-        ],
     },
     travertine: {
         id: 'travertine',
@@ -997,18 +900,6 @@ export const stoneProfiles: Record<string, StoneProfile> = {
             'Avoid acidic cleaners',
             'Re-seal after resurfacing',
             'Use soft microfiber cloths',
-        ],
-        projects: [
-            {
-                id: 'travertine-deck',
-                name: 'Terrace Pool Deck',
-                image: '/storage/stones/bac6a5d8d41046a9fe8cb35205cbd34c.png',
-            },
-            {
-                id: 'travertine-bath',
-                name: 'Bloom Bath Feature',
-                image: hero,
-            },
         ],
     },
 };
@@ -1051,3 +942,4 @@ export const FINISHES: readonly string[] = [
     'Polished',
     ADVISE_OPTION,
 ];
+

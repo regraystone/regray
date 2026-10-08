@@ -112,7 +112,7 @@ export const projects: Project[] = [
             {
                 id: 'ayala-img-3',
                 projectId: 'ayala-land',
-                src: '/storage/projects/7b3f1e6c9a5d2f8b4e1a6c9d0f3a8e5c.png',
+                src: '/storage/projects/7967b9d6ad973bd4aedc3f0c73cba631.webp',
             },
             {
                 id: 'ayala-img-4',
@@ -190,7 +190,7 @@ export const projects: Project[] = [
         location: 'Podium Mall, Mandaluyong City',
         overview:
             'Lazy Suzy Restaurant is a commercial spaces project at Podium Mall, Mandaluyong City, completed in 2025. The project features onyx wall accents, a natural stone prized for its dramatic veining and translucent quality. Explore the stone used in this project below.',
-        thumbnail: '/storage/projects/a3f1c8d5e9b4726f0a2e5c8b1d4f7a9e.jpg',
+        thumbnail: '/storage/projects/76986f80d0cbebdba67668c7cca2c1cd.webp',
         gallery: [
             {
                 id: 'lazy-suzy-img-2',
@@ -212,3 +212,4 @@ export const projects: Project[] = [
         categories: ['commercial-spaces', 'wall-accents'],
     },
 ];
+

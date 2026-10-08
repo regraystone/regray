@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
@@ -11,7 +11,7 @@ import ProfileGallery from '@/components/profile-gallery';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { projects } from '@/data/projects';
-import { stoneProfiles, type StoneProfile } from '@/data/stones';
+import { stoneProfiles } from '@/data/stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { index as stonesIndex } from '@/routes/stones';
 
@@ -26,7 +26,11 @@ type StoneProfileProps = {
     projectId?: string;
 };
 
-const StoneProfileSkeleton = () => (
+const StoneProfileSkeleton = ({
+    showHighlights,
+}: {
+    showHighlights: boolean;
+}) => (
     <div className="mx-auto w-full max-w-6xl">
         <section className="relative flex min-h-[280px] items-center overflow-hidden sm:min-h-[480px]">
             <Skeleton className="absolute inset-0 rounded-none" />
@@ -89,27 +93,29 @@ const StoneProfileSkeleton = () => (
             </div>
         </section>
 
-        <section id="projects" className="scroll-mt-24">
-            <div className="mb-8 flex items-end justify-between gap-4">
-                <Skeleton className="h-8 w-56" />
-                <div className="flex shrink-0 items-center gap-2">
-                    <Skeleton className="size-10" />
-                    <Skeleton className="size-10" />
-                </div>
-            </div>
-            <div className="flex gap-4 overflow-hidden md:gap-5">
-                {Array.from({ length: 3 }, (_, index) => (
-                    <div
-                        key={index}
-                        className="w-[85%] shrink-0 sm:w-[48%] lg:w-[32%]"
-                    >
-                        <div className="border border-sidebar-border bg-background">
-                            <Skeleton className="aspect-[4/3] w-full rounded-none" />
-                        </div>
+        {showHighlights && (
+            <section id="projects" className="scroll-mt-24">
+                <div className="mb-8 flex items-end justify-between gap-4">
+                    <Skeleton className="h-8 w-56" />
+                    <div className="flex shrink-0 items-center gap-2">
+                        <Skeleton className="size-10" />
+                        <Skeleton className="size-10" />
                     </div>
-                ))}
-            </div>
-        </section>
+                </div>
+                <div className="flex gap-4 overflow-hidden md:gap-5">
+                    {Array.from({ length: 3 }, (_, index) => (
+                        <div
+                            key={index}
+                            className="w-[85%] shrink-0 sm:w-[48%] lg:w-[32%]"
+                        >
+                            <div className="border border-sidebar-border bg-background">
+                                <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </section>
+        )}
     </div>
 );
 
@@ -130,11 +136,13 @@ const BulletedList = ({ items }: { items: string[] }) => (
     </ul>
 );
 
+type HighlightCard = { name: string; image: string };
+
 const ProjectCard = ({
     name,
     image,
     onOpen,
-}: Omit<StoneProfile['projects'][number], 'id'> & { onOpen: () => void }) => (
+}: HighlightCard & { onOpen: () => void }) => (
     <LightboxTrigger onOpen={onOpen}>
         <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
             <div className="stone-card-media relative aspect-[4/3] overflow-hidden bg-background">
@@ -157,11 +165,11 @@ const ProjectCard = ({
 );
 
 const ProjectsCarousel = ({
-    projects,
+    highlights,
     name,
     onOpenImage,
 }: {
-    projects: StoneProfile['projects'];
+    highlights: Array<{ id: string; name: string; image: string }>;
     name: string;
     onOpenImage: (image: LightboxImage) => void;
 }) => {
@@ -181,7 +189,7 @@ const ProjectsCarousel = ({
                     id="projects-heading"
                     className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
                 >
-                    Featured Projects
+                    Project Highlights
                 </h2>
                 <div className="flex shrink-0 items-center gap-2">
                     <Button
@@ -190,7 +198,7 @@ const ProjectsCarousel = ({
                         disabled={atStart}
                         className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => carouselRef.current?.scrollPrev()}
-                        aria-label="Previous projects"
+                        aria-label="Previous project highlights"
                     >
                         <ChevronLeft aria-hidden />
                     </Button>
@@ -200,7 +208,7 @@ const ProjectsCarousel = ({
                         disabled={atEnd}
                         className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => carouselRef.current?.scrollNext()}
-                        aria-label="Next projects"
+                        aria-label="Next project highlights"
                     >
                         <ChevronRight aria-hidden />
                     </Button>
@@ -208,22 +216,23 @@ const ProjectsCarousel = ({
             </div>
             <Carousel
                 ref={carouselRef}
-                ariaLabel={`Projects using ${name}`}
+                ariaLabel={`Project highlights using ${name}`}
                 dragEnabled={false}
                 viewportClassName="gap-4 md:gap-5"
                 onBoundsChange={handleBoundsChange}
             >
-                {projects.map((project) => (
+                {highlights.map((highlight) => (
                     <div
-                        key={project.id}
+                        key={highlight.id}
                         className="w-[85%] shrink-0 snap-start sm:w-[48%] lg:w-[32%]"
                     >
                         <ProjectCard
-                            {...project}
+                            name={highlight.name}
+                            image={highlight.image}
                             onOpen={() =>
                                 onOpenImage({
-                                    src: project.image,
-                                    alt: project.name,
+                                    src: highlight.image,
+                                    alt: highlight.name,
                                 })
                             }
                         />
@@ -243,6 +252,23 @@ const StoneProfile = ({ stoneId, projectId }: StoneProfileProps) => {
     const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(
         null,
     );
+
+    const highlights = useMemo(() => {
+        const matched = projects
+            .filter((p) => p.stones.includes(stoneId))
+            .sort((a, b) => {
+                const yearDiff = b.completedYear - a.completedYear;
+                return yearDiff !== 0 ? yearDiff : a.name.localeCompare(b.name);
+            })
+            .map((p) => ({
+                id: p.id,
+                name: p.name,
+                image: p.thumbnail,
+            }));
+        return matched;
+    }, [stoneId]);
+
+    const showHighlights = highlights.length > 0;
 
     useEffect(() => {
         const timer = window.setTimeout(() => setIsLoading(false), 700);
@@ -281,7 +307,7 @@ const StoneProfile = ({ stoneId, projectId }: StoneProfileProps) => {
     };
 
     if (isLoading) {
-        return <StoneProfileSkeleton />;
+        return <StoneProfileSkeleton showHighlights={showHighlights} />;
     }
 
     if (!profile || !isInProject) {
@@ -407,17 +433,19 @@ const StoneProfile = ({ stoneId, projectId }: StoneProfileProps) => {
                 </div>
             </section>
 
-            <section
-                id="projects"
-                aria-labelledby="projects-heading"
-                className="scroll-mt-24"
-            >
-                <ProjectsCarousel
-                    projects={profile.projects}
-                    name={profile.name}
-                    onOpenImage={setLightboxImage}
-                />
-            </section>
+            {showHighlights && (
+                <section
+                    id="projects"
+                    aria-labelledby="projects-heading"
+                    className="scroll-mt-24"
+                >
+                    <ProjectsCarousel
+                        highlights={highlights}
+                        name={profile.name}
+                        onOpenImage={setLightboxImage}
+                    />
+                </section>
+            )}
 
             <ImageLightbox
                 image={lightboxImage}
