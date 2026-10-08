@@ -2,11 +2,24 @@ import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { ArrowDown, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
-import StoneCard from '@/components/stone-card';
+import ProjectCard from '@/components/project-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { stones, stoneProfiles, type Stone } from '@/data/stones';
+import {
+    projects,
+    PROJECT_CATEGORIES,
+    type Project,
+    type ProjectCategory,
+} from '@/data/projects';
+import { stones } from '@/data/stones';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';
@@ -15,17 +28,11 @@ const resLogo = '/images/brands/res_logo.webp';
 const regrayLogo = '/images/brands/regray-stone.webp';
 const hero = '/images/regray-hero.jpg';
 
-type Filter = 'latest' | 'recommended';
 type Brand = {
     src: string;
     alt: string;
     url?: string;
 };
-
-const stoneTabs: Array<{ value: Filter; label: string }> = [
-    { value: 'latest', label: 'Latest' },
-    { value: 'recommended', label: 'Recommended' },
-];
 
 const brandLogos: Brand[] = [
     { src: regrayLogo, alt: 'Regray Stone', url: 'https://regraystone.com/' },
@@ -119,7 +126,7 @@ const HomeSkeleton = () => (
         </section>
 
         <section className="mt-2 border-y border-sidebar-border bg-background py-10">
-            <div className="flex gap-6 overflow-x-auto px-4 sm:gap-8 sm:px-5">
+            <div className="flex justify-center gap-6 px-4 sm:gap-8 sm:px-5 md:gap-10">
                 {Array.from({ length: brandLogos.length }, (_, index) => (
                     <div key={index} className="flex shrink-0 items-center">
                         <Skeleton className="h-12 w-12 sm:h-14 sm:w-14" />
@@ -130,13 +137,16 @@ const HomeSkeleton = () => (
 
         <section className="mt-8 md:mt-12">
             <div className="mb-6 border-b border-sidebar-border pb-4">
-                <Skeleton className="h-8 w-40" />
+                <Skeleton className="h-8 w-56" />
                 <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Skeleton className="h-9 w-full sm:max-w-xs" />
-                    <Skeleton className="hidden h-4 w-64 sm:block" />
-                    <div className="flex items-center gap-2.5 sm:hidden">
-                        <Skeleton className="h-8 w-20" />
-                        <Skeleton className="h-8 w-28" />
+                    <div className="hidden gap-3 sm:flex">
+                        <Skeleton className="h-9 w-44" />
+                        <Skeleton className="h-9 w-56" />
+                    </div>
+                    <div className="flex items-center gap-3 sm:hidden">
+                        <Skeleton className="h-9 w-full" />
+                        <Skeleton className="h-9 w-full" />
                     </div>
                 </div>
             </div>
@@ -155,9 +165,9 @@ const HomeSkeleton = () => (
 );
 
 const Home = () => {
-    const [filter, setFilter] = useState<Filter>('latest');
     const [search, setSearch] = useState('');
-    const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+    const [selectedStone, setSelectedStone] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -166,47 +176,52 @@ const Home = () => {
         return () => window.clearTimeout(timer);
     }, []);
 
-    // Must stay above the early return so hook order never changes.
-    const visibleStones = useMemo<Stone[]>(() => {
-        const base =
-            filter === 'recommended'
-                ? stones.filter((stone) => stone.recommended)
-                : stones;
-
+    const visibleProjects = useMemo<Project[]>(() => {
         const query = search.trim().toLowerCase();
+        const hasSearch = query !== '';
+        const hasStoneFilter = selectedStone !== '';
+        const hasCategoryFilter = selectedCategory !== '';
 
-        if (query === '') {
-            return base;
-        }
+        return projects.filter((project) => {
+            if (hasSearch) {
+                const matches =
+                    project.name.toLowerCase().includes(query) ||
+                    project.stones.some((stoneId) => {
+                        const stone = stones.find((s) => s.id === stoneId);
+                        return stone?.name.toLowerCase().includes(query);
+                    }) ||
+                    project.categories.some((catId) => {
+                        const cat = PROJECT_CATEGORIES.find(
+                            (c) => c.value === catId,
+                        );
+                        return cat?.label.toLowerCase().includes(query);
+                    });
 
-        return base.filter((stone) => {
-            const profile = stoneProfiles[stone.id];
+                if (!matches) {
+                    return false;
+                }
+            }
 
-            return [
-                stone.name,
-                profile?.specifications.stoneType,
-                profile?.specifications.origin,
-            ]
-                .filter((value): value is string => Boolean(value))
-                .some((value) => value.toLowerCase().includes(query));
+            if (hasStoneFilter && !project.stones.includes(selectedStone)) {
+                return false;
+            }
+
+            if (
+                hasCategoryFilter &&
+                !project.categories.includes(
+                    selectedCategory as ProjectCategory,
+                )
+            ) {
+                return false;
+            }
+
+            return true;
         });
-    }, [filter, search]);
+    }, [search, selectedStone, selectedCategory]);
 
     if (isLoading) {
         return <HomeSkeleton />;
     }
-
-    const toggleSave = (id: string) => {
-        setSavedIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
-        });
-    };
 
     return (
         <div className="mx-auto w-full max-w-6xl">
@@ -222,7 +237,7 @@ const Home = () => {
                         id="products-heading"
                         className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
                     >
-                        Our Stones
+                        Our Collections
                     </h2>
 
                     <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -237,8 +252,8 @@ const Home = () => {
                                 onChange={(event) =>
                                     setSearch(event.target.value)
                                 }
-                                placeholder="Search stones"
-                                aria-label="Search stones"
+                                placeholder="Search projects"
+                                aria-label="Search projects"
                                 className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
                             />
                             {search ? (
@@ -253,85 +268,84 @@ const Home = () => {
                             ) : null}
                         </div>
 
-                        <div
-                            className="hidden items-center gap-5 text-sm sm:ml-auto sm:flex"
-                            role="tablist"
-                            aria-label="Filter Our Stones"
-                        >
-                            {stoneTabs.map((tab) => {
-                                const isActive = filter === tab.value;
-
-                                return (
-                                    <button
-                                        key={tab.value}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={isActive}
-                                        onClick={() => setFilter(tab.value)}
-                                        className={`-my-2.5 px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
-                                            isActive
-                                                ? 'font-bold text-foreground underline decoration-foreground underline-offset-4'
-                                                : 'text-secondary-foreground'
-                                        }`}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+                            <div className="w-full sm:w-44">
+                                <Select
+                                    value={selectedStone}
+                                    onValueChange={setSelectedStone}
+                                >
+                                    <SelectTrigger
+                                        className="w-full rounded-none"
+                                        aria-label="Filter by natural stone"
                                     >
-                                        {tab.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                        <SelectValue placeholder="All Natural Stones" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-none">
+                                        <SelectItem
+                                            value=""
+                                            className="rounded-none"
+                                        >
+                                            All Natural Stones
+                                        </SelectItem>
+                                        {stones.map((stone) => (
+                                            <SelectItem
+                                                key={stone.id}
+                                                value={stone.id}
+                                                className="rounded-none"
+                                            >
+                                                {stone.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                        <div
-                            className="flex items-center gap-2.5 sm:hidden"
-                            role="tablist"
-                            aria-label="Filter Our Stones"
-                        >
-                            {stoneTabs.map((tab) => {
-                                const isActive = filter === tab.value;
-
-                                return (
-                                    <Button
-                                        key={tab.value}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={isActive}
-                                        variant={
-                                            isActive ? 'default' : 'secondary'
-                                        }
-                                        size="sm"
-                                        className="px-3 py-1.5"
-                                        onClick={() => setFilter(tab.value)}
+                            <div className="w-full sm:w-56">
+                                <Select
+                                    value={selectedCategory}
+                                    onValueChange={setSelectedCategory}
+                                >
+                                    <SelectTrigger
+                                        className="w-full rounded-none"
+                                        aria-label="Filter by category"
                                     >
-                                        {tab.label}
-                                    </Button>
-                                );
-                            })}
+                                        <SelectValue placeholder="All Project Categories" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-none">
+                                        <SelectItem
+                                            value=""
+                                            className="rounded-none"
+                                        >
+                                            All Project Categories
+                                        </SelectItem>
+                                        {PROJECT_CATEGORIES.map((cat) => (
+                                            <SelectItem
+                                                key={cat.value}
+                                                value={cat.value}
+                                                className="rounded-none"
+                                            >
+                                                {cat.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {visibleStones.length === 0 ? (
+                {visibleProjects.length === 0 ? (
                     <EmptyState
-                        title="No stones found"
-                        description="No stone in this filter matches that search."
-                        action={
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setSearch('')}
-                            >
-                                Clear search
-                            </Button>
-                        }
+                        title="No projects found"
+                        description="The search and filters didn't match any projects."
                     />
                 ) : (
                     <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                        {visibleStones.map((stone) => (
-                            <StoneCard
-                                key={stone.id}
-                                stone={stone}
+                        {visibleProjects.map((project) => (
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
                                 aspect="aspect-[4/3]"
-                                saved={savedIds.has(stone.id)}
-                                onToggleSave={() => toggleSave(stone.id)}
                             />
                         ))}
                     </div>
