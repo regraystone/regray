@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { serviceOptions } from '@/data/services';
 import { stones } from '@/data/stones';
+import { PROJECT_CATEGORIES, type ProjectCategory } from '@/data/projects';
 import type { InquiryDraftInput, InquiryFormInput } from '@/lib/inquiry-schema';
 
 /**
@@ -40,12 +41,12 @@ export type InquiryDraftState = {
 };
 
 export type StoredInquiryDraft = InquiryDraftState & {
-    version: 1;
+    version: 3;
     /** When the autosave wrote it, as it is shown back to the reader. */
     savedAt: string;
 };
 
-const DRAFT_VERSION = 1;
+const DRAFT_VERSION = 3;
 
 /**
  * The one key this browser's draft for this account lives under.
@@ -55,7 +56,7 @@ const DRAFT_VERSION = 1;
  * an old record outright rather than half-understand it.
  */
 const storageKey = (userId: number): string =>
-    `regray.inquiry-draft.v1:${userId}`;
+    `regray.inquiry-draft.v3:${userId}`;
 
 /**
  * Say that a write failed, once per page load.
@@ -79,6 +80,7 @@ const warnWriteFailure = (): void => {
 
 const STONE_IDS = new Set(stones.map((stone) => stone.id));
 const SERVICE_IDS = new Set(serviceOptions.map((service) => service.id));
+const CATEGORY_IDS = new Set(PROJECT_CATEGORIES.map((cat) => cat.value));
 
 /**
  * One stone's stored specification.
@@ -100,6 +102,7 @@ const storedProjectSchema = z.object({
     id: z.string(),
     name: z.string(),
     serviceIds: z.array(z.string()),
+    categories: z.array(z.string()),
     stones: z.array(storedStoneSchema),
     location: z.string(),
     landmark: z.string(),
@@ -115,6 +118,7 @@ const storedDraftSchema = z.object({
     serviceIds: z.array(z.string()),
     standaloneServiceIds: z.array(z.string()),
     stones: z.array(storedStoneSchema),
+    categories: z.array(z.string()),
     location: z.string(),
     landmark: z.string(),
     areaSqm: z.string(),
@@ -149,6 +153,9 @@ const knownStoneIds = (ids: string[]): string[] =>
 const knownServiceIds = (ids: string[]): string[] =>
     ids.filter((id) => SERVICE_IDS.has(id));
 
+const knownCategoryIds = (ids: string[]): string[] =>
+    ids.filter((id) => CATEGORY_IDS.has(id as ProjectCategory));
+
 const knownStoneRows = <T extends { stoneId: string }>(rows: T[]): T[] =>
     rows.filter((row) => STONE_IDS.has(row.stoneId));
 
@@ -168,6 +175,7 @@ const sanitize = (
     projects: record.projects.map((project) => ({
         ...project,
         serviceIds: knownServiceIds(project.serviceIds),
+        categories: knownCategoryIds(project.categories),
         stones: knownStoneRows(project.stones),
     })),
     draft: {
@@ -177,6 +185,7 @@ const sanitize = (
         standaloneServiceIds: knownServiceIds(
             record.draft.standaloneServiceIds,
         ),
+        categories: knownCategoryIds(record.draft.categories),
         stones: knownStoneRows(record.draft.stones),
     },
 });
@@ -233,6 +242,7 @@ const isBlank = (state: InquiryDraftState): boolean =>
     state.draft.serviceIds.length === 0 &&
     state.draft.standaloneServiceIds.length === 0 &&
     state.draft.stones.length === 0 &&
+    state.draft.categories.length === 0 &&
     state.draft.location === '' &&
     state.draft.landmark === '' &&
     state.draft.areaSqm === '' &&

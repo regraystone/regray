@@ -8,6 +8,7 @@ import {
 import { serviceOptions, STANDALONE_SERVICE_IDS } from '@/data/services';
 import { EDGE_PROFILES, FINISHES, stones } from '@/data/stones';
 import { LOCATIONS } from '@/data/locations';
+import { PROJECT_CATEGORIES, type ProjectCategory } from '@/data/projects';
 
 /*
  * The step numbers live here rather than in the page because `STEP_FIELDS`
@@ -20,12 +21,15 @@ import { LOCATIONS } from '@/data/locations';
  * reader who wants a site assessment has been made to walk a catalogue of
  * materials first to reach the question that decides the rest of their path.
  *
- * Steps 1 to 3 build one project and are a separate flow from the Review step,
+ * Category comes after stones and before requirements: a project with stones
+ * needs to be categorized before moving to the details step.
+ *
+ * Steps 1 to 4 build one project and are a separate flow from the Review step,
  * which is about the inquiry as a whole. That is why `STEP_FIELDS` below starts
- * at `REQUIREMENTS_STEP`: the first three steps validate a draft rather than the
+ * at `REQUIREMENTS_STEP`: the first four steps validate a draft rather than the
  * form the request is built from, so they own no committed fields.
  *
- * There are four steps and the fourth is the end of it. There was a Details step
+ * There are five steps and the fifth is the end of it. There was a Details step
  * once, asking where the work was and when it was wanted for every project at
  * once; those answers belong to a piece of work rather than to a request — a
  * countertop in Makati and a floor in Cebu are one email and two different
@@ -35,7 +39,8 @@ import { LOCATIONS } from '@/data/locations';
  */
 export const SERVICES_STEP = 1;
 export const STONES_STEP = 2;
-export const REQUIREMENTS_STEP = 3;
+export const CATEGORY_STEP = 3;
+export const REQUIREMENTS_STEP = 4;
 
 /** Attachments, shared so the drop zone and the rule below cannot disagree. */
 export const MAX_ATTACHMENTS = 10;
@@ -136,6 +141,7 @@ const localDateTime = (): string => {
 
 const STONE_IDS = new Set(stones.map((stone) => stone.id));
 const SERVICE_IDS = new Set(serviceOptions.map((service) => service.id));
+const CATEGORY_VALUES = new Set(PROJECT_CATEGORIES.map((cat) => cat.value));
 
 /*
  * Zod v4 takes its messages as `error`, not the v3 `message`. Both spellings
@@ -247,6 +253,40 @@ const stoneIdSchema = z.string().refine((id) => STONE_IDS.has(id), {
 const serviceIdSchema = z.string().refine((id) => SERVICE_IDS.has(id), {
     error: 'That service is no longer available.',
 });
+
+const categoryIdSchema = z
+    .string()
+    .refine((value) => CATEGORY_VALUES.has(value as ProjectCategory), {
+        error: 'That category is no longer available.',
+    });
+
+/**
+ * The categories of a project, kept in the order the reader picked them.
+ *
+ * No rule about how many, because whether one is needed is a fact about the
+ * project rather than about this list: a project made of nothing but services
+ * that stand on their own skips this step entirely, and the rule that says so
+ * lives on the draft, where those services are.
+ */
+const categoriesSchema = z
+    .array(categoryIdSchema)
+    .superRefine((entries, ctx) => {
+        const seen = new Set<string>();
+
+        entries.forEach((entry, index) => {
+            if (seen.has(entry)) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: [index],
+                    message: 'A category can only appear once in a project.',
+                });
+
+                return;
+            }
+
+            seen.add(entry);
+        });
+    });
 
 /**
  * Step 2 of the project flow: which stones it is built from.
@@ -483,6 +523,7 @@ const projectSchema = z
         serviceIds: z
             .array(serviceIdSchema)
             .min(1, { error: 'Select at least one service.' }),
+        categories: categoriesSchema,
         stones: projectStonesSchema,
         ...projectDetailsShape,
     })
@@ -502,6 +543,19 @@ const projectSchema = z
                 code: 'custom',
                 path: ['stones'],
                 message: 'Select at least one stone.',
+            });
+        }
+
+        /*
+         * At least one category is required when the project has stones, since
+         * those projects went through the category step. Standalone-only
+         * projects have no category at all.
+         */
+        if (needsStones && project.categories.length === 0) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['categories'],
+                message: 'Select at least one category.',
             });
         }
 
@@ -570,6 +624,7 @@ export const projectDraftSchema = z
         ...stonesStepSchema.shape,
         ...servicesStepSchema.shape,
         name: projectNameSchema,
+        categories: categoriesSchema,
         standaloneServiceIds: z.array(serviceIdSchema),
         stones: projectStonesSchema,
         ...projectDetailsShape,
@@ -605,6 +660,19 @@ export const projectDraftSchema = z
                 code: 'custom',
                 path: ['stoneIds'],
                 message: 'Select at least one stone.',
+            });
+        }
+
+        /*
+         * At least one category is required when a project has stones
+         * (non-standalone), since those projects reach the category step.
+         * Standalone-only projects skip both stones and category.
+         */
+        if (draft.serviceIds.length > 0 && draft.categories.length === 0) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['categories'],
+                message: 'Select at least one category.',
             });
         }
 
@@ -716,6 +784,7 @@ export const draftDefaults = {
     serviceIds: [],
     standaloneServiceIds: [],
     stones: [],
+    categories: [],
     location: '',
     landmark: '',
     areaSqm: '',

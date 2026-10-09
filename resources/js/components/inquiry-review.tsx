@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { serviceOptions } from '@/data/services';
 import { stones, type Stone } from '@/data/stones';
+import { PROJECT_CATEGORIES } from '@/data/projects';
 import {
     MAX_PROJECTS,
     REQUIREMENTS_STEP,
@@ -615,6 +616,22 @@ const InquiryReview = ({
                                  * order is the order they were asked in.
                                  */}
                                 <dl className="mt-8 grid gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+                                    {project.categories.length > 0 ? (
+                                        <SummaryRow
+                                            label="Category"
+                                            value={project.categories
+                                                .map(
+                                                    (category) =>
+                                                        PROJECT_CATEGORIES.find(
+                                                            (c) =>
+                                                                c.value ===
+                                                                category,
+                                                        )?.label ?? '',
+                                                )
+                                                .filter(Boolean)
+                                                .join(', ')}
+                                        />
+                                    ) : null}
                                     <SummaryRow
                                         label="Location"
                                         value={[

@@ -23,19 +23,58 @@ export type Project = {
     categories: ProjectCategory[];
 };
 
+// Placeholder category images sourced from existing project photos.
+// These will be replaced with dedicated category photography.
 export const PROJECT_CATEGORIES: Array<{
     value: ProjectCategory;
     label: string;
+    image: string;
 }> = [
-    { value: 'wall-accents', label: 'Wall Accents' },
-    { value: 'commercial-spaces', label: 'Commercial Spaces' },
-    { value: 'kitchen-islands', label: 'Kitchen Islands' },
-    { value: 'dining-tables', label: 'Dining Tables' },
-    { value: 'center-side-tables', label: 'Center & Side Tables' },
-    { value: 'countertops-backsplash', label: 'Countertops & Backsplash' },
-    { value: 'lavatories', label: 'Lavatories' },
-    { value: 'exterior-walls', label: 'Exterior Walls' },
-    { value: 'fixtures', label: 'Fixtures' },
+    {
+        value: 'wall-accents',
+        label: 'Wall Accents',
+        image: '/storage/projects/5e1a9c6f3d8b2f7c4a0e1b6c9d2f5a8e.jpg',
+    },
+    {
+        value: 'commercial-spaces',
+        label: 'Commercial Spaces',
+        image: '/storage/projects/6c9a2e5f1b8d3c7a4e0f1b8c5d9e2a7f.jpg',
+    },
+    {
+        value: 'kitchen-islands',
+        label: 'Kitchen Islands',
+        image: '/storage/projects/1a5d7e3c6f8b2a4f9c1e5d8a3b6f0e9c.jpg',
+    },
+    {
+        value: 'dining-tables',
+        label: 'Dining Tables',
+        image: '/storage/projects/9f2a6c1e4d8b5f3a7c0e1d9b2f6e8c5a.jpg',
+    },
+    {
+        value: 'center-side-tables',
+        label: 'Center & Side Tables',
+        image: '/storage/projects/3c8e1f5a9b4d7c2e6f0a3b8d1c5e9f6a.jpg',
+    },
+    {
+        value: 'countertops-backsplash',
+        label: 'Countertops & Backsplash',
+        image: '/storage/projects/1a5d7e3c6f8b2a4f9c1e5d8a3b6f0e9c.jpg',
+    },
+    {
+        value: 'lavatories',
+        label: 'Lavatories',
+        image: '/storage/projects/2b9e5c3f1a8d6e4c9b2f5a8c3d7e1a6b.jpg',
+    },
+    {
+        value: 'exterior-walls',
+        label: 'Exterior Walls',
+        image: '/storage/projects/4d1f9a6c3e8b2f5a7c0e3b8d1f4a7c9e.png',
+    },
+    {
+        value: 'fixtures',
+        label: 'Fixtures',
+        image: '/storage/projects/7a4c8b2f9d1e6c3a5f8b0e2d4c7a9e1f.jpg',
+    },
 ];
 
 export const projects: Project[] = [

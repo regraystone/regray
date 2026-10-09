@@ -204,7 +204,7 @@ const StoneSpecRow = ({ index }: { index: number }) => {
                         aria-invalid={
                             fieldMessage(rowErrors?.quantity) !== undefined
                         }
-                        className="no-stepper rounded-none text-center"
+                        className="no-stepper h-9 rounded-none text-center"
                     />
                     <Button
                         type="button"

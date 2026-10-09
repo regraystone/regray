@@ -6,6 +6,7 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
 import { fieldMessage } from '@/components/form-field';
+import CategoryCard from '@/components/category-card';
 import InquiryProjectForm from '@/components/inquiry-project-form';
 import InquiryResult from '@/components/inquiry-result';
 import InquiryReview from '@/components/inquiry-review';
@@ -31,6 +32,7 @@ import {
     STANDALONE_SERVICE_IDS,
 } from '@/data/services';
 import { stones, stoneProfiles, type Stone } from '@/data/stones';
+import { PROJECT_CATEGORIES } from '@/data/projects';
 import { useInquiryDraftAutosave } from '@/hooks/use-inquiry-draft-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
@@ -45,6 +47,7 @@ import {
     inquirySchema,
     projectDraftSchema,
     SERVICES_STEP,
+    CATEGORY_STEP,
     REQUIREMENTS_STEP,
     STEP_FIELDS,
     STONES_STEP,
@@ -59,7 +62,7 @@ import { index as quoteIndex } from '@/routes/quote';
 import { show as savedShow } from '@/routes/saved';
 import type { Auth } from '@/types';
 
-const STEPS = ['Services', 'Stones', 'Requirements', 'Review'];
+const STEPS = ['Services', 'Stones', 'Category', 'Requirements', 'Review'];
 
 /** Review is the last step, and owns no fields of its own to validate. */
 const REVIEW_STEP = REQUIREMENTS_STEP + 1;
@@ -67,6 +70,7 @@ const REVIEW_STEP = REQUIREMENTS_STEP + 1;
 const STEP_DESCRIPTIONS: Record<number, string> = {
     [SERVICES_STEP]: 'Choose the services you need',
     [STONES_STEP]: "Choose the stones you're interested in",
+    [CATEGORY_STEP]: 'Pick the one that best describes this project',
     [REQUIREMENTS_STEP]:
         'Name this project, set how each stone is worked, and tell us where and when',
     [REVIEW_STEP]: 'Check your inquiry before sending it',
@@ -80,9 +84,9 @@ const STEP_DESCRIPTIONS: Record<number, string> = {
  * were never picked, a step number no longer in the stepper at all. So each
  * step is checked against what the draft still holds, and the answer falls
  * back to the furthest earlier step that is justified — Review needs a project
- * to review, the requirements step needs something being specified, the grid
- * needs the services that would ask for a stone, and the services list is the
- * floor because it needs nothing to show.
+ * to review, the requirements step needs something being specified, the category
+ * step needs stones, the stones grid needs the services that would ask for a
+ * stone, and the services list is the floor because it needs nothing to show.
  */
 const clampRestoredStep = (
     stored: number,
@@ -97,7 +101,15 @@ const clampRestoredStep = (
         stored >= REQUIREMENTS_STEP &&
         (draft.stoneIds.length > 0 || draft.standaloneServiceIds.length > 0)
     ) {
+        // If stones exist but no categories (old draft), land on Category
+        if (draft.stoneIds.length > 0 && draft.categories.length === 0) {
+            return CATEGORY_STEP;
+        }
         return REQUIREMENTS_STEP;
+    }
+
+    if (stored >= CATEGORY_STEP && draft.stoneIds.length > 0) {
+        return CATEGORY_STEP;
     }
 
     if (stored >= STONES_STEP && draft.serviceIds.length > 0) {
@@ -353,6 +365,7 @@ const Inquire = () => {
     const [step, setStep] = useState(SERVICES_STEP);
     const [filter, setFilter] = useState<StoneFilter>('latest');
     const [search, setSearch] = useState('');
+    const [categorySearch, setCategorySearch] = useState('');
 
     /** Which committed project the open draft is editing, or null when new. */
     const [editingProjectId, setEditingProjectId] = useState<string | null>(
@@ -449,6 +462,7 @@ const Inquire = () => {
     const draftStoneIds = watchDraft('stoneIds');
     const draftServiceIds = watchDraft('serviceIds');
     const draftStandaloneServiceIds = watchDraft('standaloneServiceIds');
+    const draftCategories = watchDraft('categories');
 
     /*
      * Everything the reader has picked on the services step, both kinds together.
@@ -645,6 +659,14 @@ const Inquire = () => {
         });
     };
 
+    /** Pick or unpick one category, which a project may hold several of. */
+    const toggleCategory = (id: string) => {
+        setDraftValue('categories', toggleIn(draftCategories, id), {
+            shouldDirty: true,
+            shouldValidate: hasDraftContinued.current,
+        });
+    };
+
     /**
      * Pick or unpick one service, filed under whichever of the draft's two lists
      * it belongs to.
@@ -711,6 +733,9 @@ const Inquire = () => {
      * reader who has opened a project to correct one thing should not have to
      * retype the rest to do it.
      *
+     * The categories come back too, so Edit from Review shows the saved choices
+     * selected in the Category step.
+     *
      * A project that is a service standing on its own goes back into the draft's
      * queue rather than into its services, because that is how the requirements step
      * knows to ask for a site and a date instead of a material: the queue being
@@ -732,6 +757,7 @@ const Inquire = () => {
             serviceIds: isStandalone ? [] : [...project.serviceIds],
             standaloneServiceIds: isStandalone ? [...project.serviceIds] : [],
             stones: project.stones.map((selection) => ({ ...selection })),
+            categories: [...(project.categories ?? [])],
             location: project.location,
             landmark: project.landmark,
             areaSqm: project.areaSqm,
@@ -821,7 +847,7 @@ const Inquire = () => {
 
         if (valid) {
             seedDraftStones();
-            setStep(REQUIREMENTS_STEP);
+            setStep(CATEGORY_STEP);
         }
     };
 
@@ -868,10 +894,25 @@ const Inquire = () => {
     };
 
     /**
+     * Step 3 onward, once the draft has categories selected.
+     *
+     * The objection is spoken by the bar rather than by refusing the button.
+     */
+    const continueFromCategory = async () => {
+        hasDraftContinued.current = true;
+
+        const valid = await triggerDraft('categories', { shouldFocus: true });
+
+        if (valid) {
+            setStep(REQUIREMENTS_STEP);
+        }
+    };
+
+    /**
      * The draft, checked whole and then committed.
      *
      * Checked against the draft's own schema rather than against any one step's,
-     * because this is the one press that takes all three steps' answers together
+     * because this is the one press that takes all four steps' answers together
      * and puts them on the inquiry; a reader who skipped nothing should never be
      * stopped by a rule they have already satisfied.
      *
@@ -908,6 +949,7 @@ const Inquire = () => {
             id: editingProjectId ?? newProjectId(),
             name: isStandalone ? serviceName(head) : draft.name,
             serviceIds: isStandalone ? [head] : [...draft.serviceIds],
+            categories: isStandalone ? [] : [...draft.categories],
             stones: isStandalone ? [] : draft.stones.map((row) => ({ ...row })),
             location: draft.location,
             landmark: draft.landmark,
@@ -1340,7 +1382,10 @@ const Inquire = () => {
                                 ) : null}
 
                                 <div className="mb-6 border-b border-sidebar-border pb-4">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <h2 className="text-lg font-bold tracking-[-0.03em]">
+                                        Our Natural Stones
+                                    </h2>
+                                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="relative w-full sm:max-w-xs">
                                             <Search
                                                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
@@ -1602,6 +1647,137 @@ const Inquire = () => {
                                     </div>
                                 </div>
                             </>
+                        ) : step === CATEGORY_STEP ? (
+                            <>
+                                {showDraftBanner ? (
+                                    <ProjectBanner
+                                        label={draftBannerLabel}
+                                        onCancel={cancelExcursion}
+                                    />
+                                ) : null}
+
+                                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <h2 className="text-lg font-bold tracking-[-0.03em]">
+                                        Project Category
+                                    </h2>
+
+                                    <div className="relative w-full sm:w-auto sm:max-w-xs">
+                                        <Search
+                                            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
+                                            aria-hidden
+                                        />
+                                        <Input
+                                            type="search"
+                                            value={categorySearch}
+                                            onChange={(event) =>
+                                                setCategorySearch(
+                                                    event.target.value,
+                                                )
+                                            }
+                                            placeholder="Search categories"
+                                            aria-label="Search categories"
+                                            className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                                        />
+                                        {categorySearch ? (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setCategorySearch('')
+                                                }
+                                                aria-label="Clear search"
+                                                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                            >
+                                                <X
+                                                    className="size-4"
+                                                    aria-hidden
+                                                />
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    const query = categorySearch
+                                        .trim()
+                                        .toLowerCase();
+                                    const filteredCategories =
+                                        query === ''
+                                            ? PROJECT_CATEGORIES
+                                            : PROJECT_CATEGORIES.filter((cat) =>
+                                                  cat.label
+                                                      .toLowerCase()
+                                                      .includes(query),
+                                              );
+
+                                    return filteredCategories.length === 0 ? (
+                                        <EmptyState
+                                            title="No categories found"
+                                            description="No category matches that search."
+                                            action={
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        setCategorySearch('')
+                                                    }
+                                                >
+                                                    Clear search
+                                                </Button>
+                                            }
+                                        />
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
+                                            {filteredCategories.map(
+                                                (category) => (
+                                                    <CategoryCard
+                                                        key={category.value}
+                                                        category={category}
+                                                        selected={draftCategories.includes(
+                                                            category.value,
+                                                        )}
+                                                        onSelect={() =>
+                                                            toggleCategory(
+                                                                category.value,
+                                                            )
+                                                        }
+                                                    />
+                                                ),
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                                        <InputError
+                                            message={fieldMessage(
+                                                draftMethods.formState.errors
+                                                    .categories,
+                                            )}
+                                            role="alert"
+                                        />
+                                    </div>
+
+                                    <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setStep(STONES_STEP)}
+                                            className="w-full cursor-pointer sm:w-auto"
+                                        >
+                                            <ArrowLeft aria-hidden />
+                                            Back
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            onClick={continueFromCategory}
+                                            className="w-full sm:w-auto"
+                                        >
+                                            Continue
+                                        </Button>
+                                    </div>
+                                </div>
+                            </>
                         ) : step === SERVICES_STEP ? (
                             <>
                                 {showDraftBanner ? (
@@ -1725,7 +1901,7 @@ const Inquire = () => {
                                 onBack={() =>
                                     setStep(
                                         standalone === null
-                                            ? STONES_STEP
+                                            ? CATEGORY_STEP
                                             : SERVICES_STEP,
                                     )
                                 }
