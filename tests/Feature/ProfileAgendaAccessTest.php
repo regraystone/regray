@@ -52,7 +52,13 @@ test('a staff reader of the week has the sidebar door and not the Profile one', 
     $this->actingAs($user)
         ->get(route('profile.agenda'))
         ->assertForbidden();
-})->with([Role::Owner->value, Role::Marketing->value, Role::Sales->value]);
+})->with([
+    Role::Owner->value,
+    Role::Marketing->value,
+    Role::Sales->value,
+    Role::Technical->value,
+    Role::Logistics->value,
+]);
 
 test('a role that does not read the week has neither door', function (string $role) {
     $user = User::factory()->role($role)->create();
@@ -63,7 +69,7 @@ test('a role that does not read the week has neither door', function (string $ro
 
     $this->actingAs($user)->get(route('agenda.index'))->assertForbidden();
     $this->actingAs($user)->get(route('profile.agenda'))->assertForbidden();
-})->with([Role::Accounting->value, Role::Technical->value, Role::Logistics->value]);
+})->with([Role::Accounting->value]);
 
 test('the client is shared the Profile door and not the sidebar one', function () {
     $user = User::factory()->role(Role::Client)->create();

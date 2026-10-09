@@ -324,7 +324,7 @@ test('the create permission is granted to exactly the two roles that use it', fu
     expect($holders)->toBe([Role::Client->value, Role::Marketing->value]);
 });
 
-test('booking a visit is granted to exactly the three roles that book', function () {
+test('booking a visit is granted to exactly the five roles that book', function () {
     $holders = collect(RolePermissionSeeder::MATRIX)
         ->reject(fn (array $permissions, string $role) => $role === Role::superAdmin()->value)
         ->filter(fn (array $permissions) => in_array(Permission::AgendaCreate->value, $permissions, true))
@@ -334,18 +334,21 @@ test('booking a visit is granted to exactly the three roles that book', function
         ->all();
 
     /*
-     * A client books their own visit, and marketing and sales book one on
-     * somebody's behalf. The roles that only read the week are not on the list:
-     * the permission decides who is offered the button, so widening it would put
-     * booking in front of people who never arrange a visit.
+     * A client books their own visit; marketing, sales, technical and logistics
+     * book one on somebody's behalf as they work the week. A role that reads the
+     * week without ever arranging a visit is not on the list — owner is the one
+     * such reader — because the permission decides who is offered the button,
+     * so widening it would put booking in front of people who never book.
      *
      * The super-admin holds it too, by having everything, but it is not one of
      * the roles this permission was drawn for.
      */
     expect($holders)->toBe([
         Role::Client->value,
+        Role::Logistics->value,
         Role::Marketing->value,
         Role::Sales->value,
+        Role::Technical->value,
     ]);
 });
 
@@ -405,6 +408,8 @@ test('the two agenda doors are given to roles that do not hold both', function (
     Role::Owner->value,
     Role::Marketing->value,
     Role::Sales->value,
+    Role::Technical->value,
+    Role::Logistics->value,
 ]);
 
 test('the details page opens for a reader of either list', function (string $routeName) {

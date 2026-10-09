@@ -51,10 +51,10 @@ class RolePermissionSeeder extends Seeder
      * The client holds `profile-agenda.view` where the staff who read the week
      * hold `agenda.view`: the agenda is one page with two URLs, and each role is
      * given the door that suits them. A client reaches it from their Profile
-     * page and has no Agenda in the sidebar; owner, marketing and sales reach it
-     * from the sidebar and are not offered the Profile door. The client keeps
-     * `agenda.create` either way, because booking a visit is allowed from the
-     * appropriate door depending on which URL they use.
+     * page and has no Agenda in the sidebar; owner, marketing, sales, technical
+     * and logistics reach it from the sidebar and are not offered the Profile
+     * door. The client keeps `agenda.create` either way, because booking a visit
+     * is allowed from the appropriate door depending on which URL they use.
      *
      * `home-projects.view` goes to the client and to the super-admin and to
      * nobody else: it names the project profile and the stone profile nested
@@ -130,6 +130,7 @@ class RolePermissionSeeder extends Seeder
         Role::Technical->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
+            Permission::AgendaView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::AgendaCreate->value,
@@ -137,6 +138,7 @@ class RolePermissionSeeder extends Seeder
         Role::Logistics->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
+            Permission::AgendaView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::AgendaCreate->value,

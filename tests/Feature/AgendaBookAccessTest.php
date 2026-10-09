@@ -47,6 +47,32 @@ test('sales can access staff book but not profile book', function () {
         ->assertForbidden();
 });
 
+test('technical can access staff book but not profile book', function () {
+    $user = User::factory()->role(Role::Technical)->create();
+
+    $this->actingAs($user)
+        ->get(route('agenda.book'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('agenda-book'));
+
+    $this->actingAs($user)
+        ->get(route('profile.agenda.book'))
+        ->assertForbidden();
+});
+
+test('logistics can access staff book but not profile book', function () {
+    $user = User::factory()->role(Role::Logistics)->create();
+
+    $this->actingAs($user)
+        ->get(route('agenda.book'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('agenda-book'));
+
+    $this->actingAs($user)
+        ->get(route('profile.agenda.book'))
+        ->assertForbidden();
+});
+
 test('owner has view but no create on both', function () {
     $user = User::factory()->role(Role::Owner)->create();
 
@@ -54,18 +80,10 @@ test('owner has view but no create on both', function () {
     $this->actingAs($user)->get(route('profile.agenda.book'))->assertForbidden();
 });
 
-test('accounting technical logistics forbidden on both', function () {
+test('accounting is forbidden on both', function () {
     $accounting = User::factory()->role(Role::Accounting)->create();
     $this->actingAs($accounting)->get(route('agenda.book'))->assertForbidden();
     $this->actingAs($accounting)->get(route('profile.agenda.book'))->assertForbidden();
-
-    $tech = User::factory()->role(Role::Technical)->create();
-    $this->actingAs($tech)->get(route('agenda.book'))->assertForbidden();
-    $this->actingAs($tech)->get(route('profile.agenda.book'))->assertForbidden();
-
-    $log = User::factory()->role(Role::Logistics)->create();
-    $this->actingAs($log)->get(route('agenda.book'))->assertForbidden();
-    $this->actingAs($log)->get(route('profile.agenda.book'))->assertForbidden();
 });
 
 test('admin can access both', function () {
