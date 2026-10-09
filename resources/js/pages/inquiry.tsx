@@ -1,13 +1,14 @@
-import { Link } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
-import { useInquireRoute } from '@/hooks/use-inquire-route';
+import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 
 const Inquiry = () => {
     // The stepper is guarded by an action permission rather than a `view` one,
-    // so it is not a page this sidebar item links to.
-    const inquire = useInquireRoute();
+    // so it is not a page this sidebar item links to. The entry hook owns the
+    // click, so a saved draft is offered the choice of continuing it before the
+    // stepper is opened.
+    const { inquire, onInquireClick, draftPrompt } = useInquiryEntry();
 
     return (
         <div className="mx-auto w-full max-w-6xl">
@@ -16,11 +17,9 @@ const Inquiry = () => {
                 description="Inquiries raised by your team, and the quotes that follow them"
                 action={
                     inquire ? (
-                        <Button asChild>
-                            <Link href={inquire.url()}>
-                                <Plus aria-hidden />
-                                Inquire
-                            </Link>
+                        <Button type="button" onClick={onInquireClick}>
+                            <Plus aria-hidden />
+                            Inquire
                         </Button>
                     ) : null
                 }
@@ -31,6 +30,8 @@ const Inquiry = () => {
                     Inquiry Page
                 </h3>
             </div>
+
+            {draftPrompt}
         </div>
     );
 };

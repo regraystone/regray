@@ -942,4 +942,3 @@ export const FINISHES: readonly string[] = [
     'Polished',
     ADVISE_OPTION,
 ];
-

@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { Download, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -36,7 +36,7 @@ import {
     type InquiryStatus,
 } from '@/data/inquiries';
 import { stones, type Stone } from '@/data/stones';
-import { useInquireRoute } from '@/hooks/use-inquire-route';
+import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 import { show as quoteShow } from '@/routes/quote';
 
 const PAGE_SIZE = 10;
@@ -83,7 +83,6 @@ const UPDATE_BLOCKED_REASON: Partial<Record<InquiryStatus, string>> = {
 };
 
 const CANCEL_BLOCKED_REASON: Partial<Record<InquiryStatus, string>> = {
-    draft: 'Only pending or quoted inquiries can be cancelled.',
     cancelled: 'This inquiry is already cancelled.',
 };
 
@@ -103,7 +102,6 @@ const STATUS_TABS: Array<{ value: StatusFilter; label: string }> = [
     { value: 'paid', label: STATUS_LABELS.paid },
     { value: 'completed', label: STATUS_LABELS.completed },
     { value: 'cancelled', label: STATUS_LABELS.cancelled },
-    { value: 'draft', label: STATUS_LABELS.draft },
 ];
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -211,14 +209,11 @@ const LockedAction = ({
 const InquiryCard = ({
     inquiry,
     generating,
-    continueHref,
     onGetInvoice,
     onCancel,
 }: {
     inquiry: Inquiry;
     generating: boolean;
-    /** Where a draft's Continue reopens it for editing, resolved by the page. */
-    continueHref: string;
     onGetInvoice: (inquiry: Inquiry) => void;
     onCancel: (inquiry: Inquiry) => void;
 }) => {
@@ -276,8 +271,7 @@ const InquiryCard = ({
         ? inquiry.services.slice(0, COLLAPSED_SERVICE_COUNT)
         : inquiry.services;
 
-    const canUpdate =
-        inquiry.status === 'draft' || inquiry.status === 'pending';
+    const canUpdate = inquiry.status === 'pending';
     const updateBlockedReason = UPDATE_BLOCKED_REASON[inquiry.status];
     const cancelBlockedReason = CANCEL_BLOCKED_REASON[inquiry.status];
     const detailsHref = quoteShow.url({ inquiry: inquiry.id });
@@ -405,23 +399,7 @@ const InquiryCard = ({
                             variant="outline"
                             className={actionClassName}
                         >
-                            {/*
-                             * A draft's Continue reopens it in the stepper, which
-                             * is the one card action that lets the reader edit;
-                             * an update to a pending inquiry still lands on the
-                             * details page, which is where one is made.
-                             */}
-                            <Link
-                                href={
-                                    inquiry.status === 'draft'
-                                        ? continueHref
-                                        : detailsHref
-                                }
-                            >
-                                {inquiry.status === 'draft'
-                                    ? 'Continue'
-                                    : 'Update'}
-                            </Link>
+                            <Link href={detailsHref}>Update</Link>
                         </Button>
                     ) : updateBlockedReason ? (
                         <LockedAction
@@ -482,8 +460,11 @@ const InquiryCard = ({
 
 const Quote = () => {
     // The stepper is an action rather than a page, so it is offered only to the
-    // roles that may raise one, which is what `inquiries.create` grants.
-    const inquire = useInquireRoute();
+    // roles that may raise one, which is what `inquiries.create` grants. The
+    // entry hook owns the click: a saved draft is offered the choice of
+    // continuing it or starting fresh before the stepper is opened.
+    const { inquire, isPromptOpen, onInquireClick, draftPrompt } =
+        useInquiryEntry();
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState<StatusFilter>('all');
@@ -491,7 +472,6 @@ const Quote = () => {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [showFloatingInquire, setShowFloatingInquire] = useState(false);
-    const [draftPromptOpen, setDraftPromptOpen] = useState(false);
     const [generatingId, setGeneratingId] = useState<string | null>(null);
     // The mock list is a module constant, so it is copied into state: a cancel
     // has to be able to change what is on screen, and the exported array must
@@ -559,22 +539,6 @@ const Quote = () => {
 
         return () => window.clearTimeout(timer);
     }, [search, status]);
-
-    const draftInquiry = useMemo(
-        () => items.find((inquiry) => inquiry.status === 'draft') ?? null,
-        [items],
-    );
-
-    /*
-     * Where a draft's Continue sends the reader: the stepper with the draft
-     * opened, or the details page when they may not open the stepper at all.
-     * Shared by the draft card and the draft dialog, so the same action never
-     * offers two destinations for the same draft.
-     */
-    const draftContinueHref = (inquiry: Inquiry): string =>
-        inquire
-            ? inquire.url({ query: { draft: inquiry.id } })
-            : quoteShow.url({ inquiry: inquiry.id });
 
     const normalizedSearch = search.trim().toLowerCase();
 
@@ -676,18 +640,6 @@ const Quote = () => {
         setVisibleCount(PAGE_SIZE);
     };
 
-    const handleInquire = () => {
-        if (draftInquiry) {
-            setDraftPromptOpen(true);
-
-            return;
-        }
-
-        if (inquire) {
-            router.visit(inquire.url());
-        }
-    };
-
     const handleGetInvoice = async (inquiry: Inquiry) => {
         setGeneratingId(inquiry.id);
 
@@ -779,7 +731,7 @@ const Quote = () => {
                     action={
                         mayAddInquiry ? (
                             <span ref={inquireRef} className="inline-flex">
-                                <Button type="button" onClick={handleInquire}>
+                                <Button type="button" onClick={onInquireClick}>
                                     <Plus aria-hidden />
                                     Inquire
                                 </Button>
@@ -923,8 +875,8 @@ const Quote = () => {
                         description="Start an inquiry and it will show up here with its progress."
                         action={
                             inquire ? (
-                                <Button asChild>
-                                    <Link href={inquire.url()}>Inquire</Link>
+                                <Button type="button" onClick={onInquireClick}>
+                                    Inquire
                                 </Button>
                             ) : null
                         }
@@ -951,7 +903,6 @@ const Quote = () => {
                                     key={inquiry.id}
                                     inquiry={inquiry}
                                     generating={generatingId === inquiry.id}
-                                    continueHref={draftContinueHref(inquiry)}
                                     onGetInvoice={handleGetInvoice}
                                     onCancel={openCancelPrompt}
                                 />
@@ -1036,52 +987,13 @@ const Quote = () => {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
-                            Continue your draft?
-                        </DialogTitle>
-                        <DialogDescription>
-                            You have a saved draft
-                            {draftInquiry ? ` (${draftInquiry.reference})` : ''}
-                            . Continue where you left off, or start a new
-                            inquiry.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                                setDraftPromptOpen(false);
+            {draftPrompt}
 
-                                if (inquire) {
-                                    router.visit(inquire.url());
-                                }
-                            }}
-                        >
-                            Start over
-                        </Button>
-                        {draftInquiry ? (
-                            <Button asChild>
-                                <Link
-                                    href={draftContinueHref(draftInquiry)}
-                                    onClick={() => setDraftPromptOpen(false)}
-                                >
-                                    Continue draft
-                                </Link>
-                            </Button>
-                        ) : null}
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {showFloatingInquire && mayAddInquiry && !draftPromptOpen ? (
+            {showFloatingInquire && mayAddInquiry && !isPromptOpen ? (
                 <Button
                     type="button"
                     className="fixed right-4 bottom-4 z-50 sm:right-5 sm:bottom-5"
-                    onClick={handleInquire}
+                    onClick={onInquireClick}
                 >
                     <Plus aria-hidden />
                     Inquire

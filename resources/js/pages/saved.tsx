@@ -6,7 +6,7 @@ import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { stones, type Stone } from '@/data/stones';
-import { useInquireRoute } from '@/hooks/use-inquire-route';
+import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
@@ -155,7 +155,9 @@ const StoneRow = ({
 
 const Saved = () => {
     const { savedIds, toggleSave } = useSavedStones();
-    const inquire = useInquireRoute();
+    // The entry hook owns the click: a saved draft is offered the choice of
+    // continuing it or starting fresh before the stepper is opened.
+    const { inquire, onInquireClick, draftPrompt } = useInquiryEntry();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -205,14 +207,15 @@ const Saved = () => {
                             </p>
                         </div>
                     </div>
-                    {inquire && (
+                    {inquire ? (
                         <Button
-                            asChild
+                            type="button"
                             className="h-11 w-full shrink-0 sm:h-auto sm:w-auto"
+                            onClick={onInquireClick}
                         >
-                            <Link href={inquire.url()}>Request a quote</Link>
+                            Request a quote
                         </Button>
-                    )}
+                    ) : null}
                 </div>
             </section>
 
@@ -239,6 +242,8 @@ const Saved = () => {
                     toggleSave={toggleSave}
                 />
             </section>
+
+            {draftPrompt}
         </div>
     );
 };

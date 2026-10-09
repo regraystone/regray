@@ -1,3 +1,12 @@
+/**
+ * Where an inquiry is in the quote flow.
+ *
+ * `'draft'` is no longer a status an inquiry can sit at — a draft now lives in
+ * the reader's own browser while they build it, and is gone once sent. It is
+ * kept in the type only because it is a real past stage: every timeline starts
+ * with one, so `statusHistory` entries and the labels they are read through
+ * still have somewhere to put it.
+ */
 export type InquiryStatus =
     | 'draft'
     | 'pending'
@@ -157,58 +166,20 @@ export const inquiryTitle = ({ projects, reference }: Inquiry): string =>
 /**
  * One sample inquiry per status, so every stage in the quote flow is visible
  * in the list without the statuses crowding each other out. Between them the
- * six cover all nine stones in `stones`. Listed newest first by `createdAt`.
+ * five cover eight of the nine stones in `stones`. Listed newest first by
+ * `createdAt`.
  *
- * The optional answers are left out in different places across the six so that
+ * The optional answers are left out in different places across the five so that
  * every state the details page can render for them is reachable from the sample
- * data: the draft carries nothing but the required answers, the completed one a
+ * data: the cancelled one carries a time with no date, the completed one a
  * landmark, notes several paragraphs long and four attachments, and the rest
  * sit in between.
  *
- * Two of the six carry a second project, and one of those uses the same stone in
+ * Two of the five carry a second project, and one of those uses the same stone in
  * both with a different edge and finish, so a page that reads the projects
  * rather than the inquiry's stones has something to show.
  */
 export const inquiries: Inquiry[] = [
-    {
-        id: 'inq-1050',
-        reference: 'INQ-1050',
-        status: 'draft',
-        createdAt: '2026-09-29T01:20:00.000Z',
-        updatedAt: '2026-09-29T01:20:00.000Z',
-        clientId: 'cl-elena',
-        handledByIds: [],
-        projects: [
-            {
-                id: 'prj-1050-1',
-                name: 'Riverside Residence — Kitchen',
-                services: [
-                    'Kitchen & Cabinetry Solutions',
-                    'Custom Stone Fabrication',
-                ],
-                stones: [
-                    {
-                        stoneId: 'patagonia-quartzite',
-                        quantity: 6,
-                        edge: 'Full Bullnose',
-                        finish: 'Honed',
-                    },
-                    {
-                        stoneId: 'marble',
-                        quantity: 3,
-                        edge: 'Full Bullnose',
-                        finish: 'Honed',
-                    },
-                ],
-                requirements: {
-                    location: 'Quezon City',
-                    attachments: [],
-                },
-            },
-        ],
-        services: ['Kitchen & Cabinetry Solutions', 'Custom Stone Fabrication'],
-        statusHistory: [{ status: 'draft', at: '2026-09-29T01:20:00.000Z' }],
-    },
     {
         id: 'inq-1048',
         reference: 'INQ-1048',

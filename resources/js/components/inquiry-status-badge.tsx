@@ -10,6 +10,8 @@ import type { InquiryStatus } from '@/data/inquiries';
  * like different systems.
  */
 export const STATUS_LABELS: Record<InquiryStatus, string> = {
+    // History only: no inquiry sits at `draft` any more, but every timeline
+    // starts with one and reads its entries through this table.
     draft: 'Draft',
     pending: 'Pending',
     quoted: 'Quoted',
@@ -40,9 +42,7 @@ export const StatusBadge = ({ status }: { status: InquiryStatus }) => {
     return (
         <Badge
             variant={variant}
-            className={`gap-1 rounded-none px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase ${
-                status === 'draft' ? 'border-dashed' : ''
-            }`}
+            className="gap-1 rounded-none px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase"
         >
             {showsCheck ? <Check className="size-3" aria-hidden /> : null}
             <span

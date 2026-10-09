@@ -212,4 +212,3 @@ export const projects: Project[] = [
         categories: ['commercial-spaces', 'wall-accents'],
     },
 ];
-

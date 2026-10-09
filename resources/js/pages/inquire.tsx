@@ -25,16 +25,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { inquiries } from '@/data/inquiries';
 import {
     serviceName,
     serviceOptions,
     STANDALONE_SERVICE_IDS,
 } from '@/data/services';
 import { stones, stoneProfiles, type Stone } from '@/data/stones';
+import { useInquiryDraftAutosave } from '@/hooks/use-inquiry-draft-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import { inquiryToFormValues } from '@/lib/inquiry-edit';
+import {
+    readInquiryDraft,
+    type StoredInquiryDraftValues,
+    type StoredInquiryProject,
+} from '@/lib/inquiry-draft-storage';
 import {
     draftDefaults,
     inquiryDefaults,
@@ -53,6 +57,7 @@ import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex } from '@/routes/quote';
 import { show as savedShow } from '@/routes/saved';
+import type { Auth } from '@/types';
 
 const STEPS = ['Services', 'Stones', 'Requirements', 'Review'];
 
@@ -68,40 +73,38 @@ const STEP_DESCRIPTIONS: Record<number, string> = {
 };
 
 /**
- * The draft waiting in the address, when the reader was sent here to continue one.
+ * Where a restored draft is allowed to land.
  *
- * Read off `usePage().url` rather than `window.location`, because the page is
- * also rendered server-side, where there is no `window`: `usePage().url` is the
- * same requested address on both sides of that line.
+ * The stored step is a number the flow behind it may no longer justify: a
+ * Review with no projects left to review, a requirements step whose stones
+ * were never picked, a step number no longer in the stepper at all. So each
+ * step is checked against what the draft still holds, and the answer falls
+ * back to the furthest earlier step that is justified — Review needs a project
+ * to review, the requirements step needs something being specified, the grid
+ * needs the services that would ask for a stone, and the services list is the
+ * floor because it needs nothing to show.
  */
-const readDraftIdFromUrl = (url: string): string | null => {
-    const params = new URLSearchParams(url.split('?')[1] ?? '');
-
-    return params.get('draft') ?? null;
-};
-
-/**
- * Take the draft off the address, once it no longer names a live record.
- *
- * Kept through the edit itself so a refresh reopens the same draft; it is
- * dropped the moment it would claim something that is not there — a draft that
- * could not be found, or one the reader has just sent.
- */
-const clearDraftIdFromUrl = (): void => {
-    const params = new URLSearchParams(window.location.search);
-
-    if (!params.has('draft')) {
-        return;
+const clampRestoredStep = (
+    stored: number,
+    projects: StoredInquiryProject[],
+    draft: StoredInquiryDraftValues,
+): number => {
+    if (stored >= REVIEW_STEP && projects.length > 0) {
+        return REVIEW_STEP;
     }
 
-    params.delete('draft');
-    const query = params.toString();
+    if (
+        stored >= REQUIREMENTS_STEP &&
+        (draft.stoneIds.length > 0 || draft.standaloneServiceIds.length > 0)
+    ) {
+        return REQUIREMENTS_STEP;
+    }
 
-    window.history.replaceState(
-        window.history.state,
-        '',
-        `${window.location.pathname}${query ? `?${query}` : ''}`,
-    );
+    if (stored >= STONES_STEP && draft.serviceIds.length > 0) {
+        return STONES_STEP;
+    }
+
+    return SERVICES_STEP;
 };
 
 /**
@@ -166,16 +169,8 @@ type InquiryResultState =
  * flat list, because that is how they were asked for; and the attachments are
  * still `File` objects rather than paths, so that post has to be a multipart
  * `FormData` with the files appended as they are, not a JSON body.
- *
- * The `_draftId` is the inquiry behind a Continue, or null for a fresh one. It
- * rides along so the request that carries it back knows which record it is an
- * update of — a real endpoint would put it in the body of the same post — and
- * this stand-in has nothing to do with it yet, hence the underscore.
  */
-const submitInquiry = (
-    values: InquiryFormValues,
-    _draftId: string | null,
-): Promise<void> =>
+const submitInquiry = (values: InquiryFormValues): Promise<void> =>
     new Promise((resolve) => {
         /*
          * Scaled by what is going with it, for the same reason the uploader's
@@ -387,6 +382,16 @@ const Inquire = () => {
         Record<string, string>
     >({});
 
+    /**
+     * Whether the stored draft has been put back.
+     *
+     * The autosave reads this rather than guessing: until the restore has run,
+     * both forms hold nothing but their blank defaults, and writing those over
+     * the draft the reader is about to be shown would lose it before they had
+     * seen it.
+     */
+    const [isRestored, setIsRestored] = useState(false);
+
     /*
      * Everything the request will carry. A project is committed to it whole or
      * not at all, so a step change can never cost a finished one.
@@ -467,27 +472,20 @@ const Inquire = () => {
     const { savedIds, toggleSave } = useSavedStones();
 
     /*
-     * The page's own requested address. Read from Inertia rather than from the
-     * browser so the same line works when this page is rendered server-side.
+     * Whose draft this is. The key is per account so two people sharing a
+     * browser never read each other's half-built inquiry, which makes the
+     * reader's id the one thing both the restore and the autosave need.
      */
-    const pageUrl = usePage().url;
+    const userId = usePage<{ auth: Auth }>().props.auth.user.id;
 
     /**
-     * Which draft `?draft=` named, once it has been opened.
+     * Whether the restore has already happened.
      *
-     * A ref rather than state because nothing rendered depends on it: it is read
-     * back only when the inquiry is sent, where it is the record an update would
-     * write over.
+     * An effect runs twice under Strict Mode, and restoring twice would only
+     * repeat the same work — but the toast about attachments the browser could
+     * not keep would be said twice, which is why the guard exists.
      */
-    const openDraftIdRef = useRef<string | null>(null);
-
-    /**
-     * Whether the `?draft=` in the address has already been opened.
-     *
-     * An effect runs twice under Strict Mode, and opening the draft twice would
-     * only repeat the same work; the guard makes the second run a return.
-     */
-    const hasOpenedDraftRef = useRef(false);
+    const hasRestoredRef = useRef(false);
 
     useEffect(() => {
         const timer = window.setTimeout(() => setIsLoading(false), SKELETON_MS);
@@ -496,48 +494,81 @@ const Inquire = () => {
     }, []);
 
     /*
-     * A `?draft=` address means the reader was sent here to continue a saved
-     * inquiry, which is what this does: the saved projects are loaded into the
-     * form, and Review is the step that reopens a project for editing, so the
-     * draft lands there when it has a project and on the services list when it
-     * has not.
+     * Put the stored draft back, on mount and behind the skeleton.
      *
-     * Held until the skeleton has gone down, so the draft does not arrive
-     * underneath it; nothing is validated on the way in, on the principle that
-     * a reader who was not asked a question should not be told they got it
-     * wrong.
+     * Deliberately not held until the skeleton has gone down: the point of
+     * restoring while the placeholder still stands is that the reader never
+     * sees a frame of the blank default where their answers belong — the
+     * answers are already in place by the time the real page arrives.
+     *
+     * Nothing is validated on the way in, on the principle that a reader who
+     * was not asked a question should not be told they got it wrong: whatever
+     * the draft held comes back as it was, and the step it left off on is
+     * checked against what is still there to do rather than believed outright.
      */
     useEffect(() => {
-        if (isLoading || hasOpenedDraftRef.current) {
+        if (hasRestoredRef.current) {
             return;
         }
 
-        hasOpenedDraftRef.current = true;
+        hasRestoredRef.current = true;
 
-        const draftId = readDraftIdFromUrl(pageUrl);
+        const stored = readInquiryDraft(userId);
 
-        if (draftId === null) {
-            return;
+        if (stored !== null) {
+            /*
+             * The files come back empty because a `File` has no form storage
+             * can hold; the count of them is what the toast below is about.
+             */
+            reset({
+                projects: stored.projects.map((project) => ({
+                    ...project,
+                    attachments: [],
+                })),
+            });
+            draftMethods.reset({ ...stored.draft, attachments: [] });
+            setEditingProjectId(
+                stored.editingProjectId !== null &&
+                    stored.projects.some(
+                        (project) => project.id === stored.editingProjectId,
+                    )
+                    ? stored.editingProjectId
+                    : null,
+            );
+            setStep(
+                clampRestoredStep(stored.step, stored.projects, stored.draft),
+            );
+            hasDraftContinued.current = false;
+
+            if (stored.droppedAttachments > 0) {
+                toast.info(
+                    stored.droppedAttachments === 1
+                        ? 'Your draft is back. Its attachment could not be saved here — attach the file again.'
+                        : `Your draft is back. ${stored.droppedAttachments} attachments could not be saved here — attach the files again.`,
+                );
+            }
         }
 
-        const draft = inquiries.find(
-            (inquiry) => inquiry.id === draftId && inquiry.status === 'draft',
-        );
+        setIsRestored(true);
+    }, [userId, reset, draftMethods]);
 
-        if (draft === undefined) {
-            // A draft that is no longer there keeps nothing behind: the address
-            // is cleaned and the reader is told, instead of a blank form that
-            // looks like the record they were promised.
-            clearDraftIdFromUrl();
-            toast.error('That draft can no longer be edited.');
-
-            return;
-        }
-
-        openDraftIdRef.current = draftId;
-        reset({ projects: inquiryToFormValues(draft).projects });
-        setStep(draft.projects.length > 0 ? REVIEW_STEP : SERVICES_STEP);
-    }, [isLoading, pageUrl, reset]);
+    /*
+     * The draft's own life support: a write a couple of seconds after the last
+     * change, flushed on the way out of a step and when the tab goes away.
+     *
+     * Inert until the restore above has run, for the reason that state is
+     * there: the first thing either form holds is the blank default, and a
+     * save of that would put the stored draft to death while its owner was
+     * still on the skeleton.
+     */
+    const { discardDraft } = useInquiryDraftAutosave({
+        userId,
+        isRestored,
+        step,
+        editingProjectId,
+        methods,
+        draftMethods,
+    });
 
     /*
      * Both grids are long enough to leave the reader scrolled well past the
@@ -1100,7 +1131,7 @@ const Inquire = () => {
         setIsSending(true);
 
         try {
-            await submitInquiry(getValues(), openDraftIdRef.current);
+            await submitInquiry(getValues());
         } catch {
             isSendingRef.current = false;
             setIsSending(false);
@@ -1125,12 +1156,12 @@ const Inquire = () => {
         reset(inquiryDefaults);
         clearDraft();
         /*
-         * The draft is no longer a draft once it has been sent, so the address
-         * that reopens it must not survive the send: a refresh afterwards
-         * should sit on the empty services list, not try to revive a record
-         * that is gone.
+         * The draft is no longer a draft once it has been sent. Forgetting it
+         * here — with any write still waiting behind it cancelled — is what
+         * keeps the sent request from being resurrected by the autosave a
+         * moment later, and what stops the next visit offering to continue it.
          */
-        clearDraftIdFromUrl();
+        discardDraft();
         setSearch('');
         setFilter('latest');
         setValidationAlertErrors([]);
