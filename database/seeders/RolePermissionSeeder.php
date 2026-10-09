@@ -132,12 +132,14 @@ class RolePermissionSeeder extends Seeder
             Permission::InquiriesView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
+            Permission::AgendaCreate->value,
         ],
         Role::Logistics->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
+            Permission::AgendaCreate->value,
         ],
     ];
 
