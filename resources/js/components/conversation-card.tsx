@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { currentUserId, type Conversation } from '@/data/conversations';
+import { mockAgendaItems } from '@/data/agenda';
 import { inquiries } from '@/data/inquiries';
 import { useInitials } from '@/hooks/use-initials';
 import { getFirstName } from '@/lib/people';
@@ -7,18 +8,39 @@ import { cn } from '@/lib/utils';
 
 const EMPTY_PREVIEW = 'No messages yet';
 
+const STATUS_PREVIEW_LABELS = {
+    requested: 'Booking requested',
+    confirmed: 'Booking approved',
+    completed: 'Visit completed',
+    cancelled: 'Booking cancelled',
+};
+
 const getConversationPreview = (conversation: Conversation): string => {
     const lastMessage = conversation.messages[conversation.messages.length - 1];
 
     if (!lastMessage) {
-        // A conversation opened for an inquiry has something to preview before
-        // anyone has written, so the inquiry it was opened for stands in for the
-        // empty thread rather than a flat "no messages".
         const inquiry = conversation.inquiryId
             ? inquiries.find((item) => item.id === conversation.inquiryId)
             : undefined;
 
-        return inquiry ? `New project · ${inquiry.reference}` : EMPTY_PREVIEW;
+        return inquiry ? `New Inquiry · ${inquiry.reference}` : EMPTY_PREVIEW;
+    }
+
+    if (lastMessage.kind === 'agenda') {
+        const agendaItems = mockAgendaItems();
+        const agendaItem = agendaItems.find(
+            (item) => item.id === lastMessage.agendaId,
+        );
+
+        if (!agendaItem) {
+            return EMPTY_PREVIEW;
+        }
+
+        const statusLabel =
+            STATUS_PREVIEW_LABELS[
+                lastMessage.status as keyof typeof STATUS_PREVIEW_LABELS
+            ];
+        return `${statusLabel} · ${agendaItem.title}`;
     }
 
     if (lastMessage.senderId === currentUserId) {

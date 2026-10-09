@@ -1,10 +1,11 @@
 import { Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
+import ThreadCardHeader from '@/components/thread-card-header';
 import { StatusBadge, STATUS_LABELS } from '@/components/inquiry-status-badge';
 import {
-    inquiryTitle,
     type Inquiry,
     type InquiryStatus,
+    inquiryTitle,
 } from '@/data/inquiries';
 import { stones, type Stone } from '@/data/stones';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -27,23 +28,10 @@ const MAX_HERO_STONES = 2;
 const HERO_COLUMNS = ['grid-cols-1', 'grid-cols-2'] as const;
 
 /**
- * Weekday and time, the way a chat dates a run of messages.
- *
- * `Intl` rather than `toISOString()`, which reports the UTC day: a reader east
- * of Greenwich would be shown the day before the one the inquiry was raised.
- * `undefined` as the locale is the reader's own, for the same reason.
- */
-const threadTimestampFormatter = new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    hour: 'numeric',
-    minute: '2-digit',
-});
-
-/**
  * The headline a card announces when it is reporting a status change.
  *
  * The opening card of a thread reports no change: the project is arriving, and it
- * reads "New project" whatever the inquiry has since become. A card posted again
+ * reads "New Inquiry" whatever the inquiry has since become. A card posted again
  * later is announcing something, and there the status is the news and the project
  * is only the context for it — so "Project cancelled", "Project quoted".
  *
@@ -141,22 +129,13 @@ const InquiryThreadCard = ({
      * there is a change to announce.
      */
     const badgeStatus = status ?? inquiry.status;
-    const headline = status ? STATUS_HEADLINES[status] : 'New project';
+    const headline = status ? STATUS_HEADLINES[status] : 'New Inquiry';
 
-    /*
-     * The name and the reference, sitting on the photograph rather than under
-     * it, which is what makes the card read as a preview of a link instead of a
-     * summary panel. The scrim is the same `bg-foreground/60` the Quote card
-     * puts over an overflow tile, so white text stays legible on any stone.
-     *
-     * Held as one node because it is placed twice: over the photograph when
-     * there is one, and in normal flow when there is not, where the wrapper
-     * would have no height to be measured against.
-     */
     const title = (
         <span className="block space-y-0.5 bg-foreground/60 p-3">
             <span className="line-clamp-2 block text-sm font-bold text-background">
-                {inquiryTitle(inquiry)}
+                {inquiry.projects.length}{' '}
+                {inquiry.projects.length === 1 ? 'project' : 'projects'}
             </span>
 
             <span className="block text-xs text-background/80">
@@ -168,11 +147,7 @@ const InquiryThreadCard = ({
 
     return (
         <>
-            <p className="text-center text-xs text-secondary-foreground">
-                <time dateTime={occurredAt}>
-                    {threadTimestampFormatter.format(new Date(occurredAt))}
-                </time>
-            </p>
+            <ThreadCardHeader headline={headline} occurredAt={occurredAt} />
 
             {/*
              * Centred in the thread and with no avatar. The card is something the
@@ -180,9 +155,6 @@ const InquiryThreadCard = ({
              * sender to sit in the left column and hang the card off: it belongs
              * to the thread itself, whichever point in the thread that is.
              */}
-            <span className="block text-center text-xs font-bold text-secondary-foreground">
-                {headline}
-            </span>
 
             <Link
                 href={detailsHref}

@@ -1,3 +1,5 @@
+import { type AgendaStatus } from '@/data/agenda';
+
 export const currentUserId = 'me';
 const hero = '/images/regray-hero.jpg';
 export type Person = {
@@ -7,12 +9,23 @@ export type Person = {
     avatar?: string;
 };
 
-export type ChatMessage = {
-    id: string;
-    senderId: string;
-    text: string;
-    sentAt: string;
-};
+export type ChatMessage =
+    | {
+          id: string;
+          senderId: string;
+          text: string;
+          sentAt: string;
+          kind?: 'text';
+      }
+    | {
+          id: string;
+          kind: 'agenda';
+          sentAt: string;
+          agendaId: string;
+          status: AgendaStatus;
+          bookedBy: 'client' | 'staff';
+          senderId?: string;
+      };
 
 export type Conversation = {
     id: string;
@@ -61,7 +74,37 @@ export const conversations: Conversation[] = [
         name: 'Northgate Cafe — Counters',
         unread: true,
         memberIds: ['maria', 'daniel'],
-        messages: [],
+        messages: [
+            {
+                id: 'ag-1',
+                kind: 'agenda',
+                sentAt: '2026-09-28T10:00:00.000Z',
+                agendaId: 'apt-04',
+                status: 'requested',
+                bookedBy: 'client',
+            },
+            {
+                id: 'm-a',
+                senderId: 'maria',
+                text: 'The site visit request has been received. Let me coordinate with Daniel for the best time.',
+                sentAt: '2026-09-28T10:15:00.000Z',
+            },
+            {
+                id: 'ag-2',
+                kind: 'agenda',
+                sentAt: '2026-09-28T11:30:00.000Z',
+                agendaId: 'apt-04',
+                status: 'confirmed',
+                bookedBy: 'client',
+                senderId: 'maria',
+            },
+            {
+                id: 'm-b',
+                senderId: 'daniel',
+                text: 'Perfect. I will bring the site assessment checklist and samples.',
+                sentAt: '2026-09-28T11:45:00.000Z',
+            },
+        ],
         inquiryId: 'inq-1048',
     },
     {
@@ -160,6 +203,14 @@ export const conversations: Conversation[] = [
         memberIds: ['sofia', 'lucas', 'maria'],
         messages: [
             {
+                id: 'ag-5',
+                kind: 'agenda',
+                sentAt: '2026-09-26T08:00:00.000Z',
+                agendaId: 'apt-18',
+                status: 'cancelled',
+                bookedBy: 'client',
+            },
+            {
                 id: 'm-11',
                 senderId: 'sofia',
                 text: 'Uploaded the revised kitchen elevation with the waterfall island.',
@@ -199,6 +250,24 @@ export const conversations: Conversation[] = [
         memberIds: ['sofia'],
         inquiryId: 'inq-1044',
         messages: [
+            {
+                id: 'ag-3',
+                kind: 'agenda',
+                sentAt: '2026-09-25T13:00:00.000Z',
+                agendaId: 'apt-06',
+                status: 'confirmed',
+                bookedBy: 'staff',
+                senderId: 'sofia',
+            },
+            {
+                id: 'ag-4',
+                kind: 'agenda',
+                sentAt: '2026-09-26T09:00:00.000Z',
+                agendaId: 'apt-03',
+                status: 'completed',
+                bookedBy: 'staff',
+                senderId: 'sofia',
+            },
             {
                 id: 'm-16',
                 senderId: 'me',

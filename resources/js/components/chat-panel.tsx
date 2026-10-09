@@ -1,10 +1,12 @@
 import { ArrowLeft, Info, Paperclip, Phone, Send } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import AgendaThreadCard from '@/components/agenda-thread-card';
 import InquiryThreadCard from '@/components/inquiry-thread-card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { currentUserId, type Conversation } from '@/data/conversations';
+import { mockAgendaItems } from '@/data/agenda';
 import { inquiries } from '@/data/inquiries';
 import { useInitials } from '@/hooks/use-initials';
 import { getPerson } from '@/lib/people';
@@ -31,6 +33,9 @@ const ChatPanel = ({
     const inquiry = conversation.inquiryId
         ? inquiries.find((item) => item.id === conversation.inquiryId)
         : undefined;
+
+    const agendaItems = mockAgendaItems();
+    const agendaItemsMap = new Map(agendaItems.map((item) => [item.id, item]));
 
     useEffect(() => {
         setDraft('');
@@ -131,9 +136,6 @@ const ChatPanel = ({
                     <p
                         className={cn(
                             'px-4 text-center text-sm font-semibold text-secondary-foreground',
-                            // Centred only while the card is absent. With the card
-                            // above it, `m-auto` would push the hint to the middle
-                            // of the empty space and tear the two apart.
                             inquiry ? '' : 'm-auto',
                         )}
                     >
@@ -141,16 +143,44 @@ const ChatPanel = ({
                     </p>
                 ) : (
                     conversation.messages.map((message, index) => {
+                        const previous = conversation.messages[index - 1];
+                        const next = conversation.messages[index + 1];
+
+                        if (message.kind === 'agenda') {
+                            const agendaItem = agendaItemsMap.get(
+                                message.agendaId,
+                            );
+                            if (!agendaItem) return null;
+
+                            const bookedByName =
+                                message.senderId && message.bookedBy === 'staff'
+                                    ? getPerson(message.senderId)?.name
+                                    : undefined;
+
+                            return (
+                                <AgendaThreadCard
+                                    key={message.id}
+                                    agenda={agendaItem}
+                                    status={message.status}
+                                    bookedBy={message.bookedBy}
+                                    bookedByName={bookedByName}
+                                    occurredAt={message.sentAt}
+                                />
+                            );
+                        }
+
                         const isOwn = message.senderId === currentUserId;
                         const sender = isOwn
                             ? undefined
                             : getPerson(message.senderId);
-                        const previous = conversation.messages[index - 1];
-                        const next = conversation.messages[index + 1];
                         const isRunStart =
-                            !previous || previous.senderId !== message.senderId;
+                            !previous ||
+                            previous.kind === 'agenda' ||
+                            previous.senderId !== message.senderId;
                         const isRunEnd =
-                            !next || next.senderId !== message.senderId;
+                            !next ||
+                            next.kind === 'agenda' ||
+                            next.senderId !== message.senderId;
 
                         return (
                             <div
