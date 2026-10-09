@@ -805,32 +805,44 @@ const Inquire = () => {
     };
 
     /**
-     * Give the draft a specification row per chosen stone, keeping the ones that
-     * were already filled in.
+     * Give the draft a specification row per chosen stone, keeping duplicate rows
+     * and their answers intact, and ordering by the current picks.
      *
      * Rows are made here rather than at step 2 because a count is only asked for
      * once the reader knows they are staying on this step: a material added and
      * removed in the grid never has to be given a count at all.
+     *
+     * Keeps every row of a stone that is still picked, drops all rows of an unpicked
+     * stone, and adds one fresh row for each newly picked stone.
      */
     const seedDraftStones = () => {
         const picked = getDraftValues('stoneIds');
         const current = getDraftValues('stones');
-        const alreadyAnswered = new Map(
-            current.map((row) => [row.stoneId, row]),
-        );
 
-        setDraftValue(
-            'stones',
-            picked.map(
-                (id) =>
-                    alreadyAnswered.get(id) ?? {
-                        stoneId: id,
-                        quantity: 1,
-                        edge: '',
-                        finish: '',
-                    },
-            ),
-        );
+        const pickedSet = new Set(picked);
+        const kept = current.filter((row) => pickedSet.has(row.stoneId));
+
+        const already = new Map(kept.map((row) => [row.stoneId, row]));
+
+        const result: typeof current = [];
+
+        for (const id of picked) {
+            const existing = kept.filter((row) => row.stoneId === id);
+
+            if (existing.length > 0) {
+                result.push(...existing);
+                already.delete(id);
+            } else {
+                result.push({
+                    stoneId: id,
+                    quantity: 1,
+                    edge: '',
+                    finish: '',
+                });
+            }
+        }
+
+        setDraftValue('stones', result);
     };
 
     /**

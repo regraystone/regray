@@ -425,8 +425,11 @@ const ProjectCard = ({
                          * needs room beside its count rather than under it.
                          */
                         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
-                            {project.stones.map((stone) => (
-                                <div key={stone.id} className="min-w-0">
+                            {project.stones.map((stone, index) => (
+                                <div
+                                    key={`${stone.id}-${index}`}
+                                    className="min-w-0"
+                                >
                                     <img
                                         src={stone.thumbnail}
                                         alt=""

@@ -70,6 +70,14 @@ export const MAX_PROJECTS = 10;
 export const MAX_STONE_QUANTITY = 9999;
 
 /**
+ * How many rows of the same stone a project may hold.
+ *
+ * Each row represents a variant of the stone with its own edge profile and finish.
+ * Exported because validation and UI both need to enforce this limit consistently.
+ */
+export const MAX_STONE_ROWS = 20;
+
+/**
  * The objection an empty inquiry raises, in one place.
  *
  * The Review step has no field to hang it on: an inquiry with no projects has no
@@ -355,31 +363,43 @@ const projectStoneSchema = z.object({
 });
 
 /**
- * One stone twice in one project is one stone with two sets of specifications,
- * which cannot be two answers to the same question.
+ * A stone may appear multiple times in a project, but never with identical
+ * edge profile and finish combinations.
  *
  * On the list rather than on the single stone because it is about two of them.
  * Shared by both lists below so the rule is written once: it is the same rule
  * whether or not the list is also required to be non-empty.
+ *
+ * Allows a client to specify the same stone with different finishes or edge
+ * profiles (e.g., polished with a straight edge and honed with a bevel). Rows
+ * with empty edge or finish are skipped — they are incomplete and should first
+ * be flagged by the individual field validators.
  */
 const rejectRepeatedStones = (
-    entries: readonly { stoneId: string }[],
+    entries: readonly { stoneId: string; edge: string; finish: string }[],
     ctx: z.RefinementCtx,
 ) => {
-    const seen = new Set<string>();
+    const seen = new Map<string, number>();
 
     entries.forEach((entry, index) => {
-        if (seen.has(entry.stoneId)) {
+        if (entry.edge === '' || entry.finish === '') {
+            return;
+        }
+
+        const key = `${entry.stoneId}::${entry.edge}::${entry.finish}`;
+
+        if (seen.has(key)) {
             ctx.addIssue({
                 code: 'custom',
-                path: [index, 'stoneId'],
-                message: 'A stone can only appear once in a project.',
+                path: [index, 'finish'],
+                message:
+                    'Another row of this stone has the same edge profile and finish. Change one of them or remove this row.',
             });
 
             return;
         }
 
-        seen.add(entry.stoneId);
+        seen.set(key, index);
     });
 };
 
@@ -395,6 +415,9 @@ const rejectRepeatedStones = (
  */
 const projectStonesSchema = z
     .array(projectStoneSchema)
+    .max(MAX_STONE_ROWS, {
+        error: `A project can have up to ${MAX_STONE_ROWS} stone rows.`,
+    })
     .superRefine(rejectRepeatedStones);
 
 /**

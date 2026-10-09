@@ -217,6 +217,12 @@ export const inquiries: Inquiry[] = [
                         finish: 'Leather',
                     },
                     {
+                        stoneId: 'quartzite',
+                        quantity: 3,
+                        edge: 'Straight Edge',
+                        finish: 'Polished',
+                    },
+                    {
                         stoneId: 'granite',
                         quantity: 4,
                         edge: 'Half Bevel',

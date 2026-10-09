@@ -504,11 +504,19 @@ const InquiryReview = ({
                                     eyebrow={`Project ${index + 1}`}
                                     count={
                                         hasStones
-                                            ? `${rows.length} ${
-                                                  rows.length === 1
-                                                      ? 'stone'
-                                                      : 'stones'
-                                              }`
+                                            ? (() => {
+                                                  const distinctStones =
+                                                      new Set(
+                                                          rows.map(
+                                                              (r) => r.stoneId,
+                                                          ),
+                                                      ).size;
+                                                  return `${distinctStones} ${
+                                                      distinctStones === 1
+                                                          ? 'stone'
+                                                          : 'stones'
+                                                  }`;
+                                              })()
                                             : `${project.serviceIds.length} ${
                                                   project.serviceIds.length ===
                                                   1
@@ -534,15 +542,18 @@ const InquiryReview = ({
                                 {rows.length > 0 ? (
                                     <ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
                                         {rows.map(
-                                            ({
-                                                stone,
-                                                stoneId,
-                                                quantity,
-                                                edge,
-                                                finish,
-                                            }) => (
+                                            (
+                                                {
+                                                    stone,
+                                                    stoneId,
+                                                    quantity,
+                                                    edge,
+                                                    finish,
+                                                },
+                                                rowIndex,
+                                            ) => (
                                                 <StoneTile
-                                                    key={stoneId}
+                                                    key={`${stoneId}-${rowIndex}`}
                                                     stone={stone}
                                                     quantity={quantity}
                                                     edge={edge}

@@ -1,5 +1,10 @@
-﻿import { Controller, useFormContext, useWatch } from 'react-hook-form';
-import { ArrowLeft, Minus, Plus } from 'lucide-react';
+﻿import {
+    Controller,
+    useFieldArray,
+    useFormContext,
+    useWatch,
+} from 'react-hook-form';
+import { ArrowLeft, Copy, Minus, Plus, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import FormField, {
     chooseFromList,
@@ -23,6 +28,7 @@ import { serviceName, serviceOptions } from '@/data/services';
 import { EDGE_PROFILES, FINISHES, stones } from '@/data/stones';
 import {
     MAX_STONE_QUANTITY,
+    MAX_STONE_ROWS,
     type InquiryDraftInput,
     type InquiryDraftValues,
 } from '@/lib/inquiry-schema';
@@ -58,7 +64,21 @@ const finishPath = (index: number) => `stones.${index}.finish` as const;
  * about. `useWatch` subscribes the field itself, so the row that owns the answer
  * is the row that redraws.
  */
-const StoneSpecRow = ({ index }: { index: number }) => {
+const StoneSpecRow = ({
+    index,
+    rowCount,
+    onDuplicate,
+    onRemove,
+    onApplyToAll,
+    showApplyToAll,
+}: {
+    index: number;
+    rowCount: number;
+    onDuplicate: () => void;
+    onRemove: () => void;
+    onApplyToAll: () => void;
+    showApplyToAll: boolean;
+}) => {
     const {
         control,
         register,
@@ -324,6 +344,99 @@ const StoneSpecRow = ({ index }: { index: number }) => {
                     />
                 )}
             </FormField>
+
+            {index === 0 ? (
+                <div className="col-span-full mt-2 flex flex-wrap items-center gap-2">
+                    <div className="flex gap-1.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onDuplicate}
+                            disabled={rowCount >= MAX_STONE_ROWS}
+                            aria-label={`Duplicate ${stone.name}`}
+                            title={
+                                rowCount >= MAX_STONE_ROWS
+                                    ? `Maximum ${MAX_STONE_ROWS} rows per project`
+                                    : undefined
+                            }
+                            className="h-7 cursor-pointer px-1.5 text-xs"
+                        >
+                            <Copy aria-hidden className="size-4" />
+                            Duplicate
+                        </Button>
+
+                        {rowCount > 1 ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={onRemove}
+                                aria-label={`Remove this ${stone.name} row`}
+                                className="h-7 cursor-pointer px-1.5 text-xs"
+                            >
+                                <Trash2 aria-hidden className="size-4" />
+                                Remove
+                            </Button>
+                        ) : null}
+                    </div>
+                </div>
+            ) : (
+                <div className="col-span-full mt-2 flex gap-1.5">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onDuplicate}
+                        disabled={rowCount >= MAX_STONE_ROWS}
+                        aria-label={`Duplicate ${stone.name}`}
+                        title={
+                            rowCount >= MAX_STONE_ROWS
+                                ? `Maximum ${MAX_STONE_ROWS} rows per project`
+                                : undefined
+                        }
+                        className="h-7 cursor-pointer px-1.5 text-xs"
+                    >
+                        <Copy aria-hidden className="size-4" />
+                        Duplicate
+                    </Button>
+
+                    {rowCount > 1 ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onRemove}
+                            aria-label={`Remove this ${stone.name} row`}
+                            className="h-7 cursor-pointer px-1.5 text-xs"
+                        >
+                            <Trash2 aria-hidden className="size-4" />
+                            Remove
+                        </Button>
+                    ) : null}
+                </div>
+            )}
+
+            {index === 0 && showApplyToAll ? (
+                <div className="col-span-full mt-2 flex flex-col items-end text-end">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onApplyToAll}
+                        aria-describedby={`apply-to-all-hint-${index}`}
+                        className="h-7 cursor-pointer px-1.5 text-xs"
+                    >
+                        Apply to all stones
+                    </Button>
+                    <p
+                        id={`apply-to-all-hint-${index}`}
+                        className="mt-1 text-xs text-secondary-foreground"
+                    >
+                        Copies this edge profile and finish to every other row.
+                    </p>
+                </div>
+            ) : null}
         </li>
     );
 };
@@ -399,19 +512,19 @@ const InquiryProjectForm = ({
         setValue,
         getValues,
         watch,
+        control,
         formState: { errors },
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
+
+    const { fields, remove } = useFieldArray({
+        control,
+        name: 'stones',
+    });
 
     const serviceIds = watch('serviceIds');
     const standaloneServiceIds = watch('standaloneServiceIds');
     const rows = watch('stones');
 
-    /*
-     * Whether this project is a service standing on its own. Handed down rather
-     * than worked out here as well, because the page has to answer the same
-     * question to decide where a commit lands and what the button says, and two
-     * readings of one list pair would be free to disagree.
-     */
     const isStandalone = standalone !== null;
 
     const pieceCount = rows.reduce(
@@ -420,11 +533,80 @@ const InquiryProjectForm = ({
         0,
     );
 
-    /*
-     * Only the cutting is copied. The counts are the reader's own per stone: one
-     * countertop slab and one floor tile of the same material are not the same
-     * number, and copying it would quietly say they were.
-     */
+    const countDistinctStones = () => {
+        const seen = new Set<string>();
+        rows.forEach((row) => {
+            seen.add(row.stoneId);
+        });
+        return seen.size;
+    };
+
+    const getRowCountForStone = (stoneId: string): number =>
+        rows.filter((row) => row.stoneId === stoneId).length;
+
+    const duplicateRow = (index: number) => {
+        const row = getValues(`stones.${index}`);
+        if (row && rows.length < MAX_STONE_ROWS) {
+            const stoneId = row.stoneId;
+            const lastRowIndexOfStone = rows
+                .map((r, i) => (r.stoneId === stoneId ? i : -1))
+                .filter((i) => i !== -1)
+                .pop();
+
+            const insertAtIndex =
+                lastRowIndexOfStone !== undefined
+                    ? lastRowIndexOfStone + 1
+                    : index + 1;
+
+            const allRows = getValues('stones');
+            const newRow = {
+                stoneId: row.stoneId,
+                quantity: 1,
+                edge: '',
+                finish: '',
+            };
+
+            const reordered = [
+                ...allRows.slice(0, insertAtIndex),
+                newRow,
+                ...allRows.slice(insertAtIndex),
+            ];
+
+            setValue('stones', reordered, {
+                shouldDirty: true,
+                shouldValidate: true,
+            });
+
+            setTimeout(() => {
+                const newEdgeId = `requirements-edge-${insertAtIndex}`;
+                const element = document.getElementById(newEdgeId);
+                if (element) {
+                    element.focus();
+                    element.setAttribute(
+                        'aria-label',
+                        `Added another row for ${stones.find((s) => s.id === stoneId)?.name ?? 'this stone'}. Choose its edge profile and finish.`,
+                    );
+                }
+            }, 0);
+        }
+    };
+
+    const removeRow = (index: number) => {
+        const stoneId = rows[index]?.stoneId;
+        remove(index);
+
+        setTimeout(() => {
+            if (index > 0) {
+                const prevDuplicateBtn = document.querySelector(
+                    `button[aria-label*="Duplicate ${stones.find((s) => s.id === stoneId)?.name}"]`,
+                );
+                if (prevDuplicateBtn instanceof HTMLElement) {
+                    prevDuplicateBtn.focus();
+                }
+            }
+        }, 0);
+    };
+
     const applyToAll = () => {
         const [first, ...rest] = getValues('stones');
 
@@ -432,18 +614,20 @@ const InquiryProjectForm = ({
             return;
         }
 
-        setValue(
-            'stones',
-            [
-                first,
-                ...rest.map((row) => ({
-                    ...row,
-                    edge: first.edge,
-                    finish: first.finish,
-                })),
-            ],
-            { shouldDirty: true, shouldValidate: true },
-        );
+        const updated = rows.map((row, idx) => ({
+            ...row,
+            ...(idx === 0
+                ? {}
+                : {
+                      edge: first.edge,
+                      finish: first.finish,
+                  }),
+        }));
+
+        setValue('stones', updated, {
+            shouldDirty: true,
+            shouldValidate: true,
+        });
     };
 
     return (
@@ -524,38 +708,42 @@ const InquiryProjectForm = ({
                      * for. A reader who wants a different service set should not
                      * have to go back, remember to change it and come forward again.
                      */}
-                    <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-sidebar-border py-3">
-                        <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                            Services
-                        </h4>
+                    <div className="mt-8">
+                        <div className="border-t border-sidebar-border" />
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+                            <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+                                Services
+                            </h4>
 
-                        {serviceIds.map((id) => (
-                            <Badge
-                                key={id}
-                                variant="secondary"
-                                className="max-w-full rounded-none whitespace-normal text-secondary-foreground"
+                            {serviceIds.map((id) => (
+                                <Badge
+                                    key={id}
+                                    variant="secondary"
+                                    className="max-w-full rounded-none whitespace-normal text-secondary-foreground"
+                                >
+                                    {/*
+                                     * A service dropped from the catalogue since it was
+                                     * picked shows its id rather than nothing: the reader
+                                     * is about to commit this project, and an empty tag
+                                     * would say they had chosen nothing.
+                                     */}
+                                    {serviceOptions.find(
+                                        (service) => service.id === id,
+                                    )?.name ?? id}
+                                </Badge>
+                            ))}
+
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={onChangeServices}
+                                className="h-7 cursor-pointer px-1.5 text-xs"
                             >
-                                {/*
-                                 * A service dropped from the catalogue since it was
-                                 * picked shows its id rather than nothing: the reader
-                                 * is about to commit this project, and an empty tag
-                                 * would say they had chosen nothing.
-                                 */}
-                                {serviceOptions.find(
-                                    (service) => service.id === id,
-                                )?.name ?? id}
-                            </Badge>
-                        ))}
-
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onChangeServices}
-                            className="h-7 cursor-pointer px-1.5 text-xs"
-                        >
-                            Change
-                        </Button>
+                                Change
+                            </Button>
+                        </div>
+                        <div className="border-b border-sidebar-border" />
                     </div>
 
                     {/*
@@ -602,29 +790,31 @@ const InquiryProjectForm = ({
                 </div>
             ) : (
                 <>
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                        <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                            Stones
-                        </h4>
+                    <h4 className="mt-8 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+                        Stones
+                    </h4>
 
-                        {rows.length > 1 ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={applyToAll}
-                                className="h-7 cursor-pointer px-1.5 text-xs"
-                            >
-                                Apply to all stones
-                            </Button>
-                        ) : null}
-                    </div>
-
-                    <ul className="mt-3 divide-y divide-sidebar-border border-y border-sidebar-border">
-                        {rows.map((row, index) => (
-                            <StoneSpecRow key={row.stoneId} index={index} />
-                        ))}
+                    <ul className="mt-3 divide-y divide-sidebar-border">
+                        {fields.map((field, index) => {
+                            const stoneId = rows[index]?.stoneId;
+                            const rowCount = stoneId
+                                ? getRowCountForStone(stoneId)
+                                : 1;
+                            return (
+                                <StoneSpecRow
+                                    key={field.id}
+                                    index={index}
+                                    rowCount={rowCount}
+                                    onDuplicate={() => duplicateRow(index)}
+                                    onRemove={() => removeRow(index)}
+                                    onApplyToAll={applyToAll}
+                                    showApplyToAll={rows.length > 1}
+                                />
+                            );
+                        })}
                     </ul>
+
+                    <div className="border-t border-sidebar-border" />
 
                     {/*
                      * Where the two stones a project can be short of are said.
@@ -689,7 +879,8 @@ const InquiryProjectForm = ({
                         aria-live="polite"
                         className="min-w-0 flex-1 text-sm font-bold text-foreground"
                     >
-                        {rows.length} {rows.length === 1 ? 'stone' : 'stones'} ·{' '}
+                        {countDistinctStones()}{' '}
+                        {countDistinctStones() === 1 ? 'stone' : 'stones'} ·{' '}
                         {pieceCount} {pieceCount === 1 ? 'pc' : 'pcs'}
                     </p>
                 )}
