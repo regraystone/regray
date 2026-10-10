@@ -98,6 +98,9 @@ class StoneSeeder extends Seeder
         }
     }
 
+    /**
+     * @return array<string, array<string, array<string>>>
+     */
     private function getStoneProfiles(): array
     {
         return [
