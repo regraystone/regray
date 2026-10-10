@@ -1,0 +1,65 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\InquiryStatus;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+
+/**
+ * @property int $id
+ * @property string $reference
+ * @property int $client_id
+ * @property InquiryStatus $status
+ * @property Carbon $status_changed_at
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ */
+#[Fillable(['reference', 'client_id', 'status', 'status_changed_at'])]
+class Inquiry extends Model
+{
+    protected function casts(): array
+    {
+        return [
+            'status' => InquiryStatus::class,
+            'status_changed_at' => 'datetime',
+        ];
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'client_id');
+    }
+
+    public function handlers(): HasMany
+    {
+        return $this->hasMany(InquiryHandler::class);
+    }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(InquiryStatusHistory::class)->orderBy('changed_at');
+    }
+
+    public function projects(): HasMany
+    {
+        return $this->hasMany(InquiryProject::class);
+    }
+
+    public function conversation()
+    {
+        return $this->hasOne(Conversation::class);
+    }
+
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
+
+    public function agendas()
+    {
+        return $this->hasMany(Agenda::class);
+    }
+}

@@ -8,6 +8,9 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -47,6 +50,37 @@ class User extends Authenticatable implements MustVerifyEmail
         $name = $this->getRoleNames()->first();
 
         return $name === null ? null : Role::tryFrom($name);
+    }
+
+    public function profile(): HasOne
+    {
+        return $this->hasOne(UserProfile::class);
+    }
+
+    public function inquiries(): HasMany
+    {
+        return $this->hasMany(Inquiry::class, 'client_id');
+    }
+
+    public function handledInquiries(): HasMany
+    {
+        return $this->hasMany(InquiryHandler::class);
+    }
+
+    public function savedStones(): BelongsToMany
+    {
+        return $this->belongsToMany(Stone::class, 'saved_stones')
+            ->withTimestamps();
+    }
+
+    public function conversations(): BelongsToMany
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_members');
+    }
+
+    public function agendas(): HasMany
+    {
+        return $this->hasMany(Agenda::class, 'client_id');
     }
 
     /**
