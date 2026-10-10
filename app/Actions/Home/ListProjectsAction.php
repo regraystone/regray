@@ -5,6 +5,7 @@ namespace App\Actions\Home;
 use App\Data\ProjectFilterData;
 use App\Models\Project;
 use App\Services\ProjectService;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class ListProjectsAction
@@ -14,7 +15,7 @@ class ListProjectsAction
     ) {}
 
     /**
-     * @return array{projects: \Illuminate\Pagination\LengthAwarePaginator<int, Project>, filters: array{search: string|null, stone: string|null, category: string|null}, filterOptions: array{stones: Collection<int, array{value: string, label: string}>, categories: Collection<int, array{value: string, label: string}>}}
+     * @return array{projects: LengthAwarePaginator<int, Project>, filters: array{search: string|null, stone: string|null, category: string|null}, filterOptions: array{stones: Collection<int, array{value: string, label: string}>, categories: Collection<int, array{value: string, label: string}>}}
      */
     public function execute(ProjectFilterData $filters): array
     {

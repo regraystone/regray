@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class ProjectService
@@ -22,7 +23,7 @@ class ProjectService
     ) {}
 
     /**
-     * @return array{projects: \Illuminate\Pagination\LengthAwarePaginator<int, Project>, filters: array{search: string|null, stone: string|null, category: string|null}, filterOptions: array{stones: Collection<int, array{value: string, label: string}>, categories: Collection<int, array{value: string, label: string}>}}
+     * @return array{projects: LengthAwarePaginator<int, Project>, filters: array{search: string|null, stone: string|null, category: string|null}, filterOptions: array{stones: Collection<int, array{value: string, label: string}>, categories: Collection<int, array{value: string, label: string}>}}
      */
     public function listProjects(ProjectFilterData $filters): array
     {
