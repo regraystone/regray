@@ -11,15 +11,15 @@ return new class extends Migration
     {
         Schema::create('agendas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('client_id')->restrictOnDelete();
-            $table->foreignId('booked_by')->nullable()->setOnDelete('set null');
+            $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('booked_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('booked_by_type', 10);
-            $table->foreignId('inquiry_id')->nullable()->setOnDelete('set null');
+            $table->foreignId('inquiry_id')->nullable()->constrained()->nullOnDelete();
             $table->string('title', 150);
             $table->timestampTz('arrival_at');
             $table->string('status', 20);
             $table->text('notes')->nullable();
-            $table->foreignId('approved_by')->nullable()->setOnDelete('set null');
+            $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('approved_at')->nullable();
             $table->timestampTz('cancelled_at')->nullable();
             $table->string('cancel_reason', 255)->nullable();

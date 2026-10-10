@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('finish_stone', function (Blueprint $table) {
-            $table->foreignId('stone_id')->cascadeOnDelete();
-            $table->foreignId('finish_id')->restrictOnDelete();
+            $table->foreignId('stone_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('finish_id')->constrained()->restrictOnDelete();
             $table->smallInteger('sort_order');
 
             $table->primary(['stone_id', 'finish_id'], 'pk_finish_stone');

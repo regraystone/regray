@@ -10,14 +10,14 @@ return new class extends Migration
     {
         Schema::create('inquiry_files', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inquiry_project_id')->cascadeOnDelete();
+            $table->foreignId('inquiry_project_id')->constrained()->cascadeOnDelete();
             $table->string('disk', 30);
             $table->string('path', 255);
             $table->string('original_name', 255);
             $table->string('mime_type', 100);
             $table->bigInteger('size_bytes');
             $table->char('sha256', 64)->nullable();
-            $table->foreignId('uploaded_by')->nullable()->setOnDelete('set null');
+            $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('created_at');
             $table->softDeletesTz();
 

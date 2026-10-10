@@ -11,12 +11,12 @@ return new class extends Migration
     {
         Schema::create('messages', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('conversation_id')->cascadeOnDelete();
-            $table->foreignId('sender_id')->nullable()->setOnDelete('set null');
+            $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('sender_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('type', 20);
             $table->text('body')->nullable();
-            $table->foreignId('inquiry_id')->nullable()->setOnDelete('set null');
-            $table->foreignId('agenda_id')->nullable()->setOnDelete('set null');
+            $table->foreignId('inquiry_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('agenda_id')->nullable();
             $table->string('announced_status', 20)->nullable();
             $table->timestampTz('created_at');
             $table->timestampTz('edited_at')->nullable();

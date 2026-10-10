@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('project_images', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->cascadeOnDelete();
+            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
             $table->string('path', 255);
             $table->string('alt_text', 255)->nullable();
             $table->smallInteger('sort_order');

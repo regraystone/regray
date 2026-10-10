@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('inquiries', function (Blueprint $table) {
             $table->id();
             $table->string('reference', 30)->unique();
-            $table->foreignId('client_id')->restrictOnDelete();
+            $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
             $table->string('status', 20);
             $table->timestampTz('status_changed_at');
             $table->timestampTz('created_at');

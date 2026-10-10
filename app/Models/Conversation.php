@@ -29,21 +29,25 @@ class Conversation extends Model
         ];
     }
 
+    /** @return BelongsTo<Inquiry, $this> */
     public function inquiry(): BelongsTo
     {
         return $this->belongsTo(Inquiry::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /** @return HasMany<ConversationMember, $this> */
     public function members(): HasMany
     {
         return $this->hasMany(ConversationMember::class);
     }
 
+    /** @return HasMany<Message, $this> */
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class)->orderBy('created_at');

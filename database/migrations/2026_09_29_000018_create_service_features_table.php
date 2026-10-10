@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('service_features', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('service_id')->cascadeOnDelete();
+            $table->foreignId('service_id')->constrained()->cascadeOnDelete();
             $table->string('body', 255);
             $table->smallInteger('sort_order');
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 /**
@@ -27,8 +28,9 @@ class Finish extends Model
         ];
     }
 
-    public function scope($query)
+    /** @return Builder<Finish> */
+    public function active(): Builder
     {
-        return $query->where('is_active', true);
+        return $this->where('is_active', true);
     }
 }

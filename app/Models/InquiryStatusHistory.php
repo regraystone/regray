@@ -43,11 +43,13 @@ class InquiryStatusHistory extends Model
         });
     }
 
+    /** @return BelongsTo<Inquiry, $this> */
     public function inquiry(): BelongsTo
     {
         return $this->belongsTo(Inquiry::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function changedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'changed_by');

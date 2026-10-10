@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('saved_stones', function (Blueprint $table) {
-            $table->foreignId('user_id')->cascadeOnDelete();
-            $table->foreignId('stone_id')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('stone_id')->constrained()->cascadeOnDelete();
             $table->timestampTz('created_at');
 
             $table->primary(['user_id', 'stone_id'], 'pk_saved_stones');

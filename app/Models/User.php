@@ -52,32 +52,38 @@ class User extends Authenticatable implements MustVerifyEmail
         return $name === null ? null : Role::tryFrom($name);
     }
 
+    /** @return HasOne<UserProfile, $this> */
     public function profile(): HasOne
     {
         return $this->hasOne(UserProfile::class);
     }
 
+    /** @return HasMany<Inquiry, $this> */
     public function inquiries(): HasMany
     {
         return $this->hasMany(Inquiry::class, 'client_id');
     }
 
+    /** @return HasMany<InquiryHandler, $this> */
     public function handledInquiries(): HasMany
     {
         return $this->hasMany(InquiryHandler::class);
     }
 
+    /** @return BelongsToMany<Stone, $this> */
     public function savedStones(): BelongsToMany
     {
         return $this->belongsToMany(Stone::class, 'saved_stones')
             ->withTimestamps();
     }
 
+    /** @return BelongsToMany<Conversation, $this> */
     public function conversations(): BelongsToMany
     {
         return $this->belongsToMany(Conversation::class, 'conversation_members');
     }
 
+    /** @return HasMany<Agenda, $this> */
     public function agendas(): HasMany
     {
         return $this->hasMany(Agenda::class, 'client_id');

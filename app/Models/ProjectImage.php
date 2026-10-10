@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 #[Fillable(['path', 'alt_text', 'sort_order'])]
 class ProjectImage extends Model
 {
+    /** @return BelongsTo<Project, $this> */
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);

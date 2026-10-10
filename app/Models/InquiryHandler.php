@@ -21,16 +21,19 @@ class InquiryHandler extends Model
 
     protected $primaryKey = 'inquiry_id';
 
+    /** @return BelongsTo<Inquiry, $this> */
     public function inquiry(): BelongsTo
     {
         return $this->belongsTo(Inquiry::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');

@@ -16,6 +16,7 @@ class ServiceFeature extends Model
 {
     public $timestamps = false;
 
+    /** @return BelongsTo<Service, $this> */
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);

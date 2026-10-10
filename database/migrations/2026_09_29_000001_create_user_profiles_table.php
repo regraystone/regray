@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('user_profiles', function (Blueprint $table) {
-            $table->foreignId('user_id')->primary()->cascadeOnDelete();
+            $table->foreignId('user_id')->primary()->constrained()->cascadeOnDelete();
             $table->string('phone', 30);
             $table->string('company', 150)->nullable();
             $table->string('address', 255);

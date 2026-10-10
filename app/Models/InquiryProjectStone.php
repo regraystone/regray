@@ -20,21 +20,25 @@ use Illuminate\Support\Carbon;
 #[Fillable(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'sort_order'])]
 class InquiryProjectStone extends Model
 {
+    /** @return BelongsTo<InquiryProject, $this> */
     public function inquiryProject(): BelongsTo
     {
         return $this->belongsTo(InquiryProject::class);
     }
 
+    /** @return BelongsTo<Stone, $this> */
     public function stone(): BelongsTo
     {
         return $this->belongsTo(Stone::class);
     }
 
+    /** @return BelongsTo<EdgeProfile, $this> */
     public function edgeProfile(): BelongsTo
     {
         return $this->belongsTo(EdgeProfile::class);
     }
 
+    /** @return BelongsTo<Finish, $this> */
     public function finish(): BelongsTo
     {
         return $this->belongsTo(Finish::class);

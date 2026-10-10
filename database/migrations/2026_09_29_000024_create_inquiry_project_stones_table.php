@@ -11,10 +11,10 @@ return new class extends Migration
     {
         Schema::create('inquiry_project_stones', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inquiry_project_id')->cascadeOnDelete();
-            $table->foreignId('stone_id')->restrictOnDelete();
-            $table->foreignId('edge_profile_id')->restrictOnDelete();
-            $table->foreignId('finish_id')->restrictOnDelete();
+            $table->foreignId('inquiry_project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('stone_id')->constrained()->restrictOnDelete();
+            $table->foreignId('edge_profile_id')->constrained()->restrictOnDelete();
+            $table->foreignId('finish_id')->constrained()->restrictOnDelete();
             $table->smallInteger('quantity');
             $table->smallInteger('sort_order');
             $table->timestampTz('created_at');

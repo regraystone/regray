@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('inquiry_projects', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inquiry_id')->cascadeOnDelete();
+            $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
             $table->string('name', 100);
             $table->smallInteger('sort_order');
             $table->string('location', 255);

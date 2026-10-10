@@ -32,16 +32,19 @@ class InquiryProject extends Model
         ];
     }
 
+    /** @return BelongsTo<Inquiry, $this> */
     public function inquiry(): BelongsTo
     {
         return $this->belongsTo(Inquiry::class);
     }
 
+    /** @return BelongsToMany<Service, $this> */
     public function services(): BelongsToMany
     {
         return $this->belongsToMany(Service::class, 'inquiry_project_services');
     }
 
+    /** @return BelongsToMany<ProjectCategory, $this> */
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(ProjectCategory::class, 'inquiry_project_categories')
@@ -49,11 +52,13 @@ class InquiryProject extends Model
             ->orderByPivot('sort_order');
     }
 
+    /** @return HasMany<InquiryProjectStone, $this> */
     public function stones(): HasMany
     {
         return $this->hasMany(InquiryProjectStone::class);
     }
 
+    /** @return HasMany<InquiryFile, $this> */
     public function files(): HasMany
     {
         return $this->hasMany(InquiryFile::class);

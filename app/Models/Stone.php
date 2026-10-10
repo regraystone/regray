@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -41,16 +42,19 @@ class Stone extends Model
         return 'slug';
     }
 
-    public function active()
+    /** @return Builder<Stone> */
+    public function active(): Builder
     {
         return $this->where('is_active', true);
     }
 
+    /** @return HasMany<StoneImage, $this> */
     public function images(): HasMany
     {
         return $this->hasMany(StoneImage::class);
     }
 
+    /** @return BelongsToMany<Application, $this> */
     public function applications(): BelongsToMany
     {
         return $this->belongsToMany(Application::class, 'application_stone')
@@ -58,6 +62,7 @@ class Stone extends Model
             ->orderByPivot('sort_order');
     }
 
+    /** @return BelongsToMany<CareTip, $this> */
     public function careTips(): BelongsToMany
     {
         return $this->belongsToMany(CareTip::class, 'care_tip_stone')
@@ -65,6 +70,7 @@ class Stone extends Model
             ->orderByPivot('sort_order');
     }
 
+    /** @return BelongsToMany<Finish, $this> */
     public function finishes(): BelongsToMany
     {
         return $this->belongsToMany(Finish::class, 'finish_stone')
@@ -72,12 +78,14 @@ class Stone extends Model
             ->orderByPivot('sort_order');
     }
 
+    /** @return BelongsToMany<User, $this> */
     public function savedBy(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'saved_stones')
             ->withTimestamps();
     }
 
+    /** @return BelongsToMany<Project, $this> */
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'project_stone');

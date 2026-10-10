@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -37,11 +38,13 @@ class Service extends Model
         return 'slug';
     }
 
-    public function active()
+    /** @return Builder<Service> */
+    public function active(): Builder
     {
         return $this->where('is_active', true);
     }
 
+    /** @return HasMany<ServiceFeature, $this> */
     public function features(): HasMany
     {
         return $this->hasMany(ServiceFeature::class);

@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('project_stone', function (Blueprint $table) {
-            $table->foreignId('project_id')->cascadeOnDelete();
-            $table->foreignId('stone_id')->restrictOnDelete();
+            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('stone_id')->constrained()->restrictOnDelete();
 
             $table->primary(['project_id', 'stone_id']);
             $table->index('stone_id');

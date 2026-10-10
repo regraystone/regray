@@ -14,9 +14,9 @@ return new class extends Migration
             $table->string('type', 10);
             $table->string('name', 150)->nullable();
             $table->string('avatar_path', 255)->nullable();
-            $table->foreignId('inquiry_id')->nullable()->unique()->setOnDelete('set null');
+            $table->foreignId('inquiry_id')->nullable()->unique()->constrained()->nullOnDelete();
             $table->char('direct_key', 64)->nullable()->unique();
-            $table->foreignId('created_by')->nullable()->setOnDelete('set null');
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
         });

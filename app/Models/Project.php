@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -40,21 +41,25 @@ class Project extends Model
         return 'slug';
     }
 
-    public function published()
+    /** @return Builder<Project> */
+    public function published(): Builder
     {
         return $this->where('is_published', true);
     }
 
+    /** @return HasMany<ProjectImage, $this> */
     public function images(): HasMany
     {
         return $this->hasMany(ProjectImage::class);
     }
 
+    /** @return BelongsToMany<Stone, $this> */
     public function stones(): BelongsToMany
     {
         return $this->belongsToMany(Stone::class, 'project_stone');
     }
 
+    /** @return BelongsToMany<ProjectCategory, $this> */
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(ProjectCategory::class, 'category_project');

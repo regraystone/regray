@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Database;
 
+use App\Enums\InquiryStatus;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
+use App\Models\Inquiry;
 use App\Models\Stone;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -86,8 +89,23 @@ class SchemaTest extends TestCase
             'sort_order' => 1,
         ]);
 
+        $client = User::factory()->create();
+
+        $inquiry = Inquiry::create([
+            'reference' => 'RGS-000001',
+            'client_id' => $client->id,
+            'status' => InquiryStatus::Pending,
+            'status_changed_at' => now(),
+        ]);
+
+        $project = $inquiry->projects()->create([
+            'name' => 'Kitchen',
+            'sort_order' => 1,
+            'location' => 'Cebu',
+        ]);
+
         DB::insert('INSERT INTO inquiry_project_stones (inquiry_project_id, stone_id, edge_profile_id, finish_id, quantity, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
-            1,
+            $project->id,
             $stone->id,
             $edgeProfile->id,
             $finish->id,
@@ -100,7 +118,7 @@ class SchemaTest extends TestCase
         $this->expectException(\Exception::class);
 
         DB::insert('INSERT INTO inquiry_project_stones (inquiry_project_id, stone_id, edge_profile_id, finish_id, quantity, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
-            1,
+            $project->id,
             $stone->id,
             $edgeProfile->id,
             $finish->id,

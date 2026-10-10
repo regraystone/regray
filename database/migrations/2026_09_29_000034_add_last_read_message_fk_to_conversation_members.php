@@ -12,7 +12,7 @@ return new class extends Migration
             $table->foreign('last_read_message_id')
                 ->references('id')
                 ->on('messages')
-                ->setOnDelete('set null');
+                ->nullOnDelete();
         });
     }
 

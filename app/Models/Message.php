@@ -36,26 +36,31 @@ class Message extends Model
         ];
     }
 
+    /** @return BelongsTo<Conversation, $this> */
     public function conversation(): BelongsTo
     {
         return $this->belongsTo(Conversation::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
     }
 
+    /** @return BelongsTo<Inquiry, $this> */
     public function inquiry(): BelongsTo
     {
         return $this->belongsTo(Inquiry::class);
     }
 
+    /** @return BelongsTo<Agenda, $this> */
     public function agenda(): BelongsTo
     {
         return $this->belongsTo(Agenda::class);
     }
 
+    /** @return HasMany<MessageAttachment, $this> */
     public function attachments(): HasMany
     {
         return $this->hasMany(MessageAttachment::class);

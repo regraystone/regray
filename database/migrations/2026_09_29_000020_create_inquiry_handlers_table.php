@@ -9,9 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('inquiry_handlers', function (Blueprint $table) {
-            $table->foreignId('inquiry_id')->primary()->cascadeOnDelete();
-            $table->foreignId('user_id')->restrictOnDelete();
-            $table->foreignId('assigned_by')->nullable()->setOnDelete('set null');
+            $table->foreignId('inquiry_id')->primary()->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
+            $table->foreignId('assigned_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('assigned_at');
 
             $table->index('user_id');

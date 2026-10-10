@@ -21,6 +21,7 @@ class MessageAttachment extends Model
 {
     public const UPDATED_AT = null;
 
+    /** @return BelongsTo<Message, $this> */
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class);

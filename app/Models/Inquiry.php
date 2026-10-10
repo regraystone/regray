@@ -6,6 +6,7 @@ use App\Enums\InquiryStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -28,37 +29,44 @@ class Inquiry extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'client_id');
     }
 
+    /** @return HasMany<InquiryHandler, $this> */
     public function handlers(): HasMany
     {
         return $this->hasMany(InquiryHandler::class);
     }
 
+    /** @return HasMany<InquiryStatusHistory, $this> */
     public function statusHistory(): HasMany
     {
         return $this->hasMany(InquiryStatusHistory::class)->orderBy('changed_at');
     }
 
+    /** @return HasMany<InquiryProject, $this> */
     public function projects(): HasMany
     {
         return $this->hasMany(InquiryProject::class);
     }
 
-    public function conversation()
+    /** @return HasOne<Conversation, $this> */
+    public function conversation(): HasOne
     {
         return $this->hasOne(Conversation::class);
     }
 
-    public function messages()
+    /** @return HasMany<Message, $this> */
+    public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
     }
 
-    public function agendas()
+    /** @return HasMany<Agenda, $this> */
+    public function agendas(): HasMany
     {
         return $this->hasMany(Agenda::class);
     }

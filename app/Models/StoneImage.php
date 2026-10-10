@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
 #[Fillable(['name', 'path', 'alt_text', 'sort_order'])]
 class StoneImage extends Model
 {
+    /** @return BelongsTo<Stone, $this> */
     public function stone(): BelongsTo
     {
         return $this->belongsTo(Stone::class);

@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('inquiry_project_categories', function (Blueprint $table) {
-            $table->foreignId('inquiry_project_id')->cascadeOnDelete();
-            $table->foreignId('project_category_id')->restrictOnDelete();
+            $table->foreignId('inquiry_project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('project_category_id')->constrained()->restrictOnDelete();
             $table->smallInteger('sort_order');
 
             $table->primary(['inquiry_project_id', 'project_category_id']);

@@ -27,11 +27,13 @@ class InquiryFile extends Model
 
     public const UPDATED_AT = null;
 
+    /** @return BelongsTo<InquiryProject, $this> */
     public function inquiryProject(): BelongsTo
     {
         return $this->belongsTo(InquiryProject::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function uploadedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
