@@ -42,6 +42,9 @@ class Project extends Model
         return 'slug';
     }
 
+    /**
+     * @param  Builder<static>  $query
+     */
     #[Scope]
     protected function published(Builder $query): void
     {

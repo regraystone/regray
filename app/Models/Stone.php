@@ -43,6 +43,9 @@ class Stone extends Model
         return 'slug';
     }
 
+    /**
+     * @param  Builder<static>  $query
+     */
     #[Scope]
     protected function active(Builder $query): void
     {
