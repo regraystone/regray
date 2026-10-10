@@ -19,9 +19,9 @@ use Illuminate\Support\Carbon;
 #[Fillable([])]
 class InquiryStatusHistory extends Model
 {
-    public const UPDATED_AT = null;
+    protected $table = 'inquiry_status_history';
 
-    public $timestamps = true;
+    public $timestamps = false;
 
     protected function casts(): array
     {
