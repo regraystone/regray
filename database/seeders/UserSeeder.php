@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($data['people'] as $person) {
-            $role = $roleMapping[$person['role']] ?? Role::technical;
+            $role = $roleMapping[$person['role']] ?? Role::Technical;
 
             $user = User::factory()
                 ->role($role)
@@ -63,6 +63,9 @@ class UserSeeder extends Seeder
         $this->mapClientIdsToUserIds($clientUsers);
     }
 
+    /**
+     * @param  array<int, User>  $clientUsers
+     */
     private function mapClientIdsToUserIds(array $clientUsers): void
     {
         foreach ($clientUsers as $clientId => $user) {
