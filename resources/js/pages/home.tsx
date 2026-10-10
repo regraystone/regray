@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { InfiniteScroll, router, usePage } from '@inertiajs/react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { ArrowDown, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
@@ -13,16 +14,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    projects,
-    PROJECT_CATEGORIES,
-    type Project,
-    type ProjectCategory,
-} from '@/data/projects';
-import { stones } from '@/data/stones';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
-import { show as homeShow } from '@/routes/home';
+import { index as homeIndex, show as homeShow } from '@/routes/home';
+import type { HomePageProps } from '@/types/home';
 
 const cucineLogo = '/images/brands/cucine_logo.webp';
 const ascaleLogo = '/images/brands/ascale_logo.webp';
@@ -122,110 +117,137 @@ const Hero = () => (
     </section>
 );
 
-const HomeSkeleton = () => (
-    <div className="mx-auto w-full max-w-6xl">
-        <section className="relative flex min-h-[280px] items-center overflow-hidden sm:min-h-[480px]">
-            <Skeleton className="absolute inset-0 rounded-none" />
-        </section>
-
-        <section className="mt-2 border-y border-sidebar-border bg-background py-10">
-            <div className="flex justify-center gap-6 px-4 sm:gap-8 sm:px-5 md:gap-10">
-                {Array.from({ length: brandLogos.length }, (_, index) => (
-                    <div key={index} className="flex shrink-0 items-center">
-                        <Skeleton className="h-12 w-12 sm:h-14 sm:w-14" />
-                    </div>
-                ))}
-            </div>
-        </section>
-
-        <section className="mt-8 md:mt-12">
-            <div className="mb-6 border-b border-sidebar-border pb-4">
-                <Skeleton className="h-8 w-56" />
-                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <Skeleton className="h-9 w-full sm:max-w-xs" />
-                    <div className="hidden gap-3 sm:flex">
-                        <Skeleton className="h-9 w-44" />
-                        <Skeleton className="h-9 w-56" />
-                    </div>
-                    <div className="flex items-center gap-3 sm:hidden">
-                        <Skeleton className="h-9 w-full" />
-                        <Skeleton className="h-9 w-full" />
-                    </div>
-                </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                {Array.from({ length: 6 }, (_, index) => (
-                    <div
-                        key={index}
-                        className="border border-sidebar-border bg-background"
-                    >
-                        <Skeleton className="aspect-[4/3] w-full rounded-none" />
-                    </div>
-                ))}
-            </div>
-        </section>
+const ProjectCardSkeleton = () => (
+    <div className="border border-sidebar-border bg-background">
+        <Skeleton className="aspect-[4/3] w-full rounded-none" />
     </div>
 );
 
 const Home = () => {
     const { can } = usePermissions();
-    const [search, setSearch] = useState('');
-    const [selectedStone, setSelectedStone] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const { projects, filters, filterOptions } = usePage<HomePageProps>().props;
+
+    const [searchInput, setSearchInput] = useState(filters.search ?? '');
+    const [selectedStone, setSelectedStone] = useState(filters.stone ?? '');
+    const [selectedCategory, setSelectedCategory] = useState(
+        filters.category ?? '',
+    );
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    const debounceTimerRef = useRef<number | null>(null);
+    const lastAppliedRef = useRef({
+        search: filters.search,
+        stone: filters.stone,
+        category: filters.category,
+    });
+
+    const applyFilters = (search: string, stone: string, category: string) => {
+        const trimmedSearch = search.trim();
+        const query: Record<string, string> = {};
+
+        if (trimmedSearch !== '') {
+            query.search = trimmedSearch;
+        }
+        if (stone !== '') {
+            query.stone = stone;
+        }
+        if (category !== '') {
+            query.category = category;
+        }
+
+        lastAppliedRef.current = {
+            search: trimmedSearch || null,
+            stone: stone || null,
+            category: category || null,
+        };
+
+        setIsUpdating(true);
+
+        router.get(homeIndex.url({ query }), undefined, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['projects', 'filters'],
+            reset: ['projects'],
+            onFinish: () => setIsUpdating(false),
+        });
+    };
+
+    const handleSearchChange = (value: string) => {
+        setSearchInput(value);
+
+        if (debounceTimerRef.current !== null) {
+            window.clearTimeout(debounceTimerRef.current);
+        }
+
+        debounceTimerRef.current = window.setTimeout(() => {
+            const trimmed = value.trim();
+            if (trimmed !== (lastAppliedRef.current.search ?? '')) {
+                applyFilters(trimmed, selectedStone, selectedCategory);
+            }
+        }, 300);
+    };
+
+    const handleSearchClear = () => {
+        if (debounceTimerRef.current !== null) {
+            window.clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = null;
+        }
+        setSearchInput('');
+        applyFilters('', selectedStone, selectedCategory);
+    };
+
+    const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            if (debounceTimerRef.current !== null) {
+                window.clearTimeout(debounceTimerRef.current);
+                debounceTimerRef.current = null;
+            }
+            applyFilters(searchInput, selectedStone, selectedCategory);
+        }
+    };
+
+    const handleStoneChange = (value: string) => {
+        setSelectedStone(value);
+        applyFilters(searchInput, value, selectedCategory);
+    };
+
+    const handleCategoryChange = (value: string) => {
+        setSelectedCategory(value);
+        applyFilters(searchInput, selectedStone, value);
+    };
 
     useEffect(() => {
-        const timer = window.setTimeout(() => setIsLoading(false), 700);
+        const currentUrl = new URL(window.location.href);
+        const urlSearch = currentUrl.searchParams.get('search') ?? '';
+        const urlStone = currentUrl.searchParams.get('stone') ?? '';
+        const urlCategory = currentUrl.searchParams.get('category') ?? '';
 
-        return () => window.clearTimeout(timer);
+        if (
+            urlSearch !== (lastAppliedRef.current.search ?? '') ||
+            urlStone !== (lastAppliedRef.current.stone ?? '') ||
+            urlCategory !== (lastAppliedRef.current.category ?? '')
+        ) {
+            setSearchInput(urlSearch);
+            setSelectedStone(urlStone);
+            setSelectedCategory(urlCategory);
+            lastAppliedRef.current = {
+                search: urlSearch || null,
+                stone: urlStone || null,
+                category: urlCategory || null,
+            };
+        }
+    }, [filters]);
+
+    useEffect(() => {
+        return () => {
+            if (debounceTimerRef.current !== null) {
+                window.clearTimeout(debounceTimerRef.current);
+            }
+        };
     }, []);
 
-    const visibleProjects = useMemo<Project[]>(() => {
-        const query = search.trim().toLowerCase();
-        const hasSearch = query !== '';
-        const hasStoneFilter = selectedStone !== '';
-        const hasCategoryFilter = selectedCategory !== '';
-
-        return projects.filter((project) => {
-            if (hasSearch) {
-                const matches =
-                    project.name.toLowerCase().includes(query) ||
-                    project.stones.some((stoneId) => {
-                        const stone = stones.find((s) => s.id === stoneId);
-                        return stone?.name.toLowerCase().includes(query);
-                    }) ||
-                    project.categories.some((catId) => {
-                        const cat = PROJECT_CATEGORIES.find(
-                            (c) => c.value === catId,
-                        );
-                        return cat?.label.toLowerCase().includes(query);
-                    });
-
-                if (!matches) {
-                    return false;
-                }
-            }
-
-            if (hasStoneFilter && !project.stones.includes(selectedStone)) {
-                return false;
-            }
-
-            if (
-                hasCategoryFilter &&
-                !project.categories.includes(
-                    selectedCategory as ProjectCategory,
-                )
-            ) {
-                return false;
-            }
-
-            return true;
-        });
-    }, [search, selectedStone, selectedCategory]);
-
-    if (isLoading) {
-        return <HomeSkeleton />;
-    }
+    const resultCount = projects.data.length;
 
     return (
         <div className="mx-auto w-full max-w-6xl">
@@ -252,18 +274,19 @@ const Home = () => {
                             />
                             <Input
                                 type="search"
-                                value={search}
+                                value={searchInput}
                                 onChange={(event) =>
-                                    setSearch(event.target.value)
+                                    handleSearchChange(event.target.value)
                                 }
+                                onKeyDown={handleSearchKeyDown}
                                 placeholder="Search projects"
                                 aria-label="Search projects"
                                 className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
                             />
-                            {search ? (
+                            {searchInput ? (
                                 <button
                                     type="button"
-                                    onClick={() => setSearch('')}
+                                    onClick={handleSearchClear}
                                     aria-label="Clear search"
                                     className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                 >
@@ -276,7 +299,7 @@ const Home = () => {
                             <div className="w-full sm:w-44">
                                 <Select
                                     value={selectedStone}
-                                    onValueChange={setSelectedStone}
+                                    onValueChange={handleStoneChange}
                                 >
                                     <SelectTrigger
                                         className="w-full rounded-none"
@@ -291,13 +314,13 @@ const Home = () => {
                                         >
                                             All Natural Stones
                                         </SelectItem>
-                                        {stones.map((stone) => (
+                                        {filterOptions.stones.map((stone) => (
                                             <SelectItem
-                                                key={stone.id}
-                                                value={stone.id}
+                                                key={stone.value}
+                                                value={stone.value}
                                                 className="rounded-none"
                                             >
-                                                {stone.name}
+                                                {stone.label}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -307,7 +330,7 @@ const Home = () => {
                             <div className="w-full sm:w-56">
                                 <Select
                                     value={selectedCategory}
-                                    onValueChange={setSelectedCategory}
+                                    onValueChange={handleCategoryChange}
                                 >
                                     <SelectTrigger
                                         className="w-full rounded-none"
@@ -322,7 +345,7 @@ const Home = () => {
                                         >
                                             All Project Categories
                                         </SelectItem>
-                                        {PROJECT_CATEGORIES.map((cat) => (
+                                        {filterOptions.categories.map((cat) => (
                                             <SelectItem
                                                 key={cat.value}
                                                 value={cat.value}
@@ -338,33 +361,69 @@ const Home = () => {
                     </div>
                 </div>
 
-                {visibleProjects.length === 0 ? (
-                    <EmptyState
-                        title="No projects found"
-                        description="The search and filters didn't match any projects."
-                    />
-                ) : (
-                    <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                        {visibleProjects.map((project) => (
-                            <ProjectCard
-                                key={project.id}
-                                project={project}
-                                aspect="aspect-[4/3]"
-                                // The feed reads as Home; the project behind a
-                                // card is its own page and says so in its own
-                                // permission, so a reader of the feed who holds
-                                // neither sees the card and not the link.
-                                href={
-                                    can(permissions.homeProjectsView)
-                                        ? homeShow.url({
-                                              project: project.id,
-                                          })
-                                        : undefined
-                                }
-                            />
-                        ))}
+                <div
+                    aria-busy={isUpdating}
+                    aria-live="polite"
+                    className={isUpdating ? 'opacity-60' : ''}
+                >
+                    <div
+                        className="sr-only"
+                        aria-live="polite"
+                        aria-atomic="true"
+                    >
+                        {resultCount === 1
+                            ? '1 project found'
+                            : `${resultCount} projects found`}
                     </div>
-                )}
+                    {projects.data.length === 0 ? (
+                        <EmptyState
+                            title="No projects found"
+                            description="The search and filters didn't match any projects."
+                        />
+                    ) : (
+                        <InfiniteScroll
+                            data="projects"
+                            next={({ loading }) =>
+                                loading ? (
+                                    <div className="mt-4 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                                        {Array.from({ length: 3 }, (_, i) => (
+                                            <ProjectCardSkeleton key={i} />
+                                        ))}
+                                    </div>
+                                ) : null
+                            }
+                        >
+                            <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                                {projects.data.map(
+                                    (
+                                        project: {
+                                            slug: string;
+                                            name: string;
+                                            thumbnail: string;
+                                        },
+                                        index: number,
+                                    ) => (
+                                        <ProjectCard
+                                            key={project.slug}
+                                            project={project}
+                                            aspect="aspect-[4/3]"
+                                            priority={index < 3}
+                                            href={
+                                                can(
+                                                    permissions.homeProjectsView,
+                                                )
+                                                    ? homeShow.url({
+                                                          project: project.slug,
+                                                      })
+                                                    : undefined
+                                            }
+                                        />
+                                    ),
+                                )}
+                            </div>
+                        </InfiniteScroll>
+                    )}
+                </div>
             </section>
         </div>
     );

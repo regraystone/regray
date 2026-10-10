@@ -1,14 +1,17 @@
 import { Link } from '@inertiajs/react';
 import type { Project } from '@/data/projects';
+import type { ProjectCardProps } from '@/types/home';
 
 const ProjectCard = ({
     project,
     aspect,
     href,
+    priority = false,
 }: {
-    project: Project;
+    project: Project | Pick<ProjectCardProps, 'name' | 'thumbnail'>;
     aspect: string;
     href?: string;
+    priority?: boolean;
 }) => {
     const content = (
         <article className="stone-card border border-sidebar-border bg-background">
@@ -18,7 +21,8 @@ const ProjectCard = ({
                 <img
                     src={project.thumbnail}
                     alt={project.name}
-                    loading="lazy"
+                    loading={priority ? 'eager' : 'lazy'}
+                    decoding="async"
                     className="absolute inset-0 size-full object-cover"
                 />
             </div>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Home\ProjectController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
@@ -17,7 +18,7 @@ Route::redirect('/', '/login')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [RedirectController::class, 'dashboard'])->name('dashboard');
 
-    Route::get('home', [ViewController::class, 'home'])
+    Route::get('home', [ProjectController::class, 'index'])
         ->middleware(Permission::HomeView->middleware())
         ->name('home.index');
 

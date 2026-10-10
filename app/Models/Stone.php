@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -42,10 +43,10 @@ class Stone extends Model
         return 'slug';
     }
 
-    /** @return Builder<Stone> */
-    public function active(): Builder
+    #[Scope]
+    protected function active(Builder $query): void
     {
-        return $this->where('is_active', true);
+        $query->where('is_active', true);
     }
 
     /** @return HasMany<StoneImage, $this> */

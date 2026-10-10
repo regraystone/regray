@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Actions\Home;
+
+use App\Data\ProjectFilterData;
+use App\Models\Project;
+use App\Services\ProjectService;
+use Illuminate\Support\Collection;
+
+class ListProjectsAction
+{
+    public function __construct(
+        public readonly ProjectService $projectService,
+    ) {}
+
+    /**
+     * @return array{projects: \Illuminate\Pagination\LengthAwarePaginator<int, Project>, filters: array{search: string|null, stone: string|null, category: string|null}, filterOptions: array{stones: Collection<int, array{value: string, label: string}>, categories: Collection<int, array{value: string, label: string}>}}
+     */
+    public function execute(ProjectFilterData $filters): array
+    {
+        return $this->projectService->listProjects($filters);
+    }
+}

@@ -8,11 +8,6 @@ use Inertia\Response;
 
 class ViewController extends Controller
 {
-    public function home(Request $request): Response
-    {
-        return Inertia::render('home');
-    }
-
     /**
      * One project, read only.
      *

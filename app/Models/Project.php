@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -41,10 +42,10 @@ class Project extends Model
         return 'slug';
     }
 
-    /** @return Builder<Project> */
-    public function published(): Builder
+    #[Scope]
+    protected function published(Builder $query): void
     {
-        return $this->where('is_published', true);
+        $query->where('is_published', true);
     }
 
     /** @return HasMany<ProjectImage, $this> */

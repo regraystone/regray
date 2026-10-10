@@ -4,6 +4,12 @@ namespace App\Providers;
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
+use App\Repositories\Contracts\ProjectRepositoryInterface;
+use App\Repositories\Contracts\StoneRepositoryInterface;
+use App\Repositories\Eloquent\ProjectCategoryRepository;
+use App\Repositories\Eloquent\ProjectRepository;
+use App\Repositories\Eloquent\StoneRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(ProjectRepositoryInterface::class, ProjectRepository::class);
+        $this->app->bind(StoneRepositoryInterface::class, StoneRepository::class);
+        $this->app->bind(ProjectCategoryRepositoryInterface::class, ProjectCategoryRepository::class);
     }
 
     /**
