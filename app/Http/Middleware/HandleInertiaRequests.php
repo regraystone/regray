@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SavedStoneService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -37,6 +39,10 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        $savedStoneSlugs = $user && Gate::forUser($user)->allows('saved.view')
+            ? app(SavedStoneService::class)->slugsFor($user)
+            : [];
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -46,6 +52,7 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $user?->getRoleNames()->values()->all() ?? [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'savedStoneSlugs' => $savedStoneSlugs,
         ];
     }
 }

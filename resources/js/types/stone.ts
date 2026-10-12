@@ -9,6 +9,14 @@ export type StoneProfileProject = {
     thumbnail: string;
 };
 
+export type StoneCardData = {
+    id?: string;
+    slug: string;
+    name: string;
+    thumbnail: string;
+    recommended: boolean;
+};
+
 export type StoneProfile = {
     slug: string;
     name: string;

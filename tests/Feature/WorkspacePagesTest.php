@@ -489,6 +489,7 @@ test('the enum declares exactly the two action permissions', function () {
     expect($actions)->toBe([
         Permission::InquiriesCreate->value,
         Permission::AgendaCreate->value,
+        Permission::SavedManage->value,
     ]);
 });
 

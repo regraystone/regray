@@ -3,7 +3,8 @@
 namespace App\Repositories\Contracts;
 
 use App\Models\Stone;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 interface StoneRepositoryInterface
 {
@@ -11,8 +12,14 @@ interface StoneRepositoryInterface
 
     public function findActiveInPublishedProject(string $stoneSlug, string $projectSlug): ?Stone;
 
+    /** Active, recommended stones, ordered by sort_order then name. */
+    public function recommended(): Collection;
+
+    /** Id and slug only, for saving a stone without the heavy profile query. */
+    public function findActiveSummaryBySlug(string $slug): ?Stone;
+
     /**
-     * @return Collection<int, array{value: string, label: string}>
+     * @return SupportCollection<int, array{value: string, label: string}>
      */
-    public function activeFilterOptions(): Collection;
+    public function activeFilterOptions(): SupportCollection;
 }

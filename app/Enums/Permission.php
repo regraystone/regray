@@ -21,11 +21,13 @@ namespace App\Enums;
  * see. `HomeProjectsView` names the project profile and the stone profile
  * nested under it, both reached from the Home page, and the entry for that
  * page belongs to `HomeView`.
- * `InquiriesCreate` and `AgendaCreate` are the exceptions to the action
- * permissions, and the only two: each guards something a user does rather than
- * somewhere they go. The stepper is a page reached by doing, so its permission
- * is read by a route; `AgendaCreate` guards booking a visit, so a route may
- * name it and pages may link to a booking route when the reader holds it.
+ * `InquiriesCreate`, `AgendaCreate`, and `SavedManage` are the exceptions to the action
+ * permissions: each guards something a user does rather than somewhere they go. The
+ * stepper is a page reached by doing, so its permission is read by a route;
+ * `AgendaCreate` guards booking a visit, so a route may name it and pages may link
+ * to a booking route when the reader holds it. `SavedManage` gates saving and
+ * unsaving a stone, so the write endpoints can be guarded independently of the
+ * page permission.
  *
  * The inquiry details page has no permission of its own. It hangs off whichever
  * list the user reads their inquiries on, the way the stepper does, so it is
@@ -84,6 +86,15 @@ enum Permission: string
 
     case InquiriesCreate = 'inquiries.create';
     case AgendaCreate = 'agenda.create';
+
+    /**
+     * Saving and unsaving a stone.
+     *
+     * A client and admin may add or remove stones from their saved collection.
+     * The page permission `saved.view` still gates reading the page; this action
+     * permission gates the write endpoints so a reader cannot write.
+     */
+    case SavedManage = 'saved.manage';
 
     /**
      * The `can:` middleware string that guards a route with this permission.

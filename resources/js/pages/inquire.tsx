@@ -483,7 +483,7 @@ const Inquire = () => {
     const isSendingRef = useRef(false);
 
     const { can } = usePermissions();
-    const { savedIds, toggleSave } = useSavedStones();
+    const { savedIds, toggleSave, canSave } = useSavedStones();
 
     /*
      * Whose draft this is. The key is per account so two people sharing a
@@ -1531,11 +1531,23 @@ const Inquire = () => {
                                         {visibleStones.map((stone) => (
                                             <StoneCard
                                                 key={stone.id}
-                                                stone={stone}
+                                                stone={{
+                                                    id: stone.id,
+                                                    slug: stone.id,
+                                                    name: stone.name,
+                                                    thumbnail: stone.thumbnail,
+                                                    recommended:
+                                                        stone.recommended,
+                                                }}
                                                 aspect="aspect-[4/3]"
                                                 saved={savedIds.has(stone.id)}
-                                                onToggleSave={() =>
-                                                    toggleSave(stone.id)
+                                                onToggleSave={
+                                                    canSave
+                                                        ? () =>
+                                                              toggleSave(
+                                                                  stone.id,
+                                                              )
+                                                        : undefined
                                                 }
                                                 selectable
                                                 selected={draftStoneIds.includes(

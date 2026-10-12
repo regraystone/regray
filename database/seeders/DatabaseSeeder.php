@@ -47,6 +47,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(UserSeeder::class);
+        $this->call(SavedStoneSeeder::class);
         $this->call(InquirySeeder::class);
         $this->call(AgendaSeeder::class);
         $this->call(ConversationSeeder::class);

@@ -1,146 +1,193 @@
-import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { stones } from '@/data/stones';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { router } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
+import { usePermissions } from '@/hooks/use-permissions';
+import { toast } from 'sonner';
 
-const STORAGE_KEY = 'regray:saved-stones';
-// Bumped when the catalogue's ids change, so stored picks are re-seeded instead
-// of being carried over onto stones that no longer exist.
-const SEED_VERSION = 3;
+const SAVE_DEBOUNCE_MS = 400;
 
-const DEFAULT_SAVED_IDS = stones.slice(0, 6).map((stone) => stone.id);
+type PendingState = {
+    desired: boolean;
+    dirty: boolean;
+    timer: number | null;
+};
 
-const STONE_IDS = new Set(stones.map((stone) => stone.id));
-
-const EMPTY_SET = new Set<string>();
-
-let savedIds = EMPTY_SET;
-let hydrated = false;
+const pendingOverrides = new Map<string, PendingState>();
 const listeners = new Set<() => void>();
 
-const readStorage = (): Set<string> => {
-    if (typeof window === 'undefined') {
-        return EMPTY_SET;
-    }
-
-    try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-
-        if (raw === null) {
-            const seeded = new Set(DEFAULT_SAVED_IDS);
-
-            writeStorage(seeded);
-
-            return seeded;
-        }
-
-        const parsed: unknown = JSON.parse(raw);
-        let ids: string[] = [];
-        let storedVersion: number | null = null;
-
-        if (Array.isArray(parsed)) {
-            ids = parsed.filter((id): id is string => typeof id === 'string');
-            storedVersion = null;
-        } else if (
-            typeof parsed === 'object' &&
-            parsed !== null &&
-            Array.isArray((parsed as { ids?: unknown }).ids)
-        ) {
-            const record = parsed as { ids: string[]; version: unknown };
-
-            ids = record.ids.filter(
-                (id): id is string => typeof id === 'string',
-            );
-            storedVersion =
-                typeof record.version === 'number' ? record.version : null;
-        }
-
-        if (storedVersion !== null && storedVersion < SEED_VERSION) {
-            const upgraded = new Set(DEFAULT_SAVED_IDS);
-
-            writeStorage(upgraded);
-
-            return upgraded;
-        }
-
-        // A stone that has left the catalogue cannot be rendered as a card, so
-        // its id is dropped rather than left to inflate the saved count.
-        const known = ids.filter((id) => STONE_IDS.has(id));
-        const current = new Set(known);
-
-        if (current.size !== ids.length) {
-            writeStorage(current);
-        }
-
-        return current;
-    } catch {
-        return EMPTY_SET;
-    }
-};
-
-const writeStorage = (ids: Set<string>): void => {
-    if (typeof window === 'undefined') {
-        return;
-    }
-
-    try {
-        window.localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify({ version: SEED_VERSION, ids: [...ids] }),
-        );
-    } catch {
-        // Ignore quota / privacy-mode failures; state still lives in memory.
-    }
-};
-
-const hydrate = (): void => {
-    if (hydrated) {
-        return;
-    }
-
-    hydrated = true;
-    savedIds = readStorage();
+const notify = (): void => {
     listeners.forEach((listener) => listener());
 };
 
-const subscribe = (listener: () => void): (() => void) => {
-    listeners.add(listener);
-
-    return () => {
-        listeners.delete(listener);
-    };
+const getPending = (slug: string): PendingState | undefined => {
+    return pendingOverrides.get(slug);
 };
 
-const getSnapshot = (): Set<string> => savedIds;
+const setPending = (slug: string, state: PendingState): void => {
+    pendingOverrides.set(slug, state);
+    notify();
+};
 
-const getServerSnapshot = (): Set<string> => EMPTY_SET;
+const clearPending = (slug: string): void => {
+    pendingOverrides.delete(slug);
+    notify();
+};
 
-export function useSavedStones(): {
+/**
+ * Build the effective saved state for a slug: server state with pending override on top.
+ */
+const effectiveSaved = (serverSlugs: string[], slug: string): boolean => {
+    const pending = getPending(slug);
+    if (pending) {
+        return pending.desired;
+    }
+    return serverSlugs.includes(slug);
+};
+
+/**
+ * Read the server slugs from the shared Inertia prop.
+ */
+const getServerSlugs = (): string[] => {
+    try {
+        const page = usePage();
+        return (page.props.savedStoneSlugs as string[]) ?? [];
+    } catch {
+        return [];
+    }
+};
+
+/**
+ * Hook to read saved stone state and toggle saves with debounced server sync.
+ *
+ * @param refresh - Additional Inertia props to reload with each server request.
+ * @returns { savedIds: Set<string>, toggleSave: (slug: string) => void, canSave: boolean }
+ */
+export function useSavedStones(options?: { refresh?: string[] }): {
     savedIds: Set<string>;
-    toggleSave: (id: string) => void;
+    toggleSave: (slug: string) => void;
+    canSave: boolean;
 } {
-    const saved = useSyncExternalStore(
-        subscribe,
-        getSnapshot,
-        getServerSnapshot,
+    const serverSlugs = useSyncExternalStore(
+        (listener) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+        },
+        () => getServerSlugs(),
+        () => [],
     );
 
+    const { can } = usePermissions();
+    const canSave = can('saved.view') && can('saved.manage');
+
+    const savedIds = useMemo(() => {
+        const base = new Set(serverSlugs);
+        for (const [slug, pending] of pendingOverrides) {
+            if (pending.desired) {
+                base.add(slug);
+            } else {
+                base.delete(slug);
+            }
+        }
+        return base;
+    }, [serverSlugs]);
+
+    // Clean up old localStorage key on mount
     useEffect(() => {
-        hydrate();
+        try {
+            localStorage.removeItem('regray:saved-stones');
+        } catch {
+            // Ignore quota / privacy-mode failures
+        }
     }, []);
 
-    return {
-        savedIds: saved,
-        toggleSave: useCallback((id: string) => {
-            const next = new Set(savedIds);
-
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
+    const toggleSave = useCallback(
+        (slug: string) => {
+            if (!canSave) {
+                return;
             }
 
-            savedIds = next;
-            writeStorage(savedIds);
-            listeners.forEach((listener) => listener());
-        }, []),
-    };
+            const currentEffective = effectiveSaved(serverSlugs, slug);
+            const nextDesired = !currentEffective;
+
+            // Flip the pending override immediately for instant UI feedback
+            getPending(slug);
+            const timer = window.setTimeout(() => {
+                flushPending(slug, options?.refresh);
+            }, SAVE_DEBOUNCE_MS);
+
+            setPending(slug, {
+                desired: nextDesired,
+                dirty: false,
+                timer,
+            });
+        },
+        [canSave, serverSlugs],
+    );
+
+    return { savedIds, toggleSave, canSave };
+}
+
+/**
+ * Send the pending state to the server if it differs from the server state.
+ * If the user clicked again while the request was in flight (dirty flag),
+ * restart the debounce window with the fresh state.
+ */
+function flushPending(slug: string, refresh?: string[]): void {
+    const pending = getPending(slug);
+    if (!pending) {
+        return;
+    }
+
+    // If we got here, the timer fired. Check if user clicked again meanwhile.
+    if (pending.dirty) {
+        // User clicked again while request was in flight; timer was already restarted.
+        // This flush call is stale; the new timer will handle it.
+        return;
+    }
+
+    // Get fresh server state
+    let serverSlugs: string[] = [];
+    try {
+        const page = usePage();
+        serverSlugs = (page.props.savedStoneSlugs as string[]) ?? [];
+    } catch {
+        serverSlugs = [];
+    }
+
+    const serverState = serverSlugs.includes(slug);
+    const desiredState = pending.desired;
+
+    // If desired matches server, nothing to do
+    if (desiredState === serverState) {
+        clearPending(slug);
+        return;
+    }
+
+    // Send the request
+    const method = desiredState ? 'put' : 'delete';
+    const only = ['savedStoneSlugs', ...(refresh ?? [])];
+
+    router[method](`/saved/${slug}`, {
+        preserveScroll: true,
+        preserveState: true,
+        only,
+    });
+
+    // Mark as dirty so a new click during flight restarts the debounce
+    setPending(slug, { ...pending, dirty: true });
+
+    // We can't await the Inertia request, but we can use a microtask to check
+    // if the user clicked again. If they did, dirty will be true and we skip clearing.
+    Promise.resolve()
+        .then(() => {
+            const after = getPending(slug);
+            if (after && !after.dirty) {
+                clearPending(slug);
+            }
+        })
+        .catch(() => {
+            // On error, drop override and show toast; UI falls back to server state
+            clearPending(slug);
+            toast.error('Failed to update saved stones. Please try again.');
+        });
 }

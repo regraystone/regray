@@ -16,7 +16,7 @@ type ProjectProfileProps = {
 const ProjectProfile = ({
     project: { data: project },
 }: ProjectProfileProps) => {
-    const { savedIds, toggleSave } = useSavedStones();
+    const { savedIds, toggleSave, canSave } = useSavedStones();
     const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(
         null,
     );
@@ -122,6 +122,7 @@ const ProjectProfile = ({
                             // Remove this slug-to-id mapping once stones are DB-backed.
                             stone={{
                                 id: stone.slug,
+                                slug: stone.slug,
                                 name: stone.name,
                                 thumbnail: stone.thumbnail,
                                 recommended: stone.recommended,
@@ -132,7 +133,11 @@ const ProjectProfile = ({
                                 stone: stone.slug,
                             })}
                             saved={savedIds.has(stone.slug)}
-                            onToggleSave={() => toggleSave(stone.slug)}
+                            onToggleSave={
+                                canSave
+                                    ? () => toggleSave(stone.slug)
+                                    : undefined
+                            }
                         />
                     ))}
                 </div>

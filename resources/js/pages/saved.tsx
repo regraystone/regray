@@ -1,15 +1,14 @@
 import { Link } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Handshake } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState, useRef } from 'react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { stones, type Stone } from '@/data/stones';
 import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
+import type { StoneCardData } from '@/types/stone';
 
 /**
  * Width of each stone slide in the carousel must track the saved grid's columns
@@ -18,68 +17,23 @@ import { show as savedShow } from '@/routes/saved';
 const STONE_SLIDE_WIDTH =
     'w-[calc((100%_-_1rem)/2)] md:w-[calc((100%_-_1.25rem)/2)] lg:w-[calc((100%_-_2.5rem)/3)]';
 
-const SavedSkeleton = () => (
-    <div className="mx-auto w-full max-w-6xl">
-        <section>
-            <div className="flex w-full flex-col items-center justify-between gap-6 border border-border bg-primary/5 p-6 sm:flex-row sm:gap-8 sm:px-8 sm:py-7 lg:gap-12 lg:px-10">
-                <div className="flex w-full flex-col items-center gap-4 text-center sm:w-auto sm:flex-row sm:gap-6 sm:text-left">
-                    <Skeleton className="size-12 shrink-0" />
-                    <div className="w-full space-y-2 sm:w-64">
-                        <Skeleton className="h-6 w-3/4" />
-                        <Skeleton className="h-4 w-full" />
-                    </div>
-                </div>
-                <Skeleton className="h-11 w-full sm:w-40" />
-            </div>
-        </section>
-
-        <section className="mt-8">
-            <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                {Array.from({ length: 3 }, (_, index) => (
-                    <div
-                        key={index}
-                        className="border border-sidebar-border bg-background"
-                    >
-                        <Skeleton className="aspect-[4/3] w-full rounded-none" />
-                    </div>
-                ))}
-            </div>
-        </section>
-
-        <section className="mt-8">
-            <div className="mb-8 flex items-end justify-between gap-4">
-                <Skeleton className="h-8 w-56" />
-                <div className="flex shrink-0 items-center gap-2">
-                    <Skeleton className="size-10" />
-                    <Skeleton className="size-10" />
-                </div>
-            </div>
-            <div className="flex gap-4 overflow-hidden md:gap-5">
-                {Array.from({ length: 3 }, (_, index) => (
-                    <div
-                        key={index}
-                        className={`${STONE_SLIDE_WIDTH} shrink-0`}
-                    >
-                        <div className="border border-sidebar-border bg-background">
-                            <Skeleton className="aspect-[4/3] w-full rounded-none" />
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </section>
-    </div>
-);
+type SavedPageProps = {
+    savedStones: { data: StoneCardData[] };
+    recommendedStones: { data: StoneCardData[] };
+};
 
 const StoneRow = ({
     title,
     stones,
     savedIds,
     toggleSave,
+    canSave,
 }: {
     title: string;
-    stones: Stone[];
+    stones: StoneCardData[];
     savedIds: Set<string>;
     toggleSave: (id: string) => void;
+    canSave: boolean;
 }) => {
     const carouselRef = useRef<CarouselHandle>(null);
     const [atStart, setAtStart] = useState(true);
@@ -136,15 +90,27 @@ const StoneRow = ({
             >
                 {stones.map((stone) => (
                     <div
-                        key={stone.id}
+                        key={stone.slug}
                         className={`${STONE_SLIDE_WIDTH} shrink-0 snap-start`}
                     >
                         <StoneCard
-                            stone={stone}
+                            stone={{
+                                id: stone.slug,
+                                slug: stone.slug,
+                                name: stone.name,
+                                thumbnail: stone.thumbnail,
+                                recommended: stone.recommended,
+                            }}
                             aspect="aspect-[4/3]"
-                            href={savedShow.url({ stone: stone.id })}
-                            saved={savedIds.has(stone.id)}
-                            onToggleSave={() => toggleSave(stone.id)}
+                            href={savedShow.url({ stone: stone.slug } as {
+                                stone: string;
+                            })}
+                            saved={savedIds.has(stone.slug)}
+                            onToggleSave={
+                                canSave
+                                    ? () => toggleSave(stone.slug)
+                                    : undefined
+                            }
                         />
                     </div>
                 ))}
@@ -153,27 +119,18 @@ const StoneRow = ({
     );
 };
 
-const Saved = () => {
-    const { savedIds, toggleSave } = useSavedStones();
+const Saved = ({ savedStones, recommendedStones }: SavedPageProps) => {
+    const { savedIds, toggleSave, canSave } = useSavedStones({
+        refresh: ['savedStones'],
+    });
     // The entry hook owns the click: a saved draft is offered the choice of
     // continuing it or starting fresh before the stepper is opened.
     const { inquire, onInquireClick, draftPrompt } = useInquiryEntry();
-    const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const timer = window.setTimeout(() => setIsLoading(false), 700);
+    const savedStonesList = savedStones.data;
+    const recommendedStonesList = recommendedStones.data;
 
-        return () => window.clearTimeout(timer);
-    }, []);
-
-    if (isLoading) {
-        return <SavedSkeleton />;
-    }
-
-    const savedStones = stones.filter((stone) => savedIds.has(stone.id));
-    const recommendedStones = stones.filter((stone) => stone.recommended);
-
-    if (savedStones.length === 0) {
+    if (savedStonesList.length === 0) {
         return (
             <div className="mx-auto w-full max-w-6xl">
                 <section className="mt-8 py-16 text-center">
@@ -221,14 +178,26 @@ const Saved = () => {
 
             <section className="mt-8">
                 <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
-                    {savedStones.map((stone) => (
+                    {savedStonesList.map((stone) => (
                         <StoneCard
-                            key={stone.id}
-                            stone={stone}
+                            key={stone.slug}
+                            stone={{
+                                id: stone.slug,
+                                slug: stone.slug,
+                                name: stone.name,
+                                thumbnail: stone.thumbnail,
+                                recommended: stone.recommended,
+                            }}
                             aspect="aspect-[4/3]"
-                            href={savedShow.url({ stone: stone.id })}
+                            href={savedShow.url({ stone: stone.slug } as {
+                                stone: string;
+                            })}
                             saved
-                            onToggleSave={() => toggleSave(stone.id)}
+                            onToggleSave={
+                                canSave
+                                    ? () => toggleSave(stone.slug)
+                                    : undefined
+                            }
                         />
                     ))}
                 </div>
@@ -237,9 +206,10 @@ const Saved = () => {
             <section className="mt-8">
                 <StoneRow
                     title="Recommended for you"
-                    stones={recommendedStones}
+                    stones={recommendedStonesList}
                     savedIds={savedIds}
                     toggleSave={toggleSave}
+                    canSave={canSave}
                 />
             </section>
 

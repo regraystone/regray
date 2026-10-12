@@ -75,6 +75,7 @@ class RolePermissionSeeder extends Seeder
             Permission::ProfileAgendaView->value,
             Permission::InquiriesCreate->value,
             Permission::AgendaCreate->value,
+            Permission::SavedManage->value,
         ],
         Role::Admin->value => [
             Permission::HomeView->value,
@@ -94,6 +95,7 @@ class RolePermissionSeeder extends Seeder
             Permission::HomeProjectsView->value,
             Permission::InquiriesCreate->value,
             Permission::AgendaCreate->value,
+            Permission::SavedManage->value,
         ],
         Role::Owner->value => [
             Permission::OverviewView->value,

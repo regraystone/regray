@@ -6,8 +6,9 @@ use App\Models\Project;
 use App\Models\Stone;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 class StoneRepository implements StoneRepositoryInterface
 {
@@ -25,6 +26,26 @@ class StoneRepository implements StoneRepositoryInterface
                 /** @param Builder<Project> $projects */
                 fn (Builder $projects) => $projects->published()->where('slug', $projectSlug)
             )
+            ->first();
+    }
+
+    public function recommended(): Collection
+    {
+        return Stone::query()
+            ->active()
+            ->where('recommended', true)
+            ->select(['stones.slug', 'stones.name', 'stones.thumbnail_path', 'stones.recommended'])
+            ->orderBy('stones.sort_order')
+            ->orderBy('stones.name')
+            ->get();
+    }
+
+    public function findActiveSummaryBySlug(string $slug): ?Stone
+    {
+        return Stone::query()
+            ->active()
+            ->where('slug', $slug)
+            ->select(['id', 'slug'])
             ->first();
     }
 
@@ -57,9 +78,9 @@ class StoneRepository implements StoneRepositoryInterface
     }
 
     /**
-     * @return Collection<int, array{value: string, label: string}>
+     * @return SupportCollection<int, array{value: string, label: string}>
      */
-    public function activeFilterOptions(): Collection
+    public function activeFilterOptions(): SupportCollection
     {
         return Stone::query()
             ->active()

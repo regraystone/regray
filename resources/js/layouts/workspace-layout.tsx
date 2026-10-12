@@ -89,6 +89,7 @@ export const permissions = {
     homeView: 'home.view',
     overviewView: 'overview.view',
     savedView: 'saved.view',
+    savedManage: 'saved.manage',
     salesView: 'sales.view',
     quotationsView: 'quotations.view',
     inquiriesView: 'inquiries.view',
@@ -360,6 +361,13 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const isConfirmPassword = page.component === 'confirm-password';
     const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
 
+    // Get the stone slug from the page props when on a stone profile page
+    const isStoneProfilePage = page.component === 'stone-profile';
+    const stoneSlug = isStoneProfilePage
+        ? (page.props.stone as { data: { slug: string } } | undefined)?.data
+              ?.slug
+        : undefined;
+
     /*
      * The stepper has no sidebar item of its own; it is nested under the list
      * the user reads their inquiries on, so that list is what stays lit.
@@ -367,19 +375,17 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const isInquire =
         url === quoteInquire.url() || url === inquiryInquire.url();
 
-    const profileSlug = url.split('/')[2];
-    const isStoneProfile =
-        typeof profileSlug === 'string' && Boolean(stoneProfiles[profileSlug]);
     const activePath = isInquire
         ? url.slice(0, url.lastIndexOf('/'))
-        : isStoneProfile && prevUrlRef.current
+        : isStoneProfilePage && prevUrlRef.current
           ? prevUrlRef.current
           : effectiveUrl;
 
     const user = page.props.auth.user;
-    const { savedIds, toggleSave } = useSavedStones();
+    const { savedIds, toggleSave, canSave } = useSavedStones();
     const savedCount = savedIds.size;
-    const isSaved = isStoneProfile && savedIds.has(profileSlug);
+
+    const isSaved = isStoneProfilePage && stoneSlug && savedIds.has(stoneSlug);
 
     useEffect(() => {
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(
@@ -735,7 +741,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 />
             </aside>
 
-            {isStoneProfile && (
+            {isStoneProfilePage && canSave && stoneSlug && (
                 <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 sm:bottom-5">
                     <Button
                         type="button"
@@ -744,11 +750,11 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         className={`h-11 w-11 cursor-pointer shadow-lg ${
                             isSaved ? '' : 'bg-background'
                         }`}
-                        aria-pressed={isSaved}
+                        aria-pressed={isSaved ? 'true' : 'false'}
                         aria-label={
                             isSaved ? 'Remove from saved' : 'Save to collection'
                         }
-                        onClick={() => toggleSave(profileSlug)}
+                        onClick={() => toggleSave(stoneSlug)}
                     >
                         <Heart
                             className={`size-5 ${

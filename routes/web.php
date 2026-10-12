@@ -3,6 +3,7 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Home\ProjectController;
 use App\Http\Controllers\RedirectController;
+use App\Http\Controllers\Saved\SavedStoneController;
 use App\Http\Controllers\StoneProfileController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
@@ -43,7 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('overview', [ViewController::class, 'overview'])
         ->middleware(Permission::OverviewView->middleware())
         ->name('overview.index');
-    Route::get('saved', [ViewController::class, 'saved'])
+    Route::get('saved', [SavedStoneController::class, 'index'])
         ->middleware(Permission::SavedView->middleware())
         ->name('saved.index');
     /*
@@ -54,6 +55,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('saved/{stone}', [StoneProfileController::class, 'show'])
         ->middleware(Permission::SavedView->middleware())
         ->name('saved.show');
+    Route::put('saved/{stone}', [SavedStoneController::class, 'store'])
+        ->middleware([
+            Permission::SavedView->middleware(),
+            Permission::SavedManage->middleware(),
+        ])
+        ->name('saved.store');
+    Route::delete('saved/{stone}', [SavedStoneController::class, 'destroy'])
+        ->middleware([
+            Permission::SavedView->middleware(),
+            Permission::SavedManage->middleware(),
+        ])
+        ->name('saved.destroy');
     Route::get('sales', [ViewController::class, 'sales'])
         ->middleware(Permission::SalesView->middleware())
         ->name('sales.index');

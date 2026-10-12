@@ -92,7 +92,7 @@ class Stone extends Model
     public function savedBy(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'saved_stones')
-            ->withTimestamps();
+            ->withPivot('created_at');
     }
 
     /** @return BelongsToMany<Project, $this> */

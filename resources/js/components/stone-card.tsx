@@ -1,6 +1,8 @@
 import { Link } from '@inertiajs/react';
 import { Check, ExternalLink, Heart, Star } from 'lucide-react';
-import type { Stone } from '@/data/stones';
+import type { StoneCardData } from '@/types/stone';
+
+type Stone = StoneCardData;
 
 const StoneCard = ({
     stone,
@@ -17,7 +19,11 @@ const StoneCard = ({
     stone: Stone;
     aspect: string;
     saved: boolean;
-    onToggleSave: () => void;
+    /**
+     * Optional callback when the user clicks the save heart.
+     * When omitted, no heart is rendered.
+     */
+    onToggleSave?: () => void;
     href?: string;
     /**
      * Turns the card from a link to a stone into a picker.
@@ -42,7 +48,7 @@ const StoneCard = ({
      */
     note?: string;
 }) => {
-    const heart = (
+    const heart = onToggleSave ? (
         <button
             type="button"
             onClick={(event) => {
@@ -65,7 +71,7 @@ const StoneCard = ({
                 aria-hidden
             />
         </button>
-    );
+    ) : null;
 
     const view = viewHref ? (
         <a

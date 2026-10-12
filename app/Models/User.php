@@ -74,7 +74,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function savedStones(): BelongsToMany
     {
         return $this->belongsToMany(Stone::class, 'saved_stones')
-            ->withTimestamps();
+            ->withPivot('created_at');
     }
 
     /** @return BelongsToMany<Conversation, $this> */
