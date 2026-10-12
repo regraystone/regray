@@ -15,10 +15,6 @@ class ConversationSeeder extends Seeder
 {
     public function run(): void
     {
-        if (! config('seed.demo_accounts')) {
-            return;
-        }
-
         $data = require database_path('seeders/data/conversations.php');
 
         $personEmails = [

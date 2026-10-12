@@ -8,15 +8,21 @@ use Illuminate\Database\Seeder;
 
 class UserSeeder extends Seeder
 {
+    /**
+     * Creates additional people and client accounts for demo purposes.
+     *
+     * This seeder is only called from DatabaseSeeder on non-production
+     * environments. A direct production run is blocked by the guard in
+     * DatabaseSeeder, but we also protect ourselves here in case someone
+     * calls this seeder class directly.
+     */
     public function run(): void
     {
-        if (! config('seed.demo_accounts')) {
-            return;
+        if (app()->isProduction()) {
+            throw new \RuntimeException('UserSeeder must not run in production.');
         }
 
         $data = require database_path('seeders/data/clients.php');
-
-        $overrides = config('seed.password') ? ['password' => config('seed.password')] : [];
 
         $roleMapping = [
             'Sales Officer' => Role::Sales,
@@ -32,12 +38,11 @@ class UserSeeder extends Seeder
         foreach ($data['people'] as $person) {
             $role = $roleMapping[$person['role']] ?? Role::Technical;
 
-            $user = User::factory()
+            User::factory()
                 ->role($role)
                 ->create([
                     'name' => $person['name'],
                     'email' => strtolower(str_replace(' ', '.', $person['name'])).'@example.com',
-                    ...$overrides,
                 ]);
         }
 
@@ -48,7 +53,6 @@ class UserSeeder extends Seeder
                 ->create([
                     'name' => $client['name'],
                     'email' => $client['email'],
-                    ...$overrides,
                 ]);
 
             $user->profile()->create([

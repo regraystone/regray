@@ -8,12 +8,15 @@ use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\StoneSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed(RolePermissionSeeder::class);

@@ -2,18 +2,21 @@
 
 namespace Database\Seeders;
 
-use App\Enums\Role;
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seed the application's database.
+ *
+ * Reference data (roles, permissions, stones, edge profiles, categories,
+ * services, projects) is always seeded. On production the seeder stops
+ * there—no demo users are created. On non-production environments the
+ * demo accounts and their related sample data are added afterwards.
+ */
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         $this->call(RolePermissionSeeder::class);
@@ -24,28 +27,11 @@ class DatabaseSeeder extends Seeder
         $this->call(ServiceSeeder::class);
         $this->call(ProjectSeeder::class);
 
-        if (! config('seed.demo_accounts')) {
+        if (app()->isProduction()) {
             return;
         }
 
-        $overrides = config('seed.password')
-            ? ['password' => config('seed.password')]
-            : [];
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            ...$overrides,
-        ]);
-
-        foreach (Role::cases() as $role) {
-            User::factory()->role($role)->create([
-                'name' => ucfirst($role->value),
-                'email' => $role->value.'@example.com',
-                ...$overrides,
-            ]);
-        }
-
+        $this->call(DemoAccountsSeeder::class);
         $this->call(UserSeeder::class);
         $this->call(SavedStoneSeeder::class);
         $this->call(InquirySeeder::class);

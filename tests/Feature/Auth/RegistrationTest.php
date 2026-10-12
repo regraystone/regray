@@ -18,9 +18,11 @@ test('registration screen can be rendered', function () {
 test('new users can register and are redirected to the email verification prompt', function () {
     Notification::fake();
 
+    $email = 'new-user-'.fake()->unique()->safeEmail();
+
     $response = $this->post(route('register.store'), [
         'name' => 'Test User',
-        'email' => 'test@example.com',
+        'email' => $email,
         'password' => 'password',
         'password_confirmation' => 'password',
     ]);
@@ -28,5 +30,5 @@ test('new users can register and are redirected to the email verification prompt
     $this->assertAuthenticated();
     $response->assertRedirect(route('verification.notice', absolute: false));
 
-    Notification::assertSentTo(User::where('email', 'test@example.com')->first(), VerifyEmail::class);
+    Notification::assertSentTo(User::where('email', $email)->first(), VerifyEmail::class);
 });

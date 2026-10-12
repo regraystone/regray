@@ -12,10 +12,6 @@ class AgendaSeeder extends Seeder
 {
     public function run(): void
     {
-        if (! config('seed.demo_accounts')) {
-            return;
-        }
-
         $data = require database_path('seeders/data/agenda.php');
 
         $today = Carbon::now()->startOfDay();

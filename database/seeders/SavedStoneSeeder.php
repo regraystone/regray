@@ -10,10 +10,6 @@ class SavedStoneSeeder extends Seeder
 {
     public function run(): void
     {
-        if (! config('seed.demo_accounts')) {
-            return;
-        }
-
         $client = User::where('email', 'client@example.com')->first();
 
         if (! $client) {

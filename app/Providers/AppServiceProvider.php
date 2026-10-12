@@ -8,10 +8,12 @@ use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use App\Repositories\Contracts\SavedStoneRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
+use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\Eloquent\ProjectCategoryRepository;
 use App\Repositories\Eloquent\ProjectRepository;
 use App\Repositories\Eloquent\SavedStoneRepository;
 use App\Repositories\Eloquent\StoneRepository;
+use App\Repositories\Eloquent\UserRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StoneRepositoryInterface::class, StoneRepository::class);
         $this->app->bind(ProjectCategoryRepositoryInterface::class, ProjectCategoryRepository::class);
         $this->app->bind(SavedStoneRepositoryInterface::class, SavedStoneRepository::class);
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
     }
 
     /**
