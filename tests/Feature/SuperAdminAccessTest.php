@@ -24,7 +24,7 @@ beforeEach(function () {
  */
 
 test('the super-admin opens every page', function (string $routeName, array $parameters) {
-    if ($routeName === 'home.show') {
+    if (in_array($routeName, ['home.show', 'home.stone', 'saved.show'], true)) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 

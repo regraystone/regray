@@ -520,6 +520,7 @@ test('an allowed project profile page renders with its project', function () {
 });
 
 test('an allowed stone profile page renders with its stone', function () {
+    $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
@@ -527,8 +528,12 @@ test('an allowed stone profile page renders with its stone', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('stone-profile')
-            ->has('stoneId')
-            ->has('projectId'),
+            ->missing('stoneId')
+            ->missing('projectId')
+            ->where('stone.data.slug', 'patagonia-quartzite')
+            ->where('stone.data.name', 'Patagonia Quartzite')
+            ->where('stone.data.specifications.thicknessMm', 18)
+            ->where('projectSlug', 'ginza-one'),
         );
 });
 
@@ -549,6 +554,7 @@ test('a denied project profile is forbidden whatever project is asked for', func
 });
 
 test('a denied stone profile is forbidden whatever stone is asked for', function () {
+    $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     // The super-admin reaches every page, so the denial is tested on a role
     // that genuinely lacks the permission. The stone under a project and the
     // project itself share the one permission, so both are denied for it.

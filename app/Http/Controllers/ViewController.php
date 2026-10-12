@@ -8,19 +8,6 @@ use Inertia\Response;
 
 class ViewController extends Controller
 {
-    /**
-     * One of a project's stones, read only.
-     *
-     * The stone is read by its place in the project rather than on its own, so
-     * both ids travel as plain strings for the reason given on `project`
-     * above. `saved.show` lands on `stoneProfile` instead, where the stone
-     * stands alone and no project is in the address.
-     */
-    public function homeStone(Request $request, string $project, string $stone): Response
-    {
-        return Inertia::render('stone-profile', ['projectId' => $project, 'stoneId' => $stone]);
-    }
-
     public function overview(Request $request): Response
     {
         return Inertia::render('overview');
@@ -98,11 +85,6 @@ class ViewController extends Controller
     public function stones(Request $request): Response
     {
         return Inertia::render('stones');
-    }
-
-    public function stoneProfile(Request $request, string $stone): Response
-    {
-        return Inertia::render('stone-profile', ['stoneId' => $stone]);
     }
 
     public function services(Request $request): Response

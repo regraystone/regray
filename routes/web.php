@@ -3,6 +3,7 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Home\ProjectController;
 use App\Http\Controllers\RedirectController;
+use App\Http\Controllers\StoneProfileController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,14 +29,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * gone. Both are guarded by `home-projects.view` rather than `home.view`:
      * the feed stays open to any reader of Home, while a project is the
      * portfolio page and says so in its own permission. The parameters stay
-     * plain strings on purpose: the project is now loaded in the repository
+     * plain strings on purpose: the project and its stone are loaded in the repository
      * after permission is settled. SubstituteBindings runs before `can:`, so
      * binding a model would let a forbidden reader probe which slugs exist.
      */
     Route::get('home/{project}', [ProjectController::class, 'show'])
         ->middleware(Permission::HomeProjectsView->middleware())
         ->name('home.show');
-    Route::get('home/{project}/{stone}', [ViewController::class, 'homeStone'])
+    Route::get('home/{project}/{stone}', [StoneProfileController::class, 'showInProject'])
         ->middleware(Permission::HomeProjectsView->middleware())
         ->name('home.stone');
 
@@ -45,7 +46,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('saved', [ViewController::class, 'saved'])
         ->middleware(Permission::SavedView->middleware())
         ->name('saved.index');
-    Route::get('saved/{stone}', [ViewController::class, 'stoneProfile'])
+    /*
+     * Saved is a separate door to the same stone profile and keeps its own guard,
+     * not an alternative with Home's. The repository loads the plain-string slug
+     * after permission; model binding would settle existence before `can:`.
+     */
+    Route::get('saved/{stone}', [StoneProfileController::class, 'show'])
         ->middleware(Permission::SavedView->middleware())
         ->name('saved.show');
     Route::get('sales', [ViewController::class, 'sales'])

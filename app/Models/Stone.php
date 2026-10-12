@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -24,6 +25,11 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon|null $deleted_at
+ * @property-read Collection<int, StoneImage> $images
+ * @property-read Collection<int, Application> $applications
+ * @property-read Collection<int, CareTip> $careTips
+ * @property-read Collection<int, Finish> $finishes
+ * @property-read Collection<int, Project> $projects
  */
 #[Fillable(['slug', 'name', 'thumbnail_path', 'description', 'origin', 'thickness_mm', 'recommended', 'is_active', 'sort_order'])]
 class Stone extends Model
