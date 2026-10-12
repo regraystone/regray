@@ -4,7 +4,10 @@ use App\Enums\Permission;
 use App\Enums\Role;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
+use Database\Seeders\ProjectCategorySeeder;
+use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\StoneSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Collection;
@@ -265,6 +268,10 @@ test('every page permission a role is granted guards a page', function () {
 });
 
 test('each role can open exactly the pages its matrix entry grants', function (string $role) {
+    if (guardsAllow($role, 'home.show')) {
+        $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
+    }
+
     $user = User::factory()->role($role)->create();
 
     foreach (workspacePages() as $name => $parameters) {
@@ -494,6 +501,7 @@ test('each role can open the landing page it is redirected to', function () {
 });
 
 test('an allowed project profile page renders with its project', function () {
+    $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
@@ -501,7 +509,13 @@ test('an allowed project profile page renders with its project', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('project-profile')
-            ->has('projectId'),
+            ->missing('projectId')
+            ->where('project.data.slug', 'ginza-one')
+            ->where('project.data.name', 'Ginza One')
+            ->where('project.data.completedYear', 2024)
+            ->has('project.data.categories', 3)
+            ->has('project.data.stones', 2)
+            ->has('project.data.gallery', 3),
         );
 });
 
@@ -519,6 +533,7 @@ test('an allowed stone profile page renders with its stone', function () {
 });
 
 test('a denied project profile is forbidden whatever project is asked for', function () {
+    $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     // The super-admin reaches every page, so the denial is tested on a role
     // that genuinely lacks the permission.
     $user = User::factory()->role(Role::Technical)->create();
@@ -593,4 +608,15 @@ test('a forbidden JSON request is still JSON', function () {
         ->getJson(route('accounts.index'))
         ->assertForbidden()
         ->assertJsonStructure(['message']);
+});
+
+test('project profiles are granted to exactly client and admin', function (): void {
+    $holders = collect(RolePermissionSeeder::MATRIX)
+        ->filter(fn (array $permissions) => in_array(Permission::HomeProjectsView->value, $permissions, true))
+        ->keys()
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($holders)->toBe([Role::Admin->value, Role::Client->value]);
 });

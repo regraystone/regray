@@ -12,9 +12,9 @@ void createInertiaApp({
         switch (true) {
             case name.startsWith('auth/'):
                 return AuthLayout;
-            // The page a user is denied renders on its own: the workspace
-            // layout would frame it with the navigation they cannot open.
+            // Error pages can render outside the workspace, including for guests.
             case name === 'forbidden':
+            case name === 'not-found':
                 return null;
             default:
                 return WorkspaceLayout;

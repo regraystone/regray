@@ -3,7 +3,10 @@
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\User;
+use Database\Seeders\ProjectCategorySeeder;
+use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\StoneSeeder;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +24,10 @@ beforeEach(function () {
  */
 
 test('the super-admin opens every page', function (string $routeName, array $parameters) {
+    if ($routeName === 'home.show') {
+        $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
+    }
+
     $user = User::factory()->role(Role::Admin)->create();
 
     $this->actingAs($user)

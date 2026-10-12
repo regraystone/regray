@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -46,6 +47,18 @@ class ProjectService
                 'categories' => $categories,
             ],
         ];
+    }
+
+    /** Keep a missing published project a domain lookup failure; the HTTP handler renders its 404. */
+    public function getPublishedProject(string $slug): Project
+    {
+        $project = $this->projectRepository->findPublishedBySlug($slug);
+
+        if ($project === null) {
+            throw (new ModelNotFoundException)->setModel(Project::class, [$slug]);
+        }
+
+        return $project;
     }
 
     public function cleanFilters(ProjectFilterData $filters): ProjectFilterData

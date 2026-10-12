@@ -28,10 +28,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * gone. Both are guarded by `home-projects.view` rather than `home.view`:
      * the feed stays open to any reader of Home, while a project is the
      * portfolio page and says so in its own permission. The parameters stay
-     * plain strings on purpose — see ViewController::project for why existence
-     * cannot be settled before the permission is.
+     * plain strings on purpose: the project is now loaded in the repository
+     * after permission is settled. SubstituteBindings runs before `can:`, so
+     * binding a model would let a forbidden reader probe which slugs exist.
      */
-    Route::get('home/{project}', [ViewController::class, 'project'])
+    Route::get('home/{project}', [ProjectController::class, 'show'])
         ->middleware(Permission::HomeProjectsView->middleware())
         ->name('home.show');
     Route::get('home/{project}/{stone}', [ViewController::class, 'homeStone'])

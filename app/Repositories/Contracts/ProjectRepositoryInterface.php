@@ -8,6 +8,8 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface ProjectRepositoryInterface
 {
+    public function findPublishedBySlug(string $slug): ?Project;
+
     /**
      * @return \Illuminate\Pagination\LengthAwarePaginator<int, Project>
      */

@@ -5,10 +5,37 @@ namespace App\Repositories\Eloquent;
 use App\Data\ProjectFilterData;
 use App\Models\Project;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ProjectRepository implements ProjectRepositoryInterface
 {
+    /**
+     * Load the profile only after permission has been settled, rather than in route binding.
+     * Related keys are retained so Eloquent can match the constrained eager loads.
+     */
+    public function findPublishedBySlug(string $slug): ?Project
+    {
+        return Project::query()
+            ->published()
+            ->where('slug', $slug)
+            ->with([
+                'images' => fn (Relation $images) => $images->getQuery()
+                    ->select(['id', 'project_id', 'path'])
+                    ->orderBy('sort_order'),
+                'stones' => fn (Relation $stones) => $stones->getQuery()
+                    ->select(['stones.id', 'slug', 'name', 'thumbnail_path', 'recommended'])
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('name'),
+                'categories' => fn (Relation $categories) => $categories->getQuery()
+                    ->select(['project_categories.id', 'slug', 'name'])
+                    ->where('is_active', true)
+                    ->orderBy('sort_order'),
+            ])
+            ->first();
+    }
+
     public function paginate(ProjectFilterData $filters, int $perPage): LengthAwarePaginator
     {
         $query = Project::query()

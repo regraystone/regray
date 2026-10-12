@@ -55,20 +55,24 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         /*
-         * A page the user may not open answers with the Inertia forbidden page
+         * A forbidden or missing page answers with its Inertia error page
          * rather than a raw exception. The Gate and the permission middleware
          * both end up here, and by this point the handler has already
-         * normalised them to a plain 403, so the status is what this matches on.
+         * normalised denials to 403 and missing models to 404, so this matches status.
          *
          * It deliberately does not redirect: the button on the page is what
          * takes a user back to their own landing page, so nothing here can
          * bounce them between two pages they may not open.
          */
         $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
-            if ($e->getStatusCode() !== 403 || $request->is('api/*') || $request->expectsJson()) {
+            $status = $e->getStatusCode();
+
+            if (! in_array($status, [403, 404], true) || $request->is('api/*') || $request->expectsJson()) {
                 return null;
             }
 
-            return Inertia::render('forbidden')->toResponse($request)->setStatusCode(403);
+            return Inertia::render($status === 403 ? 'forbidden' : 'not-found')
+                ->toResponse($request)
+                ->setStatusCode($status);
         });
     })->create();

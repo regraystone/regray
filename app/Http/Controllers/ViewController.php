@@ -9,25 +9,6 @@ use Inertia\Response;
 class ViewController extends Controller
 {
     /**
-     * One project, read only.
-     *
-     * The project is mock data in the front end, so the route only carries the
-     * id. The parameter stays a plain string because permission has to be
-     * settled before existence is — see the TODO on inquiryDetails, which is
-     * written the way it is for the same reason.
-     *
-     * TODO: an unknown project, and a stone that is not one of that project's
-     * stones, both render their page's own not-found block today rather than a
-     * 404, exactly as an unknown stone id does. Give both a 404 once the
-     * handler in front of the 403 exists, and keep the permission in front of
-     * it so a reader who may not open a project cannot probe which ids exist.
-     */
-    public function project(Request $request, string $project): Response
-    {
-        return Inertia::render('project-profile', ['projectId' => $project]);
-    }
-
-    /**
      * One of a project's stones, read only.
      *
      * The stone is read by its place in the project rather than on its own, so
