@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Collection;
 interface SavedStoneRepositoryInterface
 {
     /** Active, non-deleted stones the user saved, ordered by sort_order then name. */
+    /**
+     * @return Collection<int, Stone>
+     */
     public function activeStonesFor(User $user): Collection;
 
     /** @return array<int, string> */

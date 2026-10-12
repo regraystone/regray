@@ -11,6 +11,9 @@ use Illuminate\Support\Carbon;
 
 class SavedStoneRepository implements SavedStoneRepositoryInterface
 {
+    /**
+     * @return Collection<int, Stone>
+     */
     public function activeStonesFor(User $user): Collection
     {
         return Stone::query()

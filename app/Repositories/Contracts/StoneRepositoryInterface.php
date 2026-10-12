@@ -13,6 +13,9 @@ interface StoneRepositoryInterface
     public function findActiveInPublishedProject(string $stoneSlug, string $projectSlug): ?Stone;
 
     /** Active, recommended stones, ordered by sort_order then name. */
+    /**
+     * @return Collection<int, Stone>
+     */
     public function recommended(): Collection;
 
     /** Id and slug only, for saving a stone without the heavy profile query. */

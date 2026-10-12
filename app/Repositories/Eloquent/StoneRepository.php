@@ -29,6 +29,9 @@ class StoneRepository implements StoneRepositoryInterface
             ->first();
     }
 
+    /**
+     * @return Collection<int, Stone>
+     */
     public function recommended(): Collection
     {
         return Stone::query()
