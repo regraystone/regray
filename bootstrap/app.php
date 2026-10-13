@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         CreateAdminCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*');
         $middleware->encryptCookies(except: ['sidebar_state']);
 
         $middleware->web(append: [
