@@ -1,3 +1,5 @@
+import { storageUrl } from '@/lib/storage-url';
+
 export type ServiceOption = {
     id: string;
     name: string;
@@ -37,7 +39,7 @@ export const serviceOptions: ServiceOption[] = [
             'Marble, Quartzite, Onyx, Granite, Travertine, and other specialty stones',
             'Sourcing of materials based on project requirements',
         ],
-        image: '/storage/stones/bac6a5d8d41046a9fe8cb35205cbd34c.png',
+        image: storageUrl('stones/bac6a5d8d41046a9fe8cb35205cbd34c.png'),
     },
     {
         id: 'custom-stone-fabrication',
@@ -48,7 +50,7 @@ export const serviceOptions: ServiceOption[] = [
             'Edge profiling and finishing',
             'Fabrication for architectural and furniture applications',
         ],
-        image: '/storage/stones/4b683a754fea6cc2e9c52669a4c2ca34.png',
+        image: storageUrl('stones/4b683a754fea6cc2e9c52669a4c2ca34.png'),
     },
     {
         id: 'natural-stone-installation',
@@ -60,7 +62,7 @@ export const serviceOptions: ServiceOption[] = [
             'Flooring and other architectural applications',
             'Nationwide installation services',
         ],
-        image: '/storage/stones/20845a043f5abd823694192363b27458.png',
+        image: storageUrl('stones/20845a043f5abd823694192363b27458.png'),
     },
     {
         id: 'custom-stone-furniture',
@@ -73,7 +75,7 @@ export const serviceOptions: ServiceOption[] = [
             'Pedestals and other bespoke stone pieces',
             'Made-to-order designs based on client specifications',
         ],
-        image: '/storage/stones/a2a72c93b7369e681b72f0e05380df17.png',
+        image: storageUrl('stones/a2a72c93b7369e681b72f0e05380df17.png'),
     },
     {
         id: 'design-project-consultation',
@@ -84,7 +86,7 @@ export const serviceOptions: ServiceOption[] = [
             'Project assessment',
             'Recommendations based on dimensions, application, and design requirements',
         ],
-        image: '/storage/stones/32429db4b70ad914e80ab79f031e4263.png',
+        image: storageUrl('stones/32429db4b70ad914e80ab79f031e4263.png'),
     },
     {
         id: 'site-ocular-technical-assessment',
@@ -94,7 +96,7 @@ export const serviceOptions: ServiceOption[] = [
             'Measurement and evaluation of site requirements',
             'Technical recommendations for stone applications and installation',
         ],
-        image: '/storage/stones/5b7cb3dae550009c37ad0cb518f4d09f.png',
+        image: storageUrl('stones/5b7cb3dae550009c37ad0cb518f4d09f.png'),
         standalone: true,
     },
     {
@@ -105,7 +107,7 @@ export const serviceOptions: ServiceOption[] = [
             'Safe handling and relocation',
             'Reinstallation while maintaining the integrity of the material',
         ],
-        image: '/storage/stones/8f7804fd9673f34737ecd0c1dfca9723.png',
+        image: storageUrl('stones/8f7804fd9673f34737ecd0c1dfca9723.png'),
         standalone: true,
     },
     {
@@ -117,7 +119,7 @@ export const serviceOptions: ServiceOption[] = [
             'Alignment assessment',
             'Professional cleaning and polishing before project turnover',
         ],
-        image: '/storage/stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png',
+        image: storageUrl('stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png'),
         standalone: true,
     },
     {
@@ -129,7 +131,7 @@ export const serviceOptions: ServiceOption[] = [
             'Custom storage solutions',
             'Integration of cabinetry with natural stone surfaces',
         ],
-        image: '/storage/stones/ef03fcfd4ff0e6063df004f6b897fe7a.png',
+        image: storageUrl('stones/ef03fcfd4ff0e6063df004f6b897fe7a.png'),
     },
 ];
 

@@ -1,7 +1,6 @@
 import { InfiniteScroll, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { ArrowDown, Search, X } from 'lucide-react';
-import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
 import ProjectCard from '@/components/project-card';
 import { Button } from '@/components/ui/button';
@@ -18,64 +17,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
 import type { HomePageProps } from '@/types/home';
-
-const cucineLogo = '/images/brands/cucine_logo.webp';
-const ascaleLogo = '/images/brands/ascale_logo.webp';
-const reformLogo = '/images/brands/reform_logo.webp';
-const resLogo = '/images/brands/res_logo.webp';
-const regrayLogo = '/images/brands/regray-stone.webp';
 const hero = '/images/regray-hero.jpg';
-
-type Brand = {
-    src: string;
-    alt: string;
-    url?: string;
-};
-
-const brandLogos: Brand[] = [
-    { src: regrayLogo, alt: 'Regray Stone', url: 'https://regraystone.com/' },
-    { src: cucineLogo, alt: 'Cucine' },
-    { src: ascaleLogo, alt: 'Ascale' },
-    { src: reformLogo, alt: 'Reform' },
-    { src: resLogo, alt: 'Res Italia' },
-];
-
-const BrandCarousel = () => {
-    return (
-        <section
-            aria-label="Featured in"
-            className="mt-2 border-y border-sidebar-border bg-background py-10"
-        >
-            <div className="flex snap-x snap-proximity [scrollbar-width:none] overflow-x-auto overscroll-x-contain md:justify-center md:overflow-x-visible [&::-webkit-scrollbar]:hidden">
-                <div className="flex gap-6 px-4 sm:gap-8 sm:px-5 md:gap-10">
-                    {brandLogos.map((brand) => (
-                        <button
-                            key={brand.alt}
-                            type="button"
-                            onClick={() => {
-                                if (brand.url) {
-                                    window.open(brand.url, '_blank');
-                                } else {
-                                    toast.info(
-                                        'This feature is currently unavailable.',
-                                    );
-                                }
-                            }}
-                            className="group flex shrink-0 cursor-pointer snap-start transition-transform hover:scale-105 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none motion-reduce:transform-none motion-reduce:hover:scale-100"
-                            aria-label={brand.alt}
-                        >
-                            <img
-                                src={brand.src}
-                                alt=""
-                                className="h-12 w-auto object-contain grayscale sm:h-14"
-                            />
-                        </button>
-                    ))}
-                </div>
-            </div>
-        </section>
-    );
-};
 
 const handleBrowseClick = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -252,7 +194,6 @@ const Home = () => {
     return (
         <div className="mx-auto w-full max-w-6xl">
             <Hero />
-            {/* <BrandCarousel /> */}
             <section
                 id="products"
                 aria-labelledby="products-heading"
