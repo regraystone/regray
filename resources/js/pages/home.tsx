@@ -252,7 +252,7 @@ const Home = () => {
     return (
         <div className="mx-auto w-full max-w-6xl">
             <Hero />
-            <BrandCarousel />
+            {/* <BrandCarousel /> */}
             <section
                 id="products"
                 aria-labelledby="products-heading"
