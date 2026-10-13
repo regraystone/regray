@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Check, ExternalLink, Heart, Star } from 'lucide-react';
+import { useState } from 'react';
 import type { StoneCardData } from '@/types/stone';
 
 type Stone = StoneCardData;
@@ -48,6 +49,20 @@ const StoneCard = ({
      */
     note?: string;
 }) => {
+    /*
+     * The heart only animates when `saved` flips from a tap. Comparing the
+     * previous value during render means the class lands in the same commit,
+     * so the heart never paints a frame in the wrong fill. On mount the two
+     * match, so a heart that was already saved stays still.
+     */
+    const [previousSaved, setPreviousSaved] = useState(saved);
+    const [heartAnimation, setHeartAnimation] = useState('');
+
+    if (previousSaved !== saved) {
+        setPreviousSaved(saved);
+        setHeartAnimation(saved ? 'heart-save' : 'heart-unsave');
+    }
+
     const heart = onToggleSave ? (
         <button
             type="button"
@@ -60,14 +75,15 @@ const StoneCard = ({
             aria-label={
                 saved ? `Remove ${stone.name} from saved` : `Save ${stone.name}`
             }
-            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60"
+            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60 active:scale-90"
         >
             <Heart
+                key={heartAnimation}
                 className={`size-5 ${
                     saved
                         ? 'fill-primary text-primary'
                         : 'text-secondary-foreground'
-                }`}
+                } ${heartAnimation}`}
                 aria-hidden
             />
         </button>

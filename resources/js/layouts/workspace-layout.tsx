@@ -387,6 +387,25 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
 
     const isSaved = isStoneProfilePage && stoneSlug && savedIds.has(stoneSlug);
 
+    /*
+     * The floating heart animates only when a tap flips `isSaved`. The slug is
+     * tracked beside it so arriving on a different stone profile — which also
+     * moves `isSaved` — resets the comparison instead of animating. Comparing
+     * during render keeps the class in the same commit as the flip.
+     */
+    const [previousIsSaved, setPreviousIsSaved] = useState(isSaved);
+    const [savedSlug, setSavedSlug] = useState(stoneSlug);
+    const [heartAnimation, setHeartAnimation] = useState('');
+
+    if (savedSlug !== stoneSlug) {
+        setSavedSlug(stoneSlug);
+        setPreviousIsSaved(isSaved);
+        setHeartAnimation('');
+    } else if (previousIsSaved !== isSaved) {
+        setPreviousIsSaved(isSaved);
+        setHeartAnimation(isSaved ? 'heart-save' : 'heart-unsave');
+    }
+
     useEffect(() => {
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(
             !collapsed,
@@ -747,7 +766,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         type="button"
                         variant={isSaved ? 'default' : 'outline'}
                         size="icon"
-                        className={`h-11 w-11 cursor-pointer shadow-lg ${
+                        className={`h-11 w-11 cursor-pointer shadow-lg active:scale-90 ${
                             isSaved ? '' : 'bg-background'
                         }`}
                         aria-pressed={isSaved ? 'true' : 'false'}
@@ -757,11 +776,12 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         onClick={() => toggleSave(stoneSlug)}
                     >
                         <Heart
+                            key={heartAnimation}
                             className={`size-5 ${
                                 isSaved
                                     ? 'fill-primary-foreground text-primary-foreground'
                                     : 'text-foreground'
-                            }`}
+                            } ${heartAnimation}`}
                             aria-hidden
                         />
                     </Button>

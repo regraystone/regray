@@ -188,6 +188,61 @@
 }
 
 /*
+ * Save/unsave heart. The save pops and lets the fill rise in; the unsave
+ * shrinks and lets the fill fade out. Both only run inside the reduced-motion
+ * query, so users who prefer reduced motion get the fill swap with no
+ * movement. Only `transform` and `fill` change.
+ */
+@keyframes heart-save {
+    0% {
+        transform: scale(0.8);
+        fill: transparent;
+    }
+
+    60% {
+        transform: scale(1.25);
+        fill: currentColor;
+    }
+
+    100% {
+        transform: scale(1);
+        fill: currentColor;
+    }
+}
+
+@keyframes heart-unsave {
+    0% {
+        transform: scale(1);
+        fill: currentColor;
+    }
+
+    50% {
+        transform: scale(0.85);
+    }
+
+    100% {
+        transform: scale(1);
+        fill: transparent;
+    }
+}
+
+@utility heart-save {
+    transform-origin: center;
+
+    @media (prefers-reduced-motion: no-preference) {
+        animation: heart-save 300ms ease-out both;
+    }
+}
+
+@utility heart-unsave {
+    transform-origin: center;
+
+    @media (prefers-reduced-motion: no-preference) {
+        animation: heart-unsave 200ms ease-out both;
+    }
+}
+
+/*
  * Image lightbox. The backdrop only ever fades, while the picture scales up
  * from 0.9 with a small overshoot so it reads as coming forward and settles
  * back to 0.95 on the way out. Radix keeps the dialog mounted until the

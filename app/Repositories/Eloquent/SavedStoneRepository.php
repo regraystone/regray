@@ -18,8 +18,10 @@ class SavedStoneRepository implements SavedStoneRepositoryInterface
     {
         return Stone::query()
             ->active()
-            ->whereHas('savedBy', fn (Builder $query) => $query->where('user_id', $user->id))
+            ->join('saved_stones', 'saved_stones.stone_id', '=', 'stones.id')
+            ->where('saved_stones.user_id', $user->id)
             ->select(['stones.slug', 'stones.name', 'stones.thumbnail_path', 'stones.recommended'])
+            ->orderByDesc('saved_stones.created_at')
             ->orderBy('stones.sort_order')
             ->orderBy('stones.name')
             ->get();
