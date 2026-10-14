@@ -3,17 +3,25 @@ name: tests
 on:
   push:
     branches:
+      - dev
       - main
   pull_request:
+    branches:
+      - dev
+      - main
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  ci:
+  tests:
     runs-on: ubuntu-latest
 
-    # composer setup copies .env.example to .env, which names the application's
+    # Application setup copies .env.example to .env, which names the application's
     # own database. The Feature suite runs migrate:fresh, so pointing that at
     # the real database would wipe it. Redirect it to the throwaway one so a
     # single database serves both the setup migration and the tests.
@@ -44,12 +52,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
           # pdo_pgsql is not in setup-php's default set, and the whole suite
@@ -59,12 +67,44 @@ jobs:
           coverage: none
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
       - name: Setup Application
-        run: composer setup
+        run: |
+          composer install --no-interaction --prefer-dist
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          php artisan key:generate --no-interaction
+          php artisan migrate --force --no-interaction
+          php artisan wayfinder:generate --no-interaction
+          npm ci
+          npm run build
 
       - name: Run CI Checks
         run: composer ci:check
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          push: false
+          build-args: |
+            VITE_ASSET_URL=https://example.invalid
+          cache-from: type=gha,scope=tests-app
+          cache-to: type=gha,mode=max,scope=tests-app
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          push: false
+          build-args: |
+            VITE_ASSET_URL=https://example.invalid
+          cache-from: type=gha,scope=tests-web
+          cache-to: type=gha,mode=max,scope=tests-web
