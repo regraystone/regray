@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\Role;
+use App\Notifications\QueuedResetPassword;
+use App\Notifications\QueuedVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -36,6 +38,16 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable;
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new QueuedVerifyEmail);
+    }
+
+    public function sendPasswordResetNotification(mixed $token): void
+    {
+        $this->notify(new QueuedResetPassword($token));
+    }
 
     /**
      * The user's first Spatie role, used for landing-page redirects.
