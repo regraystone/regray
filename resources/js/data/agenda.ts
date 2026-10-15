@@ -79,7 +79,7 @@ const MOCK_ITEMS: MockItem[] = [
     },
     {
         id: 'apt-06',
-        title: 'Showroom visit',
+        title: 'Showroom visitss',
         week: 'current',
         day: 2,
         hour: 14,
