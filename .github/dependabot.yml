@@ -13,10 +13,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # Vite+ aliases vite to @voidzero-dev/vite-plus-core. Update these manually with the vp commands, not with Dependabot.
     ignore:
+      - dependency-name: "vite"
       - dependency-name: "vite-plus"
-        update-types:
-          - "version-update:semver-major"
+      - dependency-name: "@voidzero-dev/*"
       - dependency-name: "typescript"
         update-types:
           - "version-update:semver-major"
