@@ -1,0 +1,16 @@
+# Local only: Compose auto-loads this file. Do not deploy it.
+# Use only -f docker-compose.yml in production.
+services:
+    # Share local public/private files between PHP processes and preserve uploads.
+    app:
+        volumes:
+            - ./storage/app:/var/www/html/storage/app
+    worker:
+        volumes:
+            - ./storage/app:/var/www/html/storage/app
+    scheduler:
+        volumes:
+            - ./storage/app:/var/www/html/storage/app
+    web:
+        volumes:
+            - ./storage/app/public:/var/www/html/public/storage:ro

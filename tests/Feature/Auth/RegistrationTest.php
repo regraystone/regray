@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\QueuedVerifyEmail;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
 
@@ -30,5 +30,5 @@ test('new users can register and are redirected to the email verification prompt
     $this->assertAuthenticated();
     $response->assertRedirect(route('verification.notice', absolute: false));
 
-    Notification::assertSentTo(User::where('email', $email)->first(), VerifyEmail::class);
+    Notification::assertSentTo(User::where('email', $email)->first(), QueuedVerifyEmail::class);
 });

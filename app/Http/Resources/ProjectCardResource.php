@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /** @mixin Project */
 class ProjectCardResource extends JsonResource
@@ -25,6 +26,12 @@ class ProjectCardResource extends JsonResource
             return $path;
         }
 
-        return '/storage/'.$path;
+        $disk = config('filesystems.public_disk');
+
+        if ($disk === 'public') {
+            return '/storage/'.$path;
+        }
+
+        return Storage::disk($disk)->url($path);
     }
 }
