@@ -58,7 +58,7 @@ jobs:
           printf 'owner=%s\n' "$OWNER" >> "$GITHUB_OUTPUT"
 
       - name: Build and push app image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
@@ -73,7 +73,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=production-app
 
       - name: Build and push web image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
