@@ -1,4 +1,4 @@
-import { AgendaStatusBadge } from '@/components/agenda/agenda-status-badge';
+import { ScheduleStatusBadge } from '@/components/schedule/schedule-status-badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -8,7 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { AgendaItem } from '@/data/agenda';
+import type { ScheduleItem } from '@/data/schedule';
 import { formatFullDate, formatTime } from '@/lib/date';
 
 /**
@@ -24,7 +24,7 @@ const EventDialog = ({
     item,
     onClose,
 }: {
-    item: AgendaItem | null;
+    item: ScheduleItem | null;
     onClose: () => void;
 }) => (
     <Dialog
@@ -49,7 +49,7 @@ const EventDialog = ({
                             <span className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
                                 Status
                             </span>
-                            <AgendaStatusBadge status={item.status} />
+                            <ScheduleStatusBadge status={item.status} />
                         </div>
 
                         <dl className="divide-y divide-sidebar-border">

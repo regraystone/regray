@@ -48,12 +48,12 @@ class RolePermissionSeeder extends Seeder
      * the sales role is a person, `sales.view` is the Sales page, and no role
      * below happens to be granted it by name.
      *
-     * The client holds `profile-agenda.view` where the staff who read the week
-     * hold `agenda.view`: the agenda is one page with two URLs, and each role is
+     * The client holds `profile-schedule.view` where the staff who read the week
+     * hold `schedule.view`: the schedule is one page with two URLs, and each role is
      * given the door that suits them. A client reaches it from their Profile
-     * page and has no Agenda in the sidebar; owner, marketing, sales, technical
+     * page and has no Schedule in the sidebar; owner, marketing, sales, technical
      * and logistics reach it from the sidebar and are not offered the Profile
-     * door. The client keeps `agenda.create` either way, because booking a visit
+     * door. The client keeps `schedule.create` either way, because booking a visit
      * is allowed from the appropriate door depending on which URL they use.
      *
      * `home-projects.view` goes to the client and to the super-admin and to
@@ -72,9 +72,9 @@ class RolePermissionSeeder extends Seeder
             Permission::QuotationsView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
-            Permission::ProfileAgendaView->value,
+            Permission::ProfileScheduleView->value,
             Permission::InquiriesCreate->value,
-            Permission::AgendaCreate->value,
+            Permission::ScheduleCreate->value,
             Permission::SavedManage->value,
         ],
         Role::Admin->value => [
@@ -84,43 +84,43 @@ class RolePermissionSeeder extends Seeder
             Permission::SalesView->value,
             Permission::QuotationsView->value,
             Permission::InquiriesView->value,
-            Permission::AgendaView->value,
+            Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::StonesView->value,
             Permission::ServicesView->value,
             Permission::AccountsView->value,
             Permission::ProjectsView->value,
             Permission::ProfileView->value,
-            Permission::ProfileAgendaView->value,
+            Permission::ProfileScheduleView->value,
             Permission::HomeProjectsView->value,
             Permission::InquiriesCreate->value,
-            Permission::AgendaCreate->value,
+            Permission::ScheduleCreate->value,
             Permission::SavedManage->value,
         ],
         Role::Owner->value => [
             Permission::OverviewView->value,
             Permission::SalesView->value,
             Permission::InquiriesView->value,
-            Permission::AgendaView->value,
+            Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
         ],
         Role::Marketing->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
-            Permission::AgendaView->value,
+            Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::InquiriesCreate->value,
-            Permission::AgendaCreate->value,
+            Permission::ScheduleCreate->value,
         ],
         Role::Sales->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
-            Permission::AgendaView->value,
+            Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
-            Permission::AgendaCreate->value,
+            Permission::ScheduleCreate->value,
         ],
         Role::Accounting->value => [
             Permission::OverviewView->value,
@@ -132,18 +132,18 @@ class RolePermissionSeeder extends Seeder
         Role::Technical->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
-            Permission::AgendaView->value,
+            Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
-            Permission::AgendaCreate->value,
+            Permission::ScheduleCreate->value,
         ],
         Role::Logistics->value => [
             Permission::OverviewView->value,
             Permission::InquiriesView->value,
-            Permission::AgendaView->value,
+            Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
-            Permission::AgendaCreate->value,
+            Permission::ScheduleCreate->value,
         ],
     ];
 

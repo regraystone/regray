@@ -43,7 +43,7 @@ function workspacePages(): array
         'inquiry.inquire' => [],
         'quote.show' => ['inquiry' => 'inq-1048'],
         'inquiry.show' => ['inquiry' => 'inq-1048'],
-        'agenda.index' => [],
+        'schedule.index' => [],
         'message.index' => [],
         'stones.index' => [],
         'services.index' => [],
@@ -51,7 +51,7 @@ function workspacePages(): array
         'projects.index' => [],
         'profile.show' => [],
         'profile.edit' => [],
-        'profile.agenda' => [],
+        'profile.schedule' => [],
     ];
 }
 
@@ -202,7 +202,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['inquiry.inquire', [Permission::InquiriesView->value, Permission::InquiriesCreate->value]],
     ['quote.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
     ['inquiry.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
-    ['agenda.index', [Permission::AgendaView->value]],
+    ['schedule.index', [Permission::ScheduleView->value]],
     ['message.index', [Permission::MessagesView->value]],
     ['stones.index', [Permission::StonesView->value]],
     ['services.index', [Permission::ServicesView->value]],
@@ -212,7 +212,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['profile.edit', [Permission::ProfileView->value]],
     ['profile.update', [Permission::ProfileView->value]],
     ['profile.destroy', [Permission::ProfileView->value]],
-    ['profile.agenda', [Permission::ProfileView->value, Permission::ProfileAgendaView->value]],
+    ['profile.schedule', [Permission::ProfileView->value, Permission::ProfileScheduleView->value]],
     ['security.edit', [Permission::ProfileView->value]],
     ['user-password.update', [Permission::ProfileView->value]],
 ]);
@@ -257,7 +257,7 @@ test('every page permission a role is granted guards a page', function () {
      *
      * An action permission guards something a user does rather than somewhere
      * they go: `inquiries.create` is read by the stepper's route, and
-     * `agenda.create` is read by a button on a page the reader is already on.
+     * `schedule.create` is read by a button on a page the reader is already on.
      * Neither is a page guard, so neither belongs in the set checked here.
      */
     $granted = collect(RolePermissionSeeder::MATRIX)
@@ -337,7 +337,7 @@ test('the create permission is granted to exactly the two roles that use it', fu
 test('booking a visit is granted to exactly the five roles that book', function () {
     $holders = collect(RolePermissionSeeder::MATRIX)
         ->reject(fn (array $permissions, string $role) => $role === Role::superAdmin()->value)
-        ->filter(fn (array $permissions) => in_array(Permission::AgendaCreate->value, $permissions, true))
+        ->filter(fn (array $permissions) => in_array(Permission::ScheduleCreate->value, $permissions, true))
         ->keys()
         ->sort()
         ->values()
@@ -362,14 +362,14 @@ test('booking a visit is granted to exactly the five roles that book', function 
     ]);
 });
 
-test('booking a visit is granted to nobody who cannot open the agenda', function () {
+test('booking a visit is granted to nobody who cannot open the schedule', function () {
     /*
-     * The button lives on the agenda page, so a role that may not read the week
+     * The button lives on the schedule page, so a role that may not read the week
      * has no page to be offered it on.
      *
      * Either door counts, because the page is on show at two URLs: the sidebar
-     * one guarded by `agenda.view` and the Profile one by
-     * `profile-agenda.view`. A client books their own visit and reads the week
+     * one guarded by `schedule.view` and the Profile one by
+     * `profile-schedule.view`. A client books their own visit and reads the week
      * through the Profile hub, so holding the second without the first is the
      * arrangement that has to be accepted rather than read as a mistake.
      */
@@ -378,11 +378,11 @@ test('booking a visit is granted to nobody who cannot open the agenda', function
             continue;
         }
 
-        if (in_array(Permission::AgendaCreate->value, RolePermissionSeeder::MATRIX[$role], true)) {
+        if (in_array(Permission::ScheduleCreate->value, RolePermissionSeeder::MATRIX[$role], true)) {
             // At least one door, not both: toContain() here would assert the
             // opposite of what is being checked.
             expect(array_intersect(
-                [Permission::AgendaView->value, Permission::ProfileAgendaView->value],
+                [Permission::ScheduleView->value, Permission::ProfileScheduleView->value],
                 RolePermissionSeeder::MATRIX[$role],
             ))->not->toBeEmpty();
         }
@@ -391,17 +391,17 @@ test('booking a visit is granted to nobody who cannot open the agenda', function
     expect(true)->toBeTrue();
 });
 
-test('the two agenda doors are given to roles that do not hold both', function (string $role) {
+test('the two schedule doors are given to roles that do not hold both', function (string $role) {
     /*
-     * Each role is meant to reach the agenda one way and not the other, so this
+     * Each role is meant to reach the schedule one way and not the other, so this
      * pins both halves: a client through the Profile hub with no sidebar entry,
      * and a staff reader of the week with no Profile door. Without it, granting
      * a role both permissions would quietly open the other door as well, and
      * nothing else here would notice.
      */
     $granted = RolePermissionSeeder::MATRIX[$role];
-    $bySidebar = in_array(Permission::AgendaView->value, $granted, true);
-    $byProfile = in_array(Permission::ProfileAgendaView->value, $granted, true);
+    $bySidebar = in_array(Permission::ScheduleView->value, $granted, true);
+    $byProfile = in_array(Permission::ProfileScheduleView->value, $granted, true);
 
     if ($role === Role::superAdmin()->value) {
         // The super-admin is granted every permission by having everything, so
@@ -480,7 +480,7 @@ test('the stepper route is matched ahead of the details route under it', functio
 test('the enum declares exactly the two action permissions', function () {
     // Anything in the enum whose action is not a form of `view` is an action
     // rather than a place, so no sidebar item links to it. The stepper is reached
-    // from Quote and Inquiry; booking a visit is a button on the agenda page the
+    // from Quote and Inquiry; booking a visit is a button on the schedule page the
     // reader is already on. Both are listed here so that a third one has to be
     // said out loud rather than appearing because somebody added an enum case.
     $actions = collect(Permission::cases())
@@ -491,7 +491,7 @@ test('the enum declares exactly the two action permissions', function () {
 
     expect($actions)->toBe([
         Permission::InquiriesCreate->value,
-        Permission::AgendaCreate->value,
+        Permission::ScheduleCreate->value,
         Permission::SavedManage->value,
     ]);
 });

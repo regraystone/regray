@@ -9,9 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('messages', function (Blueprint $table) {
-            $table->foreign('agenda_id')
+            $table->foreign('schedule_id')
                 ->references('id')
-                ->on('agendas')
+                ->on('schedules')
                 ->nullOnDelete();
         });
     }
@@ -19,7 +19,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('messages', function (Blueprint $table) {
-            $table->dropForeign(['agenda_id']);
+            $table->dropForeign(['schedule_id']);
         });
     }
 };

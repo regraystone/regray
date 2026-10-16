@@ -7,14 +7,14 @@ import {
     Ruler,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { AgendaStatusBadge } from '@/components/agenda/agenda-status-badge';
+import { ScheduleStatusBadge } from '@/components/schedule/schedule-status-badge';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { AgendaItem } from '@/data/agenda';
+import type { ScheduleItem } from '@/data/schedule';
 import { dayKey, formatTime, startOfDay } from '@/lib/date';
 
 /**
@@ -57,7 +57,7 @@ const dayHeading = (day: Date, today: Date): string => {
 type DayGroup = {
     key: string;
     heading: string;
-    items: AgendaItem[];
+    items: ScheduleItem[];
 };
 
 /**
@@ -68,7 +68,7 @@ type DayGroup = {
  * free for is the question, and a heading per day answers it before any of the
  * times are read.
  */
-const groupByDay = (items: AgendaItem[], today: Date): DayGroup[] => {
+const groupByDay = (items: ScheduleItem[], today: Date): DayGroup[] => {
     const groups = new Map<string, DayGroup>();
 
     for (const item of items) {
@@ -105,10 +105,10 @@ const UpcomingList = ({
     onCancel,
     emptyAction,
 }: {
-    items: AgendaItem[];
-    onSelect: (item: AgendaItem) => void;
-    onReschedule: (item: AgendaItem) => void;
-    onCancel: (item: AgendaItem) => void;
+    items: ScheduleItem[];
+    onSelect: (item: ScheduleItem) => void;
+    onReschedule: (item: ScheduleItem) => void;
+    onCancel: (item: ScheduleItem) => void;
     emptyAction: ReactNode;
 }) => {
     const upcoming = items
@@ -175,7 +175,7 @@ const UpcomingList = ({
                                         </span>
                                     </button>
 
-                                    <AgendaStatusBadge status={item.status} />
+                                    <ScheduleStatusBadge status={item.status} />
 
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('type', 20);
             $table->text('body')->nullable();
             $table->foreignId('inquiry_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('agenda_id')->nullable();
+            $table->foreignId('schedule_id')->nullable();
             $table->string('announced_status', 20)->nullable();
             $table->timestampTz('created_at');
             $table->timestampTz('edited_at')->nullable();
@@ -24,14 +24,14 @@ return new class extends Migration
 
             $table->index(['conversation_id', 'id']);
             $table->index('inquiry_id');
-            $table->index('agenda_id');
+            $table->index('schedule_id');
         });
 
         DB::statement("
             ALTER TABLE messages ADD CONSTRAINT chk_messages_type CHECK (
-                (type = 'text' AND body IS NOT NULL AND inquiry_id IS NULL AND agenda_id IS NULL AND announced_status IS NULL)
-                OR (type = 'inquiry_card' AND body IS NULL AND inquiry_id IS NOT NULL AND agenda_id IS NULL AND announced_status IS NOT NULL)
-                OR (type = 'agenda_card' AND body IS NULL AND inquiry_id IS NULL AND agenda_id IS NOT NULL AND announced_status IS NOT NULL)
+                (type = 'text' AND body IS NOT NULL AND inquiry_id IS NULL AND schedule_id IS NULL AND announced_status IS NULL)
+                OR (type = 'inquiry_card' AND body IS NULL AND inquiry_id IS NOT NULL AND schedule_id IS NULL AND announced_status IS NOT NULL)
+                OR (type = 'schedule_card' AND body IS NULL AND inquiry_id IS NULL AND schedule_id IS NOT NULL AND announced_status IS NOT NULL)
             )
         ");
     }

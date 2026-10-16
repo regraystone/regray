@@ -1,4 +1,4 @@
-import { type AgendaStatus } from '@/data/agenda';
+import { type ScheduleStatus } from '@/data/schedule';
 
 export const currentUserId = 'me';
 const hero = '/images/regray-hero.jpg';
@@ -19,10 +19,10 @@ export type ChatMessage =
       }
     | {
           id: string;
-          kind: 'agenda';
+          kind: 'schedule';
           sentAt: string;
-          agendaId: string;
-          status: AgendaStatus;
+          scheduleId: string;
+          status: ScheduleStatus;
           bookedBy: 'client' | 'staff';
           senderId?: string;
       };
@@ -77,9 +77,9 @@ export const conversations: Conversation[] = [
         messages: [
             {
                 id: 'ag-1',
-                kind: 'agenda',
+                kind: 'schedule',
                 sentAt: '2026-09-28T10:00:00.000Z',
-                agendaId: 'apt-04',
+                scheduleId: 'apt-04',
                 status: 'requested',
                 bookedBy: 'client',
             },
@@ -91,9 +91,9 @@ export const conversations: Conversation[] = [
             },
             {
                 id: 'ag-2',
-                kind: 'agenda',
+                kind: 'schedule',
                 sentAt: '2026-09-28T11:30:00.000Z',
-                agendaId: 'apt-04',
+                scheduleId: 'apt-04',
                 status: 'confirmed',
                 bookedBy: 'client',
                 senderId: 'maria',
@@ -204,9 +204,9 @@ export const conversations: Conversation[] = [
         messages: [
             {
                 id: 'ag-5',
-                kind: 'agenda',
+                kind: 'schedule',
                 sentAt: '2026-09-26T08:00:00.000Z',
-                agendaId: 'apt-18',
+                scheduleId: 'apt-18',
                 status: 'cancelled',
                 bookedBy: 'client',
             },
@@ -252,18 +252,18 @@ export const conversations: Conversation[] = [
         messages: [
             {
                 id: 'ag-3',
-                kind: 'agenda',
+                kind: 'schedule',
                 sentAt: '2026-09-25T13:00:00.000Z',
-                agendaId: 'apt-06',
+                scheduleId: 'apt-06',
                 status: 'confirmed',
                 bookedBy: 'staff',
                 senderId: 'sofia',
             },
             {
                 id: 'ag-4',
-                kind: 'agenda',
+                kind: 'schedule',
                 sentAt: '2026-09-26T09:00:00.000Z',
-                agendaId: 'apt-03',
+                scheduleId: 'apt-03',
                 status: 'completed',
                 bookedBy: 'staff',
                 senderId: 'sofia',

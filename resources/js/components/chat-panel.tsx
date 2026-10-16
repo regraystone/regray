@@ -1,12 +1,12 @@
 import { ArrowLeft, Info, Paperclip, Phone, Send } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import AgendaThreadCard from '@/components/agenda-thread-card';
+import ScheduleThreadCard from '@/components/schedule-thread-card';
 import InquiryThreadCard from '@/components/inquiry-thread-card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { currentUserId, type Conversation } from '@/data/conversations';
-import { mockAgendaItems } from '@/data/agenda';
+import { mockScheduleItems } from '@/data/schedule';
 import { inquiries } from '@/data/inquiries';
 import { useInitials } from '@/hooks/use-initials';
 import { getPerson } from '@/lib/people';
@@ -34,8 +34,10 @@ const ChatPanel = ({
         ? inquiries.find((item) => item.id === conversation.inquiryId)
         : undefined;
 
-    const agendaItems = mockAgendaItems();
-    const agendaItemsMap = new Map(agendaItems.map((item) => [item.id, item]));
+    const scheduleItems = mockScheduleItems();
+    const scheduleItemsMap = new Map(
+        scheduleItems.map((item) => [item.id, item]),
+    );
 
     useEffect(() => {
         setDraft('');
@@ -146,11 +148,11 @@ const ChatPanel = ({
                         const previous = conversation.messages[index - 1];
                         const next = conversation.messages[index + 1];
 
-                        if (message.kind === 'agenda') {
-                            const agendaItem = agendaItemsMap.get(
-                                message.agendaId,
+                        if (message.kind === 'schedule') {
+                            const scheduleItem = scheduleItemsMap.get(
+                                message.scheduleId,
                             );
-                            if (!agendaItem) return null;
+                            if (!scheduleItem) return null;
 
                             const bookedByName =
                                 message.senderId && message.bookedBy === 'staff'
@@ -158,9 +160,9 @@ const ChatPanel = ({
                                     : undefined;
 
                             return (
-                                <AgendaThreadCard
+                                <ScheduleThreadCard
                                     key={message.id}
-                                    agenda={agendaItem}
+                                    schedule={scheduleItem}
                                     status={message.status}
                                     bookedBy={message.bookedBy}
                                     bookedByName={bookedByName}
@@ -175,11 +177,11 @@ const ChatPanel = ({
                             : getPerson(message.senderId);
                         const isRunStart =
                             !previous ||
-                            previous.kind === 'agenda' ||
+                            previous.kind === 'schedule' ||
                             previous.senderId !== message.senderId;
                         const isRunEnd =
                             !next ||
-                            next.kind === 'agenda' ||
+                            next.kind === 'schedule' ||
                             next.senderId !== message.senderId;
 
                         return (

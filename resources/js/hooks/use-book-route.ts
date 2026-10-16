@@ -1,8 +1,8 @@
 import { usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
-import { book as agendaBook } from '@/routes/agenda';
-import { book as profileAgendaBook } from '@/routes/profile/agenda';
+import { book as scheduleBook } from '@/routes/schedule';
+import { book as profileScheduleBook } from '@/routes/profile/schedule';
 
 /**
  * The booking route for this user, or null if they may not book.
@@ -15,13 +15,13 @@ export function useBookRoute() {
     const { can } = usePermissions();
     const { url } = usePage();
 
-    if (!can(permissions.agendaCreate)) {
+    if (!can(permissions.scheduleCreate)) {
         return null;
     }
 
     if (url.startsWith('/profile')) {
-        return profileAgendaBook;
+        return profileScheduleBook;
     }
 
-    return agendaBook;
+    return scheduleBook;
 }

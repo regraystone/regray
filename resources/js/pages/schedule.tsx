@@ -2,13 +2,13 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Link } from '@inertiajs/react';
-import EventDialog from '@/components/agenda/event-dialog';
-import MiniCalendar from '@/components/agenda/mini-calendar';
-import UpcomingList from '@/components/agenda/upcoming-list';
-import WeekGrid from '@/components/agenda/week-grid';
+import EventDialog from '@/components/schedule/event-dialog';
+import MiniCalendar from '@/components/schedule/mini-calendar';
+import UpcomingList from '@/components/schedule/upcoming-list';
+import WeekGrid from '@/components/schedule/week-grid';
 import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
-import { mockAgendaItems, type AgendaItem } from '@/data/agenda';
+import { mockScheduleItems, type ScheduleItem } from '@/data/schedule';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useBookRoute } from '@/hooks/use-book-route';
 import { permissions } from '@/layouts/workspace-layout';
@@ -55,13 +55,13 @@ const rangeLabel = (days: Date[]): string => {
     return `${formatDayMonth.format(first)} – ${formatDayMonth.format(last)}, ${last.getFullYear()}`;
 };
 
-const Agenda = () => {
+const Schedule = () => {
     const { can } = usePermissions();
-    const items = useMemo(() => mockAgendaItems(), []);
+    const items = useMemo(() => mockScheduleItems(), []);
 
     const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
     const [month, setMonth] = useState(() => startOfDay(new Date()));
-    const [selected, setSelected] = useState<AgendaItem | null>(null);
+    const [selected, setSelected] = useState<ScheduleItem | null>(null);
 
     /*
      * Whether the wide or the narrow week is drawn.
@@ -128,11 +128,11 @@ const Agenda = () => {
      * Whether this reader may book a visit at all.
      *
      * A permission of its own rather than a byproduct of being able to read the
-     * agenda: a client books their own visit and the sales and marketing roles
+     * schedule: a client books their own visit and the sales and marketing roles
      * book one on somebody's behalf, while the roles that only oversee the week
      * are not offered a button that leads nowhere.
      */
-    const canBook = can(permissions.agendaCreate);
+    const canBook = can(permissions.scheduleCreate);
 
     const bookButton = (variant: 'default' | 'outline' = 'default') => {
         if (!canBook || !bookRoute) {
@@ -148,16 +148,16 @@ const Agenda = () => {
         );
     };
 
-    const reschedule = (item: AgendaItem) =>
+    const reschedule = (item: ScheduleItem) =>
         toast.info(`Rescheduling ${item.title} is not available yet.`);
 
-    const cancel = (item: AgendaItem) =>
+    const cancel = (item: ScheduleItem) =>
         toast.info(`Cancelling ${item.title} is not available yet.`);
 
     return (
         <div className="mx-auto w-full max-w-6xl">
             <PageHeading
-                title="Agenda"
+                title="Schedule"
                 description="Your showroom visits"
                 action={bookButton()}
             />
@@ -263,4 +263,4 @@ const Agenda = () => {
     );
 };
 
-export default Agenda;
+export default Schedule;

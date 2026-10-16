@@ -1,5 +1,5 @@
 /*
- * The date arithmetic the agenda page needs, on native Date.
+ * The date arithmetic the schedule page needs, on native Date.
  *
  * No calendar library is installed and none is wanted: a week grid and a month
  * grid are a handful of additions and a comparison, all of which say what they

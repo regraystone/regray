@@ -95,10 +95,10 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Conversation::class, 'conversation_members');
     }
 
-    /** @return HasMany<Agenda, $this> */
-    public function agendas(): HasMany
+    /** @return HasMany<Schedule, $this> */
+    public function schedules(): HasMany
     {
-        return $this->hasMany(Agenda::class, 'client_id');
+        return $this->hasMany(Schedule::class, 'client_id');
     }
 
     /**

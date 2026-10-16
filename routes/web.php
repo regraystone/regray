@@ -121,15 +121,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
         ->name('inquiry.show');
 
-    Route::get('agenda', [ViewController::class, 'agenda'])
-        ->middleware(Permission::AgendaView->middleware())
-        ->name('agenda.index');
-    Route::get('agenda/book', [ViewController::class, 'agendaBook'])
+    Route::get('schedule', [ViewController::class, 'schedule'])
+        ->middleware(Permission::ScheduleView->middleware())
+        ->name('schedule.index');
+    Route::get('schedule/book', [ViewController::class, 'scheduleBook'])
         ->middleware([
-            Permission::AgendaView->middleware(),
-            Permission::AgendaCreate->middleware(),
+            Permission::ScheduleView->middleware(),
+            Permission::ScheduleCreate->middleware(),
         ])
-        ->name('agenda.book');
+        ->name('schedule.book');
     Route::get('message', [ViewController::class, 'message'])
         ->middleware(Permission::MessagesView->middleware())
         ->name('message.index');

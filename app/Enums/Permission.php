@@ -13,18 +13,18 @@ namespace App\Enums;
  *
  * Most are a `view` permission naming a page of its own, so a permission here
  * is usually a guarantee that the sidebar has an entry for it.
- * `ProfileAgendaView` is the first exception and `HomeProjectsView` the second:
+ * `ProfileScheduleView` is the first exception and `HomeProjectsView` the second:
  * each is a view permission with no sidebar entry, naming a place reached from
- * another page rather than a page of its own. `ProfileAgendaView` names the
- * agenda as reached from the Profile page rather than from the Management
+ * another page rather than a page of its own. `ProfileScheduleView` names the
+ * schedule as reached from the Profile page rather than from the Management
  * group, so it says which door a role was given rather than which pages it may
  * see. `HomeProjectsView` names the project profile and the stone profile
  * nested under it, both reached from the Home page, and the entry for that
  * page belongs to `HomeView`.
- * `InquiriesCreate`, `AgendaCreate`, and `SavedManage` are the exceptions to the action
+ * `InquiriesCreate`, `ScheduleCreate`, and `SavedManage` are the exceptions to the action
  * permissions: each guards something a user does rather than somewhere they go. The
  * stepper is a page reached by doing, so its permission is read by a route;
- * `AgendaCreate` guards booking a visit, so a route may name it and pages may link
+ * `ScheduleCreate` guards booking a visit, so a route may name it and pages may link
  * to a booking route when the reader holds it. `SavedManage` gates saving and
  * unsaving a stone, so the write endpoints can be guarded independently of the
  * page permission.
@@ -42,7 +42,7 @@ enum Permission: string
     case SalesView = 'sales.view';
     case QuotationsView = 'quotations.view';
     case InquiriesView = 'inquiries.view';
-    case AgendaView = 'agenda.view';
+    case ScheduleView = 'schedule.view';
     case MessagesView = 'messages.view';
     case StonesView = 'stones.view';
     case ServicesView = 'services.view';
@@ -51,21 +51,21 @@ enum Permission: string
     case ProfileView = 'profile.view';
 
     /**
-     * The agenda as reached from the Profile page, at /profile/agenda.
+     * The schedule as reached from the Profile page, at /profile/schedule.
      *
-     * The same page `AgendaView` guards is on show at two URLs, and each role is
+     * The same page `ScheduleView` guards is on show at two URLs, and each role is
      * given one of them rather than both: a client reads their visits from
-     * their Profile page and has no Agenda in their sidebar, while the staff who
+     * their Profile page and has no Schedule in their sidebar, while the staff who
      * read the week reach it from the sidebar and are not offered the Profile
      * door. Two permissions rather than one so each door can be given on its
      * own, and because a role check is not how anything here authorizes.
      *
      * It is a `view` permission, so it names a place, but it is one of the two
      * view permissions with no sidebar entry: the entry for that page belongs
-     * to `AgendaView`, and holding this one is what puts the button on the
+     * to `ScheduleView`, and holding this one is what puts the button on the
      * Profile hub.
      */
-    case ProfileAgendaView = 'profile-agenda.view';
+    case ProfileScheduleView = 'profile-schedule.view';
 
     /**
      * The project profile and the stone profile nested under it, both reached
@@ -74,7 +74,7 @@ enum Permission: string
      * A project is addressed by its id at `/home/{project}`, and one of that
      * project's stones by its place under it at `/home/{project}/{stone}`, so
      * two routes and one page each. It is a `view` permission, so it names a
-     * place, but like `ProfileAgendaView` it is one of the two with no sidebar
+     * place, but like `ProfileScheduleView` it is one of the two with no sidebar
      * entry: the entry for the Home page belongs to `HomeView`, and holding
      * this one is what lets a reader open a project there and a stone under it.
      *
@@ -85,7 +85,7 @@ enum Permission: string
     case HomeProjectsView = 'home-projects.view';
 
     case InquiriesCreate = 'inquiries.create';
-    case AgendaCreate = 'agenda.create';
+    case ScheduleCreate = 'schedule.create';
 
     /**
      * Saving and unsaving a stone.

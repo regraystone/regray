@@ -2,13 +2,13 @@
 
 This replaces the first draft. The database today only holds authentication, sessions, roles and permissions (the migrations). Everything else is mock data under `resources/js/data`, so those diagrams are **planned** schema. The repo targets **PostgreSQL** (`DB_CONNECTION=pgsql`), so the design uses `timestamptz`, partial unique indexes and CHECK constraints.
 
-| Diagram                   | Status                                                                                                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Auth, access and audit | **Implemented** (Fortify, Spatie permission) and left exactly as it is. Only two new tables connect to it: `audit_logs` and `user_profiles` (clients only) |
-| 2. Stone catalog          | Planned                                                                                                                                                    |
-| 3. Portfolio and services | Planned                                                                                                                                                    |
-| 4. Inquiries              | Planned                                                                                                                                                    |
-| 5. Messaging and agendas  | Planned                                                                                                                                                    |
+| Diagram                    | Status                                                                                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Auth, access and audit  | **Implemented** (Fortify, Spatie permission) and left exactly as it is. Only two new tables connect to it: `audit_logs` and `user_profiles` (clients only) |
+| 2. Stone catalog           | Planned                                                                                                                                                    |
+| 3. Portfolio and services  | Planned                                                                                                                                                    |
+| 4. Inquiries               | Planned                                                                                                                                                    |
+| 5. Messaging and schedules | Planned                                                                                                                                                    |
 
 Not modeled yet on purpose: quotations, invoices and payments (to be designed later). The inquiry statuses `quoted` and `paid` exist, but no price or payment record sits behind them until then.
 
@@ -437,9 +437,9 @@ erDiagram
 
 ---
 
-## 5. Messaging and agendas
+## 5. Messaging and schedules
 
-A conversation is direct or a group, and a group may belong to an inquiry. Besides text, a message can be a **card** that points to an inquiry or an agenda and records which status it announces (so "Booking requested" and "Booking approved" are two messages about one agenda).
+A conversation is direct or a group, and a group may belong to an inquiry. Besides text, a message can be a **card** that points to an inquiry or a schedule and records which status it announces (so "Booking requested" and "Booking approved" are two messages about one schedule).
 
 ```mermaid
 erDiagram
@@ -465,10 +465,10 @@ erDiagram
         bigint id PK
         bigint conversation_id FK "cascade"
         bigint sender_id FK "null, set null, empty for system cards"
-        varchar(20) type "text, inquiry_card, agenda_card"
+        varchar(20) type "text, inquiry_card, schedule_card"
         text body "null, set for text"
         bigint inquiry_id FK "null, set for inquiry_card"
-        bigint agenda_id FK "null, set for agenda_card"
+        bigint schedule_id FK "null, set for schedule_card"
         varchar(20) announced_status "null, status a card announces"
         timestamptz created_at
         timestamptz edited_at "null"
@@ -484,7 +484,7 @@ erDiagram
         bigint size_bytes
         timestamptz created_at
     }
-    agendas {
+    schedules {
         bigint id PK
         bigint client_id FK "restrict, user the visit is for"
         bigint booked_by FK "null, set null, who made the booking"
@@ -515,30 +515,30 @@ erDiagram
     users |o--o{ messages : "sends"
     messages ||--o{ message_attachments : "carries"
     inquiries |o--o{ messages : "announced by"
-    agendas |o--o{ messages : "announced by"
-    users ||--o{ agendas : "is visited"
-    users |o--o{ agendas : "books"
-    users |o--o{ agendas : "approves"
-    inquiries |o--o{ agendas : "visit for"
+    schedules |o--o{ messages : "announced by"
+    users ||--o{ schedules : "is visited"
+    users |o--o{ schedules : "books"
+    users |o--o{ schedules : "approves"
+    inquiries |o--o{ schedules : "visit for"
 ```
 
-| Table                  | Indexes and rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `conversations`        | Unique `inquiry_id` (nullable), unique `direct_key` (nullable). CHECK `type IN ('direct','group')`, `(type = 'direct') = (direct_key IS NOT NULL)`, and `inquiry_id IS NULL OR type = 'group'`. The unique `direct_key` stops two direct chats between the same two people.                                                                                                                                                                                                                                                                                                 |
-| `conversation_members` | Index `user_id`. Unread count = messages with `id` greater than `last_read_message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `messages`             | Index `(conversation_id, id DESC)`. CHECK on `type`: `text` needs `body`, `inquiry_card` needs `inquiry_id` and `announced_status`, `agenda_card` needs `agenda_id` and `announced_status`, and no other combination of those columns may be set. Index `agenda_id`, index `inquiry_id`.                                                                                                                                                                                                                                                                                    |
-| `message_attachments`  | Index `message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `agendas`              | `client_id` is the user the visit is for, who holds the `client` role (validated in the form request). Index `(client_id, arrival_at)`, index `(status, arrival_at)`, index `inquiry_id`. CHECK `status IN ('requested','confirmed','completed','cancelled')`, `booked_by_type IN ('client','staff')`, and `approved_by IS NULL OR approved_at IS NOT NULL` (an approver always has a time; the reverse is allowed so that `ON DELETE SET NULL` on the approver never violates the rule). Posting an agenda card is done by the same service that changes `agendas.status`. |
+| Table                  | Indexes and rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `conversations`        | Unique `inquiry_id` (nullable), unique `direct_key` (nullable). CHECK `type IN ('direct','group')`, `(type = 'direct') = (direct_key IS NOT NULL)`, and `inquiry_id IS NULL OR type = 'group'`. The unique `direct_key` stops two direct chats between the same two people.                                                                                                                                                                                                                                                                                                    |
+| `conversation_members` | Index `user_id`. Unread count = messages with `id` greater than `last_read_message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `messages`             | Index `(conversation_id, id DESC)`. CHECK on `type`: `text` needs `body`, `inquiry_card` needs `inquiry_id` and `announced_status`, `schedule_card` needs `schedule_id` and `announced_status`, and no other combination of those columns may be set. Index `schedule_id`, index `inquiry_id`.                                                                                                                                                                                                                                                                                 |
+| `message_attachments`  | Index `message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `schedules`            | `client_id` is the user the visit is for, who holds the `client` role (validated in the form request). Index `(client_id, arrival_at)`, index `(status, arrival_at)`, index `inquiry_id`. CHECK `status IN ('requested','confirmed','completed','cancelled')`, `booked_by_type IN ('client','staff')`, and `approved_by IS NULL OR approved_at IS NOT NULL` (an approver always has a time; the reverse is allowed so that `ON DELETE SET NULL` on the approver never violates the rule). Posting a schedule card is done by the same service that changes `schedules.status`. |
 
 ---
 
 ## Foreign key actions
 
-| Action     | Used for                                                                                                                                                                                                                                                   |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's projects and their stones, files, message attachments, conversation members and messages.                                                                               |
-| `RESTRICT` | Anything history depends on: `inquiry_project_stones` to stones, edge profiles and finishes, inquiries and agendas to the client's user, `inquiry_handlers` to users. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
-| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `sender_id`, `last_read_message_id`) and the link from an agenda to an inquiry.                                                                          |
+| Action     | Used for                                                                                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's projects and their stones, files, message attachments, conversation members and messages.                                                                                 |
+| `RESTRICT` | Anything history depends on: `inquiry_project_stones` to stones, edge profiles and finishes, inquiries and schedules to the client's user, `inquiry_handlers` to users. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
+| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `sender_id`, `last_read_message_id`) and the link from a schedule to an inquiry.                                                                           |
 
 ---
 
@@ -550,8 +550,8 @@ erDiagram
 4. **Stones:** `stone_type` dropped (identical to `name`), thickness is a single number in millimetres, origin is a plain column, and "Advise me" is an `is_advisory` flag on finishes and edge profiles.
 5. **No clients table.** A client is a user with the `client` role, and the contact fields live in `user_profiles` (clients only), so `users` stays untouched.
 6. **Status history is complete**: `from_status`, `changed_by`, `note`, plus `inquiries.status_changed_at`.
-7. **Agendas** separate who the visit is for (`client_id`) from who made the booking (`booked_by`, `booked_by_type`), and record cancellation.
-8. **Messages**: cards are typed `inquiry_card` and `agenda_card` with an `announced_status`, protected by a CHECK. Added `message_attachments`, `edited_at` and `deleted_at`, and read tracking by `last_read_message_id`.
+7. **Schedules** separate who the visit is for (`client_id`) from who made the booking (`booked_by`, `booked_by_type`), and record cancellation.
+8. **Messages**: cards are typed `inquiry_card` and `schedule_card` with an `announced_status`, protected by a CHECK. Added `message_attachments`, `edited_at` and `deleted_at`, and read tracking by `last_read_message_id`.
 9. **Direct chats** cannot be duplicated (`direct_key`).
 10. **Files** carry disk, MIME type, size and a checksum.
 11. **Users, sessions and the Spatie tables are untouched.** New tables only connect to `users` by foreign key: `audit_logs`, and `user_profiles` for clients.

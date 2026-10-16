@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { currentUserId, type Conversation } from '@/data/conversations';
-import { mockAgendaItems } from '@/data/agenda';
+import { mockScheduleItems } from '@/data/schedule';
 import { inquiries } from '@/data/inquiries';
 import { useInitials } from '@/hooks/use-initials';
 import { getFirstName } from '@/lib/people';
@@ -26,13 +26,13 @@ const getConversationPreview = (conversation: Conversation): string => {
         return inquiry ? `New Inquiry · ${inquiry.reference}` : EMPTY_PREVIEW;
     }
 
-    if (lastMessage.kind === 'agenda') {
-        const agendaItems = mockAgendaItems();
-        const agendaItem = agendaItems.find(
-            (item) => item.id === lastMessage.agendaId,
+    if (lastMessage.kind === 'schedule') {
+        const scheduleItems = mockScheduleItems();
+        const scheduleItem = scheduleItems.find(
+            (item) => item.id === lastMessage.scheduleId,
         );
 
-        if (!agendaItem) {
+        if (!scheduleItem) {
             return EMPTY_PREVIEW;
         }
 
@@ -40,7 +40,7 @@ const getConversationPreview = (conversation: Conversation): string => {
             STATUS_PREVIEW_LABELS[
                 lastMessage.status as keyof typeof STATUS_PREVIEW_LABELS
             ];
-        return `${statusLabel} · ${agendaItem.title}`;
+        return `${statusLabel} · ${scheduleItem.title}`;
     }
 
     if (lastMessage.senderId === currentUserId) {

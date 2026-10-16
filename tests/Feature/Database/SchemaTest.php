@@ -133,7 +133,7 @@ class SchemaTest extends TestCase
     {
         $this->expectException(\Exception::class);
 
-        DB::insert('INSERT INTO messages (conversation_id, sender_id, type, body, inquiry_id, agenda_id, announced_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
+        DB::insert('INSERT INTO messages (conversation_id, sender_id, type, body, inquiry_id, schedule_id, announced_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
             1,
             1,
             'text',

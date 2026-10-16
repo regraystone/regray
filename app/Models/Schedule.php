@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use App\Enums\AgendaStatus;
 use App\Enums\BookedByType;
+use App\Enums\ScheduleStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,7 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $inquiry_id
  * @property string $title
  * @property Carbon $arrival_at
- * @property AgendaStatus $status
+ * @property ScheduleStatus $status
  * @property string|null $notes
  * @property int|null $approved_by
  * @property Carbon|null $approved_at
@@ -27,13 +27,13 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  */
 #[Fillable(['booked_by', 'booked_by_type', 'inquiry_id', 'title', 'arrival_at', 'status', 'notes', 'approved_by', 'approved_at', 'cancelled_at', 'cancel_reason'])]
-class Agenda extends Model
+class Schedule extends Model
 {
     protected function casts(): array
     {
         return [
             'booked_by_type' => BookedByType::class,
-            'status' => AgendaStatus::class,
+            'status' => ScheduleStatus::class,
             'arrival_at' => 'datetime',
             'approved_at' => 'datetime',
             'cancelled_at' => 'datetime',

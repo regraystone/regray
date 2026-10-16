@@ -47,7 +47,7 @@ test('the super-admin opens every page', function (string $routeName, array $par
     ['inquiry.inquire', []],
     ['quote.show', ['inquiry' => 'inq-1048']],
     ['inquiry.show', ['inquiry' => 'inq-1048']],
-    ['agenda.index', []],
+    ['schedule.index', []],
     ['message.index', []],
     ['stones.index', []],
     ['services.index', []],
@@ -55,7 +55,7 @@ test('the super-admin opens every page', function (string $routeName, array $par
     ['projects.index', []],
     ['profile.show', []],
     ['profile.edit', []],
-    ['profile.agenda', []],
+    ['profile.schedule', []],
 ]);
 
 test('the super-admin passes a gate check for any permission', function () {
@@ -114,7 +114,7 @@ test('the super-admin is the only role that opens every page', function (string 
         'sales.index' => [],
         'quote.index' => [],
         'inquiry.index' => [],
-        'agenda.index' => [],
+        'schedule.index' => [],
         'message.index' => [],
         'stones.index' => [],
         'services.index' => [],

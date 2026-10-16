@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import BookingCalendar from '@/components/agenda/booking-calendar';
+import BookingCalendar from '@/components/schedule/booking-calendar';
 import PageHeading from '@/components/page-heading';
 import FormField from '@/components/form-field';
 import { Button } from '@/components/ui/button';
@@ -26,8 +26,8 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { ResultBadge } from '@/components/result-badge';
 import { permissions } from '@/layouts/workspace-layout';
-import { index as agendaIndex } from '@/routes/agenda';
-import { agenda as profileAgenda } from '@/routes/profile';
+import { index as scheduleIndex } from '@/routes/schedule';
+import { schedule as profileSchedule } from '@/routes/profile';
 import { usePermissions } from '@/hooks/use-permissions';
 import { formatFullDate, atTime, startOfDay } from '@/lib/date';
 import {
@@ -64,7 +64,9 @@ const Page = () => {
     const { url } = usePage();
     const { can } = usePermissions();
     const isProfile = url.startsWith('/profile');
-    const agendaHref = isProfile ? profileAgenda.url() : agendaIndex.url();
+    const scheduleHref = isProfile
+        ? profileSchedule.url()
+        : scheduleIndex.url();
     const slots = useMemo(() => bookingSlots(), []);
 
     const [month, setMonth] = useState(() => startOfDay(new Date()));
@@ -177,7 +179,7 @@ const Page = () => {
 
     const dateError = formState.errors.date?.message;
 
-    if (!can(permissions.agendaCreate)) {
+    if (!can(permissions.scheduleCreate)) {
         return null;
     }
 
@@ -292,8 +294,8 @@ const Page = () => {
                                     type="button"
                                     className="w-full sm:w-auto"
                                 >
-                                    <Link href={agendaHref}>
-                                        Back to agenda
+                                    <Link href={scheduleHref}>
+                                        Back to schedule
                                     </Link>
                                 </Button>
                                 <Button
@@ -374,8 +376,8 @@ const Page = () => {
                             </div>
                             <DialogFooter className="mt-8 flex-col gap-3 sm:flex-row sm:justify-center">
                                 <Button asChild>
-                                    <Link href={agendaHref}>
-                                        Back to agenda
+                                    <Link href={scheduleHref}>
+                                        Back to schedule
                                     </Link>
                                 </Button>
                                 <Button

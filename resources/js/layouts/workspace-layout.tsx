@@ -47,7 +47,7 @@ import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
-import { index as agendaIndex } from '@/routes/agenda';
+import { index as scheduleIndex } from '@/routes/schedule';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { logout } from '@/routes';
 import {
@@ -59,7 +59,7 @@ import { index as overviewIndex } from '@/routes/overview';
 import { index as projectsIndex } from '@/routes/projects';
 import { index as stonesIndex } from '@/routes/stones';
 import {
-    agenda as profileAgenda,
+    schedule as profileSchedule,
     edit as editAccountSecurity,
     show as showProfile,
 } from '@/routes/profile';
@@ -77,9 +77,9 @@ import { index as servicesIndex } from '@/routes/services';
  * Keeping the union here means the sidebar's `permission` field is checked
  * against this list rather than being an untyped string.
  *
- * `profileAgendaView` and `homeProjectsView` are listed but no nav item names
+ * `profileScheduleView` and `homeProjectsView` are listed but no nav item names
  * them: each is the permission for a page reached from another page rather
- * than from the sidebar. `profileAgendaView` is the agenda as reached from the
+ * than from the sidebar. `profileScheduleView` is the schedule as reached from the
  * Profile page, and the button for it is drawn there rather than in the
  * sidebar — see the Profile hub page. `homeProjectsView` names the project
  * profile and the stone profile nested under it, both read from Home, where
@@ -93,17 +93,17 @@ export const permissions = {
     salesView: 'sales.view',
     quotationsView: 'quotations.view',
     inquiriesView: 'inquiries.view',
-    agendaView: 'agenda.view',
+    scheduleView: 'schedule.view',
     messagesView: 'messages.view',
     stonesView: 'stones.view',
     servicesView: 'services.view',
     accountsView: 'accounts.view',
     projectsView: 'projects.view',
     profileView: 'profile.view',
-    profileAgendaView: 'profile-agenda.view',
+    profileScheduleView: 'profile-schedule.view',
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
-    agendaCreate: 'agenda.create',
+    scheduleCreate: 'schedule.create',
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -169,11 +169,11 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 permission: permissions.inquiriesView,
             },
             {
-                slug: 'agenda',
-                label: 'Agenda',
-                href: agendaIndex.url(),
+                slug: 'schedule',
+                label: 'Schedule',
+                href: scheduleIndex.url(),
                 icon: Calendar,
-                permission: permissions.agendaView,
+                permission: permissions.scheduleView,
             },
             {
                 slug: 'message',
@@ -453,10 +453,10 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
 
         if (effectiveUrl === editAccountSecurity.url()) {
             crumbs.push({ label: 'Account & Security' });
-        } else if (effectiveUrl === profileAgenda.url()) {
-            crumbs.push({ label: 'Agenda' });
-        } else if (effectiveUrl === '/profile/agenda/book') {
-            crumbs.push({ label: 'Agenda', href: profileAgenda.url() });
+        } else if (effectiveUrl === profileSchedule.url()) {
+            crumbs.push({ label: 'Schedule' });
+        } else if (effectiveUrl === '/profile/schedule/book') {
+            crumbs.push({ label: 'Schedule', href: profileSchedule.url() });
             crumbs.push({ label: 'Book' });
         } else if (effectiveUrl.startsWith(editSecurity.url())) {
             crumbs.push({
