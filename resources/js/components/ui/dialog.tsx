@@ -55,7 +55,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed inset-x-0 bottom-0 top-auto z-50 grid max-h-[90dvh] overflow-y-auto overscroll-contain rounded-none border-t border-border gap-5 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] duration-200 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border sm:p-6 sm:gap-6 sm:pb-6",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed inset-x-0 bottom-0 top-auto z-50 grid max-h-[90dvh] overflow-y-auto overscroll-contain rounded-md border-t border-border gap-5 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] duration-200 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:border sm:p-6 sm:gap-6 sm:pb-6",
           className
         )}
         {...props}

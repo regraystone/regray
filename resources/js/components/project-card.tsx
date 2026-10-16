@@ -14,7 +14,7 @@ const ProjectCard = ({
     priority?: boolean;
 }) => {
     const content = (
-        <article className="stone-card border border-sidebar-border bg-background">
+        <article className="stone-card overflow-hidden rounded-md border border-sidebar-border bg-background">
             <div
                 className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
             >

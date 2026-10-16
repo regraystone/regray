@@ -97,7 +97,7 @@ const ScheduleThreadCard = ({
     const dayTextStrike = status === 'cancelled' ? 'line-through' : '';
 
     const cardContent = (
-        <div className="flex gap-px overflow-hidden bg-sidebar-border">
+        <div className="flex gap-px overflow-hidden rounded-md bg-sidebar-border">
             {/* Date block */}
             <div
                 className={cn(
@@ -174,7 +174,7 @@ const ScheduleThreadCard = ({
             <Link
                 href={detailsHref}
                 aria-label={accessibleLabel}
-                className="mx-auto block w-full max-w-xs overflow-hidden bg-secondary transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
+                className="mx-auto block w-full max-w-xs overflow-hidden rounded-md bg-secondary transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
             >
                 {cardContent}
             </Link>

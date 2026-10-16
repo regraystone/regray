@@ -171,14 +171,14 @@ const CollapsibleCard = ({
     const [open, setOpen] = useState(true);
 
     return (
-        <section className="border border-sidebar-border bg-background">
+        <section className="overflow-hidden rounded-md border border-sidebar-border bg-background">
             <Collapsible open={open} onOpenChange={setOpen}>
                 <h2 className="flex items-center gap-3 px-4 py-3 sm:px-5">
                     <span className="min-w-0 flex-1">{header}</span>
                     {badge}
                     <CollapsibleTrigger
                         aria-label={`${open ? 'Collapse' : 'Expand'} ${name}`}
-                        className="flex size-8 shrink-0 cursor-pointer items-center justify-center text-secondary-foreground transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-secondary-foreground transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
                         <ChevronDown
                             className={`size-4 transition-transform ${
@@ -238,7 +238,7 @@ const DetailsCard = ({
 const CountBadge = ({ count }: { count: number }) => (
     <Badge
         variant="secondary"
-        className="shrink-0 rounded-none px-2 py-0.5 text-[0.65rem] font-bold"
+        className="shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-bold"
     >
         {count}
     </Badge>
@@ -311,7 +311,7 @@ const FileRow = ({ file }: { file: InquiryFile }) => {
 
     return (
         <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-            <span className="flex size-10 shrink-0 items-center justify-center border border-sidebar-border">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
                 {isPdf ? (
                     <FileText className="size-4" aria-hidden />
                 ) : (
@@ -434,7 +434,7 @@ const ProjectCard = ({
                                         src={stone.thumbnail}
                                         alt=""
                                         loading="lazy"
-                                        className="aspect-square w-full object-cover"
+                                        className="aspect-square w-full rounded-md object-cover"
                                     />
                                     {/*
                                      * The count sits opposite the name rather than
@@ -498,7 +498,7 @@ const ProjectCard = ({
                                             src={image}
                                             alt=""
                                             loading="lazy"
-                                            className="size-12 shrink-0 object-cover"
+                                            className="size-12 shrink-0 rounded-md object-cover"
                                         />
                                     ) : null}
                                 </li>
@@ -624,7 +624,7 @@ const InquiryDetailsSkeleton = () => (
                 {[0, 1].map((index) => (
                     <div
                         key={index}
-                        className="border border-sidebar-border bg-background"
+                        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
                     >
                         <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
                             <div className="min-w-0 flex-1 space-y-1.5">
@@ -646,7 +646,7 @@ const InquiryDetailsSkeleton = () => (
                                     {[0, 1, 2].map((tile) => (
                                         <Skeleton
                                             key={tile}
-                                            className="aspect-square w-full rounded-none"
+                                            className="aspect-square w-full rounded-md"
                                         />
                                     ))}
                                 </div>
@@ -705,7 +705,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
          */
         return (
             <div className="mx-auto w-full max-w-6xl py-16">
-                <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
+                <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 rounded-md border border-sidebar-border bg-background px-6 py-16 text-center">
                     <h1 className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
                         Inquiry not found
                     </h1>
@@ -1023,7 +1023,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                             />
                         ))
                     ) : (
-                        <div className="border border-sidebar-border bg-background p-4 sm:p-5">
+                        <div className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5">
                             <p className="text-sm text-secondary-foreground">
                                 This inquiry has no projects on it.
                             </p>

@@ -162,7 +162,7 @@ const ItemBlock = ({
                 right: '2px',
             }}
             className={cn(
-                'absolute z-10 flex items-center overflow-hidden px-2.5 text-left transition-opacity hover:opacity-85 focus-visible:z-20 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                'absolute z-10 flex items-center overflow-hidden rounded-md px-2.5 text-left transition-opacity hover:opacity-85 focus-visible:z-20 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
                 STATUS_BLOCK_STYLES[item.status],
             )}
         >
@@ -240,7 +240,7 @@ const WeekGrid = ({
     const minimumWidth = days.length > 5 ? '38rem' : '18rem';
 
     return (
-        <div className="overflow-auto border border-sidebar-border bg-background">
+        <div className="overflow-auto rounded-md border border-sidebar-border bg-background">
             <div
                 className="grid"
                 style={{

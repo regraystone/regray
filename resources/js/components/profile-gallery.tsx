@@ -34,7 +34,7 @@ const ProfileGallery = ({
             ariaLabel={`${name} gallery`}
             dots
             dotsClassName="absolute bottom-3 left-1/2 -translate-x-1/2"
-            className="relative bg-background"
+            className="relative overflow-hidden rounded-md bg-background"
             controls={
                 images.length > 1 ? (
                     <>
@@ -42,7 +42,7 @@ const ProfileGallery = ({
                             type="button"
                             onClick={() => carouselRef.current?.scrollPrev()}
                             aria-label="Previous photo"
-                            className="absolute inset-y-0 left-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center text-white/80 transition hover:text-white sm:left-4"
+                            className="absolute inset-y-0 left-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center rounded-md text-white/80 transition hover:text-white sm:left-4"
                         >
                             <ChevronLeft
                                 className="size-8 drop-shadow-md"
@@ -53,7 +53,7 @@ const ProfileGallery = ({
                             type="button"
                             onClick={() => carouselRef.current?.scrollNext()}
                             aria-label="Next photo"
-                            className="absolute inset-y-0 right-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center text-white/80 transition hover:text-white sm:right-4"
+                            className="absolute inset-y-0 right-2 z-10 my-auto flex size-10 cursor-pointer items-center justify-center rounded-md text-white/80 transition hover:text-white sm:right-4"
                         >
                             <ChevronRight
                                 className="size-8 drop-shadow-md"

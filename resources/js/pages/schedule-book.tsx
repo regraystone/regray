@@ -237,7 +237,7 @@ const Page = () => {
                                         >
                                             <SelectValue placeholder="Choose a time" />
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-none">
+                                        <SelectContent>
                                             {availableSlots.map((slot) => (
                                                 <SelectItem
                                                     key={slot}
@@ -344,7 +344,7 @@ const Page = () => {
                 }}
             >
                 <DialogContent
-                    className="rounded-none sm:max-w-md"
+                    className="sm:max-w-md"
                     onInteractOutside={(e) => {
                         if (isSending) {
                             e.preventDefault();

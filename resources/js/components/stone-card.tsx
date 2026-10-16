@@ -75,7 +75,7 @@ const StoneCard = ({
             aria-label={
                 saved ? `Remove ${stone.name} from saved` : `Save ${stone.name}`
             }
-            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60 active:scale-90"
+            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-md transition-opacity hover:opacity-60 active:scale-90"
         >
             <Heart
                 key={heartAnimation}
@@ -96,14 +96,14 @@ const StoneCard = ({
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
             aria-label={`View ${stone.name} (opens in a new tab)`}
-            className="grid h-11 w-11 shrink-0 place-items-center text-secondary-foreground transition-opacity hover:opacity-60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-secondary-foreground transition-opacity hover:opacity-60"
         >
             <ExternalLink className="size-5" aria-hidden />
         </a>
     ) : null;
 
     const recommended = stone.recommended ? (
-        <span className="absolute top-0 left-0 flex items-center gap-1 bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+        <span className="absolute top-0 left-0 flex items-center gap-1 rounded-none bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
             <Star
                 className="size-3 shrink-0 fill-white text-white"
                 aria-hidden
@@ -120,7 +120,7 @@ const StoneCard = ({
 
         return (
             <article
-                className={`relative border bg-background ${
+                className={`relative overflow-hidden rounded-md border bg-background ${
                     selected
                         ? 'border-primary ring-2 ring-primary'
                         : 'border-sidebar-border'
@@ -141,7 +141,7 @@ const StoneCard = ({
                     aria-checked={selected}
                     aria-label={stone.name}
                     onClick={onSelect}
-                    className="block w-full cursor-pointer text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="block w-full cursor-pointer rounded-md text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                     <div
                         className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
@@ -156,7 +156,7 @@ const StoneCard = ({
                         {selected ? (
                             <span
                                 aria-hidden
-                                className="absolute top-0 right-0 bg-black p-2 text-white"
+                                className="absolute top-0 right-0 rounded-md bg-black p-2 text-white"
                             >
                                 <Check className="size-3 shrink-0" />
                             </span>
@@ -168,7 +168,7 @@ const StoneCard = ({
                          * also recommended.
                          */}
                         {note ? (
-                            <span className="absolute bottom-0 left-0 bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+                            <span className="absolute bottom-0 left-0 rounded-md bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
                                 {note}
                             </span>
                         ) : null}
@@ -202,7 +202,7 @@ const StoneCard = ({
      * stone. Same answer the project card already gives.
      */
     const content = (
-        <article className="stone-card border border-sidebar-border bg-background">
+        <article className="stone-card overflow-hidden rounded-md border border-sidebar-border bg-background">
             <div
                 className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
             >

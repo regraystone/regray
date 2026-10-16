@@ -44,7 +44,7 @@ const EventDialog = ({
                         </DialogTitle>
                     </DialogHeader>
 
-                    <div className="border border-sidebar-border">
+                    <div className="overflow-hidden rounded-md border border-sidebar-border">
                         <div className="flex items-center justify-between gap-3 border-b border-sidebar-border px-4 py-3">
                             <span className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
                                 Status

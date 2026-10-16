@@ -75,7 +75,7 @@ export const ScheduleStatusBadge = ({ status }: { status: ScheduleStatus }) => {
     return (
         <Badge
             variant={variant}
-            className={`gap-1 rounded-none px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase ${
+            className={`gap-1 rounded-md px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase ${
                 status === 'requested' ? 'border-dashed' : ''
             }`}
         >

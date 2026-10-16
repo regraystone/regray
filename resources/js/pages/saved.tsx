@@ -149,9 +149,9 @@ const Saved = ({ savedStones, recommendedStones }: SavedPageProps) => {
     return (
         <div className="mx-auto w-full max-w-6xl">
             <section>
-                <div className="flex w-full flex-col items-center justify-between gap-6 border border-border bg-primary/5 p-6 sm:flex-row sm:gap-8 sm:px-8 sm:py-7 lg:gap-12 lg:px-10">
+                <div className="flex w-full flex-col items-center justify-between gap-6 rounded-md border border-border bg-primary/5 p-6 sm:flex-row sm:gap-8 sm:px-8 sm:py-7 lg:gap-12 lg:px-10">
                     <div className="flex w-full flex-col items-center gap-4 text-center sm:w-auto sm:flex-row sm:gap-6 sm:text-left">
-                        <span className="grid size-12 shrink-0 place-items-center rounded-none bg-primary text-primary-foreground">
+                        <span className="grid size-12 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
                             <Handshake className="size-6" aria-hidden />
                         </span>
                         <div>

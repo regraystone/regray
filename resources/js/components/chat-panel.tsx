@@ -84,7 +84,7 @@ const ChatPanel = ({
                     size="icon"
                     onClick={onBack}
                     aria-label="Back to conversations"
-                    className="h-11 w-11 shrink-0 cursor-pointer md:hidden"
+                    className="h-11 w-11 shrink-0 cursor-pointer rounded-md md:hidden"
                 >
                     <ArrowLeft className="size-5" aria-hidden />
                 </Button>
@@ -108,7 +108,7 @@ const ChatPanel = ({
                         variant="ghost"
                         size="icon"
                         aria-label="Start a call"
-                        className="cursor-pointer"
+                        className="cursor-pointer rounded-md"
                     >
                         <Phone className="size-5" aria-hidden />
                     </Button>
@@ -117,7 +117,7 @@ const ChatPanel = ({
                         variant="ghost"
                         size="icon"
                         aria-label="View conversation info"
-                        className="cursor-pointer"
+                        className="cursor-pointer rounded-md"
                     >
                         <Info className="size-5" aria-hidden />
                     </Button>
@@ -220,7 +220,7 @@ const ChatPanel = ({
                                     ) : null}
                                     <p
                                         className={cn(
-                                            'max-w-[80%] px-3 py-2 text-sm break-words md:max-w-[65%]',
+                                            'max-w-[80%] rounded-md px-3 py-2 text-sm break-words md:max-w-[65%]',
                                             isOwn
                                                 ? 'bg-primary text-primary-foreground'
                                                 : 'bg-secondary text-foreground',
@@ -241,7 +241,7 @@ const ChatPanel = ({
                     variant="secondary"
                     size="icon"
                     aria-label="Attach a file"
-                    className="size-11 shrink-0 cursor-pointer"
+                    className="size-11 shrink-0 cursor-pointer rounded-md"
                 >
                     <Paperclip className="size-4" aria-hidden />
                 </Button>
@@ -258,7 +258,7 @@ const ChatPanel = ({
                     size="icon"
                     onClick={handleSend}
                     aria-label="Send message"
-                    className="size-11 shrink-0 cursor-pointer"
+                    className="size-11 shrink-0 cursor-pointer rounded-md"
                 >
                     <Send className="size-4" aria-hidden />
                 </Button>

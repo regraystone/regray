@@ -68,7 +68,7 @@ const LightboxTrigger = ({
         <button
             type="button"
             className={cn(
-                'block size-full cursor-pointer p-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset',
+                'block size-full cursor-pointer overflow-hidden rounded-md p-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset',
                 className,
             )}
             onPointerDown={handlePointerDown}
@@ -140,7 +140,7 @@ const ImageLightbox = ({ image, onClose }: ImageLightboxProps) => {
                         alt={shownImage.alt}
                         decoding="async"
                         draggable={false}
-                        className="max-h-[90dvh] max-w-[95vw] object-contain"
+                        className="max-h-[90dvh] max-w-[95vw] rounded-md object-contain"
                     />
                     {/* Every click closes the lightbox, so there is no visible
                         control to show — this stays hidden because screen

@@ -155,7 +155,7 @@ const StoneSpecRow = ({
                     src={stone.thumbnail}
                     alt=""
                     loading="lazy"
-                    className="size-14 shrink-0 object-cover"
+                    className="size-14 shrink-0 rounded-md object-cover"
                 />
                 <p className="min-w-0 text-sm font-bold break-words">
                     {stone.name}
@@ -284,7 +284,7 @@ const StoneSpecRow = ({
                                 >
                                     <SelectValue placeholder="Choose an edge profile" />
                                 </SelectTrigger>
-                                <SelectContent className="rounded-none">
+                                <SelectContent>
                                     {EDGE_PROFILES.map((edge) => (
                                         <SelectItem
                                             key={edge}
@@ -328,7 +328,7 @@ const StoneSpecRow = ({
                                 >
                                     <SelectValue placeholder="Choose a finish" />
                                 </SelectTrigger>
-                                <SelectContent className="rounded-none">
+                                <SelectContent>
                                     {FINISHES.map((finish) => (
                                         <SelectItem
                                             key={finish}
@@ -719,7 +719,7 @@ const InquiryProjectForm = ({
                                 <Badge
                                     key={id}
                                     variant="secondary"
-                                    className="max-w-full rounded-none whitespace-normal text-secondary-foreground"
+                                    className="max-w-full whitespace-normal text-secondary-foreground"
                                 >
                                     {/*
                                      * A service dropped from the catalogue since it was

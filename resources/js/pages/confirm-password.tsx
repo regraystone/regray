@@ -17,7 +17,7 @@ export default function ConfirmPassword() {
             <Head title="Confirm password" />
 
             <div className="flex min-h-[60vh] items-center justify-center">
-                <Card className="w-full max-w-md rounded-none border-border shadow-none">
+                <Card className="w-full max-w-md border-border shadow-none">
                     <CardHeader>
                         <CardTitle>Confirm password</CardTitle>
                         <CardDescription>

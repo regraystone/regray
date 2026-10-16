@@ -36,12 +36,12 @@ export default function StoneTile({
     finish: string;
 }) {
     return (
-        <li className="min-w-0">
+        <li className="min-w-0 rounded-md">
             <img
                 src={stone.thumbnail}
                 alt=""
                 loading="lazy"
-                className="aspect-square w-full object-cover"
+                className="aspect-square w-full rounded-md object-cover"
             />
 
             <div className="mt-3 flex items-baseline justify-between gap-x-3">

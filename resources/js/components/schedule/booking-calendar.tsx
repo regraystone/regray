@@ -43,7 +43,7 @@ const BookingCalendar = ({
 
     return (
         <div
-            className="border border-sidebar-border bg-background p-4 sm:p-6"
+            className="rounded-md border border-sidebar-border bg-background p-4 sm:p-6"
             aria-describedby={error ? describedBy : undefined}
         >
             <CalendarHeader

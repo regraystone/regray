@@ -50,7 +50,7 @@ const Profile = () => {
                                 Schedule
                             </h3>
 
-                            <div className="border border-border bg-background">
+                            <div className="overflow-hidden rounded-md border border-border bg-background">
                                 <Link
                                     href={profileSchedule.url()}
                                     className="group flex min-h-[56px] items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
@@ -86,7 +86,7 @@ const Profile = () => {
                             Account &amp; Security
                         </h3>
 
-                        <div className="border border-border bg-background">
+                        <div className="overflow-hidden rounded-md border border-border bg-background">
                             <Link
                                 href={editAccountSecurity.url()}
                                 className="group flex min-h-[56px] items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
@@ -122,7 +122,7 @@ const Profile = () => {
                             Transaction history
                         </h3>
 
-                        <div className="border border-border bg-background">
+                        <div className="overflow-hidden rounded-md border border-border bg-background">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -130,7 +130,7 @@ const Profile = () => {
                                         'Transaction history is coming soon.',
                                     );
                                 }}
-                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 rounded-md p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
                             >
                                 <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
                                     <Receipt
@@ -162,7 +162,7 @@ const Profile = () => {
                             Help
                         </h3>
 
-                        <div className="border border-border bg-background">
+                        <div className="overflow-hidden rounded-md border border-border bg-background">
                             <Link
                                 href="#"
                                 onClick={(e) => e.preventDefault()}
@@ -201,7 +201,7 @@ const Profile = () => {
                             Session
                         </h3>
 
-                        <div className="space-y-1 border border-border bg-background">
+                        <div className="space-y-1 overflow-hidden rounded-md border border-border bg-background">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -209,7 +209,7 @@ const Profile = () => {
                                         'Switch account is coming soon.',
                                     );
                                 }}
-                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 rounded-md p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
                             >
                                 <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
                                     <ArrowLeftRight

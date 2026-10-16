@@ -6,7 +6,7 @@ export const ResultBadge = ({ status }: { status: 'success' | 'error' }) => {
     return (
         <span
             aria-hidden
-            className={`grid size-16 shrink-0 place-items-center bg-black text-white ${
+            className={`grid size-16 shrink-0 place-items-center rounded-md bg-black text-white ${
                 isSuccess ? 'badge-pop' : 'error-shake'
             }`}
         >

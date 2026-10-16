@@ -60,8 +60,8 @@ const Hero = () => (
 );
 
 const ProjectCardSkeleton = () => (
-    <div className="border border-sidebar-border bg-background">
-        <Skeleton className="aspect-[4/3] w-full rounded-none" />
+    <div className="overflow-hidden rounded-md border border-sidebar-border bg-background">
+        <Skeleton className="aspect-[4/3] w-full rounded-md" />
     </div>
 );
 
@@ -229,7 +229,7 @@ const Home = () => {
                                     type="button"
                                     onClick={handleSearchClear}
                                     aria-label="Clear search"
-                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                 >
                                     <X className="size-4" aria-hidden />
                                 </button>
@@ -248,7 +248,7 @@ const Home = () => {
                                     >
                                         <SelectValue placeholder="All Natural Stones" />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-none">
+                                    <SelectContent>
                                         <SelectItem
                                             value=""
                                             className="rounded-none"
@@ -279,7 +279,7 @@ const Home = () => {
                                     >
                                         <SelectValue placeholder="All Project Categories" />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-none">
+                                    <SelectContent>
                                         <SelectItem
                                             value=""
                                             className="rounded-none"

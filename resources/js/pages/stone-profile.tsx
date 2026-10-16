@@ -51,7 +51,7 @@ const ProjectCard = ({
     onOpen,
 }: HighlightCard & { onOpen: () => void }) => (
     <LightboxTrigger onOpen={onOpen}>
-        <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
+        <figure className="stone-card cursor-pointer overflow-hidden rounded-md border border-sidebar-border bg-background">
             <div className="stone-card-media relative aspect-[4/3] overflow-hidden bg-background">
                 <img
                     src={image}
@@ -61,7 +61,7 @@ const ProjectCard = ({
                     className="absolute inset-0 size-full object-cover"
                 />
                 <div className="image-tint absolute inset-0" aria-hidden />
-                <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 bg-background py-1 pr-2.5 pl-2">
+                <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 rounded-md bg-background py-1 pr-2.5 pl-2">
                     <span className="min-w-0 truncate text-[0.65rem] font-bold tracking-[0.05em] text-foreground uppercase sm:text-[0.8rem] sm:tracking-[0.06em]">
                         {name}
                     </span>
@@ -208,7 +208,7 @@ const StoneProfile = ({
                         {stone.name}
                     </h1>
                     {stone.recommended && (
-                        <span className="mt-6 inline-flex items-center gap-1 bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
+                        <span className="mt-6 inline-flex items-center gap-1 rounded-md bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
                             <Star
                                 className="size-3 shrink-0 fill-white text-white"
                                 aria-hidden

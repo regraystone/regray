@@ -16,7 +16,7 @@ const Forbidden = () => (
         <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-background px-5 py-16 text-foreground">
             <Logo />
 
-            <div className="flex w-full max-w-md flex-col items-center gap-3 border border-sidebar-border px-6 py-12 text-center">
+            <div className="flex w-full max-w-md flex-col items-center gap-3 rounded-md border border-sidebar-border px-6 py-12 text-center">
                 <p className="text-lg font-bold tracking-[-0.03em]">
                     You don&apos;t have access to this page
                 </p>

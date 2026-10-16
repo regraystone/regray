@@ -228,7 +228,7 @@ const Schedule = () => {
                     is coming.
                  */}
                 <aside className="space-y-4">
-                    <div className="border border-sidebar-border bg-background p-4">
+                    <div className="rounded-md border border-sidebar-border bg-background p-4">
                         <MiniCalendar
                             month={month}
                             selectedDay={anchor}

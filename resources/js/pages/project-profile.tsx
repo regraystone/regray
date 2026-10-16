@@ -51,7 +51,7 @@ const ProjectProfile = ({
                 <img
                     src={project.thumbnail}
                     alt={project.name}
-                    className="mt-6 aspect-[4/5] w-full object-cover lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:aspect-[6/7]"
+                    className="mt-6 aspect-[4/5] w-full rounded-md object-cover lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:aspect-[6/7]"
                 />
 
                 <div className="mt-8 flex flex-col md:max-w-2xl lg:col-start-1 lg:row-start-2 lg:mt-0 lg:self-end">

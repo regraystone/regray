@@ -239,7 +239,7 @@ const navLinkClass = ({
     isActive: boolean;
     collapsed: boolean;
 }) =>
-    `relative flex shrink-0 flex-row items-center py-2.5 text-sm transition-opacity hover:opacity-85 ${
+    `relative flex shrink-0 flex-row items-center overflow-hidden rounded-md py-2.5 text-sm transition-opacity hover:opacity-85 ${
         collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-4'
     } ${
         isActive
@@ -325,10 +325,7 @@ const SidebarNav = ({
                                         </Link>
                                     </TooltipTrigger>
                                     {collapsed && (
-                                        <TooltipContent
-                                            side="right"
-                                            className="rounded-none"
-                                        >
+                                        <TooltipContent side="right">
                                             {item.label}
                                         </TooltipContent>
                                     )}
@@ -571,7 +568,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             collapsed ? 'Expand sidebar' : 'Collapse sidebar'
                         }
                         aria-expanded={!collapsed}
-                        className="grid h-10 w-10 place-items-center border border-sidebar-border text-foreground transition-all duration-300 hover:scale-[1.05] hover:opacity-80"
+                        className="grid h-10 w-10 place-items-center rounded-md border border-sidebar-border text-foreground transition-all duration-300 hover:scale-[1.05] hover:opacity-80"
                     >
                         {collapsed ? (
                             <PanelLeftOpen className="size-4" aria-hidden />
@@ -641,7 +638,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             <DropdownMenuTrigger asChild>
                                 <button
                                     type="button"
-                                    className="group flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-80 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2"
+                                    className="group flex h-11 w-11 items-center justify-center rounded-md transition-opacity hover:opacity-80 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2"
                                     aria-label="Account"
                                 >
                                     <Avatar className="h-9 w-9 border border-border sm:size-9">
@@ -656,10 +653,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                 </button>
                             </DropdownMenuTrigger>
 
-                            <DropdownMenuContent
-                                align="end"
-                                className="w-48 rounded-none"
-                            >
+                            <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuItem>
                                     <HelpCircle className="mr-2" />
                                     Help
@@ -703,7 +697,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         <button
                             type="button"
                             onClick={() => setDrawerOpen(true)}
-                            className="grid h-11 w-11 place-items-center transition-opacity hover:opacity-85 lg:hidden"
+                            className="grid h-11 w-11 place-items-center rounded-md transition-opacity hover:opacity-85 lg:hidden"
                             aria-label="Open navigation"
                             aria-expanded={drawerOpen}
                         >
@@ -746,7 +740,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     <button
                         type="button"
                         onClick={() => setDrawerOpen(false)}
-                        className="grid size-9 place-items-center transition-opacity hover:opacity-85"
+                        className="grid size-9 place-items-center rounded-md transition-opacity hover:opacity-85"
                         aria-label="Close navigation"
                     >
                         <X className="size-4" />
