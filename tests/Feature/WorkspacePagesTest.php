@@ -191,10 +191,10 @@ test('each page is guarded by the permissions that name it', function (string $r
 })->with([
     ['home.index', [Permission::HomeView->value]],
     ['home.project', [Permission::HomeProjectsView->value]],
-    ['home.stone', [Permission::HomeView->value]],
+    ['home.stone', [Permission::HomeStoneView->value]],
     ['overview.index', [Permission::OverviewView->value]],
     ['saved.index', [Permission::SavedView->value]],
-    ['saved.show', [Permission::SavedView->value]],
+    ['saved.show', [Permission::SavedStoneView->value]],
     ['sales.index', [Permission::SalesView->value]],
     ['quote.index', [Permission::QuotationsView->value]],
     ['inquiry.index', [Permission::InquiriesView->value]],

@@ -170,8 +170,8 @@ test('each stone door requires its own permission rather than either one', funct
     $this->actingAs($user)->get(route($denied, $parameters))
         ->assertForbidden()->assertInertia(fn (Assert $page) => $page->component('forbidden'));
 })->with([
-    [Permission::HomeView, 'home.stone', 'saved.show'],
-    [Permission::SavedView, 'saved.show', 'home.stone'],
+    [Permission::HomeStoneView, 'home.stone', 'saved.show'],
+    [Permission::SavedStoneView, 'saved.show', 'home.stone'],
 ]);
 
 test('an unknown stone returns the not-found page through both doors', function (): void {
