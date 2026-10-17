@@ -3,7 +3,7 @@ import { addDays, atHour, startOfWeek, weekdayIndex } from '@/lib/date';
 /**
  * Where a booked visit has got to.
  */
-export type AgendaStatus =
+export type ScheduleStatus =
     | 'requested'
     | 'confirmed'
     | 'completed'
@@ -12,14 +12,14 @@ export type AgendaStatus =
 /**
  * One booked visit.
  */
-export type AgendaItem = {
+export type ScheduleItem = {
     id: string;
     title: string;
     /**
      * The time the client needs to be there.
      */
     arrival: Date;
-    status: AgendaStatus;
+    status: ScheduleStatus;
     notes: string;
 };
 
@@ -29,7 +29,7 @@ type MockPlacement = {
     hour: number;
 };
 
-type MockItem = Omit<AgendaItem, 'arrival'> & MockPlacement;
+type MockItem = Omit<ScheduleItem, 'arrival'> & MockPlacement;
 
 const MOCK_ITEMS: MockItem[] = [
     {
@@ -207,7 +207,7 @@ const mockDayIndex = (
     return Math.min(Math.max(todayIndex + day, 0), 6);
 };
 
-export const mockAgendaItems = (today: Date = new Date()): AgendaItem[] => {
+export const mockScheduleItems = (today: Date = new Date()): ScheduleItem[] => {
     const monday = startOfWeek(today);
     const todayIndex = weekdayIndex(today);
 

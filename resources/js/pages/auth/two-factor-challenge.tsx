@@ -130,7 +130,7 @@ export default function TwoFactorChallenge() {
                         <p className="mt-8 text-center text-sm">
                             <button
                                 type="button"
-                                className="inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline focus-visible:underline"
+                                className="inline-flex items-center gap-1 rounded-md font-bold underline-offset-4 hover:underline focus-visible:underline"
                                 onClick={() => toggleRecoveryMode(clearErrors)}
                             >
                                 {authConfigContent.toggleText}{' '}

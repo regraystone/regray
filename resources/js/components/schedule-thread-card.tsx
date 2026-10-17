@@ -2,15 +2,15 @@ import { Link } from '@inertiajs/react';
 import { Clock, User } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import ThreadCardHeader from '@/components/thread-card-header';
-import { StatusBadge } from '@/components/agenda-status-badge';
-import type { AgendaItem, AgendaStatus } from '@/data/agenda';
-import { index as agendaIndex } from '@/routes/agenda';
-import profileAgenda from '@/routes/profile/agenda';
+import { StatusBadge } from '@/components/schedule-status-badge';
+import type { ScheduleItem, ScheduleStatus } from '@/data/schedule';
+import { index as scheduleIndex } from '@/routes/schedule';
+import profileSchedule from '@/routes/profile/schedule';
 import type { Auth } from '@/types';
 import { cn } from '@/lib/utils';
 
 const STATUS_HEADLINES: Record<
-    AgendaStatus,
+    ScheduleStatus,
     Record<'client' | 'staff', string>
 > = {
     requested: {
@@ -31,7 +31,7 @@ const STATUS_HEADLINES: Record<
     },
 };
 
-const dateBlockColorMap: Record<AgendaStatus, string> = {
+const dateBlockColorMap: Record<ScheduleStatus, string> = {
     requested: 'bg-foreground',
     confirmed: 'bg-foreground',
     completed: 'bg-foreground',
@@ -55,21 +55,21 @@ const timeFormatter = new Intl.DateTimeFormat(undefined, {
     minute: '2-digit',
 });
 
-type AgendaThreadCardProps = {
-    agenda: AgendaItem;
-    status: AgendaStatus;
+type ScheduleThreadCardProps = {
+    schedule: ScheduleItem;
+    status: ScheduleStatus;
     bookedBy: 'client' | 'staff';
     bookedByName?: string;
     occurredAt: string;
 };
 
-const AgendaThreadCard = ({
-    agenda,
+const ScheduleThreadCard = ({
+    schedule,
     status,
     bookedBy,
     bookedByName,
     occurredAt,
-}: AgendaThreadCardProps) => {
+}: ScheduleThreadCardProps) => {
     const { auth } = usePage<{ auth: Auth }>().props;
     const headline = STATUS_HEADLINES[status][bookedBy];
 
@@ -82,20 +82,22 @@ const AgendaThreadCard = ({
         return { month, day, weekday };
     };
 
-    const { month, day, weekday } = formatDateParts(agenda.arrival);
-    const time = timeFormatter.format(agenda.arrival);
+    const { month, day, weekday } = formatDateParts(schedule.arrival);
+    const time = timeFormatter.format(schedule.arrival);
 
-    const accessibleLabel = `${headline}: ${agenda.title}, ${weekday} ${day} ${month.toLowerCase()} at ${time}, ${status}${bookedByName ? `, booked by ${bookedByName}` : ''}. View agenda`;
+    const accessibleLabel = `${headline}: ${schedule.title}, ${weekday} ${day} ${month.toLowerCase()} at ${time}, ${status}${bookedByName ? `, booked by ${bookedByName}` : ''}. View schedule`;
 
     const isStaff = auth.roles.includes('staff');
-    const detailsHref = isStaff ? agendaIndex.url() : profileAgenda.book.url();
+    const detailsHref = isStaff
+        ? scheduleIndex.url()
+        : profileSchedule.book.url();
 
     const dateBlockBase = dateBlockColorMap[status];
     const dateBlockTextColor = 'text-background';
     const dayTextStrike = status === 'cancelled' ? 'line-through' : '';
 
     const cardContent = (
-        <div className="flex gap-px overflow-hidden bg-sidebar-border">
+        <div className="flex gap-px overflow-hidden rounded-md bg-sidebar-border">
             {/* Date block */}
             <div
                 className={cn(
@@ -135,7 +137,7 @@ const AgendaThreadCard = ({
                 {/* Title and status badge */}
                 <div className="flex items-start justify-between gap-1">
                     <h3 className="line-clamp-1 text-xs font-bold">
-                        {agenda.title}
+                        {schedule.title}
                     </h3>
                     <StatusBadge status={status} />
                 </div>
@@ -156,9 +158,9 @@ const AgendaThreadCard = ({
                 </div>
 
                 {/* Notes - only show if present */}
-                {agenda.notes ? (
+                {schedule.notes ? (
                     <p className="line-clamp-1 text-xs text-secondary-foreground">
-                        {agenda.notes}
+                        {schedule.notes}
                     </p>
                 ) : null}
             </div>
@@ -172,7 +174,7 @@ const AgendaThreadCard = ({
             <Link
                 href={detailsHref}
                 aria-label={accessibleLabel}
-                className="mx-auto block w-full max-w-xs overflow-hidden bg-secondary transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
+                className="mx-auto block w-full max-w-xs overflow-hidden rounded-md bg-secondary transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
             >
                 {cardContent}
             </Link>
@@ -180,4 +182,4 @@ const AgendaThreadCard = ({
     );
 };
 
-export default AgendaThreadCard;
+export default ScheduleThreadCard;

@@ -2,15 +2,18 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Data\StoneFilterData;
 use App\Models\Stone;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection as SupportCollection;
 
 interface StoneRepositoryInterface
 {
     public function findActiveBySlug(string $slug): ?Stone;
 
-    public function findActiveInPublishedProject(string $stoneSlug, string $projectSlug): ?Stone;
+    /** @return LengthAwarePaginator<int, Stone> */
+    public function paginate(StoneFilterData $filters, int $perPage): LengthAwarePaginator;
 
     /** Active, recommended stones, ordered by sort_order then name. */
     /**
@@ -22,7 +25,7 @@ interface StoneRepositoryInterface
     public function findActiveSummaryBySlug(string $slug): ?Stone;
 
     /**
-     * @return SupportCollection<int, array{value: string, label: string}>
+     * @return array{categories: SupportCollection<int, array{value: string, label: string}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
      */
-    public function activeFilterOptions(): SupportCollection;
+    public function filterOptions(): array;
 }

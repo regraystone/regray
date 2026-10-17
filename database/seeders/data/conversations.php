@@ -12,9 +12,9 @@ return [
             'messages' => [
                 [
                     'id' => 'ag-1',
-                    'kind' => 'agenda',
+                    'kind' => 'schedule',
                     'sent_at' => '2026-09-28T10:00:00Z',
-                    'agenda_id' => 'apt-04',
+                    'schedule_id' => 'apt-04',
                     'announced_status' => 'requested',
                     'sender_id' => null,
                 ],
@@ -27,9 +27,9 @@ return [
                 ],
                 [
                     'id' => 'ag-2',
-                    'kind' => 'agenda',
+                    'kind' => 'schedule',
                     'sent_at' => '2026-09-28T11:30:00Z',
-                    'agenda_id' => 'apt-04',
+                    'schedule_id' => 'apt-04',
                     'announced_status' => 'confirmed',
                     'sender_id' => 'maria',
                 ],
@@ -152,9 +152,9 @@ return [
             'messages' => [
                 [
                     'id' => 'ag-5',
-                    'kind' => 'agenda',
+                    'kind' => 'schedule',
                     'sent_at' => '2026-09-26T08:00:00Z',
-                    'agenda_id' => 'apt-18',
+                    'schedule_id' => 'apt-18',
                     'announced_status' => 'cancelled',
                     'sender_id' => null,
                 ],
@@ -205,17 +205,17 @@ return [
             'messages' => [
                 [
                     'id' => 'ag-3',
-                    'kind' => 'agenda',
+                    'kind' => 'schedule',
                     'sent_at' => '2026-09-25T13:00:00Z',
-                    'agenda_id' => 'apt-06',
+                    'schedule_id' => 'apt-06',
                     'announced_status' => 'confirmed',
                     'sender_id' => 'sofia',
                 ],
                 [
                     'id' => 'ag-4',
-                    'kind' => 'agenda',
+                    'kind' => 'schedule',
                     'sent_at' => '2026-09-26T09:00:00Z',
-                    'agenda_id' => 'apt-03',
+                    'schedule_id' => 'apt-03',
                     'announced_status' => 'completed',
                     'sender_id' => 'sofia',
                 ],

@@ -17,7 +17,7 @@ type ThreadCardHeaderProps = {
 };
 
 /**
- * Shared header for system cards (inquiry, agenda) in the thread.
+ * Shared header for system cards (inquiry, schedule) in the thread.
  *
  * Shows the timestamp and the headline, centered above the card.
  * Extracted so both cards stay identical in appearance.

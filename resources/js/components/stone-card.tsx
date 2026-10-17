@@ -16,6 +16,7 @@ const StoneCard = ({
     onSelect,
     viewHref,
     note,
+    priority = false,
 }: {
     stone: Stone;
     aspect: string;
@@ -48,6 +49,7 @@ const StoneCard = ({
      * would say it was not.
      */
     note?: string;
+    priority?: boolean;
 }) => {
     /*
      * The heart only animates when `saved` flips from a tap. Comparing the
@@ -75,7 +77,7 @@ const StoneCard = ({
             aria-label={
                 saved ? `Remove ${stone.name} from saved` : `Save ${stone.name}`
             }
-            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center transition-opacity hover:opacity-60 active:scale-90"
+            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-md transition-opacity hover:opacity-60 active:scale-90"
         >
             <Heart
                 key={heartAnimation}
@@ -96,14 +98,14 @@ const StoneCard = ({
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
             aria-label={`View ${stone.name} (opens in a new tab)`}
-            className="grid h-11 w-11 shrink-0 place-items-center text-secondary-foreground transition-opacity hover:opacity-60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-secondary-foreground transition-opacity hover:opacity-60"
         >
             <ExternalLink className="size-5" aria-hidden />
         </a>
     ) : null;
 
     const recommended = stone.recommended ? (
-        <span className="absolute top-0 left-0 flex items-center gap-1 bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+        <span className="absolute top-0 left-0 flex items-center gap-1 rounded-none bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
             <Star
                 className="size-3 shrink-0 fill-white text-white"
                 aria-hidden
@@ -113,14 +115,14 @@ const StoneCard = ({
     ) : null;
 
     if (selectable) {
-        // Matches the link card footer: 12px edge padding, 8px gap before the
-        // controls, 36px per control (size-9), and a 52px row (py-2 around a
-        // 36px control). The name's py-4 around a 20px line is also 52px.
-        const namePadding = viewHref ? 'pr-[92px]' : 'pr-14';
+        // Both footer variants are 60px tall: 44px controls with 8px above and
+        // below, or the name and category's 36px with 12px above and below.
+        // Reserve the controls' width plus their 12px right inset.
+        const namePadding = viewHref ? 'pr-[100px]' : 'pr-14';
 
         return (
             <article
-                className={`relative border bg-background ${
+                className={`relative overflow-hidden rounded-md border bg-background ${
                     selected
                         ? 'border-primary ring-2 ring-primary'
                         : 'border-sidebar-border'
@@ -141,7 +143,7 @@ const StoneCard = ({
                     aria-checked={selected}
                     aria-label={stone.name}
                     onClick={onSelect}
-                    className="block w-full cursor-pointer text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="block w-full cursor-pointer rounded-md text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                     <div
                         className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
@@ -149,14 +151,14 @@ const StoneCard = ({
                         <img
                             src={stone.thumbnail}
                             alt=""
-                            loading="lazy"
+                            loading={priority ? 'eager' : 'lazy'}
                             className="absolute inset-0 size-full object-cover"
                         />
                         {recommended}
                         {selected ? (
                             <span
                                 aria-hidden
-                                className="absolute top-0 right-0 bg-black p-2 text-white"
+                                className="absolute top-0 right-0 rounded-md bg-black p-2 text-white"
                             >
                                 <Check className="size-3 shrink-0" />
                             </span>
@@ -168,16 +170,19 @@ const StoneCard = ({
                          * also recommended.
                          */}
                         {note ? (
-                            <span className="absolute bottom-0 left-0 bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+                            <span className="absolute bottom-0 left-0 rounded-md bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
                                 {note}
                             </span>
                         ) : null}
                     </div>
                     {/* The right padding clears the footer controls. */}
                     <span
-                        className={`block min-w-0 truncate py-4 pl-3 text-sm font-bold text-foreground ${namePadding}`}
+                        className={`block min-w-0 py-3 pl-3 text-sm font-bold text-foreground ${namePadding}`}
                     >
-                        {stone.name}
+                        <span className="block truncate">{stone.name}</span>
+                        <span className="block truncate text-xs font-normal text-secondary-foreground">
+                            {stone.category.name}
+                        </span>
                     </span>
                 </button>
 
@@ -202,21 +207,26 @@ const StoneCard = ({
      * stone. Same answer the project card already gives.
      */
     const content = (
-        <article className="stone-card border border-sidebar-border bg-background">
+        <article className="stone-card overflow-hidden rounded-md border border-sidebar-border bg-background">
             <div
                 className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
             >
                 <img
                     src={stone.thumbnail}
                     alt={stone.name}
-                    loading="lazy"
+                    loading={priority ? 'eager' : 'lazy'}
                     className="absolute inset-0 size-full object-cover"
                 />
                 {recommended}
             </div>
-            <div className="flex items-center justify-between gap-2 px-3 py-2">
-                <span className="min-w-0 truncate text-sm font-bold text-foreground">
-                    {stone.name}
+            <div className="flex min-h-[60px] items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-foreground">
+                        {stone.name}
+                    </span>
+                    <span className="block truncate text-xs text-secondary-foreground">
+                        {stone.category.name}
+                    </span>
                 </span>
                 {heart}
                 {view}

@@ -1,9 +1,9 @@
 import {
-    AGENDA_STATUS_LABELS,
+    SCHEDULE_STATUS_LABELS,
     isStruck,
     STATUS_BLOCK_STYLES,
-} from '@/components/agenda/agenda-status-badge';
-import type { AgendaItem } from '@/data/agenda';
+} from '@/components/schedule/schedule-status-badge';
+import type { ScheduleItem } from '@/data/schedule';
 import {
     atHour,
     formatFullDate,
@@ -41,7 +41,7 @@ const HOURS = Array.from(
 );
 
 /** Where an arrival sits, counted in hour slots from the top of the grid. */
-const slotOf = (item: AgendaItem): number =>
+const slotOf = (item: ScheduleItem): number =>
     item.arrival.getHours() - OPEN_HOUR;
 
 /**
@@ -52,7 +52,7 @@ const slotOf = (item: AgendaItem): number =>
  * hour grows to hold them.
  */
 type Placement = {
-    item: AgendaItem;
+    item: ScheduleItem;
     slot: number;
     row: number;
 };
@@ -63,8 +63,8 @@ type Placement = {
  * Grouped by hour rather than by arrival, so visits expected at 10:00 and 10:45
  * are recognised as sharing a row. Within an hour they are ordered by arrival.
  */
-const placeBlocks = (day: Date, items: AgendaItem[]): Placement[] => {
-    const byHour = new Map<number, AgendaItem[]>();
+const placeBlocks = (day: Date, items: ScheduleItem[]): Placement[] => {
+    const byHour = new Map<number, ScheduleItem[]>();
 
     for (const item of items) {
         if (!isSameDay(item.arrival, day)) {
@@ -134,10 +134,10 @@ const ItemBlock = ({
 }: {
     placement: Placement;
     rowTops: number[];
-    onSelect: (item: AgendaItem) => void;
+    onSelect: (item: ScheduleItem) => void;
 }) => {
     const { item, slot, row } = placement;
-    const status = AGENDA_STATUS_LABELS[item.status].toLowerCase();
+    const status = SCHEDULE_STATUS_LABELS[item.status].toLowerCase();
 
     /*
      * The status is in the accessible name rather than in the block, which has
@@ -162,7 +162,7 @@ const ItemBlock = ({
                 right: '2px',
             }}
             className={cn(
-                'absolute z-10 flex items-center overflow-hidden px-2.5 text-left transition-opacity hover:opacity-85 focus-visible:z-20 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                'absolute z-10 flex items-center overflow-hidden rounded-md px-2.5 text-left transition-opacity hover:opacity-85 focus-visible:z-20 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
                 STATUS_BLOCK_STYLES[item.status],
             )}
         >
@@ -194,9 +194,9 @@ const WeekGrid = ({
     onSelect,
 }: {
     days: Date[];
-    items: AgendaItem[];
+    items: ScheduleItem[];
     now: Date;
-    onSelect: (item: AgendaItem) => void;
+    onSelect: (item: ScheduleItem) => void;
 }) => {
     /*
      * Placements are worked out once per day, up front, because the row heights
@@ -240,7 +240,7 @@ const WeekGrid = ({
     const minimumWidth = days.length > 5 ? '38rem' : '18rem';
 
     return (
-        <div className="overflow-auto border border-sidebar-border bg-background">
+        <div className="overflow-auto rounded-md border border-sidebar-border bg-background">
             <div
                 className="grid"
                 style={{

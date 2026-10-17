@@ -19,7 +19,7 @@ export default function DeleteUser() {
     const passwordInput = useRef<HTMLInputElement>(null);
 
     return (
-        <div className="space-y-4 border border-destructive/20 bg-destructive/10 p-4">
+        <div className="space-y-4 rounded-md border border-destructive/20 bg-destructive/10 p-4">
             <div className="relative space-y-0.5 text-destructive">
                 <p className="font-medium">Warning</p>
                 <p className="text-sm">

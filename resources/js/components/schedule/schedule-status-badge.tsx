@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { Check, CircleDashed, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { AgendaStatus } from '@/data/agenda';
+import type { ScheduleStatus } from '@/data/schedule';
 
 /**
  * What each status is called on screen.
@@ -10,7 +10,7 @@ import type { AgendaStatus } from '@/data/agenda';
  * places on the same journey is a small thing that makes the two screens feel
  * like different systems.
  */
-export const AGENDA_STATUS_LABELS: Record<AgendaStatus, string> = {
+export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
     requested: 'Requested',
     confirmed: 'Confirmed',
     completed: 'Completed',
@@ -27,7 +27,7 @@ export const AGENDA_STATUS_LABELS: Record<AgendaStatus, string> = {
  * shade, which is what carries the status for a reader who cannot see the
  * difference between two greys.
  */
-export const STATUS_BLOCK_STYLES: Record<AgendaStatus, string> = {
+export const STATUS_BLOCK_STYLES: Record<ScheduleStatus, string> = {
     confirmed: 'border-l-2 border-l-foreground bg-muted',
     requested: 'border border-dashed border-sidebar-border bg-background',
     completed: 'border-l-2 border-l-border bg-muted/60 text-muted-foreground',
@@ -36,7 +36,7 @@ export const STATUS_BLOCK_STYLES: Record<AgendaStatus, string> = {
 };
 
 /** Whether a block strikes its own title through, which only a cancellation does. */
-export const isStruck = (status: AgendaStatus): boolean =>
+export const isStruck = (status: ScheduleStatus): boolean =>
     status === 'cancelled';
 
 /**
@@ -46,7 +46,7 @@ export const isStruck = (status: AgendaStatus): boolean =>
  * for anyone who cannot separate the greys, and the label beside it carries it
  * for everyone else.
  */
-const STATUS_ICONS: Record<AgendaStatus, LucideIcon> = {
+const STATUS_ICONS: Record<ScheduleStatus, LucideIcon> = {
     requested: CircleDashed,
     confirmed: Check,
     completed: Check,
@@ -62,7 +62,7 @@ const STATUS_ICONS: Record<AgendaStatus, LucideIcon> = {
  * cancellation strikes its own label through so the word does not have to be
  * argued with.
  */
-export const AgendaStatusBadge = ({ status }: { status: AgendaStatus }) => {
+export const ScheduleStatusBadge = ({ status }: { status: ScheduleStatus }) => {
     const Icon = STATUS_ICONS[status];
 
     const variant =
@@ -75,13 +75,13 @@ export const AgendaStatusBadge = ({ status }: { status: AgendaStatus }) => {
     return (
         <Badge
             variant={variant}
-            className={`gap-1 rounded-none px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase ${
+            className={`gap-1 rounded-md px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase ${
                 status === 'requested' ? 'border-dashed' : ''
             }`}
         >
             <Icon className="size-3" aria-hidden />
             <span className={isStruck(status) ? 'line-through' : undefined}>
-                {AGENDA_STATUS_LABELS[status]}
+                {SCHEDULE_STATUS_LABELS[status]}
             </span>
         </Badge>
     );

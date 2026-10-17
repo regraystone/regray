@@ -14,7 +14,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { logout } from '@/routes';
 import {
-    agenda as profileAgenda,
+    schedule as profileSchedule,
     edit as editAccountSecurity,
 } from '@/routes/profile';
 
@@ -24,11 +24,11 @@ import {
  * Designed mobile-first as a settings hub with labeled sections, grouped
  * rows, and a quiet, separated logout affordance.
  *
- * The agenda is listed here when this reader may reach it, and nowhere else: a
- * client has no Agenda in the sidebar and comes through this page, while the
+ * The schedule is listed here when this reader may reach it, and nowhere else: a
+ * client has no Schedule in the sidebar and comes through this page, while the
  * staff who read the week have the sidebar entry and are not offered this door.
- * Which of the two a role gets is a permission question — `profile-agenda.view`
- * against `agenda.view` — so nothing here names a role.
+ * Which of the two a role gets is a permission question — `profile-schedule.view`
+ * against `schedule.view` — so nothing here names a role.
  */
 const Profile = () => {
     const { can } = usePermissions();
@@ -43,16 +43,16 @@ const Profile = () => {
                 <PageHeading title="Profile" description="Your account" />
 
                 <div className="space-y-6 sm:space-y-8">
-                    {/* Agenda section */}
-                    {can(permissions.profileAgendaView) && (
+                    {/* Schedule section */}
+                    {can(permissions.profileScheduleView) && (
                         <div>
                             <h3 className="mb-2 text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
-                                Agenda
+                                Schedule
                             </h3>
 
-                            <div className="border border-border bg-background">
+                            <div className="overflow-hidden rounded-md border border-border bg-background">
                                 <Link
-                                    href={profileAgenda.url()}
+                                    href={profileSchedule.url()}
                                     className="group flex min-h-[56px] items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
                                 >
                                     <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
@@ -62,7 +62,7 @@ const Profile = () => {
                                         />
                                         <div className="min-w-0 space-y-0.5">
                                             <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
-                                                Agenda
+                                                Schedule
                                             </div>
                                             <div className="truncate text-xs text-muted-foreground sm:text-sm">
                                                 Your showroom visits and when to
@@ -86,7 +86,7 @@ const Profile = () => {
                             Account &amp; Security
                         </h3>
 
-                        <div className="border border-border bg-background">
+                        <div className="overflow-hidden rounded-md border border-border bg-background">
                             <Link
                                 href={editAccountSecurity.url()}
                                 className="group flex min-h-[56px] items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
@@ -122,7 +122,7 @@ const Profile = () => {
                             Transaction history
                         </h3>
 
-                        <div className="border border-border bg-background">
+                        <div className="overflow-hidden rounded-md border border-border bg-background">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -130,7 +130,7 @@ const Profile = () => {
                                         'Transaction history is coming soon.',
                                     );
                                 }}
-                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 rounded-md p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
                             >
                                 <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
                                     <Receipt
@@ -162,7 +162,7 @@ const Profile = () => {
                             Help
                         </h3>
 
-                        <div className="border border-border bg-background">
+                        <div className="overflow-hidden rounded-md border border-border bg-background">
                             <Link
                                 href="#"
                                 onClick={(e) => e.preventDefault()}
@@ -201,7 +201,7 @@ const Profile = () => {
                             Session
                         </h3>
 
-                        <div className="space-y-1 border border-border bg-background">
+                        <div className="space-y-1 overflow-hidden rounded-md border border-border bg-background">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -209,7 +209,7 @@ const Profile = () => {
                                         'Switch account is coming soon.',
                                     );
                                 }}
-                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
+                                className="group flex min-h-[56px] w-full items-center justify-between gap-4 rounded-md p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
                             >
                                 <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
                                     <ArrowLeftRight

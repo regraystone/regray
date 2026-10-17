@@ -7,14 +7,14 @@ import {
     Ruler,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { AgendaStatusBadge } from '@/components/agenda/agenda-status-badge';
+import { ScheduleStatusBadge } from '@/components/schedule/schedule-status-badge';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { AgendaItem } from '@/data/agenda';
+import type { ScheduleItem } from '@/data/schedule';
 import { dayKey, formatTime, startOfDay } from '@/lib/date';
 
 /**
@@ -57,7 +57,7 @@ const dayHeading = (day: Date, today: Date): string => {
 type DayGroup = {
     key: string;
     heading: string;
-    items: AgendaItem[];
+    items: ScheduleItem[];
 };
 
 /**
@@ -68,7 +68,7 @@ type DayGroup = {
  * free for is the question, and a heading per day answers it before any of the
  * times are read.
  */
-const groupByDay = (items: AgendaItem[], today: Date): DayGroup[] => {
+const groupByDay = (items: ScheduleItem[], today: Date): DayGroup[] => {
     const groups = new Map<string, DayGroup>();
 
     for (const item of items) {
@@ -105,10 +105,10 @@ const UpcomingList = ({
     onCancel,
     emptyAction,
 }: {
-    items: AgendaItem[];
-    onSelect: (item: AgendaItem) => void;
-    onReschedule: (item: AgendaItem) => void;
-    onCancel: (item: AgendaItem) => void;
+    items: ScheduleItem[];
+    onSelect: (item: ScheduleItem) => void;
+    onReschedule: (item: ScheduleItem) => void;
+    onCancel: (item: ScheduleItem) => void;
     emptyAction: ReactNode;
 }) => {
     const upcoming = items
@@ -123,7 +123,7 @@ const UpcomingList = ({
 
     if (groups.length === 0) {
         return (
-            <div className="border border-sidebar-border bg-background px-5 py-10 text-center">
+            <div className="rounded-md border border-sidebar-border bg-background px-5 py-10 text-center">
                 <p className="text-sm font-bold">No upcoming visits</p>
                 <p className="mt-1.5 text-sm text-secondary-foreground">
                     Nothing booked from today onwards. A visit you book will
@@ -142,7 +142,7 @@ const UpcomingList = ({
                         {group.heading}
                     </h4>
 
-                    <ul className="border border-sidebar-border bg-background">
+                    <ul className="overflow-hidden rounded-md border border-sidebar-border bg-background">
                         {group.items.map((item) => {
                             const Icon = iconFor(item.title);
 
@@ -151,7 +151,7 @@ const UpcomingList = ({
                                     key={item.id}
                                     className="flex items-center gap-3 border-b border-sidebar-border px-3 py-2.5 last:border-b-0"
                                 >
-                                    <span className="grid size-8 shrink-0 place-items-center border border-sidebar-border text-secondary-foreground">
+                                    <span className="grid size-8 shrink-0 place-items-center rounded-md border border-sidebar-border text-secondary-foreground">
                                         <Icon className="size-4" aria-hidden />
                                     </span>
 
@@ -165,7 +165,7 @@ const UpcomingList = ({
                                     <button
                                         type="button"
                                         onClick={() => onSelect(item)}
-                                        className="min-w-0 flex-1 text-left transition-opacity hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                        className="min-w-0 flex-1 rounded-md text-left transition-opacity hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                     >
                                         <span className="block truncate text-sm font-bold">
                                             {item.title}
@@ -175,14 +175,14 @@ const UpcomingList = ({
                                         </span>
                                     </button>
 
-                                    <AgendaStatusBadge status={item.status} />
+                                    <ScheduleStatusBadge status={item.status} />
 
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <button
                                                 type="button"
                                                 aria-label={`More actions for ${item.title} on ${formatTime.format(item.arrival)}`}
-                                                className="grid size-8 shrink-0 place-items-center text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                                className="grid size-8 shrink-0 place-items-center rounded-md text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                             >
                                                 <MoreHorizontal
                                                     className="size-4"
@@ -193,7 +193,7 @@ const UpcomingList = ({
 
                                         <DropdownMenuContent
                                             align="end"
-                                            className="w-48 rounded-none"
+                                            className="w-48"
                                         >
                                             <DropdownMenuItem
                                                 onSelect={() => onSelect(item)}

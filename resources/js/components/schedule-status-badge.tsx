@@ -1,14 +1,14 @@
-import type { AgendaStatus } from '@/data/agenda';
+import type { ScheduleStatus } from '@/data/schedule';
 import { cn } from '@/lib/utils';
 
-export const STATUS_LABELS: Record<AgendaStatus, string> = {
+export const STATUS_LABELS: Record<ScheduleStatus, string> = {
     requested: 'Requested',
     confirmed: 'Confirmed',
     completed: 'Completed',
     cancelled: 'Cancelled',
 };
 
-const STATUS_STYLES: Record<AgendaStatus, { bg: string; text: string }> = {
+const STATUS_STYLES: Record<ScheduleStatus, { bg: string; text: string }> = {
     requested: {
         bg: 'bg-transparent border border-secondary-foreground',
         text: 'text-secondary-foreground',
@@ -28,7 +28,7 @@ const STATUS_STYLES: Record<AgendaStatus, { bg: string; text: string }> = {
 };
 
 type StatusBadgeProps = {
-    status: AgendaStatus;
+    status: ScheduleStatus;
 };
 
 export const StatusBadge = ({ status }: StatusBadgeProps) => {
@@ -37,7 +37,7 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
     return (
         <span
             className={cn(
-                'inline-block rounded px-2 py-1 text-xs font-semibold',
+                'inline-block rounded-md px-2 py-1 text-xs font-semibold',
                 styles.bg,
                 styles.text,
             )}

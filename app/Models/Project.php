@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read Collection<int, ProjectImage> $images
  * @property-read Collection<int, Stone> $stones
+ * @property-read Stone $parentStone The active stone this profile was requested under.
  * @property-read Collection<int, ProjectCategory> $categories
  */
 #[Fillable(['slug', 'name', 'completed_year', 'location', 'overview', 'thumbnail_path', 'is_published', 'published_at'])]

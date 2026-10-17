@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'stones' => [
+    'categories' => [
         [
             'slug' => 'cobblestone',
             'name' => 'Cobblestone',
@@ -84,7 +84,7 @@ return [
             'thickness_mm' => 20,
         ],
     ],
-    'images' => [
+    'stones' => [
         ['stone_slug' => 'cobblestone', 'name' => 'Flamed + Brushed - Black', 'path' => '/storage/stones/ef03fcfd4ff0e6063df004f6b897fe7a.png'],
         ['stone_slug' => 'cobblestone', 'name' => 'Flamed - Gray', 'path' => '/storage/stones/303335ce8c8f17b45f25f5d6cb8ed7ac.png'],
         ['stone_slug' => 'cobblestone', 'name' => 'Warm Beige Granite', 'path' => '/storage/stones/e077cee8b1f24629145a7074fdea5451.png'],

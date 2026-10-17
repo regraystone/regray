@@ -10,7 +10,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class StoneCardResource extends JsonResource
 {
     /**
-     * @return array{slug: string, name: string, thumbnail: string, recommended: bool}
+     * @return array{slug: string, name: string, thumbnail: string, recommended: bool, category: array{slug: string, name: string}}
      */
     public function toArray(Request $request): array
     {
@@ -19,6 +19,7 @@ class StoneCardResource extends JsonResource
             'name' => $this->name,
             'thumbnail' => ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
             'recommended' => $this->recommended,
+            'category' => ['slug' => $this->category->slug, 'name' => $this->category->name],
         ];
     }
 }

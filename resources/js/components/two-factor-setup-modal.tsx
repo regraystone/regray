@@ -45,7 +45,7 @@ function StepMark({ filled = false }: { filled?: boolean }) {
         <span
             aria-hidden="true"
             className={cn(
-                'mx-auto grid size-12 shrink-0 place-items-center border',
+                'mx-auto grid size-12 shrink-0 place-items-center rounded-md border',
                 filled
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border bg-secondary text-foreground',
@@ -94,7 +94,7 @@ function TwoFactorSetupStep({
 
     return (
         <div className="w-full space-y-4">
-            <div className="mx-auto w-full max-w-56 border border-border bg-white p-3">
+            <div className="mx-auto w-full max-w-56 rounded-md border border-border bg-white p-3">
                 {qrCodeSvg ? (
                     <div
                         className="aspect-square w-full [&_svg]:size-full"
@@ -135,7 +135,7 @@ function TwoFactorSetupStep({
                             readOnly
                             value={manualSetupKey}
                             aria-label="Two-factor setup key"
-                            className="min-w-0 flex-1 bg-background px-4 py-3 font-mono text-sm tracking-[0.15em] text-foreground outline-none"
+                            className="min-w-0 flex-1 rounded-none bg-background px-4 py-3 font-mono text-sm tracking-[0.15em] text-foreground outline-none"
                         />
                         <button
                             type="button"
@@ -358,7 +358,7 @@ export default function TwoFactorSetupModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="gap-0 overflow-hidden rounded-none border-border px-5 sm:max-w-md sm:px-6">
+            <DialogContent className="gap-0 overflow-hidden border-border px-5 sm:max-w-md sm:px-6">
                 {requiresConfirmation && !twoFactorEnabled ? (
                     <StepRail currentStep={showVerificationStep ? 1 : 0} />
                 ) : null}

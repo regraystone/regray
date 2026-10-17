@@ -36,27 +36,27 @@ Route::middleware(['auth', 'verified', Permission::ProfileView->middleware()])->
         ->name('user-password.update');
 
     /*
-     * The agenda under the Profile page.
+     * The schedule under the Profile page.
      *
-     * The same page `agenda.index` shows is on show at two URLs, and a role is
+     * The same page `schedule.index` shows is on show at two URLs, and a role is
      * given one of them rather than both: a client reads their visits from here
-     * and has no Agenda in their sidebar, while staff read the week from the
+     * and has no Schedule in their sidebar, while staff read the week from the
      * sidebar and are not offered this door. Two guards, stacked the way the
      * stepper stacks them, because either one on its own would be the wrong
      * answer: `profile.view` admits a reader to the hub but says nothing about
-     * the agenda, and `profile-agenda.view` says which door they were given.
+     * the schedule, and `profile-schedule.view` says which door they were given.
      */
-    Route::get('profile/agenda', [ViewController::class, 'agenda'])
+    Route::get('profile/schedule', [ViewController::class, 'schedule'])
         ->middleware([
             Permission::ProfileView->middleware(),
-            Permission::ProfileAgendaView->middleware(),
+            Permission::ProfileScheduleView->middleware(),
         ])
-        ->name('profile.agenda');
-    Route::get('profile/agenda/book', [ViewController::class, 'agendaBook'])
+        ->name('profile.schedule');
+    Route::get('profile/schedule/book', [ViewController::class, 'scheduleBook'])
         ->middleware([
             Permission::ProfileView->middleware(),
-            Permission::ProfileAgendaView->middleware(),
-            Permission::AgendaCreate->middleware(),
+            Permission::ProfileScheduleView->middleware(),
+            Permission::ScheduleCreate->middleware(),
         ])
-        ->name('profile.agenda.book');
+        ->name('profile.schedule.book');
 });

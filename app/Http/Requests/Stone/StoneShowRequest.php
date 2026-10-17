@@ -14,16 +14,10 @@ class StoneShowRequest extends FormRequest
         return true;
     }
 
-    /** @return array{stone: mixed, project?: mixed} */
+    /** @return array{stone: mixed} */
     public function validationData(): array
     {
-        $data = ['stone' => $this->route('stone')];
-
-        if ($this->route()->hasParameter('project')) {
-            $data['project'] = $this->route('project');
-        }
-
-        return $data;
+        return ['stone' => $this->route('stone')];
     }
 
     /** @return array<string, array<int, string>> */
@@ -31,7 +25,6 @@ class StoneShowRequest extends FormRequest
     {
         return [
             'stone' => ['required', 'string', 'max:100', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
-            'project' => ['sometimes', 'required', 'string', 'max:100', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
         ];
     }
 

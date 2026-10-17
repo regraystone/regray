@@ -18,12 +18,10 @@ class SchemaTest extends TestCase
 
     public function test_partial_unique_indexes_allow_reuse_after_soft_delete(): void
     {
-        $stone = Stone::create([
+        $stone = Stone::factory()->create([
             'slug' => 'test-stone',
             'name' => 'Test Stone',
             'thumbnail_path' => '/path/to/thumb.jpg',
-            'description' => 'A test stone',
-            'origin' => 'Test',
             'thickness_mm' => 50,
             'recommended' => false,
             'is_active' => true,
@@ -32,12 +30,10 @@ class SchemaTest extends TestCase
 
         $stone->delete();
 
-        $newStone = Stone::create([
+        $newStone = Stone::factory()->for($stone->category, 'category')->create([
             'slug' => 'test-stone',
             'name' => 'Test Stone',
             'thumbnail_path' => '/path/to/thumb2.jpg',
-            'description' => 'Another test stone',
-            'origin' => 'Test',
             'thickness_mm' => 50,
             'recommended' => false,
             'is_active' => true,
@@ -63,12 +59,10 @@ class SchemaTest extends TestCase
 
     public function test_unique_constraint_on_inquiry_project_stones(): void
     {
-        $stone = Stone::create([
+        $stone = Stone::factory()->create([
             'slug' => 'test-stone-2',
             'name' => 'Test Stone 2',
             'thumbnail_path' => '/path/to/thumb.jpg',
-            'description' => 'A test stone',
-            'origin' => 'Test',
             'thickness_mm' => 50,
             'recommended' => false,
             'is_active' => true,
@@ -133,7 +127,7 @@ class SchemaTest extends TestCase
     {
         $this->expectException(\Exception::class);
 
-        DB::insert('INSERT INTO messages (conversation_id, sender_id, type, body, inquiry_id, agenda_id, announced_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
+        DB::insert('INSERT INTO messages (conversation_id, sender_id, type, body, inquiry_id, schedule_id, announced_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
             1,
             1,
             'text',

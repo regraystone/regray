@@ -2,13 +2,13 @@
 
 This replaces the first draft. The database today only holds authentication, sessions, roles and permissions (the migrations). Everything else is mock data under `resources/js/data`, so those diagrams are **planned** schema. The repo targets **PostgreSQL** (`DB_CONNECTION=pgsql`), so the design uses `timestamptz`, partial unique indexes and CHECK constraints.
 
-| Diagram                   | Status                                                                                                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Auth, access and audit | **Implemented** (Fortify, Spatie permission) and left exactly as it is. Only two new tables connect to it: `audit_logs` and `user_profiles` (clients only) |
-| 2. Stone catalog          | Planned                                                                                                                                                    |
-| 3. Portfolio and services | Planned                                                                                                                                                    |
-| 4. Inquiries              | Planned                                                                                                                                                    |
-| 5. Messaging and agendas  | Planned                                                                                                                                                    |
+| Diagram                    | Status                                                                                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Auth, access and audit  | **Implemented** (Fortify, Spatie permission) and left exactly as it is. Only two new tables connect to it: `audit_logs` and `user_profiles` (clients only) |
+| 2. Stone catalog           | Planned                                                                                                                                                    |
+| 3. Portfolio and services  | Planned                                                                                                                                                    |
+| 4. Inquiries               | Planned                                                                                                                                                    |
+| 5. Messaging and schedules | Planned                                                                                                                                                    |
 
 Not modeled yet on purpose: quotations, invoices and payments (to be designed later). The inquiry statuses `quoted` and `paid` exist, but no price or payment record sits behind them until then.
 
@@ -128,18 +128,33 @@ erDiagram
 
 ## 2. Stone catalog
 
-Applications, care tips and finishes are shared lookup tables joined through pivots, so every text is stored once. Origin is a plain column on `stones`. The old `stone_type` column is gone (it was identical to `name` for all nine stones), and thickness is a single number in millimetres.
+The catalogue has three levels: nine `stone_categories` (Granite, Marble and the other former stone types), individual named `stones`, and their `stone_images`. Description, origin, applications, care tips and finishes belong to the category and are shared by its stones. The legacy category thumbnail is retained; each individual stone has its own thumbnail, size, thickness and recommendation flag.
+
+The 75 former image entries seed the individual stones, with one gallery image each. Sizes are placeholder data, rotated deterministically through `20x120`, `60x60`, `60x120`, and `80x80`; replace them with measured dimensions. Thickness and recommendation flags initially inherit their category's former values. Duplicate Monumental names are qualified with `(Monumental)` and their slugs with `-monumental` to preserve global name and slug uniqueness.
 
 ```mermaid
 erDiagram
-    stones {
+    stone_categories {
         bigint id PK
         varchar(100) slug UK "partial unique, not deleted"
         varchar(150) name UK "partial unique, not deleted"
         varchar(255) thumbnail_path
         text description
         varchar(255) origin "for example Brazil, India"
-        smallint thickness_mm "single value in millimetres"
+        boolean is_active
+        smallint sort_order
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at "null"
+    }
+    stones {
+        bigint id PK
+        bigint stone_category_id FK "restrict"
+        varchar(100) slug UK "partial unique, not deleted"
+        varchar(150) name UK "partial unique, not deleted"
+        varchar(255) thumbnail_path
+        varchar(20) size "digits x digits, for example 20x120"
+        smallint thickness_mm "positive millimetres"
         boolean recommended
         boolean is_active
         smallint sort_order
@@ -150,7 +165,6 @@ erDiagram
     stone_images {
         bigint id PK
         bigint stone_id FK "cascade"
-        varchar(150) name
         varchar(255) path
         varchar(255) alt_text "null"
         smallint sort_order
@@ -163,8 +177,8 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    application_stone {
-        bigint stone_id PK, FK "cascade"
+    application_stone_category {
+        bigint stone_category_id PK, FK "cascade"
         bigint application_id PK, FK "restrict"
         smallint sort_order
     }
@@ -174,8 +188,8 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    care_tip_stone {
-        bigint stone_id PK, FK "cascade"
+    care_tip_stone_category {
+        bigint stone_category_id PK, FK "cascade"
         bigint care_tip_id PK, FK "restrict"
         smallint sort_order
     }
@@ -186,43 +200,47 @@ erDiagram
         boolean is_active
         smallint sort_order
     }
-    finish_stone {
-        bigint stone_id PK, FK "cascade"
+    finish_stone_category {
+        bigint stone_category_id PK, FK "cascade"
         bigint finish_id PK, FK "restrict"
         smallint sort_order
     }
     saved_stones {
         bigint user_id PK, FK "cascade"
-        bigint stone_id PK, FK "cascade"
+        bigint stone_id PK, FK "cascade, individual stone"
         timestamptz created_at
     }
     users {
         bigint id PK
     }
 
+    stone_categories ||--o{ stones : "categorises"
     stones ||--o{ stone_images : "has gallery"
-    stones ||--o{ application_stone : "suited to"
-    applications ||--o{ application_stone : "applies to"
-    stones ||--o{ care_tip_stone : "cared for with"
-    care_tips ||--o{ care_tip_stone : "advised for"
-    stones ||--o{ finish_stone : "available in"
-    finishes ||--o{ finish_stone : "offered on"
+    stone_categories ||--o{ application_stone_category : "suited to"
+    applications ||--o{ application_stone_category : "applies to"
+    stone_categories ||--o{ care_tip_stone_category : "cared for with"
+    care_tips ||--o{ care_tip_stone_category : "advised for"
+    stone_categories ||--o{ finish_stone_category : "available in"
+    finishes ||--o{ finish_stone_category : "offered on"
     users ||--o{ saved_stones : "saves"
     stones ||--o{ saved_stones : "saved by"
 ```
 
-| Table                                                                          | Indexes and rules                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `stones`                                                                       | Partial unique `slug` and `lower(name)` where `deleted_at IS NULL`. Index `(is_active, sort_order)`. CHECK `thickness_mm > 0`.                                                                                                                   |
-| `stone_images`                                                                 | Unique `(stone_id, sort_order)`.                                                                                                                                                                                                                 |
-| Pivots (`application_stone`, `care_tip_stone`, `finish_stone`, `saved_stones`) | Composite primary key as shown, plus a reverse index on the second column (`application_id`, `care_tip_id`, `finish_id`, `stone_id`).                                                                                                            |
-| `finishes`                                                                     | Unique `lower(name)`. Seed it from the current list (Leather, Honed, Polished, Advise me). Never hard delete a row an inquiry used: set `is_active = false`. Edge profiles are not tied to stones, so they are defined in the inquiries diagram. |
+| Table                                                                                                     | Indexes and rules                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stone_categories`                                                                                        | Partial unique `lower(slug)` and `lower(name)` where `deleted_at IS NULL`, named `idx_stone_categories_*`. Index `(is_active, sort_order)`.                                                                                                                                     |
+| `stones`                                                                                                  | Partial unique `lower(slug)` and `lower(name)` where `deleted_at IS NULL`. Index `(is_active, sort_order)`, `stone_category_id`, `size`, and `thickness_mm`. CHECK `size ~ '^[0-9]+x[0-9]+$'` and `thickness_mm > 0`. Category deletion is restricted while stones refer to it. |
+| `stone_images`                                                                                            | Unique `(stone_id, sort_order)`.                                                                                                                                                                                                                                                |
+| Pivots (`application_stone_category`, `care_tip_stone_category`, `finish_stone_category`, `saved_stones`) | Composite primary key as shown, plus a reverse index on the second column (`application_id`, `care_tip_id`, `finish_id`, `stone_id`). Shared facts refer to categories; saved stones refer to individual stones.                                                                |
+| `finishes`                                                                                                | Unique `lower(name)`. Seed it from the current list (Leather, Honed, Polished, Advise me). Never hard delete a row an inquiry used: set `is_active = false`. Edge profiles are not tied to stones, so they are defined in the inquiries diagram.                                |
 
 ---
 
 ## 3. Portfolio and services
 
-`projects` is the **portfolio** of finished work shown on Home, not a client's inquiry project (those are in diagram 4).
+`projects` is the **portfolio** of finished work, not a client's inquiry project (those are in diagram 4). Home lists individual stones at `/home`; a stone is at `/home/{stone}`, and its published project highlights link to `/home/{stone}/{project}`. The project must be attached to that active stone. The `home.view` and `home-projects.view` guards remain independent. Project categories and their pivots are unchanged, but no longer filter Home.
+
+Seed project `stone_slugs` remain legacy category references and expand to every individual stone in each category. Saved and inquiry category references resolve to the first individual stone by `sort_order`, then `id`.
 
 ```mermaid
 erDiagram
@@ -251,7 +269,7 @@ erDiagram
     }
     project_stone {
         bigint project_id PK, FK "cascade"
-        bigint stone_id PK, FK "restrict"
+        bigint stone_id PK, FK "restrict, individual stone"
     }
     project_categories {
         bigint id PK
@@ -364,7 +382,7 @@ erDiagram
     inquiry_project_stones {
         bigint id PK
         bigint inquiry_project_id FK "cascade"
-        bigint stone_id FK "restrict"
+        bigint stone_id FK "restrict, individual stone"
         bigint edge_profile_id FK "restrict"
         bigint finish_id FK "restrict"
         smallint quantity "1 to 9999"
@@ -437,9 +455,9 @@ erDiagram
 
 ---
 
-## 5. Messaging and agendas
+## 5. Messaging and schedules
 
-A conversation is direct or a group, and a group may belong to an inquiry. Besides text, a message can be a **card** that points to an inquiry or an agenda and records which status it announces (so "Booking requested" and "Booking approved" are two messages about one agenda).
+A conversation is direct or a group, and a group may belong to an inquiry. Besides text, a message can be a **card** that points to an inquiry or a schedule and records which status it announces (so "Booking requested" and "Booking approved" are two messages about one schedule).
 
 ```mermaid
 erDiagram
@@ -465,10 +483,10 @@ erDiagram
         bigint id PK
         bigint conversation_id FK "cascade"
         bigint sender_id FK "null, set null, empty for system cards"
-        varchar(20) type "text, inquiry_card, agenda_card"
+        varchar(20) type "text, inquiry_card, schedule_card"
         text body "null, set for text"
         bigint inquiry_id FK "null, set for inquiry_card"
-        bigint agenda_id FK "null, set for agenda_card"
+        bigint schedule_id FK "null, set for schedule_card"
         varchar(20) announced_status "null, status a card announces"
         timestamptz created_at
         timestamptz edited_at "null"
@@ -484,7 +502,7 @@ erDiagram
         bigint size_bytes
         timestamptz created_at
     }
-    agendas {
+    schedules {
         bigint id PK
         bigint client_id FK "restrict, user the visit is for"
         bigint booked_by FK "null, set null, who made the booking"
@@ -515,30 +533,30 @@ erDiagram
     users |o--o{ messages : "sends"
     messages ||--o{ message_attachments : "carries"
     inquiries |o--o{ messages : "announced by"
-    agendas |o--o{ messages : "announced by"
-    users ||--o{ agendas : "is visited"
-    users |o--o{ agendas : "books"
-    users |o--o{ agendas : "approves"
-    inquiries |o--o{ agendas : "visit for"
+    schedules |o--o{ messages : "announced by"
+    users ||--o{ schedules : "is visited"
+    users |o--o{ schedules : "books"
+    users |o--o{ schedules : "approves"
+    inquiries |o--o{ schedules : "visit for"
 ```
 
-| Table                  | Indexes and rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `conversations`        | Unique `inquiry_id` (nullable), unique `direct_key` (nullable). CHECK `type IN ('direct','group')`, `(type = 'direct') = (direct_key IS NOT NULL)`, and `inquiry_id IS NULL OR type = 'group'`. The unique `direct_key` stops two direct chats between the same two people.                                                                                                                                                                                                                                                                                                 |
-| `conversation_members` | Index `user_id`. Unread count = messages with `id` greater than `last_read_message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `messages`             | Index `(conversation_id, id DESC)`. CHECK on `type`: `text` needs `body`, `inquiry_card` needs `inquiry_id` and `announced_status`, `agenda_card` needs `agenda_id` and `announced_status`, and no other combination of those columns may be set. Index `agenda_id`, index `inquiry_id`.                                                                                                                                                                                                                                                                                    |
-| `message_attachments`  | Index `message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `agendas`              | `client_id` is the user the visit is for, who holds the `client` role (validated in the form request). Index `(client_id, arrival_at)`, index `(status, arrival_at)`, index `inquiry_id`. CHECK `status IN ('requested','confirmed','completed','cancelled')`, `booked_by_type IN ('client','staff')`, and `approved_by IS NULL OR approved_at IS NOT NULL` (an approver always has a time; the reverse is allowed so that `ON DELETE SET NULL` on the approver never violates the rule). Posting an agenda card is done by the same service that changes `agendas.status`. |
+| Table                  | Indexes and rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `conversations`        | Unique `inquiry_id` (nullable), unique `direct_key` (nullable). CHECK `type IN ('direct','group')`, `(type = 'direct') = (direct_key IS NOT NULL)`, and `inquiry_id IS NULL OR type = 'group'`. The unique `direct_key` stops two direct chats between the same two people.                                                                                                                                                                                                                                                                                                    |
+| `conversation_members` | Index `user_id`. Unread count = messages with `id` greater than `last_read_message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `messages`             | Index `(conversation_id, id DESC)`. CHECK on `type`: `text` needs `body`, `inquiry_card` needs `inquiry_id` and `announced_status`, `schedule_card` needs `schedule_id` and `announced_status`, and no other combination of those columns may be set. Index `schedule_id`, index `inquiry_id`.                                                                                                                                                                                                                                                                                 |
+| `message_attachments`  | Index `message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `schedules`            | `client_id` is the user the visit is for, who holds the `client` role (validated in the form request). Index `(client_id, arrival_at)`, index `(status, arrival_at)`, index `inquiry_id`. CHECK `status IN ('requested','confirmed','completed','cancelled')`, `booked_by_type IN ('client','staff')`, and `approved_by IS NULL OR approved_at IS NOT NULL` (an approver always has a time; the reverse is allowed so that `ON DELETE SET NULL` on the approver never violates the rule). Posting a schedule card is done by the same service that changes `schedules.status`. |
 
 ---
 
 ## Foreign key actions
 
-| Action     | Used for                                                                                                                                                                                                                                                   |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's projects and their stones, files, message attachments, conversation members and messages.                                                                               |
-| `RESTRICT` | Anything history depends on: `inquiry_project_stones` to stones, edge profiles and finishes, inquiries and agendas to the client's user, `inquiry_handlers` to users. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
-| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `sender_id`, `last_read_message_id`) and the link from an agenda to an inquiry.                                                                          |
+| Action     | Used for                                                                                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's projects and their stones, files, message attachments, conversation members and messages.                                                                                 |
+| `RESTRICT` | Anything history depends on: `inquiry_project_stones` to stones, edge profiles and finishes, inquiries and schedules to the client's user, `inquiry_handlers` to users. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
+| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `sender_id`, `last_read_message_id`) and the link from a schedule to an inquiry.                                                                           |
 
 ---
 
@@ -547,11 +565,11 @@ erDiagram
 1. **Real types and sizes** on every column, `timestamptz` everywhere, and the precision for area.
 2. **Soft deletes and partial unique indexes** on everything that can be retired, so slugs and names stay unique among live rows only.
 3. **Every foreign key has an explicit action**, and "who did it" columns are nullable with `SET NULL`.
-4. **Stones:** `stone_type` dropped (identical to `name`), thickness is a single number in millimetres, origin is a plain column, and "Advise me" is an `is_advisory` flag on finishes and edge profiles.
+4. **Stones:** category → individual stone → gallery. Origin and shared facts belong to `stone_categories`; size and positive thickness in millimetres belong to `stones`. Project, saved and inquiry stone references now identify individual stones. "Advise me" is an `is_advisory` flag on finishes and edge profiles.
 5. **No clients table.** A client is a user with the `client` role, and the contact fields live in `user_profiles` (clients only), so `users` stays untouched.
 6. **Status history is complete**: `from_status`, `changed_by`, `note`, plus `inquiries.status_changed_at`.
-7. **Agendas** separate who the visit is for (`client_id`) from who made the booking (`booked_by`, `booked_by_type`), and record cancellation.
-8. **Messages**: cards are typed `inquiry_card` and `agenda_card` with an `announced_status`, protected by a CHECK. Added `message_attachments`, `edited_at` and `deleted_at`, and read tracking by `last_read_message_id`.
+7. **Schedules** separate who the visit is for (`client_id`) from who made the booking (`booked_by`, `booked_by_type`), and record cancellation.
+8. **Messages**: cards are typed `inquiry_card` and `schedule_card` with an `announced_status`, protected by a CHECK. Added `message_attachments`, `edited_at` and `deleted_at`, and read tracking by `last_read_message_id`.
 9. **Direct chats** cannot be duplicated (`direct_key`).
 10. **Files** carry disk, MIME type, size and a checksum.
 11. **Users, sessions and the Spatie tables are untouched.** New tables only connect to `users` by foreign key: `audit_logs`, and `user_profiles` for clients.
@@ -559,7 +577,7 @@ erDiagram
 
 ## Decisions to confirm
 
-1. **`stones.origin` is free text.** A stone with several origins is written as "Brazil, India", which is not strictly third normal form. This was your call, and it keeps data entry simple.
+1. **`stone_categories.origin` is free text.** A category with several origins is written as "Brazil, India", which is not strictly third normal form. This was your call, and it keeps data entry simple.
 2. **Thickness is one number.** The sample stones have ranges such as "50-100 mm" and "20-30 mm", so each needs a single value picked when the data is entered.
 3. **Edge profiles are a separate lookup** used only by inquiries, with no link to stones.
 4. **Client contact fields are in `user_profiles`** (`phone`, `company`, `address`, `avatar_path`), a one-to-one table used by clients only, because `users` must not change and staff do not need these fields.

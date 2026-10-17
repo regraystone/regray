@@ -25,7 +25,7 @@ const Inquiry = () => {
                 }
             />
 
-            <div className="flex min-h-[40vh] items-center justify-center border border-sidebar-border bg-background">
+            <div className="flex min-h-[40vh] items-center justify-center rounded-md border border-sidebar-border bg-background">
                 <h3 className="text-3xl font-bold tracking-[-0.03em]">
                     Inquiry Page
                 </h3>

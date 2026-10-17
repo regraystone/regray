@@ -8,7 +8,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
-class ProjectIndexRequest extends FormRequest
+class StoneIndexRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -19,7 +19,7 @@ class ProjectIndexRequest extends FormRequest
     {
         $input = $this->query->all();
 
-        foreach (['search', 'stone', 'category', 'page'] as $key) {
+        foreach (['search', 'category', 'size', 'thickness', 'page'] as $key) {
             if (array_key_exists($key, $input) && $input[$key] === '') {
                 unset($input[$key]);
             }
@@ -30,7 +30,7 @@ class ProjectIndexRequest extends FormRequest
             $input['search'] = $trimmed === '' ? null : $trimmed;
         }
 
-        if (isset($input['page'])) {
+        if (isset($input['page']) && is_scalar($input['page'])) {
             $input['page'] = (string) $input['page'];
         }
 
@@ -43,8 +43,9 @@ class ProjectIndexRequest extends FormRequest
     {
         return [
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'stone' => ['sometimes', 'nullable', 'string', Rule::exists('stones', 'slug')->where('deleted_at', null)->where('is_active', true)],
-            'category' => ['sometimes', 'nullable', 'string', Rule::exists('project_categories', 'slug')->where('is_active', true)],
+            'category' => ['sometimes', 'nullable', 'string', Rule::exists('stone_categories', 'slug')->where('deleted_at', null)->where('is_active', true)],
+            'size' => ['sometimes', 'nullable', 'string', 'max:20', Rule::exists('stones', 'size')->where('deleted_at', null)->where('is_active', true)],
+            'thickness' => ['sometimes', 'nullable', 'string', Rule::in(['18-20', '21-30', '31-plus'])],
             'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
     }

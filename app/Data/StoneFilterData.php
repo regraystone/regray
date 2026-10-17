@@ -2,23 +2,25 @@
 
 namespace App\Data;
 
-use App\Http\Requests\Home\ProjectIndexRequest;
+use App\Http\Requests\Home\StoneIndexRequest;
 
-final readonly class ProjectFilterData
+final readonly class StoneFilterData
 {
     public function __construct(
         public ?string $search,
-        public ?string $stone,
         public ?string $category,
+        public ?string $size,
+        public ?string $thickness,
         public int $page,
     ) {}
 
-    public static function fromRequest(ProjectIndexRequest $request): self
+    public static function fromRequest(StoneIndexRequest $request): self
     {
         return new self(
             search: $request->validated('search'),
-            stone: $request->validated('stone'),
             category: $request->validated('category'),
+            size: $request->validated('size'),
+            thickness: $request->validated('thickness'),
             page: (int) ($request->validated('page') ?? 1),
         );
     }

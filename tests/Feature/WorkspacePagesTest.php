@@ -31,11 +31,11 @@ function workspacePages(): array
 {
     return [
         'home.index' => [],
-        'home.show' => ['project' => 'ginza-one'],
-        'home.stone' => ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite'],
+        'home.project' => ['stone' => 'arctic-pink', 'project' => 'ginza-one'],
+        'home.stone' => ['stone' => 'arctic-pink'],
         'overview.index' => [],
         'saved.index' => [],
-        'saved.show' => ['stone' => 'patagonia-quartzite'],
+        'saved.show' => ['stone' => 'arctic-pink'],
         'sales.index' => [],
         'quote.index' => [],
         'inquiry.index' => [],
@@ -43,7 +43,7 @@ function workspacePages(): array
         'inquiry.inquire' => [],
         'quote.show' => ['inquiry' => 'inq-1048'],
         'inquiry.show' => ['inquiry' => 'inq-1048'],
-        'agenda.index' => [],
+        'schedule.index' => [],
         'message.index' => [],
         'stones.index' => [],
         'services.index' => [],
@@ -51,7 +51,7 @@ function workspacePages(): array
         'projects.index' => [],
         'profile.show' => [],
         'profile.edit' => [],
-        'profile.agenda' => [],
+        'profile.schedule' => [],
     ];
 }
 
@@ -190,8 +190,8 @@ test('each page is guarded by the permissions that name it', function (string $r
     expect(guardsFor($routeName))->toBe($permissions);
 })->with([
     ['home.index', [Permission::HomeView->value]],
-    ['home.show', [Permission::HomeProjectsView->value]],
-    ['home.stone', [Permission::HomeProjectsView->value]],
+    ['home.project', [Permission::HomeProjectsView->value]],
+    ['home.stone', [Permission::HomeView->value]],
     ['overview.index', [Permission::OverviewView->value]],
     ['saved.index', [Permission::SavedView->value]],
     ['saved.show', [Permission::SavedView->value]],
@@ -202,7 +202,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['inquiry.inquire', [Permission::InquiriesView->value, Permission::InquiriesCreate->value]],
     ['quote.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
     ['inquiry.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
-    ['agenda.index', [Permission::AgendaView->value]],
+    ['schedule.index', [Permission::ScheduleView->value]],
     ['message.index', [Permission::MessagesView->value]],
     ['stones.index', [Permission::StonesView->value]],
     ['services.index', [Permission::ServicesView->value]],
@@ -212,7 +212,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['profile.edit', [Permission::ProfileView->value]],
     ['profile.update', [Permission::ProfileView->value]],
     ['profile.destroy', [Permission::ProfileView->value]],
-    ['profile.agenda', [Permission::ProfileView->value, Permission::ProfileAgendaView->value]],
+    ['profile.schedule', [Permission::ProfileView->value, Permission::ProfileScheduleView->value]],
     ['security.edit', [Permission::ProfileView->value]],
     ['user-password.update', [Permission::ProfileView->value]],
 ]);
@@ -257,7 +257,7 @@ test('every page permission a role is granted guards a page', function () {
      *
      * An action permission guards something a user does rather than somewhere
      * they go: `inquiries.create` is read by the stepper's route, and
-     * `agenda.create` is read by a button on a page the reader is already on.
+     * `schedule.create` is read by a button on a page the reader is already on.
      * Neither is a page guard, so neither belongs in the set checked here.
      */
     $granted = collect(RolePermissionSeeder::MATRIX)
@@ -271,7 +271,7 @@ test('every page permission a role is granted guards a page', function () {
 });
 
 test('each role can open exactly the pages its matrix entry grants', function (string $role) {
-    if (guardsAllow($role, 'home.show')) {
+    if (guardsAllow($role, 'home.project') || guardsAllow($role, 'home.stone')) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 
@@ -337,7 +337,7 @@ test('the create permission is granted to exactly the two roles that use it', fu
 test('booking a visit is granted to exactly the five roles that book', function () {
     $holders = collect(RolePermissionSeeder::MATRIX)
         ->reject(fn (array $permissions, string $role) => $role === Role::superAdmin()->value)
-        ->filter(fn (array $permissions) => in_array(Permission::AgendaCreate->value, $permissions, true))
+        ->filter(fn (array $permissions) => in_array(Permission::ScheduleCreate->value, $permissions, true))
         ->keys()
         ->sort()
         ->values()
@@ -362,14 +362,14 @@ test('booking a visit is granted to exactly the five roles that book', function 
     ]);
 });
 
-test('booking a visit is granted to nobody who cannot open the agenda', function () {
+test('booking a visit is granted to nobody who cannot open the schedule', function () {
     /*
-     * The button lives on the agenda page, so a role that may not read the week
+     * The button lives on the schedule page, so a role that may not read the week
      * has no page to be offered it on.
      *
      * Either door counts, because the page is on show at two URLs: the sidebar
-     * one guarded by `agenda.view` and the Profile one by
-     * `profile-agenda.view`. A client books their own visit and reads the week
+     * one guarded by `schedule.view` and the Profile one by
+     * `profile-schedule.view`. A client books their own visit and reads the week
      * through the Profile hub, so holding the second without the first is the
      * arrangement that has to be accepted rather than read as a mistake.
      */
@@ -378,11 +378,11 @@ test('booking a visit is granted to nobody who cannot open the agenda', function
             continue;
         }
 
-        if (in_array(Permission::AgendaCreate->value, RolePermissionSeeder::MATRIX[$role], true)) {
+        if (in_array(Permission::ScheduleCreate->value, RolePermissionSeeder::MATRIX[$role], true)) {
             // At least one door, not both: toContain() here would assert the
             // opposite of what is being checked.
             expect(array_intersect(
-                [Permission::AgendaView->value, Permission::ProfileAgendaView->value],
+                [Permission::ScheduleView->value, Permission::ProfileScheduleView->value],
                 RolePermissionSeeder::MATRIX[$role],
             ))->not->toBeEmpty();
         }
@@ -391,17 +391,17 @@ test('booking a visit is granted to nobody who cannot open the agenda', function
     expect(true)->toBeTrue();
 });
 
-test('the two agenda doors are given to roles that do not hold both', function (string $role) {
+test('the two schedule doors are given to roles that do not hold both', function (string $role) {
     /*
-     * Each role is meant to reach the agenda one way and not the other, so this
+     * Each role is meant to reach the schedule one way and not the other, so this
      * pins both halves: a client through the Profile hub with no sidebar entry,
      * and a staff reader of the week with no Profile door. Without it, granting
      * a role both permissions would quietly open the other door as well, and
      * nothing else here would notice.
      */
     $granted = RolePermissionSeeder::MATRIX[$role];
-    $bySidebar = in_array(Permission::AgendaView->value, $granted, true);
-    $byProfile = in_array(Permission::ProfileAgendaView->value, $granted, true);
+    $bySidebar = in_array(Permission::ScheduleView->value, $granted, true);
+    $byProfile = in_array(Permission::ProfileScheduleView->value, $granted, true);
 
     if ($role === Role::superAdmin()->value) {
         // The super-admin is granted every permission by having everything, so
@@ -480,7 +480,7 @@ test('the stepper route is matched ahead of the details route under it', functio
 test('the enum declares exactly the two action permissions', function () {
     // Anything in the enum whose action is not a form of `view` is an action
     // rather than a place, so no sidebar item links to it. The stepper is reached
-    // from Quote and Inquiry; booking a visit is a button on the agenda page the
+    // from Quote and Inquiry; booking a visit is a button on the schedule page the
     // reader is already on. Both are listed here so that a third one has to be
     // said out loud rather than appearing because somebody added an enum case.
     $actions = collect(Permission::cases())
@@ -491,7 +491,7 @@ test('the enum declares exactly the two action permissions', function () {
 
     expect($actions)->toBe([
         Permission::InquiriesCreate->value,
-        Permission::AgendaCreate->value,
+        Permission::ScheduleCreate->value,
         Permission::SavedManage->value,
     ]);
 });
@@ -509,7 +509,7 @@ test('an allowed project profile page renders with its project', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('home.show', 'ginza-one'))
+        ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('project-profile')
@@ -518,7 +518,7 @@ test('an allowed project profile page renders with its project', function () {
             ->where('project.data.name', 'Ginza One')
             ->where('project.data.completedYear', 2024)
             ->has('project.data.categories', 3)
-            ->has('project.data.stones', 2)
+            ->has('project.data.stones', 22)
             ->has('project.data.gallery', 3),
         );
 });
@@ -528,16 +528,16 @@ test('an allowed stone profile page renders with its stone', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('home.stone', ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite']))
+        ->get(route('home.stone', ['stone' => 'arctic-pink']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('stone-profile')
             ->missing('stoneId')
             ->missing('projectId')
-            ->where('stone.data.slug', 'patagonia-quartzite')
-            ->where('stone.data.name', 'Patagonia Quartzite')
+            ->where('stone.data.slug', 'arctic-pink')
+            ->where('stone.data.name', 'Arctic Pink')
             ->where('stone.data.specifications.thicknessMm', 18)
-            ->where('projectSlug', 'ginza-one'),
+            ->missing('projectSlug'),
         );
 });
 
@@ -552,7 +552,7 @@ test('a denied project profile is forbidden whatever project is asked for', func
 
     foreach (['ginza-one', 'no-such-project', 'belo-medical-group'] as $project) {
         $this->actingAs($user)
-            ->get(route('home.show', ['project' => $project]))
+            ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => $project]))
             ->assertForbidden();
     }
 });
@@ -567,9 +567,9 @@ test('a denied stone profile is forbidden whatever stone is asked for', function
     expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
         ->not->toContain(Permission::HomeProjectsView->value);
 
-    foreach (['patagonia-quartzite', 'no-such-stone', 'granite'] as $stone) {
+    foreach (['arctic-pink', 'no-such-stone', 'cosmic-black'] as $stone) {
         $this->actingAs($user)
-            ->get(route('home.stone', ['project' => 'ginza-one', 'stone' => $stone]))
+            ->get(route('home.stone', ['stone' => $stone]))
             ->assertForbidden();
     }
 });

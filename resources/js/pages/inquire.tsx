@@ -221,7 +221,7 @@ const ProjectBanner = ({
     label: string;
     onCancel: () => void;
 }) => (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border border-sidebar-border bg-background px-4 py-3">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-sidebar-border bg-background px-4 py-3">
         <p className="text-sm font-bold text-foreground">{label}</p>
         <Button
             type="button"
@@ -280,7 +280,7 @@ const InquireSkeleton = () => (
                         className="flex min-w-0 flex-1 items-center last:flex-none"
                     >
                         <div className="relative shrink-0">
-                            <Skeleton className="size-9 rounded-none" />
+                            <Skeleton className="size-9 rounded-md" />
                             <Skeleton className="absolute top-full left-1/2 mt-2 h-3 w-16 -translate-x-1/2" />
                         </div>
 
@@ -308,7 +308,7 @@ const InquireSkeleton = () => (
                     key={service.id}
                     className="flex w-full items-start gap-4 p-4 sm:gap-6 sm:p-5"
                 >
-                    <Skeleton className="size-20 shrink-0 rounded-none sm:size-28" />
+                    <Skeleton className="size-20 shrink-0 rounded-md sm:size-28" />
 
                     <div className="min-w-0 flex-1">
                         <Skeleton className="h-5 w-2/5 sm:h-6" />
@@ -355,7 +355,7 @@ const InquireSkeleton = () => (
              * `h-11` and `h-12` both miss it, and this is the one button the
              * reader is reaching for, so it is the one that must not move.
              */}
-            <Skeleton className="h-[46px] w-full rounded-none sm:w-36" />
+            <Skeleton className="h-[46px] w-full rounded-md sm:w-36" />
         </div>
     </div>
 );
@@ -1422,7 +1422,7 @@ const Inquire = () => {
                                                         setSearch('')
                                                     }
                                                     aria-label="Clear search"
-                                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                                 >
                                                     <X
                                                         className="size-4"
@@ -1450,7 +1450,7 @@ const Inquire = () => {
                                                         onClick={() =>
                                                             setFilter(tab.value)
                                                         }
-                                                        className={`-my-2.5 px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
+                                                        className={`-my-2.5 rounded-md px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
                                                             isActive
                                                                 ? 'font-bold text-foreground underline decoration-foreground underline-offset-4'
                                                                 : 'text-secondary-foreground'
@@ -1538,6 +1538,7 @@ const Inquire = () => {
                                                     thumbnail: stone.thumbnail,
                                                     recommended:
                                                         stone.recommended,
+                                                    category: stone.category,
                                                 }}
                                                 aspect="aspect-[4/3]"
                                                 saved={savedIds.has(stone.id)}
@@ -1709,7 +1710,7 @@ const Inquire = () => {
                                                     setCategorySearch('')
                                                 }
                                                 aria-label="Clear search"
-                                                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                             >
                                                 <X
                                                     className="size-4"

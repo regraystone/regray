@@ -6,7 +6,7 @@ import ProfileGallery from '@/components/profile-gallery';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import { index as homeIndex, stone as homeStone } from '@/routes/home';
+import { stone as homeStone } from '@/routes/home';
 import type { ProjectProfile as ProjectProfileData } from '@/types/home';
 
 type ProjectProfileProps = {
@@ -38,7 +38,9 @@ const ProjectProfile = ({
             <section className="lg:grid lg:grid-cols-2 lg:gap-x-12">
                 <div>
                     <Button asChild variant="ghost" className="h-9 px-0">
-                        <Link href={homeIndex.url()}>
+                        <Link
+                            href={homeStone.url({ stone: project.stone.slug })}
+                        >
                             <ArrowLeft aria-hidden />
                             Return
                         </Link>
@@ -51,7 +53,7 @@ const ProjectProfile = ({
                 <img
                     src={project.thumbnail}
                     alt={project.name}
-                    className="mt-6 aspect-[4/5] w-full object-cover lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:aspect-[6/7]"
+                    className="mt-6 aspect-[4/5] w-full rounded-md object-cover lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:aspect-[6/7]"
                 />
 
                 <div className="mt-8 flex flex-col md:max-w-2xl lg:col-start-1 lg:row-start-2 lg:mt-0 lg:self-end">
@@ -119,17 +121,16 @@ const ProjectProfile = ({
                     {project.stones.map((stone) => (
                         <StoneCard
                             key={stone.slug}
-                            // Remove this slug-to-id mapping once stones are DB-backed.
                             stone={{
                                 id: stone.slug,
                                 slug: stone.slug,
                                 name: stone.name,
                                 thumbnail: stone.thumbnail,
                                 recommended: stone.recommended,
+                                category: stone.category,
                             }}
                             aspect="aspect-[4/3]"
                             href={homeStone.url({
-                                project: project.slug,
                                 stone: stone.slug,
                             })}
                             saved={savedIds.has(stone.slug)}

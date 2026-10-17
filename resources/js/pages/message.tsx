@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 const MessageSkeleton = () => (
     <div className="mx-auto w-full max-w-6xl">
-        <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col border border-sidebar-border bg-background md:min-h-[32rem] md:flex-row">
+        <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col overflow-hidden rounded-md border border-sidebar-border bg-background md:min-h-[32rem] md:flex-row">
             <div className="flex w-full min-w-0 flex-col md:w-80 md:shrink-0 md:border-r md:border-sidebar-border lg:w-96">
                 <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border px-4 sm:h-16">
                     <Skeleton className="h-8 w-32 rounded-none" />
@@ -39,14 +39,14 @@ const MessageSkeleton = () => (
                     <Skeleton className="h-4 w-40 rounded-none" />
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col gap-2 p-4 md:p-5">
-                    <Skeleton className="h-10 w-2/5 rounded-none" />
-                    <Skeleton className="ml-auto h-10 w-3/5 rounded-none" />
-                    <Skeleton className="h-10 w-1/2 rounded-none" />
-                    <Skeleton className="ml-auto h-10 w-2/3 rounded-none" />
+                    <Skeleton className="h-10 w-2/5 rounded-md" />
+                    <Skeleton className="ml-auto h-10 w-3/5 rounded-md" />
+                    <Skeleton className="h-10 w-1/2 rounded-md" />
+                    <Skeleton className="ml-auto h-10 w-2/3 rounded-md" />
                 </div>
                 <div className="flex shrink-0 items-center gap-2 border-t border-sidebar-border p-3">
                     <Skeleton className="h-11 flex-1 rounded-none" />
-                    <Skeleton className="h-11 w-11 shrink-0 rounded-none" />
+                    <Skeleton className="h-11 w-11 shrink-0 rounded-md" />
                 </div>
             </div>
         </div>
@@ -105,7 +105,7 @@ const Message = () => {
 
     return (
         <div className="mx-auto w-full max-w-6xl">
-            <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col border border-sidebar-border bg-background md:min-h-[32rem] md:flex-row">
+            <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col overflow-hidden rounded-md border border-sidebar-border bg-background md:min-h-[32rem] md:flex-row">
                 <ConversationList
                     conversations={conversations}
                     selectedId={selectedId}

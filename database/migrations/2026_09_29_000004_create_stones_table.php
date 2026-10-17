@@ -11,11 +11,11 @@ return new class extends Migration
     {
         Schema::create('stones', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('stone_category_id')->constrained()->restrictOnDelete();
             $table->string('slug', 100);
             $table->string('name', 150);
             $table->string('thumbnail_path', 255);
-            $table->text('description');
-            $table->string('origin', 255);
+            $table->string('size', 20);
             $table->smallInteger('thickness_mm');
             $table->boolean('recommended');
             $table->boolean('is_active');
@@ -25,18 +25,19 @@ return new class extends Migration
             $table->softDeletesTz();
 
             $table->index(['is_active', 'sort_order']);
+            $table->index('stone_category_id');
+            $table->index('size');
+            $table->index('thickness_mm');
         });
 
         DB::statement('CREATE UNIQUE INDEX idx_stones_name_unique_not_deleted ON stones (lower(name)) WHERE deleted_at IS NULL');
         DB::statement('CREATE UNIQUE INDEX idx_stones_slug_not_deleted ON stones (lower(slug)) WHERE deleted_at IS NULL');
+        DB::statement("ALTER TABLE stones ADD CONSTRAINT chk_stones_size CHECK (size ~ '^[0-9]+x[0-9]+$')");
         DB::statement('ALTER TABLE stones ADD CONSTRAINT chk_stones_thickness_positive CHECK (thickness_mm > 0)');
     }
 
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS idx_stones_name_unique_not_deleted');
-        DB::statement('DROP INDEX IF EXISTS idx_stones_slug_not_deleted');
-        DB::statement('ALTER TABLE stones DROP CONSTRAINT IF EXISTS chk_stones_thickness_positive');
         Schema::dropIfExists('stones');
     }
 };

@@ -434,7 +434,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         );
 
         return (
-            <div className={className}>
+            <div className={cn('rounded-md', className)}>
                 <div
                     ref={viewportRef}
                     role="region"
@@ -457,7 +457,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerCancel}
                     className={cn(
-                        'flex touch-pan-y overflow-x-auto overscroll-x-contain select-none',
+                        'flex touch-pan-y overflow-x-auto overscroll-x-contain rounded-md select-none',
                         dragEnabled
                             ? isDragging
                                 ? 'cursor-grabbing snap-none'

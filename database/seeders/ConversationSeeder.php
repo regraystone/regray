@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\Agenda;
 use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\Inquiry;
 use App\Models\Message;
+use App\Models\Schedule;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -32,11 +32,11 @@ class ConversationSeeder extends Seeder
 
         $meUser = User::where('email', 'admin@example.com')->firstOrFail();
 
-        $agendaMap = [
-            'apt-04' => Agenda::where('title', 'Site ocular')->first()?->id,
-            'apt-06' => Agenda::where('title', 'Showroom visit')->where('id', '>', 1)->first()?->id,
-            'apt-03' => Agenda::where('title', 'Quotation review')->first()?->id,
-            'apt-18' => Agenda::where('title', 'Cancelled demo')->first()?->id,
+        $scheduleMap = [
+            'apt-04' => Schedule::where('title', 'Site ocular')->first()?->id,
+            'apt-06' => Schedule::where('title', 'Showroom visit')->where('id', '>', 1)->first()?->id,
+            'apt-03' => Schedule::where('title', 'Quotation review')->first()?->id,
+            'apt-18' => Schedule::where('title', 'Cancelled demo')->first()?->id,
         ];
 
         foreach ($data['conversations'] as $conversationData) {
@@ -86,15 +86,15 @@ class ConversationSeeder extends Seeder
                 }
 
                 $messageType = $messageData['kind'];
-                if ($messageType === 'agenda') {
-                    $messageType = 'agenda_card';
+                if ($messageType === 'schedule') {
+                    $messageType = 'schedule_card';
                 } elseif ($messageType === 'inquiry') {
                     $messageType = 'inquiry_card';
                 }
 
-                $agendaId = null;
-                if ($messageData['kind'] === 'agenda' && isset($messageData['agenda_id'])) {
-                    $agendaId = $agendaMap[$messageData['agenda_id']] ?? null;
+                $scheduleId = null;
+                if ($messageData['kind'] === 'schedule' && isset($messageData['schedule_id'])) {
+                    $scheduleId = $scheduleMap[$messageData['schedule_id']] ?? null;
                 }
 
                 $message = Message::create([
@@ -103,7 +103,7 @@ class ConversationSeeder extends Seeder
                     'type' => $messageType,
                     'body' => $messageData['body'] ?? null,
                     'inquiry_id' => $messageData['kind'] === 'inquiry' ? $inquiry->id : null,
-                    'agenda_id' => $agendaId,
+                    'schedule_id' => $scheduleId,
                     'announced_status' => $messageData['announced_status'] ?? null,
                     'created_at' => Carbon::parse($messageData['sent_at']),
                 ]);

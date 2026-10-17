@@ -47,7 +47,7 @@ export default function AccountSecurity({
 
                 <div className="space-y-6">
                     {/* Profile Information Form */}
-                    <Card className="rounded-none border-border py-4 shadow-none sm:py-6">
+                    <Card className="border-border py-4 shadow-none sm:py-6">
                         <CardHeader className="px-4 sm:px-6">
                             <CardTitle>Profile</CardTitle>
                             <CardDescription>
@@ -162,7 +162,7 @@ export default function AccountSecurity({
                     </Link>
 
                     {/* Delete Account */}
-                    <Card className="rounded-none border-border py-4 shadow-none sm:py-6">
+                    <Card className="border-border py-4 shadow-none sm:py-6">
                         <CardHeader className="px-4 sm:px-6">
                             <CardTitle>Delete account</CardTitle>
                             <CardDescription>

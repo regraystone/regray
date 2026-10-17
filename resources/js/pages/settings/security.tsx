@@ -42,7 +42,7 @@ export default function Security(props: Props) {
 
                 <div className="space-y-6">
                     {/* Password Update Card */}
-                    <Card className="rounded-none border-border py-4 shadow-none sm:py-6">
+                    <Card className="border-border py-4 shadow-none sm:py-6">
                         <CardHeader className="px-4 sm:px-6">
                             <CardTitle>Update password</CardTitle>
                             <CardDescription>
@@ -126,7 +126,7 @@ export default function Security(props: Props) {
                     </Card>
 
                     {/* Two-Factor Authentication Card */}
-                    <Card className="rounded-none border-border py-4 shadow-none sm:py-6">
+                    <Card className="border-border py-4 shadow-none sm:py-6">
                         <CardHeader className="px-4 sm:px-6">
                             <CardTitle>Two-factor authentication</CardTitle>
                             <CardDescription>

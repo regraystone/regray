@@ -247,7 +247,7 @@ const ProjectAttachments = ({
                         key={attachment.id}
                         className="flex min-w-0 items-center gap-3 border-t border-sidebar-border py-3"
                     >
-                        <span className="grid size-10 shrink-0 place-items-center overflow-hidden border border-sidebar-border bg-background text-secondary-foreground">
+                        <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border bg-background text-secondary-foreground">
                             <AttachmentPreview file={attachment.file} />
                         </span>
                         <span className="min-w-0 flex-1">
@@ -601,7 +601,7 @@ const InquiryReview = ({
                                                                 }
                                                                 alt=""
                                                                 loading="lazy"
-                                                                className="size-11 shrink-0 object-cover"
+                                                                className="size-11 shrink-0 rounded-md object-cover"
                                                             />
                                                         ) : null}
                                                         <span className="min-w-0 truncate text-sm font-bold text-foreground">

@@ -64,7 +64,7 @@ const COLLAPSED_STONE_COUNT = 3;
  * count of what the row is not showing.
  */
 const SERVICE_TAG_CLASS =
-    'border border-sidebar-border px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] text-secondary-foreground uppercase';
+    'rounded-md border border-sidebar-border px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] text-secondary-foreground uppercase';
 
 type StatusFilter = 'all' | InquiryStatus;
 type SortOrder = 'newest' | 'oldest';
@@ -150,7 +150,7 @@ const QuoteSkeleton = () => (
             {Array.from({ length: 3 }, (_, index) => (
                 <div
                     key={index}
-                    className="border border-sidebar-border bg-background p-4 sm:p-5"
+                    className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5"
                 >
                     <div className="flex items-center justify-between gap-3">
                         <Skeleton className="h-5 w-20" />
@@ -159,8 +159,8 @@ const QuoteSkeleton = () => (
                     <Skeleton className="mt-3 h-4 w-40" />
                     <div className="mt-3 flex flex-col gap-4 sm:flex-row">
                         <div className="flex shrink-0 gap-1.5">
-                            <Skeleton className="size-14 rounded-none" />
-                            <Skeleton className="size-14 rounded-none" />
+                            <Skeleton className="size-14 rounded-md" />
+                            <Skeleton className="size-14 rounded-md" />
                         </div>
                         <div className="min-w-0 flex-1 space-y-2">
                             <Skeleton className="h-4 w-1/2" />
@@ -278,7 +278,7 @@ const InquiryCard = ({
     const actionClassName = 'w-full sm:w-auto lg:w-full';
 
     return (
-        <article className="border border-sidebar-border bg-background p-4 sm:p-5">
+        <article className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
                 <div className="min-w-0 flex-1 space-y-3">
                     <div className="flex items-center justify-between gap-3">
@@ -310,7 +310,7 @@ const InquiryCard = ({
                                 return (
                                     <span
                                         key={stone.id}
-                                        className="relative size-14 overflow-hidden border border-sidebar-border bg-background"
+                                        className="relative size-14 overflow-hidden rounded-md border border-sidebar-border bg-background"
                                     >
                                         <img
                                             src={stone.thumbnail}
@@ -762,7 +762,7 @@ const Quote = () => {
                                     type="button"
                                     onClick={() => handleSearchChange('')}
                                     aria-label="Clear search"
-                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                 >
                                     <X className="size-4" aria-hidden />
                                 </button>
@@ -785,7 +785,7 @@ const Quote = () => {
                                     >
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-none">
+                                    <SelectContent>
                                         {STATUS_TABS.map((tab) => (
                                             <SelectItem
                                                 key={tab.value}
@@ -812,7 +812,7 @@ const Quote = () => {
                                     >
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-none">
+                                    <SelectContent>
                                         <SelectItem
                                             value="newest"
                                             className="rounded-none"
@@ -848,7 +848,7 @@ const Quote = () => {
                                     onClick={() =>
                                         handleStatusChange(tab.value)
                                     }
-                                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
+                                    className={`flex shrink-0 items-center gap-1.5 rounded-md whitespace-nowrap transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
                                         isActive
                                             ? 'font-bold text-foreground'
                                             : 'text-secondary-foreground'

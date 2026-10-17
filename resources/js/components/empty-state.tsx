@@ -17,7 +17,7 @@ const EmptyState = ({
     description: string;
     action?: ReactNode;
 }) => (
-    <div className="flex flex-col items-center justify-center gap-3 border border-sidebar-border bg-background px-6 py-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-sidebar-border bg-background px-6 py-16 text-center">
         <p className="text-lg font-bold tracking-[-0.03em]">{title}</p>
         <p className="max-w-sm text-sm text-secondary-foreground">
             {description}

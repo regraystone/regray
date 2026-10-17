@@ -69,7 +69,7 @@ const InquiryStepper = ({ steps, current }: InquiryStepperProps) => {
                                      * the current step looks like being picked
                                      * rather than like being finished.
                                      */
-                                    className={`grid size-9 place-items-center border text-xs font-bold ${
+                                    className={`grid size-9 place-items-center rounded-md border text-xs font-bold ${
                                         isActive
                                             ? 'border-primary bg-background text-foreground ring-2 ring-primary'
                                             : isDone

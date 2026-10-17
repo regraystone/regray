@@ -298,10 +298,10 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
         return (
             <li
                 key={entry.id}
-                className="border border-sidebar-border bg-background p-3"
+                className="rounded-md border border-sidebar-border bg-background p-3"
             >
                 <div className="flex items-center gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center border border-sidebar-border bg-background text-secondary-foreground">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-md border border-sidebar-border bg-background text-secondary-foreground">
                         {isPdf || !preview ? (
                             <FileText className="size-5" aria-hidden />
                         ) : (
@@ -343,7 +343,7 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                         type="button"
                         onClick={() => removeFile(entry)}
                         aria-label={`Remove ${entry.file.name}`}
-                        className="grid size-9 shrink-0 cursor-pointer place-items-center border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                        className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
                         <X className="size-4" aria-hidden />
                     </button>
@@ -396,7 +396,7 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                     setIsDragging(false);
                     addFiles(Array.from(event.dataTransfer.files));
                 }}
-                className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 border border-dashed px-6 py-10 text-center transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
+                className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed px-6 py-10 text-center transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
                     isDragging
                         ? 'border-primary bg-muted'
                         : 'border-sidebar-border bg-background'

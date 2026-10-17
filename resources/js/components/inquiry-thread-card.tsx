@@ -159,7 +159,7 @@ const InquiryThreadCard = ({
             <Link
                 href={detailsHref}
                 aria-label={`${headline} ${inquiryTitle(inquiry)}, inquiry ${inquiry.reference}, ${STATUS_LABELS[badgeStatus]}. View details`}
-                className="mx-auto block w-full max-w-xs overflow-hidden bg-secondary text-left transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
+                className="mx-auto block w-full max-w-xs overflow-hidden rounded-md bg-secondary text-left transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:max-w-sm"
             >
                 {hasHero ? (
                     <span className="relative block">

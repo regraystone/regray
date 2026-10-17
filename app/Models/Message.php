@@ -16,13 +16,13 @@ use Illuminate\Support\Carbon;
  * @property MessageType $type
  * @property string|null $body
  * @property int|null $inquiry_id
- * @property int|null $agenda_id
+ * @property int|null $schedule_id
  * @property string|null $announced_status
  * @property Carbon $created_at
  * @property Carbon|null $edited_at
  * @property Carbon|null $deleted_at
  */
-#[Fillable(['sender_id', 'type', 'body', 'inquiry_id', 'agenda_id', 'announced_status', 'edited_at'])]
+#[Fillable(['sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'edited_at'])]
 class Message extends Model
 {
     use SoftDeletes;
@@ -54,10 +54,10 @@ class Message extends Model
         return $this->belongsTo(Inquiry::class);
     }
 
-    /** @return BelongsTo<Agenda, $this> */
-    public function agenda(): BelongsTo
+    /** @return BelongsTo<Schedule, $this> */
+    public function schedule(): BelongsTo
     {
-        return $this->belongsTo(Agenda::class);
+        return $this->belongsTo(Schedule::class);
     }
 
     /** @return HasMany<MessageAttachment, $this> */

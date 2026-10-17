@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('agendas', function (Blueprint $table) {
+        Schema::create('schedules', function (Blueprint $table) {
             $table->id();
             $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
             $table->foreignId('booked_by')->nullable()->constrained('users')->nullOnDelete();
@@ -31,16 +31,16 @@ return new class extends Migration
             $table->index('inquiry_id');
         });
 
-        DB::statement("ALTER TABLE agendas ADD CONSTRAINT chk_agendas_status CHECK (status IN ('requested','confirmed','completed','cancelled'))");
-        DB::statement("ALTER TABLE agendas ADD CONSTRAINT chk_agendas_booked_by_type CHECK (booked_by_type IN ('client','staff'))");
-        DB::statement('ALTER TABLE agendas ADD CONSTRAINT chk_agendas_approved CHECK (approved_by IS NULL OR approved_at IS NOT NULL)');
+        DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_status CHECK (status IN ('requested','confirmed','completed','cancelled'))");
+        DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_booked_by_type CHECK (booked_by_type IN ('client','staff'))");
+        DB::statement('ALTER TABLE schedules ADD CONSTRAINT chk_schedules_approved CHECK (approved_by IS NULL OR approved_at IS NOT NULL)');
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE agendas DROP CONSTRAINT IF EXISTS chk_agendas_status');
-        DB::statement('ALTER TABLE agendas DROP CONSTRAINT IF EXISTS chk_agendas_booked_by_type');
-        DB::statement('ALTER TABLE agendas DROP CONSTRAINT IF EXISTS chk_agendas_approved');
-        Schema::dropIfExists('agendas');
+        DB::statement('ALTER TABLE schedules DROP CONSTRAINT IF EXISTS chk_schedules_status');
+        DB::statement('ALTER TABLE schedules DROP CONSTRAINT IF EXISTS chk_schedules_booked_by_type');
+        DB::statement('ALTER TABLE schedules DROP CONSTRAINT IF EXISTS chk_schedules_approved');
+        Schema::dropIfExists('schedules');
     }
 };

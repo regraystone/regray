@@ -304,7 +304,7 @@ const Combobox = ({
                     id={listboxId}
                     role="listbox"
                     aria-label={listLabel}
-                    className="absolute top-[calc(100%+4px)] right-0 left-0 z-20 max-h-60 overflow-y-auto border border-sidebar-border bg-background"
+                    className="absolute top-[calc(100%+4px)] right-0 left-0 z-20 max-h-60 overflow-y-auto rounded-md border border-sidebar-border bg-background"
                 >
                     {matches.length === 0 ? (
                         <li className="px-3 py-2 text-sm text-secondary-foreground">

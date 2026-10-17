@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-enum AgendaStatus: string
+enum ScheduleStatus: string
 {
     case Requested = 'requested';
     case Confirmed = 'confirmed';

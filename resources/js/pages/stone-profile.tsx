@@ -1,15 +1,13 @@
 import { useRef, useState } from 'react';
-import { router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import Carousel, { type CarouselHandle } from '@/components/carousel';
-import ImageLightbox, {
-    LightboxTrigger,
-    type LightboxImage,
-} from '@/components/image-lightbox';
+import ImageLightbox, { type LightboxImage } from '@/components/image-lightbox';
 import { FactChip, SpecRow } from '@/components/profile-facts';
 import ProfileGallery from '@/components/profile-gallery';
 import { Button } from '@/components/ui/button';
-import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { index as homeIndex, project as homeProject } from '@/routes/home';
+import { index as savedIndex } from '@/routes/saved';
 import type {
     StoneProfile as StoneProfileData,
     StoneProfileProject,
@@ -17,13 +15,6 @@ import type {
 
 type StoneProfileProps = {
     stone: { data: StoneProfileData };
-    /**
-     * The project this stone is read under, when it is the nested route.
-     *
-     * A stone reached from Saved has no project above it, so the prop is left
-     * off and the page is exactly what it has always been.
-     */
-    projectSlug?: string;
 };
 
 const BulletedList = ({ items }: { items: string[] }) => (
@@ -48,10 +39,13 @@ type HighlightCard = { name: string; image: string };
 const ProjectCard = ({
     name,
     image,
-    onOpen,
-}: HighlightCard & { onOpen: () => void }) => (
-    <LightboxTrigger onOpen={onOpen}>
-        <figure className="stone-card cursor-pointer border border-sidebar-border bg-background">
+    href,
+}: HighlightCard & { href: string }) => (
+    <Link
+        href={href}
+        className="block size-full cursor-pointer overflow-hidden rounded-md p-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
+    >
+        <figure className="stone-card cursor-pointer overflow-hidden rounded-md border border-sidebar-border bg-background">
             <div className="stone-card-media relative aspect-[4/3] overflow-hidden bg-background">
                 <img
                     src={image}
@@ -61,24 +55,24 @@ const ProjectCard = ({
                     className="absolute inset-0 size-full object-cover"
                 />
                 <div className="image-tint absolute inset-0" aria-hidden />
-                <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 bg-background py-1 pr-2.5 pl-2">
+                <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 rounded-md bg-background py-1 pr-2.5 pl-2">
                     <span className="min-w-0 truncate text-[0.65rem] font-bold tracking-[0.05em] text-foreground uppercase sm:text-[0.8rem] sm:tracking-[0.06em]">
                         {name}
                     </span>
                 </span>
             </div>
         </figure>
-    </LightboxTrigger>
+    </Link>
 );
 
 const ProjectsCarousel = ({
     highlights,
     name,
-    onOpenImage,
+    stoneSlug,
 }: {
     highlights: StoneProfileProject[];
     name: string;
-    onOpenImage: (image: LightboxImage) => void;
+    stoneSlug: string;
 }) => {
     const carouselRef = useRef<CarouselHandle>(null);
     const [atStart, setAtStart] = useState(true);
@@ -136,12 +130,10 @@ const ProjectsCarousel = ({
                         <ProjectCard
                             name={highlight.name}
                             image={highlight.thumbnail}
-                            onOpen={() =>
-                                onOpenImage({
-                                    src: highlight.thumbnail,
-                                    alt: highlight.name,
-                                })
-                            }
+                            href={homeProject.url({
+                                stone: stoneSlug,
+                                project: highlight.slug,
+                            })}
                         />
                     </div>
                 ))}
@@ -150,31 +142,17 @@ const ProjectsCarousel = ({
     );
 };
 
-const StoneProfile = ({
-    stone: { data: stone },
-    projectSlug,
-}: StoneProfileProps) => {
+const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
+    const { url } = usePage();
     const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(
         null,
     );
 
-    // The hero sits outside the nav, so the way back belongs to the page. The
-    // nested stone is read inside a project, so its way back is the project
-    // itself rather than wherever the reader happened to come from. A direct
-    // hit on the standalone URL has no history to pop, so it falls back to the
-    // feed the breadcrumb already treats as this page's parent.
+    // Both stone doors return to their own feed, including on a direct visit.
     const goBack = () => {
-        if (projectSlug) {
-            router.visit(homeShow.url({ project: projectSlug }));
-
-            return;
-        }
-
-        if (window.history.length > 1) {
-            window.history.back();
-        } else {
-            router.visit(homeIndex.url());
-        }
+        router.visit(
+            url.startsWith('/saved/') ? savedIndex.url() : homeIndex.url(),
+        );
     };
 
     return (
@@ -192,23 +170,21 @@ const StoneProfile = ({
                     variant="outline"
                     size="sm"
                     onClick={goBack}
-                    aria-label={projectSlug ? 'Back to Project' : 'Back'}
+                    aria-label="Back"
                     className="group absolute top-4 left-4 z-20 h-11 w-11 cursor-pointer justify-center gap-2.5 border-white/25 bg-black/55 px-0 tracking-[0.12em] text-white backdrop-blur-md transition-colors duration-200 hover:border-white/40 hover:bg-black/75 hover:opacity-100 focus-visible:ring-white/60 sm:top-6 sm:left-6 sm:w-auto sm:px-4 lg:left-8"
                 >
                     <ArrowLeft
                         className="size-4 transition-transform duration-200 group-hover:-translate-x-0.5"
                         aria-hidden
                     />
-                    <span className="hidden sm:inline">
-                        {projectSlug ? 'Back to Project' : 'Back'}
-                    </span>
+                    <span className="hidden sm:inline">Back</span>
                 </Button>
                 <div className="relative z-10 mx-auto w-full max-w-4xl px-5 py-16 text-center sm:py-24">
                     <h1 className="hero-title mt-5 text-on-image">
                         {stone.name}
                     </h1>
                     {stone.recommended && (
-                        <span className="mt-6 inline-flex items-center gap-1 bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
+                        <span className="mt-6 inline-flex items-center gap-1 rounded-md bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
                             <Star
                                 className="size-3 shrink-0 fill-white text-white"
                                 aria-hidden
@@ -243,12 +219,16 @@ const StoneProfile = ({
                             </h3>
                             <dl>
                                 <SpecRow
-                                    label="Stone Type"
+                                    label="Stone category"
                                     value={stone.specifications.stoneType}
                                 />
                                 <SpecRow
                                     label="Origin"
                                     value={stone.specifications.origin}
+                                />
+                                <SpecRow
+                                    label="Size"
+                                    value={stone.specifications.size}
                                 />
                                 <SpecRow
                                     label="Thickness"
@@ -293,7 +273,7 @@ const StoneProfile = ({
                     <ProjectsCarousel
                         highlights={stone.projects}
                         name={stone.name}
-                        onOpenImage={setLightboxImage}
+                        stoneSlug={stone.slug}
                     />
                 </section>
             )}

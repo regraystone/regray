@@ -14,12 +14,11 @@ import { Input } from '@/components/ui/input';
 import type { Conversation } from '@/data/conversations';
 import { cn } from '@/lib/utils';
 
-type ConversationFilter = 'all' | 'unread' | 'groups';
+type ConversationFilter = 'all' | 'unread';
 
 const FILTERS: Array<{ value: ConversationFilter; label: string }> = [
     { value: 'all', label: 'All' },
     { value: 'unread', label: 'Unread' },
-    { value: 'groups', label: 'Groups' },
 ];
 
 const matchesFilter = (
@@ -28,10 +27,6 @@ const matchesFilter = (
 ): boolean => {
     if (filter === 'unread') {
         return conversation.unread;
-    }
-
-    if (filter === 'groups') {
-        return conversation.type === 'group';
     }
 
     return true;
@@ -257,7 +252,7 @@ const ConversationList = ({
                                 aria-selected={isActive}
                                 variant={isActive ? 'default' : 'secondary'}
                                 size="sm"
-                                className="shrink-0 cursor-pointer px-3 py-1.5"
+                                className="shrink-0 cursor-pointer rounded-md px-3 py-1.5"
                                 onClick={() => setFilter(item.value)}
                             >
                                 {item.label}

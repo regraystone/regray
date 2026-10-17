@@ -65,9 +65,9 @@ class Inquiry extends Model
         return $this->hasMany(Message::class);
     }
 
-    /** @return HasMany<Agenda, $this> */
-    public function agendas(): HasMany
+    /** @return HasMany<Schedule, $this> */
+    public function schedules(): HasMany
     {
-        return $this->hasMany(Agenda::class);
+        return $this->hasMany(Schedule::class);
     }
 }

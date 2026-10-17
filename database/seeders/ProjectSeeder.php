@@ -34,8 +34,8 @@ class ProjectSeeder extends Seeder
             }
 
             foreach ($projectData['stone_slugs'] as $stoneSlug) {
-                $stone = Stone::where('slug', $stoneSlug)->firstOrFail();
-                $project->stones()->syncWithoutDetaching($stone->id);
+                $stoneIds = Stone::query()->whereHas('category', fn ($query) => $query->where('slug', $stoneSlug))->pluck('id');
+                $project->stones()->syncWithoutDetaching($stoneIds);
             }
 
             foreach ($projectData['category_slugs'] as $categorySlug) {

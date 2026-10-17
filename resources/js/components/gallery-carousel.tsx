@@ -352,7 +352,7 @@ const GalleryCarousel = forwardRef<GalleryCarouselHandle, GalleryCarouselProps>(
         ]);
 
         return (
-            <div className={className}>
+            <div className={cn('rounded-md', className)}>
                 <div
                     ref={viewportRef}
                     role="region"
@@ -375,7 +375,7 @@ const GalleryCarousel = forwardRef<GalleryCarouselHandle, GalleryCarouselProps>(
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerCancel}
                     className={cn(
-                        'flex touch-pan-y overflow-x-auto overscroll-x-contain select-none',
+                        'flex touch-pan-y overflow-x-auto overscroll-x-contain rounded-md select-none',
                         isDragging
                             ? 'cursor-grabbing snap-none'
                             : 'cursor-grab snap-x snap-mandatory',

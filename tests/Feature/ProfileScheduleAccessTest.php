@@ -8,49 +8,49 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /*
- * The agenda is one page with two URLs, and each role is given one of them
+ * The schedule is one page with two URLs, and each role is given one of them
  * rather than both: a client reads their visits from the Profile page and has
- * no Agenda in their sidebar, while the staff who read the week have the sidebar
+ * no Schedule in their sidebar, while the staff who read the week have the sidebar
  * entry and are not offered the Profile door.
  *
  * These tests walk both doors for every role and the shared permission prop, so
  * the split is pinned from each end. Nothing here names a role to decide access:
- * the doors are guarded by `agenda.view` and `profile-agenda.view`, and the
+ * the doors are guarded by `schedule.view` and `profile-schedule.view`, and the
  * matrix is what decides which role gets which.
  */
 beforeEach(function () {
     $this->seed(RolePermissionSeeder::class);
 });
 
-test('the client reads the agenda through the Profile page and not the sidebar', function () {
+test('the client reads the schedule through the Profile page and not the sidebar', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('profile.agenda'))
+        ->get(route('profile.schedule'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('agenda'));
+        ->assertInertia(fn (Assert $page) => $page->component('schedule'));
 
     $this->actingAs($user)
-        ->get(route('agenda.index'))
+        ->get(route('schedule.index'))
         ->assertForbidden();
 });
 
-test('the super-admin opens the agenda through either door', function () {
+test('the super-admin opens the schedule through either door', function () {
     $user = User::factory()->role(Role::Admin)->create();
 
-    $this->actingAs($user)->get(route('agenda.index'))->assertOk();
-    $this->actingAs($user)->get(route('profile.agenda'))->assertOk();
+    $this->actingAs($user)->get(route('schedule.index'))->assertOk();
+    $this->actingAs($user)->get(route('profile.schedule'))->assertOk();
 });
 
 test('a staff reader of the week has the sidebar door and not the Profile one', function (string $role) {
     $user = User::factory()->role($role)->create();
 
     $this->actingAs($user)
-        ->get(route('agenda.index'))
+        ->get(route('schedule.index'))
         ->assertOk();
 
     $this->actingAs($user)
-        ->get(route('profile.agenda'))
+        ->get(route('profile.schedule'))
         ->assertForbidden();
 })->with([
     Role::Owner->value,
@@ -64,11 +64,11 @@ test('a role that does not read the week has neither door', function (string $ro
     $user = User::factory()->role($role)->create();
 
     expect(RolePermissionSeeder::MATRIX[$role])
-        ->not->toContain(Permission::AgendaView->value)
-        ->not->toContain(Permission::ProfileAgendaView->value);
+        ->not->toContain(Permission::ScheduleView->value)
+        ->not->toContain(Permission::ProfileScheduleView->value);
 
-    $this->actingAs($user)->get(route('agenda.index'))->assertForbidden();
-    $this->actingAs($user)->get(route('profile.agenda'))->assertForbidden();
+    $this->actingAs($user)->get(route('schedule.index'))->assertForbidden();
+    $this->actingAs($user)->get(route('profile.schedule'))->assertForbidden();
 })->with([Role::Accounting->value]);
 
 test('the client is shared the Profile door and not the sidebar one', function () {
@@ -78,11 +78,11 @@ test('the client is shared the Profile door and not the sidebar one', function (
         ->get(route('profile.show'))
         ->assertInertia(fn (Assert $page) => $page
             ->component('profile/index')
-            ->where('auth.permissions', fn ($permissions) => $permissions->contains(Permission::ProfileAgendaView->value))
-            ->where('auth.permissions', fn ($permissions) => ! $permissions->contains(Permission::AgendaView->value))
+            ->where('auth.permissions', fn ($permissions) => $permissions->contains(Permission::ProfileScheduleView->value))
+            ->where('auth.permissions', fn ($permissions) => ! $permissions->contains(Permission::ScheduleView->value))
             // Booking is on the page whichever URL it is reached by, so the
             // client keeps it without holding the sidebar door.
-            ->where('auth.permissions', fn ($permissions) => $permissions->contains(Permission::AgendaCreate->value))
+            ->where('auth.permissions', fn ($permissions) => $permissions->contains(Permission::ScheduleCreate->value))
         );
 });
 
@@ -97,7 +97,7 @@ test('the profile section is reached by the URIs the layout links to', function 
     ['profile.edit', 'profile/account-security'],
     ['profile.update', 'profile/account-security'],
     ['profile.destroy', 'profile/account-security'],
-    ['profile.agenda', 'profile/agenda'],
+    ['profile.schedule', 'profile/schedule'],
     ['security.edit', 'profile/account-security/security'],
     ['user-password.update', 'profile/account-security/password'],
     ['password.confirm', 'profile/account-security/confirm-password'],

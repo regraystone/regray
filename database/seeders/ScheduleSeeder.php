@@ -2,17 +2,17 @@
 
 namespace Database\Seeders;
 
-use App\Models\Agenda;
 use App\Models\Inquiry;
+use App\Models\Schedule;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
-class AgendaSeeder extends Seeder
+class ScheduleSeeder extends Seeder
 {
     public function run(): void
     {
-        $data = require database_path('seeders/data/agenda.php');
+        $data = require database_path('seeders/data/schedule.php');
 
         $today = Carbon::now()->startOfDay();
         $monday = $today->copy()->startOfWeek();
@@ -41,7 +41,7 @@ class AgendaSeeder extends Seeder
                 $approvedBy = $client->id;
             }
 
-            Agenda::query()->firstOrCreate(
+            Schedule::query()->firstOrCreate(
                 ['title' => $itemData['title'], 'arrival_at' => $arrivalAt],
                 [
                     'client_id' => $client->id,

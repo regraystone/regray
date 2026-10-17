@@ -136,7 +136,7 @@ const InquiryResult = ({
     return (
         <section
             role={isSuccess ? 'status' : 'alert'}
-            className="mx-auto flex w-full max-w-xl flex-col items-center border border-sidebar-border bg-background px-6 py-16 text-center"
+            className="mx-auto flex w-full max-w-xl flex-col items-center rounded-md border border-sidebar-border bg-background px-6 py-16 text-center"
         >
             {badge}
 

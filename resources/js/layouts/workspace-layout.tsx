@@ -41,14 +41,12 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { inquiries } from '@/data/inquiries';
-import { projects } from '@/data/projects';
-import { stoneProfiles } from '@/data/stones';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
-import { index as agendaIndex } from '@/routes/agenda';
-import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { index as scheduleIndex } from '@/routes/schedule';
+import { index as homeIndex, stone as homeStone } from '@/routes/home';
 import { logout } from '@/routes';
 import {
     index as inquiryIndex,
@@ -59,7 +57,7 @@ import { index as overviewIndex } from '@/routes/overview';
 import { index as projectsIndex } from '@/routes/projects';
 import { index as stonesIndex } from '@/routes/stones';
 import {
-    agenda as profileAgenda,
+    schedule as profileSchedule,
     edit as editAccountSecurity,
     show as showProfile,
 } from '@/routes/profile';
@@ -77,9 +75,9 @@ import { index as servicesIndex } from '@/routes/services';
  * Keeping the union here means the sidebar's `permission` field is checked
  * against this list rather than being an untyped string.
  *
- * `profileAgendaView` and `homeProjectsView` are listed but no nav item names
+ * `profileScheduleView` and `homeProjectsView` are listed but no nav item names
  * them: each is the permission for a page reached from another page rather
- * than from the sidebar. `profileAgendaView` is the agenda as reached from the
+ * than from the sidebar. `profileScheduleView` is the schedule as reached from the
  * Profile page, and the button for it is drawn there rather than in the
  * sidebar — see the Profile hub page. `homeProjectsView` names the project
  * profile and the stone profile nested under it, both read from Home, where
@@ -93,17 +91,17 @@ export const permissions = {
     salesView: 'sales.view',
     quotationsView: 'quotations.view',
     inquiriesView: 'inquiries.view',
-    agendaView: 'agenda.view',
+    scheduleView: 'schedule.view',
     messagesView: 'messages.view',
     stonesView: 'stones.view',
     servicesView: 'services.view',
     accountsView: 'accounts.view',
     projectsView: 'projects.view',
     profileView: 'profile.view',
-    profileAgendaView: 'profile-agenda.view',
+    profileScheduleView: 'profile-schedule.view',
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
-    agendaCreate: 'agenda.create',
+    scheduleCreate: 'schedule.create',
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -169,11 +167,11 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 permission: permissions.inquiriesView,
             },
             {
-                slug: 'agenda',
-                label: 'Agenda',
-                href: agendaIndex.url(),
+                slug: 'schedule',
+                label: 'Schedule',
+                href: scheduleIndex.url(),
                 icon: Calendar,
-                permission: permissions.agendaView,
+                permission: permissions.scheduleView,
             },
             {
                 slug: 'message',
@@ -239,7 +237,7 @@ const navLinkClass = ({
     isActive: boolean;
     collapsed: boolean;
 }) =>
-    `relative flex shrink-0 flex-row items-center py-2.5 text-sm transition-opacity hover:opacity-85 ${
+    `relative flex shrink-0 flex-row items-center overflow-hidden rounded-md py-2.5 text-sm transition-opacity hover:opacity-85 ${
         collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-4'
     } ${
         isActive
@@ -325,10 +323,7 @@ const SidebarNav = ({
                                         </Link>
                                     </TooltipTrigger>
                                     {collapsed && (
-                                        <TooltipContent
-                                            side="right"
-                                            className="rounded-none"
-                                        >
+                                        <TooltipContent side="right">
                                             {item.label}
                                         </TooltipContent>
                                     )}
@@ -453,10 +448,10 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
 
         if (effectiveUrl === editAccountSecurity.url()) {
             crumbs.push({ label: 'Account & Security' });
-        } else if (effectiveUrl === profileAgenda.url()) {
-            crumbs.push({ label: 'Agenda' });
-        } else if (effectiveUrl === '/profile/agenda/book') {
-            crumbs.push({ label: 'Agenda', href: profileAgenda.url() });
+        } else if (effectiveUrl === profileSchedule.url()) {
+            crumbs.push({ label: 'Schedule' });
+        } else if (effectiveUrl === '/profile/schedule/book') {
+            crumbs.push({ label: 'Schedule', href: profileSchedule.url() });
             crumbs.push({ label: 'Book' });
         } else if (effectiveUrl.startsWith(editSecurity.url())) {
             crumbs.push({
@@ -464,6 +459,36 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 href: editAccountSecurity.url(),
             });
             crumbs.push({ label: 'Security' });
+        }
+    } else if (
+        effectiveUrl.split('?')[0] === homeIndex.url() ||
+        effectiveUrl.startsWith(`${homeIndex.url()}/`)
+    ) {
+        crumbs.push({ label: 'Home', href: homeIndex.url() });
+        const stone = (
+            page.props.stone as
+                | { data: { slug: string; name: string } }
+                | undefined
+        )?.data;
+        const project = (
+            page.props.project as
+                | {
+                      data: {
+                          name: string;
+                          stone: { slug: string; name: string };
+                      };
+                  }
+                | undefined
+        )?.data;
+
+        if (project) {
+            crumbs.push({
+                label: project.stone.name,
+                href: homeStone.url({ stone: project.stone.slug }),
+            });
+            crumbs.push({ label: project.name });
+        } else if (stone) {
+            crumbs.push({ label: stone.name });
         }
     } else {
         url.split('/')
@@ -479,27 +504,13 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
 
                 const previousSegment = segments[index - 1];
 
-                /*
-                 * A segment right after `home` is a project, and a segment
-                 * after that project is one of its stones. `home` no longer
-                 * resolves a segment to a stone: a stone is addressed by its
-                 * place in a project now, so `stones` and `saved` are the only
-                 * roots left that read their stone segment directly.
-                 */
-                const project =
-                    previousSegment === 'home'
-                        ? projects.find((entry) => entry.id === segment)
-                        : undefined;
-
-                const underProject =
-                    previousSegment !== undefined &&
-                    projects.some((entry) => entry.id === previousSegment);
-
                 const profile =
-                    previousSegment === 'stones' ||
-                    previousSegment === 'saved' ||
-                    underProject
-                        ? stoneProfiles[segment]
+                    previousSegment === 'stones' || previousSegment === 'saved'
+                        ? (
+                              page.props.stone as
+                                  | { data: { name: string } }
+                                  | undefined
+                          )?.data
                         : undefined;
 
                 // An inquiry is addressed by its id but read by its reference,
@@ -509,21 +520,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         ? inquiries.find((entry) => entry.id === segment)
                         : undefined;
 
-                if (project) {
-                    /*
-                     * Linked while it is a stop on the way and plain text when
-                     * it is the page itself: the trail's last crumb is always
-                     * unlinked, and the renderer reads `href` for the rest.
-                     */
-                    const isLast = index === segments.length - 1;
-
-                    crumbs.push({
-                        label: project.name,
-                        href: isLast
-                            ? undefined
-                            : homeShow.url({ project: project.id }),
-                    });
-                } else if (profile) {
+                if (profile) {
                     crumbs.push({ label: profile.name });
                 } else if (inquiry) {
                     crumbs.push({ label: inquiry.reference });
@@ -571,7 +568,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             collapsed ? 'Expand sidebar' : 'Collapse sidebar'
                         }
                         aria-expanded={!collapsed}
-                        className="grid h-10 w-10 place-items-center border border-sidebar-border text-foreground transition-all duration-300 hover:scale-[1.05] hover:opacity-80"
+                        className="grid h-10 w-10 place-items-center rounded-md border border-sidebar-border text-foreground transition-all duration-300 hover:scale-[1.05] hover:opacity-80"
                     >
                         {collapsed ? (
                             <PanelLeftOpen className="size-4" aria-hidden />
@@ -641,7 +638,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             <DropdownMenuTrigger asChild>
                                 <button
                                     type="button"
-                                    className="group flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-80 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2"
+                                    className="group flex h-11 w-11 items-center justify-center rounded-md transition-opacity hover:opacity-80 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2"
                                     aria-label="Account"
                                 >
                                     <Avatar className="h-9 w-9 border border-border sm:size-9">
@@ -656,10 +653,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                 </button>
                             </DropdownMenuTrigger>
 
-                            <DropdownMenuContent
-                                align="end"
-                                className="w-48 rounded-none"
-                            >
+                            <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuItem>
                                     <HelpCircle className="mr-2" />
                                     Help
@@ -703,7 +697,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         <button
                             type="button"
                             onClick={() => setDrawerOpen(true)}
-                            className="grid h-11 w-11 place-items-center transition-opacity hover:opacity-85 lg:hidden"
+                            className="grid h-11 w-11 place-items-center rounded-md transition-opacity hover:opacity-85 lg:hidden"
                             aria-label="Open navigation"
                             aria-expanded={drawerOpen}
                         >
@@ -746,7 +740,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     <button
                         type="button"
                         onClick={() => setDrawerOpen(false)}
-                        className="grid size-9 place-items-center transition-opacity hover:opacity-85"
+                        className="grid size-9 place-items-center rounded-md transition-opacity hover:opacity-85"
                         aria-label="Close navigation"
                     >
                         <X className="size-4" />
