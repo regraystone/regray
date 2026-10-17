@@ -68,20 +68,53 @@ enum Permission: string
     case ProfileScheduleView = 'profile-schedule.view';
 
     /**
+     * The stone profile reached from the Home feed at `/home/{stone}`.
+     *
+     * Separated from `home.view` to keep each page with its own permission,
+     * allowing granular control of which pages a role may access.
+     *
+     * It is given to the client, who reads the portfolio, and to the
+     * super-admin for consistency with the rest of the matrix even though
+     * `Gate::before` bypasses the check for them anyway.
+     */
+    case HomeStoneView = 'home-stone.view';
+
+    /**
      * The project profile reached from an individual stone on Home.
      *
      * A project is addressed by its place under a stone at
-     * `/home/{stone}/{project}`. The stone profile itself shares `home.view`
-     * with the feed. It is a `view` permission, so it names a
-     * place, but like `ProfileScheduleView` it is one of the two with no sidebar
-     * entry: the entry for the Home page belongs to `HomeView`, and holding
-     * this one is what lets a reader open a project highlight under a stone.
+     * `/home/{stone}/{project}`. It is a `view` permission, so it names a
+     * place, but like `ProfileScheduleView` it has no sidebar entry: the entry
+     * for the Home page belongs to `HomeView`, and holding this one is what lets
+     * a reader open a project highlight under a stone.
      *
      * It is given to the client, who reads the portfolio, and to the
      * super-admin for consistency with the rest of the matrix even though
      * `Gate::before` bypasses the check for them anyway.
      */
     case HomeProjectsView = 'home-projects.view';
+
+    /**
+     * The stone profile reached from the Saved page at `/saved/{stone}`.
+     *
+     * Separated from `saved.view` to keep each page with its own permission,
+     * allowing granular control of which pages a role may access.
+     *
+     * It is given to the client, who manages their saved collection, and to the
+     * super-admin for consistency with the rest of the matrix even though
+     * `Gate::before` bypasses the check for them anyway.
+     */
+    case SavedStoneView = 'saved-stone.view';
+
+    /**
+     * The project profile reached from a saved stone at `/saved/{stone}/{project}`.
+     *
+     * Separated from `saved.view` to keep each nested page with its own permission.
+     * Allows granular control of which saved nested pages a role may access.
+     *
+     * It is given to the client and super-admin for consistency.
+     */
+    case SavedProjectsView = 'saved-projects.view';
 
     case InquiriesCreate = 'inquiries.create';
     case ScheduleCreate = 'schedule.create';

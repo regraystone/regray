@@ -233,7 +233,7 @@ test('stone and project profiles keep independent permission guards', function (
     $this->actingAs($user)->get(route($allowed, $parameters))->assertOk();
     $this->actingAs($user)->get(route($denied, $parameters))->assertForbidden();
 })->with([
-    [Permission::HomeView, 'home.stone', 'home.project'],
+    [Permission::HomeStoneView, 'home.stone', 'home.project'],
     [Permission::HomeProjectsView, 'home.project', 'home.stone'],
 ]);
 

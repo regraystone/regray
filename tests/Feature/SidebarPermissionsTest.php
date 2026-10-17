@@ -159,8 +159,10 @@ test('the seeder creates every role the enum declares and no others', function (
 });
 
 test('the super-admin is granted every permission', function () {
-    expect(RolePermissionSeeder::MATRIX[Role::superAdmin()->value])
-        ->toEqual(Permission::names());
+    $admin = collect(RolePermissionSeeder::MATRIX[Role::superAdmin()->value])->sort()->values()->all();
+    $allPermissions = collect(Permission::names())->sort()->values()->all();
+
+    expect($admin)->toEqual($allPermissions);
 });
 
 test('no role is granted a permission twice', function (string $role) {

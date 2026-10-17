@@ -67,8 +67,11 @@ class RolePermissionSeeder extends Seeder
     public const MATRIX = [
         Role::Client->value => [
             Permission::HomeView->value,
+            Permission::HomeStoneView->value,
             Permission::HomeProjectsView->value,
             Permission::SavedView->value,
+            Permission::SavedStoneView->value,
+            Permission::SavedProjectsView->value,
             Permission::QuotationsView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
@@ -79,8 +82,12 @@ class RolePermissionSeeder extends Seeder
         ],
         Role::Admin->value => [
             Permission::HomeView->value,
+            Permission::HomeStoneView->value,
             Permission::OverviewView->value,
+            Permission::HomeProjectsView->value,
             Permission::SavedView->value,
+            Permission::SavedStoneView->value,
+            Permission::SavedProjectsView->value,
             Permission::SalesView->value,
             Permission::QuotationsView->value,
             Permission::InquiriesView->value,
@@ -92,7 +99,6 @@ class RolePermissionSeeder extends Seeder
             Permission::ProjectsView->value,
             Permission::ProfileView->value,
             Permission::ProfileScheduleView->value,
-            Permission::HomeProjectsView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
             Permission::SavedManage->value,

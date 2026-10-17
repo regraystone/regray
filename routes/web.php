@@ -3,9 +3,11 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Home\ProjectController;
 use App\Http\Controllers\Home\StoneController;
+use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\RedirectController;
+use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
 use App\Http\Controllers\Saved\SavedStoneController;
-use App\Http\Controllers\StoneProfileController;
+use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,16 +28,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('home.index');
 
     /*
-     * Home is the stone feed and each stone profile shares its `home.view`
-     * permission. A published project is read beneath a stone it uses, guarded
-     * separately by `home-projects.view`; the repository checks that the stone
-     * is active and belongs to that project after permission. The parameters stay
-     * plain strings on purpose: the project and its stone are loaded in the repository
-     * after permission is settled. SubstituteBindings runs before `can:`, so
-     * binding a model would let a forbidden reader probe which slugs exist.
+     * Home is the stone feed. Stone profiles and projects are guarded by their own
+     * separate permissions: `home-stone.view` and `home-projects.view` respectively.
+     * A published project is read beneath a stone it uses; the repository checks that
+     * the stone is active and belongs to that project after permission. The parameters
+     * stay plain strings on purpose: the project and its stone are loaded in the
+     * repository after permission is settled. SubstituteBindings runs before `can:`,
+     * so binding a model would let a forbidden reader probe which slugs exist.
      */
-    Route::get('home/{stone}', [StoneProfileController::class, 'show'])
-        ->middleware(Permission::HomeView->middleware())
+    Route::get('home/{stone}', [HomeStoneProfileController::class, 'show'])
+        ->middleware(Permission::HomeStoneView->middleware())
         ->name('home.stone');
     Route::get('home/{stone}/{project}', [ProjectController::class, 'show'])
         ->middleware(Permission::HomeProjectsView->middleware())
@@ -52,9 +54,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * not an alternative with Home's. The repository loads the plain-string slug
      * after permission; model binding would settle existence before `can:`.
      */
-    Route::get('saved/{stone}', [StoneProfileController::class, 'show'])
-        ->middleware(Permission::SavedView->middleware())
+    Route::get('saved/{stone}', [SavedStoneProfileController::class, 'show'])
+        ->middleware(Permission::SavedStoneView->middleware())
         ->name('saved.show');
+    Route::get('saved/{stone}/{project}', [SavedProjectController::class, 'show'])
+        ->middleware(Permission::SavedProjectsView->middleware())
+        ->name('saved.project');
     Route::put('saved/{stone}', [SavedStoneController::class, 'store'])
         ->middleware([
             Permission::SavedView->middleware(),
