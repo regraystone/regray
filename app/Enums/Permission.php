@@ -68,15 +68,14 @@ enum Permission: string
     case ProfileScheduleView = 'profile-schedule.view';
 
     /**
-     * The project profile and the stone profile nested under it, both reached
-     * from the Home page.
+     * The project profile reached from an individual stone on Home.
      *
-     * A project is addressed by its id at `/home/{project}`, and one of that
-     * project's stones by its place under it at `/home/{project}/{stone}`, so
-     * two routes and one page each. It is a `view` permission, so it names a
+     * A project is addressed by its place under a stone at
+     * `/home/{stone}/{project}`. The stone profile itself shares `home.view`
+     * with the feed. It is a `view` permission, so it names a
      * place, but like `ProfileScheduleView` it is one of the two with no sidebar
      * entry: the entry for the Home page belongs to `HomeView`, and holding
-     * this one is what lets a reader open a project there and a stone under it.
+     * this one is what lets a reader open a project highlight under a stone.
      *
      * It is given to the client, who reads the portfolio, and to the
      * super-admin for consistency with the rest of the matrix even though

@@ -1,5 +1,6 @@
 <?php
 
+/** stone_slugs are legacy category slugs; ProjectSeeder attaches every stone in each category. */
 return [
     'projects' => [
         [

@@ -14,16 +14,17 @@ class ProjectShowRequest extends FormRequest
         return true;
     }
 
-    /** @return array{project: mixed} */
+    /** @return array{stone: mixed, project: mixed} */
     public function validationData(): array
     {
-        return ['project' => $this->route('project')];
+        return ['stone' => $this->route('stone'), 'project' => $this->route('project')];
     }
 
     /** @return array<string, array<int, string>> */
     public function rules(): array
     {
         return [
+            'stone' => ['required', 'string', 'max:100', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
             'project' => ['required', 'string', 'max:100', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
         ];
     }

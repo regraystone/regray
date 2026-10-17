@@ -5,8 +5,9 @@ namespace Database\Seeders;
 use App\Models\Application;
 use App\Models\CareTip;
 use App\Models\Finish;
-use App\Models\Stone;
+use App\Models\StoneCategory;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class StoneSeeder extends Seeder
 {
@@ -14,33 +15,60 @@ class StoneSeeder extends Seeder
     {
         $data = require database_path('seeders/data/stones.php');
 
-        $stones = [];
+        $categories = [];
+        $defaults = [];
         $sortOrder = 0;
 
-        foreach ($data['stones'] as $stoneData) {
-            $stone = Stone::query()->firstOrCreate(
+        foreach ($data['categories'] as $stoneData) {
+            $category = StoneCategory::query()->firstOrCreate(
                 ['slug' => $stoneData['slug']],
                 [
                     'name' => $stoneData['name'],
                     'thumbnail_path' => $stoneData['thumbnail_path'],
                     'description' => $stoneData['description'],
                     'origin' => $stoneData['origin'],
-                    'thickness_mm' => $stoneData['thickness_mm'],
-                    'recommended' => $stoneData['recommended'],
                     'is_active' => true,
                     'sort_order' => $sortOrder++,
                 ]
             );
-            $stones[$stoneData['slug']] = $stone;
+            $categories[$stoneData['slug']] = $category;
+            $defaults[$stoneData['slug']] = $stoneData;
         }
 
-        foreach ($data['images'] as $idx => $imageData) {
-            $stone = $stones[$imageData['stone_slug']];
+        $usedSlugs = [];
+        $usedNames = [];
+        /** Placeholder dimensions until the catalogue has measured sizes. */
+        $sizes = ['20x120', '60x60', '60x120', '80x80'];
+
+        foreach ($data['stones'] as $idx => $imageData) {
+            $categorySlug = $imageData['stone_slug'];
+            $category = $categories[$categorySlug];
+            $slug = Str::slug($imageData['name']);
+            $name = $imageData['name'];
+
+            if (isset($usedSlugs[$slug])) {
+                $slug .= '-'.$categorySlug;
+            }
+            if (isset($usedNames[Str::lower($name)])) {
+                $name .= ' ('.$category->name.')';
+            }
+            $usedSlugs[$slug] = true;
+            $usedNames[Str::lower($name)] = true;
+
+            $stone = $category->stones()->firstOrCreate(['slug' => $slug], [
+                'name' => $name,
+                'thumbnail_path' => $imageData['path'],
+                'size' => $sizes[$idx % count($sizes)],
+                'thickness_mm' => $defaults[$categorySlug]['thickness_mm'],
+                'recommended' => $defaults[$categorySlug]['recommended'],
+                'is_active' => true,
+                'sort_order' => $idx,
+            ]);
             $stone->images()->firstOrCreate(
-                ['path' => $imageData['path']],
+                ['sort_order' => 0],
                 [
-                    'name' => $imageData['name'],
-                    'sort_order' => $idx,
+                    'path' => $imageData['path'],
+                    'alt_text' => $name,
                 ]
             );
         }
@@ -71,7 +99,7 @@ class StoneSeeder extends Seeder
 
         $stoneProfiles = $this->getStoneProfiles();
 
-        foreach ($stones as $stoneSlug => $stone) {
+        foreach ($categories as $stoneSlug => $stone) {
             if (! isset($stoneProfiles[$stoneSlug])) {
                 continue;
             }

@@ -11,7 +11,6 @@ return new class extends Migration
         Schema::create('stone_images', function (Blueprint $table) {
             $table->id();
             $table->foreignId('stone_id')->constrained()->cascadeOnDelete();
-            $table->string('name', 150);
             $table->string('path', 255);
             $table->string('alt_text', 255)->nullable();
             $table->smallInteger('sort_order');

@@ -6,7 +6,7 @@ import ProfileGallery from '@/components/profile-gallery';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import { index as homeIndex, stone as homeStone } from '@/routes/home';
+import { stone as homeStone } from '@/routes/home';
 import type { ProjectProfile as ProjectProfileData } from '@/types/home';
 
 type ProjectProfileProps = {
@@ -38,7 +38,9 @@ const ProjectProfile = ({
             <section className="lg:grid lg:grid-cols-2 lg:gap-x-12">
                 <div>
                     <Button asChild variant="ghost" className="h-9 px-0">
-                        <Link href={homeIndex.url()}>
+                        <Link
+                            href={homeStone.url({ stone: project.stone.slug })}
+                        >
                             <ArrowLeft aria-hidden />
                             Return
                         </Link>
@@ -119,17 +121,16 @@ const ProjectProfile = ({
                     {project.stones.map((stone) => (
                         <StoneCard
                             key={stone.slug}
-                            // Remove this slug-to-id mapping once stones are DB-backed.
                             stone={{
                                 id: stone.slug,
                                 slug: stone.slug,
                                 name: stone.name,
                                 thumbnail: stone.thumbnail,
                                 recommended: stone.recommended,
+                                category: stone.category,
                             }}
                             aspect="aspect-[4/3]"
                             href={homeStone.url({
-                                project: project.slug,
                                 stone: stone.slug,
                             })}
                             saved={savedIds.has(stone.slug)}

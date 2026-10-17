@@ -2,6 +2,7 @@
 
 use App\Enums\Permission;
 use App\Http\Controllers\Home\ProjectController;
+use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\SavedStoneController;
 use App\Http\Controllers\StoneProfileController;
@@ -20,26 +21,25 @@ Route::redirect('/', '/login')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [RedirectController::class, 'dashboard'])->name('dashboard');
 
-    Route::get('home', [ProjectController::class, 'index'])
+    Route::get('home', [StoneController::class, 'index'])
         ->middleware(Permission::HomeView->middleware())
         ->name('home.index');
 
     /*
-     * The project profile is the page under Home now, and a stone is read by
-     * its place in a project rather than on its own, so `/home/{stone}` is
-     * gone. Both are guarded by `home-projects.view` rather than `home.view`:
-     * the feed stays open to any reader of Home, while a project is the
-     * portfolio page and says so in its own permission. The parameters stay
+     * Home is the stone feed and each stone profile shares its `home.view`
+     * permission. A published project is read beneath a stone it uses, guarded
+     * separately by `home-projects.view`; the repository checks that the stone
+     * is active and belongs to that project after permission. The parameters stay
      * plain strings on purpose: the project and its stone are loaded in the repository
      * after permission is settled. SubstituteBindings runs before `can:`, so
      * binding a model would let a forbidden reader probe which slugs exist.
      */
-    Route::get('home/{project}', [ProjectController::class, 'show'])
-        ->middleware(Permission::HomeProjectsView->middleware())
-        ->name('home.show');
-    Route::get('home/{project}/{stone}', [StoneProfileController::class, 'showInProject'])
-        ->middleware(Permission::HomeProjectsView->middleware())
+    Route::get('home/{stone}', [StoneProfileController::class, 'show'])
+        ->middleware(Permission::HomeView->middleware())
         ->name('home.stone');
+    Route::get('home/{stone}/{project}', [ProjectController::class, 'show'])
+        ->middleware(Permission::HomeProjectsView->middleware())
+        ->name('home.project');
 
     Route::get('overview', [ViewController::class, 'overview'])
         ->middleware(Permission::OverviewView->middleware())

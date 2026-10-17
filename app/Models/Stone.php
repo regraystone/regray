@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Database\Factories\StoneFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,11 +16,11 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
+ * @property int $stone_category_id
  * @property string $slug
  * @property string $name
  * @property string $thumbnail_path
- * @property string $description
- * @property string $origin
+ * @property string $size
  * @property int $thickness_mm
  * @property bool $recommended
  * @property bool $is_active
@@ -26,14 +29,15 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Collection<int, StoneImage> $images
- * @property-read Collection<int, Application> $applications
- * @property-read Collection<int, CareTip> $careTips
- * @property-read Collection<int, Finish> $finishes
+ * @property-read StoneCategory $category
  * @property-read Collection<int, Project> $projects
  */
-#[Fillable(['slug', 'name', 'thumbnail_path', 'description', 'origin', 'thickness_mm', 'recommended', 'is_active', 'sort_order'])]
+#[Fillable(['stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'recommended', 'is_active', 'sort_order'])]
 class Stone extends Model
 {
+    /** @use HasFactory<StoneFactory> */
+    use HasFactory;
+
     use SoftDeletes;
 
     protected function casts(): array
@@ -64,28 +68,10 @@ class Stone extends Model
         return $this->hasMany(StoneImage::class);
     }
 
-    /** @return BelongsToMany<Application, $this> */
-    public function applications(): BelongsToMany
+    /** @return BelongsTo<StoneCategory, $this> */
+    public function category(): BelongsTo
     {
-        return $this->belongsToMany(Application::class, 'application_stone')
-            ->withPivot('sort_order')
-            ->orderByPivot('sort_order');
-    }
-
-    /** @return BelongsToMany<CareTip, $this> */
-    public function careTips(): BelongsToMany
-    {
-        return $this->belongsToMany(CareTip::class, 'care_tip_stone')
-            ->withPivot('sort_order')
-            ->orderByPivot('sort_order');
-    }
-
-    /** @return BelongsToMany<Finish, $this> */
-    public function finishes(): BelongsToMany
-    {
-        return $this->belongsToMany(Finish::class, 'finish_stone')
-            ->withPivot('sort_order')
-            ->orderByPivot('sort_order');
+        return $this->belongsTo(StoneCategory::class, 'stone_category_id');
     }
 
     /** @return BelongsToMany<User, $this> */

@@ -1,8 +1,4 @@
-export type ProjectCardProps = {
-    slug: string;
-    name: string;
-    thumbnail: string;
-};
+import type { StoneCardData } from '@/types/stone';
 
 export type ProjectProfileCategory = {
     slug: string;
@@ -14,6 +10,7 @@ export type ProjectProfileStone = {
     name: string;
     thumbnail: string;
     recommended: boolean;
+    category: { slug: string; name: string };
 };
 
 export type ProjectProfileImage = {
@@ -27,6 +24,7 @@ export type ProjectProfile = {
     location: string;
     overview: string;
     thumbnail: string;
+    stone: { slug: string; name: string };
     categories: ProjectProfileCategory[];
     stones: ProjectProfileStone[];
     gallery: ProjectProfileImage[];
@@ -38,19 +36,21 @@ export type FilterOption = {
 };
 
 export type FilterOptions = {
-    stones: FilterOption[];
     categories: FilterOption[];
+    sizes: FilterOption[];
+    thicknesses: FilterOption[];
 };
 
 export type Filters = {
     search: string | null;
-    stone: string | null;
     category: string | null;
+    size: string | null;
+    thickness: string | null;
 };
 
 export type HomePageProps = {
-    projects: {
-        data: ProjectCardProps[];
+    stones: {
+        data: StoneCardData[];
     };
     filters: Filters;
     filterOptions: FilterOptions;

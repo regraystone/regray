@@ -31,11 +31,11 @@ function workspacePages(): array
 {
     return [
         'home.index' => [],
-        'home.show' => ['project' => 'ginza-one'],
-        'home.stone' => ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite'],
+        'home.project' => ['stone' => 'arctic-pink', 'project' => 'ginza-one'],
+        'home.stone' => ['stone' => 'arctic-pink'],
         'overview.index' => [],
         'saved.index' => [],
-        'saved.show' => ['stone' => 'patagonia-quartzite'],
+        'saved.show' => ['stone' => 'arctic-pink'],
         'sales.index' => [],
         'quote.index' => [],
         'inquiry.index' => [],
@@ -190,8 +190,8 @@ test('each page is guarded by the permissions that name it', function (string $r
     expect(guardsFor($routeName))->toBe($permissions);
 })->with([
     ['home.index', [Permission::HomeView->value]],
-    ['home.show', [Permission::HomeProjectsView->value]],
-    ['home.stone', [Permission::HomeProjectsView->value]],
+    ['home.project', [Permission::HomeProjectsView->value]],
+    ['home.stone', [Permission::HomeView->value]],
     ['overview.index', [Permission::OverviewView->value]],
     ['saved.index', [Permission::SavedView->value]],
     ['saved.show', [Permission::SavedView->value]],
@@ -271,7 +271,7 @@ test('every page permission a role is granted guards a page', function () {
 });
 
 test('each role can open exactly the pages its matrix entry grants', function (string $role) {
-    if (guardsAllow($role, 'home.show')) {
+    if (guardsAllow($role, 'home.project') || guardsAllow($role, 'home.stone')) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 
@@ -509,7 +509,7 @@ test('an allowed project profile page renders with its project', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('home.show', 'ginza-one'))
+        ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('project-profile')
@@ -518,7 +518,7 @@ test('an allowed project profile page renders with its project', function () {
             ->where('project.data.name', 'Ginza One')
             ->where('project.data.completedYear', 2024)
             ->has('project.data.categories', 3)
-            ->has('project.data.stones', 2)
+            ->has('project.data.stones', 22)
             ->has('project.data.gallery', 3),
         );
 });
@@ -528,16 +528,16 @@ test('an allowed stone profile page renders with its stone', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('home.stone', ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite']))
+        ->get(route('home.stone', ['stone' => 'arctic-pink']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('stone-profile')
             ->missing('stoneId')
             ->missing('projectId')
-            ->where('stone.data.slug', 'patagonia-quartzite')
-            ->where('stone.data.name', 'Patagonia Quartzite')
+            ->where('stone.data.slug', 'arctic-pink')
+            ->where('stone.data.name', 'Arctic Pink')
             ->where('stone.data.specifications.thicknessMm', 18)
-            ->where('projectSlug', 'ginza-one'),
+            ->missing('projectSlug'),
         );
 });
 
@@ -552,7 +552,7 @@ test('a denied project profile is forbidden whatever project is asked for', func
 
     foreach (['ginza-one', 'no-such-project', 'belo-medical-group'] as $project) {
         $this->actingAs($user)
-            ->get(route('home.show', ['project' => $project]))
+            ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => $project]))
             ->assertForbidden();
     }
 });
@@ -567,9 +567,9 @@ test('a denied stone profile is forbidden whatever stone is asked for', function
     expect(RolePermissionSeeder::MATRIX[Role::Technical->value])
         ->not->toContain(Permission::HomeProjectsView->value);
 
-    foreach (['patagonia-quartzite', 'no-such-stone', 'granite'] as $stone) {
+    foreach (['arctic-pink', 'no-such-stone', 'cosmic-black'] as $stone) {
         $this->actingAs($user)
-            ->get(route('home.stone', ['project' => 'ginza-one', 'stone' => $stone]))
+            ->get(route('home.stone', ['stone' => $stone]))
             ->assertForbidden();
     }
 });

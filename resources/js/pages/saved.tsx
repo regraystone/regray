@@ -100,6 +100,7 @@ const StoneRow = ({
                                 name: stone.name,
                                 thumbnail: stone.thumbnail,
                                 recommended: stone.recommended,
+                                category: stone.category,
                             }}
                             aspect="aspect-[4/3]"
                             href={savedShow.url({ stone: stone.slug } as {
@@ -187,6 +188,7 @@ const Saved = ({ savedStones, recommendedStones }: SavedPageProps) => {
                                 name: stone.name,
                                 thumbnail: stone.thumbnail,
                                 recommended: stone.recommended,
+                                category: stone.category,
                             }}
                             aspect="aspect-[4/3]"
                             href={savedShow.url({ stone: stone.slug } as {

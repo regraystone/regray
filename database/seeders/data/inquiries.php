@@ -1,5 +1,6 @@
 <?php
 
+/** stone_slug is a legacy category reference; InquirySeeder resolves its first individual stone. */
 return [
     'inquiries' => [
         [

@@ -15,6 +15,7 @@ export type StoneCardData = {
     name: string;
     thumbnail: string;
     recommended: boolean;
+    category: { slug: string; name: string };
 };
 
 export type StoneProfile = {
@@ -22,10 +23,12 @@ export type StoneProfile = {
     name: string;
     thumbnail: string;
     recommended: boolean;
+    category: { slug: string; name: string };
     description: string;
     specifications: {
         stoneType: string;
         origin: string;
+        size: string;
         thicknessMm: number;
     };
     finishes: string[];

@@ -16,6 +16,7 @@ const StoneCard = ({
     onSelect,
     viewHref,
     note,
+    priority = false,
 }: {
     stone: Stone;
     aspect: string;
@@ -48,6 +49,7 @@ const StoneCard = ({
      * would say it was not.
      */
     note?: string;
+    priority?: boolean;
 }) => {
     /*
      * The heart only animates when `saved` flips from a tap. Comparing the
@@ -113,10 +115,10 @@ const StoneCard = ({
     ) : null;
 
     if (selectable) {
-        // Matches the link card footer: 12px edge padding, 8px gap before the
-        // controls, 36px per control (size-9), and a 52px row (py-2 around a
-        // 36px control). The name's py-4 around a 20px line is also 52px.
-        const namePadding = viewHref ? 'pr-[92px]' : 'pr-14';
+        // Both footer variants are 60px tall: 44px controls with 8px above and
+        // below, or the name and category's 36px with 12px above and below.
+        // Reserve the controls' width plus their 12px right inset.
+        const namePadding = viewHref ? 'pr-[100px]' : 'pr-14';
 
         return (
             <article
@@ -149,7 +151,7 @@ const StoneCard = ({
                         <img
                             src={stone.thumbnail}
                             alt=""
-                            loading="lazy"
+                            loading={priority ? 'eager' : 'lazy'}
                             className="absolute inset-0 size-full object-cover"
                         />
                         {recommended}
@@ -175,9 +177,12 @@ const StoneCard = ({
                     </div>
                     {/* The right padding clears the footer controls. */}
                     <span
-                        className={`block min-w-0 truncate py-4 pl-3 text-sm font-bold text-foreground ${namePadding}`}
+                        className={`block min-w-0 py-3 pl-3 text-sm font-bold text-foreground ${namePadding}`}
                     >
-                        {stone.name}
+                        <span className="block truncate">{stone.name}</span>
+                        <span className="block truncate text-xs font-normal text-secondary-foreground">
+                            {stone.category.name}
+                        </span>
                     </span>
                 </button>
 
@@ -209,14 +214,19 @@ const StoneCard = ({
                 <img
                     src={stone.thumbnail}
                     alt={stone.name}
-                    loading="lazy"
+                    loading={priority ? 'eager' : 'lazy'}
                     className="absolute inset-0 size-full object-cover"
                 />
                 {recommended}
             </div>
-            <div className="flex items-center justify-between gap-2 px-3 py-2">
-                <span className="min-w-0 truncate text-sm font-bold text-foreground">
-                    {stone.name}
+            <div className="flex min-h-[60px] items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-foreground">
+                        {stone.name}
+                    </span>
+                    <span className="block truncate text-xs text-secondary-foreground">
+                        {stone.category.name}
+                    </span>
                 </span>
                 {heart}
                 {view}

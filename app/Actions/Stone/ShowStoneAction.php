@@ -11,8 +11,8 @@ class ShowStoneAction
         public readonly StoneService $stoneService,
     ) {}
 
-    public function execute(string $stoneSlug, ?string $projectSlug = null): Stone
+    public function execute(string $stoneSlug): Stone
     {
-        return $this->stoneService->getActiveStone($stoneSlug, $projectSlug);
+        return $this->stoneService->getActiveStone($stoneSlug);
     }
 }

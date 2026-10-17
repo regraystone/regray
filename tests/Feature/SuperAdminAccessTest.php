@@ -24,7 +24,7 @@ beforeEach(function () {
  */
 
 test('the super-admin opens every page', function (string $routeName, array $parameters) {
-    if (in_array($routeName, ['home.show', 'home.stone', 'saved.show'], true)) {
+    if (in_array($routeName, ['home.project', 'home.stone', 'saved.show'], true)) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 
@@ -35,11 +35,11 @@ test('the super-admin opens every page', function (string $routeName, array $par
         ->assertOk();
 })->with([
     ['home.index', []],
-    ['home.show', ['project' => 'ginza-one']],
-    ['home.stone', ['project' => 'ginza-one', 'stone' => 'patagonia-quartzite']],
+    ['home.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']],
+    ['home.stone', ['stone' => 'arctic-pink']],
     ['overview.index', []],
     ['saved.index', []],
-    ['saved.show', ['stone' => 'patagonia-quartzite']],
+    ['saved.show', ['stone' => 'arctic-pink']],
     ['sales.index', []],
     ['quote.index', []],
     ['inquiry.index', []],

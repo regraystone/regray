@@ -22,15 +22,4 @@ class StoneProfileController extends Controller
             'stone' => new StoneProfileResource($stone),
         ]);
     }
-
-    public function showInProject(StoneShowRequest $request): Response
-    {
-        $projectSlug = $request->validated('project');
-        $stone = $this->showStone->execute($request->validated('stone'), $projectSlug);
-
-        return Inertia::render('stone-profile', [
-            'stone' => new StoneProfileResource($stone),
-            'projectSlug' => $projectSlug,
-        ]);
-    }
 }

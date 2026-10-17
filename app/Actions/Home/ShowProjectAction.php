@@ -11,8 +11,8 @@ class ShowProjectAction
         public readonly ProjectService $projectService,
     ) {}
 
-    public function execute(string $slug): Project
+    public function execute(string $stoneSlug, string $projectSlug): Project
     {
-        return $this->projectService->getPublishedProject($slug);
+        return $this->projectService->getPublishedProject($stoneSlug, $projectSlug);
     }
 }

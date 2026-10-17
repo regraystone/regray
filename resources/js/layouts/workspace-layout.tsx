@@ -41,14 +41,12 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { inquiries } from '@/data/inquiries';
-import { projects } from '@/data/projects';
-import { stoneProfiles } from '@/data/stones';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
-import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { index as homeIndex, stone as homeStone } from '@/routes/home';
 import { logout } from '@/routes';
 import {
     index as inquiryIndex,
@@ -462,6 +460,36 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             });
             crumbs.push({ label: 'Security' });
         }
+    } else if (
+        effectiveUrl.split('?')[0] === homeIndex.url() ||
+        effectiveUrl.startsWith(`${homeIndex.url()}/`)
+    ) {
+        crumbs.push({ label: 'Home', href: homeIndex.url() });
+        const stone = (
+            page.props.stone as
+                | { data: { slug: string; name: string } }
+                | undefined
+        )?.data;
+        const project = (
+            page.props.project as
+                | {
+                      data: {
+                          name: string;
+                          stone: { slug: string; name: string };
+                      };
+                  }
+                | undefined
+        )?.data;
+
+        if (project) {
+            crumbs.push({
+                label: project.stone.name,
+                href: homeStone.url({ stone: project.stone.slug }),
+            });
+            crumbs.push({ label: project.name });
+        } else if (stone) {
+            crumbs.push({ label: stone.name });
+        }
     } else {
         url.split('/')
             .filter(Boolean)
@@ -476,27 +504,13 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
 
                 const previousSegment = segments[index - 1];
 
-                /*
-                 * A segment right after `home` is a project, and a segment
-                 * after that project is one of its stones. `home` no longer
-                 * resolves a segment to a stone: a stone is addressed by its
-                 * place in a project now, so `stones` and `saved` are the only
-                 * roots left that read their stone segment directly.
-                 */
-                const project =
-                    previousSegment === 'home'
-                        ? projects.find((entry) => entry.id === segment)
-                        : undefined;
-
-                const underProject =
-                    previousSegment !== undefined &&
-                    projects.some((entry) => entry.id === previousSegment);
-
                 const profile =
-                    previousSegment === 'stones' ||
-                    previousSegment === 'saved' ||
-                    underProject
-                        ? stoneProfiles[segment]
+                    previousSegment === 'stones' || previousSegment === 'saved'
+                        ? (
+                              page.props.stone as
+                                  | { data: { name: string } }
+                                  | undefined
+                          )?.data
                         : undefined;
 
                 // An inquiry is addressed by its id but read by its reference,
@@ -506,21 +520,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         ? inquiries.find((entry) => entry.id === segment)
                         : undefined;
 
-                if (project) {
-                    /*
-                     * Linked while it is a stop on the way and plain text when
-                     * it is the page itself: the trail's last crumb is always
-                     * unlinked, and the renderer reads `href` for the rest.
-                     */
-                    const isLast = index === segments.length - 1;
-
-                    crumbs.push({
-                        label: project.name,
-                        href: isLast
-                            ? undefined
-                            : homeShow.url({ project: project.id }),
-                    });
-                } else if (profile) {
+                if (profile) {
                     crumbs.push({ label: profile.name });
                 } else if (inquiry) {
                     crumbs.push({ label: inquiry.reference });

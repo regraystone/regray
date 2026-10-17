@@ -8,11 +8,15 @@ export type StoneImage = {
     created_at: string;
 };
 
-export type Stone = {
+type StoneCategory = {
     id: string;
     name: string;
     thumbnail: string;
     recommended: boolean;
+};
+
+export type Stone = StoneCategory & {
+    category: { slug: string; name: string };
 };
 
 export type StoneProfile = Stone & {
@@ -28,7 +32,7 @@ export type StoneProfile = Stone & {
     care: string[];
 };
 
-export const stones: Stone[] = [
+const stoneCategories: StoneCategory[] = [
     {
         id: 'cobblestone',
         name: 'Cobblestone',
@@ -626,7 +630,7 @@ const getStoneGallery = (stoneId: string): StoneImage[] =>
         .filter((image) => image.stoneId === stoneId)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-export const stoneProfiles: Record<string, StoneProfile> = {
+const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
     cobblestone: {
         id: 'cobblestone',
         name: 'Cobblestone',
@@ -905,6 +909,48 @@ export const stoneProfiles: Record<string, StoneProfile> = {
         ],
     },
 };
+const usedStoneSlugs = new Set<string>();
+const usedStoneNames = new Set<string>();
+
+/** The picker uses the same individual stones and collision rules as StoneSeeder. */
+export const stones: Stone[] = stoneImages.map((image) => {
+    const category = stoneCategories.find(
+        (entry) => entry.id === image.stoneId,
+    )!;
+    let id = image.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    let name = image.name;
+    if (usedStoneSlugs.has(id)) {
+        id += `-${category.id}`;
+    }
+    if (usedStoneNames.has(name.toLowerCase())) {
+        name += ` (${category.name})`;
+    }
+    usedStoneSlugs.add(id);
+    usedStoneNames.add(name.toLowerCase());
+
+    return {
+        id,
+        name,
+        thumbnail: image.src,
+        recommended: category.recommended,
+        category: { slug: category.id, name: category.name },
+    };
+});
+
+export const stoneProfiles: Record<string, StoneProfile> = Object.fromEntries(
+    stones.map((stone, index) => [
+        stone.id,
+        {
+            ...categoryProfiles[stone.category.slug],
+            ...stone,
+            gallery: [{ ...stoneImages[index], stoneId: stone.id }],
+        },
+    ]),
+);
+
 /*
  * The requirements step's fixed option lists. They are plain strings rather than
  * `{ value, label }` pairs because the value is also the wording the client

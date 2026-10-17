@@ -211,25 +211,25 @@ export const inquiries: Inquiry[] = [
                 ],
                 stones: [
                     {
-                        stoneId: 'quartzite',
+                        stoneId: 'avocado-green-iii',
                         quantity: 7,
                         edge: 'Half Bevel',
                         finish: 'Leather',
                     },
                     {
-                        stoneId: 'quartzite',
+                        stoneId: 'avocado-green-iii',
                         quantity: 3,
                         edge: 'Straight Edge',
                         finish: 'Polished',
                     },
                     {
-                        stoneId: 'granite',
+                        stoneId: 'cosmic-black',
                         quantity: 4,
                         edge: 'Half Bevel',
                         finish: 'Leather',
                     },
                     {
-                        stoneId: 'crazy-cut',
+                        stoneId: 'bronze-sand-granite',
                         quantity: 2,
                         edge: 'Half Bevel',
                         finish: 'Leather',
@@ -273,7 +273,7 @@ export const inquiries: Inquiry[] = [
                 ],
                 stones: [
                     {
-                        stoneId: 'quartzite',
+                        stoneId: 'avocado-green-iii',
                         quantity: 9,
                         edge: 'Straight Edge',
                         finish: 'Polished',
@@ -321,13 +321,13 @@ export const inquiries: Inquiry[] = [
                 ],
                 stones: [
                     {
-                        stoneId: 'travertine',
+                        stoneId: 'beige',
                         quantity: 8,
                         edge: 'Reverse Chamfer',
                         finish: 'Honed',
                     },
                     {
-                        stoneId: 'marble',
+                        stoneId: 'arabescato-white',
                         quantity: 5,
                         edge: 'Reverse Chamfer',
                         finish: 'Honed',
@@ -381,13 +381,13 @@ export const inquiries: Inquiry[] = [
                 ],
                 stones: [
                     {
-                        stoneId: 'granite',
+                        stoneId: 'cosmic-black',
                         quantity: 5,
                         edge: 'Straight Edge',
                         finish: 'Polished',
                     },
                     {
-                        stoneId: 'monumental',
+                        stoneId: 'flamed-brushed-black-monumental',
                         quantity: 2,
                         edge: 'Straight Edge',
                         finish: 'Polished',
@@ -443,19 +443,19 @@ export const inquiries: Inquiry[] = [
                 ],
                 stones: [
                     {
-                        stoneId: 'quartzite',
+                        stoneId: 'avocado-green-iii',
                         quantity: 12,
                         edge: 'Full Bevel',
                         finish: 'Leather',
                     },
                     {
-                        stoneId: 'granite',
+                        stoneId: 'cosmic-black',
                         quantity: 6,
                         edge: 'Full Bevel',
                         finish: 'Leather',
                     },
                     {
-                        stoneId: 'marble',
+                        stoneId: 'arabescato-white',
                         quantity: 4,
                         edge: 'Full Bevel',
                         finish: 'Leather',
@@ -514,7 +514,7 @@ export const inquiries: Inquiry[] = [
                 ],
                 stones: [
                     {
-                        stoneId: 'travertine',
+                        stoneId: 'beige',
                         quantity: 20,
                         edge: 'Straight Edge',
                         finish: 'Honed',
@@ -575,13 +575,13 @@ export const inquiries: Inquiry[] = [
                 services: ['Stone Relocation, Dismantling & Reinstallation'],
                 stones: [
                     {
-                        stoneId: 'onyx',
+                        stoneId: 'arancia',
                         quantity: 3,
                         edge: 'Half Bullnose',
                         finish: 'Honed',
                     },
                     {
-                        stoneId: 'cobblestone',
+                        stoneId: 'flamed-brushed-black',
                         quantity: 10,
                         edge: 'Half Bullnose',
                         finish: 'Honed',

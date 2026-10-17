@@ -76,7 +76,9 @@ class InquirySeeder extends Seeder
                 ]);
 
                 foreach ($projectData['stones'] as $stoneSort => $stoneSelection) {
-                    $stone = Stone::where('slug', $stoneSelection['stone_slug'])->firstOrFail();
+                    $stone = Stone::query()
+                        ->whereHas('category', fn ($query) => $query->where('slug', $stoneSelection['stone_slug']))
+                        ->orderBy('sort_order')->orderBy('id')->firstOrFail();
                     $edgeProfile = EdgeProfile::where('name', $stoneSelection['edge'])->firstOrFail();
                     $finish = Finish::where('name', $stoneSelection['finish'])->firstOrFail();
 

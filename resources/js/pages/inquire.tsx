@@ -1538,6 +1538,7 @@ const Inquire = () => {
                                                     thumbnail: stone.thumbnail,
                                                     recommended:
                                                         stone.recommended,
+                                                    category: stone.category,
                                                 }}
                                                 aspect="aspect-[4/3]"
                                                 saved={savedIds.has(stone.id)}
