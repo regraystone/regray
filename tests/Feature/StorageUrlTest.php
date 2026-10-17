@@ -42,3 +42,35 @@ test('private S3 files are isolated from the public S3 disk', function (): void 
     Storage::disk('s3-private')->assertExists('inquiries/private.txt');
     Storage::disk('s3-public')->assertMissing('inquiries/private.txt');
 });
+
+test('legacy /storage/ prefixed paths resolve like relative paths on the public disk', function (): void {
+    config(['filesystems.public_disk' => 'public']);
+    Storage::fake('public');
+
+    $url = ProjectCardResource::resolveThumbnailUrl('/storage/projects/a.jpg');
+
+    expect($url)->toBe('/storage/projects/a.jpg');
+});
+
+test('legacy /storage/ prefixed paths resolve to CDN URLs on s3-public disk', function (): void {
+    config([
+        'filesystems.public_disk' => 's3-public',
+        'filesystems.disks.s3-public.url' => 'https://cdn.test',
+    ]);
+    Storage::fake('s3-public', ['url' => config('filesystems.disks.s3-public.url')]);
+
+    $url = ProjectCardResource::resolveThumbnailUrl('/storage/projects/a.jpg');
+
+    expect($url)->toStartWith('https://cdn.test/')->toEndWith('projects/a.jpg');
+});
+
+test('no seeder data files contain /storage/ strings', function (): void {
+    $seedDataDir = base_path('database/seeders/data');
+    $files = glob($seedDataDir.'/*.php');
+
+    foreach ($files as $file) {
+        $content = file_get_contents($file);
+        expect($content)
+            ->not->toContain('/storage/', 'File '.basename($file)." still contains '/storage/' references");
+    }
+});
