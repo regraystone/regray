@@ -22,16 +22,21 @@ class ProjectCardResource extends JsonResource
 
     public static function resolveThumbnailUrl(string $path): string
     {
-        if (str_starts_with($path, '/')) {
+        // Strip legacy /storage/ prefix if present, leaving only the relative path
+        $relativePath = $path;
+        if (str_starts_with($path, '/storage/')) {
+            $relativePath = substr($path, 9); // Remove '/storage/' (9 chars)
+        } elseif (str_starts_with($path, '/')) {
+            // Other /paths (e.g., /images/...) should be returned unchanged
             return $path;
         }
 
         $disk = config('filesystems.public_disk');
 
         if ($disk === 'public') {
-            return '/storage/'.$path;
+            return '/storage/'.$relativePath;
         }
 
-        return Storage::disk($disk)->url($path);
+        return Storage::disk($disk)->url($relativePath);
     }
 }
