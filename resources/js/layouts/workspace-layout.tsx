@@ -46,7 +46,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
-import { index as homeIndex, stone as homeStone } from '@/routes/home';
+import { index as homeIndex } from '@/routes/home';
 import { logout } from '@/routes';
 import {
     index as inquiryIndex,
@@ -464,7 +464,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         effectiveUrl.split('?')[0] === homeIndex.url() ||
         effectiveUrl.startsWith(`${homeIndex.url()}/`)
     ) {
-        crumbs.push({ label: 'Home', href: homeIndex.url() });
         const stone = (
             page.props.stone as
                 | { data: { slug: string; name: string } }
@@ -475,17 +474,19 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 | {
                       data: {
                           name: string;
-                          stone: { slug: string; name: string };
                       };
                   }
                 | undefined
         )?.data;
 
+        crumbs.push({
+            label: 'Home',
+            href: homeIndex.url(
+                project ? { query: { collection: 'projects' } } : undefined,
+            ),
+        });
+
         if (project) {
-            crumbs.push({
-                label: project.stone.name,
-                href: homeStone.url({ stone: project.stone.slug }),
-            });
             crumbs.push({ label: project.name });
         } else if (stone) {
             crumbs.push({ label: stone.name });

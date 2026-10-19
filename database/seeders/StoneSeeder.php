@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Application;
 use App\Models\CareTip;
 use App\Models\Finish;
+use App\Models\Stone;
 use App\Models\StoneCategory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -13,6 +14,7 @@ class StoneSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(StoneFilterOptionSeeder::class);
         $data = require database_path('seeders/data/stones.php');
 
         $categories = [];
@@ -55,7 +57,8 @@ class StoneSeeder extends Seeder
             $usedSlugs[$slug] = true;
             $usedNames[Str::lower($name)] = true;
 
-            $stone = $category->stones()->firstOrCreate(['slug' => $slug], [
+            $stone = Stone::query()->firstOrCreate(['slug' => $slug], [
+                'stone_category_id' => $category->id,
                 'name' => $name,
                 'thumbnail_path' => $imageData['path'],
                 'size' => $sizes[$idx % count($sizes)],
@@ -64,6 +67,7 @@ class StoneSeeder extends Seeder
                 'is_active' => true,
                 'sort_order' => $idx,
             ]);
+            $stone->attachPrimaryFilterOptions();
             $stone->images()->firstOrCreate(
                 ['sort_order' => 0],
                 [

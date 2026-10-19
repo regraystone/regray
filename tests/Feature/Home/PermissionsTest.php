@@ -72,7 +72,7 @@ describe('Home page permissions', function (): void {
         expect(in_array(Permission::HomeProjectsView->value, RolePermissionSeeder::MATRIX[Role::Client->value], true))->toBeTrue();
 
         $this->actingAs($user)
-            ->get(route('home.project', [$stone->slug, $project->slug]))
+            ->get(route('home.show', $project->slug))
             ->assertOk();
     });
 
@@ -87,7 +87,7 @@ describe('Home page permissions', function (): void {
         expect(in_array(Permission::HomeProjectsView->value, RolePermissionSeeder::MATRIX[Role::Marketing->value], true))->toBeFalse();
 
         $this->actingAs($user)
-            ->get(route('home.project', [$stone->slug, $project->slug]))
+            ->get(route('home.show', $project->slug))
             ->assertForbidden();
     });
 
@@ -116,14 +116,10 @@ describe('Home page permissions', function (): void {
 
         $this->actingAs($user)->get(route('home.index'))->assertOk();
         $this->actingAs($user)->get(route('home.stone', $stone->slug))->assertOk();
-        $this->actingAs($user)->get(route('home.project', [$stone->slug, $project->slug]))->assertOk();
+        $this->actingAs($user)->get(route('home.show', $project->slug))->assertOk();
     });
 
     test('all staff roles cannot access any home page', function (string $role): void {
-        if (in_array($role, [Role::Client->value, Role::Admin->value])) {
-            $this->markTestSkipped("$role is not a staff role");
-        }
-
         $user = User::factory()->role($role)->create();
         $stone = Stone::query()
             ->with('projects')
@@ -133,8 +129,8 @@ describe('Home page permissions', function (): void {
 
         $this->actingAs($user)->get(route('home.index'))->assertForbidden();
         $this->actingAs($user)->get(route('home.stone', $stone->slug))->assertForbidden();
-        $this->actingAs($user)->get(route('home.project', [$stone->slug, $project->slug]))->assertForbidden();
-    })->with(Role::names());
+        $this->actingAs($user)->get(route('home.show', $project->slug))->assertForbidden();
+    })->with(collect(Role::names())->reject(fn (string $role): bool => in_array($role, [Role::Client->value, Role::Admin->value], true))->all());
 });
 
 describe('Saved page permissions', function (): void {
@@ -290,10 +286,6 @@ describe('Saved page permissions', function (): void {
     });
 
     test('all staff roles cannot access any saved page', function (string $role): void {
-        if (in_array($role, [Role::Client->value, Role::Admin->value])) {
-            $this->markTestSkipped("$role is not a staff role");
-        }
-
         $user = User::factory()->role($role)->create();
         $stone = Stone::query()
             ->with('projects')
@@ -306,7 +298,7 @@ describe('Saved page permissions', function (): void {
         $this->actingAs($user)->get(route('saved.project', [$stone->slug, $project->slug]))->assertForbidden();
         $this->actingAs($user)->put(route('saved.store', $stone->slug))->assertForbidden();
         $this->actingAs($user)->delete(route('saved.destroy', $stone->slug))->assertForbidden();
-    })->with(Role::names());
+    })->with(collect(Role::names())->reject(fn (string $role): bool => in_array($role, [Role::Client->value, Role::Admin->value], true))->all());
 });
 
 describe('Permission enum completeness', function (): void {
@@ -374,10 +366,6 @@ describe('Permission matrix consistency', function (): void {
     });
 
     test('no staff role has home or saved permissions', function (string $role): void {
-        if (in_array($role, [Role::Client->value, Role::Admin->value])) {
-            $this->markTestSkipped("$role is not a staff role");
-        }
-
         $granted = RolePermissionSeeder::MATRIX[$role];
 
         expect($granted)->not->toContain(Permission::HomeView->value);
@@ -387,7 +375,7 @@ describe('Permission matrix consistency', function (): void {
         expect($granted)->not->toContain(Permission::SavedStoneView->value);
         expect($granted)->not->toContain(Permission::SavedProjectsView->value);
         expect($granted)->not->toContain(Permission::SavedManage->value);
-    })->with(Role::names());
+    })->with(collect(Role::names())->reject(fn (string $role): bool => in_array($role, [Role::Client->value, Role::Admin->value], true))->all());
 });
 
 describe('Guest and unauthenticated access', function (): void {
@@ -410,7 +398,7 @@ describe('Guest and unauthenticated access', function (): void {
             ->first();
         $project = $stone->projects->first();
 
-        $this->get(route('home.project', [$stone->slug, $project->slug]))
+        $this->get(route('home.show', $project->slug))
             ->assertRedirect(route('login'));
     });
 
@@ -460,7 +448,7 @@ describe('Invalid slugs return 404', function (): void {
         $stone = Stone::query()->first();
 
         $this->actingAs($user)
-            ->get(route('home.project', [$stone->slug, 'invalid-project']))
+            ->get(route('home.show', 'invalid-project'))
             ->assertNotFound();
     });
 

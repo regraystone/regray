@@ -15,7 +15,7 @@ class ProjectProfileResource extends JsonResource
     /**
      * Only the profile's public fields leave the server, never model or pivot metadata.
      *
-     * @return array{slug: string, name: string, completedYear: int, location: string, overview: string, thumbnail: string, stone: array{slug: string, name: string}, categories: array<int, array{slug: string, name: string}>, stones: array<int, array{slug: string, name: string, thumbnail: string, recommended: bool, category: array{slug: string, name: string}}>, gallery: array<int, array{src: string}>}
+     * @return array{slug: string, name: string, completedYear: int, location: string, overview: string, thumbnail: string, categories: array<int, array{slug: string, name: string}>, stones: array<int, array{slug: string, name: string, thumbnail: string, recommended: bool, category: array{slug: string, name: string}}>, gallery: array<int, array{src: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -26,7 +26,6 @@ class ProjectProfileResource extends JsonResource
             'location' => $this->location,
             'overview' => $this->overview,
             'thumbnail' => ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
-            'stone' => ['slug' => $this->parentStone->slug, 'name' => $this->parentStone->name],
             'categories' => $this->categories->map(fn (ProjectCategory $category): array => [
                 'slug' => $category->slug,
                 'name' => $category->name,

@@ -5,6 +5,8 @@ namespace App\Repositories\Eloquent;
 use App\Data\StoneFilterData;
 use App\Models\Stone;
 use App\Models\StoneCategory;
+use App\Models\StoneSize;
+use App\Models\StoneThickness;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -27,21 +29,17 @@ class StoneRepository implements StoneRepositoryInterface
         if ($filters->search !== null) {
             $query->where(function (Builder $query) use ($filters): void {
                 $query->where('name', 'ILIKE', "%{$filters->search}%")
-                    ->orWhereHas('category', fn (Builder $category) => $category->where('name', 'ILIKE', "%{$filters->search}%"));
+                    ->orWhereHas('categories', fn (Builder $category) => $category->where('name', 'ILIKE', "%{$filters->search}%"));
             });
         }
         if ($filters->category !== null) {
-            $query->whereHas('category', fn (Builder $category) => $category->where('slug', $filters->category));
+            $query->whereHas('categories', fn (Builder $category) => $category->where('slug', $filters->category)->where('is_active', true));
         }
         if ($filters->size !== null) {
-            $query->where('size', $filters->size);
+            $query->whereHas('sizes', fn (Builder $size) => $size->where('name', $filters->size)->where('is_active', true));
         }
-        if ($filters->thickness === '18-20') {
-            $query->whereBetween('thickness_mm', [18, 20]);
-        } elseif ($filters->thickness === '21-30') {
-            $query->whereBetween('thickness_mm', [21, 30]);
-        } elseif ($filters->thickness === '31-plus') {
-            $query->where('thickness_mm', '>=', 31);
+        if ($filters->thickness !== null) {
+            $query->whereHas('thicknesses', fn (Builder $thickness) => $thickness->where('slug', $filters->thickness)->where('is_active', true));
         }
 
         return $query->orderBy('sort_order')->orderBy('id')->paginate($perPage, ['*'], 'page', $filters->page)->withQueryString();
@@ -107,7 +105,6 @@ class StoneRepository implements StoneRepositoryInterface
     {
         $categories = StoneCategory::query()
             ->active()
-            ->whereHas('stones', fn (Builder $stones) => $stones->active())
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['slug', 'name'])
@@ -116,21 +113,17 @@ class StoneRepository implements StoneRepositoryInterface
                 'label' => $stone->name,
             ]);
 
-        $sizes = Stone::query()->active()->distinct()->pluck('size')
+        $sizes = StoneSize::query()->where('is_active', true)->pluck('name')
             ->sort(function (string $left, string $right): int {
                 [$leftWidth, $leftLength] = array_map('intval', explode('x', $left));
                 [$rightWidth, $rightLength] = array_map('intval', explode('x', $right));
 
                 return ($leftWidth <=> $rightWidth) ?: ($leftLength <=> $rightLength);
             })->values()->map(fn (string $size): array => ['value' => $size, 'label' => $size]);
-        $thicknesses = Stone::query()->active()->distinct()->pluck('thickness_mm');
-        $buckets = collect([
-            ['value' => '18-20', 'label' => '18-20 mm', 'min' => 18, 'max' => 20],
-            ['value' => '21-30', 'label' => '21-30 mm', 'min' => 21, 'max' => 30],
-            ['value' => '31-plus', 'label' => '31 mm and up', 'min' => 31, 'max' => PHP_INT_MAX],
-        ])->filter(fn (array $bucket): bool => $thicknesses->contains(fn (int $thickness): bool => $thickness >= $bucket['min'] && $thickness <= $bucket['max']))
-            ->values()->map(fn (array $bucket): array => ['value' => $bucket['value'], 'label' => $bucket['label']]);
+        $thicknesses = StoneThickness::query()->where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')->get(['slug', 'name'])
+            ->map(fn (StoneThickness $thickness): array => ['value' => $thickness->slug, 'label' => $thickness->name]);
 
-        return ['categories' => $categories, 'sizes' => $sizes, 'thicknesses' => $buckets];
+        return ['categories' => $categories, 'sizes' => $sizes, 'thicknesses' => $thicknesses];
     }
 }

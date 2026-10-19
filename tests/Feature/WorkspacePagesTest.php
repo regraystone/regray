@@ -31,7 +31,7 @@ function workspacePages(): array
 {
     return [
         'home.index' => [],
-        'home.project' => ['stone' => 'arctic-pink', 'project' => 'ginza-one'],
+        'home.show' => ['slug' => 'ginza-one'],
         'home.stone' => ['stone' => 'arctic-pink'],
         'overview.index' => [],
         'saved.index' => [],
@@ -190,7 +190,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     expect(guardsFor($routeName))->toBe($permissions);
 })->with([
     ['home.index', [Permission::HomeView->value]],
-    ['home.project', [Permission::HomeProjectsView->value]],
+    ['home.show', [Permission::HomeStoneView->value, Permission::HomeProjectsView->value]],
     ['home.stone', [Permission::HomeStoneView->value]],
     ['overview.index', [Permission::OverviewView->value]],
     ['saved.index', [Permission::SavedView->value]],
@@ -248,7 +248,7 @@ test('the details page is the only one guarded by alternatives', function () {
         ->values()
         ->all();
 
-    expect($alternatives)->toBe(['inquiry.show', 'quote.show']);
+    expect($alternatives)->toBe(['home.show', 'inquiry.show', 'quote.show']);
 });
 
 test('every page permission a role is granted guards a page', function () {
@@ -271,7 +271,7 @@ test('every page permission a role is granted guards a page', function () {
 });
 
 test('each role can open exactly the pages its matrix entry grants', function (string $role) {
-    if (guardsAllow($role, 'home.project') || guardsAllow($role, 'home.stone')) {
+    if (guardsAllow($role, 'home.show') || guardsAllow($role, 'home.stone')) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 
@@ -509,7 +509,7 @@ test('an allowed project profile page renders with its project', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']))
+        ->get(route('home.show', 'ginza-one'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('project-profile')
@@ -552,7 +552,7 @@ test('a denied project profile is forbidden whatever project is asked for', func
 
     foreach (['ginza-one', 'no-such-project', 'belo-medical-group'] as $project) {
         $this->actingAs($user)
-            ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => $project]))
+            ->get(route('home.show', $project))
             ->assertForbidden();
     }
 });

@@ -6,7 +6,7 @@ import ProfileGallery from '@/components/profile-gallery';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import { stone as homeStone } from '@/routes/home';
+import { index as homeIndex, show as homeShow } from '@/routes/home';
 import type { ProjectProfile as ProjectProfileData } from '@/types/home';
 
 type ProjectProfileProps = {
@@ -39,7 +39,9 @@ const ProjectProfile = ({
                 <div>
                     <Button asChild variant="ghost" className="h-9 px-0">
                         <Link
-                            href={homeStone.url({ stone: project.stone.slug })}
+                            href={homeIndex.url({
+                                query: { collection: 'projects' },
+                            })}
                         >
                             <ArrowLeft aria-hidden />
                             Return
@@ -130,8 +132,8 @@ const ProjectProfile = ({
                                 category: stone.category,
                             }}
                             aspect="aspect-[4/3]"
-                            href={homeStone.url({
-                                stone: stone.slug,
+                            href={homeShow.url({
+                                slug: stone.slug,
                             })}
                             saved={savedIds.has(stone.slug)}
                             onToggleSave={

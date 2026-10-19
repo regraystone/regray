@@ -6,7 +6,7 @@ import ImageLightbox, { type LightboxImage } from '@/components/image-lightbox';
 import { FactChip, SpecRow } from '@/components/profile-facts';
 import ProfileGallery from '@/components/profile-gallery';
 import { Button } from '@/components/ui/button';
-import { index as homeIndex, project as homeProject } from '@/routes/home';
+import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { index as savedIndex } from '@/routes/saved';
 import type {
     StoneProfile as StoneProfileData,
@@ -68,11 +68,9 @@ const ProjectCard = ({
 const ProjectsCarousel = ({
     highlights,
     name,
-    stoneSlug,
 }: {
     highlights: StoneProfileProject[];
     name: string;
-    stoneSlug: string;
 }) => {
     const carouselRef = useRef<CarouselHandle>(null);
     const [atStart, setAtStart] = useState(true);
@@ -130,9 +128,8 @@ const ProjectsCarousel = ({
                         <ProjectCard
                             name={highlight.name}
                             image={highlight.thumbnail}
-                            href={homeProject.url({
-                                stone: stoneSlug,
-                                project: highlight.slug,
+                            href={homeShow.url({
+                                slug: highlight.slug,
                             })}
                         />
                     </div>
@@ -273,7 +270,6 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
                     <ProjectsCarousel
                         highlights={stone.projects}
                         name={stone.name}
-                        stoneSlug={stone.slug}
                     />
                 </section>
             )}

@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\Permission;
-use App\Http\Controllers\Home\ProjectController;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\RedirectController;
@@ -30,18 +29,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
     /*
      * Home is the stone feed. Stone profiles and projects are guarded by their own
      * separate permissions: `home-stone.view` and `home-projects.view` respectively.
-     * A published project is read beneath a stone it uses; the repository checks that
-     * the stone is active and belongs to that project after permission. The parameters
-     * stay plain strings on purpose: the project and its stone are loaded in the
-     * repository after permission is settled. SubstituteBindings runs before `can:`,
-     * so binding a model would let a forbidden reader probe which slugs exist.
+     *
+     * The unified route /home/{slug} resolves in order:
+     * (a) an active stone with that slug → 403 unless user holds home-stone.view,
+     *     otherwise render the stone profile;
+     * (b) else a published project with that slug → 403 unless user holds home-projects.view,
+     *     otherwise render the project profile;
+     * (c) else 404.
+     * This resolves the slug after the coarse permission check so a forbidden reader
+     * cannot probe which slugs exist by examining error types.
+     *
+     * The parameters stay plain strings on purpose: the resource and its related data
+     * are loaded in the repository after permission is settled. SubstituteBindings runs
+     * before `can:`, so binding a model would let a forbidden reader probe which slugs exist.
      */
-    Route::get('home/{stone}', [HomeStoneProfileController::class, 'show'])
+    Route::get('home/{slug}', [HomeStoneProfileController::class, 'showFlat'])
+        ->middleware(Permission::anyOfMiddleware(Permission::HomeStoneView, Permission::HomeProjectsView))
+        ->where('slug', '[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+        ->name('home.show');
+
+    /*
+     * Legacy nested route: kept as a 301 redirect to the flat URL.
+     */
+    Route::get('home/{stone}/{project}', fn (string $stone, string $project) => redirect("/home/{$project}", 301))
+        ->where(['stone' => '[a-z0-9-]+', 'project' => '[a-z0-9-]+']);
+
+    /*
+     * Named route for Wayfinder stone profiles. Redirects to the flat route.
+     */
+    Route::get('home-stone/{stone}', [HomeStoneProfileController::class, 'show'])
         ->middleware(Permission::HomeStoneView->middleware())
         ->name('home.stone');
-    Route::get('home/{stone}/{project}', [ProjectController::class, 'show'])
-        ->middleware(Permission::HomeProjectsView->middleware())
-        ->name('home.project');
 
     Route::get('overview', [ViewController::class, 'overview'])
         ->middleware(Permission::OverviewView->middleware())
