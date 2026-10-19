@@ -1,4 +1,4 @@
-﻿import { serviceOptions } from '@/data/services';
+import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 
 /**
  * What a project's services cover, as bullets, on the two sheets that list it.
@@ -20,13 +20,15 @@ const InquiryServiceBullets = ({
     /** Every service the project is for, in the order they were picked. */
     serviceIds: string[];
 }) => {
+    const { services: catalogServices } = useInquiryCatalog();
+
     /*
      * Skipped rather than shown as an id: a service dropped from the catalogue
      * would have nothing to say, and the draft's own schema refuses one before
      * it can be committed, so there is no bullet to invent.
      */
     const services = serviceIds.flatMap((id) => {
-        const service = serviceOptions.find((entry) => entry.id === id);
+        const service = catalogServices.find((entry) => entry.id === id);
 
         return service === undefined ? [] : [service];
     });

@@ -28,7 +28,6 @@ import {
     type InquiryRequirementsRecord,
     type InquiryStoneSelection,
 } from '@/data/inquiries';
-import { PROJECT_CATEGORIES } from '@/data/projects';
 import { serviceOptions } from '@/data/services';
 import { stones, type Stone } from '@/data/stones';
 import { useInitials } from '@/hooks/use-initials';
@@ -61,8 +60,8 @@ type ResolvedProject = {
     name: string;
     services: Array<{ name: string; image?: string }>;
     stones: Array<Stone & InquiryStoneSelection>;
-    /** Category labels, in the order the client picked them. */
-    categories: string[];
+    /** Application names, in the order the client picked them. */
+    applications: string[];
     requirements: InquiryRequirementsRecord;
 };
 
@@ -351,7 +350,7 @@ const FileRow = ({ file }: { file: InquiryFile }) => {
  * the one answer there was only ever room for once.
  *
  * Within it the order is what the reader entered it in: what they want done,
- * what it is made of, how it is categorized, and then where and when. A project
+ * what it is made of, what it is for, and then where and when. A project
  * that was named only by its services reads in that order too, which is the
  * whole of what it is.
  */
@@ -511,25 +510,25 @@ const ProjectCard = ({
                     )}
                 </section>
 
-                {project.categories.length > 0 ? (
+                {project.applications.length > 0 ? (
                     <section>
-                        <SectionLabel count={project.categories.length}>
-                            Categories
+                        <SectionLabel count={project.applications.length}>
+                            Applications
                         </SectionLabel>
 
                         {/*
-                         * Name only: categories are a pick, and the row is a
+                         * Name only: applications are a pick, and the row is a
                          * record of what the client chose rather than a picture
                          * they still need to decide between.
                          */}
                         <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                            {project.categories.map((category) => (
+                            {project.applications.map((application) => (
                                 <li
-                                    key={category}
+                                    key={application}
                                     className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
                                 >
                                     <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                        {category}
+                                        {application}
                                     </p>
                                 </li>
                             ))}
@@ -758,14 +757,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                     (stone): stone is Stone & InquiryStoneSelection =>
                         stone !== undefined,
                 ),
-            categories: (project.categories ?? [])
-                .map(
-                    (category) =>
-                        PROJECT_CATEGORIES.find(
-                            (entry) => entry.value === category,
-                        )?.label,
-                )
-                .filter((label): label is string => label !== undefined),
+            applications: project.applications ?? [],
             requirements: project.requirements,
         }),
     );

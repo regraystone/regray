@@ -10,7 +10,8 @@ import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LANDMARK_MAX, NOTES_MAX } from '@/data/inquiries';
-import { searchLocations, LOCATIONS } from '@/data/locations';
+import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
+import { searchLocations } from '@/lib/inquiry-catalog';
 import {
     todayIsoDate,
     type InquiryDraftInput,
@@ -109,6 +110,7 @@ const InquiryProjectDetails = ({
      */
     needsNeededByTime: boolean;
 }) => {
+    const { locations } = useInquiryCatalog();
     const {
         register,
         control,
@@ -166,8 +168,10 @@ const InquiryProjectDetails = ({
                                     id={id('location')}
                                     ref={field.ref}
                                     value={field.value}
-                                    options={LOCATIONS}
-                                    filter={searchLocations}
+                                    options={locations}
+                                    filter={(query) =>
+                                        searchLocations(locations, query)
+                                    }
                                     listLabel="Cities and municipalities"
                                     placeholder="Search a city or municipality"
                                     emptyMessage="No city or municipality matches that."

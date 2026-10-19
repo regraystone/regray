@@ -3,6 +3,7 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
+use App\Http\Controllers\Inquiry\InquiryController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
 use App\Http\Controllers\Saved\SavedStoneController;
@@ -114,9 +115,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('quote/inquire', [ViewController::class, 'inquire'])
         ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('quote.inquire');
+    Route::post('quote/inquire', [InquiryController::class, 'store'])
+        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->name('quote.inquire.store');
     Route::get('inquiry/inquire', [ViewController::class, 'inquire'])
         ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('inquiry.inquire');
+    Route::post('inquiry/inquire', [InquiryController::class, 'store'])
+        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->name('inquiry.inquire.store');
 
     /*
      * The inquiry details page hangs off whichever list the user reads their

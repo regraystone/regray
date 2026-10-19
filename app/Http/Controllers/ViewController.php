@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Inquiry\ListInquiryOptionsAction;
+use App\Http\Resources\InquiryFinishingResource;
+use App\Http\Resources\InquiryOptionResource;
+use App\Http\Resources\InquiryServiceResource;
+use App\Http\Resources\InquiryStoneResource;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,9 +38,24 @@ class ViewController extends Controller
         return Inertia::render('inquiry');
     }
 
-    public function inquire(Request $request): Response
+    /**
+     * The Inquire page and everything it offers: the services, the stones, the
+     * applications, the edge profiles and finishes still in use, and the
+     * locations. All of it is read here rather than imported by the page, so
+     * the flow and the validation behind it start from the same rows.
+     */
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions): Response
     {
-        return Inertia::render('inquire');
+        $options = $listInquiryOptions->execute();
+
+        return Inertia::render('inquire', [
+            'services' => InquiryServiceResource::collection($options['services'])->resolve($request),
+            'stones' => InquiryStoneResource::collection($options['stones'])->resolve($request),
+            'applications' => InquiryOptionResource::collection($options['applications'])->resolve($request),
+            'edgeProfiles' => InquiryFinishingResource::collection($options['edgeProfiles'])->resolve($request),
+            'finishes' => InquiryFinishingResource::collection($options['finishes'])->resolve($request),
+            'locations' => $options['locations'],
+        ]);
     }
 
     /**

@@ -4,11 +4,15 @@ namespace App\Providers;
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
+use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use App\Repositories\Contracts\SavedStoneRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Repositories\Eloquent\EloquentInquiryCatalogRepository;
+use App\Repositories\Eloquent\EloquentInquiryRepository;
 use App\Repositories\Eloquent\ProjectCategoryRepository;
 use App\Repositories\Eloquent\ProjectRepository;
 use App\Repositories\Eloquent\SavedStoneRepository;
@@ -33,6 +37,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProjectCategoryRepositoryInterface::class, ProjectCategoryRepository::class);
         $this->app->bind(SavedStoneRepositoryInterface::class, SavedStoneRepository::class);
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
+        $this->app->bind(InquiryRepositoryInterface::class, EloquentInquiryRepository::class);
+        $this->app->bind(InquiryCatalogRepositoryInterface::class, EloquentInquiryCatalogRepository::class);
     }
 
     /**

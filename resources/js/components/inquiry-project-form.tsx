@@ -24,8 +24,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { PROJECT_NAME_MAX } from '@/data/inquiries';
-import { serviceName, serviceOptions } from '@/data/services';
-import { EDGE_PROFILES, FINISHES, stones } from '@/data/stones';
+import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
+import { serviceNameIn } from '@/lib/inquiry-catalog';
 import {
     MAX_STONE_QUANTITY,
     MAX_STONE_ROWS,
@@ -89,7 +89,8 @@ const StoneSpecRow = ({
 
     const stoneId = useWatch({ control, name: stoneIdPath(index) });
     const quantity = useWatch({ control, name: quantityPath(index) });
-    const stone = stones.find((entry) => entry.id === stoneId);
+    const { stones, edgeProfiles, finishes } = useInquiryCatalog();
+    const stone = stones.find((entry) => entry.slug === stoneId);
     const rowErrors = errors.stones?.[index];
 
     /*
@@ -285,7 +286,7 @@ const StoneSpecRow = ({
                                     <SelectValue placeholder="Choose an edge profile" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {EDGE_PROFILES.map((edge) => (
+                                    {edgeProfiles.map(({ name: edge }) => (
                                         <SelectItem
                                             key={edge}
                                             value={edge}
@@ -329,7 +330,7 @@ const StoneSpecRow = ({
                                     <SelectValue placeholder="Choose a finish" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {FINISHES.map((finish) => (
+                                    {finishes.map(({ name: finish }) => (
                                         <SelectItem
                                             key={finish}
                                             value={finish}
@@ -521,6 +522,8 @@ const InquiryProjectForm = ({
         name: 'stones',
     });
 
+    const catalog = useInquiryCatalog();
+    const { stones } = catalog;
     const serviceIds = watch('serviceIds');
     const standaloneServiceIds = watch('standaloneServiceIds');
     const rows = watch('stones');
@@ -584,7 +587,7 @@ const InquiryProjectForm = ({
                     element.focus();
                     element.setAttribute(
                         'aria-label',
-                        `Added another row for ${stones.find((s) => s.id === stoneId)?.name ?? 'this stone'}. Choose its edge profile and finish.`,
+                        `Added another row for ${stones.find((s) => s.slug === stoneId)?.name ?? 'this stone'}. Choose its edge profile and finish.`,
                     );
                 }
             }, 0);
@@ -598,7 +601,7 @@ const InquiryProjectForm = ({
         setTimeout(() => {
             if (index > 0) {
                 const prevDuplicateBtn = document.querySelector(
-                    `button[aria-label*="Duplicate ${stones.find((s) => s.id === stoneId)?.name}"]`,
+                    `button[aria-label*="Duplicate ${stones.find((s) => s.slug === stoneId)?.name}"]`,
                 );
                 if (prevDuplicateBtn instanceof HTMLElement) {
                     prevDuplicateBtn.focus();
@@ -660,7 +663,7 @@ const InquiryProjectForm = ({
                     <h3
                         className={`text-lg font-bold tracking-[-0.03em] break-words ${standalone.total > 1 ? 'mt-2' : ''}`}
                     >
-                        {serviceName(standalone.serviceId)}
+                        {serviceNameIn(catalog, standalone.serviceId)}
                     </h3>
 
                     <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
@@ -727,9 +730,7 @@ const InquiryProjectForm = ({
                                      * is about to commit this project, and an empty tag
                                      * would say they had chosen nothing.
                                      */}
-                                    {serviceOptions.find(
-                                        (service) => service.id === id,
-                                    )?.name ?? id}
+                                    {serviceNameIn(catalog, id)}
                                 </Badge>
                             ))}
 
@@ -764,7 +765,7 @@ const InquiryProjectForm = ({
                                 : 'projects of their own'}
                             :{' '}
                             {standaloneServiceIds
-                                .map((id) => serviceName(id))
+                                .map((id) => serviceNameIn(catalog, id))
                                 .join(', ')}
                         </p>
                     ) : null}

@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react';
-import type { ServiceOption } from '@/data/services';
+import type { InquiryServiceOption } from '@/types/inquiry';
 
 /**
  * One service in the inquiry picker's step 2.
@@ -21,7 +21,7 @@ const ServiceCard = ({
     selected,
     onSelect,
 }: {
-    service: ServiceOption;
+    service: InquiryServiceOption;
     /** 0-based position, shown as 01, 02 and so on. */
     index: number;
     selected: boolean;

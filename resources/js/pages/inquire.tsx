@@ -1,12 +1,12 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
+import ApplicationCard from '@/components/application-card';
 import EmptyState from '@/components/empty-state';
 import { fieldMessage } from '@/components/form-field';
-import CategoryCard from '@/components/category-card';
 import InquiryProjectForm from '@/components/inquiry-project-form';
 import InquiryResult from '@/components/inquiry-result';
 import InquiryReview from '@/components/inquiry-review';
@@ -27,28 +27,40 @@ import {
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-    serviceName,
-    serviceOptions,
-    STANDALONE_SERVICE_IDS,
-} from '@/data/services';
-import { stones, stoneProfiles, type Stone } from '@/data/stones';
-import { PROJECT_CATEGORIES } from '@/data/projects';
+    InquiryCatalogProvider,
+    useInquiryCatalog,
+} from '@/hooks/use-inquiry-catalog';
+import { useInquireStoreUrl } from '@/hooks/use-inquire-route';
 import { useInquiryDraftAutosave } from '@/hooks/use-inquiry-draft-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
+import { createInquiryCatalog, serviceNameIn } from '@/lib/inquiry-catalog';
+import { readInquiryDraft } from '@/lib/inquiry-draft-storage';
 import {
-    readInquiryDraft,
-    type StoredInquiryDraftValues,
-    type StoredInquiryProject,
-} from '@/lib/inquiry-draft-storage';
+    APPLICATION_STEP,
+    buildCommittedProject,
+    buildInquiryFormData,
+    clampRestoredStep,
+    commitPlan,
+    draftForNextInQueue,
+    INQUIRY_STEP_LABELS,
+    isStandaloneProject,
+    isStepOptional,
+    mapInquiryErrors,
+    nextStep,
+    OPTIONAL_STEP_NOTE,
+    previousStep,
+    readInquiryFlash,
+    REVIEW_STEP,
+    seedStoneRows,
+    type InquiryFlash,
+} from '@/lib/inquiry-flow';
 import {
+    createInquirySchemas,
     draftDefaults,
     inquiryDefaults,
-    inquirySchema,
-    projectDraftSchema,
-    SERVICES_STEP,
-    CATEGORY_STEP,
     REQUIREMENTS_STEP,
+    SERVICES_STEP,
     STEP_FIELDS,
     STONES_STEP,
     type InquiryDraftInput,
@@ -61,62 +73,17 @@ import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex } from '@/routes/quote';
 import { show as savedShow } from '@/routes/saved';
 import type { Auth } from '@/types';
+import type { InquirePageProps, InquiryStoneOption } from '@/types/inquiry';
 
-const STEPS = ['Services', 'Stones', 'Category', 'Requirements', 'Review'];
-
-/** Review is the last step, and owns no fields of its own to validate. */
-const REVIEW_STEP = REQUIREMENTS_STEP + 1;
+const STEPS = [...INQUIRY_STEP_LABELS];
 
 const STEP_DESCRIPTIONS: Record<number, string> = {
     [SERVICES_STEP]: 'Choose the services you need',
     [STONES_STEP]: "Choose the stones you're interested in",
-    [CATEGORY_STEP]: 'Pick the one that best describes this project',
+    [APPLICATION_STEP]: 'Choose where the stone will be used',
     [REQUIREMENTS_STEP]:
         'Name this project, set how each stone is worked, and tell us where and when',
     [REVIEW_STEP]: 'Check your inquiry before sending it',
-};
-
-/**
- * Where a restored draft is allowed to land.
- *
- * The stored step is a number the flow behind it may no longer justify: a
- * Review with no projects left to review, a requirements step whose stones
- * were never picked, a step number no longer in the stepper at all. So each
- * step is checked against what the draft still holds, and the answer falls
- * back to the furthest earlier step that is justified — Review needs a project
- * to review, the requirements step needs something being specified, the category
- * step needs stones, the stones grid needs the services that would ask for a
- * stone, and the services list is the floor because it needs nothing to show.
- */
-const clampRestoredStep = (
-    stored: number,
-    projects: StoredInquiryProject[],
-    draft: StoredInquiryDraftValues,
-): number => {
-    if (stored >= REVIEW_STEP && projects.length > 0) {
-        return REVIEW_STEP;
-    }
-
-    if (
-        stored >= REQUIREMENTS_STEP &&
-        (draft.stoneIds.length > 0 || draft.standaloneServiceIds.length > 0)
-    ) {
-        // If stones exist but no categories (old draft), land on Category
-        if (draft.stoneIds.length > 0 && draft.categories.length === 0) {
-            return CATEGORY_STEP;
-        }
-        return REQUIREMENTS_STEP;
-    }
-
-    if (stored >= CATEGORY_STEP && draft.stoneIds.length > 0) {
-        return CATEGORY_STEP;
-    }
-
-    if (stored >= STONES_STEP && draft.serviceIds.length > 0) {
-        return STONES_STEP;
-    }
-
-    return SERVICES_STEP;
 };
 
 /**
@@ -163,42 +130,52 @@ const newProjectId = (): string => {
 };
 
 type InquiryResultState =
-    | { status: 'success'; title: string }
-    | { status: 'error' }
+    | { status: 'success'; title: string; reference: string }
+    | { status: 'error'; message?: string }
     | null;
 
 /**
- * The send, and the only thing in this page that stands in for it.
+ * How a send ended, as the page needs to hear it.
  *
- * A stand-in: the project has no inquiry endpoint, model or migration yet, so
- * the exchange is faked in the browser the same way the uploader's is. It
- * returns a promise that may resolve or reject, which is the shape both
- * outcomes above it need.
- *
- * Replacing this one function with a real `router.post` is the only change an
- * endpoint requires. Two things about the shape it is handed: the stones, their
- * counts and their edge and finish arrive nested per project rather than as one
- * flat list, because that is how they were asked for; and the attachments are
- * still `File` objects rather than paths, so that post has to be a multipart
- * `FormData` with the files appended as they are, not a JSON body.
+ * `flashed` is the backend answering with its own verdict, success or error;
+ * `invalid` is the form request refusing the answers, with its errors keyed by
+ * field path; `failed` is everything else — the network, a server error page —
+ * where the backend never got to say anything.
  */
-const submitInquiry = (values: InquiryFormValues): Promise<void> =>
-    new Promise((resolve) => {
-        /*
-         * Scaled by what is going with it, for the same reason the uploader's
-         * fake is: a request carrying four plans should not take the same moment
-         * as one carrying nothing. Capped, so it stays inside 1.2 to 1.8 seconds.
-         */
-        const megabytes =
-            values.projects
-                .flatMap((project) => project.attachments)
-                .reduce(
-                    (total, attachment) => total + attachment.file.size,
-                    0,
-                ) /
-            (1024 * 1024);
+type SendOutcome =
+    | { kind: 'flashed'; flash: InquiryFlash | null }
+    | { kind: 'invalid'; errors: Record<string, string> }
+    | { kind: 'failed' };
 
-        window.setTimeout(resolve, Math.min(1800, 1200 + megabytes * 60));
+/**
+ * The send, wrapped in a promise so the guard and the reset-on-success logic
+ * around it read straight down.
+ *
+ * Multipart because the attachments are `File` objects. The promise settles on
+ * whichever callback fires first; `onFinish` is the net under the other two, for
+ * the failures that run neither.
+ */
+const sendInquiryRequest = (
+    url: string,
+    values: InquiryFormValues,
+): Promise<SendOutcome> =>
+    new Promise((resolve) => {
+        router.post(url, buildInquiryFormData(values), {
+            forceFormData: true,
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: (page) =>
+                resolve({
+                    kind: 'flashed',
+                    flash: readInquiryFlash(page.flash),
+                }),
+            onError: (errors) =>
+                resolve({
+                    kind: 'invalid',
+                    errors: errors as Record<string, string>,
+                }),
+            onFinish: () => resolve({ kind: 'failed' }),
+        });
     });
 
 const SKELETON_MS = 700;
@@ -250,122 +227,138 @@ const ProjectBanner = ({
  * is given, because a column of empty boxes cannot say anything on its own: it
  * would be read as a page that has finished and simply has no content.
  */
-const InquireSkeleton = () => (
-    <div role="status" aria-busy="true" className="mx-auto w-full max-w-6xl">
-        {/* Everything below is empty boxes; this is the only thing to hear. */}
-        <span className="sr-only">Loading the inquiry</span>
+const InquireSkeleton = () => {
+    const { services } = useInquiryCatalog();
 
-        {/* The page heading: a title and the line under it. */}
-        <div className="mb-8 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0 space-y-1.5">
-                <Skeleton className="h-9 w-40" />
-                <Skeleton className="h-5 w-56" />
+    return (
+        <div
+            role="status"
+            aria-busy="true"
+            className="mx-auto w-full max-w-6xl"
+        >
+            {/* Everything below is empty boxes; this is the only thing to hear. */}
+            <span className="sr-only">Loading the inquiry</span>
+
+            {/* The page heading: a title and the line under it. */}
+            <div className="mb-8 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0 space-y-1.5">
+                    <Skeleton className="h-9 w-40" />
+                    <Skeleton className="h-5 w-56" />
+                </div>
             </div>
-        </div>
 
-        {/*
-         * The rail, at its real height: four boxes on a line with their labels
-         * beneath it, so nothing about the spacing moves when it arrives. The
-         * boxes are the same `size-9` the real ones are, and the labels are given
-         * real heights rather than omitted — the labels hang below the boxes and
-         * are most of what this band's height is made of.
-         */}
-        <div className="mx-auto mb-8 w-full max-w-2xl">
-            <Skeleton className="mx-auto h-4 w-44 sm:hidden" />
+            {/*
+             * The rail, at its real height: four boxes on a line with their labels
+             * beneath it, so nothing about the spacing moves when it arrives. The
+             * boxes are the same `size-9` the real ones are, and the labels are given
+             * real heights rather than omitted — the labels hang below the boxes and
+             * are most of what this band's height is made of.
+             */}
+            <div className="mx-auto mb-8 w-full max-w-2xl">
+                <Skeleton className="mx-auto h-4 w-44 sm:hidden" />
 
-            <div className="hidden items-center px-6 pb-7 sm:flex">
-                {STEPS.map((_, index) => (
+                <div className="hidden items-center px-6 pb-7 sm:flex">
+                    {STEPS.map((_, index) => (
+                        <div
+                            key={index}
+                            className="flex min-w-0 flex-1 items-center last:flex-none"
+                        >
+                            <div className="relative shrink-0">
+                                <Skeleton className="size-9 rounded-md" />
+                                <Skeleton className="absolute top-full left-1/2 mt-2 h-3 w-16 -translate-x-1/2" />
+                            </div>
+
+                            {/* The same gap on both sides of every box. */}
+                            {index < STEPS.length - 1 ? (
+                                <Skeleton className="mx-2 h-px flex-1" />
+                            ) : null}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* The heading over the list, which is the row above it. */}
+            <Skeleton className="h-7 w-36" />
+
+            {/*
+             * The services themselves, one row each: a square thumbnail, a name and
+             * its bullets, and the counter at the far end. Built from the catalogue
+             * rather than from a fixed number, so the band is the height it is going
+             * to be and adding a service cannot quietly make the page jump again.
+             */}
+            <div className="mt-4 divide-y divide-sidebar-border border-y border-sidebar-border">
+                {services.map((service) => (
                     <div
-                        key={index}
-                        className="flex min-w-0 flex-1 items-center last:flex-none"
+                        key={service.id}
+                        className="flex w-full items-start gap-4 p-4 sm:gap-6 sm:p-5"
                     >
-                        <div className="relative shrink-0">
-                            <Skeleton className="size-9 rounded-md" />
-                            <Skeleton className="absolute top-full left-1/2 mt-2 h-3 w-16 -translate-x-1/2" />
+                        <Skeleton className="size-20 shrink-0 rounded-md sm:size-28" />
+
+                        <div className="min-w-0 flex-1">
+                            <Skeleton className="h-5 w-2/5 sm:h-6" />
+
+                            <ul className="mt-2 space-y-1.5">
+                                {service.features.map((feature) => (
+                                    <li
+                                        key={feature}
+                                        className="flex items-center gap-2.5"
+                                    >
+                                        <Skeleton className="size-1.5 shrink-0 rounded-full" />
+                                        {/*
+                                         * 23px, because that is what a real bullet
+                                         * line comes out at — `text-sm` on a
+                                         * `leading-relaxed` row — and a row's height
+                                         * is its bullet count times this. Getting it
+                                         * wrong by a few pixels per bullet is enough
+                                         * to make every row below it sit higher than
+                                         * where the real row will land.
+                                         */}
+                                        <Skeleton className="h-[23px] w-4/5" />
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
 
-                        {/* The same gap on both sides of every box. */}
-                        {index < STEPS.length - 1 ? (
-                            <Skeleton className="mx-2 h-px flex-1" />
-                        ) : null}
+                        <Skeleton className="hidden h-3 w-6 shrink-0 sm:block" />
                     </div>
                 ))}
             </div>
-        </div>
-
-        {/* The heading over the list, which is the row above it. */}
-        <Skeleton className="h-7 w-36" />
-
-        {/*
-         * The services themselves, one row each: a square thumbnail, a name and
-         * its bullets, and the counter at the far end. Built from the catalogue
-         * rather than from a fixed number, so the band is the height it is going
-         * to be and adding a service cannot quietly make the page jump again.
-         */}
-        <div className="mt-4 divide-y divide-sidebar-border border-y border-sidebar-border">
-            {serviceOptions.map((service) => (
-                <div
-                    key={service.id}
-                    className="flex w-full items-start gap-4 p-4 sm:gap-6 sm:p-5"
-                >
-                    <Skeleton className="size-20 shrink-0 rounded-md sm:size-28" />
-
-                    <div className="min-w-0 flex-1">
-                        <Skeleton className="h-5 w-2/5 sm:h-6" />
-
-                        <ul className="mt-2 space-y-1.5">
-                            {service.features.map((feature) => (
-                                <li
-                                    key={feature}
-                                    className="flex items-center gap-2.5"
-                                >
-                                    <Skeleton className="size-1.5 shrink-0 rounded-full" />
-                                    {/*
-                                     * 23px, because that is what a real bullet
-                                     * line comes out at — `text-sm` on a
-                                     * `leading-relaxed` row — and a row's height
-                                     * is its bullet count times this. Getting it
-                                     * wrong by a few pixels per bullet is enough
-                                     * to make every row below it sit higher than
-                                     * where the real row will land.
-                                     */}
-                                    <Skeleton className="h-[23px] w-4/5" />
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    <Skeleton className="hidden h-3 w-6 shrink-0 sm:block" />
-                </div>
-            ))}
-        </div>
-
-        {/*
-         * The bar the reader finishes on: the count on the left, the way forward
-         * on the right. Pinned the same way, because it is pinned in the real
-         * page and a placeholder that scrolls away while the real one does not
-         * would move the button a reader was reaching for.
-         */}
-        <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
-            <Skeleton className="h-5 w-32" />
 
             {/*
-             * 46px, which is what the real Continue comes out at: `py-3` on
-             * both sides of a `text-sm` line, plus the button's own border.
-             * `h-11` and `h-12` both miss it, and this is the one button the
-             * reader is reaching for, so it is the one that must not move.
+             * The bar the reader finishes on: the count on the left, the way forward
+             * on the right. Pinned the same way, because it is pinned in the real
+             * page and a placeholder that scrolls away while the real one does not
+             * would move the button a reader was reaching for.
              */}
-            <Skeleton className="h-[46px] w-full rounded-md sm:w-36" />
-        </div>
-    </div>
-);
+            <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+                <Skeleton className="h-5 w-32" />
 
-const Inquire = () => {
+                {/*
+                 * 46px, which is what the real Continue comes out at: `py-3` on
+                 * both sides of a `text-sm` line, plus the button's own border.
+                 * `h-11` and `h-12` both miss it, and this is the one button the
+                 * reader is reaching for, so it is the one that must not move.
+                 */}
+                <Skeleton className="h-[46px] w-full rounded-md sm:w-36" />
+            </div>
+        </div>
+    );
+};
+
+const InquireFlow = () => {
+    const catalog = useInquiryCatalog();
+    const { stones } = catalog;
+    const { inquirySchema, projectDraftSchema } = useMemo(
+        () => createInquirySchemas(catalog),
+        [catalog],
+    );
+    const inquireStoreUrl = useInquireStoreUrl();
+
     const [isLoading, setIsLoading] = useState(true);
     const [step, setStep] = useState(SERVICES_STEP);
     const [filter, setFilter] = useState<StoneFilter>('latest');
     const [search, setSearch] = useState('');
-    const [categorySearch, setCategorySearch] = useState('');
+    const [applicationSearch, setApplicationSearch] = useState('');
 
     /** Which committed project the open draft is editing, or null when new. */
     const [editingProjectId, setEditingProjectId] = useState<string | null>(
@@ -462,7 +455,18 @@ const Inquire = () => {
     const draftStoneIds = watchDraft('stoneIds');
     const draftServiceIds = watchDraft('serviceIds');
     const draftStandaloneServiceIds = watchDraft('standaloneServiceIds');
-    const draftCategories = watchDraft('categories');
+    const draftApplicationIds = watchDraft('applicationIds');
+
+    /*
+     * The part of the draft that decides the path through the steps, handed to
+     * the flow helpers rather than re-read inside them.
+     */
+    const flowDraft = {
+        serviceIds: draftServiceIds,
+        standaloneServiceIds: draftStandaloneServiceIds,
+        stoneIds: draftStoneIds,
+        applicationIds: draftApplicationIds,
+    };
 
     /*
      * Everything the reader has picked on the services step, both kinds together.
@@ -527,7 +531,7 @@ const Inquire = () => {
 
         hasRestoredRef.current = true;
 
-        const stored = readInquiryDraft(userId);
+        const stored = readInquiryDraft(userId, catalog);
 
         if (stored !== null) {
             /*
@@ -550,7 +554,11 @@ const Inquire = () => {
                     : null,
             );
             setStep(
-                clampRestoredStep(stored.step, stored.projects, stored.draft),
+                clampRestoredStep(
+                    stored.step,
+                    stored.projects.length,
+                    stored.draft,
+                ),
             );
             hasDraftContinued.current = false;
 
@@ -564,7 +572,7 @@ const Inquire = () => {
         }
 
         setIsRestored(true);
-    }, [userId, reset, draftMethods]);
+    }, [userId, catalog, reset, draftMethods]);
 
     /*
      * The draft's own life support: a write a couple of seconds after the last
@@ -599,13 +607,13 @@ const Inquire = () => {
     }, [step, result]);
 
     const visibleStones = useMemo(() => {
-        const base = ((): Stone[] => {
+        const base = ((): InquiryStoneOption[] => {
             if (filter === 'recommended') {
                 return stones.filter((stone) => stone.recommended);
             }
 
             if (filter === 'saved') {
-                return stones.filter((stone) => savedIds.has(stone.id));
+                return stones.filter((stone) => savedIds.has(stone.slug));
             }
 
             return stones;
@@ -617,18 +625,16 @@ const Inquire = () => {
             return base;
         }
 
-        return base.filter((stone) => {
-            const profile = stoneProfiles[stone.id];
-
-            return [
+        return base.filter((stone) =>
+            [
                 stone.name,
-                profile?.specifications.stoneType,
-                profile?.specifications.origin,
+                stone.specifications.stoneType,
+                stone.specifications.origin,
             ]
                 .filter((value): value is string => Boolean(value))
-                .some((value) => value.toLowerCase().includes(query));
-        });
-    }, [filter, savedIds, search]);
+                .some((value) => value.toLowerCase().includes(query)),
+        );
+    }, [filter, savedIds, search, stones]);
 
     /*
      * Which stones are already part of a committed project.
@@ -659,9 +665,9 @@ const Inquire = () => {
         });
     };
 
-    /** Pick or unpick one category, which a project may hold several of. */
-    const toggleCategory = (id: string) => {
-        setDraftValue('categories', toggleIn(draftCategories, id), {
+    /** Pick or unpick one application, which a project may hold several of. */
+    const toggleApplication = (id: string) => {
+        setDraftValue('applicationIds', toggleIn(draftApplicationIds, id), {
             shouldDirty: true,
             shouldValidate: hasDraftContinued.current,
         });
@@ -677,7 +683,7 @@ const Inquire = () => {
      * say it is.
      */
     const toggleService = (id: string) => {
-        const field = STANDALONE_SERVICE_IDS.has(id)
+        const field = catalog.standaloneServiceIds.has(id)
             ? 'standaloneServiceIds'
             : 'serviceIds';
         const options = {
@@ -733,8 +739,8 @@ const Inquire = () => {
      * reader who has opened a project to correct one thing should not have to
      * retype the rest to do it.
      *
-     * The categories come back too, so Edit from Review shows the saved choices
-     * selected in the Category step.
+     * The applications come back too, so Edit from Review shows the saved
+     * choices selected in the Application step.
      *
      * A project that is a service standing on its own goes back into the draft's
      * queue rather than into its services, because that is how the requirements step
@@ -749,7 +755,14 @@ const Inquire = () => {
             return;
         }
 
-        const isStandalone = project.stones.length === 0;
+        /*
+         * Read off the services rather than off the stones: a visit may now carry
+         * stones as extra information, so having none no longer says it is one.
+         */
+        const isStandalone = isStandaloneProject(
+            project.serviceIds,
+            catalog.standaloneServiceIds,
+        );
 
         draftMethods.reset({
             name: project.name,
@@ -757,7 +770,7 @@ const Inquire = () => {
             serviceIds: isStandalone ? [] : [...project.serviceIds],
             standaloneServiceIds: isStandalone ? [...project.serviceIds] : [],
             stones: project.stones.map((selection) => ({ ...selection })),
-            categories: [...(project.categories ?? [])],
+            applicationIds: [...project.applications],
             location: project.location,
             landmark: project.landmark,
             areaSqm: project.areaSqm,
@@ -796,7 +809,7 @@ const Inquire = () => {
             return false;
         }
 
-        setDraftValue('name', serviceName(next), {
+        setDraftValue('name', serviceNameIn(catalog, next), {
             shouldDirty: true,
             shouldValidate: false,
         });
@@ -812,41 +825,33 @@ const Inquire = () => {
      * once the reader knows they are staying on this step: a material added and
      * removed in the grid never has to be given a count at all.
      *
-     * Keeps every row of a stone that is still picked, drops all rows of an unpicked
-     * stone, and adds one fresh row for each newly picked stone.
+     * A draft of nothing but standalone services has no requirements form for its
+     * stones, so its rows take the "advise me" answers instead of staying blank.
      */
     const seedDraftStones = () => {
-        const picked = getDraftValues('stoneIds');
-        const current = getDraftValues('stones');
+        const standaloneOnly =
+            getDraftValues('serviceIds').length === 0 &&
+            catalog.advisoryEdge !== null &&
+            catalog.advisoryFinish !== null;
 
-        const pickedSet = new Set(picked);
-        const kept = current.filter((row) => pickedSet.has(row.stoneId));
-
-        const already = new Map(kept.map((row) => [row.stoneId, row]));
-
-        const result: typeof current = [];
-
-        for (const id of picked) {
-            const existing = kept.filter((row) => row.stoneId === id);
-
-            if (existing.length > 0) {
-                result.push(...existing);
-                already.delete(id);
-            } else {
-                result.push({
-                    stoneId: id,
-                    quantity: 1,
-                    edge: '',
-                    finish: '',
-                });
-            }
-        }
-
-        setDraftValue('stones', result);
+        setDraftValue(
+            'stones',
+            seedStoneRows(
+                getDraftValues('stoneIds'),
+                getDraftValues('stones'),
+                standaloneOnly
+                    ? {
+                          edge: catalog.advisoryEdge ?? '',
+                          finish: catalog.advisoryFinish ?? '',
+                      }
+                    : null,
+            ),
+        );
     };
 
     /**
-     * Step 2 onward, once the draft has at least one stone in it.
+     * Step 2 onward. Needs a stone once a service supplies one; a draft of only
+     * standalone services may continue with none.
      *
      * The objection is spoken by the bar rather than by refusing the button,
      * because a grid of cards is not a field and there is nothing to send the
@@ -859,21 +864,13 @@ const Inquire = () => {
 
         if (valid) {
             seedDraftStones();
-            setStep(CATEGORY_STEP);
+            setStep(nextStep(STONES_STEP));
         }
     };
 
     /**
-     * Step 1 onward, and the point at which the reader's answer decides the rest
-     * of their path.
-     *
-     * If everything they picked stands on its own there is no material to choose,
-     * so step 2 has nothing to ask; they go straight to the requirements step with the
-     * first of those services under its own name and work through them one at a
-     * time from there.
-     *
-     * Anything they picked alongside those services carries on to the stones as
-     * usual, and the queued services wait behind it for their own forms.
+     * Step 1 onward. Every draft goes on to Stones: a draft of only standalone
+     * services is not sent past it, it is told the step is optional.
      */
     const continueFromServices = async () => {
         hasDraftContinued.current = true;
@@ -883,65 +880,56 @@ const Inquire = () => {
             { shouldFocus: true },
         );
 
+        if (valid) {
+            setStep(nextStep(SERVICES_STEP));
+        }
+    };
+
+    /**
+     * Step 3 onward. Needs an application once a service supplies stone, and
+     * is optional for a draft of only standalone services.
+     *
+     * A draft of only standalone services reaches the requirements form with the
+     * first of those services under its own name, and works through them one at
+     * a time from there.
+     */
+    const continueFromApplication = async () => {
+        hasDraftContinued.current = true;
+
+        const valid = await triggerDraft('applicationIds', {
+            shouldFocus: true,
+        });
+
         if (!valid) {
             return;
         }
 
-        if (getDraftValues('serviceIds').length > 0) {
-            setStep(STONES_STEP);
-
-            return;
+        if (getDraftValues('serviceIds').length === 0) {
+            seedStandaloneName(getDraftValues('standaloneServiceIds'));
+            hasDraftContinued.current = false;
         }
 
-        /*
-         * Straight to the requirements step rather than to the stones: there is no
-         * material to choose, so the only thing left to ask is where the work is
-         * and when it is wanted, and that is a question about this piece of work
-         * alone. Each of the queued services gets a form of its own from here,
-         * one after the other.
-         */
-        seedStandaloneName(getDraftValues('standaloneServiceIds'));
-        hasDraftContinued.current = false;
-        setStep(REQUIREMENTS_STEP);
-    };
-
-    /**
-     * Step 3 onward, once the draft has categories selected.
-     *
-     * The objection is spoken by the bar rather than by refusing the button.
-     */
-    const continueFromCategory = async () => {
-        hasDraftContinued.current = true;
-
-        const valid = await triggerDraft('categories', { shouldFocus: true });
-
-        if (valid) {
-            setStep(REQUIREMENTS_STEP);
-        }
+        setStep(nextStep(APPLICATION_STEP));
     };
 
     /**
      * The draft, checked whole and then committed.
      *
      * Checked against the draft's own schema rather than against any one step's,
-     * because this is the one press that takes all four steps' answers together
-     * and puts them on the inquiry; a reader who skipped nothing should never be
-     * stopped by a rule they have already satisfied.
+     * because this is the one press that takes all the steps' answers together
+     * and puts them on the inquiry.
      *
      * Where it lands is decided by what is left in the queue of services that
-     * stand on their own, and by nothing else. There is one destination for a
-     * commit — the sheet — and one place the queue can send a reader instead: a
-     * press that writes out a project and then asks about the next service is one
-     * press, and refusing to say so would leave the reader wondering whether the
-     * project they had just filled in was kept.
+     * stand on their own, and by nothing else. The service at the head of the
+     * queue is the one committed here, as a project of its own: a survey visit
+     * asked for with a countertop is still a survey of somebody else's stone, and
+     * folding it into the countertop's project would say the reader wants that
+     * material for it. A draft that has stone of its own is committed beside that
+     * queue rather than out of it.
      *
-     * The service at the head of the queue is the one committed here, as a
-     * project of its own: a survey visit asked for with a countertop is still a
-     * survey of somebody else's stone, and folding it into the countertop's
-     * project would say the reader wants that material for it. A draft that has
-     * stone of its own is committed beside that queue rather than out of it,
-     * because a countertop and the survey of the site it is going into are two
-     * pieces of work and only one of them has material.
+     * Every standalone project is committed with the stones and applications
+     * picked in the steps before it, as extra information. There is still one
+     * project per service.
      */
     const commitDraft = async () => {
         hasDraftContinued.current = true;
@@ -953,26 +941,15 @@ const Inquire = () => {
         }
 
         const draft = getDraftValues();
-        const [head, ...queue] = draft.standaloneServiceIds;
-        const isStandalone =
-            draft.serviceIds.length === 0 && head !== undefined;
+        const { isStandalone, head, remaining } = commitPlan(draft);
 
-        const project = {
+        const project = buildCommittedProject(draft, {
             id: editingProjectId ?? newProjectId(),
-            name: isStandalone ? serviceName(head) : draft.name,
-            serviceIds: isStandalone ? [head] : [...draft.serviceIds],
-            categories: isStandalone ? [] : [...draft.categories],
-            stones: isStandalone ? [] : draft.stones.map((row) => ({ ...row })),
-            location: draft.location,
-            landmark: draft.landmark,
-            areaSqm: draft.areaSqm,
-            neededBy: draft.neededBy,
-            neededByTime: draft.neededByTime,
-            notes: draft.notes,
-            attachments: draft.attachments.map((attachment) => ({
-                ...attachment,
-            })),
-        };
+            standaloneService:
+                isStandalone && head !== undefined
+                    ? { id: head, name: serviceNameIn(catalog, head) }
+                    : undefined,
+        });
 
         /*
          * An edit puts the project back where it was rather than at the end of
@@ -992,26 +969,27 @@ const Inquire = () => {
         setEditingProjectId(null);
 
         /*
-         * Straight back to the requirements step for the next of the queued services,
-         * with the committed project left behind rather than wiped: the draft has
-         * to come down to that project being committed so the site and the date the
-         * reader just gave it are not the next project's answers, and the queue has
-         * to be shortened so the form is not asked about this service again.
+         * Straight back to the requirements step for the next of the queued
+         * services, with the committed project left behind rather than wiped: the
+         * draft has to come down to that project being committed so the site and
+         * the date the reader just gave it are not the next project's answers,
+         * and the queue has to be shortened so the form is not asked about this
+         * service again. The stones and applications stay, because they are copied
+         * onto the next one too.
          *
-         * The whole queue is carried over rather than only the tail of it, because
-         * a project of stone is committed beside the queue rather than out of it:
-         * a countertop asked for alongside a survey is two pieces of work, and the
-         * survey is still owed a form of its own once the countertop is written
-         * down. Dropping the queue here would lose a service the reader had
-         * picked and been told all along that they would be asked about.
+         * The whole queue is carried over rather than only the tail of it when the
+         * project just written was one of stone, because a countertop asked for
+         * alongside a survey is two pieces of work and the survey is still owed a
+         * form of its own.
          */
-        const remaining = isStandalone ? queue : draft.standaloneServiceIds;
-
         if (remaining.length > 0) {
-            draftMethods.reset({
-                ...draftDefaults,
-                standaloneServiceIds: remaining,
-            });
+            draftMethods.reset(
+                draftForNextInQueue(
+                    getDraftValues(),
+                    { ...draftDefaults },
+                    remaining,
+                ),
+            );
             seedStandaloneName(remaining);
             hasDraftContinued.current = false;
 
@@ -1170,11 +1148,13 @@ const Inquire = () => {
      *
      * On success the form is emptied before the panel is set, in the same tick,
      * so the reader never sees a frame of the old answers under the new heading.
-     * The project's name is read out first because the panel names the request
-     * and the form is about to stop holding it.
+     * The panel names the request by what the backend says it is, not by what the
+     * form held.
      *
-     * On failure nothing is touched at all — that promise is the reason the
-     * panel offers a retry rather than making the reader rebuild the request.
+     * When the backend refuses the answers, the reader stays on the sheet with
+     * each complaint beside the project it is about. On any other failure nothing
+     * is touched at all — that promise is the reason the panel offers a retry
+     * rather than making the reader rebuild the request.
      */
     const sendInquiry = async () => {
         if (isSendingRef.current) {
@@ -1184,23 +1164,42 @@ const Inquire = () => {
         isSendingRef.current = true;
         setIsSending(true);
 
-        try {
-            await submitInquiry(getValues());
-        } catch {
-            isSendingRef.current = false;
-            setIsSending(false);
-            setResult({ status: 'error' });
+        const outcome: SendOutcome =
+            inquireStoreUrl === null
+                ? { kind: 'failed' }
+                : await sendInquiryRequest(inquireStoreUrl, getValues());
+
+        isSendingRef.current = false;
+        setIsSending(false);
+
+        if (outcome.kind === 'invalid') {
+            const mapped = mapInquiryErrors(
+                outcome.errors,
+                getValues('projects'),
+            );
+
+            setProjectMessages(mapped.projectMessages);
+            setSectionMessages(mapped.sectionMessages);
+            setValidationAlertErrors(mapped.alertErrors);
+            setResult(null);
 
             return;
         }
 
-        /*
-         * The request is known by the name of its first project, the same answer
-         * `inquiryTitle` gives every other page that lists one. Read out before the
-         * form is emptied, because the panel names the request and the form is
-         * about to stop holding it.
-         */
-        const title = getValues('projects')[0]?.name ?? '';
+        if (outcome.kind === 'failed' || outcome.flash?.status !== 'success') {
+            setResult({
+                status: 'error',
+                message:
+                    outcome.kind === 'flashed' &&
+                    outcome.flash?.status === 'error'
+                        ? outcome.flash.message
+                        : undefined,
+            });
+
+            return;
+        }
+
+        const { title, reference } = outcome.flash;
 
         /*
          * A fresh inquiry starts empty rather than from the request just sent,
@@ -1218,14 +1217,12 @@ const Inquire = () => {
         discardDraft();
         setSearch('');
         setFilter('latest');
+        setApplicationSearch('');
         setValidationAlertErrors([]);
         setSectionMessages({});
         setProjectMessages({});
         setStep(SERVICES_STEP);
-
-        isSendingRef.current = false;
-        setIsSending(false);
-        setResult({ status: 'success', title });
+        setResult({ status: 'success', title, reference });
     };
 
     /**
@@ -1358,6 +1355,16 @@ const Inquire = () => {
                     <InquiryResult
                         status={result.status}
                         title={result.status === 'success' ? result.title : ''}
+                        reference={
+                            result.status === 'success'
+                                ? result.reference
+                                : undefined
+                        }
+                        message={
+                            result.status === 'error'
+                                ? result.message
+                                : undefined
+                        }
                         canChat={canChat}
                         inquiriesHref={inquiriesHref}
                         onTryAgain={sendInquiry}
@@ -1397,6 +1404,11 @@ const Inquire = () => {
                                     <h2 className="text-lg font-bold tracking-[-0.03em]">
                                         Our Natural Stones
                                     </h2>
+                                    {isStepOptional(STONES_STEP, flowDraft) ? (
+                                        <p className="mt-1 text-sm text-secondary-foreground">
+                                            {OPTIONAL_STEP_NOTE}
+                                        </p>
+                                    ) : null}
                                     <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="relative w-full sm:max-w-xs">
                                             <Search
@@ -1530,10 +1542,9 @@ const Inquire = () => {
                                     <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
                                         {visibleStones.map((stone) => (
                                             <StoneCard
-                                                key={stone.id}
+                                                key={stone.slug}
                                                 stone={{
-                                                    id: stone.id,
-                                                    slug: stone.id,
+                                                    slug: stone.slug,
                                                     name: stone.name,
                                                     thumbnail: stone.thumbnail,
                                                     recommended:
@@ -1541,25 +1552,25 @@ const Inquire = () => {
                                                     category: stone.category,
                                                 }}
                                                 aspect="aspect-[4/3]"
-                                                saved={savedIds.has(stone.id)}
+                                                saved={savedIds.has(stone.slug)}
                                                 onToggleSave={
                                                     canSave
                                                         ? () =>
                                                               toggleSave(
-                                                                  stone.id,
+                                                                  stone.slug,
                                                               )
                                                         : undefined
                                                 }
                                                 selectable
                                                 selected={draftStoneIds.includes(
-                                                    stone.id,
+                                                    stone.slug,
                                                 )}
                                                 onSelect={() =>
-                                                    toggleStone(stone.id)
+                                                    toggleStone(stone.slug)
                                                 }
                                                 note={
                                                     committedStoneIds.has(
-                                                        stone.id,
+                                                        stone.slug,
                                                     )
                                                         ? 'Already added'
                                                         : undefined
@@ -1572,7 +1583,7 @@ const Inquire = () => {
                                                 viewHref={
                                                     canSeeStoneProfile
                                                         ? savedShow.url({
-                                                              stone: stone.id,
+                                                              stone: stone.slug,
                                                           })
                                                         : undefined
                                                 }
@@ -1655,7 +1666,9 @@ const Inquire = () => {
                                             type="button"
                                             variant="outline"
                                             onClick={() =>
-                                                setStep(SERVICES_STEP)
+                                                setStep(
+                                                    previousStep(STONES_STEP),
+                                                )
                                             }
                                             className="w-full cursor-pointer sm:w-auto"
                                         >
@@ -1672,7 +1685,7 @@ const Inquire = () => {
                                     </div>
                                 </div>
                             </>
-                        ) : step === CATEGORY_STEP ? (
+                        ) : step === APPLICATION_STEP ? (
                             <>
                                 {showDraftBanner ? (
                                     <ProjectBanner
@@ -1682,9 +1695,19 @@ const Inquire = () => {
                                 ) : null}
 
                                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <h2 className="text-lg font-bold tracking-[-0.03em]">
-                                        Project Category
-                                    </h2>
+                                    <div>
+                                        <h2 className="text-lg font-bold tracking-[-0.03em]">
+                                            Application
+                                        </h2>
+                                        {isStepOptional(
+                                            APPLICATION_STEP,
+                                            flowDraft,
+                                        ) ? (
+                                            <p className="mt-1 text-sm text-secondary-foreground">
+                                                {OPTIONAL_STEP_NOTE}
+                                            </p>
+                                        ) : null}
+                                    </div>
 
                                     <div className="relative w-full sm:w-auto sm:max-w-xs">
                                         <Search
@@ -1693,21 +1716,21 @@ const Inquire = () => {
                                         />
                                         <Input
                                             type="search"
-                                            value={categorySearch}
+                                            value={applicationSearch}
                                             onChange={(event) =>
-                                                setCategorySearch(
+                                                setApplicationSearch(
                                                     event.target.value,
                                                 )
                                             }
-                                            placeholder="Search categories"
-                                            aria-label="Search categories"
+                                            placeholder="Search applications"
+                                            aria-label="Search applications"
                                             className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
                                         />
-                                        {categorySearch ? (
+                                        {applicationSearch ? (
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    setCategorySearch('')
+                                                    setApplicationSearch('')
                                                 }
                                                 aria-label="Clear search"
                                                 className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -1722,28 +1745,29 @@ const Inquire = () => {
                                 </div>
 
                                 {(() => {
-                                    const query = categorySearch
+                                    const query = applicationSearch
                                         .trim()
                                         .toLowerCase();
-                                    const filteredCategories =
+                                    const filteredApplications =
                                         query === ''
-                                            ? PROJECT_CATEGORIES
-                                            : PROJECT_CATEGORIES.filter((cat) =>
-                                                  cat.label
-                                                      .toLowerCase()
-                                                      .includes(query),
+                                            ? catalog.applications
+                                            : catalog.applications.filter(
+                                                  (application) =>
+                                                      application.name
+                                                          .toLowerCase()
+                                                          .includes(query),
                                               );
 
-                                    return filteredCategories.length === 0 ? (
+                                    return filteredApplications.length === 0 ? (
                                         <EmptyState
-                                            title="No categories found"
-                                            description="No category matches that search."
+                                            title="No applications found"
+                                            description="No application matches that search."
                                             action={
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     onClick={() =>
-                                                        setCategorySearch('')
+                                                        setApplicationSearch('')
                                                     }
                                                 >
                                                     Clear search
@@ -1752,17 +1776,19 @@ const Inquire = () => {
                                         />
                                     ) : (
                                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
-                                            {filteredCategories.map(
-                                                (category) => (
-                                                    <CategoryCard
-                                                        key={category.value}
-                                                        category={category}
-                                                        selected={draftCategories.includes(
-                                                            category.value,
+                                            {filteredApplications.map(
+                                                (application) => (
+                                                    <ApplicationCard
+                                                        key={application.id}
+                                                        application={
+                                                            application
+                                                        }
+                                                        selected={draftApplicationIds.includes(
+                                                            application.id,
                                                         )}
                                                         onSelect={() =>
-                                                            toggleCategory(
-                                                                category.value,
+                                                            toggleApplication(
+                                                                application.id,
                                                             )
                                                         }
                                                     />
@@ -1774,10 +1800,20 @@ const Inquire = () => {
 
                                 <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                                        <p
+                                            aria-live="polite"
+                                            className="text-sm font-bold text-foreground"
+                                        >
+                                            {draftApplicationIds.length}{' '}
+                                            {draftApplicationIds.length === 1
+                                                ? 'application'
+                                                : 'applications'}{' '}
+                                            selected
+                                        </p>
                                         <InputError
                                             message={fieldMessage(
                                                 draftMethods.formState.errors
-                                                    .categories,
+                                                    .applicationIds,
                                             )}
                                             role="alert"
                                         />
@@ -1787,7 +1823,13 @@ const Inquire = () => {
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            onClick={() => setStep(STONES_STEP)}
+                                            onClick={() =>
+                                                setStep(
+                                                    previousStep(
+                                                        APPLICATION_STEP,
+                                                    ),
+                                                )
+                                            }
                                             className="w-full cursor-pointer sm:w-auto"
                                         >
                                             <ArrowLeft aria-hidden />
@@ -1795,7 +1837,7 @@ const Inquire = () => {
                                         </Button>
                                         <Button
                                             type="button"
-                                            onClick={continueFromCategory}
+                                            onClick={continueFromApplication}
                                             className="w-full sm:w-auto"
                                         >
                                             Continue
@@ -1823,7 +1865,7 @@ const Inquire = () => {
                                  * this from reading as it.
                                  */}
                                 <div className="mt-4 divide-y divide-sidebar-border border-y border-sidebar-border">
-                                    {serviceOptions.map((service, index) => (
+                                    {catalog.services.map((service, index) => (
                                         <ServiceCard
                                             key={service.id}
                                             service={service}
@@ -1924,11 +1966,7 @@ const Inquire = () => {
                                 onChangeServices={() => setStep(SERVICES_STEP)}
                                 onCommit={commitDraft}
                                 onBack={() =>
-                                    setStep(
-                                        standalone === null
-                                            ? CATEGORY_STEP
-                                            : SERVICES_STEP,
-                                    )
+                                    setStep(previousStep(REQUIREMENTS_STEP))
                                 }
                             />
                         )}
@@ -1976,6 +2014,36 @@ const Inquire = () => {
                 </DialogContent>
             </Dialog>
         </FormProvider>
+    );
+};
+
+const Inquire = (props: InquirePageProps) => {
+    const {
+        services,
+        stones,
+        applications,
+        edgeProfiles,
+        finishes,
+        locations,
+    } = props;
+
+    const catalog = useMemo(
+        () =>
+            createInquiryCatalog({
+                services,
+                stones,
+                applications,
+                edgeProfiles,
+                finishes,
+                locations,
+            }),
+        [services, stones, applications, edgeProfiles, finishes, locations],
+    );
+
+    return (
+        <InquiryCatalogProvider value={catalog}>
+            <InquireFlow />
+        </InquiryCatalogProvider>
     );
 };
 
