@@ -7,67 +7,67 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 ### Data (new migrations only)
 
 - `2026_10_20_000001_add_support_and_assignment_to_conversations`:
-  - Adds the `support` conversation type, with `support_client_id` (unique: one Regray Team thread per client), `assigned_to` and `assigned_at`.
-  - Check constraints tie them together.
-  - A trigger clears `assigned_at` when deleting the assignee's account nulls `assigned_to`.
+    - Adds the `support` conversation type, with `support_client_id` (unique: one Regray Team thread per client), `assigned_to` and `assigned_at`.
+    - Check constraints tie them together.
+    - A trigger clears `assigned_at` when deleting the assignee's account nulls `assigned_to`.
 - `2026_10_20_000002_add_role_and_delivery_to_conversation_members`: adds a member `role` (`member`, `admin`, `viewer`) and `last_delivered_message_id`.
 - `2026_10_20_000003_add_replies_keys_and_system_events_to_messages`:
-  - Adds `reply_to_id`, `client_key` (unique per conversation, which dedupes retried sends) and the `system` message type with `system_event` and `system_user_id`.
-  - Adds a partial unique index so that one inquiry status change posts one card.
+    - Adds `reply_to_id`, `client_key` (unique per conversation, which dedupes retried sends) and the `system` message type with `system_event` and `system_user_id`.
+    - Adds a partial unique index so that one inquiry status change posts one card.
 - Composite-key `conversation_members` rows are written only through the query builder in `EloquentConversationMemberRepository`, never with `->save()`. The read and delivered pointers only move forward.
 
 ### Backend
 
 - **Enums:**
-  - `ConversationType::Support`, `MessageType::System`, `ConversationMemberRole` and `SystemEvent`.
-  - The permissions `conversations.create` and `support.claim`, granted to Marketing (and listed on Admin).
+    - `ConversationType::Support`, `MessageType::System`, `ConversationMemberRole` and `SystemEvent`.
+    - The permissions `conversations.create` and `support.claim`, granted to Marketing (and listed on Admin).
 - **Layering:** FormRequests → `app/Actions/Message` → `app/Services/Message` → repository interfaces → Eloquent repositories. The repositories are bound in `AppServiceProvider`.
 - **`ConversationPolicy`** decides `view`, `send`, `claim`, `release` and `reassign`. The routes (`can:` middleware) and the broadcast channels both use it.
 - **Endpoints** (all under `messages.view`):
-  - `GET /message` (Inertia, with infinite scroll).
-  - `GET /message/{id}/messages` (cursor paging with `before`/`after`, `hasMore`, pointers and the staff-only `assignment`).
-  - Send (throttled to 60 a minute) and edit/remove.
-  - Read and delivered pointers.
-  - Claim, release and reassign.
-  - People search and group creation (`conversations.create`).
+    - `GET /message` (Inertia, with infinite scroll).
+    - `GET /message/{id}/messages` (cursor paging with `before`/`after`, `hasMore`, pointers and the staff-only `assignment`).
+    - Send (throttled to 60 a minute) and edit/remove.
+    - Read and delivered pointers.
+    - Claim, release and reassign.
+    - People search and group creation (`conversations.create`).
 - **Regray Team:**
-  - Registration creates the client's thread (`CreateNewUser`). It is also created on first list load.
-  - The thread is visible to the client, the assignee and, while unassigned, the whole pool.
-  - Claims take a row lock and run a conditional update, so the second claim gets 409 with the winner's name.
-  - Release and reassign write `system` rows.
+    - Registration creates the client's thread (`CreateNewUser`). It is also created on first list load.
+    - The thread is visible to the client, the assignee and, while unassigned, the whole pool.
+    - Claims take a row lock and run a conditional update, so the second claim gets 409 with the winner's name.
+    - Release and reassign write `system` rows.
 - **Inquiry status cards:**
-  - `InquiryStatusService::transition()` writes the status and history and dispatches `InquiryStatusChanged` after commit.
-  - `PostInquiryStatusCard` posts one card into the inquiry's group (see TODO(inquiry-binding)).
+    - `InquiryStatusService::transition()` writes the status and history and dispatches `InquiryStatusChanged` after commit.
+    - `PostInquiryStatusCard` posts one card into the inquiry's group (see TODO(inquiry-binding)).
 - **Realtime (Reverb):**
-  - The private channels are `user.{id}`, `support.pool` and `conversation.{id}`.
-  - `MessageCreated`, `MessageUpdated`, `PointerMoved`, `ConversationActivity`, `SupportThreadClaimed`, `SupportThreadReleased` and `GroupCreated`.
-  - Typing uses client whispers.
-  - The client's Reverb config is shared at runtime as the Inertia prop `realtime`, because Docker images bake in `.env.example`'s `VITE_*` values.
-  - `docker-compose.yml` has a `reverb` service, and `docker/Caddyfile` proxies `/app/*` to it.
+    - The private channels are `user.{id}`, `support.pool` and `conversation.{id}`.
+    - `MessageCreated`, `MessageUpdated`, `PointerMoved`, `ConversationActivity`, `SupportThreadClaimed`, `SupportThreadReleased` and `GroupCreated`.
+    - Typing uses client whispers.
+    - The client's Reverb config is shared at runtime as the Inertia prop `realtime`, because Docker images bake in `.env.example`'s `VITE_*` values.
+    - `docker-compose.yml` has a `reverb` service, and `docker/Caddyfile` proxies `/app/*` to it.
 - **Privacy:**
-  - Clients never get the `assignment` payload, the support client block, pool viewers' receipts or other clients' visit cards.
-  - While a Regray Team thread is unassigned, staff senders are shown to the client as "Regray Team".
-  - `ScheduleCardResource` names staff only on staff bookings, and sends the cancel reason only on cancelled cards.
+    - Clients never get the `assignment` payload, the support client block, pool viewers' receipts or other clients' visit cards.
+    - While a Regray Team thread is unassigned, staff senders are shown to the client as "Regray Team".
+    - `ScheduleCardResource` names staff only on staff bookings, and sends the cancel reason only on cancelled cards.
 
 ### Frontend
 
 - `pages/message.tsx` was rewritten on `components/conversations/*`:
-  - The list, rows, thread, header, bubbles, composer, assignment card, typing indicator, receipts, date separators and the inquiry, schedule and system cards.
-  - The new-group and reassign dialogs.
+    - The list, rows, thread, header, bubbles, composer, assignment card, typing indicator, receipts, date separators and the inquiry, schedule and system cards.
+    - The new-group and reassign dialogs.
 - `hooks/use-conversation-thread.ts` handles paging, optimistic sends with `clientKey`, live events and catch-up after a reconnect.
 - The logic lives in pure libs, tested under `tests/js`:
-  - `conversation-skeleton`, `thread-scroll`, `long-press`, `message-grouping`, `receipts`, `assignment` and `thread-cards`.
+    - `conversation-skeleton`, `thread-scroll`, `long-press`, `message-grouping`, `receipts`, `assignment` and `thread-cards`.
 - The old mock data and components were removed (`data/conversations.ts`, `chat-panel`, `conversation-list`, …).
 - Other pages:
-  - "Message us" (inquiry result) opens the Regray Team thread.
-  - "Message the team" (inquiry details) shows only when the inquiry has a group.
+    - "Message us" (inquiry result) opens the Regray Team thread.
+    - "Message the team" (inquiry details) shows only when the inquiry has a group.
 
 ### Seeders
 
 - `ConversationSeeder`:
-  - Gives every client a Regray Team thread.
-  - Leaves `client@example.com` with two unassigned messages, and gives a second client a thread claimed by `marketing@example.com` (with its system row).
-  - Adds the admin to the sample groups so the admin sees them.
+    - Gives every client a Regray Team thread.
+    - Leaves `client@example.com` with two unassigned messages, and gives a second client a thread claimed by `marketing@example.com` (with its system row).
+    - Adds the admin to the sample groups so the admin sees them.
 - `RolePermissionSeeder` grants Marketing the two new permissions, and lists them on Admin too, as the matrix lists every permission there.
 
 ### Dependencies
@@ -87,8 +87,8 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 ## TODO list
 
 - **`TODO(inquiry-binding)`:** groups are not bound to inquiries yet.
-  - Until they are, no real inquiry has a group, so status cards are not posted for real data and "Message the team" stays hidden.
-  - Marked in `ConversationPolicy`, `PostInquiryStatusCard`, `InquiryStatusService`, `InquiryDetailsService`, `InquiryDetailsResource`, `GroupConversationService`, `ConversationSeeder` and `pages/inquiry-details.tsx`.
+    - Until they are, no real inquiry has a group, so status cards are not posted for real data and "Message the team" stays hidden.
+    - Marked in `ConversationPolicy`, `PostInquiryStatusCard`, `InquiryStatusService`, `InquiryDetailsService`, `InquiryDetailsResource`, `GroupConversationService`, `ConversationSeeder` and `pages/inquiry-details.tsx`.
 - **`TODO(booking)`:** post a `schedule_card` when a booking changes status. The card's rendering is already built. Marked in `Schedule` and `pages/schedule-book.tsx`.
 - **`TODO(attachments)`:** the paperclip is disabled with a tooltip. `message_attachments` already exists. Marked in `components/conversations/composer.tsx`.
 - **`TODO(staff-inquiry-scope)`:** the inquiry details page only finds the viewer's own inquiries (`InquiryDetailsService::forClient`), so a staff member who clicks an inquiry card gets a 404. Marked in `components/conversations/inquiry-card.tsx`.
@@ -96,13 +96,13 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 ## Tests
 
 - **Pest, `tests/Feature/Message`:**
-  - `ConversationPolicyTest`: the full role matrix.
-  - `SupportThreadTest`: registration, idempotent creation, claim and the 409 for a second claim, visibility after a claim, the send 409s, release, reassign, `assignment` privacy, name masking, and the FK trigger.
-  - `ThreadMessagesTest`: paging, `client_key` dedupe, edit and remove, and pointers.
-  - `GroupConversationTest`.
-  - `InquiryStatusCardTest`.
-  - `BroadcastChannelsTest`.
-  - `ScheduleCardTest`.
+    - `ConversationPolicyTest`: the full role matrix.
+    - `SupportThreadTest`: registration, idempotent creation, claim and the 409 for a second claim, visibility after a claim, the send 409s, release, reassign, `assignment` privacy, name masking, and the FK trigger.
+    - `ThreadMessagesTest`: paging, `client_key` dedupe, edit and remove, and pointers.
+    - `GroupConversationTest`.
+    - `InquiryStatusCardTest`.
+    - `BroadcastChannelsTest`.
+    - `ScheduleCardTest`.
 - **node:test, `tests/js`:** one file per pure lib listed above.
 - **Checks run:** Pint, PHPStan, `php artisan test` (761 tests), `npm run check`, `npm run types:check`, `npm run test` (134 tests) and `migrate:fresh --seed`.
 
@@ -112,12 +112,12 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 - **"A non-assignee gets 409":** this is tested with the admin. Another pool member cannot even open a claimed thread, so they get 403 first.
 - **Docker:** the `reverb` service and the Caddy `/app/*` proxy were not run under Docker. Realtime was tested locally with `php artisan reverb:start`.
 - **Manual browser checks:** claim, the live list update, "Handled by", typing, live delivery, the name label and "Seen" were all checked with two browsers (client and marketing). Not yet checked by hand:
-  - release, reassign, edit, remove and reply in the browser (covered by the HTTP tests);
-  - long-press on a phone emulator (the reducer is unit tested);
-  - reconnect catch-up after restarting Reverb;
-  - card sizes at 320, 390 and 1280 px.
+    - release, reassign, edit, remove and reply in the browser (covered by the HTTP tests);
+    - long-press on a phone emulator (the reducer is unit tested);
+    - reconnect catch-up after restarting Reverb;
+    - card sizes at 320, 390 and 1280 px.
 
-  The Playwright end-to-end suite that follows covers these.
+    The Playwright end-to-end suite that follows covers these.
 
 ## Out-of-scope observations
 
