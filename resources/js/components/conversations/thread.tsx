@@ -1,0 +1,611 @@
+import { ArrowDown } from 'lucide-react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
+import { toast } from 'sonner';
+import AssignmentCard from '@/components/conversations/assignment-card';
+import Composer from '@/components/conversations/composer';
+import DateSeparator from '@/components/conversations/date-separator';
+import InquiryCard from '@/components/conversations/inquiry-card';
+import MessageBubble from '@/components/conversations/message-bubble';
+import ReassignDialog from '@/components/conversations/reassign-dialog';
+import Receipts from '@/components/conversations/receipts';
+import ScheduleCard from '@/components/conversations/schedule-card';
+import SystemEvent from '@/components/conversations/system-event';
+import ThreadHeader from '@/components/conversations/thread-header';
+import TypingIndicator from '@/components/conversations/typing-indicator';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
+import { useConversationThread } from '@/hooks/use-conversation-thread';
+import { assignmentView } from '@/lib/assignment';
+import { threadLoadingState } from '@/lib/conversation-skeleton';
+import { ApiError } from '@/lib/message-api';
+import { buildThreadItems } from '@/lib/message-grouping';
+import { latestOwnMessageId, receiptFor } from '@/lib/receipts';
+import {
+    anchorAfterPrepend,
+    isNearBottom,
+    isNearTop,
+    shouldAutoScroll,
+} from '@/lib/thread-scroll';
+import type {
+    ChatMessage,
+    ConversationSummary,
+    Realtime,
+} from '@/types/message';
+
+export const SUPPORT_EMPTY_TEXT = 'Message Regray Team any time.';
+
+type ThreadProps = {
+    conversationId: number;
+    /** The list row, drawn as the header until the thread's own arrives. */
+    initialSummary: ConversationSummary | null;
+    currentUserId: number;
+    currentUserName: string;
+    isClient: boolean;
+    isTouch: boolean;
+    realtime: Realtime | undefined;
+    onBack: () => void;
+    onLostAccess: (conversationId: number, assigneeName: string) => void;
+    onSummaryChange: (conversation: ConversationSummary) => void;
+};
+
+const ThreadSkeleton = () => (
+    <div
+        className="flex min-h-0 flex-1 flex-col gap-2 p-4 md:p-5"
+        role="status"
+        aria-busy="true"
+    >
+        <span className="sr-only">Loading messages</span>
+        <Skeleton className="h-10 w-2/5 rounded-md" />
+        <Skeleton className="ml-auto h-10 w-3/5 rounded-md" />
+        <Skeleton className="h-10 w-1/2 rounded-md" />
+        <Skeleton className="ml-auto h-10 w-2/3 rounded-md" />
+    </div>
+);
+
+/**
+ * One open conversation: header, messages, and the composer.
+ *
+ * The latest page loads first and the view starts at the bottom. Scrolling to
+ * the top loads older pages, and the view is held still while they are added
+ * above: the height the content grew by is added to the scroll position. New
+ * messages pull the view down only when the reader is already near the bottom
+ * or sent the message themselves; otherwise a "New messages" pill counts them.
+ */
+const Thread = ({
+    conversationId,
+    initialSummary,
+    currentUserId,
+    currentUserName,
+    isClient,
+    isTouch,
+    realtime,
+    onBack,
+    onLostAccess,
+    onSummaryChange,
+}: ThreadProps) => {
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const anchorRef = useRef<{ height: number; top: number } | null>(null);
+    const stickToBottomRef = useRef(true);
+    const [unseen, setUnseen] = useState(0);
+    const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+    const [editing, setEditing] = useState<ChatMessage | null>(null);
+    const [removeTarget, setRemoveTarget] = useState<ChatMessage | null>(null);
+    const [removing, setRemoving] = useState(false);
+    const [claiming, setClaiming] = useState(false);
+    const [reassignOpen, setReassignOpen] = useState(false);
+    const [highlighted, setHighlighted] = useState<number | null>(null);
+
+    const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+        const viewport = scrollRef.current;
+
+        if (viewport) {
+            viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+        }
+
+        stickToBottomRef.current = true;
+        setUnseen(0);
+    }, []);
+
+    const thread = useConversationThread(conversationId, {
+        currentUserId,
+        realtime,
+        onIncoming: () => {
+            const viewport = scrollRef.current;
+            const near = viewport === null || isNearBottom(viewport);
+
+            if (shouldAutoScroll({ nearBottom: near, isOwn: false })) {
+                stickToBottomRef.current = true;
+            } else {
+                setUnseen((count) => count + 1);
+            }
+        },
+        onLostAccess: (name) => onLostAccess(conversationId, name),
+        onSummaryChange,
+    });
+
+    const { state } = thread;
+    const conversation = state.conversation ?? initialSummary;
+
+    // Reset the per-thread interface state when another thread opens.
+    useEffect(() => {
+        setReplyTo(null);
+        setEditing(null);
+        setUnseen(0);
+        stickToBottomRef.current = true;
+        anchorRef.current = null;
+    }, [conversationId]);
+
+    // Keep the view where it should be after every change to the messages.
+    useLayoutEffect(() => {
+        const viewport = scrollRef.current;
+
+        if (viewport === null || !state.loaded) {
+            return;
+        }
+
+        if (anchorRef.current !== null) {
+            viewport.scrollTop = anchorAfterPrepend({
+                previousScrollHeight: anchorRef.current.height,
+                previousScrollTop: anchorRef.current.top,
+                nextScrollHeight: viewport.scrollHeight,
+            });
+            anchorRef.current = null;
+
+            return;
+        }
+
+        if (stickToBottomRef.current) {
+            viewport.scrollTop = viewport.scrollHeight;
+        }
+    }, [state.loaded, state.messages, state.pending, thread.typing]);
+
+    // Reading: whatever is at the bottom while the reader is there counts as read.
+    useEffect(() => {
+        if (
+            state.loaded &&
+            stickToBottomRef.current &&
+            document.visibilityState === 'visible'
+        ) {
+            void thread.read();
+        }
+    }, [state.loaded, state.messages, thread]);
+
+    const handleScroll = () => {
+        const viewport = scrollRef.current;
+
+        if (viewport === null) {
+            return;
+        }
+
+        const near = isNearBottom(viewport);
+        stickToBottomRef.current = near;
+
+        if (near && unseen > 0) {
+            setUnseen(0);
+            void thread.read();
+        }
+
+        if (
+            isNearTop(viewport.scrollTop) &&
+            state.hasMore &&
+            !state.loadingOlder &&
+            state.loaded
+        ) {
+            anchorRef.current = {
+                height: viewport.scrollHeight,
+                top: viewport.scrollTop,
+            };
+            void thread.loadOlder();
+        }
+    };
+
+    const view = assignmentView({
+        isSupport: conversation?.isSupport ?? false,
+        isClient,
+        assignment: state.assignment,
+        assignee: conversation?.assignee ?? null,
+    });
+
+    const items = useMemo(
+        () => buildThreadItems(state.messages),
+        [state.messages],
+    );
+    const ownLatest = latestOwnMessageId(state.messages, currentUserId);
+    const receipt = receiptFor({
+        messageId: ownLatest,
+        pointers: state.pointers,
+        currentUserId,
+        isDirect:
+            conversation?.type === 'direct' ||
+            (conversation?.isSupport ?? false),
+    });
+
+    const claim = async () => {
+        setClaiming(true);
+
+        try {
+            await thread.claim();
+        } catch (error) {
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : 'This conversation could not be assigned.',
+            );
+            void thread.catchUp();
+        } finally {
+            setClaiming(false);
+        }
+    };
+
+    const release = async () => {
+        try {
+            await thread.release();
+            toast.success('Released to the team');
+        } catch (error) {
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : 'This conversation could not be released.',
+            );
+        }
+    };
+
+    const jumpTo = (messageId: number) => {
+        const element = scrollRef.current?.querySelector(
+            `[data-message-id="${messageId}"]`,
+        );
+
+        if (element) {
+            element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            setHighlighted(messageId);
+            window.setTimeout(
+                () =>
+                    setHighlighted((current) =>
+                        current === messageId ? null : current,
+                    ),
+                1600,
+            );
+        } else {
+            toast.info('That message is further back in the conversation.');
+        }
+    };
+
+    const confirmRemove = async () => {
+        if (removeTarget === null) {
+            return;
+        }
+
+        setRemoving(true);
+
+        try {
+            await thread.remove(removeTarget.id);
+            setRemoveTarget(null);
+        } catch (error) {
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : 'The message could not be removed.',
+            );
+        } finally {
+            setRemoving(false);
+        }
+    };
+
+    const loading = threadLoadingState({
+        hasLoaded: state.loaded,
+        isLoadingOlder: state.loadingOlder,
+        hasMore: state.hasMore,
+    });
+
+    if (conversation === null) {
+        return (
+            <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                <ThreadSkeleton />
+            </section>
+        );
+    }
+
+    const showsNames = (message: ChatMessage): boolean =>
+        message.sender !== null &&
+        message.sender.id !== currentUserId &&
+        (conversation.type === 'group' ||
+            (conversation.isSupport &&
+                view.showStaffNames &&
+                message.sender.id !== conversation.supportClient?.id));
+
+    return (
+        <section
+            aria-label={`Conversation with ${conversation.name}`}
+            className="relative flex min-w-0 flex-1 flex-col overflow-hidden"
+            data-testid="thread"
+        >
+            <ThreadHeader
+                conversation={conversation}
+                subtitle={view.subtitle}
+                canRelease={view.canRelease}
+                canReassign={view.canReassign && conversation.isSupport}
+                onBack={onBack}
+                onRelease={() => void release()}
+                onReassign={() => setReassignOpen(true)}
+            />
+
+            {state.error !== null ? (
+                <p className="m-auto px-4 text-center text-sm font-semibold text-secondary-foreground">
+                    {state.error}
+                </p>
+            ) : loading === 'skeleton' ? (
+                <ThreadSkeleton />
+            ) : (
+                <div
+                    ref={scrollRef}
+                    onScroll={handleScroll}
+                    className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4 md:p-5"
+                    data-testid="thread-scroll"
+                >
+                    {loading === 'olderSpinner' ? (
+                        <div
+                            className="flex justify-center py-1"
+                            data-testid="older-spinner"
+                        >
+                            <Spinner className="motion-reduce:animate-none" />
+                        </div>
+                    ) : null}
+
+                    {view.showCard ? (
+                        <AssignmentCard
+                            onClaim={() => void claim()}
+                            claiming={claiming}
+                        />
+                    ) : null}
+
+                    {state.messages.length === 0 &&
+                    state.pending.length === 0 ? (
+                        <p
+                            className="m-auto px-4 text-center text-sm font-semibold text-secondary-foreground"
+                            data-testid="thread-empty"
+                        >
+                            {conversation.isOwnSupport
+                                ? SUPPORT_EMPTY_TEXT
+                                : 'No messages yet — say hello'}
+                        </p>
+                    ) : null}
+
+                    {items.map((item) => {
+                        if (item.kind === 'separator') {
+                            return (
+                                <DateSeparator
+                                    key={item.key}
+                                    label={item.label}
+                                />
+                            );
+                        }
+
+                        const message = item.message;
+
+                        if (message.type === 'inquiry_card') {
+                            return message.inquiryCard ? (
+                                <InquiryCard
+                                    key={item.key}
+                                    card={message.inquiryCard}
+                                />
+                            ) : null;
+                        }
+
+                        if (message.type === 'schedule_card') {
+                            return message.scheduleCard ? (
+                                <ScheduleCard
+                                    key={item.key}
+                                    card={message.scheduleCard}
+                                    isStaff={!isClient}
+                                />
+                            ) : (
+                                <p
+                                    key={item.key}
+                                    className="text-center text-xs text-secondary-foreground"
+                                >
+                                    A visit was updated
+                                </p>
+                            );
+                        }
+
+                        if (message.type === 'system') {
+                            return (
+                                <SystemEvent key={item.key} message={message} />
+                            );
+                        }
+
+                        const isOwn = message.sender?.id === currentUserId;
+                        const canChange = isOwn && !message.isRemoved;
+
+                        return (
+                            <div key={item.key}>
+                                <MessageBubble
+                                    message={message}
+                                    isOwn={isOwn}
+                                    showName={
+                                        item.isRunStart && showsNames(message)
+                                    }
+                                    showAvatar={item.isRunEnd}
+                                    isTouch={isTouch}
+                                    highlighted={highlighted === message.id}
+                                    onReply={
+                                        view.composer.mode === 'enabled'
+                                            ? () => {
+                                                  setEditing(null);
+                                                  setReplyTo(message);
+                                              }
+                                            : undefined
+                                    }
+                                    onEdit={
+                                        canChange
+                                            ? () => {
+                                                  setReplyTo(null);
+                                                  setEditing(message);
+                                              }
+                                            : undefined
+                                    }
+                                    onRemove={
+                                        canChange
+                                            ? () => setRemoveTarget(message)
+                                            : undefined
+                                    }
+                                    onJumpTo={jumpTo}
+                                />
+                                {message.id === ownLatest &&
+                                state.pending.length === 0 ? (
+                                    <Receipts receipt={receipt} />
+                                ) : null}
+                            </div>
+                        );
+                    })}
+
+                    {state.pending.map((pending) => (
+                        <MessageBubble
+                            key={pending.clientKey}
+                            message={null}
+                            pending={pending}
+                            isOwn
+                            showName={false}
+                            showAvatar={false}
+                            isTouch={isTouch}
+                            onRetry={() => thread.retry(pending.clientKey)}
+                            onDiscard={() => thread.discard(pending.clientKey)}
+                            onJumpTo={jumpTo}
+                        />
+                    ))}
+
+                    <TypingIndicator
+                        names={thread.typing.map((person) => person.name)}
+                    />
+                </div>
+            )}
+
+            {unseen > 0 ? (
+                <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => scrollToBottom('smooth')}
+                    className="absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full shadow-md"
+                    data-testid="new-messages-pill"
+                >
+                    <ArrowDown aria-hidden />
+                    {unseen} new {unseen === 1 ? 'message' : 'messages'}
+                </Button>
+            ) : null}
+
+            {state.loaded && state.error === null ? (
+                <Composer
+                    placeholder={`Message ${conversation.name}`}
+                    state={view.composer}
+                    isTouch={isTouch}
+                    replyTo={replyTo}
+                    editing={editing}
+                    claiming={claiming}
+                    onSend={(body) => {
+                        stickToBottomRef.current = true;
+                        thread.send(body, replyTo);
+                        setReplyTo(null);
+                    }}
+                    onSaveEdit={async (body) => {
+                        if (editing === null) {
+                            return;
+                        }
+
+                        try {
+                            await thread.edit(editing.id, body);
+                            setEditing(null);
+                        } catch (error) {
+                            toast.error(
+                                error instanceof ApiError
+                                    ? error.message
+                                    : 'The message could not be edited.',
+                            );
+                            throw error;
+                        }
+                    }}
+                    onCancelReply={() => setReplyTo(null)}
+                    onCancelEdit={() => setEditing(null)}
+                    onClaim={() => void claim()}
+                    onTyping={() => thread.signalTyping(currentUserName)}
+                />
+            ) : null}
+
+            <Dialog
+                open={removeTarget !== null}
+                onOpenChange={(open) =>
+                    !open && !removing ? setRemoveTarget(null) : undefined
+                }
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
+                            Remove this message?
+                        </DialogTitle>
+                        <DialogDescription>
+                            Everyone in the conversation will see “This message
+                            was removed” instead.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setRemoveTarget(null)}
+                            disabled={removing}
+                        >
+                            Keep message
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => void confirmRemove()}
+                            disabled={removing}
+                        >
+                            {removing ? (
+                                <Spinner className="motion-reduce:animate-none" />
+                            ) : null}
+                            Remove
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {view.canReassign ? (
+                <ReassignDialog
+                    open={reassignOpen}
+                    onOpenChange={setReassignOpen}
+                    onReassign={async (userId) => {
+                        try {
+                            await thread.reassign(userId);
+                            setReassignOpen(false);
+                            toast.success('Conversation reassigned');
+                        } catch (error) {
+                            toast.error(
+                                error instanceof ApiError
+                                    ? error.message
+                                    : 'The conversation could not be reassigned.',
+                            );
+                        }
+                    }}
+                />
+            ) : null}
+        </section>
+    );
+};
+
+export default Thread;

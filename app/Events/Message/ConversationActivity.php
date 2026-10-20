@@ -25,6 +25,7 @@ class ConversationActivity implements ShouldBroadcast
         public array $userIds,
         public bool $toSupportPool = false,
         public string $reason = 'message',
+        public ?int $lastMessageId = null,
     ) {}
 
     /** @return array<int, PrivateChannel> */
@@ -47,6 +48,10 @@ class ConversationActivity implements ShouldBroadcast
     /** @return array<string, mixed> */
     public function broadcastWith(): array
     {
-        return ['conversationId' => $this->conversationId, 'reason' => $this->reason];
+        return [
+            'conversationId' => $this->conversationId,
+            'reason' => $this->reason,
+            'lastMessageId' => $this->lastMessageId,
+        ];
     }
 }

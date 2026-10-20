@@ -101,6 +101,8 @@ export const permissions = {
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
     scheduleCreate: 'schedule.create',
+    conversationsCreate: 'conversations.create',
+    supportClaim: 'support.claim',
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];

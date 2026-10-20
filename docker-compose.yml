@@ -47,13 +47,7 @@ services:
     reverb:
         <<: *app
         command:
-            [
-                'php',
-                'artisan',
-                'reverb:start',
-                '--host=0.0.0.0',
-                '--port=8080',
-            ]
+            ['php', 'artisan', 'reverb:start', '--host=0.0.0.0', '--port=8080']
         init: true
         stop_grace_period: 30s
         # This process does not run FPM, so the image's /ping check does not apply.

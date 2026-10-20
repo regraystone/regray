@@ -76,7 +76,7 @@ class MessageService
         $message = $this->messages->loadForDisplay($message);
 
         broadcast(new MessageCreated($message, $conversation))->toOthers();
-        $this->announceActivity($conversation);
+        $this->announceActivity($conversation, 'message', $message->id);
 
         return ['message' => $message, 'created' => true];
     }
@@ -137,13 +137,14 @@ class MessageService
      * Tell every list that shows this conversation that it changed. An
      * unassigned Regray Team thread is in every pool member's list too.
      */
-    public function announceActivity(Conversation $conversation, string $reason = 'message'): void
+    public function announceActivity(Conversation $conversation, string $reason = 'message', ?int $lastMessageId = null): void
     {
         event(new ConversationActivity(
             $conversation->id,
             $this->conversations->memberUserIds($conversation->id),
             toSupportPool: $conversation->isSupport() && $conversation->assigned_to === null,
             reason: $reason,
+            lastMessageId: $lastMessageId,
         ));
     }
 

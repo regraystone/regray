@@ -89,7 +89,11 @@ const InquiryResult = ({
                */
               canChat ? (
                   <Button key="chat" asChild>
-                      <Link href={messageIndex.url()}>
+                      <Link
+                          href={messageIndex.url({
+                              query: { conversation: 'support' },
+                          })}
+                      >
                           <MessageCircle aria-hidden />
                           Message us
                       </Link>
