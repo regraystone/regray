@@ -43,7 +43,7 @@ class ThreadController extends Controller
     public function messages(ThreadMessagesRequest $request, Conversation $conversation): JsonResponse
     {
         $user = $request->user();
-        $thread = $this->showThread->execute($user, $conversation, $request->before(), $request->after(), $request->limit());
+        $thread = $this->showThread->execute($user, $conversation, $request->beforeId(), $request->afterId(), $request->limitValue());
 
         return response()->json([
             'conversation' => (ConversationResource::make($thread['conversation'])->viewedBy($user))->resolve($request),

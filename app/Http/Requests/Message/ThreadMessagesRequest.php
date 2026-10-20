@@ -23,17 +23,17 @@ class ThreadMessagesRequest extends FormRequest
         ];
     }
 
-    public function before(): ?int
+    public function beforeId(): ?int
     {
         return $this->filled('before') ? (int) $this->validated('before') : null;
     }
 
-    public function after(): ?int
+    public function afterId(): ?int
     {
         return $this->filled('after') ? (int) $this->validated('after') : null;
     }
 
-    public function limit(): ?int
+    public function limitValue(): ?int
     {
         return $this->filled('limit') ? (int) $this->validated('limit') : null;
     }
