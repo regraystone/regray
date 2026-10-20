@@ -29,6 +29,10 @@ const HERO_COLUMNS = ['grid-cols-1', 'grid-cols-2'] as const;
  *
  * The headline and the badge are the status the card was posted for, not
  * whatever the inquiry is now: a card is a record of a change.
+ *
+ * TODO(staff-inquiry-scope): the details page only finds inquiries the viewer
+ * owns (InquiryDetailsService::forClient), so for staff this
+ * link ends in a 404 until staff access to inquiry details is built.
  */
 const InquiryCard = ({ card }: { card: InquiryCardData }) => {
     const { can } = usePermissions();

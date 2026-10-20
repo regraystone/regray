@@ -102,6 +102,8 @@ class RolePermissionSeeder extends Seeder
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
             Permission::SavedManage->value,
+            Permission::ConversationsCreate->value,
+            Permission::SupportClaim->value,
         ],
         Role::Owner->value => [
             Permission::OverviewView->value,
