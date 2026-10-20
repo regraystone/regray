@@ -118,12 +118,17 @@ test('38 · a status change made while the queue worker is stopped posts its car
     try {
         await stopProcess('queue');
 
+        // A successful cancel redirects back to the page it came from.
         const cancelled = await api(
             client.page,
             'PATCH',
             `/quote/${bound.queue.reference}/cancel`,
+            undefined,
+            'manual',
         );
-        expect(cancelled.status).toBe(200);
+        expect(cancelled.redirected, `cancel status ${cancelled.status}`).toBe(
+            true,
+        );
         test.info().annotations.push({
             type: 'cards before the worker ran',
             description: String(await cards()),

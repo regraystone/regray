@@ -28,13 +28,11 @@ const searchList = async (page: Page, name: string): Promise<void> => {
 };
 
 const rowNamed = (page: Page, name: string) =>
-    page
-        .getByTestId('conversation-row')
-        .filter({
-            has: page
-                .getByTestId('conversation-name')
-                .getByText(name, { exact: true }),
-        });
+    page.getByTestId('conversation-row').filter({
+        has: page
+            .getByTestId('conversation-name')
+            .getByText(name, { exact: true }),
+    });
 
 const claimResponse = (page: Page) =>
     page.waitForResponse(

@@ -58,12 +58,15 @@ test('40 · cancelling an inquiry posts one card into its group; repeating it po
 
     expect(await cards()).toHaveLength(0);
 
+    // A successful cancel redirects back to the page it came from.
     const first = await api(
         page,
         'PATCH',
         `/quote/${bound.cancel.reference}/cancel`,
+        undefined,
+        'manual',
     );
-    expect(first.status).toBe(200);
+    expect(first.redirected, `cancel status ${first.status}`).toBe(true);
     await expect.poll(async () => (await cards()).length).toBe(1);
 
     const [card] = await cards();

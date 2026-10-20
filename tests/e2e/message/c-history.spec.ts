@@ -58,11 +58,9 @@ test('10 · scrolling to the top shows a spinner, loads 30 older messages and ke
         },
     );
 
-    const anchor = page
-        .getByTestId('message-bubble')
-        .filter({
-            hasText: `${history.firstMessage.replace(' 1', '')} ${TOTAL - PAGE + 1}`,
-        });
+    const anchor = page.getByTestId('message-bubble').filter({
+        hasText: `${history.firstMessage.replace(' 1', '')} ${TOTAL - PAGE + 1}`,
+    });
     await expect(anchor).toHaveCount(1);
 
     const requested = page.waitForRequest((request) =>

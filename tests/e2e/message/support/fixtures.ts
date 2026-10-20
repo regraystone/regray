@@ -261,15 +261,24 @@ export const shot = async (
 /**
  * Call an app endpoint from inside the page, with the session cookie and the
  * XSRF token, the way the page itself does.
+ *
+ * With `redirect: 'manual'` a redirect is not followed and comes back as
+ * `redirected: true` (status 0). Use it for actions that answer with `back()`:
+ * fetch repeats a PATCH or DELETE on a 302, where Inertia would get a 303.
  */
 export const api = async (
     page: Page,
     method: string,
     url: string,
     body?: unknown,
-): Promise<{ status: number; json: Record<string, unknown> | null }> =>
+    redirect: 'follow' | 'manual' = 'follow',
+): Promise<{
+    status: number;
+    redirected: boolean;
+    json: Record<string, unknown> | null;
+}> =>
     page.evaluate(
-        async ({ method, url, body }) => {
+        async ({ method, url, body, redirect }) => {
             const token = decodeURIComponent(
                 document.cookie
                     .split('; ')
@@ -285,6 +294,7 @@ export const api = async (
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 credentials: 'same-origin',
+                redirect,
                 ...(body === undefined ? {} : { body: JSON.stringify(body) }),
             });
             const text = await response.text();
@@ -296,9 +306,13 @@ export const api = async (
                 json = null;
             }
 
-            return { status: response.status, json };
+            return {
+                status: response.status,
+                redirected: response.type === 'opaqueredirect',
+                json,
+            };
         },
-        { method, url, body },
+        { method, url, body, redirect },
     );
 
 /** Open the Message page on one conversation. */

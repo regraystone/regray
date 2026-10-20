@@ -115,28 +115,34 @@ const launchDetached = (name: StackProcess): number => {
  * On Windows a child of the test worker dies with it, and Playwright ends the
  * worker after a failed test. Start-Process gives the server a parent that
  * exits at once, so it outlives the worker until stopProcess ends it.
+ *
+ * The server inherits PowerShell's handles, so PowerShell's output must not be
+ * a pipe: execFileSync would wait for the server to exit before returning. The
+ * pid goes through a file instead.
  */
 const launchDetachedOnWindows = (name: StackProcess): number => {
     const quote = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+    const pidFile = join(STATE_DIR, `${name}.pid`);
     const command = [
         `$p = Start-Process -FilePath php -ArgumentList ${quote(COMMANDS[name].join(' '))}`,
         `-WorkingDirectory ${quote(ROOT)} -WindowStyle Hidden -PassThru`,
         `-RedirectStandardOutput ${quote(join(LOG_DIR, `${name}.log`))}`,
         `-RedirectStandardError ${quote(join(LOG_DIR, `${name}.error.log`))};`,
-        '$p.Id',
+        `[IO.File]::WriteAllText(${quote(pidFile)}, [string]$p.Id)`,
     ].join(' ');
 
-    return Number(
-        execFileSync(
-            'powershell',
-            ['-NoProfile', '-NonInteractive', '-Command', command],
-            {
-                cwd: ROOT,
-                env: stackEnv(),
-                encoding: 'utf8',
-            },
-        ).trim(),
+    mkdirSync(STATE_DIR, { recursive: true });
+    execFileSync(
+        'powershell',
+        ['-NoProfile', '-NonInteractive', '-Command', command],
+        {
+            cwd: ROOT,
+            env: stackEnv(),
+            stdio: 'ignore',
+        },
     );
+
+    return Number(readFileSync(pidFile, 'utf8').trim());
 };
 
 /** Start `name` unless it is already running; safe to call twice. */
