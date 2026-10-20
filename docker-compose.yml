@@ -42,6 +42,28 @@ services:
             - backend
         mem_limit: 256m
 
+    # The WebSocket server for the Message page. Caddy proxies /app/* to it, so
+    # browsers connect on the same origin as the app.
+    reverb:
+        <<: *app
+        command:
+            [
+                'php',
+                'artisan',
+                'reverb:start',
+                '--host=0.0.0.0',
+                '--port=8080',
+            ]
+        init: true
+        stop_grace_period: 30s
+        # This process does not run FPM, so the image's /ping check does not apply.
+        healthcheck:
+            disable: true
+        networks:
+            - frontend
+            - backend
+        mem_limit: 256m
+
     scheduler:
         <<: *app
         command: ['php', 'artisan', 'schedule:work']

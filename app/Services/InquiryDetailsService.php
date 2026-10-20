@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Inquiry;
 use App\Models\User;
+use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
+use App\Repositories\Contracts\ConversationRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
@@ -11,7 +13,29 @@ class InquiryDetailsService
 {
     public function __construct(
         public readonly InquiryRepositoryInterface $inquiryRepository,
+        public readonly ConversationRepositoryInterface $conversations,
+        public readonly ConversationMemberRepositoryInterface $members,
     ) {}
+
+    /**
+     * The inquiry's group chat, only when the viewer is a member of it, for the
+     * "Message the team" button.
+     *
+     * TODO(inquiry-binding): groups will be bound to inquiries later. Until
+     * then no group is linked to an inquiry, so this returns null.
+     *
+     * @return array{id: int, name: string}|null
+     */
+    public function conversationFor(User $viewer, Inquiry $inquiry): ?array
+    {
+        $conversation = $this->conversations->groupForInquiry($inquiry->id);
+
+        if ($conversation === null || ! $this->members->isActiveMember($conversation->id, $viewer->id)) {
+            return null;
+        }
+
+        return ['id' => $conversation->id, 'name' => (string) $conversation->name];
+    }
 
     /**
      * One of this client's inquiries with everything the details page shows.

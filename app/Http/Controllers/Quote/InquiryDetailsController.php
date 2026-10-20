@@ -37,10 +37,10 @@ class InquiryDetailsController extends Controller
      */
     public function show(ShowInquiryDetailsRequest $request): Response
     {
-        $inquiry = $this->showInquiryDetails->execute($request->user(), $request->validated('reference'));
+        $result = $this->showInquiryDetails->execute($request->user(), $request->validated('reference'));
 
         return Inertia::render('inquiry-details', [
-            'inquiry' => (new InquiryDetailsResource($inquiry))->resolve($request),
+            'inquiry' => InquiryDetailsResource::make($result['inquiry'])->withConversation($result['conversation'])->resolve($request),
         ]);
     }
 }

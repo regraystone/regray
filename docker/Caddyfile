@@ -12,6 +12,10 @@
 		-Server
 	}
 
+	# Reverb's WebSocket endpoint for the Message page.
+	@reverb path /app/*
+	reverse_proxy @reverb reverb:8080
+
 	php_fastcgi app:9000
 	file_server
 }
