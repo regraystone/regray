@@ -1,9 +1,12 @@
 <?php
 
+use App\Enums\InquiryStatus;
 use App\Enums\Role;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
+use App\Models\Inquiry;
 use App\Models\ProjectCategory;
+use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use Database\Seeders\EdgeProfileSeeder;
@@ -27,7 +30,7 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('Feature', 'Unit/Inquiry');
+    ->in('Feature', 'Unit/Inquiry', 'Unit/Quote');
 
 /*
 |--------------------------------------------------------------------------
@@ -127,5 +130,91 @@ function inquiryVisitInput(array $overrides = []): array
         'neededByTime' => '12:00',
         'notes' => '',
         ...$overrides,
+    ];
+}
+
+/**
+ * An inquiry in the database for `$client`, without going through the form.
+ *
+ * Each project is `['name' => ..., 'stones' => [stone slugs], 'services' => [service slugs]]`,
+ * its stones stored in the order given. `$attributes` may set `reference`,
+ * `status` and `created_at`.
+ *
+ * @param  list<array{name?: string, stones?: list<string>, services?: list<string>}>  $projects
+ * @param  array{reference?: string, status?: InquiryStatus, created_at?: mixed}  $attributes
+ */
+function makeInquiry(User $client, array $projects = [[]], array $attributes = []): Inquiry
+{
+    static $sequence = 0;
+    $sequence++;
+
+    $inquiry = new Inquiry;
+    $inquiry->forceFill([
+        'reference' => $attributes['reference'] ?? sprintf('INQ-T%04d', $sequence),
+        'client_id' => $client->id,
+        'status' => $attributes['status'] ?? InquiryStatus::Pending,
+        'status_changed_at' => now(),
+        ...(isset($attributes['created_at']) ? ['created_at' => $attributes['created_at']] : []),
+    ])->save();
+
+    $edge = EdgeProfile::query()->value('id');
+    $finish = Finish::query()->value('id');
+
+    foreach (array_values($projects) as $position => $project) {
+        $row = $inquiry->projects()->create([
+            'name' => $project['name'] ?? 'Project '.($position + 1),
+            'sort_order' => $position,
+            'location' => 'Makati',
+        ]);
+
+        $row->services()->attach(
+            Service::query()->whereIn('slug', $project['services'] ?? ['natural-stone-supply'])->pluck('id')->all(),
+        );
+
+        $stones = $project['stones'] ?? [Stone::query()->orderBy('id')->value('slug')];
+
+        foreach (array_values($stones) as $order => $slug) {
+            $row->stones()->create([
+                'stone_id' => Stone::query()->where('slug', $slug)->value('id'),
+                'edge_profile_id' => $edge,
+                'finish_id' => $finish,
+                'quantity' => 1,
+                'sort_order' => $order,
+            ]);
+        }
+    }
+
+    return $inquiry;
+}
+
+/*
+ * The Quote card's button table, exactly as the product states it: for every
+ * status, what each of the four buttons is. `null` is a button that is not
+ * rendered; `[true]` is clickable; `[false, reason]` is shown and locked.
+ */
+dataset('inquiry button table', [
+    'pending' => ['pending', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'quoted' => ['quoted', ['view' => [true], 'update' => [false, 'Locked once quoted. Message the team to request changes.'], 'cancel' => [true], 'invoice' => null]],
+    'paid' => ['paid', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
+    'completed' => ['completed', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
+    'cancelled' => ['cancelled', ['view' => [true], 'update' => [false, 'This inquiry was cancelled.'], 'cancel' => null, 'invoice' => null]],
+]);
+
+/**
+ * What one action should look like on the wire, from its row in the table.
+ *
+ * @param  array{0?: bool, 1?: string}|null  $expectation
+ * @return array{visible: bool, enabled: bool, reason?: string}
+ */
+function expectedAction(?array $expectation): array
+{
+    if ($expectation === null) {
+        return ['visible' => false, 'enabled' => false];
+    }
+
+    return [
+        'visible' => true,
+        'enabled' => $expectation[0],
+        ...($expectation[0] ? [] : ['reason' => $expectation[1]]),
     ];
 }

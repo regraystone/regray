@@ -30,6 +30,12 @@ test('the super-admin opens every page', function (string $routeName, array $par
 
     $user = User::factory()->role(Role::Admin)->create();
 
+    // The details pages open the signed-in user's own inquiry by reference.
+    if (isset($parameters['reference'])) {
+        seedInquiryCatalog();
+        $parameters = ['reference' => makeInquiry($user)->reference];
+    }
+
     $this->actingAs($user)
         ->get(route($routeName, $parameters))
         ->assertOk();
@@ -45,8 +51,8 @@ test('the super-admin opens every page', function (string $routeName, array $par
     ['inquiry.index', []],
     ['quote.inquire', []],
     ['inquiry.inquire', []],
-    ['quote.show', ['inquiry' => 'inq-1048']],
-    ['inquiry.show', ['inquiry' => 'inq-1048']],
+    ['quote.show', ['reference' => 'INQ-1048']],
+    ['inquiry.show', ['reference' => 'INQ-1048']],
     ['schedule.index', []],
     ['message.index', []],
     ['stones.index', []],

@@ -4,6 +4,8 @@ use App\Enums\Permission;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\Inquiry\InquiryController;
+use App\Http\Controllers\Quote\InquiryDetailsController;
+use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
 use App\Http\Controllers\Saved\SavedStoneController;
@@ -94,9 +96,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('sales', [ViewController::class, 'sales'])
         ->middleware(Permission::SalesView->middleware())
         ->name('sales.index');
-    Route::get('quote', [ViewController::class, 'quote'])
+    Route::get('quote', [QuoteController::class, 'index'])
         ->middleware(Permission::QuotationsView->middleware())
         ->name('quote.index');
+    Route::patch('quote/{reference}/cancel', [QuoteController::class, 'cancel'])
+        ->middleware(Permission::QuotationsView->middleware())
+        ->name('quote.cancel');
     Route::get('inquiry', [ViewController::class, 'inquiry'])
         ->middleware(Permission::InquiriesView->middleware())
         ->name('inquiry.index');
@@ -142,12 +147,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * TODO: the `where('inquiry', ...)` constraint was removed from both of
      * these on purpose. A route constraint only disambiguates routes: it is not
      * input validation and never produces a 404. Keep it off, and add no further
-     * `quote/...` or `inquiry/...` route below these two or `{inquiry}` takes it.
+     * `quote/...` or `inquiry/...` route below these two or `{reference}` takes it.
      */
-    Route::get('quote/{inquiry}', [ViewController::class, 'inquiryDetails'])
-        ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
+    Route::get('quote/{reference}', [InquiryDetailsController::class, 'show'])
+        ->middleware(Permission::QuotationsView->middleware())
         ->name('quote.show');
-    Route::get('inquiry/{inquiry}', [ViewController::class, 'inquiryDetails'])
+    Route::get('inquiry/{reference}', [InquiryDetailsController::class, 'show'])
         ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
         ->name('inquiry.show');
 

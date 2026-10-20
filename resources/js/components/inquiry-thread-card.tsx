@@ -118,8 +118,8 @@ const InquiryThreadCard = ({
      * everybody else to the staff one.
      */
     const detailsHref = can(permissions.quotationsView)
-        ? quoteShow.url({ inquiry: inquiry.id })
-        : inquiryShow.url({ inquiry: inquiry.id });
+        ? quoteShow.url({ reference: inquiry.reference })
+        : inquiryShow.url({ reference: inquiry.reference });
     const serviceCount = inquiry.services.length;
     const hasHero = heroStones.length > 0;
     /*

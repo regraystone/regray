@@ -2,12 +2,18 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Data\InquiryListFilters;
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryProject;
 use App\Models\InquiryStatusHistory;
+use App\Models\Service;
+use App\Models\Stone;
+use App\Models\User;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 interface InquiryRepositoryInterface
 {
@@ -47,4 +53,48 @@ interface InquiryRepositoryInterface
      * @param  array{disk: string, path: string, original_name: string, mime_type: string, size_bytes: int, sha256: ?string, uploaded_by: ?int}  $attributes
      */
     public function addFile(InquiryProject $project, array $attributes): InquiryFile;
+
+    /**
+     * One page of this client's inquiries, projects loaded in the order they were
+     * added. The scope is the `$client` argument and nothing else: it is never
+     * read from the filters.
+     *
+     * @param  string|null  $escapedSearch  Already escaped for a LIKE pattern.
+     * @return LengthAwarePaginator<int, Inquiry>
+     */
+    public function paginateForClient(User $client, InquiryListFilters $filters, ?string $escapedSearch, int $perPage): LengthAwarePaginator;
+
+    /**
+     * The distinct stones of each inquiry, in the order each was first picked, in
+     * one query. Each stone carries the `inquiry_id` it belongs to.
+     *
+     * @param  list<int>  $inquiryIds
+     * @return Collection<int, Stone>
+     */
+    public function distinctStonesFor(array $inquiryIds): Collection;
+
+    /**
+     * The distinct services of each inquiry, in the order each was first picked,
+     * in one query. Each service carries the `inquiry_id` it belongs to.
+     *
+     * @param  list<int>  $inquiryIds
+     * @return Collection<int, Service>
+     */
+    public function distinctServicesFor(array $inquiryIds): Collection;
+
+    /**
+     * This client's inquiry by reference, locked until the transaction ends.
+     * Null for a reference that is not theirs, so the two cases look the same.
+     */
+    public function findForClientByReferenceForUpdate(User $client, string $reference): ?Inquiry;
+
+    public function updateStatus(Inquiry $inquiry, InquiryStatus $status, CarbonInterface $changedAt): void;
+
+    /**
+     * This client's inquiry by reference with everything the details page shows:
+     * projects in the order added, their services, categories, stones (with the
+     * edge and finish) and files, and the status history. Null for a reference
+     * that is not theirs.
+     */
+    public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry;
 }
