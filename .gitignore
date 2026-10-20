@@ -45,4 +45,5 @@ yarn-error.log
 /opencode.jsonc
 
 /test-results
+/tests/e2e/.auth
 /playwright-report
