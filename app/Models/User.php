@@ -64,6 +64,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return $name === null ? null : Role::tryFrom($name);
     }
 
+    /**
+     * Whether this user is a client of the studio rather than staff.
+     *
+     * Clients talk in their own Regray Team thread and may be added to group
+     * chats; everybody else is staff.
+     */
+    public function isClient(): bool
+    {
+        return $this->hasRole(Role::Client->value);
+    }
+
     /** @return HasOne<UserProfile, $this> */
     public function profile(): HasOne
     {

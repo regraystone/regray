@@ -63,11 +63,6 @@ class ViewController extends Controller
         return Inertia::render('schedule-book');
     }
 
-    public function message(Request $request): Response
-    {
-        return Inertia::render('message');
-    }
-
     public function stones(Request $request): Response
     {
         return Inertia::render('stones');
