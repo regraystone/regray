@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $muted_at
  * @property ConversationMemberRole $role
  * @property int|null $last_delivered_message_id
+ * @property int|null $last_notified_message_id
  *
  * One user's place in a conversation.
  *

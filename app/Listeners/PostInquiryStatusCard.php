@@ -4,8 +4,6 @@ namespace App\Listeners;
 
 use App\Events\InquiryStatusChanged;
 use App\Events\Message\MessageCreated;
-use App\Models\Conversation;
-use App\Models\Inquiry;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use App\Services\Message\MessageService;
@@ -17,7 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * status changes, including the first one: a newly sent inquiry posts a
  * "New inquiry" card.
  *
- * Where the card goes:
+ * Where the card goes is SupportConversationService::cardThreadFor():
  * - the inquiry's group chat, once the inquiry has one;
  * - otherwise the client's Regray Team thread, created if the client has none
  *   yet, so the team hears about every inquiry from the start.
@@ -42,7 +40,7 @@ class PostInquiryStatusCard implements ShouldQueue
 
     public function handle(InquiryStatusChanged $event): void
     {
-        $conversation = $this->conversationFor($event->inquiry);
+        $conversation = $this->support->cardThreadFor($event->inquiry);
 
         $message = $this->messages->createInquiryCardOnce($conversation->id, $event->inquiry->id, $event->to->value);
 
@@ -54,12 +52,5 @@ class PostInquiryStatusCard implements ShouldQueue
 
         broadcast(new MessageCreated($this->messages->loadForDisplay($message), $conversation));
         $this->messageService->announceActivity($conversation, 'inquiry');
-    }
-
-    /** The inquiry's group chat, or else its client's Regray Team thread. */
-    private function conversationFor(Inquiry $inquiry): Conversation
-    {
-        return $this->conversations->groupForInquiry($inquiry->id)
-            ?? $this->support->ensureFor($inquiry->loadMissing('client')->client);
     }
 }

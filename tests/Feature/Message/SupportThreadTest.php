@@ -9,6 +9,7 @@ use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\Message;
 use App\Models\User;
+use App\Repositories\Eloquent\EloquentConversationRepository;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -114,6 +115,36 @@ it('lets only the first of two claims win and tells the second who did with 409'
 
     expect($thread->refresh()->assigned_to)->toBe($first->id)
         ->and(Message::query()->where('conversation_id', $thread->id)->count())->toBe(1);
+});
+
+it('shows staff each client\'s thread under the client\'s name and initials, and the client the Regray logo', function (): void {
+    $rafael = inquiryClient();
+    $rafael->forceFill(['name' => 'Rafael'])->save();
+    $bianca = inquiryClient();
+    $bianca->forceFill(['name' => 'Bianca'])->save();
+    supportThreadFor($rafael);
+    supportThreadFor($bianca);
+
+    $rowsFor = function (User $viewer): array {
+        $page = test()->actingAs($viewer)->get(route('message.index'))->viewData('page');
+
+        return test()->actingAs($viewer)->get(route('message.index'), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => (string) $page['version'],
+            'X-Inertia-Partial-Component' => 'message',
+            'X-Inertia-Partial-Data' => 'conversations',
+        ])->json('props.conversations.data');
+    };
+
+    $staffRows = collect($rowsFor(messagingStaff(Role::Marketing)));
+
+    expect($staffRows->pluck('name')->sort()->values()->all())->toBe(['Bianca', 'Rafael'])
+        ->and($staffRows->pluck('avatar')->unique()->all())->toBe([null]);
+
+    $clientRow = $rowsFor($rafael)[0];
+
+    expect($clientRow['name'])->toBe('Regray Team')
+        ->and($clientRow['avatar'])->toBe(EloquentConversationRepository::SUPPORT_AVATAR);
 });
 
 it('closes a claimed thread to the rest of the pool with 403 and drops it from their list', function (): void {

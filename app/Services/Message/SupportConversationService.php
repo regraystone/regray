@@ -7,6 +7,7 @@ use App\Enums\MessageType;
 use App\Enums\Permission;
 use App\Enums\SystemEvent;
 use App\Models\Conversation;
+use App\Models\Inquiry;
 use App\Models\Message;
 use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
@@ -59,6 +60,20 @@ class SupportConversationService
         $this->members->upsert($conversation->id, $client->id, ConversationMemberRole::Member);
 
         return $conversation;
+    }
+
+    /**
+     * Where an inquiry's cards go: its group chat once it has one, otherwise
+     * its client's Regray Team thread, created if the client has none yet.
+     *
+     * TODO(inquiry-binding): until groups are bound to inquiries, this is
+     * always the Regray Team thread. TODO(booking): schedule cards go to the
+     * same place.
+     */
+    public function cardThreadFor(Inquiry $inquiry): Conversation
+    {
+        return $this->conversations->groupForInquiry($inquiry->id)
+            ?? $this->ensureFor($inquiry->loadMissing('client')->client);
     }
 
     /**

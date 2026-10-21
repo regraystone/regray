@@ -26,6 +26,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $client_key
  * @property SystemEvent|null $system_event
  * @property int|null $system_user_id
+ *
+ * Retention: a removed message is soft-deleted and stays as a row for good.
+ * The thread shows it as "Message removed" in its place, so replies to it
+ * and the receipts pointing at it still make sense, and the record is kept.
+ * Nothing prunes these rows; do not make this model Prunable without
+ * deciding that policy again.
  */
 #[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
 class Message extends Model

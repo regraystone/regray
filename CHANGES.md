@@ -76,12 +76,32 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 - Added `laravel/reverb ^1.12`, `laravel-echo` and `pusher-js`.
 - Reverb needs Guzzle 7, so `guzzlehttp/guzzle`, `promises` and `psr7` were downgraded from 8 to 7 (`composer require -W --minimal-changes`). No other package moved.
 
+### Follow-up: reminders and limits
+
+- **Unread reminders (email):** `messages:send-reminders` runs every five minutes on the scheduler. A message waiting unread past `messaging.reminders.after_minutes` (`MESSAGE_REMINDER_AFTER_MINUTES`, default 30) sends an email. Who gets it:
+    - **A member** (a client, the staff member handling a thread, a group member) gets `UnreadMessagesNotification`, about messages someone else sent them.
+    - **The support pool** (everyone with `support.claim`) gets `ClientsWaitingNotification`, about clients waiting in Regray Team threads nobody has claimed.
+
+    The rules:
+    - Only people's text messages count. Cards, system lines, the reader's own messages and removed ones do not.
+    - Each message is emailed about once. `conversation_members.last_notified_message_id` and `conversations.pool_notified_message_id` (new migration) record how far the emails have got.
+    - The emails name the conversation and count the messages, never quote them.
+    - Only verified addresses get them.
+    - They are queued. The scheduler (`php artisan schedule:work` locally) and a queue worker must both run.
+
+- **Rate limits** (per user, per minute):
+    - send: 60;
+    - read/delivered receipts: 120 (`message-receipts`);
+    - claim, release and reassign: 10 (`message-assignment`);
+    - people search: 60 (`message-people`).
+
 ## Decisions (revision 2)
 
 - **Pool:** the Regray Team pool is everyone with `support.claim`, which is Marketing. Sales and Owner are not in it. Adding them is a one-line change to the matrix in `RolePermissionSeeder`.
 - **Release:** the assignee and the admin can release a thread. Only the admin can reassign one.
 - **What the client sees:** the client sees the assignee's name ("Handled by …") and the claim and release system messages.
-- Staff see a Regray Team thread under the client's name. The client sees it as "Regray Team".
+- Staff see a Regray Team thread under the client's name, with the client's initials as its picture; the client sees it as "Regray Team" with the Regray logo. Staff cannot write in it until they claim it (409 "Assign this conversation to yourself first.").
+- **Retention:** a removed message is soft-deleted and kept for good, shown as "Message removed". Nothing prunes these rows (see `Message`).
 - The admin passes every policy ability through `Gate::before`, so the admin lists every Regray Team thread and can claim, release and reassign any of them. The admin still gets 409 when sending on a thread someone else handles.
 - When a claim takes a thread, the rest of the pool loses it right away: reading it gets 403 and the thread leaves their lists live, over `support.pool`. A pool member who still tries to send gets 409 "{name} is handling this conversation." (changed after the E2E run; see `tests/e2e/message/REPORT.md`, "Fixes").
 
