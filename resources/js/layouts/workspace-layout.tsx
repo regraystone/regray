@@ -632,7 +632,13 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                 <button
                                     type="button"
                                     className="group flex h-11 w-11 items-center justify-center rounded-md transition-opacity hover:opacity-80 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2"
-                                    aria-label="Account"
+                                    /*
+                                     * The initials are the button's visible
+                                     * text, so its name carries them too: a
+                                     * reader using speech input says what they
+                                     * see.
+                                     */
+                                    aria-label={`Account, ${initials}`}
                                 >
                                     <Avatar className="h-9 w-9 border border-border sm:size-9">
                                         <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">

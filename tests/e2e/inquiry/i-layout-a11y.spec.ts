@@ -209,7 +209,10 @@ test('37 · axe finds no serious or critical violations on any step', async ({
                 ({ id, impact, nodes }) =>
                     `${impact} ${id}: ${nodes
                         .slice(0, 3)
-                        .map((node) => node.target.join(' '))
+                        .map(
+                            (node) =>
+                                `${node.target.join(' ')} ${node.html.slice(0, 160)} ${node.failureSummary ?? ''}`,
+                        )
                         .join(' | ')}`,
             );
 

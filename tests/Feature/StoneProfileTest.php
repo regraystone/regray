@@ -61,7 +61,7 @@ test('a client reads the full database stone profile through either door', funct
     $lastFinish = Finish::create(['name' => 'Last finish', 'is_active' => true, 'is_advisory' => false, 'sort_order' => 0]);
     $firstFinish = Finish::create(['name' => 'First finish', 'is_active' => true, 'is_advisory' => false, 'sort_order' => 9]);
     $inactiveFinish = Finish::create(['name' => 'Inactive finish', 'is_active' => false, 'is_advisory' => false, 'sort_order' => 0]);
-    $advisoryFinish = Finish::create(['name' => 'Not sure yet, advise me', 'is_active' => true, 'is_advisory' => true, 'sort_order' => 0]);
+    $advisoryFinish = Finish::query()->where('is_advisory', true)->firstOrFail();
     $category->finishes()->sync([
         $lastFinish->id => ['sort_order' => 9],
         $firstFinish->id => ['sort_order' => 1],

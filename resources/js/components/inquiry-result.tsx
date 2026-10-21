@@ -182,8 +182,13 @@ const InquiryResult = ({
                         We couldn&apos;t send your request
                     </h3>
                     <p className="mt-2 max-w-sm text-sm text-secondary-foreground">
+                        {/*
+                         * The same sentence the server flashes when the save
+                         * itself fails, so the reader hears one promise
+                         * whichever side the failure was on.
+                         */}
                         {message ??
-                            'Something went wrong on our side. Your answers are still saved, so you can try again.'}
+                            'We could not save your inquiry. Your answers are still here, so you can try again.'}
                     </p>
                 </>
             )}

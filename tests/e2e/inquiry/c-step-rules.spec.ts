@@ -131,12 +131,20 @@ test('13 · Stone rows: edge and finish are required, "advise me" is accepted, a
     await page.locator('#requirements-finish-0').click();
     const finishOptions = await page.getByRole('option').allInnerTexts();
     await page.keyboard.press('Escape');
+    const adviseFinish = finishOptions.filter((option) =>
+        /advise/i.test(option),
+    );
     expect
         .soft(
-            finishOptions.filter((option) => /advise/i.test(option)),
+            adviseFinish,
             `an "advise me" finish among: ${finishOptions.join(', ')}`,
         )
         .toHaveLength(1);
+
+    if (adviseFinish.length === 1) {
+        await chooseInSelect(page, 'requirements-finish-0', adviseFinish[0]);
+        await expect(pageError(page, 'Choose a finish.')).toHaveCount(0);
+    }
 
     const duplicate = page
         .getByRole('button', { name: `Duplicate ${CATALOG.stones[0]}` })
