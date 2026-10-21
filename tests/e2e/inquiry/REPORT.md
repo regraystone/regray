@@ -45,6 +45,13 @@ After the fixes: **39 of 39 pass.**
 | 38    | pass   | Every spec also fails on console errors outside the (empty) allow-list                          |
 | 39    | pass   | Only `127.0.0.1:8001` and `[::1]:5173`; checked in every spec                                   |
 
+## Added later
+
+| #   | Status | Note                                                                                                                                                                                                         |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 40  | pass   | A sent inquiry posts a "New Inquiry" card into the client's Regray Team thread. The client sees it, and so does marketing (the support pool). `k-regray-team-card.spec.ts`                                   |
+| 41  | pass   | Without a group chat, cancelling posts an "Inquiry cancelled" card into the same Regray Team thread, after the "New Inquiry" one. With a group chat, the card goes to the group instead: Message scenario 40 |
+
 ## Findings and their fixes
 
 - **BUG-I1 (15):** the notes counter stayed at "0 / 1000" while typing.
