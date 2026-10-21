@@ -5,6 +5,7 @@ namespace App\Events\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
@@ -13,9 +14,9 @@ use Illuminate\Foundation\Events\Dispatchable;
  *
  * Goes to the thread and to the whole support pool: every pool member who is
  * not the assignee drops the thread from their list, and closes it if it is
- * open.
+ * open. Rescued when Reverb is down, as MessageCreated is.
  */
-class SupportThreadClaimed implements ShouldBroadcastNow
+class SupportThreadClaimed implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

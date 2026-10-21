@@ -48,10 +48,18 @@ test('6 · skeleton rows show while the first page of the list loads, then go aw
 
     let release: () => void = () => undefined;
     const held = new Promise<void>((resolve) => (release = resolve));
+    // The list is a deferred prop: the page arrives first, and its own request
+    // for `conversations` is the one held.
     await page.route(
         (url) => url.pathname === '/message',
         async (route) => {
-            await held;
+            const partial =
+                route.request().headers()['x-inertia-partial-data'] ?? '';
+
+            if (partial.split(',').includes('conversations')) {
+                await held;
+            }
+
             await route.continue();
         },
     );

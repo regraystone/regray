@@ -8,11 +8,15 @@ use App\Models\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-/** A text message was edited or removed. A removed one travels as its tombstone. */
-class MessageUpdated implements ShouldBroadcastNow
+/**
+ * A text message was edited or removed. A removed one travels as its tombstone.
+ * Rescued when Reverb is down, as MessageCreated is.
+ */
+class MessageUpdated implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

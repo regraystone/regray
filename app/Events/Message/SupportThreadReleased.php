@@ -5,13 +5,15 @@ namespace App\Events\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * A Regray Team thread went back to the pool: it returns to every pool
- * member's list, with the assignment card on top.
+ * member's list, with the assignment card on top. Rescued when Reverb is
+ * down, as MessageCreated is.
  */
-class SupportThreadReleased implements ShouldBroadcastNow
+class SupportThreadReleased implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

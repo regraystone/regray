@@ -5,13 +5,15 @@ namespace App\Events\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * A member's read or delivered pointer moved, for the receipts under the latest
  * message. Only members who take part are announced, never pool viewers.
+ * Rescued when Reverb is down, as MessageCreated is.
  */
-class PointerMoved implements ShouldBroadcastNow
+class PointerMoved implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

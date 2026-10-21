@@ -64,25 +64,12 @@ export const fixtures = (): Fixtures => {
  * - The browser logs every non-2xx fetch as "Failed to load resource". The
  *   scenarios that expect a 403, 404, 409 or 422 allow that status themselves
  *   with `allowConsole`.
- * - KNOWN_BUGS are errors already reported in REPORT.md. They are tolerated so
- *   that every other scenario is judged on its own assertions, and only
- *   scenario 42 (which calls `strictConsole`) fails on them.
+ * - KNOWN_BUGS are errors already reported in REPORT.md and not yet fixed. They
+ *   are tolerated so that every other scenario is judged on its own
+ *   assertions, and only scenario 42 (which calls `strictConsole`) fails on
+ *   them. BUG-1 and BUG-4 were fixed, so none is listed now.
  */
-const KNOWN_BUGS: Array<{ bug: string; pattern: RegExp }> = [
-    // BUG-1: the page joins private-support.pool for every staff member, and the
-    // channel refuses anyone without support.claim.
-    {
-        bug: 'BUG-1',
-        pattern: /status of 403 \(Forbidden\) \[[^\]]*\/broadcasting\/auth\]/,
-    },
-    // BUG-4: once a claim takes a thread from a pool member, their open thread
-    // keeps posting read receipts and catching up, and gets 403 each time.
-    {
-        bug: 'BUG-4',
-        pattern:
-            /status of 403 \(Forbidden\) \[[^\]]*\/message\/\d+\/(read|messages\?after=)/,
-    },
-];
+const KNOWN_BUGS: Array<{ bug: string; pattern: RegExp }> = [];
 
 export type ActorSession = {
     context: BrowserContext;

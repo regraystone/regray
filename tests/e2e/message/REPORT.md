@@ -11,7 +11,9 @@
     - From `E2EMessageSeeder`: marketing B, the list tester, and the fresh, card, direct and support clients.
     - Passwords come from `E2E_PASSWORD*` and default to UserFactory's.
 
-**Status:** every scenario has a result: 37 pass and 5 fail. All 5 failures come from product bugs or a spec conflict, listed below. A single run of all three projects keeps getting killed on this machine (about 8 GB RAM, often under 1 GB free), so the results come from runs of one section at a time against a freshly seeded DB. On 2026-10-20 I re-ran 6, 10, 12, 18–22 and 37–42 after the last harness fixes.
+**Update, 2026-10-21: all six bugs and the scenario 22 conflict are fixed in product code.** See "Fixes" at the end. Pest covers the fixes to BUG-5 and scenario 22. Since the fixes, the browser suite has not been run past scenario 2: a desktop run of the whole suite passed 1 and 2, then was stopped because the machine ran low on memory. The statuses below are the results from **before** the fixes. Rerun `npx playwright test tests/e2e/message --project=desktop` to confirm them.
+
+**Status before the fixes:** every scenario has a result: 37 pass and 5 fail. All 5 failures come from product bugs or a spec conflict, listed below. A single run of all three projects keeps getting killed on this machine (about 8 GB RAM, often under 1 GB free), so the results come from runs of one section at a time against a freshly seeded DB. On 2026-10-20 I re-ran 6, 10, 12, 18–22 and 37–42 after the last harness fixes.
 
 Two harness bugs were fixed in that last round. Neither was a product change:
 
@@ -65,3 +67,13 @@ Scenario 22 depends on the claim made in 18–21. Run it with them, not on its o
 
 - On a thread opened within the first moment, the first typing whisper is dropped if it is sent before the channel subscription succeeds. The 1.5 s throttle then delays the indicator. Scenario 27 waits for channel authorization before typing.
 - Screenshots are in `test-results/message/{desktop,mobile,narrow}/`. They include `12-inquiry-cards-*` and `12-schedule-cards-*` at 1280, 390 and 320. Failure screenshots and traces are under `test-results/artifacts/`.
+
+## Fixes (2026-10-21)
+
+- **BUG-1:** the page joins `support.pool` only when the user holds `support.claim` (`usePermissions`), not for every non-client.
+- **BUG-2:** `conversations` is now a deferred scroll prop, so the page's skeleton shows while the list loads. Scenario 6 now holds only the list's own partial request; the page visit is no longer held.
+- **BUG-3:** `use-conversation-thread.ts` remembers the newest message it has already reported as read. A viewer whose own pointer the server never returns now posts once per message, not on every render.
+- **BUG-4:** the first 403 on a catch-up or a read receipt marks the thread as lost. The thread then calls `onLostAccess` once and stops asking. Scenarios 19 and 23 allow that one 403 and fail on a second one on the same endpoint. Both entries left `KNOWN_BUGS`.
+- **BUG-5:** every message broadcast event implements `ShouldRescue`. A broadcast that fails is reported and no longer answers the request with a 500. Covered by `tests/Feature/Message/BroadcastFailureTest.php`.
+- **BUG-6:** the thread takes its scroll anchor again once the older-messages spinner is on screen, so the prepend keeps the first message where the reader last saw it.
+- **Scenario 22:** `ConversationPolicy::send` lets the support pool through on a Regray Team thread. A pool member who lost the claim now gets 409 "{A} is handling this conversation." Reading stays 403. Staff outside the pool still get 403. Covered in `SupportThreadTest`.

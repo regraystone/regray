@@ -443,9 +443,10 @@ test('35 · optimistic send: Sending, then Sent; offline it fails with Retry, wh
     const first = await postAs(page, chat.conversationId, twice, key);
     const second = await postAs(page, chat.conversationId, twice, key);
     expect([first.status, second.status]).toEqual([201, 200]);
-    expect((second.json?.message as { id: number }).id).toBe(
-        (first.json?.message as { id: number }).id,
-    );
+    const idOf = (json: Record<string, unknown> | null): number | undefined =>
+        (json?.message as { id: number } | undefined)?.id;
+    expect(idOf(first.json)).toBeDefined();
+    expect(idOf(second.json)).toBe(idOf(first.json));
 });
 
 test('36 · a message arriving while scrolled up does not move the view; the pill counts and scrolls down', async ({

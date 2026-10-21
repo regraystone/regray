@@ -49,11 +49,18 @@ class ConversationPolicy
      * Writing needs access first. In a group, a member who reads and sends;
      * on a Regray Team thread, whoever may view it, with the assignment rules
      * applied by the service.
+     *
+     * The support pool also passes here after someone else has claimed the
+     * thread, though it can no longer read it: a pool member whose send lost
+     * the race is told who is handling it (409, from the service) rather than
+     * refused outright. The name is no secret to them; the claim was announced
+     * to the whole pool.
      */
     public function send(User $user, Conversation $conversation): bool
     {
         if ($conversation->isSupport()) {
-            return $this->view($user, $conversation);
+            return $this->view($user, $conversation)
+                || $user->can(Permission::SupportClaim->value);
         }
 
         $member = $this->members->find($conversation->id, $user->id);

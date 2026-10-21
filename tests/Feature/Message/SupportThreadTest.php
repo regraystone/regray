@@ -26,9 +26,19 @@ function sendPayload(string $body = 'Hello there'): array
 /** @return list<string> */
 function listedConversationNames(User $viewer): array
 {
+    // The list is deferred: the first visit leaves it out, and the page asks
+    // for it in a partial reload, as the browser does.
     $page = test()->actingAs($viewer)->get(route('message.index'))->assertOk()->viewData('page');
+    expect($page['props'])->not->toHaveKey('conversations');
 
-    return array_column($page['props']['conversations']['data'], 'name');
+    $reload = test()->actingAs($viewer)->get(route('message.index'), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => (string) $page['version'],
+        'X-Inertia-Partial-Component' => 'message',
+        'X-Inertia-Partial-Data' => 'conversations',
+    ])->assertOk()->json();
+
+    return array_column($reload['props']['conversations']['data'], 'name');
 }
 
 it('gives a newly registered client one Regray Team thread', function (): void {
@@ -128,6 +138,27 @@ it('refuses a staff message on an unassigned thread with 409', function (): void
         ->assertJsonPath('message', 'Assign this conversation to yourself first.');
 
     expect(Message::query()->count())->toBe(0);
+});
+
+it('tells a pool member who lost the claim who is handling the thread, with 409, while reading stays 403', function (): void {
+    $thread = supportThreadFor(inquiryClient());
+    $other = messagingStaff(Role::Marketing, 'Mike');
+    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('message.claim', $thread))->assertOk();
+
+    $this->actingAs($other)->postJson(route('message.send', $thread), sendPayload('Can I help?'))
+        ->assertConflict()
+        ->assertJsonPath('message', 'Mara is handling this conversation.');
+    $this->actingAs($other)->getJson(route('message.thread', $thread))->assertForbidden();
+
+    expect(Message::query()->where('body', 'Can I help?')->exists())->toBeFalse();
+});
+
+it('still refuses a send from staff outside the pool with 403', function (): void {
+    $thread = supportThreadFor(inquiryClient());
+    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('message.claim', $thread))->assertOk();
+
+    $this->actingAs(messagingStaff(Role::Sales))->postJson(route('message.send', $thread), sendPayload())
+        ->assertForbidden();
 });
 
 it('refuses the admin a message on a thread someone else handles with 409', function (): void {

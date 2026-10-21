@@ -34,6 +34,36 @@ const rowNamed = (page: Page, name: string) =>
             .getByText(name, { exact: true }),
     });
 
+/**
+ * A thread that is open when someone else claims it learns so from one 403 on
+ * its catch-up (and on a read receipt already in flight), then closes. That
+ * 403 is expected; a second one on the same endpoint is the old loop (BUG-4).
+ */
+const LOST_ACCESS_403 =
+    /status of 403 \(Forbidden\) \[[^\]]*\/message\/\d+\/(read|messages)/;
+
+const countLostAccess = (page: Page): (() => Record<string, number>) => {
+    const counts: Record<string, number> = {};
+
+    page.on('response', (response) => {
+        if (
+            response.status() === 403 &&
+            /\/message\/\d+\/(read|messages)/.test(response.url())
+        ) {
+            const path = new URL(response.url()).pathname;
+            counts[path] = (counts[path] ?? 0) + 1;
+        }
+    });
+
+    return () => counts;
+};
+
+const expectAtMostOneEach = (counts: Record<string, number>): void => {
+    for (const [path, count] of Object.entries(counts)) {
+        expect(count, `403s on ${path}`).toBeLessThanOrEqual(1);
+    }
+};
+
 const claimResponse = (page: Page) =>
     page.waitForResponse(
         (response) =>
@@ -81,6 +111,8 @@ test('19 · A claims: A can write, and B loses the card and the row without a re
     const thread = fixtures().support.claim;
     const a = await sessions.open('marketingA');
     const b = await sessions.open('marketingB');
+    sessions.allowConsole(LOST_ACCESS_403);
+    const lostAccess = countLostAccess(b.page);
 
     await searchList(b.page, thread.name);
     await rowNamed(b.page, thread.name).click();
@@ -101,6 +133,7 @@ test('19 · A claims: A can write, and B loses the card and the row without a re
     const bCard = b.page.getByTestId('assignment-card');
     await expect(bCard).toHaveCount(0);
     await expect(rowNamed(b.page, thread.name)).toHaveCount(0);
+    expectAtMostOneEach(lostAccess());
 });
 
 test('20 · the client sees "Handled by {A}" and the claim message without a reload', async ({
@@ -193,6 +226,8 @@ test('23 · two simultaneous claims: exactly one wins and the other is told it w
     const a = await sessions.open('marketingA');
     const b = await sessions.open('marketingB');
     sessions.allowConsole(/status of 409/);
+    sessions.allowConsole(LOST_ACCESS_403);
+    const lostAccess = [countLostAccess(a.page), countLostAccess(b.page)];
     await openConversation(a.page, thread.conversationId);
     await openConversation(b.page, thread.conversationId);
 
@@ -210,7 +245,9 @@ test('23 · two simultaneous claims: exactly one wins and the other is told it w
     await Promise.all(buttons.map((button) => button.click()));
     const statuses = (await responses).map((response) => response.status());
 
-    expect([...statuses].sort()).toEqual([200, 409]);
+    expect([...statuses].sort((left, right) => left - right)).toEqual([
+        200, 409,
+    ]);
 
     const loser = statuses[0] === 409 ? a : b;
     const winnerName = loser === a ? 'Marketing B' : A_NAME;
@@ -218,6 +255,7 @@ test('23 · two simultaneous claims: exactly one wins and the other is told it w
         loser.page.getByText(`${winnerName} already took this conversation.`),
     ).toBeVisible();
     await expect(loser.page.getByTestId('composer-input')).toHaveCount(0);
+    lostAccess.forEach((counts) => expectAtMostOneEach(counts()));
 });
 
 test('24 · A releases: the thread is back in both marketing lists without a reload', async ({

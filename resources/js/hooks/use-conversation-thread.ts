@@ -110,11 +110,37 @@ export function useConversationThread(
         callbacks.current = { onIncoming, onLostAccess, onSummaryChange };
     }, [onIncoming, onLostAccess, onSummaryChange]);
 
+    /*
+     * The newest message this viewer has already told the server they read,
+     * whether or not the answer came back. Without it, a viewer whose own
+     * pointer the server never returns — a pool member looking at an
+     * unassigned thread — asked again on every render the answer caused.
+     */
+    const readRequestedUpTo = useRef(0);
+
+    /*
+     * Set once the server says this viewer may no longer read the thread. Every
+     * request after that would only be refused again, so none is made.
+     */
+    const hasLostAccess = useRef(false);
+
     const lastId = (): number => stateRef.current.messages.at(-1)?.id ?? 0;
+
+    /** Say once that the thread was taken away, and stop asking about it. */
+    const loseAccess = useCallback(() => {
+        if (hasLostAccess.current) {
+            return;
+        }
+
+        hasLostAccess.current = true;
+        callbacks.current.onLostAccess?.(
+            stateRef.current.conversation?.assignee?.name ?? 'Someone else',
+        );
+    }, []);
 
     /** Fetch everything newer than what is held: reconnects and card announcements. */
     const catchUp = useCallback(async () => {
-        if (conversationId === null) {
+        if (conversationId === null || hasLostAccess.current) {
             return;
         }
 
@@ -134,13 +160,10 @@ export function useConversationThread(
             callbacks.current.onSummaryChange?.(payload.conversation);
         } catch (error) {
             if (error instanceof ApiError && error.status === 403) {
-                callbacks.current.onLostAccess?.(
-                    stateRef.current.conversation?.assignee?.name ??
-                        'Someone else',
-                );
+                loseAccess();
             }
         }
-    }, [conversationId]);
+    }, [conversationId, loseAccess]);
 
     // The first page: the latest messages.
     useEffect(() => {
@@ -151,6 +174,8 @@ export function useConversationThread(
         }
 
         let cancelled = false;
+        readRequestedUpTo.current = 0;
+        hasLostAccess.current = false;
         setState(EMPTY);
         setTyping([]);
 
@@ -460,7 +485,12 @@ export function useConversationThread(
         const current = stateRef.current;
         const latest = current.messages.at(-1);
 
-        if (conversationId === null || latest === undefined) {
+        if (
+            conversationId === null ||
+            latest === undefined ||
+            hasLostAccess.current ||
+            latest.id <= readRequestedUpTo.current
+        ) {
             return;
         }
 
@@ -476,13 +506,19 @@ export function useConversationThread(
             return;
         }
 
+        readRequestedUpTo.current = latest.id;
+
         try {
             const { pointers } = await markRead(conversationId, latest.id);
             setState((previous) => ({ ...previous, pointers }));
-        } catch {
-            // A missed read receipt is corrected by the next one.
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 403) {
+                loseAccess();
+            }
+
+            // Any other miss is corrected by the next message's receipt.
         }
-    }, [conversationId, currentUserId]);
+    }, [conversationId, currentUserId, loseAccess]);
 
     const applyAssignment = useCallback(
         (result: {

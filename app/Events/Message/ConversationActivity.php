@@ -5,15 +5,17 @@ namespace App\Events\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Something changed on a conversation's list row: a new message, an unread
  * count, an assignment. Each listed user's inbox and, for an unassigned Regray
  * Team thread, the support pool are told to refresh the row. Queued: it is a
- * list-level nudge, not the message itself.
+ * list-level nudge, not the message itself. Rescued, so a queue that runs it
+ * inline cannot fail the request when Reverb is down.
  */
-class ConversationActivity implements ShouldBroadcast
+class ConversationActivity implements ShouldBroadcast, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

@@ -9,6 +9,7 @@ use App\Models\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -16,10 +17,15 @@ use Illuminate\Queue\SerializesModels;
  * A message landed in a conversation. Sent now rather than queued, so how fast
  * it arrives does not depend on the queue.
  *
+ * Rescued rather than thrown when Reverb is down: the message is saved either
+ * way, and the reader's catch-up on reconnect brings it to the others. Like
+ * every broadcast-now event here, a failure is reported, never answered as a
+ * 500 to the person who sent it.
+ *
  * Text and system messages travel whole. A card is announced by id only: what a
  * card shows depends on who is reading it, so each open thread fetches it.
  */
-class MessageCreated implements ShouldBroadcastNow
+class MessageCreated implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

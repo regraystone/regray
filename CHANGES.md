@@ -82,7 +82,7 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 - **What the client sees:** the client sees the assignee's name ("Handled by …") and the claim and release system messages.
 - Staff see a Regray Team thread under the client's name. The client sees it as "Regray Team".
 - The admin passes every policy ability through `Gate::before`, so the admin lists every Regray Team thread and can claim, release and reassign any of them. The admin still gets 409 when sending on a thread someone else handles.
-- When a claim takes a thread, the rest of the pool loses it right away: it gets 403 and the thread leaves their lists live, over `support.pool`.
+- When a claim takes a thread, the rest of the pool loses it right away: reading it gets 403 and the thread leaves their lists live, over `support.pool`. A pool member who still tries to send gets 409 "{name} is handling this conversation." (changed after the E2E run; see `tests/e2e/message/REPORT.md`, "Fixes").
 
 ## TODO list
 
@@ -109,7 +109,7 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 ## Not verified
 
 - **Truly simultaneous claims:** the race test sends its two claims one after the other. One winner is guaranteed by the `SELECT … FOR UPDATE` lock plus the `UPDATE … WHERE assigned_to IS NULL`, not by a parallel test.
-- **"A non-assignee gets 409":** this is tested with the admin. Another pool member cannot even open a claimed thread, so they get 403 first.
+- **"A non-assignee gets 409":** now tested with both the admin and another pool member (`SupportThreadTest`).
 - **Docker:** the `reverb` service and the Caddy `/app/*` proxy were not run under Docker. Realtime was tested locally with `php artisan reverb:start`.
 - **Manual browser checks:** claim, the live list update, "Handled by", typing, live delivery, the name label and "Seen" were all checked with two browsers (client and marketing). Not yet checked by hand:
     - release, reassign, edit, remove and reply in the browser (covered by the HTTP tests);

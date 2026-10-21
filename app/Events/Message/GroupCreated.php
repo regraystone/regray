@@ -5,10 +5,14 @@ namespace App\Events\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
-/** A group chat was created: each member's list gains it. Queued. */
-class GroupCreated implements ShouldBroadcast
+/**
+ * A group chat was created: each member's list gains it. Queued, and rescued
+ * like ConversationActivity.
+ */
+class GroupCreated implements ShouldBroadcast, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

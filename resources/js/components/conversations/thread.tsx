@@ -151,6 +151,28 @@ const Thread = ({
         anchorRef.current = null;
     }, [conversationId]);
 
+    /*
+     * Take the anchor again once the spinner is on screen. It was taken at the
+     * scroll, before the spinner pushed the messages down, and the prepend
+     * removes the spinner in the same update that adds the older messages: an
+     * anchor from before it put the first message one spinner's height away
+     * from where the reader last saw it.
+     */
+    useLayoutEffect(() => {
+        const viewport = scrollRef.current;
+
+        if (
+            state.loadingOlder &&
+            viewport !== null &&
+            anchorRef.current !== null
+        ) {
+            anchorRef.current = {
+                height: viewport.scrollHeight,
+                top: viewport.scrollTop,
+            };
+        }
+    }, [state.loadingOlder]);
+
     // Keep the view where it should be after every change to the messages.
     useLayoutEffect(() => {
         const viewport = scrollRef.current;

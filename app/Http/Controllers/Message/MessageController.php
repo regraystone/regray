@@ -37,7 +37,7 @@ class MessageController extends Controller
         $result = $this->listConversations->execute($user, $filters, $request->requestedConversation());
 
         return Inertia::render('message', [
-            'conversations' => Inertia::scroll(ConversationResource::collection($result['conversations'])),
+            'conversations' => Inertia::scroll(fn () => ConversationResource::collection($result['conversations']()))->defer(),
             'filters' => [
                 'search' => $filters->search ?? '',
                 'filter' => $filters->filter,

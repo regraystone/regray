@@ -8,6 +8,8 @@ import NewGroupDialog from '@/components/conversations/new-group-dialog';
 import Thread from '@/components/conversations/thread';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-is-mobile';
+import { usePermissions } from '@/hooks/use-permissions';
+import { permissions } from '@/layouts/workspace-layout';
 import { conversationListSkeleton } from '@/lib/conversation-skeleton';
 import { getEcho, onReconnect } from '@/lib/echo';
 import { markDelivered } from '@/lib/message-api';
@@ -93,6 +95,7 @@ const Message = () => {
         auth,
     } = props;
     const realtime = props.realtime;
+    const isInPool = usePermissions().can(permissions.supportClaim);
     const isTouch = useIsTouch();
     const rows = conversations?.data ?? [];
 
@@ -229,7 +232,9 @@ const Message = () => {
             )
             .listen('.conversation.added', () => refreshList());
 
-        if (!isClient) {
+        // Only the pool joins the pool's channel: it admits `support.claim`
+        // holders and refuses everyone else, staff included.
+        if (isInPool) {
             echo.private('support.pool')
                 .listen('.conversation.activity', () => refreshList())
                 // A claimed thread leaves every other pool member's list. If it
@@ -244,11 +249,11 @@ const Message = () => {
             stopReconnect();
             echo.leave(inbox);
 
-            if (!isClient) {
+            if (isInPool) {
                 echo.leave('support.pool');
             }
         };
-    }, [realtime, currentUserId, isClient, refreshList]);
+    }, [realtime, currentUserId, isInPool, refreshList]);
 
     useEffect(
         () => () => {
