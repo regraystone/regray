@@ -16,9 +16,11 @@ use Illuminate\Validation\ValidationException;
  * Every change to an inquiry's status goes through transition(), which writes
  * the status, its history row and the InquiryStatusChanged event together.
  *
- * TODO(inquiry-binding): groups will be bound to inquiries later. Until then no
- * group is linked to an inquiry, so the inquiry card the event posts (R9) does
- * nothing for real data.
+ * The event posts an inquiry card (PostInquiryStatusCard): into the inquiry's
+ * group chat when it has one, otherwise into the client's Regray Team thread.
+ *
+ * TODO(inquiry-binding): groups will be bound to inquiries later. Until then
+ * no real inquiry has a group, so every card goes to the Regray Team thread.
  */
 class InquiryStatusService
 {
@@ -57,8 +59,8 @@ class InquiryStatusService
 
     /**
      * Move an inquiry to a new status: the status and when it changed, a history
-     * row saying who changed it, and the event that posts the status card into
-     * the inquiry's group chat once the transaction commits.
+     * row saying who changed it, and the event that posts the status card once
+     * the transaction commits.
      *
      * Expects the inquiry to be locked already, by whoever decided the change
      * is allowed.

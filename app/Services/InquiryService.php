@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Data\WrittenFiles;
 use App\Enums\InquiryStatus;
+use App\Events\InquiryStatusChanged;
 use App\Models\Inquiry;
 use App\Models\InquiryProject;
 use App\Models\User;
@@ -33,6 +34,10 @@ class InquiryService
      * The inquiry starts as pending, with the history row that says so: from
      * nothing, to pending, by the client who sent it.
      *
+     * The same change is announced with InquiryStatusChanged, which posts the
+     * "New inquiry" card. The event waits for the caller's transaction to
+     * commit, so an inquiry that is rolled back is never announced.
+     *
      * @param  array{projects: list<ProjectInput>}  $input
      */
     public function create(User $client, array $input, WrittenFiles $written): Inquiry
@@ -57,6 +62,8 @@ class InquiryService
         foreach ($input['projects'] as $position => $project) {
             $this->addProject($inquiry, $client, $position, $project, $written);
         }
+
+        event(new InquiryStatusChanged($inquiry, null, InquiryStatus::Pending, $client->id));
 
         return $inquiry;
     }

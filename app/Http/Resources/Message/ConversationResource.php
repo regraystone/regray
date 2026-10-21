@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Message;
 
 use App\Enums\ConversationType;
+use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
 use App\Enums\Permission;
 use App\Enums\SystemEvent;
@@ -122,10 +123,25 @@ class ConversationResource extends JsonResource
 
         return match ($message->type) {
             MessageType::Text => $this->textPreview($message, $isOwnSupport),
-            MessageType::InquiryCard => 'Inquiry '.($message->inquiry->reference ?? '').' · '.Str::headline((string) $message->announced_status),
+            MessageType::InquiryCard => $this->inquiryPreview($message),
             MessageType::ScheduleCard => (self::SCHEDULE_HEADLINES[(string) $message->announced_status] ?? 'Visit').' · '.($message->schedule->title ?? ''),
             MessageType::System => $this->systemPreview($message),
         };
+    }
+
+    /**
+     * An inquiry card's line. A pending card is the one a newly sent inquiry
+     * posts, so it reads as the card's own headline does.
+     */
+    private function inquiryPreview(Message $message): string
+    {
+        $reference = $message->inquiry->reference ?? '';
+
+        if ($message->announced_status === InquiryStatus::Pending->value) {
+            return "New Inquiry · {$reference}";
+        }
+
+        return "Inquiry {$reference} · ".Str::headline((string) $message->announced_status);
     }
 
     private function textPreview(Message $message, bool $isOwnSupport): string

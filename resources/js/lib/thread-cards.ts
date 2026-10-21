@@ -22,11 +22,12 @@ export type CardBookedByType = 'client' | 'staff';
 /** The headline an inquiry card announces, from the status it was posted for. */
 export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
     draft: 'Project drafted',
-    pending: 'Project submitted',
-    quoted: 'Project quoted',
-    paid: 'Project paid',
-    completed: 'Project completed',
-    cancelled: 'Project cancelled',
+    // A pending card is the one a newly sent inquiry posts.
+    pending: 'New Inquiry',
+    quoted: 'Inquiry quoted',
+    paid: 'Inquiry paid',
+    completed: 'Inquiry completed',
+    cancelled: 'Inquiry cancelled',
 };
 
 export const inquiryHeadline = (status: CardInquiryStatus): string =>

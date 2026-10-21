@@ -21,7 +21,8 @@ use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
  * SupportAssignmentService, not here.
  *
  * TODO(inquiry-binding): groups will be bound to inquiries later. Until then no
- * group is linked to an inquiry, so R8 and R9 do nothing for real data.
+ * group is linked to an inquiry, so R8 does nothing for real data, and R9's
+ * cards go to the client's Regray Team thread instead.
  */
 class ConversationPolicy
 {

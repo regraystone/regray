@@ -11,8 +11,12 @@ import {
 
 describe('inquiry card', () => {
     it('announces the status it was posted for', () => {
-        assert.equal(inquiryHeadline('quoted'), 'Project quoted');
-        assert.equal(inquiryHeadline('cancelled'), 'Project cancelled');
+        assert.equal(inquiryHeadline('quoted'), 'Inquiry quoted');
+        assert.equal(inquiryHeadline('cancelled'), 'Inquiry cancelled');
+    });
+
+    it('calls the card a newly sent inquiry posts "New Inquiry"', () => {
+        assert.equal(inquiryHeadline('pending'), 'New Inquiry');
     });
 
     it('counts projects and services in the singular and the plural', () => {

@@ -37,7 +37,8 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
     - Release and reassign write `system` rows.
 - **Inquiry status cards:**
     - `InquiryStatusService::transition()` writes the status and history and dispatches `InquiryStatusChanged` after commit.
-    - `PostInquiryStatusCard` posts one card into the inquiry's group (see TODO(inquiry-binding)).
+    - Sending an inquiry dispatches it too (from nothing to `pending`), so every inquiry posts a "New inquiry" card.
+    - `PostInquiryStatusCard` (queued) posts one card per status: into the inquiry's group chat when it has one, otherwise into the client's Regray Team thread (created if missing). Until groups are bound (TODO(inquiry-binding)), every card goes to the Regray Team thread.
 - **Realtime (Reverb):**
     - The private channels are `user.{id}`, `support.pool` and `conversation.{id}`.
     - `MessageCreated`, `MessageUpdated`, `PointerMoved`, `ConversationActivity`, `SupportThreadClaimed`, `SupportThreadReleased` and `GroupCreated`.
@@ -89,7 +90,7 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 - **`TODO(inquiry-binding)`:** groups are not bound to inquiries yet.
     - Until they are, no real inquiry has a group, so status cards are not posted for real data and "Message the team" stays hidden.
     - Marked in `ConversationPolicy`, `PostInquiryStatusCard`, `InquiryStatusService`, `InquiryDetailsService`, `InquiryDetailsResource`, `GroupConversationService`, `ConversationSeeder` and `pages/inquiry-details.tsx`.
-- **`TODO(booking)`:** post a `schedule_card` when a booking changes status. The card's rendering is already built. Marked in `Schedule` and `pages/schedule-book.tsx`.
+- **`TODO(booking)`:** post a `schedule_card` when a client books and on every later status change. It goes where inquiry cards go: the inquiry's group chat when there is one, otherwise the client's Regray Team thread. The card's rendering is already built. Marked in `Schedule`, `PostInquiryStatusCard` and `pages/schedule-book.tsx`.
 - **`TODO(attachments)`:** the paperclip is disabled with a tooltip. `message_attachments` already exists. Marked in `components/conversations/composer.tsx`.
 - **`TODO(staff-inquiry-scope)`:** the inquiry details page only finds the viewer's own inquiries (`InquiryDetailsService::forClient`), so a staff member who clicks an inquiry card gets a 404. Marked in `components/conversations/inquiry-card.tsx`.
 
