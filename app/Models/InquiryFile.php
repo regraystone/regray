@@ -20,7 +20,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon|null $deleted_at
  */
-#[Fillable(['disk', 'path', 'original_name', 'mime_type', 'size_bytes', 'sha256'])]
+#[Fillable(['disk', 'path', 'original_name', 'mime_type', 'size_bytes', 'sha256', 'uploaded_by'])]
 class InquiryFile extends Model
 {
     use SoftDeletes;

@@ -44,8 +44,8 @@ class StoneIndexRequest extends FormRequest
         return [
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
             'category' => ['sometimes', 'nullable', 'string', Rule::exists('stone_categories', 'slug')->where('deleted_at', null)->where('is_active', true)],
-            'size' => ['sometimes', 'nullable', 'string', 'max:20', Rule::exists('stones', 'size')->where('deleted_at', null)->where('is_active', true)],
-            'thickness' => ['sometimes', 'nullable', 'string', Rule::in(['18-20', '21-30', '31-plus'])],
+            'size' => ['sometimes', 'nullable', 'string', 'max:20', Rule::exists('stone_sizes', 'name')->where('is_active', true)],
+            'thickness' => ['sometimes', 'nullable', 'string', Rule::exists('stone_thicknesses', 'slug')->where('is_active', true)],
             'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
     }

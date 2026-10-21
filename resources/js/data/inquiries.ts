@@ -8,8 +8,6 @@
  * still have somewhere to put it.
  */
 
-import { type ProjectCategory } from '@/data/projects';
-
 export type InquiryStatus =
     | 'draft'
     | 'pending'
@@ -118,8 +116,8 @@ type InquiryProject = {
     services: string[];
     /** In the order the client picked them. */
     stones: InquiryStoneSelection[];
-    /** In the order the client picked them. Empty or absent for standalone services. */
-    categories?: ProjectCategory[];
+    /** Application names, in the order the client picked them. Optional for standalone services. */
+    applications?: string[];
     /** Where the work is, when it is wanted, and what else came with the request. */
     requirements: InquiryRequirementsRecord;
 };
@@ -203,7 +201,7 @@ export const inquiries: Inquiry[] = [
                  */
                 id: 'prj-1048-1',
                 name: 'Northgate Cafe — Counters and Flooring',
-                categories: ['countertops-backsplash'],
+                applications: ['Countertops & Backsplash'],
                 services: [
                     'Site Ocular & Technical Assessment',
                     'Custom Stone Fabrication',
@@ -266,7 +264,7 @@ export const inquiries: Inquiry[] = [
             {
                 id: 'prj-1048-2',
                 name: 'Northgate Cafe — Dining Floor',
-                categories: ['dining-tables'],
+                applications: ['Dining Tables'],
                 services: [
                     'Custom Stone Fabrication',
                     'Natural Stone Installation',
@@ -314,7 +312,7 @@ export const inquiries: Inquiry[] = [
             {
                 id: 'prj-1044-1',
                 name: 'Garden Court — Vanity Tops',
-                categories: ['lavatories'],
+                applications: ['Lavatories'],
                 services: [
                     'Design & Project Consultation',
                     'Post-Installation Quality Care',
@@ -373,7 +371,7 @@ export const inquiries: Inquiry[] = [
             {
                 id: 'prj-1043-1',
                 name: 'Hillcrest Showroom — Display Units',
-                categories: ['center-side-tables'],
+                applications: ['Center & Side Tables'],
                 services: [
                     'Custom Stone Furniture',
                     'Custom Stone Fabrication',
@@ -435,7 +433,7 @@ export const inquiries: Inquiry[] = [
             {
                 id: 'prj-1041-1',
                 name: 'The Grove — Outdoor Kitchen and Deck',
-                categories: ['kitchen-islands'],
+                applications: ['Kitchen Islands'],
                 services: [
                     'Natural Stone Supply',
                     'Custom Stone Fabrication',
@@ -507,7 +505,7 @@ export const inquiries: Inquiry[] = [
             {
                 id: 'prj-1041-2',
                 name: 'The Grove - Pool Deck',
-                categories: ['exterior-walls'],
+                applications: ['Exterior Walls'],
                 services: [
                     'Natural Stone Supply',
                     'Natural Stone Installation',
@@ -571,7 +569,7 @@ export const inquiries: Inquiry[] = [
             {
                 id: 'prj-1039-1',
                 name: 'Maple Lane - Laundry',
-                categories: ['wall-accents'],
+                applications: ['Wall Accents'],
                 services: ['Stone Relocation, Dismantling & Reinstallation'],
                 stones: [
                     {

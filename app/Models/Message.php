@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MessageType;
+use App\Enums\SystemEvent;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,8 +22,18 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon|null $edited_at
  * @property Carbon|null $deleted_at
+ * @property int|null $reply_to_id
+ * @property string|null $client_key
+ * @property SystemEvent|null $system_event
+ * @property int|null $system_user_id
+ *
+ * Retention: a removed message is soft-deleted and stays as a row for good.
+ * The thread shows it as "Message removed" in its place, so replies to it
+ * and the receipts pointing at it still make sense, and the record is kept.
+ * Nothing prunes these rows; do not make this model Prunable without
+ * deciding that policy again.
  */
-#[Fillable(['sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'edited_at'])]
+#[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
 class Message extends Model
 {
     use SoftDeletes;
@@ -33,6 +44,8 @@ class Message extends Model
     {
         return [
             'type' => MessageType::class,
+            'system_event' => SystemEvent::class,
+            'edited_at' => 'datetime',
         ];
     }
 
@@ -58,6 +71,18 @@ class Message extends Model
     public function schedule(): BelongsTo
     {
         return $this->belongsTo(Schedule::class);
+    }
+
+    /** @return BelongsTo<Message, $this> */
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(Message::class, 'reply_to_id')->withTrashed();
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function systemUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'system_user_id');
     }
 
     /** @return HasMany<MessageAttachment, $this> */

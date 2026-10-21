@@ -61,7 +61,7 @@ test('a client reads the full database stone profile through either door', funct
     $lastFinish = Finish::create(['name' => 'Last finish', 'is_active' => true, 'is_advisory' => false, 'sort_order' => 0]);
     $firstFinish = Finish::create(['name' => 'First finish', 'is_active' => true, 'is_advisory' => false, 'sort_order' => 9]);
     $inactiveFinish = Finish::create(['name' => 'Inactive finish', 'is_active' => false, 'is_advisory' => false, 'sort_order' => 0]);
-    $advisoryFinish = Finish::create(['name' => 'Not sure yet, advise me', 'is_active' => true, 'is_advisory' => true, 'sort_order' => 0]);
+    $advisoryFinish = Finish::query()->where('is_advisory', true)->firstOrFail();
     $category->finishes()->sync([
         $lastFinish->id => ['sort_order' => 9],
         $firstFinish->id => ['sort_order' => 1],
@@ -147,12 +147,12 @@ test('an unverified stone reader is redirected to verification through either do
 test('a forbidden role cannot probe stone or project existence through either door', function (string $role): void {
     $user = User::factory()->role($role)->create();
 
-    foreach (['arancia', 'no-such-stone', 'Bad_Slug'] as $slug) {
+    foreach (['arancia', 'no-such-stone'] as $slug) {
         $this->actingAs($user)->get(route('saved.show', $slug))
             ->assertForbidden()
             ->assertInertia(fn (Assert $page) => $page->component('forbidden'));
-        foreach (['ginza-one', 'no-such-project', 'Bad_Project'] as $projectSlug) {
-            $this->actingAs($user)->get(route('home.project', ['project' => $projectSlug, 'stone' => $slug]))
+        foreach (['ginza-one', 'no-such-project'] as $projectSlug) {
+            $this->actingAs($user)->get(route('home.show', $projectSlug))
                 ->assertForbidden()
                 ->assertInertia(fn (Assert $page) => $page->component('forbidden'));
         }
@@ -194,8 +194,8 @@ test('malformed stone and project slugs return 404 without a lookup', function (
     ['saved.show', ['stone' => 'Bad_Stone']],
     ['saved.show', ['stone' => str_repeat('a', 101)]],
     ['home.stone', ['stone' => 'onyx--stone']],
-    ['home.project', ['project' => 'Bad_Project', 'stone' => 'arancia']],
-    ['home.project', ['project' => str_repeat('a', 101), 'stone' => 'arancia']],
+    ['home.show', ['slug' => 'Bad_Project']],
+    ['home.show', ['slug' => str_repeat('a', 101)]],
 ]);
 
 test('an inactive stone returns 404 through both doors', function (): void {
@@ -221,7 +221,7 @@ test('a soft-deleted stone returns 404 through both doors', function (): void {
 test('an unknown project under a stone returns 404', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.project', ['project' => 'no-such-project', 'stone' => 'arancia']))
+    $this->actingAs($user)->get(route('home.show', 'no-such-project'))
         ->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
 });
 
@@ -229,7 +229,7 @@ test('an unpublished project under a stone returns 404', function (): void {
     Project::query()->where('slug', 'ginza-one')->update(['is_published' => false]);
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.project', ['project' => 'ginza-one', 'stone' => 'arancia']))
+    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
         ->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
 });
 
@@ -237,15 +237,15 @@ test('a soft-deleted project under a stone returns 404', function (): void {
     Project::query()->where('slug', 'ginza-one')->firstOrFail()->delete();
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.project', ['project' => 'ginza-one', 'stone' => 'arancia']))
+    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
         ->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
 });
 
-test('a stone not belonging to the requested project returns 404', function (): void {
+test('a project slug opens the project profile, not a stone profile', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.project', ['project' => 'ginza-one', 'stone' => 'cosmic-black']))
-        ->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
+    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
+        ->assertOk()->assertInertia(fn (Assert $page) => $page->component('project-profile'));
 });
 
 test('a standalone stone without projects has empty highlights and no project prop', function (): void {

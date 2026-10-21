@@ -1,9 +1,7 @@
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { serviceOptions } from '@/data/services';
-import { stones } from '@/data/stones';
-import { PROJECT_CATEGORIES, type ProjectCategory } from '@/data/projects';
 import type { InquiryDraftInput, InquiryFormInput } from '@/lib/inquiry-schema';
+import type { InquiryCatalog } from '@/types/inquiry';
 
 /**
  * One committed project as it sits in storage: the form's own values with the
@@ -41,12 +39,17 @@ export type InquiryDraftState = {
 };
 
 export type StoredInquiryDraft = InquiryDraftState & {
-    version: 3;
+    version: 4;
     /** When the autosave wrote it, as it is shown back to the reader. */
     savedAt: string;
 };
 
-const DRAFT_VERSION = 3;
+/**
+ * Bumped from 3 when the Category step became Application. A version 3 record
+ * holds `categories`, which name portfolio categories rather than applications
+ * and cannot be turned into either, so it is discarded instead of mis-restored.
+ */
+const DRAFT_VERSION = 4;
 
 /**
  * The one key this browser's draft for this account lives under.
@@ -56,6 +59,10 @@ const DRAFT_VERSION = 3;
  * an old record outright rather than half-understand it.
  */
 const storageKey = (userId: number): string =>
+    `regray.inquiry-draft.v4:${userId}`;
+
+/** The key version 3 wrote under, forgotten the first time a read finds it. */
+const legacyStorageKey = (userId: number): string =>
     `regray.inquiry-draft.v3:${userId}`;
 
 /**
@@ -78,10 +85,6 @@ const warnWriteFailure = (): void => {
     );
 };
 
-const STONE_IDS = new Set(stones.map((stone) => stone.id));
-const SERVICE_IDS = new Set(serviceOptions.map((service) => service.id));
-const CATEGORY_IDS = new Set(PROJECT_CATEGORIES.map((cat) => cat.value));
-
 /**
  * One stone's stored specification.
  *
@@ -102,7 +105,7 @@ const storedProjectSchema = z.object({
     id: z.string(),
     name: z.string(),
     serviceIds: z.array(z.string()),
-    categories: z.array(z.string()),
+    applications: z.array(z.string()),
     stones: z.array(storedStoneSchema),
     location: z.string(),
     landmark: z.string(),
@@ -118,7 +121,7 @@ const storedDraftSchema = z.object({
     serviceIds: z.array(z.string()),
     standaloneServiceIds: z.array(z.string()),
     stones: z.array(storedStoneSchema),
-    categories: z.array(z.string()),
+    applicationIds: z.array(z.string()),
     location: z.string(),
     landmark: z.string(),
     areaSqm: z.string(),
@@ -147,48 +150,58 @@ const storedRecordSchema = z.object({
     droppedAttachments: z.number(),
 });
 
-const knownStoneIds = (ids: string[]): string[] =>
-    ids.filter((id) => STONE_IDS.has(id));
-
-const knownServiceIds = (ids: string[]): string[] =>
-    ids.filter((id) => SERVICE_IDS.has(id));
-
-const knownCategoryIds = (ids: string[]): string[] =>
-    ids.filter((id) => CATEGORY_IDS.has(id as ProjectCategory));
-
-const knownStoneRows = <T extends { stoneId: string }>(rows: T[]): T[] =>
-    rows.filter((row) => STONE_IDS.has(row.stoneId));
-
 /**
  * Read the stored draft back, with anything the catalogue has since dropped
  * silently taken out of it.
  *
- * A stone or service that no longer exists cannot be rendered as a card or
- * named on a badge, so its id is simply gone: the reader is not asked about a
- * material they cannot see, and the send's own validation is what says a
+ * A stone, service or application that no longer exists cannot be rendered as a
+ * card or named on a badge, so its id is simply gone: the reader is not asked
+ * about a material they cannot see, and the send's own validation is what says a
  * project has lost one of its services. Everything else is kept as it stands.
+ *
+ * Without a catalogue nothing is filtered, which is what the callers that only
+ * ask whether a draft exists want.
  */
 const sanitize = (
     record: z.output<typeof storedRecordSchema>,
-): StoredInquiryDraft => ({
-    ...record,
-    projects: record.projects.map((project) => ({
-        ...project,
-        serviceIds: knownServiceIds(project.serviceIds),
-        categories: knownCategoryIds(project.categories),
-        stones: knownStoneRows(project.stones),
-    })),
-    draft: {
-        ...record.draft,
-        stoneIds: knownStoneIds(record.draft.stoneIds),
-        serviceIds: knownServiceIds(record.draft.serviceIds),
-        standaloneServiceIds: knownServiceIds(
-            record.draft.standaloneServiceIds,
-        ),
-        categories: knownCategoryIds(record.draft.categories),
-        stones: knownStoneRows(record.draft.stones),
-    },
-});
+    catalog: InquiryCatalog | null,
+): StoredInquiryDraft => {
+    if (catalog === null) {
+        return record;
+    }
+
+    const stoneIds = new Set(catalog.stones.map((stone) => stone.slug));
+    const serviceIds = new Set(catalog.services.map((service) => service.id));
+    const applicationIds = new Set(
+        catalog.applications.map((application) => application.id),
+    );
+
+    const known = (ids: string[], allowed: Set<string>): string[] =>
+        ids.filter((id) => allowed.has(id));
+    const knownRows = <T extends { stoneId: string }>(rows: T[]): T[] =>
+        rows.filter((row) => stoneIds.has(row.stoneId));
+
+    return {
+        ...record,
+        projects: record.projects.map((project) => ({
+            ...project,
+            serviceIds: known(project.serviceIds, serviceIds),
+            applications: known(project.applications, applicationIds),
+            stones: knownRows(project.stones),
+        })),
+        draft: {
+            ...record.draft,
+            stoneIds: known(record.draft.stoneIds, stoneIds),
+            serviceIds: known(record.draft.serviceIds, serviceIds),
+            standaloneServiceIds: known(
+                record.draft.standaloneServiceIds,
+                serviceIds,
+            ),
+            applicationIds: known(record.draft.applicationIds, applicationIds),
+            stones: knownRows(record.draft.stones),
+        },
+    };
+};
 
 /**
  * Take the attachments off both forms and count what that cost.
@@ -242,7 +255,7 @@ const isBlank = (state: InquiryDraftState): boolean =>
     state.draft.serviceIds.length === 0 &&
     state.draft.standaloneServiceIds.length === 0 &&
     state.draft.stones.length === 0 &&
-    state.draft.categories.length === 0 &&
+    state.draft.applicationIds.length === 0 &&
     state.draft.location === '' &&
     state.draft.landmark === '' &&
     state.draft.areaSqm === '' &&
@@ -259,7 +272,10 @@ const isBlank = (state: InquiryDraftState): boolean =>
  * shape all end the same two ways — the key is taken off, so the next visit
  * starts clean, and null comes back.
  */
-export const readInquiryDraft = (userId: number): StoredInquiryDraft | null => {
+export const readInquiryDraft = (
+    userId: number,
+    catalog: InquiryCatalog | null = null,
+): StoredInquiryDraft | null => {
     if (typeof window === 'undefined') {
         return null;
     }
@@ -268,6 +284,7 @@ export const readInquiryDraft = (userId: number): StoredInquiryDraft | null => {
     let raw: string | null = null;
 
     try {
+        window.localStorage.removeItem(legacyStorageKey(userId));
         raw = window.localStorage.getItem(key);
     } catch {
         return null;
@@ -301,7 +318,7 @@ export const readInquiryDraft = (userId: number): StoredInquiryDraft | null => {
         return drop();
     }
 
-    return sanitize(result.data);
+    return sanitize(result.data, catalog);
 };
 
 /**

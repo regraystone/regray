@@ -24,18 +24,24 @@ beforeEach(function () {
  */
 
 test('the super-admin opens every page', function (string $routeName, array $parameters) {
-    if (in_array($routeName, ['home.project', 'home.stone', 'saved.show'], true)) {
+    if (in_array($routeName, ['home.show', 'home.stone', 'saved.show'], true)) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 
     $user = User::factory()->role(Role::Admin)->create();
+
+    // The details pages open the signed-in user's own inquiry by reference.
+    if (isset($parameters['reference'])) {
+        seedInquiryCatalog();
+        $parameters = ['reference' => makeInquiry($user)->reference];
+    }
 
     $this->actingAs($user)
         ->get(route($routeName, $parameters))
         ->assertOk();
 })->with([
     ['home.index', []],
-    ['home.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']],
+    ['home.show', ['slug' => 'ginza-one']],
     ['home.stone', ['stone' => 'arctic-pink']],
     ['overview.index', []],
     ['saved.index', []],
@@ -45,8 +51,8 @@ test('the super-admin opens every page', function (string $routeName, array $par
     ['inquiry.index', []],
     ['quote.inquire', []],
     ['inquiry.inquire', []],
-    ['quote.show', ['inquiry' => 'inq-1048']],
-    ['inquiry.show', ['inquiry' => 'inq-1048']],
+    ['quote.show', ['reference' => 'INQ-1048']],
+    ['inquiry.show', ['reference' => 'INQ-1048']],
     ['schedule.index', []],
     ['message.index', []],
     ['stones.index', []],

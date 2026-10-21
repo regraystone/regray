@@ -16,7 +16,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $note
  * @property Carbon $changed_at
  */
-#[Fillable([])]
+#[Fillable(['inquiry_id', 'from_status', 'to_status', 'changed_by', 'note', 'changed_at'])]
 class InquiryStatusHistory extends Model
 {
     protected $table = 'inquiry_status_history';

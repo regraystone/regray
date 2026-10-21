@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Storage;
 /** @mixin Project */
 class ProjectCardResource extends JsonResource
 {
-    /** @return array{slug: string, name: string, thumbnail: string} */
+    /**
+     * @return array{slug: string, name: string, thumbnail: string}
+     */
     public function toArray(Request $request): array
     {
         return [
@@ -25,7 +27,7 @@ class ProjectCardResource extends JsonResource
         // Strip legacy /storage/ prefix if present, leaving only the relative path
         $relativePath = $path;
         if (str_starts_with($path, '/storage/')) {
-            $relativePath = substr($path, 9); // Remove '/storage/' (9 chars)
+            $relativePath = substr($path, 9);
         } elseif (str_starts_with($path, '/')) {
             // Other /paths (e.g., /images/...) should be returned unchanged
             return $path;

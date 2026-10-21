@@ -1,17 +1,14 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ChevronDown,
     FileText,
     Image as ImageIcon,
-    Mail,
     MessageCircle,
-    Phone,
 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatSize } from '@/components/file-upload';
 import { STATUS_LABELS, StatusBadge } from '@/components/inquiry-status-badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,55 +16,54 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Skeleton } from '@/components/ui/skeleton';
-import { clients, type Client } from '@/data/clients';
-import { people, type Person } from '@/data/conversations';
-import {
-    inquiries,
-    type InquiryFile,
-    type InquiryRequirementsRecord,
-    type InquiryStoneSelection,
+import type {
+    InquiryFile,
+    InquiryRequirementsRecord,
+    InquiryStoneSelection,
 } from '@/data/inquiries';
-import { PROJECT_CATEGORIES } from '@/data/projects';
-import { serviceOptions } from '@/data/services';
-import { stones, type Stone } from '@/data/stones';
-import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as messageIndex } from '@/routes/message';
 import { index as quoteIndex } from '@/routes/quote';
+import type { QuoteInquiryDetails } from '@/types/quote';
 
 type InquiryDetailsProps = {
-    inquiryId: string;
+    inquiry: QuoteInquiryDetails;
 };
 
 /**
- * One project with everything the reader put into it, resolved against the
- * catalogue so the page never has to look anything up while it renders.
+ * One project as the page draws it.
  *
- * The stones are dropped rather than kept as ids, and through a map so a stone
- * removed from `stones` since the inquiry was raised falls off the page instead
- * of crashing it. A project's stones, their counts and how each is worked are
- * that project's own answer: the same stone in two projects is two lots of it,
- * cut two ways.
- *
- * A project with no stones is kept. The three services the team attends at an
- * hour are booked on their own, with nothing to supply or install, and dropping
- * those projects would have left a real request reported as an empty one.
+ * The server sends it already resolved — stones with their names and pictures,
+ * services with theirs — so the page looks nothing up. A project with no stones
+ * is kept: the services the team attends at an hour are booked on their own,
+ * with nothing to supply or install, and dropping those projects would have left
+ * a real request reported as an empty one.
  */
+type ResolvedStone = {
+    id: string;
+    name: string;
+    thumbnail: string;
+    quantity: number;
+    edge: string;
+    finish: string;
+};
+
 type ResolvedProject = {
     id: string;
     name: string;
     services: Array<{ name: string; image?: string }>;
-    stones: Array<Stone & InquiryStoneSelection>;
-    /** Category labels, in the order the client picked them. */
-    categories: string[];
+    stones: ResolvedStone[];
+    /** Application names, in the order the client picked them. */
+    applications: string[];
     requirements: InquiryRequirementsRecord;
 };
 
 /** Pieces rather than types: how much was asked for, not how many kinds of it. */
-const countPieces = (selections: InquiryStoneSelection[]): number =>
+const countPieces = (
+    selections: Array<Pick<InquiryStoneSelection, 'quantity'>>,
+): number =>
     selections.reduce((total, selection) => total + selection.quantity, 0);
 
 /**
@@ -116,9 +112,6 @@ const formatNeededBy = ({
         ? day
         : `${day} at ${neededByTime}`;
 };
-
-/** Telephones are written the way a person reads them and dialled without. */
-const dialNumber = (phone: string): string => phone.replace(/[\s()-]/g, '');
 
 /** One answer, or the fact that there was none. */
 const NotProvided = () => (
@@ -267,38 +260,6 @@ const SectionLabel = ({
     </h3>
 );
 
-/** One way to reach the client, with the icon naming what it is. */
-const ContactRow = ({
-    icon: Icon,
-    href,
-    children,
-}: {
-    icon: typeof Mail;
-    href?: string;
-    children: string;
-}) => (
-    <li className="flex items-start gap-2.5 text-sm">
-        <Icon
-            className="mt-0.5 size-4 shrink-0 text-secondary-foreground"
-            aria-hidden
-        />
-        <span className="min-w-0">
-            {href ? (
-                <a
-                    href={href}
-                    className="font-bold break-words underline-offset-4 hover:underline"
-                >
-                    {children}
-                </a>
-            ) : (
-                <span className="break-words text-secondary-foreground">
-                    {children}
-                </span>
-            )}
-        </span>
-    </li>
-);
-
 /**
  * One file the project arrived with.
  *
@@ -351,7 +312,7 @@ const FileRow = ({ file }: { file: InquiryFile }) => {
  * the one answer there was only ever room for once.
  *
  * Within it the order is what the reader entered it in: what they want done,
- * what it is made of, how it is categorized, and then where and when. A project
+ * what it is made of, what it is for, and then where and when. A project
  * that was named only by its services reads in that order too, which is the
  * whole of what it is.
  */
@@ -511,25 +472,25 @@ const ProjectCard = ({
                     )}
                 </section>
 
-                {project.categories.length > 0 ? (
+                {project.applications.length > 0 ? (
                     <section>
-                        <SectionLabel count={project.categories.length}>
-                            Categories
+                        <SectionLabel count={project.applications.length}>
+                            Applications
                         </SectionLabel>
 
                         {/*
-                         * Name only: categories are a pick, and the row is a
+                         * Name only: applications are a pick, and the row is a
                          * record of what the client chose rather than a picture
                          * they still need to decide between.
                          */}
                         <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                            {project.categories.map((category) => (
+                            {project.applications.map((application) => (
                                 <li
-                                    key={category}
+                                    key={application}
                                     className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
                                 >
                                     <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                        {category}
+                                        {application}
                                     </p>
                                 </li>
                             ))}
@@ -601,87 +562,22 @@ const ProjectCard = ({
     );
 };
 
-const InquiryDetailsSkeleton = () => (
-    <div className="mx-auto w-full max-w-6xl">
-        <Skeleton className="mb-6 h-11 w-full sm:w-56" />
+/** The server's nulls are the page's absent answers. */
+const toRequirements = (
+    requirements: QuoteInquiryDetails['projects'][number]['requirements'],
+): InquiryRequirementsRecord => ({
+    location: requirements.location,
+    landmark: requirements.landmark ?? undefined,
+    areaSqm: requirements.areaSqm ?? undefined,
+    neededBy: requirements.neededBy ?? undefined,
+    neededByTime: requirements.neededByTime ?? undefined,
+    notes: requirements.notes ?? undefined,
+    attachments: requirements.attachments as InquiryFile[],
+});
 
-        <div className="mb-8 space-y-3 border-b border-sidebar-border pb-6 sm:flex sm:items-start sm:justify-between">
-            <div className="space-y-3">
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-4 w-80 max-w-full" />
-                <Skeleton className="h-3 w-64" />
-            </div>
-            <Skeleton className="mt-4 h-11 w-full sm:mt-0 sm:w-48" />
-        </div>
-
-        <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            {/*
-             * Two project cards rather than the mix of one tall card and two short
-             * ones the old shape had, because a project is now one card however
-             * much is in it.
-             */}
-            <div className="space-y-6 lg:order-1">
-                {[0, 1].map((index) => (
-                    <div
-                        key={index}
-                        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
-                    >
-                        <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                                <Skeleton className="h-3 w-16" />
-                                <Skeleton className="h-4 w-2/3" />
-                            </div>
-                            <Skeleton className="size-8" />
-                        </div>
-
-                        <div className="space-y-7 border-t border-sidebar-border p-4 sm:p-5">
-                            <div className="space-y-3">
-                                <Skeleton className="h-3 w-16" />
-                                <Skeleton className="h-12 w-full" />
-                                <Skeleton className="h-12 w-full" />
-                            </div>
-                            <div className="space-y-3">
-                                <Skeleton className="h-3 w-16" />
-                                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                                    {[0, 1, 2].map((tile) => (
-                                        <Skeleton
-                                            key={tile}
-                                            className="aspect-square w-full rounded-md"
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="space-y-3">
-                                <Skeleton className="h-3 w-24" />
-                                <Skeleton className="h-10 w-full" />
-                                <Skeleton className="h-10 w-full" />
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="space-y-6 lg:order-2">
-                <Skeleton className="h-48 w-full" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        </div>
-    </div>
-);
-
-const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
-    const [isLoading, setIsLoading] = useState(true);
+const InquiryDetails = () => {
+    const { inquiry } = usePage<InquiryDetailsProps>().props;
     const { can } = usePermissions();
-    const getInitials = useInitials();
-
-    const inquiry = inquiries.find((entry) => entry.id === inquiryId);
-
-    useEffect(() => {
-        const timer = window.setTimeout(() => setIsLoading(false), 700);
-
-        return () => window.clearTimeout(timer);
-    }, [inquiryId]);
 
     /*
      * The page hangs off whichever list this reader works from, and the two are
@@ -693,80 +589,14 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
         ? quoteIndex.url()
         : inquiryIndex.url();
 
-    if (isLoading) {
-        return <InquiryDetailsSkeleton />;
-    }
-
-    if (!inquiry) {
-        /*
-         * Not a 404: the data is mock and lives in the front end, so an id that
-         * matches nothing is a reader who mistyped or followed a stale link, not
-         * a missing resource. There is nothing on the server to be honest about.
-         */
-        return (
-            <div className="mx-auto w-full max-w-6xl py-16">
-                <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 rounded-md border border-sidebar-border bg-background px-6 py-16 text-center">
-                    <h1 className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
-                        Inquiry not found
-                    </h1>
-                    <p className="max-w-sm text-sm text-secondary-foreground">
-                        There is no inquiry with that reference.
-                    </p>
-                    <Button asChild className="mt-1">
-                        <Link href={backHref}>
-                            <ArrowLeft aria-hidden />
-                            Back to inquiries
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-        );
-    }
-
-    const client: Client | undefined = clients.find(
-        (entry) => entry.id === inquiry.clientId,
-    );
-    /*
-     * An inquiry can sit with more than one person, so this is a list and not a
-     * single lookup. Ids that are no longer on the books drop off the same way
-     * a dropped stone does.
-     */
-    const handlers = inquiry.handledByIds
-        .map((id) => people.find((entry) => entry.id === id))
-        .filter((person): person is Person => person !== undefined);
-
     const inquiryProjects: ResolvedProject[] = inquiry.projects.map(
         (project) => ({
             id: project.id,
             name: project.name,
-            services: project.services.map((name) => ({
-                name,
-                image: serviceOptions.find((option) => option.name === name)
-                    ?.image,
-            })),
-            stones: project.stones
-                .map((selection) => {
-                    const stone = stones.find(
-                        (entry) => entry.id === selection.stoneId,
-                    );
-
-                    return stone === undefined
-                        ? undefined
-                        : { ...stone, ...selection };
-                })
-                .filter(
-                    (stone): stone is Stone & InquiryStoneSelection =>
-                        stone !== undefined,
-                ),
-            categories: (project.categories ?? [])
-                .map(
-                    (category) =>
-                        PROJECT_CATEGORIES.find(
-                            (entry) => entry.value === category,
-                        )?.label,
-                )
-                .filter((label): label is string => label !== undefined),
-            requirements: project.requirements,
+            services: project.services,
+            stones: project.stones,
+            applications: project.applications,
+            requirements: toRequirements(project.requirements),
         }),
     );
 
@@ -785,12 +615,19 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
     );
     const stoneTypeTotal = new Set(
         inquiry.projects.flatMap((project) =>
-            project.stones.map((selection) => selection.stoneId),
+            project.stones.map((stone) => stone.id),
         ),
     ).size;
 
     return (
         <div className="mx-auto w-full max-w-6xl">
+            <Button asChild variant="outline" className="mb-6 w-full sm:w-auto">
+                <Link href={backHref}>
+                    <ArrowLeft aria-hidden />
+                    Back to inquiries
+                </Link>
+            </Button>
+
             <div className="mb-8 flex flex-col gap-4 border-b border-sidebar-border pb-6 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
@@ -822,16 +659,28 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
 
                 {/*
                  * Read-only page: the only thing it offers is a way to ask a
-                 * question, and a reader with no message page has nothing to ask
-                 * it on.
+                 * question, and only where there is a group chat for this
+                 * inquiry that the reader is in.
+                 *
+                 * TODO(inquiry-binding): groups will be bound to inquiries
+                 * later. Until then no group is linked to an inquiry, so the
+                 * button never shows for real data.
                  */}
-                {can(permissions.messagesView) ? (
+                {inquiry.conversation ? (
                     <Button
                         asChild
                         variant="default"
                         className="shrink-0 self-start"
                     >
-                        <Link href={messageIndex.url()}>
+                        <Link
+                            href={messageIndex.url({
+                                query: {
+                                    conversation: String(
+                                        inquiry.conversation.id,
+                                    ),
+                                },
+                            })}
+                        >
                             <MessageCircle aria-hidden />
                             Message the team
                         </Link>
@@ -860,80 +709,7 @@ const InquiryDetails = ({ inquiryId }: InquiryDetailsProps) => {
                                     new Date(inquiry.updatedAt),
                                 )}
                             </p>
-
-                            <div>
-                                <h3 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                                    Handled by
-                                </h3>
-                                {handlers.length > 0 ? (
-                                    <ul className="mt-2.5 space-y-3">
-                                        {handlers.map((handler) => (
-                                            <li
-                                                key={handler.id}
-                                                className="flex items-center gap-3"
-                                            >
-                                                <Avatar className="size-9 rounded-none">
-                                                    <AvatarFallback className="rounded-none bg-primary text-xs font-bold text-primary-foreground">
-                                                        {getInitials(
-                                                            handler.name,
-                                                        )}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-bold break-words">
-                                                        {handler.name}
-                                                    </p>
-                                                    <p className="text-xs break-words text-secondary-foreground">
-                                                        {handler.role}
-                                                    </p>
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="mt-2 text-sm text-secondary-foreground">
-                                        Not assigned yet
-                                    </p>
-                                )}
-                            </div>
                         </div>
-                    </DetailsCard>
-
-                    <DetailsCard title="Client" name="client">
-                        {client ? (
-                            <>
-                                <div className="flex items-center gap-3">
-                                    <Avatar className="size-11 rounded-none">
-                                        <AvatarFallback className="rounded-none bg-primary text-sm font-bold text-primary-foreground">
-                                            {getInitials(client.name)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <p className="min-w-0 text-sm font-bold break-words">
-                                        {client.name}
-                                    </p>
-                                </div>
-
-                                <ul className="mt-5 space-y-3 border-t border-sidebar-border pt-4">
-                                    <ContactRow
-                                        icon={Mail}
-                                        href={`mailto:${client.email}`}
-                                    >
-                                        {client.email}
-                                    </ContactRow>
-                                    <ContactRow
-                                        icon={Phone}
-                                        href={`tel:${dialNumber(client.phone)}`}
-                                    >
-                                        {client.phone}
-                                    </ContactRow>
-                                </ul>
-                            </>
-                        ) : (
-                            <p className="text-sm text-secondary-foreground">
-                                The client for this inquiry is no longer on
-                                file.
-                            </p>
-                        )}
                     </DetailsCard>
 
                     <DetailsCard

@@ -53,6 +53,14 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'savedStoneSlugs' => $savedStoneSlugs,
+            'realtime' => $user === null || config('broadcasting.default') !== 'reverb'
+                ? null
+                : [
+                    'key' => config('broadcasting.client.key'),
+                    'host' => config('broadcasting.client.host') ?: null,
+                    'port' => config('broadcasting.client.port') ? (int) config('broadcasting.client.port') : null,
+                    'scheme' => config('broadcasting.client.scheme') ?: null,
+                ],
         ];
     }
 }

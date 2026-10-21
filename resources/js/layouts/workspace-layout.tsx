@@ -40,13 +40,12 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { inquiries } from '@/data/inquiries';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
-import { index as homeIndex, stone as homeStone } from '@/routes/home';
+import { index as homeIndex } from '@/routes/home';
 import { logout } from '@/routes';
 import {
     index as inquiryIndex,
@@ -102,6 +101,8 @@ export const permissions = {
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
     scheduleCreate: 'schedule.create',
+    conversationsCreate: 'conversations.create',
+    supportClaim: 'support.claim',
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -464,7 +465,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         effectiveUrl.split('?')[0] === homeIndex.url() ||
         effectiveUrl.startsWith(`${homeIndex.url()}/`)
     ) {
-        crumbs.push({ label: 'Home', href: homeIndex.url() });
         const stone = (
             page.props.stone as
                 | { data: { slug: string; name: string } }
@@ -475,17 +475,19 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 | {
                       data: {
                           name: string;
-                          stone: { slug: string; name: string };
                       };
                   }
                 | undefined
         )?.data;
 
+        crumbs.push({
+            label: 'Home',
+            href: homeIndex.url(
+                project ? { query: { collection: 'projects' } } : undefined,
+            ),
+        });
+
         if (project) {
-            crumbs.push({
-                label: project.stone.name,
-                href: homeStone.url({ stone: project.stone.slug }),
-            });
             crumbs.push({ label: project.name });
         } else if (stone) {
             crumbs.push({ label: stone.name });
@@ -513,17 +515,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                           )?.data
                         : undefined;
 
-                // An inquiry is addressed by its id but read by its reference,
-                // the same way a stone segment shows the stone's name.
-                const inquiry =
-                    previousSegment === 'quote' || previousSegment === 'inquiry'
-                        ? inquiries.find((entry) => entry.id === segment)
-                        : undefined;
-
                 if (profile) {
                     crumbs.push({ label: profile.name });
-                } else if (inquiry) {
-                    crumbs.push({ label: inquiry.reference });
                 } else {
                     crumbs.push({
                         label:
@@ -639,7 +632,13 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                 <button
                                     type="button"
                                     className="group flex h-11 w-11 items-center justify-center rounded-md transition-opacity hover:opacity-80 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2"
-                                    aria-label="Account"
+                                    /*
+                                     * The initials are the button's visible
+                                     * text, so its name carries them too: a
+                                     * reader using speech input says what they
+                                     * see.
+                                     */
+                                    aria-label={`Account, ${initials}`}
                                 >
                                     <Avatar className="h-9 w-9 border border-border sm:size-9">
                                         <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">

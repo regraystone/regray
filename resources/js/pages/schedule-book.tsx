@@ -44,6 +44,10 @@ type BookingResult =
     | { status: 'error' }
     | null;
 
+// TODO(booking): when the client books a visit, post a schedule_card
+// (announced_status = status), and another on every later status change of the
+// booking. It goes to the inquiry's group chat when there is one, otherwise to
+// the client's Regray Team thread, as inquiry cards do (PostInquiryStatusCard).
 const submitBooking = async (_values: BookingFormValues): Promise<void> => {
     const delay = 1200 + Math.random() * 600;
     return new Promise((resolve, reject) => {

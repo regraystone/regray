@@ -31,7 +31,7 @@ function workspacePages(): array
 {
     return [
         'home.index' => [],
-        'home.project' => ['stone' => 'arctic-pink', 'project' => 'ginza-one'],
+        'home.show' => ['slug' => 'ginza-one'],
         'home.stone' => ['stone' => 'arctic-pink'],
         'overview.index' => [],
         'saved.index' => [],
@@ -41,8 +41,8 @@ function workspacePages(): array
         'inquiry.index' => [],
         'quote.inquire' => [],
         'inquiry.inquire' => [],
-        'quote.show' => ['inquiry' => 'inq-1048'],
-        'inquiry.show' => ['inquiry' => 'inq-1048'],
+        'quote.show' => ['reference' => 'INQ-1048'],
+        'inquiry.show' => ['reference' => 'INQ-1048'],
         'schedule.index' => [],
         'message.index' => [],
         'stones.index' => [],
@@ -75,6 +75,10 @@ function permissionGuardsFor(string $routeName): array
 {
     return collect(Route::getRoutes()->getByName($routeName)->gatherMiddleware())
         ->filter(fn (string $middleware) => Str::startsWith($middleware, ['can:', 'can_any:']))
+        // `can:view,conversation` asks a model policy about one record, not the
+        // Gate about a permission, so it is not a permission guard. Those
+        // routes still carry the permission guard of the page they sit under.
+        ->reject(fn (string $middleware) => Str::startsWith($middleware, 'can:') && str_contains($middleware, ','))
         ->map(fn (string $middleware) => Str::startsWith($middleware, 'can_any:')
             ? ['permissions' => explode(',', Str::after($middleware, 'can_any:')), 'alternatives' => true]
             : ['permissions' => [Str::after($middleware, 'can:')], 'alternatives' => false])
@@ -190,7 +194,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     expect(guardsFor($routeName))->toBe($permissions);
 })->with([
     ['home.index', [Permission::HomeView->value]],
-    ['home.project', [Permission::HomeProjectsView->value]],
+    ['home.show', [Permission::HomeStoneView->value, Permission::HomeProjectsView->value]],
     ['home.stone', [Permission::HomeStoneView->value]],
     ['overview.index', [Permission::OverviewView->value]],
     ['saved.index', [Permission::SavedView->value]],
@@ -200,7 +204,7 @@ test('each page is guarded by the permissions that name it', function (string $r
     ['inquiry.index', [Permission::InquiriesView->value]],
     ['quote.inquire', [Permission::QuotationsView->value, Permission::InquiriesCreate->value]],
     ['inquiry.inquire', [Permission::InquiriesView->value, Permission::InquiriesCreate->value]],
-    ['quote.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
+    ['quote.show', [Permission::QuotationsView->value]],
     ['inquiry.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
     ['schedule.index', [Permission::ScheduleView->value]],
     ['message.index', [Permission::MessagesView->value]],
@@ -237,7 +241,7 @@ test('no page route ships without a permission guard', function () {
     expect($unguarded)->toBe([]);
 });
 
-test('the details page is the only one guarded by alternatives', function () {
+test('the details pages guarded by alternatives are home.show and inquiry.show', function () {
     // A page reachable by either of two permissions is a deliberate exception,
     // not a default: `can_any` widens a guard rather than narrowing it, so
     // every route that adopts it has to say so here.
@@ -248,7 +252,7 @@ test('the details page is the only one guarded by alternatives', function () {
         ->values()
         ->all();
 
-    expect($alternatives)->toBe(['inquiry.show', 'quote.show']);
+    expect($alternatives)->toBe(['home.show', 'inquiry.show']);
 });
 
 test('every page permission a role is granted guards a page', function () {
@@ -271,13 +275,26 @@ test('every page permission a role is granted guards a page', function () {
 });
 
 test('each role can open exactly the pages its matrix entry grants', function (string $role) {
-    if (guardsAllow($role, 'home.project') || guardsAllow($role, 'home.stone')) {
+    if (guardsAllow($role, 'home.show') || guardsAllow($role, 'home.stone')) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 
     $user = User::factory()->role($role)->create();
 
+    // The details pages look an inquiry up by reference, scoped to the signed-in
+    // user, so the reader is given one of their own to open.
+    $reference = null;
+
+    if (guardsAllow($role, 'quote.show') || guardsAllow($role, 'inquiry.show')) {
+        seedInquiryCatalog();
+        $reference = makeInquiry($user)->reference;
+    }
+
     foreach (workspacePages() as $name => $parameters) {
+        if ($reference !== null && in_array($name, ['quote.show', 'inquiry.show'], true)) {
+            $parameters = ['reference' => $reference];
+        }
+
         $response = $this->actingAs($user)->get(route($name, $parameters));
 
         $response->assertStatus(guardsAllow($role, $name) ? 200 : 403);
@@ -422,28 +439,32 @@ test('the two schedule doors are given to roles that do not hold both', function
     Role::Logistics->value,
 ]);
 
-test('the details page opens for a reader of either list', function (string $routeName) {
-    // Client reads their inquiries on Quote and staff read them on Inquiry, and
-    // the guard is those two permissions joined as an "or", so holding either
-    // one is enough. Both URLs are tried for every role that reads either list,
-    // because there is no longer a permission saying which list a reader has
-    // to have come from.
+test('the details page opens, for the reader\'s own inquiry, to a reader of its list', function (string $routeName, array $permissions) {
+    // `quote.show` is the client's list and takes `quotations.view` alone;
+    // `inquiry.show` takes either list's permission. A page that is scoped to the
+    // signed-in user opens only for an inquiry that user sent, so each reader
+    // is given one of their own.
+    seedInquiryCatalog();
+
     $readers = collect(Role::names())
         ->reject(fn (string $role) => $role === Role::superAdmin()->value)
-        ->filter(fn (string $role) => array_intersect(
-            [Permission::InquiriesView->value, Permission::QuotationsView->value],
-            RolePermissionSeeder::MATRIX[$role],
-        ) !== [])
+        ->filter(fn (string $role) => array_intersect($permissions, RolePermissionSeeder::MATRIX[$role]) !== [])
         ->all();
 
     expect($readers)->not->toBeEmpty();
 
     foreach ($readers as $role) {
-        $this->actingAs(User::factory()->role($role)->create())
-            ->get(route($routeName, 'inq-1048'))
+        $user = User::factory()->role($role)->create();
+        $inquiry = makeInquiry($user);
+
+        $this->actingAs($user)
+            ->get(route($routeName, $inquiry->reference))
             ->assertOk();
     }
-})->with(['quote.show', 'inquiry.show']);
+})->with([
+    ['quote.show', [Permission::QuotationsView->value]],
+    ['inquiry.show', [Permission::InquiriesView->value, Permission::QuotationsView->value]],
+]);
 
 test('the details page is closed to a user who reads neither list', function (string $routeName) {
     // No role in the matrix is in this position: the permission was dropped
@@ -454,12 +475,12 @@ test('the details page is closed to a user who reads neither list', function (st
     $user->syncRoles([]);
 
     $this->actingAs($user)
-        ->get(route($routeName, 'inq-1048'))
+        ->get(route($routeName, 'INQ-1048'))
         ->assertForbidden();
 })->with(['quote.show', 'inquiry.show']);
 
 test('the stepper route is matched ahead of the details route under it', function (string $stepper, string $details) {
-    // `{inquiry}` is not constrained, so it matches any single segment and the
+    // `{reference}` is not constrained, so it matches any single segment and the
     // word `inquire` is one of them. Registration order is the only thing
     // keeping the stepper from being swallowed by the details page, and a later
     // edit to web.php could undo that without failing anything else.
@@ -493,6 +514,8 @@ test('the enum declares exactly the two action permissions', function () {
         Permission::InquiriesCreate->value,
         Permission::ScheduleCreate->value,
         Permission::SavedManage->value,
+        Permission::ConversationsCreate->value,
+        Permission::SupportClaim->value,
     ]);
 });
 
@@ -509,7 +532,7 @@ test('an allowed project profile page renders with its project', function () {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']))
+        ->get(route('home.show', 'ginza-one'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('project-profile')
@@ -552,7 +575,7 @@ test('a denied project profile is forbidden whatever project is asked for', func
 
     foreach (['ginza-one', 'no-such-project', 'belo-medical-group'] as $project) {
         $this->actingAs($user)
-            ->get(route('home.project', ['stone' => 'arctic-pink', 'project' => $project]))
+            ->get(route('home.show', $project))
             ->assertForbidden();
     }
 });

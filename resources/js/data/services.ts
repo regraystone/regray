@@ -134,27 +134,3 @@ export const serviceOptions: ServiceOption[] = [
         image: storageUrl('stones/ef03fcfd4ff0e6063df004f6b897fe7a.png'),
     },
 ];
-
-/**
- * The services that stand as a project of their own.
- *
- * Read off the catalogue's own `standalone` flag rather than written out as ids
- * here, so a service cannot be one thing to the flow and another to whatever
- * else lists them. A set rather than a list because the only question ever asked
- * of it is "is this one of them".
- */
-export const STANDALONE_SERVICE_IDS: ReadonlySet<string> = new Set(
-    serviceOptions
-        .filter((service) => service.standalone === true)
-        .map((service) => service.id),
-);
-
-/**
- * What a service is called, by its id.
- *
- * Falls back to the id rather than to nothing, because a service dropped from the
- * catalogue still has to be shown as something: the id is the record of what was
- * asked for, and a blank would say the reader had chosen nothing.
- */
-export const serviceName = (id: string): string =>
-    serviceOptions.find((service) => service.id === id)?.name ?? id;

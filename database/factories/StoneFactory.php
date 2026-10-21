@@ -11,6 +11,11 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class StoneFactory extends Factory
 {
+    public function configure(): static
+    {
+        return $this->afterCreating(fn (Stone $stone) => $stone->attachPrimaryFilterOptions());
+    }
+
     /**
      * Define the model's default state.
      *

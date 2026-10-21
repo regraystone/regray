@@ -24,10 +24,15 @@ export type ProjectProfile = {
     location: string;
     overview: string;
     thumbnail: string;
-    stone: { slug: string; name: string };
     categories: ProjectProfileCategory[];
     stones: ProjectProfileStone[];
     gallery: ProjectProfileImage[];
+};
+
+export type ProjectCardData = {
+    slug: string;
+    name: string;
+    thumbnail: string;
 };
 
 export type FilterOption = {
@@ -37,8 +42,9 @@ export type FilterOption = {
 
 export type FilterOptions = {
     categories: FilterOption[];
-    sizes: FilterOption[];
-    thicknesses: FilterOption[];
+    sizes?: FilterOption[];
+    thicknesses?: FilterOption[];
+    projectCategories?: FilterOption[];
 };
 
 export type Filters = {
@@ -46,11 +52,16 @@ export type Filters = {
     category: string | null;
     size: string | null;
     thickness: string | null;
+    projectCategory: string | null;
+    collection?: 'stones' | 'projects';
 };
 
 export type HomePageProps = {
-    stones: {
+    stones?: {
         data: StoneCardData[];
+    };
+    projects?: {
+        data: ProjectCardData[];
     };
     filters: Filters;
     filterOptions: FilterOptions;

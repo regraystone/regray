@@ -1,5 +1,5 @@
 ﻿import type { MouseEvent } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import FileUpload from '@/components/file-upload';
 import FormField, {
     chooseFromList,
@@ -10,7 +10,8 @@ import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LANDMARK_MAX, NOTES_MAX } from '@/data/inquiries';
-import { searchLocations, LOCATIONS } from '@/data/locations';
+import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
+import { searchLocations } from '@/lib/inquiry-catalog';
 import {
     todayIsoDate,
     type InquiryDraftInput,
@@ -109,11 +110,11 @@ const InquiryProjectDetails = ({
      */
     needsNeededByTime: boolean;
 }) => {
+    const { locations } = useInquiryCatalog();
     const {
         register,
         control,
         setValue,
-        watch,
         formState: { errors },
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
@@ -125,7 +126,12 @@ const InquiryProjectDetails = ({
      */
     const id = (field: string) => `requirements-${field}-${projectNumber}`;
 
-    const notes = watch('notes');
+    /*
+     * Subscribed with `useWatch` rather than read with `watch`: `watch` redraws
+     * the component that owns the form, not this one, so the counter below sat
+     * at zero while the reader typed.
+     */
+    const notes = useWatch({ control, name: 'notes' });
 
     const today = todayIsoDate();
 
@@ -166,8 +172,10 @@ const InquiryProjectDetails = ({
                                     id={id('location')}
                                     ref={field.ref}
                                     value={field.value}
-                                    options={LOCATIONS}
-                                    filter={searchLocations}
+                                    options={locations}
+                                    filter={(query) =>
+                                        searchLocations(locations, query)
+                                    }
                                     listLabel="Cities and municipalities"
                                     placeholder="Search a city or municipality"
                                     emptyMessage="No city or municipality matches that."

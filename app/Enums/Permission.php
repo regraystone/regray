@@ -80,13 +80,13 @@ enum Permission: string
     case HomeStoneView = 'home-stone.view';
 
     /**
-     * The project profile reached from an individual stone on Home.
+     * Published projects in the Home collection at `/home?collection=projects`.
      *
-     * A project is addressed by its place under a stone at
-     * `/home/{stone}/{project}`. It is a `view` permission, so it names a
-     * place, but like `ProfileScheduleView` it has no sidebar entry: the entry
-     * for the Home page belongs to `HomeView`, and holding this one is what lets
-     * a reader open a project highlight under a stone.
+     * A project can be addressed directly at `/home/{project}` or reached from a
+     * stone profile. It is a `view` permission, so it names a place, but like
+     * `ProfileScheduleView` it has no sidebar entry: the entry for the Home page
+     * belongs to `HomeView`, and holding this one is what lets a reader toggle to
+     * the projects collection and open individual project profiles.
      *
      * It is given to the client, who reads the portfolio, and to the
      * super-admin for consistency with the rest of the matrix even though
@@ -127,6 +127,20 @@ enum Permission: string
      * permission gates the write endpoints so a reader cannot write.
      */
     case SavedManage = 'saved.manage';
+
+    /**
+     * Starting a group chat from the Message page: a name, some staff and one
+     * client. An action permission, so it guards the endpoint and the "New
+     * group" button rather than a page.
+     */
+    case ConversationsCreate = 'conversations.create';
+
+    /**
+     * Being in the Regray Team pool: seeing every unassigned client thread and
+     * claiming one. Whoever claims a thread is the only staff member who may
+     * answer it until they release it.
+     */
+    case SupportClaim = 'support.claim';
 
     /**
      * The `can:` middleware string that guards a route with this permission.

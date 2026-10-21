@@ -31,6 +31,9 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, StoneImage> $images
  * @property-read StoneCategory $category
  * @property-read Collection<int, Project> $projects
+ * @property-read Collection<int, StoneCategory> $categories
+ * @property-read Collection<int, StoneSize> $sizes
+ * @property-read Collection<int, StoneThickness> $thicknesses
  */
 #[Fillable(['stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'recommended', 'is_active', 'sort_order'])]
 class Stone extends Model
@@ -72,6 +75,37 @@ class Stone extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(StoneCategory::class, 'stone_category_id');
+    }
+
+    /** @return BelongsToMany<StoneCategory, $this> */
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(StoneCategory::class, 'stone_stone_category');
+    }
+
+    /** @return BelongsToMany<StoneSize, $this> */
+    public function sizes(): BelongsToMany
+    {
+        return $this->belongsToMany(StoneSize::class, 'stone_stone_size');
+    }
+
+    /** @return BelongsToMany<StoneThickness, $this> */
+    public function thicknesses(): BelongsToMany
+    {
+        return $this->belongsToMany(StoneThickness::class, 'stone_stone_thickness');
+    }
+
+    /** Preserve legacy primary values when importing stones, without removing additional options. */
+    public function attachPrimaryFilterOptions(): void
+    {
+        $this->categories()->syncWithoutDetaching([$this->stone_category_id]);
+        $size = StoneSize::query()->firstOrCreate(['name' => $this->size], ['is_active' => true]);
+        $this->sizes()->syncWithoutDetaching([$size->id]);
+        $thicknessIds = StoneThickness::query()
+            ->where('min_mm', '<=', $this->thickness_mm)
+            ->where(fn (Builder $query) => $query->whereNull('max_mm')->orWhere('max_mm', '>=', $this->thickness_mm))
+            ->pluck('id');
+        $this->thicknesses()->syncWithoutDetaching($thicknessIds);
     }
 
     /** @return BelongsToMany<User, $this> */

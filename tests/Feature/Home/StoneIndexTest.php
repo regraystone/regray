@@ -36,6 +36,7 @@ test('no parameters returns the first page of active individual stones', functio
                 ->where('category', null)
                 ->where('size', null)
                 ->where('thickness', null)
+                ->where('collection', 'stones')
             )
             ->has('filterOptions.categories')
             ->has('filterOptions.sizes', 4)
@@ -319,7 +320,7 @@ test('invalid stone filters are removed while valid filters survive', function (
     [['page' => 0]],
 ]);
 
-test('filter options omit empty and inactive categories and sort sizes numerically', function (): void {
+test('filter options include empty categories and all sizes but omit inactive categories', function (): void {
     $empty = StoneCategory::factory()->create();
     StoneCategory::query()->where('slug', 'granite')->update(['is_active' => false]);
     Stone::factory()->create(['size' => '100x20']);
@@ -328,8 +329,8 @@ test('filter options omit empty and inactive categories and sort sizes numerical
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)->get(route('home.index'))->assertInertia(fn (Assert $page) => $page
-        ->where('filterOptions.categories', fn ($categories) => ! $categories->pluck('value')->contains($empty->slug) && ! $categories->pluck('value')->contains('granite'))
-        ->where('filterOptions.sizes', fn ($sizes) => $sizes->pluck('value')->all() === ['9x100', '20x120', '60x60', '60x120', '80x80', '100x20'])
+        ->where('filterOptions.categories', fn ($categories) => $categories->pluck('value')->contains($empty->slug) && ! $categories->pluck('value')->contains('granite'))
+        ->where('filterOptions.sizes', fn ($sizes) => $sizes->pluck('value')->all() === ['5x5', '9x100', '20x120', '60x60', '60x120', '80x80', '100x20'])
         ->where('filterOptions.thicknesses', [
             ['value' => '18-20', 'label' => '18-20 mm'],
             ['value' => '21-30', 'label' => '21-30 mm'],
@@ -338,10 +339,10 @@ test('filter options omit empty and inactive categories and sort sizes numerical
     );
 });
 
-test('a thickness bucket with no active stones is not offered', function (): void {
+test('a thickness option remains available with no active stones', function (): void {
     Stone::query()->where('thickness_mm', '>=', 31)->update(['is_active' => false]);
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)->get(route('home.index'))
-        ->assertInertia(fn (Assert $page) => $page->where('filterOptions.thicknesses', fn ($options) => ! $options->pluck('value')->contains('31-plus')));
+        ->assertInertia(fn (Assert $page) => $page->where('filterOptions.thicknesses', fn ($options) => $options->pluck('value')->contains('31-plus')));
 });

@@ -1,9 +1,13 @@
 <?php
 
 use App\Enums\Permission;
-use App\Http\Controllers\Home\ProjectController;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
+use App\Http\Controllers\Inquiry\InquiryController;
+use App\Http\Controllers\Message\MessageController;
+use App\Http\Controllers\Message\ThreadController;
+use App\Http\Controllers\Quote\InquiryDetailsController;
+use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
 use App\Http\Controllers\Saved\SavedStoneController;
@@ -30,18 +34,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
     /*
      * Home is the stone feed. Stone profiles and projects are guarded by their own
      * separate permissions: `home-stone.view` and `home-projects.view` respectively.
-     * A published project is read beneath a stone it uses; the repository checks that
-     * the stone is active and belongs to that project after permission. The parameters
-     * stay plain strings on purpose: the project and its stone are loaded in the
-     * repository after permission is settled. SubstituteBindings runs before `can:`,
-     * so binding a model would let a forbidden reader probe which slugs exist.
+     *
+     * The unified route /home/{slug} resolves in order:
+     * (a) an active stone with that slug → 403 unless user holds home-stone.view,
+     *     otherwise render the stone profile;
+     * (b) else a published project with that slug → 403 unless user holds home-projects.view,
+     *     otherwise render the project profile;
+     * (c) else 404.
+     * This resolves the slug after the coarse permission check so a forbidden reader
+     * cannot probe which slugs exist by examining error types.
+     *
+     * The parameters stay plain strings on purpose: the resource and its related data
+     * are loaded in the repository after permission is settled. SubstituteBindings runs
+     * before `can:`, so binding a model would let a forbidden reader probe which slugs exist.
      */
-    Route::get('home/{stone}', [HomeStoneProfileController::class, 'show'])
+    Route::get('home/{slug}', [HomeStoneProfileController::class, 'showFlat'])
+        ->middleware(Permission::anyOfMiddleware(Permission::HomeStoneView, Permission::HomeProjectsView))
+        ->where('slug', '[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+        ->name('home.show');
+
+    /*
+     * Legacy nested route: kept as a 301 redirect to the flat URL.
+     */
+    Route::get('home/{stone}/{project}', fn (string $stone, string $project) => redirect("/home/{$project}", 301))
+        ->where(['stone' => '[a-z0-9-]+', 'project' => '[a-z0-9-]+']);
+
+    /*
+     * Named route for Wayfinder stone profiles. Redirects to the flat route.
+     */
+    Route::get('home-stone/{stone}', [HomeStoneProfileController::class, 'show'])
         ->middleware(Permission::HomeStoneView->middleware())
         ->name('home.stone');
-    Route::get('home/{stone}/{project}', [ProjectController::class, 'show'])
-        ->middleware(Permission::HomeProjectsView->middleware())
-        ->name('home.project');
 
     Route::get('overview', [ViewController::class, 'overview'])
         ->middleware(Permission::OverviewView->middleware())
@@ -75,9 +98,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('sales', [ViewController::class, 'sales'])
         ->middleware(Permission::SalesView->middleware())
         ->name('sales.index');
-    Route::get('quote', [ViewController::class, 'quote'])
+    Route::get('quote', [QuoteController::class, 'index'])
         ->middleware(Permission::QuotationsView->middleware())
         ->name('quote.index');
+    Route::patch('quote/{reference}/cancel', [QuoteController::class, 'cancel'])
+        ->middleware(Permission::QuotationsView->middleware())
+        ->name('quote.cancel');
     Route::get('inquiry', [ViewController::class, 'inquiry'])
         ->middleware(Permission::InquiriesView->middleware())
         ->name('inquiry.index');
@@ -96,9 +122,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('quote/inquire', [ViewController::class, 'inquire'])
         ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('quote.inquire');
+    Route::post('quote/inquire', [InquiryController::class, 'store'])
+        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->name('quote.inquire.store');
     Route::get('inquiry/inquire', [ViewController::class, 'inquire'])
         ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('inquiry.inquire');
+    Route::post('inquiry/inquire', [InquiryController::class, 'store'])
+        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->name('inquiry.inquire.store');
 
     /*
      * The inquiry details page hangs off whichever list the user reads their
@@ -117,12 +149,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * TODO: the `where('inquiry', ...)` constraint was removed from both of
      * these on purpose. A route constraint only disambiguates routes: it is not
      * input validation and never produces a 404. Keep it off, and add no further
-     * `quote/...` or `inquiry/...` route below these two or `{inquiry}` takes it.
+     * `quote/...` or `inquiry/...` route below these two or `{reference}` takes it.
      */
-    Route::get('quote/{inquiry}', [ViewController::class, 'inquiryDetails'])
-        ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
+    Route::get('quote/{reference}', [InquiryDetailsController::class, 'show'])
+        ->middleware(Permission::QuotationsView->middleware())
         ->name('quote.show');
-    Route::get('inquiry/{inquiry}', [ViewController::class, 'inquiryDetails'])
+    Route::get('inquiry/{reference}', [InquiryDetailsController::class, 'show'])
         ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
         ->name('inquiry.show');
 
@@ -135,9 +167,52 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Permission::ScheduleCreate->middleware(),
         ])
         ->name('schedule.book');
-    Route::get('message', [ViewController::class, 'message'])
-        ->middleware(Permission::MessagesView->middleware())
-        ->name('message.index');
+    /*
+     * The Message page. Everything under it needs `messages.view`; the
+     * conversation routes then ask ConversationPolicy whether this user may
+     * read, write in or hand over that particular thread.
+     */
+    Route::middleware(Permission::MessagesView->middleware())->group(function () {
+        Route::get('message', [MessageController::class, 'index'])->name('message.index');
+
+        Route::get('message/people', [MessageController::class, 'people'])
+            ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
+            ->name('message.people');
+        Route::post('message/groups', [MessageController::class, 'storeGroup'])
+            ->middleware(Permission::ConversationsCreate->middleware())
+            ->name('message.groups.store');
+
+        Route::patch('message/messages/{message}', [ThreadController::class, 'update'])
+            ->whereNumber('message')
+            ->name('message.messages.update');
+        Route::delete('message/messages/{message}', [ThreadController::class, 'destroy'])
+            ->whereNumber('message')
+            ->name('message.messages.destroy');
+
+        Route::prefix('message/{conversation}')->whereNumber('conversation')->group(function () {
+            Route::get('messages', [ThreadController::class, 'messages'])
+                ->middleware('can:view,conversation')
+                ->name('message.thread');
+            Route::post('messages', [ThreadController::class, 'send'])
+                ->middleware(['can:send,conversation', 'throttle:messages'])
+                ->name('message.send');
+            Route::post('read', [ThreadController::class, 'pointer'])
+                ->middleware(['can:view,conversation', 'throttle:message-receipts'])
+                ->name('message.read');
+            Route::post('delivered', [ThreadController::class, 'pointer'])
+                ->middleware(['can:view,conversation', 'throttle:message-receipts'])
+                ->name('message.delivered');
+            Route::post('claim', [ThreadController::class, 'claim'])
+                ->middleware(['can:claim,conversation', 'throttle:message-assignment'])
+                ->name('message.claim');
+            Route::post('release', [ThreadController::class, 'release'])
+                ->middleware(['can:release,conversation', 'throttle:message-assignment'])
+                ->name('message.release');
+            Route::post('reassign', [ThreadController::class, 'reassign'])
+                ->middleware(['can:reassign,conversation', 'throttle:message-assignment'])
+                ->name('message.reassign');
+        });
+    });
     Route::get('stones', [ViewController::class, 'stones'])
         ->middleware(Permission::StonesView->middleware())
         ->name('stones.index');

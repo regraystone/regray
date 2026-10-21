@@ -14,6 +14,10 @@ type InquiryResultProps = {
      * the whole request is called everywhere else.
      */
     title: string;
+    /** The reference the backend gave the inquiry, shown on success. */
+    reference?: string;
+    /** What went wrong, in the backend's words, shown on error. */
+    message?: string;
     /** The chat is only offered to someone allowed to open it. */
     canChat: boolean;
     /**
@@ -47,6 +51,8 @@ type InquiryResultProps = {
 const InquiryResult = ({
     status,
     title,
+    reference,
+    message,
     canChat,
     inquiriesHref,
     onTryAgain,
@@ -83,7 +89,11 @@ const InquiryResult = ({
                */
               canChat ? (
                   <Button key="chat" asChild>
-                      <Link href={messageIndex.url()}>
+                      <Link
+                          href={messageIndex.url({
+                              query: { conversation: 'support' },
+                          })}
+                      >
                           <MessageCircle aria-hidden />
                           Message us
                       </Link>
@@ -152,6 +162,15 @@ const InquiryResult = ({
                     <p className="mt-2 max-w-sm text-sm text-foreground">
                         We&apos;ve received your request for {title}.
                     </p>
+                    {reference ? (
+                        <p className="mt-1 text-sm text-secondary-foreground">
+                            Your reference is{' '}
+                            <span className="font-bold text-foreground">
+                                {reference}
+                            </span>
+                            .
+                        </p>
+                    ) : null}
                 </>
             ) : (
                 <>
@@ -163,8 +182,13 @@ const InquiryResult = ({
                         We couldn&apos;t send your request
                     </h3>
                     <p className="mt-2 max-w-sm text-sm text-secondary-foreground">
-                        Something went wrong on our side. Your answers are still
-                        saved, so you can try again.
+                        {/*
+                         * The same sentence the server flashes when the save
+                         * itself fails, so the reader hears one promise
+                         * whichever side the failure was on.
+                         */}
+                        {message ??
+                            'We could not save your inquiry. Your answers are still here, so you can try again.'}
                     </p>
                 </>
             )}
