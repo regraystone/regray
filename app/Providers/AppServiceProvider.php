@@ -107,11 +107,25 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Sending a chat message: generous enough for a fast typist, low enough
-     * that a stuck retry loop cannot flood a thread.
+     * The Message page's limits, each counted per user (per IP for a guest,
+     * who is refused anyway):
+     * - `messages`, sending: generous enough for a fast typist, low enough
+     *   that a stuck retry loop cannot flood a thread.
+     * - `message-receipts`, read and delivered pointers: the page sends one
+     *   per incoming message and per thread opened, so this is the highest,
+     *   and only a loop reaches it.
+     * - `message-assignment`, claim, release and reassign: a person does these
+     *   a few times an hour.
+     * - `message-people`, the people search behind "New group": one request
+     *   per pause in typing.
      */
     protected function configureRateLimits(): void
     {
-        RateLimiter::for('messages', fn (Request $request) => Limit::perMinute(60)->by((string) ($request->user()->id ?? $request->ip())));
+        $perUser = fn (Request $request): string => (string) ($request->user()->id ?? $request->ip());
+
+        RateLimiter::for('messages', fn (Request $request) => Limit::perMinute(60)->by($perUser($request)));
+        RateLimiter::for('message-receipts', fn (Request $request) => Limit::perMinute(120)->by($perUser($request)));
+        RateLimiter::for('message-assignment', fn (Request $request) => Limit::perMinute(10)->by($perUser($request)));
+        RateLimiter::for('message-people', fn (Request $request) => Limit::perMinute(60)->by($perUser($request)));
     }
 }

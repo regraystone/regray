@@ -67,7 +67,7 @@ class ConversationResource extends JsonResource
             'id' => $this->id,
             'type' => $this->type->value,
             'name' => $this->displayName($isOwnSupport),
-            'avatar' => $isOwnSupport || ($this->isSupport() && $viewerIsClient) ? EloquentConversationRepository::SUPPORT_AVATAR : $this->avatar_path,
+            'avatar' => $this->avatar($viewerIsClient),
             'isSupport' => $this->isSupport(),
             'isOwnSupport' => $isOwnSupport,
             'unreadCount' => (int) ($this->getAttribute('unread_count') ?? 0),
@@ -85,6 +85,22 @@ class ConversationResource extends JsonResource
                 && $this->viewer->can(Permission::SupportClaim->value),
             'memberCount' => $this->type === ConversationType::Group ? $this->members->count() : null,
         ];
+    }
+
+    /**
+     * A client sees their Regray Team thread with the Regray logo. Staff see
+     * each client's thread as that client, under the client's name and with
+     * no picture, so the page draws the client's own initials and every
+     * client's thread is told apart at a glance rather than all wearing the
+     * same logo.
+     */
+    private function avatar(bool $viewerIsClient): ?string
+    {
+        if (! $this->isSupport()) {
+            return $this->avatar_path;
+        }
+
+        return $viewerIsClient ? EloquentConversationRepository::SUPPORT_AVATAR : null;
     }
 
     private function displayName(bool $isOwnSupport): string

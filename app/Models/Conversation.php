@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $support_client_id
  * @property int|null $assigned_to
  * @property Carbon|null $assigned_at
+ * @property int|null $pool_notified_message_id
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */

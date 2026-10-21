@@ -176,7 +176,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('message', [MessageController::class, 'index'])->name('message.index');
 
         Route::get('message/people', [MessageController::class, 'people'])
-            ->middleware(Permission::ConversationsCreate->middleware())
+            ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
             ->name('message.people');
         Route::post('message/groups', [MessageController::class, 'storeGroup'])
             ->middleware(Permission::ConversationsCreate->middleware())
@@ -197,19 +197,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware(['can:send,conversation', 'throttle:messages'])
                 ->name('message.send');
             Route::post('read', [ThreadController::class, 'pointer'])
-                ->middleware('can:view,conversation')
+                ->middleware(['can:view,conversation', 'throttle:message-receipts'])
                 ->name('message.read');
             Route::post('delivered', [ThreadController::class, 'pointer'])
-                ->middleware('can:view,conversation')
+                ->middleware(['can:view,conversation', 'throttle:message-receipts'])
                 ->name('message.delivered');
             Route::post('claim', [ThreadController::class, 'claim'])
-                ->middleware('can:claim,conversation')
+                ->middleware(['can:claim,conversation', 'throttle:message-assignment'])
                 ->name('message.claim');
             Route::post('release', [ThreadController::class, 'release'])
-                ->middleware('can:release,conversation')
+                ->middleware(['can:release,conversation', 'throttle:message-assignment'])
                 ->name('message.release');
             Route::post('reassign', [ThreadController::class, 'reassign'])
-                ->middleware('can:reassign,conversation')
+                ->middleware(['can:reassign,conversation', 'throttle:message-assignment'])
                 ->name('message.reassign');
         });
     });
