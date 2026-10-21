@@ -94,6 +94,16 @@ class StoneSeeder extends Seeder
             $finishes[$name] = $finish;
         }
 
+        /*
+         * The "advise me" answer, last in the list. It is offered on the Inquire
+         * page beside the real finishes and never shown on a stone's profile,
+         * which leaves advisory finishes out.
+         */
+        Finish::query()->updateOrCreate(
+            ['name' => 'Not sure yet, advise me'],
+            ['is_active' => true, 'is_advisory' => true, 'sort_order' => count($finishes)]
+        );
+
         $careNames = array_unique($data['care']);
         $careTips = [];
         foreach ($careNames as $tip) {

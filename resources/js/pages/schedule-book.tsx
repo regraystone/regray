@@ -44,6 +44,9 @@ type BookingResult =
     | { status: 'error' }
     | null;
 
+// TODO(booking): when the client books a visit, post a schedule_card
+// (announced_status = status) to the inquiry's group chat. Every later status
+// change of the booking posts another one.
 const submitBooking = async (_values: BookingFormValues): Promise<void> => {
     const delay = 1200 + Math.random() * 600;
     return new Promise((resolve, reject) => {

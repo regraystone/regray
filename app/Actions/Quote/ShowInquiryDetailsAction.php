@@ -12,8 +12,16 @@ class ShowInquiryDetailsAction
         public readonly InquiryDetailsService $inquiryDetailsService,
     ) {}
 
-    public function execute(User $client, string $reference): Inquiry
+    /**
+     * @return array{inquiry: Inquiry, conversation: array{id: int, name: string}|null}
+     */
+    public function execute(User $client, string $reference): array
     {
-        return $this->inquiryDetailsService->forClient($client, $reference);
+        $inquiry = $this->inquiryDetailsService->forClient($client, $reference);
+
+        return [
+            'inquiry' => $inquiry,
+            'conversation' => $this->inquiryDetailsService->conversationFor($client, $inquiry),
+        ];
     }
 }

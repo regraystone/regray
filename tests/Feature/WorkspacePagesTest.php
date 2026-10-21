@@ -75,6 +75,10 @@ function permissionGuardsFor(string $routeName): array
 {
     return collect(Route::getRoutes()->getByName($routeName)->gatherMiddleware())
         ->filter(fn (string $middleware) => Str::startsWith($middleware, ['can:', 'can_any:']))
+        // `can:view,conversation` asks a model policy about one record, not the
+        // Gate about a permission, so it is not a permission guard. Those
+        // routes still carry the permission guard of the page they sit under.
+        ->reject(fn (string $middleware) => Str::startsWith($middleware, 'can:') && str_contains($middleware, ','))
         ->map(fn (string $middleware) => Str::startsWith($middleware, 'can_any:')
             ? ['permissions' => explode(',', Str::after($middleware, 'can_any:')), 'alternatives' => true]
             : ['permissions' => [Str::after($middleware, 'can:')], 'alternatives' => false])
@@ -510,6 +514,8 @@ test('the enum declares exactly the two action permissions', function () {
         Permission::InquiriesCreate->value,
         Permission::ScheduleCreate->value,
         Permission::SavedManage->value,
+        Permission::ConversationsCreate->value,
+        Permission::SupportClaim->value,
     ]);
 });
 

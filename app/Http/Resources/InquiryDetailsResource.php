@@ -19,8 +19,26 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class InquiryDetailsResource extends JsonResource
 {
+    /** @var array{id: int, name: string}|null */
+    private ?array $conversationLink = null;
+
     /**
-     * @return array{reference: string, status: string, createdAt: string, updatedAt: string, services: list<string>, statusHistory: list<array{status: string, at: string}>, projects: list<array<string, mixed>>}
+     * The inquiry's group chat, when the viewer is in it.
+     *
+     * TODO(inquiry-binding): groups will be bound to inquiries later. Until
+     * then no group is linked to an inquiry, so this is always null.
+     *
+     * @param  array{id: int, name: string}|null  $conversation
+     */
+    public function withConversation(?array $conversation): static
+    {
+        $this->conversationLink = $conversation;
+
+        return $this;
+    }
+
+    /**
+     * @return array{reference: string, status: string, createdAt: string, updatedAt: string, services: list<string>, statusHistory: list<array{status: string, at: string}>, projects: list<array<string, mixed>>, conversation: array{id: int, name: string}|null}
      */
     public function toArray(Request $request): array
     {
@@ -43,6 +61,7 @@ class InquiryDetailsResource extends JsonResource
                 'at' => $change->changed_at->toIso8601String(),
             ])->all()),
             'projects' => array_values($this->projects->map(fn (InquiryProject $project): array => $this->project($project))->all()),
+            'conversation' => $this->conversationLink,
         ];
     }
 

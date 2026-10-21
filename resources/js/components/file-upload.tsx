@@ -414,11 +414,18 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                 </span>
             </button>
 
+            {/*
+             * Named for whoever reaches it, and out of the tab order: the
+             * button above is the way in by keyboard, so a second stop on the
+             * same action would only be a stop with nothing new to say.
+             */}
             <input
                 ref={inputRef}
                 type="file"
                 multiple
                 accept={ACCEPT}
+                aria-label="Attach files"
+                tabIndex={-1}
                 className="sr-only"
                 onChange={handlePick}
             />

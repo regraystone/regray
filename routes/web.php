@@ -4,6 +4,8 @@ use App\Enums\Permission;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\Inquiry\InquiryController;
+use App\Http\Controllers\Message\MessageController;
+use App\Http\Controllers\Message\ThreadController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
@@ -165,9 +167,52 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Permission::ScheduleCreate->middleware(),
         ])
         ->name('schedule.book');
-    Route::get('message', [ViewController::class, 'message'])
-        ->middleware(Permission::MessagesView->middleware())
-        ->name('message.index');
+    /*
+     * The Message page. Everything under it needs `messages.view`; the
+     * conversation routes then ask ConversationPolicy whether this user may
+     * read, write in or hand over that particular thread.
+     */
+    Route::middleware(Permission::MessagesView->middleware())->group(function () {
+        Route::get('message', [MessageController::class, 'index'])->name('message.index');
+
+        Route::get('message/people', [MessageController::class, 'people'])
+            ->middleware(Permission::ConversationsCreate->middleware())
+            ->name('message.people');
+        Route::post('message/groups', [MessageController::class, 'storeGroup'])
+            ->middleware(Permission::ConversationsCreate->middleware())
+            ->name('message.groups.store');
+
+        Route::patch('message/messages/{message}', [ThreadController::class, 'update'])
+            ->whereNumber('message')
+            ->name('message.messages.update');
+        Route::delete('message/messages/{message}', [ThreadController::class, 'destroy'])
+            ->whereNumber('message')
+            ->name('message.messages.destroy');
+
+        Route::prefix('message/{conversation}')->whereNumber('conversation')->group(function () {
+            Route::get('messages', [ThreadController::class, 'messages'])
+                ->middleware('can:view,conversation')
+                ->name('message.thread');
+            Route::post('messages', [ThreadController::class, 'send'])
+                ->middleware(['can:send,conversation', 'throttle:messages'])
+                ->name('message.send');
+            Route::post('read', [ThreadController::class, 'pointer'])
+                ->middleware('can:view,conversation')
+                ->name('message.read');
+            Route::post('delivered', [ThreadController::class, 'pointer'])
+                ->middleware('can:view,conversation')
+                ->name('message.delivered');
+            Route::post('claim', [ThreadController::class, 'claim'])
+                ->middleware('can:claim,conversation')
+                ->name('message.claim');
+            Route::post('release', [ThreadController::class, 'release'])
+                ->middleware('can:release,conversation')
+                ->name('message.release');
+            Route::post('reassign', [ThreadController::class, 'reassign'])
+                ->middleware('can:reassign,conversation')
+                ->name('message.reassign');
+        });
+    });
     Route::get('stones', [ViewController::class, 'stones'])
         ->middleware(Permission::StonesView->middleware())
         ->name('stones.index');

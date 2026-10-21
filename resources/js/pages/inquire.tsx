@@ -154,6 +154,10 @@ type SendOutcome =
  * Multipart because the attachments are `File` objects. The promise settles on
  * whichever callback fires first; `onFinish` is the net under the other two, for
  * the failures that run neither.
+ *
+ * `onHttpException` returns false so a server error is answered by the page's
+ * own result panel, which keeps the answers and offers a retry, rather than by
+ * Inertia's dialog of the raw response laid over it.
  */
 const sendInquiryRequest = (
     url: string,
@@ -174,6 +178,7 @@ const sendInquiryRequest = (
                     kind: 'invalid',
                     errors: errors as Record<string, string>,
                 }),
+            onHttpException: () => false,
             onFinish: () => resolve({ kind: 'failed' }),
         });
     });
@@ -1944,10 +1949,15 @@ const InquireFlow = () => {
                                      * Continue does next is decided by what has
                                      * been picked here rather than by where the
                                      * reader came from.
+                                     *
+                                     * Disabled until a service is picked: every
+                                     * inquiry starts from one, and the count
+                                     * beside it already says how many are.
                                      */}
                                     <Button
                                         type="button"
                                         onClick={continueFromServices}
+                                        disabled={!hasServices}
                                         className="w-full sm:w-auto"
                                     >
                                         Continue

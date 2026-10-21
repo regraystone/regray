@@ -1,14 +1,21 @@
 <?php
 
+use App\Enums\ConversationMemberRole;
+use App\Enums\ConversationType;
 use App\Enums\InquiryStatus;
+use App\Enums\MessageType;
 use App\Enums\Role;
+use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\Message;
 use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
+use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
+use App\Services\Message\SupportConversationService;
 use Database\Seeders\EdgeProfileSeeder;
 use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\RolePermissionSeeder;
@@ -217,4 +224,55 @@ function expectedAction(?array $expectation): array
         'enabled' => $expectation[0],
         ...($expectation[0] ? [] : ['reason' => $expectation[1]]),
     ];
+}
+
+/**
+ * A member of staff for the Message tests. Marketing holds the support pool's
+ * `support.claim`; sales holds neither it nor `conversations.create`.
+ */
+function messagingStaff(Role $role = Role::Marketing, string $name = 'Staff'): User
+{
+    return User::factory()->role($role)->create(['name' => $name]);
+}
+
+/** The client's Regray Team thread, as registration creates it. */
+function supportThreadFor(User $client): Conversation
+{
+    return app(SupportConversationService::class)->ensureFor($client);
+}
+
+/**
+ * A group conversation with `$members` in it, each a member unless `$roles`
+ * names another role for their id. `$attributes` may bind it to an inquiry.
+ *
+ * @param  list<User>  $members
+ * @param  array<int, ConversationMemberRole>  $roles
+ * @param  array<string, mixed>  $attributes
+ */
+function groupConversation(array $members, array $roles = [], array $attributes = []): Conversation
+{
+    $conversation = Conversation::query()->create([
+        'type' => ConversationType::Group,
+        'name' => 'Kitchen project',
+        'created_by' => $members[0]->id,
+        ...$attributes,
+    ]);
+
+    foreach ($members as $member) {
+        app(ConversationMemberRepositoryInterface::class)
+            ->upsert($conversation->id, $member->id, $roles[$member->id] ?? ConversationMemberRole::Member);
+    }
+
+    return $conversation;
+}
+
+/** A text message written straight to the database, without the send rules. */
+function textMessage(Conversation $conversation, User $sender, string $body = 'Hello'): Message
+{
+    return Message::query()->create([
+        'conversation_id' => $conversation->id,
+        'sender_id' => $sender->id,
+        'type' => MessageType::Text,
+        'body' => $body,
+    ]);
 }

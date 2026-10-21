@@ -659,16 +659,28 @@ const InquiryDetails = () => {
 
                 {/*
                  * Read-only page: the only thing it offers is a way to ask a
-                 * question, and a reader with no message page has nothing to ask
-                 * it on.
+                 * question, and only where there is a group chat for this
+                 * inquiry that the reader is in.
+                 *
+                 * TODO(inquiry-binding): groups will be bound to inquiries
+                 * later. Until then no group is linked to an inquiry, so the
+                 * button never shows for real data.
                  */}
-                {can(permissions.messagesView) ? (
+                {inquiry.conversation ? (
                     <Button
                         asChild
                         variant="default"
                         className="shrink-0 self-start"
                     >
-                        <Link href={messageIndex.url()}>
+                        <Link
+                            href={messageIndex.url({
+                                query: {
+                                    conversation: String(
+                                        inquiry.conversation.id,
+                                    ),
+                                },
+                            })}
+                        >
                             <MessageCircle aria-hidden />
                             Message the team
                         </Link>

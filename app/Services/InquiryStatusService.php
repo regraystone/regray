@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\InquiryStatus;
+use App\Events\InquiryStatusChanged;
 use App\Models\Inquiry;
 use App\Models\User;
 use App\Policies\InquiryActions;
@@ -11,6 +12,14 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Every change to an inquiry's status goes through transition(), which writes
+ * the status, its history row and the InquiryStatusChanged event together.
+ *
+ * TODO(inquiry-binding): groups will be bound to inquiries later. Until then no
+ * group is linked to an inquiry, so the inquiry card the event posts (R9) does
+ * nothing for real data.
+ */
 class InquiryStatusService
 {
     public function __construct(
@@ -43,11 +52,26 @@ class InquiryStatusService
             ]);
         }
 
+        return $this->transition($inquiry, InquiryStatus::Cancelled, $client);
+    }
+
+    /**
+     * Move an inquiry to a new status: the status and when it changed, a history
+     * row saying who changed it, and the event that posts the status card into
+     * the inquiry's group chat once the transaction commits.
+     *
+     * Expects the inquiry to be locked already, by whoever decided the change
+     * is allowed.
+     */
+    public function transition(Inquiry $inquiry, InquiryStatus $to, ?User $by): Inquiry
+    {
         $from = $inquiry->status;
         $now = Date::now();
 
-        $this->inquiryRepository->updateStatus($inquiry, InquiryStatus::Cancelled, $now);
-        $this->inquiryRepository->createStatusHistory($inquiry, $from, InquiryStatus::Cancelled, $client->id, $now);
+        $this->inquiryRepository->updateStatus($inquiry, $to, $now);
+        $this->inquiryRepository->createStatusHistory($inquiry, $from, $to, $by?->id, $now);
+
+        event(new InquiryStatusChanged($inquiry, $from, $to, $by?->id));
 
         return $inquiry;
     }

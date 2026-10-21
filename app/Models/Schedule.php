@@ -25,6 +25,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $cancel_reason
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ *
+ * TODO(booking): the booking flow is being rebuilt. Wherever a booking changes
+ * status, post a schedule_card (announced_status = the new status) to the
+ * inquiry's group chat, the way PostInquiryStatusCard does for inquiries.
  */
 #[Fillable(['booked_by', 'booked_by_type', 'inquiry_id', 'title', 'arrival_at', 'status', 'notes', 'approved_by', 'approved_at', 'cancelled_at', 'cancel_reason'])]
 class Schedule extends Model

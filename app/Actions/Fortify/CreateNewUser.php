@@ -6,6 +6,7 @@ use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Enums\Role as RoleEnum;
 use App\Models\User;
+use App\Services\Message\SupportConversationService;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
@@ -38,6 +39,10 @@ class CreateNewUser implements CreatesNewUsers
         // to a user the app did not already know about, and it grants only the
         // default: nothing a visitor fills in a form can reach an admin page.
         $user->assignRole(Role::findOrCreate(RoleEnum::Client->value, RolePermissionSeeder::GUARD));
+
+        // Every client has one Regray Team thread from the start, so Message
+        // opens on it rather than on an empty list.
+        app(SupportConversationService::class)->ensureFor($user);
 
         return $user;
     }

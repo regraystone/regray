@@ -30,6 +30,8 @@ export type QuoteInquiryDetails = {
     updatedAt: string;
     services: string[];
     statusHistory: Array<{ status: QuoteStatus; at: string }>;
+    /** The inquiry's group chat, only when the viewer is in it. */
+    conversation: { id: number; name: string } | null;
     projects: Array<{
         id: string;
         name: string;

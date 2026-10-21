@@ -3,10 +3,11 @@ import type { InquiryCatalog, InquirePageProps } from '@/types/inquiry';
 /**
  * The answer a stone picked as extra information is given for its edge or finish.
  *
- * The "advise me" option when the database has one. Finishes have none today, so
- * without a fallback the stones picked for a visit were left with a blank finish,
- * which the draft check refused on a form that has no field to show it on — the
- * visit could not be added. The first option stands in until one exists.
+ * The "advise me" option when the database has one, which StoneSeeder and
+ * EdgeProfileSeeder both write. Without one, the stones picked for a visit
+ * were left with a blank answer, which the draft check refused on a form that
+ * has no field to show it on — the visit could not be added. So the first
+ * option still stands in when a list has no advisory entry.
  */
 const placeholderAnswer = (
     options: Array<{ name: string; isAdvisory: boolean }>,

@@ -129,6 +129,20 @@ enum Permission: string
     case SavedManage = 'saved.manage';
 
     /**
+     * Starting a group chat from the Message page: a name, some staff and one
+     * client. An action permission, so it guards the endpoint and the "New
+     * group" button rather than a page.
+     */
+    case ConversationsCreate = 'conversations.create';
+
+    /**
+     * Being in the Regray Team pool: seeing every unassigned client thread and
+     * claiming one. Whoever claims a thread is the only staff member who may
+     * answer it until they release it.
+     */
+    case SupportClaim = 'support.claim';
+
+    /**
      * The `can:` middleware string that guards a route with this permission.
      *
      * Laravel hands middleware its parameters as strings, so a route cannot

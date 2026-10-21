@@ -1,5 +1,5 @@
 ﻿import type { MouseEvent } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import FileUpload from '@/components/file-upload';
 import FormField, {
     chooseFromList,
@@ -115,7 +115,6 @@ const InquiryProjectDetails = ({
         register,
         control,
         setValue,
-        watch,
         formState: { errors },
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
@@ -127,7 +126,12 @@ const InquiryProjectDetails = ({
      */
     const id = (field: string) => `requirements-${field}-${projectNumber}`;
 
-    const notes = watch('notes');
+    /*
+     * Subscribed with `useWatch` rather than read with `watch`: `watch` redraws
+     * the component that owns the form, not this one, so the counter below sat
+     * at zero while the reader typed.
+     */
+    const notes = useWatch({ control, name: 'notes' });
 
     const today = todayIsoDate();
 
