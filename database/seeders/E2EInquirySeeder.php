@@ -57,7 +57,7 @@ class E2EInquirySeeder extends Seeder
             'clientBId' => $clientB->id,
             'retiredService' => self::RETIRED_SERVICE,
             'disk' => config('inquiry.disk'),
-        ], JSON_PRETTY_PRINT));
+        ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     }
 
     private function user(string $email, string $name, bool $verified = true): User

@@ -81,7 +81,7 @@ class E2EMessageSeeder extends Seeder
         $this->seedBoundInquiries($cardClient, $sales);
 
         File::ensureDirectoryExists(storage_path('app/e2e'));
-        File::put(storage_path('app/e2e/message-fixtures.json'), json_encode($this->fixtures, JSON_PRETTY_PRINT));
+        File::put(storage_path('app/e2e/message-fixtures.json'), json_encode($this->fixtures, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     }
 
     private function user(string $email, string $name, Role $role): User
