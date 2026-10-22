@@ -20,6 +20,7 @@ class EloquentMessageRepository implements MessageRepositoryInterface
      */
     private const DISPLAY_RELATIONS = [
         'sender:id,name',
+        'attachments:id,message_id,original_name,mime_type,size_bytes',
         'systemUser:id,name',
         'replyTo:id,conversation_id,sender_id,type,body,deleted_at',
         'replyTo.sender:id,name',
@@ -82,6 +83,13 @@ class EloquentMessageRepository implements MessageRepositoryInterface
             'created_at' => Date::now(),
             ...$attributes,
         ]);
+    }
+
+    public function addAttachments(Message $message, array $files): void
+    {
+        foreach ($files as $file) {
+            $message->attachments()->create($file);
+        }
     }
 
     public function updateBody(Message $message, string $body, CarbonInterface $editedAt): Message

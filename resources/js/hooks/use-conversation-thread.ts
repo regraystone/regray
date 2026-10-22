@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEcho, onReconnect } from '@/lib/echo';
+import { ATTACHMENT_SNIPPET } from '@/lib/message-attachments';
 import {
     ApiError,
     claimConversation,
@@ -364,11 +365,15 @@ export function useConversationThread(
             }
 
             try {
-                const { message } = await sendMessage(conversationId, {
-                    body: pending.body,
-                    replyToId,
-                    clientKey: pending.clientKey,
-                });
+                const { message } = await sendMessage(
+                    conversationId,
+                    {
+                        body: pending.body,
+                        replyToId,
+                        clientKey: pending.clientKey,
+                    },
+                    pending.files,
+                );
 
                 setState((previous) => ({
                     ...previous,
@@ -400,17 +405,18 @@ export function useConversationThread(
 
     /** Send optimistically: the bubble shows at once and settles when the server answers. */
     const send = useCallback(
-        (body: string, replyTo: ChatMessage | null) => {
+        (body: string, replyTo: ChatMessage | null, files: File[] = []) => {
             const pending: PendingMessage = {
                 clientKey: newClientKey(),
                 body,
+                files,
                 replyTo:
                     replyTo === null
                         ? null
                         : {
                               id: replyTo.id,
                               senderName: replyTo.sender?.name ?? null,
-                              snippet: replyTo.body,
+                              snippet: replyTo.body || ATTACHMENT_SNIPPET,
                               isRemoved: replyTo.isRemoved,
                           },
                 createdAt: new Date().toISOString(),

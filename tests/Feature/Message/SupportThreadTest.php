@@ -209,7 +209,7 @@ it('lets the client write whether or not anyone is handling the thread', functio
     $this->actingAs(messagingStaff(Role::Marketing))->postJson(route('message.claim', $thread))->assertOk();
     $this->actingAs($client)->postJson(route('message.send', $thread), sendPayload('After'))->assertCreated();
 
-    expect(Message::query()->where('type', MessageType::Text)->pluck('body')->all())->toBe(['Before', 'After']);
+    expect(Message::query()->where('type', MessageType::Text)->orderBy('id')->pluck('body')->all())->toBe(['Before', 'After']);
 });
 
 it('lets the assignee write once they have claimed the thread', function (): void {

@@ -39,12 +39,14 @@ export class ApiError extends Error {
     }
 }
 
+/** JSON, or FormData when files go with it (the browser sets that type). */
 const request = async <T>(
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     url: string,
     body?: unknown,
 ): Promise<T> => {
     const socketId = currentSocketId();
+    const isForm = body instanceof FormData;
     const response = await fetch(url, {
         method,
         credentials: 'same-origin',
@@ -52,12 +54,14 @@ const request = async <T>(
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
             'X-XSRF-TOKEN': readXsrfToken(),
-            ...(body === undefined
+            ...(body === undefined || isForm
                 ? {}
                 : { 'Content-Type': 'application/json' }),
             ...(socketId ? { 'X-Socket-ID': socketId } : {}),
         },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(body === undefined
+            ? {}
+            : { body: isForm ? body : JSON.stringify(body) }),
     });
 
     if (!response.ok) {
@@ -94,8 +98,24 @@ export const fetchThread = (
 export const sendMessage = (
     conversationId: number,
     payload: { body: string; replyToId: number | null; clientKey: string },
-): Promise<{ message: ChatMessage }> =>
-    request('POST', sendRoute.url(conversationId), payload);
+    files: File[] = [],
+): Promise<{ message: ChatMessage }> => {
+    if (files.length === 0) {
+        return request('POST', sendRoute.url(conversationId), payload);
+    }
+
+    const form = new FormData();
+    form.append('body', payload.body);
+    form.append('clientKey', payload.clientKey);
+
+    if (payload.replyToId !== null) {
+        form.append('replyToId', String(payload.replyToId));
+    }
+
+    files.forEach((file) => form.append('attachments[]', file));
+
+    return request('POST', sendRoute.url(conversationId), form);
+};
 
 export const editMessage = (
     messageId: number,

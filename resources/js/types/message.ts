@@ -67,6 +67,16 @@ export type ScheduleCard = {
 
 export type SystemEventName = 'assigned' | 'released' | 'reassigned';
 
+/** A file sent with a message. `url` is the authorised download route. */
+export type ChatAttachment = {
+    id: number;
+    name: string;
+    mimeType: string;
+    size: number;
+    isImage: boolean;
+    url: string;
+};
+
 export type ChatMessage = {
     id: number;
     conversationId: number;
@@ -85,6 +95,8 @@ export type ChatMessage = {
     } | null;
     inquiryCard: InquiryCard | null;
     scheduleCard: ScheduleCard | null;
+    /** Empty for a removed message and for everything but text. */
+    attachments: ChatAttachment[];
     systemEvent: { event: SystemEventName; userName: string | null } | null;
 };
 
@@ -126,6 +138,8 @@ export type MessagePageProps = {
 export type PendingMessage = {
     clientKey: string;
     body: string;
+    /** Kept so a retry can send them again. */
+    files: File[];
     replyTo: ChatMessage['replyTo'];
     createdAt: string;
     state: 'sending' | 'failed';

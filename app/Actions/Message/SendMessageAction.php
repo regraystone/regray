@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\Message\MessageService;
+use Illuminate\Http\UploadedFile;
 
 class SendMessageAction
 {
@@ -14,10 +15,11 @@ class SendMessageAction
     ) {}
 
     /**
+     * @param  list<UploadedFile>  $files
      * @return array{message: Message, created: bool}
      */
-    public function execute(User $sender, Conversation $conversation, string $body, ?int $replyToId, string $clientKey): array
+    public function execute(User $sender, Conversation $conversation, string $body, ?int $replyToId, string $clientKey, array $files = []): array
     {
-        return $this->messageService->send($sender, $conversation, $body, $replyToId, $clientKey);
+        return $this->messageService->send($sender, $conversation, $body, $replyToId, $clientKey, $files);
     }
 }

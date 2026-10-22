@@ -4,6 +4,7 @@ use App\Enums\Permission;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\Inquiry\InquiryController;
+use App\Http\Controllers\Message\AttachmentController;
 use App\Http\Controllers\Message\MessageController;
 use App\Http\Controllers\Message\ThreadController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
@@ -188,6 +189,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('message/messages/{message}', [ThreadController::class, 'destroy'])
             ->whereNumber('message')
             ->name('message.messages.destroy');
+        Route::get('message/attachments/{attachment}', [AttachmentController::class, 'show'])
+            ->whereNumber('attachment')
+            ->middleware('throttle:message-attachments')
+            ->name('message.attachments.show');
 
         Route::prefix('message/{conversation}')->whereNumber('conversation')->group(function () {
             Route::get('messages', [ThreadController::class, 'messages'])

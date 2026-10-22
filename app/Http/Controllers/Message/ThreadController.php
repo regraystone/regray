@@ -57,7 +57,7 @@ class ThreadController extends Controller
     public function send(SendMessageRequest $request, Conversation $conversation): JsonResponse
     {
         $user = $request->user();
-        $result = $this->sendMessage->execute($user, $conversation, $request->body(), $request->replyToId(), $request->clientKey());
+        $result = $this->sendMessage->execute($user, $conversation, $request->body(), $request->replyToId(), $request->clientKey(), $request->attachments());
 
         return response()->json([
             'message' => (new MessageResource($result['message'], $conversation, $user))->resolve($request),

@@ -10,6 +10,7 @@ use App\Enums\SystemEvent;
 use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\Message;
+use App\Models\MessageAttachment;
 use App\Models\User;
 use App\Repositories\Eloquent\EloquentConversationRepository;
 use Carbon\CarbonImmutable;
@@ -162,7 +163,9 @@ class ConversationResource extends JsonResource
 
     private function textPreview(Message $message, bool $isOwnSupport): string
     {
-        $body = Str::limit(Str::squish((string) $message->body), self::PREVIEW_LENGTH);
+        $body = $message->body === '' && $message->relationLoaded('attachments')
+            ? $this->attachmentPreview($message)
+            : Str::limit(Str::squish((string) $message->body), self::PREVIEW_LENGTH);
 
         if ($message->sender_id === $this->viewer->id) {
             return "You: {$body}";
@@ -177,6 +180,16 @@ class ConversationResource extends JsonResource
         }
 
         return $body;
+    }
+
+    /** A message of files alone: "Sent a photo", "Sent 3 files". */
+    private function attachmentPreview(Message $message): string
+    {
+        $count = $message->attachments->count();
+        $photos = $message->attachments->every(fn (MessageAttachment $attachment): bool => str_starts_with($attachment->mime_type, 'image/'));
+        $noun = $photos ? 'photo' : 'file';
+
+        return $count === 1 ? "Sent a {$noun}" : "Sent {$count} ".Str::plural($noun);
     }
 
     private function systemPreview(Message $message): string

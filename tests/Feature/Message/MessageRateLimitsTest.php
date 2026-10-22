@@ -23,6 +23,7 @@ it('puts every Message endpoint that can be repeated behind its own limit', func
     ['message.release', 'message-assignment'],
     ['message.reassign', 'message-assignment'],
     ['message.people', 'message-people'],
+    ['message.attachments.show', 'message-attachments'],
 ]);
 
 it('answers the 11th claim in a minute with 429, and lets the user back in after it', function (): void {
