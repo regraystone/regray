@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\InquiryStatus;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
@@ -10,12 +11,18 @@ use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
+use App\Services\ScheduleService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
 class InquirySeeder extends Seeder
 {
-    public function run(): void
+    /**
+     * Each project is booked as its schedule through ScheduleService, the same
+     * path sending an inquiry takes, and a cancelled inquiry's visits are
+     * cancelled with it.
+     */
+    public function run(ScheduleService $scheduleService): void
     {
         $data = require database_path('seeders/data/inquiries.php');
 
@@ -64,13 +71,21 @@ class InquirySeeder extends Seeder
             }
 
             foreach ($inquiryData['projects'] as $projectSort => $projectData) {
+                $schedule = $scheduleService->createForInquiryProject(
+                    $inquiry,
+                    $clientUser,
+                    $projectData['name'],
+                    $projectData['location'],
+                    $projectData['deadline_date'],
+                    $projectData['deadline_time'],
+                );
+
                 $project = $inquiry->projects()->create([
                     'name' => $projectData['name'],
                     'location' => $projectData['location'],
                     'landmark' => $projectData['landmark'],
                     'area_sqm' => $projectData['area_sqm'],
-                    'deadline_date' => $projectData['deadline_date'],
-                    'deadline_time' => $projectData['deadline_time'],
+                    'schedule_id' => $schedule->id,
                     'notes' => $projectData['notes'],
                     'sort_order' => $projectSort,
                 ]);
@@ -125,6 +140,10 @@ class InquirySeeder extends Seeder
                     'changed_by' => $changedByUser->id,
                     'changed_at' => Carbon::parse($historyEntry['at']),
                 ]);
+            }
+
+            if ($inquiry->status === InquiryStatus::Cancelled) {
+                $scheduleService->cancelForInquiry($inquiry, $inquiry->status_changed_at);
             }
         }
 

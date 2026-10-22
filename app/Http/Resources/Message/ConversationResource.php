@@ -39,7 +39,7 @@ class ConversationResource extends JsonResource
 
     /** @var array<string, string> */
     private const SCHEDULE_HEADLINES = [
-        'requested' => 'Booking requested',
+        'pending' => 'Booking pending',
         'confirmed' => 'Booking approved',
         'completed' => 'Visit completed',
         'cancelled' => 'Booking cancelled',

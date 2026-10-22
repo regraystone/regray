@@ -143,6 +143,22 @@ export const deadlineDate = (page: Page): Locator =>
 export const deadlineTime = (page: Page): Locator =>
     page.getByLabel('Time of day');
 
+/**
+ * Every project needs a date: sending books it as a schedule. Only a visit
+ * shows the time field.
+ */
+export const answerDeadline = async (
+    page: Page,
+    date: string = futureDate(10),
+    time = '10:00',
+): Promise<void> => {
+    await deadlineDate(page).fill(date);
+
+    if ((await deadlineTime(page).count()) > 0) {
+        await deadlineTime(page).fill(time);
+    }
+};
+
 export type VisitAnswers = {
     service?: string;
     location?: string;
@@ -239,6 +255,7 @@ export const addStoneProject = async (
     }
 
     await chooseLocation(page, answers.location ?? 'Makati');
+    await answerDeadline(page);
 
     if (answers.landmark !== undefined) {
         await page.getByLabel('Landmark').fill(answers.landmark);

@@ -11,6 +11,7 @@ import {
     CATALOG,
     addStoneProject,
     addVisitProject,
+    answerDeadline,
     chooseLocation,
     continueButton,
     deadlineDate,
@@ -108,6 +109,7 @@ test('7 · a project of stone with two rows and two applications sends @layout',
         finish: CATALOG.finishes[1],
     });
     await chooseLocation(page, 'Makati');
+    await answerDeadline(page);
     await shot(page, name('4-requirements'), testInfo);
     await page.getByRole('button', { name: 'Add to inquiry' }).click();
 

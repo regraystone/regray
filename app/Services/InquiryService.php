@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * @phpstan-type ProjectInput array{name: string, service_ids: list<int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: ?string, deadline_time: ?string, notes: ?string, files: list<UploadedFile>}
+ * @phpstan-type ProjectInput array{name: string, service_ids: list<int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, files: list<UploadedFile>}
  */
 class InquiryService
 {
@@ -24,6 +24,7 @@ class InquiryService
 
     public function __construct(
         public readonly InquiryRepositoryInterface $inquiryRepository,
+        public readonly ScheduleService $scheduleService,
     ) {}
 
     /**
@@ -76,18 +77,30 @@ class InquiryService
     }
 
     /**
+     * Each project is booked as a visit first, and the project points at it:
+     * the deadline the client gave is that schedule's arrival. Both are written
+     * in the caller's transaction, so a failed inquiry leaves no schedule.
+     *
      * @param  ProjectInput  $project
      */
     private function addProject(Inquiry $inquiry, User $client, int $position, array $project, WrittenFiles $written): void
     {
+        $schedule = $this->scheduleService->createForInquiryProject(
+            $inquiry,
+            $client,
+            $project['name'],
+            $project['location'],
+            $project['deadline_date'],
+            $project['deadline_time'],
+        );
+
         $row = $this->inquiryRepository->addProject($inquiry, [
             'name' => $project['name'],
             'sort_order' => $position,
             'location' => $project['location'],
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
-            'deadline_date' => $project['deadline_date'],
-            'deadline_time' => $project['deadline_time'],
+            'schedule_id' => $schedule->id,
             'notes' => $project['notes'],
         ]);
 

@@ -96,7 +96,8 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
             ->assertOk()
             ->assertJsonPath('messages.0.type', MessageType::InquiryCard->value)
             ->assertJsonPath('messages.0.inquiryCard.reference', $reference)
-            ->assertJsonPath('messages.0.inquiryCard.title', 'Kitchen island')
+            ->assertJsonPath('messages.0.inquiryCard.projectCount', 1)
+            ->assertJsonMissingPath('messages.0.inquiryCard.title')
             ->assertJsonPath('messages.0.inquiryCard.announcedStatus', InquiryStatus::Pending->value);
     }
 

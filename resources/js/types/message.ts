@@ -35,7 +35,6 @@ export type InquiryStatus =
 
 export type InquiryCard = {
     reference: string;
-    title: string;
     projectCount: number;
     serviceCount: number;
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
@@ -46,7 +45,7 @@ export type InquiryCard = {
 };
 
 export type ScheduleStatus =
-    | 'requested'
+    | 'pending'
     | 'confirmed'
     | 'completed'
     | 'cancelled';

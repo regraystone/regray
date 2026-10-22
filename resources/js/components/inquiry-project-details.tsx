@@ -146,7 +146,7 @@ const InquiryProjectDetails = ({
             <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
                 {needsNeededByTime
                     ? 'Tell us where the work is and when you want it. This service needs a date and a time.'
-                    : 'Tell us where the work is. Only the location is needed.'}
+                    : 'Tell us where the work is and the day you want it.'}
             </p>
 
             <div className="mt-4 grid gap-5 md:grid-cols-2">
@@ -306,6 +306,7 @@ const InquiryProjectDetails = ({
                     <FormField
                         id={id('needed-by')}
                         label="Target deadline"
+                        required
                         error={errors.neededBy?.message}
                     >
                         {(accessibility) => (

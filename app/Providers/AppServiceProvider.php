@@ -12,6 +12,7 @@ use App\Repositories\Contracts\MessageRepositoryInterface;
 use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use App\Repositories\Contracts\SavedStoneRepositoryInterface;
+use App\Repositories\Contracts\ScheduleRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\Eloquent\EloquentConversationMemberRepository;
@@ -19,6 +20,7 @@ use App\Repositories\Eloquent\EloquentConversationRepository;
 use App\Repositories\Eloquent\EloquentInquiryCatalogRepository;
 use App\Repositories\Eloquent\EloquentInquiryRepository;
 use App\Repositories\Eloquent\EloquentMessageRepository;
+use App\Repositories\Eloquent\EloquentScheduleRepository;
 use App\Repositories\Eloquent\ProjectCategoryRepository;
 use App\Repositories\Eloquent\ProjectRepository;
 use App\Repositories\Eloquent\SavedStoneRepository;
@@ -51,6 +53,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ConversationRepositoryInterface::class, EloquentConversationRepository::class);
         $this->app->bind(ConversationMemberRepositoryInterface::class, EloquentConversationMemberRepository::class);
         $this->app->bind(MessageRepositoryInterface::class, EloquentMessageRepository::class);
+        $this->app->bind(ScheduleRepositoryInterface::class, EloquentScheduleRepository::class);
     }
 
     /**

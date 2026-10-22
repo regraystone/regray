@@ -16,14 +16,13 @@ return new class extends Migration
             $table->string('location', 255);
             $table->string('landmark', 150)->nullable();
             $table->decimal('area_sqm', 10, 2)->nullable();
-            $table->date('deadline_date')->nullable();
-            $table->time('deadline_time')->nullable();
+            // The schedule that holds the project's target deadline.
+            $table->foreignId('schedule_id')->nullable()->unique()->constrained()->nullOnDelete();
             $table->string('notes', 1000)->nullable();
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
             $table->unique(['inquiry_id', 'sort_order']);
-            $table->index('deadline_date');
         });
     }
 

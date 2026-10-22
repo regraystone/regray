@@ -12,7 +12,7 @@ export type CardInquiryStatus =
     | 'cancelled';
 
 export type CardScheduleStatus =
-    | 'requested'
+    | 'pending'
     | 'confirmed'
     | 'completed'
     | 'cancelled';
@@ -36,12 +36,9 @@ export const inquiryHeadline = (status: CardInquiryStatus): string =>
 const plural = (count: number, one: string, many: string): string =>
     `${count} ${count === 1 ? one : many}`;
 
-/** "2 projects · Inquiry No: INQ-1048" */
-export const inquirySubline = (
-    projectCount: number,
-    reference: string,
-): string =>
-    `${plural(projectCount, 'project', 'projects')} · Inquiry No: ${reference}`;
+/** "1 project", "2 projects" */
+export const projectCountText = (count: number): string =>
+    plural(count, 'project', 'projects');
 
 /** "1 service", "3 services", "0 services" */
 export const serviceCountText = (count: number): string =>
@@ -51,7 +48,7 @@ const SCHEDULE_HEADLINES: Record<
     CardScheduleStatus,
     Record<CardBookedByType, string>
 > = {
-    requested: { client: 'Booking requested', staff: 'Booking requested' },
+    pending: { client: 'Booking pending', staff: 'Booking pending' },
     confirmed: { client: 'Booking approved', staff: 'Visit booked' },
     completed: { client: 'Visit completed', staff: 'Visit completed' },
     cancelled: { client: 'Booking cancelled', staff: 'Booking cancelled' },

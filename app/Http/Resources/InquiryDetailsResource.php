@@ -7,6 +7,7 @@ use App\Models\InquiryFile;
 use App\Models\InquiryProject;
 use App\Models\InquiryProjectStone;
 use App\Models\InquiryStatusHistory;
+use App\Services\ScheduleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -66,10 +67,16 @@ class InquiryDetailsResource extends JsonResource
     }
 
     /**
+     * The target deadline is the arrival of the project's schedule, in the
+     * studio's zone, so it reads back as the date and time the client typed.
+     *
      * @return array<string, mixed>
      */
     private function project(InquiryProject $project): array
     {
+        $arrivalAt = $project->schedule?->arrival_at->setTimezone(ScheduleService::timezone());
+        $isVisit = $project->services->isNotEmpty() && $project->services->every(fn ($service): bool => $service->is_standalone);
+
         return [
             // A key for the page's list, not a database id.
             'id' => 'project-'.$project->sort_order,
@@ -91,8 +98,10 @@ class InquiryDetailsResource extends JsonResource
                 'location' => $project->location,
                 'landmark' => $project->landmark,
                 'areaSqm' => $project->area_sqm === null ? null : (float) $project->area_sqm,
-                'neededBy' => $project->deadline_date,
-                'neededByTime' => $project->deadline_time === null ? null : substr($project->deadline_time, 0, 5),
+                'neededBy' => $arrivalAt?->toDateString(),
+                // Only a visit asks for a time; any other project's schedule
+                // holds the default time, which the client never typed.
+                'neededByTime' => $isVisit ? $arrivalAt?->format('H:i') : null,
                 'notes' => $project->notes,
                 'attachments' => $project->files->values()->map(fn (InquiryFile $file, int $position): array => [
                     'id' => 'file-'.($position + 1),

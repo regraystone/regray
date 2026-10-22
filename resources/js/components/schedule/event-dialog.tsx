@@ -8,7 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { ScheduleItem } from '@/data/schedule';
+import type { ScheduleItem } from '@/lib/schedule';
 import { formatFullDate, formatTime } from '@/lib/date';
 
 /**
@@ -71,12 +71,23 @@ const EventDialog = ({
                                 </dd>
                             </div>
 
+                            {item.inquiryReference ? (
+                                <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+                                    <dt className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                                        Inquiry
+                                    </dt>
+                                    <dd className="text-right text-sm font-bold tabular-nums">
+                                        {item.inquiryReference}
+                                    </dd>
+                                </div>
+                            ) : null}
+
                             <div className="px-4 py-3">
                                 <dt className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
                                     Notes
                                 </dt>
                                 <dd className="mt-1.5 text-sm text-secondary-foreground">
-                                    {item.notes}
+                                    {item.notes ?? 'None'}
                                 </dd>
                             </div>
                         </dl>

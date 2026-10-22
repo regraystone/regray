@@ -5,6 +5,7 @@ import {
     CATALOG,
     STEP_LABELS,
     answerStoneRow,
+    answerDeadline,
     chooseLocation,
     continueButton,
     expectStep,
@@ -51,6 +52,7 @@ const walkEveryStep = async (
         finish: CATALOG.finishes[0],
     });
     await chooseLocation(page, 'Las Piñas');
+    await answerDeadline(page);
     await check(STEP_LABELS[3]);
     await page.getByRole('button', { name: 'Add to inquiry' }).click();
 

@@ -1,3 +1,82 @@
+# Schedule page on real data, and inquiry schedules
+
+Branch `dev`. The Schedule page reads real schedules, and sending an inquiry books one schedule per project.
+
+## What changed
+
+### Data (migrations consolidated)
+
+Still in development, so the migrations were rewritten rather than added to. Run `migrate:fresh --seed`.
+
+- **One migration per table, and no altering migrations.** Every column, index, check constraint and foreign key of a table is in its create migration:
+    - `users` has the two-factor columns (was `2025_08_14_…_add_two_factor_columns_to_users_table`).
+    - `conversations` has `support_client_id`, `assigned_to`, `assigned_at` (with their checks and the `assigned_at` trigger) and `pool_notified_message_id`.
+    - `messages` has `reply_to_id`, `client_key`, `system_event`, `system_user_id`, the `system` type check, the inquiry-card-once index and the `schedule_id` foreign key.
+    - `conversation_members` has `role` and the read, delivered and notified message pointers with their foreign keys.
+    - `stone_sizes`, `stone_thicknesses`, `stone_stone_category`, `stone_stone_size` and `stone_stone_thickness` each have their own file (was `create_stone_filter_tables`). The default sizes and thicknesses are still inserted; the backfill from existing stones is dropped, as a fresh database has none.
+    - Removed: `000034_add_last_read_message_fk_to_conversation_members`, `000035_add_schedule_id_fk_to_messages`, the three `2026_10_20_…` migrations and `2026_10_21_…_add_reminder_markers_to_conversations_and_members`.
+- **Renumbered so each table comes after the tables it points at:** `schedules` is now `000022` (before `inquiry_projects`, `000023`, which constrains `schedule_id` directly), and `messages` (`000030`) comes before `conversation_members` (`000031`). The tables in between moved up by one.
+- **The one exception:** `conversations` and `messages` point at each other, so `conversations.pool_notified_message_id`'s foreign key is added at the end of the messages migration, once both tables exist.
+- **Left grouped:** the files Laravel and Spatie ship (`users` with `password_reset_tokens` and `sessions`, `cache`, `jobs`, and the permission tables).
+- `inquiry_projects` has no `deadline_date` or `deadline_time`; it has `schedule_id` (nullable, unique, `nullOnDelete`).
+- `config/database.php`: the `pgsql` connection now sets the session `timezone` (`DB_TIMEZONE`, default `UTC`). Eloquent writes timestamps without an offset in the app's zone, so a Postgres server in another zone (the local one runs `Asia/Shanghai`) stored every timestamp 8 hours off. Production's Postgres image already runs in UTC.
+
+### Backend
+
+- **Schedule page:** `ScheduleIndexRequest` → `ListSchedulesAction` → `ScheduleService` → `ScheduleRepositoryInterface` / `EloquentScheduleRepository` (bound in `AppServiceProvider`) → `ScheduleResource` (`id`, `title`, `arrivalAt`, `status`, `notes`, `inquiryReference`; nothing about the client).
+    - `ViewController::schedule()` serves `/schedule` and `/profile/schedule` with two lazy props: `schedules` (every status, `arrival_at` in `[from, to)`, by arrival) and `upcoming`.
+    - `from`/`to` are ISO dates or datetimes; a value without an offset is read in Manila. Both or neither; `to` after `from`; at most 62 days (`schedule.max_range_days`). Without them the range is the six weeks the mini calendar shows for this month.
+    - Visibility comes from the signed-in user: `isClient()` filters to `client_id = user`; every staff role sees all. A `client_id` in the URL is ignored.
+    - **Upcoming:** the next three (`ListSchedulesAction::UPCOMING_LIMIT`) `pending` or `confirmed` visits with `arrival_at >= now - schedule.ongoing_minutes` (default 60), soonest first. Empty when there are none.
+    - New `config/schedule.php`: `timezone` (Asia/Manila), `ongoing_minutes` (`SCHEDULE_ONGOING_MINUTES`) and `max_range_days`.
+- **Inquiries:**
+    - `InquiryService::addProject()` books the project's schedule through `ScheduleService::createForInquiryProject()` (client as `client_id` and `booked_by`, `inquiry_id`, `pending`, title = project name, notes "Inquiry {reference} · {project name} · {location}", so a visit says which of the inquiry's projects it is for), then writes the project with `schedule_id`. Both are inside `CreateInquiryAction`'s transaction.
+    - `InquiryStatusService::transition()` to `cancelled` cancels the inquiry's pending and confirmed schedules in the same transaction (`cancelled_at` now, reason "Inquiry cancelled"). Completed ones are left alone.
+    - `InquiryDetailsResource` reads `neededBy` and `neededByTime` ("Target deadline") from the linked schedule in Manila time.
+    - `StoreInquiryRequest`: `neededBy` (the date) is required for every project. `neededByTime` is asked and required only when every service on the project is standalone (Site Ocular & Technical Assessment; Stone Relocation, Dismantling & Reinstallation; Post-Installation Quality Care), and must still be ahead in Manila time. Any other project's time is dropped and its schedule is booked for 10:00, the showroom's opening hour (`ScheduleService::DEFAULT_ARRIVAL_TIME`).
+    - `InquiryDetailsResource` returns `neededByTime` only for those visit projects, so the details page never shows the default 10:00.
+    - **Inquiry card in a thread:** the bold heading is the inquiry reference instead of the first project's name, and the line under it is the project count only ("2 projects"). `InquiryCardResource` no longer sends `title`.
+
+### Frontend
+
+- `pages/schedule.tsx` draws the `schedules` and `upcoming` props. Previous, Next, Today, the mini calendar's day and month, and the mobile day step call `router.get` with `only: ['schedules']`, `preserveState`, `preserveScroll` and `replace`, passing one range that covers the grid and the mini calendar's six weeks. When the two drift further apart than 62 days, the side that did not move follows the one that did. The grid dims and is `aria-busy` while loading.
+- `components/schedule/upcoming-list.tsx` is one flat list of the `upcoming` prop, with no day headings ("Today", "Tomorrow"). Each row has a month-and-day tile, the title, the weekday and time, the status and the actions menu.
+- **Week grid hours:** the grid shows 10:00–18:00 and widens to take in any visit on show outside those hours (`gridHours()` in `lib/schedule.ts`). Before, such a visit was silently left off the grid, which is why a project booked for the old 09:00 default did not appear.
+- The event dialog shows the inquiry reference when there is one.
+- The mock `data/schedule.ts` is removed. The types and the pure helpers (`toScheduleItem`, `rangeCovering`, `fitsRange`, `rangeQuery`, `gridHours`) are in `lib/schedule.ts`.
+- **Inquire page:** every project asks for a date ("Target deadline"), required. Only a visit also asks for the time ("… at …"). `lib/inquiry-schema.ts` mirrors the PHP rule.
+- `components/conversations/inquiry-card.tsx` shows the reference as the heading and `projectCountText()` (`lib/thread-cards.ts`, replacing `inquirySubline`) under it.
+- `pages/schedule-book.tsx`: comment only (see TODO). Booking is unchanged.
+
+### Seeders
+
+- `InquirySeeder` books each project through `ScheduleService::createForInquiryProject()` and cancels a cancelled inquiry's schedules through `ScheduleService::cancelForInquiry()`. Every project in `seeders/data/inquiries.php` now has a date and a time.
+- `ScheduleSeeder` no longer maps `apt-03`, `apt-04` and `apt-06` to inquiries. Its booking rows keep `inquiry_id` NULL and are looked up with it, so they never match an inquiry's schedule.
+
+## Decisions
+
+- **Date required for every project, time only for visits:** `arrival_at` is NOT NULL and every project becomes a schedule, so every project needs a date. A project that is not a visit is booked for 10:00 Manila (opening time) on that date. Changed in `StoreInquiryRequest` and `lib/inquiry-schema.ts` together.
+- **Schedule status `requested` renamed to `pending`:** a schedule waits as `pending` until Marketing or Sales approve it. Statuses are `pending`, `confirmed`, `completed`, `cancelled`; the chat card reads "Booking pending". The approval step itself is not built yet.
+- **"Now" window:** a visit counts as happening now for 60 minutes after its arrival (`schedule.ongoing_minutes`).
+- **Cancelling an inquiry cancels its schedules** (pending and confirmed only), in the same transaction. `InquirySeeder` applies the same rule to seeded cancelled inquiries.
+- **Range rule on the page:** one request covers the visible days and the mini calendar's six weeks, capped at 62 days.
+
+## TODO list
+
+- **`TODO(booking)`:** unchanged, plus: a booking creates a schedule with `client_id` = the client, `booked_by` = the client, `booked_by_type` = client, `inquiry_id` = NULL, status `pending`, and is never linked to an inquiry project. Marked in `Schedule` and `pages/schedule-book.tsx`.
+- There are still two `schedule-status-badge.tsx` files (`components/` and `components/schedule/`). Not merged here.
+
+## Tests
+
+- **Pest:**
+    - `Schedule/SchedulePageTest`: client scoping (a URL `client_id` is ignored), staff (sales, owner, admin) see all, the range filter (every status, `to` excluded, the default six weeks), the 62-day limit, upcoming (the next three open visits from an hour ago, soonest first; empty) and the resource shape for a booking and an inquiry visit.
+    - `Inquiry/InquirySchedulesTest`: a sent inquiry shows as a card in the client's Regray Team chat and as a visit on the Schedule page (client and staff, in `schedules` and `upcoming`); one schedule per project on send (client, `inquiry_id`, `pending`, Manila arrival, `schedule_id`), and cancelling cancels open schedules.
+    - Updated for the new columns and rules: `CreateInquiryActionTest` (a failed inquiry also leaves no schedule), `CreateInquiryEndToEndTest`, `StoreInquiryRequestTest` (a date required for every project, no time needed outside a visit), `QuoteDetailsTest` ("Target deadline" read from the schedule; a time only for a visit), `InquiryStatusCardTest` (the card sends no project name), `EloquentInquiryRepositoryTest`, `InquiryServiceTest`.
+- `Home/CollectionFilterTest`: the stone filter backfill test now checks `Stone::attachPrimaryFilterOptions()`, which fills the same tables, since the backfill migration is gone.
+- **node:test:** `tests/js/schedule.test.mjs`.
+- **Playwright (not run):** the inquiry helpers fill a date for material projects (and the time only when the field is shown). The card specs in `message/d-cards.spec.ts` expect the reference as the heading and "N projects" under it.
+- **Checks run:** `php artisan test` (828 tests), PHPStan, Pint, `npm run types:check`, `npm run check`, `npm test` (153 tests), and `migrate:fresh --seed` on the test database.
+
 # Message page: revision 2
 
 Branch `feat/messaging`. The Message page now runs on real data and updates live through Reverb.
@@ -5,6 +84,8 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 ## What changed
 
 ### Data (new migrations only)
+
+These migrations were later folded into the create migrations (see the top section).
 
 - `2026_10_20_000001_add_support_and_assignment_to_conversations`:
     - Adds the `support` conversation type, with `support_client_id` (unique: one Regray Team thread per client), `assigned_to` and `assigned_at`.

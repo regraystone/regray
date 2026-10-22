@@ -165,6 +165,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'projects' => fn ($projects) => $projects->orderBy('sort_order'),
                 'projects.services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
                 'projects.categories',
+                'projects.schedule:id,arrival_at',
                 'projects.stones' => fn ($stones) => $stones->orderBy('sort_order'),
                 'projects.stones.stone' => fn ($stone) => $stone->withTrashed(),
                 'projects.stones.edgeProfile',

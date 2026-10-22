@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import {
     bookedByText,
     inquiryHeadline,
-    inquirySubline,
+    projectCountText,
     scheduleHeadline,
     serviceCountText,
 } from '../../resources/js/lib/thread-cards.ts';
@@ -20,14 +20,8 @@ describe('inquiry card', () => {
     });
 
     it('counts projects and services in the singular and the plural', () => {
-        assert.equal(
-            inquirySubline(1, 'INQ-1048'),
-            '1 project · Inquiry No: INQ-1048',
-        );
-        assert.equal(
-            inquirySubline(2, 'INQ-1048'),
-            '2 projects · Inquiry No: INQ-1048',
-        );
+        assert.equal(projectCountText(1), '1 project');
+        assert.equal(projectCountText(2), '2 projects');
         assert.equal(serviceCountText(0), '0 services');
         assert.equal(serviceCountText(1), '1 service');
     });
@@ -44,7 +38,7 @@ describe('schedule card', () => {
 
     it('says the same for every other status whoever booked it', () => {
         for (const [status, headline] of [
-            ['requested', 'Booking requested'],
+            ['pending', 'Booking pending'],
             ['completed', 'Visit completed'],
             ['cancelled', 'Booking cancelled'],
         ]) {

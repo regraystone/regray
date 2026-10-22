@@ -34,7 +34,10 @@ interface InquiryRepositoryInterface
     ): InquiryStatusHistory;
 
     /**
-     * @param  array{name: string, sort_order: int, location: string, landmark: ?string, area_sqm: ?float, deadline_date: ?string, deadline_time: ?string, notes: ?string}  $attributes
+     * The project has no deadline of its own: `schedule_id` is the visit that
+     * holds its date and time.
+     *
+     * @param  array{name: string, sort_order: int, location: string, landmark: ?string, area_sqm: ?float, schedule_id: int, notes: ?string}  $attributes
      */
     public function addProject(Inquiry $inquiry, array $attributes): InquiryProject;
 

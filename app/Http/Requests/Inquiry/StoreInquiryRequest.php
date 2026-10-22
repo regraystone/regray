@@ -7,10 +7,10 @@ use App\Models\Finish;
 use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
+use App\Services\ScheduleService;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -118,8 +118,11 @@ class StoreInquiryRequest extends FormRequest
      *
      * A project with any service that supplies material needs stones and
      * applications. A project of nothing but standalone services (a site visit)
-     * needs neither — whatever was picked is extra information — but it is
-     * attended at an hour, so it needs a date and a time that is still ahead.
+     * needs neither: whatever was picked is extra information. It is attended
+     * at an hour, so it needs a time too, still ahead.
+     *
+     * Every project needs a date, because sending the inquiry books it as a
+     * schedule. A project without a time is booked for 10:00, when the showroom opens.
      */
     /**
      * @return list<Closure(Validator): void>
@@ -157,8 +160,12 @@ class StoreInquiryRequest extends FormRequest
                     $this->rejectRepeats($validator, "projects.{$index}.serviceIds", $project['serviceIds'], 'A service can only appear once in a project.');
                     $this->rejectRepeats($validator, "projects.{$index}.applicationIds", $project['applicationIds'] ?? [], 'An application can only appear once in a project.');
 
+                    if (empty($project['neededBy'])) {
+                        $validator->errors()->add("projects.{$index}.neededBy", 'Say when this is needed.');
+                    }
+
                     if ($standaloneOnly) {
-                        $this->requireVisitSlot($validator, $index, $project);
+                        $this->requireVisitTime($validator, $index, $project);
                     } else {
                         if (empty($project['stones'])) {
                             $validator->errors()->add("projects.{$index}.stones", 'Select at least one stone.');
@@ -189,20 +196,23 @@ class StoreInquiryRequest extends FormRequest
     }
 
     /**
+     * A visit needs a time that is still ahead. The date and time are read in
+     * the studio's zone, the same way the schedule they become is.
+     *
      * @param  array<string, mixed>  $project
      */
-    private function requireVisitSlot(Validator $validator, int $index, array $project): void
+    private function requireVisitTime(Validator $validator, int $index, array $project): void
     {
         $date = $project['neededBy'] ?? null;
         $time = $project['neededByTime'] ?? null;
 
-        if ($date === null) {
-            $validator->errors()->add("projects.{$index}.neededBy", 'Say when this service is needed.');
+        if (! is_string($time)) {
+            $validator->errors()->add("projects.{$index}.neededByTime", 'Say what time of day works.');
+
+            return;
         }
 
-        if ($time === null) {
-            $validator->errors()->add("projects.{$index}.neededByTime", 'Say what time of day works.');
-        } elseif ($date !== null && Carbon::parse("{$date} {$time}", config('app.timezone'))->lessThanOrEqualTo(Date::now())) {
+        if (is_string($date) && ScheduleService::arrivalAt($date, $time)->lessThanOrEqualTo(Date::now())) {
             $validator->errors()->add("projects.{$index}.neededByTime", 'That time has already passed.');
         }
     }
@@ -257,6 +267,7 @@ class StoreInquiryRequest extends FormRequest
         }
 
         $serviceIds = Service::query()->whereIn('slug', array_unique($serviceSlugs))->pluck('id', 'slug');
+        $standaloneBySlug = Service::query()->whereIn('slug', array_unique($serviceSlugs))->pluck('is_standalone', 'slug');
         $stoneIds = Stone::query()->whereIn('slug', array_unique($stoneSlugs))->pluck('id', 'slug');
         $edgeProfileIds = EdgeProfile::query()->pluck('id', 'name');
         $finishIds = Finish::query()->pluck('id', 'name');
@@ -265,6 +276,14 @@ class StoreInquiryRequest extends FormRequest
         $input = [];
 
         foreach ($projects as $project) {
+            $isVisit = true;
+
+            foreach ($project['serviceIds'] as $slug) {
+                if (! $standaloneBySlug->get($slug)) {
+                    $isVisit = false;
+                }
+            }
+
             $row = [
                 'name' => $project['name'],
                 'service_ids' => [],
@@ -273,8 +292,10 @@ class StoreInquiryRequest extends FormRequest
                 'location' => $project['location'],
                 'landmark' => $project['landmark'] ?? null,
                 'area_sqm' => isset($project['areaSqm']) ? (float) $project['areaSqm'] : null,
-                'deadline_date' => $project['neededBy'] ?? null,
-                'deadline_time' => $project['neededByTime'] ?? null,
+                'deadline_date' => $project['neededBy'],
+                // Only a visit is attended at an hour; anything else is booked
+                // for the default time.
+                'deadline_time' => $isVisit ? ($project['neededByTime'] ?? null) : null,
                 'notes' => $project['notes'] ?? null,
                 'files' => [],
             ];

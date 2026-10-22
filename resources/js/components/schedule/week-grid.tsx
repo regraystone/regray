@@ -3,7 +3,7 @@ import {
     isStruck,
     STATUS_BLOCK_STYLES,
 } from '@/components/schedule/schedule-status-badge';
-import type { ScheduleItem } from '@/data/schedule';
+import { gridHours, type ScheduleItem } from '@/lib/schedule';
 import {
     atHour,
     formatFullDate,
@@ -14,15 +14,6 @@ import {
     startOfDay,
 } from '@/lib/date';
 import { cn } from '@/lib/utils';
-
-/**
- * The hours the showroom keeps.
- *
- * Ten until six: a visit is booked for a time the client can be there and the
- * studio can show them round, and a morning before ten is not either of those.
- */
-const OPEN_HOUR = 10;
-const CLOSE_HOUR = 18;
 
 /** The least an hour row is ever drawn at, when it holds one event or none. */
 const MIN_HOUR_HEIGHT = 56;
@@ -36,13 +27,6 @@ const EVENT_GAP = 8;
 /** Breathing room between an event and the column's edges. */
 const EVENT_INSET = 6;
 
-const HOUR_COUNT = CLOSE_HOUR - OPEN_HOUR;
-
-const HOURS = Array.from(
-    { length: HOUR_COUNT },
-    (_, index) => OPEN_HOUR + index,
-);
-
 /**
  * A pixel offset as a share of the grid's natural height.
  *
@@ -53,8 +37,8 @@ const percentOf = (pixels: number, gridHeight: number): number =>
     (pixels / gridHeight) * 100;
 
 /** Where an arrival sits, counted in hour slots from the top of the grid. */
-const slotOf = (item: ScheduleItem): number =>
-    item.arrival.getHours() - OPEN_HOUR;
+const slotOf = (item: ScheduleItem, firstHour: number): number =>
+    item.arrival.getHours() - firstHour;
 
 /**
  * One block's place on the grid.
@@ -75,7 +59,11 @@ type Placement = {
  * Grouped by hour rather than by arrival, so visits expected at 10:00 and 10:45
  * are recognised as sharing a row. Within an hour they are ordered by arrival.
  */
-const placeBlocks = (day: Date, items: ScheduleItem[]): Placement[] => {
+const placeBlocks = (
+    day: Date,
+    items: ScheduleItem[],
+    hours: number[],
+): Placement[] => {
     const byHour = new Map<number, ScheduleItem[]>();
 
     for (const item of items) {
@@ -83,19 +71,9 @@ const placeBlocks = (day: Date, items: ScheduleItem[]): Placement[] => {
             continue;
         }
 
-        const slot = slotOf(item);
-
-        if (slot < 0 || slot >= HOUR_COUNT) {
-            /*
-             * Expected outside the hours on show.
-             *
-             * Left off the grid: there is no row to put it in, and
-             * borrowing the nearest one would put a 07:00 arrival at the top of
-             * the morning as though it were an 08:00 one. It is still listed and
-             * still opens in the dialog, where the time is written out.
-             */
-            continue;
-        }
+        // `gridHours` widens the rows to take in every visit on show, so each
+        // one has a row of its own hour.
+        const slot = slotOf(item, hours[0]);
 
         byHour.set(slot, [...(byHour.get(slot) ?? []), item]);
     }
@@ -217,9 +195,10 @@ const WeekGrid = ({
      * Placements are worked out once per day, up front, because the row heights
      * depend on every day at once: an hour is as tall as its fullest column.
      */
-    const placementsByDay = days.map((day) => placeBlocks(day, items));
+    const hours = gridHours(items, days);
+    const placementsByDay = days.map((day) => placeBlocks(day, items, hours));
 
-    const rowHeights = HOURS.map((_, slot) => {
+    const rowHeights = hours.map((_, slot) => {
         const busiest = Math.max(
             0,
             ...placementsByDay.map(
@@ -276,7 +255,7 @@ const WeekGrid = ({
 
                 {/* Hour column */}
                 <div className="relative">
-                    {HOURS.map((hour, index) => (
+                    {hours.map((hour, index) => (
                         <div
                             key={hour}
                             className="absolute right-2 pt-1 text-[0.65rem] font-bold text-secondary-foreground tabular-nums"

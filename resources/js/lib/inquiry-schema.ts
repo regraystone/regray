@@ -596,6 +596,16 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                         message: 'That time has already passed.',
                     });
                 }
+            } else if (project.neededBy === '') {
+                /*
+                 * Every project needs a day, because sending the inquiry books
+                 * it as a schedule. Without a time it is booked for 10:00.
+                 */
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['neededBy'],
+                    message: 'Say when this is needed.',
+                });
             }
         });
 
@@ -699,6 +709,12 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                         message: 'That time has already passed.',
                     });
                 }
+            } else if (draft.neededBy === '') {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['neededBy'],
+                    message: 'Say when this is needed.',
+                });
             }
         });
 

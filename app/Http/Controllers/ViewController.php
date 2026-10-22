@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Inquiry\ListInquiryOptionsAction;
+use App\Actions\Schedule\ListSchedulesAction;
+use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\InquiryFinishingResource;
 use App\Http\Resources\InquiryOptionResource;
 use App\Http\Resources\InquiryServiceResource;
 use App\Http\Resources\InquiryStoneResource;
+use App\Http\Resources\ScheduleResource;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -53,9 +56,25 @@ class ViewController extends Controller
         ]);
     }
 
-    public function schedule(Request $request): Response
+    /**
+     * The Schedule page, at /schedule and /profile/schedule alike.
+     *
+     * Both props are closures, so a partial reload that asks only for
+     * `schedules` (the page stepping through weeks) does not read `upcoming`.
+     */
+    public function schedule(ScheduleIndexRequest $request, ListSchedulesAction $listSchedules): Response
     {
-        return Inertia::render('schedule');
+        $viewer = $request->user();
+        $range = $request->range();
+
+        return Inertia::render('schedule', [
+            'schedules' => fn (): array => ScheduleResource::collection(
+                $listSchedules->inRange($viewer, $range['from'], $range['to']),
+            )->resolve($request),
+            'upcoming' => fn (): array => ScheduleResource::collection(
+                $listSchedules->upcoming($viewer),
+            )->resolve($request),
+        ]);
     }
 
     public function scheduleBook(Request $request): Response

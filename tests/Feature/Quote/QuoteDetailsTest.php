@@ -6,6 +6,7 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
 use App\Models\Stone;
+use App\Services\ScheduleService;
 
 beforeEach(function (): void {
     seedInquiryCatalog();
@@ -24,7 +25,8 @@ function detailedInquiry(mixed $test): Inquiry
     $inquiry->statusHistory()->create(['from_status' => null, 'to_status' => InquiryStatus::Pending, 'changed_by' => $test->client->id, 'changed_at' => now()->subDay()]);
 
     $project = $inquiry->projects()->orderBy('sort_order')->first();
-    $project->update(['landmark' => 'Near the church', 'area_sqm' => 12.5, 'deadline_date' => '2030-01-02', 'deadline_time' => '09:30:00', 'notes' => 'Ground floor']);
+    $schedule = app(ScheduleService::class)->createForInquiryProject($inquiry, $test->client, 'Kitchen', 'Makati', '2030-01-02', '09:30');
+    $project->update(['landmark' => 'Near the church', 'area_sqm' => 12.5, 'schedule_id' => $schedule->id, 'notes' => 'Ground floor']);
     $project->files()->create(['disk' => 'local', 'path' => 'inquiries/INQ-D1/1/secret-path.pdf', 'original_name' => 'plan.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048, 'sha256' => str_repeat('a', 64), 'uploaded_by' => $test->client->id]);
 
     return $inquiry;
@@ -57,12 +59,24 @@ it('opens the signed-in client\'s own inquiry', function (): void {
             'landmark' => 'Near the church',
             'areaSqm' => 12.5,
             'neededBy' => '2030-01-02',
-            'neededByTime' => '09:30',
+            'neededByTime' => null,
             'notes' => 'Ground floor',
         ])
         ->and($kitchen['requirements']['attachments'])->toBe([
             ['id' => 'file-1', 'name' => 'plan.pdf', 'sizeBytes' => 2048, 'mimeType' => 'application/pdf'],
         ]);
+});
+
+it('shows a visit\'s target deadline with the time from its schedule', function (): void {
+    $inquiry = makeInquiry($this->client, [['name' => 'Survey', 'stones' => [], 'services' => ['site-ocular-technical-assessment']]], ['reference' => 'INQ-V1']);
+    $schedule = app(ScheduleService::class)->createForInquiryProject($inquiry, $this->client, 'Survey', 'Taguig', '2030-01-02', '14:15');
+    $inquiry->projects()->sole()->update(['schedule_id' => $schedule->id]);
+
+    $requirements = $this->actingAs($this->client)->get(route('quote.show', 'INQ-V1'))
+        ->viewData('page')['props']['inquiry']['projects'][0]['requirements'];
+
+    expect($requirements['neededBy'])->toBe('2030-01-02')
+        ->and($requirements['neededByTime'])->toBe('14:15');
 });
 
 it('carries nothing a client should not see', function (): void {

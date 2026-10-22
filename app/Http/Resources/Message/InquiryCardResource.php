@@ -4,7 +4,6 @@ namespace App\Http\Resources\Message;
 
 use App\Http\Resources\ProjectCardResource;
 use App\Models\Inquiry;
-use App\Models\InquiryProject;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -22,7 +21,7 @@ class InquiryCardResource extends JsonResource
     public const HERO_STONES = 2;
 
     /**
-     * @return array{reference: string, title: string, projectCount: int, serviceCount: int, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, announcedStatus: string, status: string, occurredAt: string}
+     * @return array{reference: string, projectCount: int, serviceCount: int, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, announcedStatus: string, status: string, occurredAt: string}
      */
     public function toArray(Request $request): array
     {
@@ -49,11 +48,8 @@ class InquiryCardResource extends JsonResource
             }
         }
 
-        $named = $projects->first(fn (InquiryProject $project): bool => trim($project->name) !== '');
-
         return [
             'reference' => $inquiry->reference,
-            'title' => $named !== null ? trim($named->name) : "Inquiry {$inquiry->reference}",
             'projectCount' => $projects->count(),
             'serviceCount' => count($services),
             'stones' => array_slice(array_values($stones), 0, self::HERO_STONES),
