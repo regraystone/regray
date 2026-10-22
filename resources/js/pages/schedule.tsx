@@ -210,6 +210,10 @@ const Schedule = () => {
                 </div>
             </div>
 
+            {/*
+                The week stretches to the panel's height beside it (grid items
+                fill their row), so its bottom edge lines up with the panel's.
+             */}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <div>
                     <WeekGrid
