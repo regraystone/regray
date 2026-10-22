@@ -94,6 +94,39 @@ interface InquiryRepositoryInterface
     public function updateStatus(Inquiry $inquiry, InquiryStatus $status, CarbonInterface $changedAt): void;
 
     /**
+     * The inquiry's projects, each with its schedule and files, for an update.
+     *
+     * @return Collection<int, InquiryProject>
+     */
+    public function projectsForUpdate(Inquiry $inquiry): Collection;
+
+    /**
+     * @param  array{name?: string, location?: string, landmark?: ?string, area_sqm?: ?float, notes?: ?string, schedule_id?: int}  $attributes
+     */
+    public function updateProject(InquiryProject $project, array $attributes): void;
+
+    /** @param  list<int>  $serviceIds */
+    public function syncServices(InquiryProject $project, array $serviceIds): void;
+
+    /** @param  list<int>  $applicationIds  Stored in the order given. */
+    public function syncApplications(InquiryProject $project, array $applicationIds): void;
+
+    /**
+     * Replace the project's stone rows with these, in the order given.
+     *
+     * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>  $stones
+     */
+    public function replaceStones(InquiryProject $project, array $stones): void;
+
+    /**
+     * Delete the project's file rows other than `$keepIds`.
+     *
+     * @param  list<int>  $keepIds
+     * @return list<array{disk: string, path: string}> The deleted files, to remove from their disk.
+     */
+    public function deleteFilesExcept(InquiryProject $project, array $keepIds): array;
+
+    /**
      * This client's inquiry by reference with everything the details page shows:
      * projects in the order added, their services, categories, stones (with the
      * edge and finish) and files, and the status history. Null for a reference

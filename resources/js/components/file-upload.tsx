@@ -8,7 +8,11 @@ import {
     type ReactNode,
 } from 'react';
 import { Spinner } from '@/components/ui/spinner';
-import type { InquiryAttachment } from '@/data/inquiries';
+import {
+    attachmentMeta,
+    type InquiryAttachment,
+    type InquiryUploadAttachment,
+} from '@/data/inquiries';
 import {
     ATTACHMENT_EXTENSIONS,
     ATTACHMENT_MIME_TYPES,
@@ -156,16 +160,21 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
         [],
     );
 
-    const patchFile = (id: string, patch: Partial<InquiryAttachment>) => {
+    const patchFile = (
+        id: string,
+        patch: Partial<Pick<InquiryUploadAttachment, 'status' | 'progress'>>,
+    ) => {
         const next = filesRef.current.map((entry) =>
-            entry.id === id ? { ...entry, ...patch } : entry,
+            entry.id === id && entry.status !== 'saved'
+                ? { ...entry, ...patch }
+                : entry,
         );
 
         filesRef.current = next;
         onFilesChange(next);
     };
 
-    const startPendingUploads = (pending: InquiryAttachment[]) => {
+    const startPendingUploads = (pending: InquiryUploadAttachment[]) => {
         for (const entry of pending) {
             if (entry.file.type.startsWith('image/')) {
                 previewsRef.current.set(
@@ -199,7 +208,7 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
             return;
         }
 
-        const accepted: InquiryAttachment[] = [];
+        const accepted: InquiryUploadAttachment[] = [];
         const problems: string[] = [];
         const alreadyAttached = filesRef.current;
 
@@ -227,9 +236,11 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
             }
 
             const isDuplicate = [...alreadyAttached, ...accepted].some(
-                (entry) =>
-                    entry.file.name === file.name &&
-                    entry.file.size === file.size,
+                (entry) => {
+                    const meta = attachmentMeta(entry);
+
+                    return meta.name === file.name && meta.size === file.size;
+                },
             );
 
             if (isDuplicate) {
@@ -271,7 +282,10 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
 
         filesRef.current = next;
         onFilesChange(next);
-        setMessages((previous) => [...previous, `${entry.file.name} removed`]);
+        setMessages((previous) => [
+            ...previous,
+            `${attachmentMeta(entry).name} removed`,
+        ]);
     };
 
     const handlePick = (event: ChangeEvent<HTMLInputElement>) => {
@@ -292,8 +306,10 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
 
     const rows: ReactNode[] = files.map((entry) => {
         const isUploading = entry.status === 'uploading';
+        const isSaved = entry.status === 'saved';
         const preview = previewsRef.current.get(entry.id);
-        const isPdf = entry.file.type === 'application/pdf';
+        const meta = attachmentMeta(entry);
+        const isPdf = meta.type === 'application/pdf';
 
         return (
             <li
@@ -316,12 +332,12 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                     <span className="min-w-0 flex-1">
                         <span
                             className="block truncate text-sm font-bold text-foreground"
-                            title={entry.file.name}
+                            title={meta.name}
                         >
-                            {entry.file.name}
+                            {meta.name}
                         </span>
                         <span className="block text-xs text-secondary-foreground">
-                            {formatSize(entry.file.size)}
+                            {formatSize(meta.size)}
                         </span>
                     </span>
 
@@ -334,7 +350,8 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                         ) : (
                             <>
                                 <Check className="size-3.5" aria-hidden />
-                                <span>Uploaded</span>
+                                {/* Already stored with the inquiry being edited. */}
+                                <span>{isSaved ? 'Attached' : 'Uploaded'}</span>
                             </>
                         )}
                     </span>
@@ -342,14 +359,14 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                     <button
                         type="button"
                         onClick={() => removeFile(entry)}
-                        aria-label={`Remove ${entry.file.name}`}
+                        aria-label={`Remove ${meta.name}`}
                         className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
                         <X className="size-4" aria-hidden />
                     </button>
                 </div>
 
-                {isUploading ? (
+                {entry.status === 'uploading' ? (
                     <div className="mt-3 h-1 bg-sidebar-border">
                         <div
                             className="h-1 bg-primary transition-[width] motion-reduce:transition-none"

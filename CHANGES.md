@@ -1,3 +1,53 @@
+# Quote "Update": edit a sent inquiry from the Review step
+
+Update on a Quote card now opens the Inquire page at Review with that inquiry's projects. The client opens a project with Edit, changes it, comes back to Review and presses Save changes, which updates the same inquiry. No schema change.
+
+## What changed
+
+### Backend
+
+- **Routes** (client-only, guarded by `quotations.view` and `inquiries.create`, registered above `quote/{reference}`):
+    - `GET quote/{reference}/edit` (`quote.edit`) renders `inquire` with `mode: 'edit'`, `reference`, `projects` (`InquiryEditResource`) and the same catalogue as the Inquire page (`InquiryCatalogResource`, now shared with `ViewController::inquire`).
+    - `PATCH quote/{reference}` (`quote.update`).
+- **`InquiryEditController`**: `edit` → `ShowInquiryEditAction` (scoped through `InquiryDetailsService::forClient`, so another client's reference is a 404). When the status may not be updated, it redirects to `quote/{reference}` with an error toast carrying the reason.
+- **`InquiryActions::updateRefusal()`** gives the reason, with `UPDATE_NOT_AVAILABLE` ("This inquiry can no longer be changed.") for paid and completed, where the button is hidden and so has no reason of its own.
+- **`InquiryEditResource`**: real ids for projects and files, service and application slugs, stones as `{stoneId (slug), quantity, edge, finish}`, the site answers, `neededBy`/`neededByTime` from the schedule in Manila time (time only for visits), `deadlineLocked`/`deadlineLockedReason`, and `attachments` with `status: 'saved'`.
+- **`UpdateInquiryRequest`** extends `StoreInquiryRequest`, so every create rule applies, and adds `projects.*.id` and `projects.*.keepFileIds` (kept plus new files may not exceed the per-project limit).
+- **`UpdateInquiryAction` → `InquiryService::update()`**, in one transaction:
+    - locks the inquiry row and asks `updateRefusal()` again at write time (a status that changed since the page loaded is refused as a `status` error);
+    - the projects sent must be exactly the inquiry's projects, by id (anything else is refused as a `projects` error);
+    - updates each project's fields and syncs its services, applications and stones;
+    - moves the project's visit through `ScheduleService::updateForInquiryProject` (title, notes, arrival), and books one if an older project had none;
+    - deletes the file rows not kept and stores new uploads with the `WrittenFiles` cleanup; the removed files are deleted from their disk only after the commit;
+    - writes one `AuditEvent::Updated` row (new `AuditLogRepositoryInterface`), with each project's editable fields before and after. The status and the status history are untouched.
+- **`ScheduleService`**: `arrivalForInquiryProject()` (a visit's own time, otherwise the time of day the schedule already has), `deadlineLockedReason()` (null only while the visit is `pending`) and `updateForInquiryProject()`.
+
+### Frontend
+
+- `pages/quote.tsx`: Update links to `quote.edit`; View details still goes to the details page.
+- `pages/inquire.tsx` takes `mode`. In edit mode it:
+    - starts on Review, with the form filled by `toEditFormProjects()`;
+    - is titled "Update {reference}", with "Back to Quote" in the header, which returns to the Quote list;
+    - hides Add and Remove and labels the send "Save changes" ("Nothing is saved until you save changes"), from `reviewActions()`;
+    - saves with `sendInquiryRequest(url, values, 'patch')`, a POST with `_method=PATCH` carrying `projects[i][id]` and `projects[i][keepFileIds][k]`; errors go back on their projects through `mapInquiryErrors`, and success lands on the details page with the server's toast;
+    - shows a locked deadline read-only with its reason in the requirements step;
+    - refuses a commit that would split the project into several (picking a site visit beside a stone, or two visits).
+- **Attachments** are now a union: an upload (`File`, `uploading`/`done`) or a stored file (`status: 'saved'`, `fileId`, name, size, type). `attachmentMeta()` reads either; the uploader, the review sheet, the schema and `buildInquiryFormData` handle both.
+
+## Decisions
+
+- **Drafts are off in edit mode.** No `edit:{reference}` key: the edit never reads, writes or clears the new-inquiry draft (`isRestored` stays false, so the autosave is inert). A refresh starts the edit over from the server.
+- **Add and Remove stay out.** Editing changes existing projects only, and a commit that would add projects is refused in the browser and on the server. Adding or removing projects on a sent inquiry could come back later; it needs its own rules for schedules and history.
+- **Locked deadline:** once a project's visit is no longer `pending` (the prompt said `requested`, which is now `pending`), its date and time are shown read-only with the reason, and the server refuses a change but accepts the same value back, so the rest of the project can still be edited.
+- **Unchanged deadlines are still checked.** A deadline already in the past fails the "not in the past" rule on save, as it does for a new inquiry, so the client has to pick a new date. A locked deadline that is already in the past therefore cannot be saved; in practice the inquiry is quoted by then.
+- **A project that is not a visit** keeps its schedule's time of day when only the date changes.
+
+## Tests
+
+- **Pest, `Quote/QuoteEditTest`:** the edit page for a client's own pending inquiry with real ids; quoted, paid, completed and cancelled redirect with the reason; another client's inquiry is a 404; Sales and Marketing get 403 on both routes; a save changes fields, replaces stones and services, moves the visit, writes an audit row and no status history; a confirmed visit cannot move but the rest saves; a project id from another inquiry is refused; removed files are deleted and new ones stored; a failure partway leaves nothing changed and no new files; a status quoted after the page loaded is refused.
+- **node:test, `tests/js/inquiry-edit.test.mjs`:** `toEditFormProjects`, `deadlineLocks`, `reviewActions` in both modes, and `buildInquiryFormData` with ids and kept files.
+- **Playwright, `inquiry/l-edit.spec.ts` (42):** Update → Review lists the project with no Add or Remove → Edit → rename → Back to Review → Save changes → the details page shows the new name.
+
 # Schedule page on real data, and inquiry schedules
 
 Branch `dev`. The Schedule page reads real schedules, and sending an inquiry books one schedule per project.

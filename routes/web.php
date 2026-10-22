@@ -8,6 +8,7 @@ use App\Http\Controllers\Message\AttachmentController;
 use App\Http\Controllers\Message\MessageController;
 use App\Http\Controllers\Message\ThreadController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
+use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
@@ -152,6 +153,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * input validation and never produces a 404. Keep it off, and add no further
      * `quote/...` or `inquiry/...` route below these two or `{reference}` takes it.
      */
+    /*
+     * Editing an inquiry from the Quote page. Client-only like the Quote list,
+     * and guarded like the stepper it opens: `quotations.view` for the list it
+     * hangs off and `inquiries.create` for writing an inquiry. There is no
+     * staff version. Kept above `quote/{reference}` so that route never takes
+     * these.
+     */
+    Route::get('quote/{reference}/edit', [InquiryEditController::class, 'edit'])
+        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->name('quote.edit');
+    Route::patch('quote/{reference}', [InquiryEditController::class, 'update'])
+        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->name('quote.update');
+
     Route::get('quote/{reference}', [InquiryDetailsController::class, 'show'])
         ->middleware(Permission::QuotationsView->middleware())
         ->name('quote.show');

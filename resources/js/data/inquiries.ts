@@ -26,13 +26,49 @@ export const NOTES_MAX = 1000;
  * yet: there is no upload endpoint, so the bytes live in the browser until the
  * Review step decides what to do with them.
  */
-export type InquiryAttachment = {
+export type InquiryUploadAttachment = {
     id: string;
     file: File;
     status: 'uploading' | 'done';
     /** 0-100, meaningful only while the status is `uploading`. */
     progress: number;
 };
+
+/**
+ * A file already stored with the inquiry, when an inquiry is being edited.
+ *
+ * There are no bytes in the browser, only what the server said about the file.
+ * Sending the edit keeps it by `fileId`; taking it off the list removes it.
+ */
+export type InquirySavedAttachment = {
+    id: string;
+    status: 'saved';
+    /** The `inquiry_files` id. */
+    fileId: number;
+    name: string;
+    sizeBytes: number;
+    mimeType: string;
+};
+
+export type InquiryAttachment =
+    | InquiryUploadAttachment
+    | InquirySavedAttachment;
+
+/** The name, size and type of either kind of attachment. */
+export const attachmentMeta = (
+    attachment: InquiryAttachment,
+): { name: string; size: number; type: string } =>
+    attachment.status === 'saved'
+        ? {
+              name: attachment.name,
+              size: attachment.sizeBytes,
+              type: attachment.mimeType,
+          }
+        : {
+              name: attachment.file.name,
+              size: attachment.file.size,
+              type: attachment.file.type,
+          };
 
 /**
  * A file an inquiry carries, reduced to what a record can hold.

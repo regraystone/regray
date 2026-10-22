@@ -18,6 +18,11 @@ interface ScheduleRepositoryInterface
     public function create(array $attributes): Schedule;
 
     /**
+     * @param  array{title?: string, arrival_at?: CarbonInterface, notes?: ?string}  $attributes
+     */
+    public function update(Schedule $schedule, array $attributes): void;
+
+    /**
      * Every schedule arriving in `[$from, $to)`, whatever its status, ordered by
      * arrival, with its inquiry loaded. Only `$client`'s when a client is given,
      * everyone's when it is null.

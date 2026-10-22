@@ -11,8 +11,13 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Spinner } from '@/components/ui/spinner';
+import { attachmentMeta } from '@/data/inquiries';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
-import { isStandaloneProject } from '@/lib/inquiry-flow';
+import {
+    isStandaloneProject,
+    reviewActions,
+    type InquiryMode,
+} from '@/lib/inquiry-flow';
 import {
     MAX_PROJECTS,
     REQUIREMENTS_STEP,
@@ -144,7 +149,8 @@ const ReviewProjectCard = ({
     message: string | undefined;
     locked: boolean;
     onEdit: () => void;
-    onRemove: () => void;
+    /** Absent when projects cannot be removed, as when editing a sent inquiry. */
+    onRemove?: () => void;
 }) => {
     const catalog = useInquiryCatalog();
     const [open, setOpen] = useState(true);
@@ -215,17 +221,19 @@ const ReviewProjectCard = ({
                     ) : null}
 
                     <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={onRemove}
-                            disabled={locked}
-                            aria-label={`Remove ${project.name}`}
-                        >
-                            <Trash2 aria-hidden />
-                            Remove
-                        </Button>
+                        {onRemove ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={onRemove}
+                                disabled={locked}
+                                aria-label={`Remove ${project.name}`}
+                            >
+                                <Trash2 aria-hidden />
+                                Remove
+                            </Button>
+                        ) : null}
 
                         <Button
                             type="button"
@@ -417,53 +425,60 @@ const ReviewProjectCard = ({
                                     {project.attachments.length > 0 ? (
                                         <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
                                             {project.attachments.map(
-                                                (attachment) => (
-                                                    <li
-                                                        key={attachment.id}
-                                                        className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                                                    >
-                                                        <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border text-secondary-foreground">
-                                                            <AttachmentPreview
-                                                                file={
-                                                                    attachment.file
-                                                                }
-                                                            />
-                                                        </span>
-                                                        <span className="min-w-0 flex-1">
-                                                            <span
-                                                                className="block truncate text-sm font-bold"
-                                                                title={
-                                                                    attachment
-                                                                        .file
-                                                                        .name
-                                                                }
-                                                            >
-                                                                {
-                                                                    attachment
-                                                                        .file
-                                                                        .name
-                                                                }
-                                                            </span>
-                                                            <span className="block text-xs text-secondary-foreground">
-                                                                {formatSize(
-                                                                    attachment
-                                                                        .file
-                                                                        .size,
+                                                (attachment) => {
+                                                    const meta =
+                                                        attachmentMeta(
+                                                            attachment,
+                                                        );
+
+                                                    return (
+                                                        <li
+                                                            key={attachment.id}
+                                                            className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                                                        >
+                                                            <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border text-secondary-foreground">
+                                                                {attachment.status ===
+                                                                'saved' ? (
+                                                                    <FileText
+                                                                        className="size-5"
+                                                                        aria-hidden
+                                                                    />
+                                                                ) : (
+                                                                    <AttachmentPreview
+                                                                        file={
+                                                                            attachment.file
+                                                                        }
+                                                                    />
                                                                 )}
                                                             </span>
-                                                        </span>
-                                                        {attachment.status ===
-                                                        'uploading' ? (
-                                                            <span className="flex shrink-0 items-center gap-1.5 text-xs text-secondary-foreground">
-                                                                <Spinner className="size-3.5 motion-reduce:animate-none" />
-                                                                {
-                                                                    attachment.progress
-                                                                }
-                                                                %
+                                                            <span className="min-w-0 flex-1">
+                                                                <span
+                                                                    className="block truncate text-sm font-bold"
+                                                                    title={
+                                                                        meta.name
+                                                                    }
+                                                                >
+                                                                    {meta.name}
+                                                                </span>
+                                                                <span className="block text-xs text-secondary-foreground">
+                                                                    {formatSize(
+                                                                        meta.size,
+                                                                    )}
+                                                                </span>
                                                             </span>
-                                                        ) : null}
-                                                    </li>
-                                                ),
+                                                            {attachment.status ===
+                                                            'uploading' ? (
+                                                                <span className="flex shrink-0 items-center gap-1.5 text-xs text-secondary-foreground">
+                                                                    <Spinner className="size-3.5 motion-reduce:animate-none" />
+                                                                    {
+                                                                        attachment.progress
+                                                                    }
+                                                                    %
+                                                                </span>
+                                                            ) : null}
+                                                        </li>
+                                                    );
+                                                },
                                             )}
                                         </ul>
                                     ) : (
@@ -510,6 +525,11 @@ type InquiryReviewProps = {
     /** True while the request is in flight, so nothing can change under it. */
     locked: boolean;
     onRequestQuote: () => void;
+    /**
+     * `edit` when changing a sent inquiry: no Add or Remove, and the button
+     * saves the changes instead of requesting a quote. See `reviewActions`.
+     */
+    mode?: InquiryMode;
 };
 
 /**
@@ -534,8 +554,10 @@ const InquiryReview = ({
     validationErrors,
     locked,
     onRequestQuote,
+    mode = 'create',
 }: InquiryReviewProps) => {
     const catalog = useInquiryCatalog();
+    const actions = reviewActions(mode);
     const { control } = useFormContext<
         InquiryFormInput,
         unknown,
@@ -669,7 +691,11 @@ const InquiryReview = ({
                             message={projectMessages[project.id]}
                             locked={locked}
                             onEdit={() => onEditProject(project.id)}
-                            onRemove={() => onRemoveProject(project.id)}
+                            onRemove={
+                                actions.canRemoveProject
+                                    ? () => onRemoveProject(project.id)
+                                    : undefined
+                            }
                         />
                     ))
                 )}
@@ -680,7 +706,7 @@ const InquiryReview = ({
                  * ceiling rather than left to refuse later, because the whole-form
                  * check can only speak once the reader has pressed send.
                  */}
-                {addProjectButton}
+                {actions.canAddProject ? addProjectButton : null}
             </div>
 
             {/*
@@ -695,7 +721,7 @@ const InquiryReview = ({
              */}
             <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="min-w-0 flex-1 text-xs text-secondary-foreground">
-                    Nothing is sent until you request a quote
+                    {actions.footerNote}
                 </p>
 
                 <Button
@@ -707,10 +733,10 @@ const InquiryReview = ({
                     {locked ? (
                         <>
                             <Spinner />
-                            Sending...
+                            {mode === 'edit' ? 'Saving...' : 'Sending...'}
                         </>
                     ) : (
-                        'Request a Quote'
+                        actions.submitLabel
                     )}
                 </Button>
             </div>

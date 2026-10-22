@@ -42,6 +42,7 @@ import {
 import { SKELETON_CARD_COUNT, skeletonState } from '@/lib/quote-skeleton';
 import {
     cancel as quoteCancel,
+    edit as quoteEdit,
     index as quoteIndex,
     show as quoteShow,
 } from '@/routes/quote';
@@ -269,6 +270,8 @@ const InquiryCard = ({
 
     const buttons = buildCardActions(inquiry.actions);
     const detailsHref = quoteShow.url({ reference: inquiry.reference });
+    // Update opens the Inquire page at Review with this inquiry's projects.
+    const editHref = quoteEdit.url({ reference: inquiry.reference });
     const actionClassName = 'w-full sm:w-auto lg:w-full';
 
     return (
@@ -402,7 +405,13 @@ const InquiryCard = ({
                                     variant={button.variant}
                                     className={actionClassName}
                                 >
-                                    <Link href={detailsHref}>
+                                    <Link
+                                        href={
+                                            button.key === 'update'
+                                                ? editHref
+                                                : detailsHref
+                                        }
+                                    >
                                         {button.label}
                                     </Link>
                                 </Button>

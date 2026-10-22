@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Repositories\Contracts\AuditLogRepositoryInterface;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
 use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
@@ -15,6 +16,7 @@ use App\Repositories\Contracts\SavedStoneRepositoryInterface;
 use App\Repositories\Contracts\ScheduleRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Repositories\Eloquent\EloquentAuditLogRepository;
 use App\Repositories\Eloquent\EloquentConversationMemberRepository;
 use App\Repositories\Eloquent\EloquentConversationRepository;
 use App\Repositories\Eloquent\EloquentInquiryCatalogRepository;
@@ -54,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ConversationMemberRepositoryInterface::class, EloquentConversationMemberRepository::class);
         $this->app->bind(MessageRepositoryInterface::class, EloquentMessageRepository::class);
         $this->app->bind(ScheduleRepositoryInterface::class, EloquentScheduleRepository::class);
+        $this->app->bind(AuditLogRepositoryInterface::class, EloquentAuditLogRepository::class);
     }
 
     /**

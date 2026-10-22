@@ -122,10 +122,10 @@ const StoneCard = ({
 
         return (
             <article
-                className={`relative overflow-hidden rounded-md border bg-background ${
+                className={`relative overflow-hidden rounded-md border ${
                     selected
-                        ? 'border-primary ring-2 ring-primary'
-                        : 'border-sidebar-border'
+                        ? 'border-primary bg-primary ring-2 ring-primary'
+                        : 'border-sidebar-border bg-background'
                 }`}
             >
                 {/*
@@ -143,7 +143,7 @@ const StoneCard = ({
                     aria-checked={selected}
                     aria-label={stone.name}
                     onClick={onSelect}
-                    className="block w-full cursor-pointer rounded-md text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="block w-full cursor-pointer rounded-md bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                     <div
                         className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
@@ -158,7 +158,7 @@ const StoneCard = ({
                         {selected ? (
                             <span
                                 aria-hidden
-                                className="absolute top-0 right-0 rounded-md bg-black p-2 text-white"
+                                className="absolute top-0 right-0 rounded-tr-[calc(var(--radius)-3px)] bg-primary p-2 text-white"
                             >
                                 <Check className="size-3 shrink-0" />
                             </span>

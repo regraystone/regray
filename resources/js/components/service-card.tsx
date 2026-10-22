@@ -40,7 +40,7 @@ const ServiceCard = ({
         aria-checked={selected}
         aria-label={service.name}
         onClick={onSelect}
-        className="flex w-full cursor-pointer items-start gap-4 rounded-md p-4 text-left transition-colors hover:bg-secondary focus-visible:inset-y-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-checked:bg-secondary sm:gap-6 sm:p-5"
+        className="flex w-full cursor-pointer items-start gap-4 p-4 text-left transition-colors hover:bg-secondary focus-visible:inset-y-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-checked:bg-secondary sm:gap-6 sm:p-5"
     >
         {/*
          * Decoration beside a row that already names the service, hence the
@@ -56,7 +56,7 @@ const ServiceCard = ({
             {selected ? (
                 <span
                     aria-hidden
-                    className="absolute top-0 right-0 rounded-md bg-black p-2 text-white"
+                    className="absolute top-0 right-0 bg-black p-2 text-white"
                 >
                     <Check className="size-3 shrink-0" />
                 </span>

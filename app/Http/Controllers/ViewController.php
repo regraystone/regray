@@ -5,10 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Schedule\ListSchedulesAction;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
-use App\Http\Resources\InquiryFinishingResource;
-use App\Http\Resources\InquiryOptionResource;
-use App\Http\Resources\InquiryServiceResource;
-use App\Http\Resources\InquiryStoneResource;
+use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\ScheduleResource;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -44,15 +41,9 @@ class ViewController extends Controller
      */
     public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions): Response
     {
-        $options = $listInquiryOptions->execute();
-
         return Inertia::render('inquire', [
-            'services' => InquiryServiceResource::collection($options['services'])->resolve($request),
-            'stones' => InquiryStoneResource::collection($options['stones'])->resolve($request),
-            'applications' => InquiryOptionResource::collection($options['applications'])->resolve($request),
-            'edgeProfiles' => InquiryFinishingResource::collection($options['edgeProfiles'])->resolve($request),
-            'finishes' => InquiryFinishingResource::collection($options['finishes'])->resolve($request),
-            'locations' => $options['locations'],
+            ...InquiryCatalogResource::make($listInquiryOptions->execute())->resolve($request),
+            'mode' => 'create',
         ]);
     }
 

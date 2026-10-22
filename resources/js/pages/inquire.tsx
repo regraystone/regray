@@ -1,5 +1,5 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
@@ -42,6 +42,7 @@ import {
     buildInquiryFormData,
     clampRestoredStep,
     commitPlan,
+    deadlineLocks,
     draftForNextInQueue,
     INQUIRY_STEP_LABELS,
     isStandaloneProject,
@@ -53,6 +54,8 @@ import {
     readInquiryFlash,
     REVIEW_STEP,
     seedStoneRows,
+    toEditFormProjects,
+    type InquiryEditProject,
     type InquiryFlash,
 } from '@/lib/inquiry-flow';
 import {
@@ -70,7 +73,7 @@ import {
 } from '@/lib/inquiry-schema';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
-import { index as quoteIndex } from '@/routes/quote';
+import { index as quoteIndex, update as quoteUpdate } from '@/routes/quote';
 import { show as savedShow } from '@/routes/saved';
 import type { Auth } from '@/types';
 import type { InquirePageProps, InquiryStoneOption } from '@/types/inquiry';
@@ -158,13 +161,26 @@ type SendOutcome =
  * `onHttpException` returns false so a server error is answered by the page's
  * own result panel, which keeps the answers and offers a retry, rather than by
  * Inertia's dialog of the raw response laid over it.
+ *
+ * `patch` is the edit of a sent inquiry. It still goes out as a POST carrying
+ * `_method=PATCH`, because PHP does not parse a multipart body sent as PATCH,
+ * and it carries each project's id and the stored files it keeps.
  */
 const sendInquiryRequest = (
     url: string,
     values: InquiryFormValues,
+    method: 'post' | 'patch' = 'post',
 ): Promise<SendOutcome> =>
     new Promise((resolve) => {
-        router.post(url, buildInquiryFormData(values), {
+        const body = buildInquiryFormData(values, {
+            withProjectIds: method === 'patch',
+        });
+
+        if (method === 'patch') {
+            body.append('_method', 'PATCH');
+        }
+
+        router.post(url, body, {
             forceFormData: true,
             preserveScroll: true,
             preserveState: true,
@@ -350,7 +366,17 @@ const InquireSkeleton = () => {
     );
 };
 
-const InquireFlow = () => {
+/** A sent inquiry being edited: its reference and its projects as stored. */
+type InquiryEdit = {
+    reference: string;
+    projects: InquiryEditProject[];
+};
+
+/**
+ * The stepper. `edit` is null when starting a new inquiry; when it is set, the
+ * same steps change that inquiry instead (see `reviewActions`).
+ */
+const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
     const catalog = useInquiryCatalog();
     const { stones } = catalog;
     const { inquirySchema, projectDraftSchema } = useMemo(
@@ -360,7 +386,10 @@ const InquireFlow = () => {
     const inquireStoreUrl = useInquireStoreUrl();
 
     const [isLoading, setIsLoading] = useState(true);
-    const [step, setStep] = useState(SERVICES_STEP);
+    /** An edit opens on Review, where the reader picks the project to change. */
+    const [step, setStep] = useState(
+        edit === null ? SERVICES_STEP : REVIEW_STEP,
+    );
     const [filter, setFilter] = useState<StoneFilter>('latest');
     const [search, setSearch] = useState('');
     const [applicationSearch, setApplicationSearch] = useState('');
@@ -428,6 +457,12 @@ const InquireFlow = () => {
      * rest of the page answering from the list as it was.
      */
     const projects = useWatch({ control: methods.control, name: 'projects' });
+
+    /** When editing, why each locked project's date and time cannot change. */
+    const lockedDeadlines = useMemo(
+        () => (edit === null ? {} : deadlineLocks(edit.projects)),
+        [edit],
+    );
 
     /*
      * The project in progress, as a second form.
@@ -536,6 +571,18 @@ const InquireFlow = () => {
 
         hasRestoredRef.current = true;
 
+        /*
+         * An edit starts from the inquiry as stored and never touches the new
+         * inquiry's draft. `isRestored` stays false, which keeps the autosave
+         * inert for the whole edit: a refresh starts the edit over from the
+         * server rather than from anything kept in the browser.
+         */
+        if (edit !== null) {
+            reset({ projects: toEditFormProjects(edit.projects) });
+
+            return;
+        }
+
         const stored = readInquiryDraft(userId, catalog);
 
         if (stored !== null) {
@@ -577,7 +624,7 @@ const InquireFlow = () => {
         }
 
         setIsRestored(true);
-    }, [userId, catalog, reset, draftMethods]);
+    }, [userId, catalog, reset, draftMethods, edit]);
 
     /*
      * The draft's own life support: a write a couple of seconds after the last
@@ -948,6 +995,19 @@ const InquireFlow = () => {
         const draft = getDraftValues();
         const { isStandalone, head, remaining } = commitPlan(draft);
 
+        /*
+         * An edit changes the projects the inquiry has and adds none. Services
+         * that would split this one into several (a site visit picked beside a
+         * stone, or two visits) are refused here rather than sent and refused.
+         */
+        if (edit !== null && remaining.length > 0) {
+            toast.error(
+                'An inquiry being edited cannot gain projects. Keep this project to one kind of service to save it.',
+            );
+
+            return;
+        }
+
         const project = buildCommittedProject(draft, {
             id: editingProjectId ?? newProjectId(),
             standaloneService:
@@ -1141,7 +1201,7 @@ const InquireFlow = () => {
         setProjectMessages({});
         setValidationAlertErrors([]);
 
-        await sendInquiry();
+        await (edit === null ? sendInquiry() : saveChanges());
     };
 
     /**
@@ -1228,6 +1288,49 @@ const InquireFlow = () => {
         setProjectMessages({});
         setStep(SERVICES_STEP);
         setResult({ status: 'success', title, reference });
+    };
+
+    /**
+     * Save the edit of a sent inquiry.
+     *
+     * On success the server redirects to the inquiry's details page with a
+     * toast, so there is nothing left to do here. Refused answers come back
+     * against their projects as they do for a new inquiry; anything else keeps
+     * the reader on the sheet with their changes, to try again.
+     */
+    const saveChanges = async () => {
+        if (edit === null || isSendingRef.current) {
+            return;
+        }
+
+        isSendingRef.current = true;
+        setIsSending(true);
+
+        const outcome = await sendInquiryRequest(
+            quoteUpdate.url({ reference: edit.reference }),
+            getValues(),
+            'patch',
+        );
+
+        isSendingRef.current = false;
+        setIsSending(false);
+
+        if (outcome.kind === 'invalid') {
+            const mapped = mapInquiryErrors(
+                outcome.errors,
+                getValues('projects'),
+            );
+
+            setProjectMessages(mapped.projectMessages);
+            setSectionMessages(mapped.sectionMessages);
+            setValidationAlertErrors(mapped.alertErrors);
+
+            return;
+        }
+
+        if (outcome.kind === 'failed') {
+            toast.error('Your changes could not be saved. Try again.');
+        }
     };
 
     /**
@@ -1346,11 +1449,26 @@ const InquireFlow = () => {
         <FormProvider {...methods}>
             <div className="mx-auto w-full max-w-6xl">
                 <PageHeading
-                    title="Inquire"
+                    title={
+                        edit === null ? 'Inquire' : `Update ${edit.reference}`
+                    }
                     description={
                         result?.status === 'success'
                             ? 'Your request has been sent'
-                            : STEP_DESCRIPTIONS[step]
+                            : edit !== null && step === REVIEW_STEP
+                              ? 'Choose a project to edit, then save your changes'
+                              : STEP_DESCRIPTIONS[step]
+                    }
+                    action={
+                        edit === null ? undefined : (
+                            <Button asChild variant="outline">
+                                {/* Back to the list the edit was started from. */}
+                                <Link href={quoteIndex.url()}>
+                                    <ArrowLeft aria-hidden />
+                                    Back to Quote
+                                </Link>
+                            </Button>
+                        )
                     }
                 />
 
@@ -1387,6 +1505,7 @@ const InquireFlow = () => {
                         validationErrors={validationAlertErrors}
                         locked={isSending}
                         onRequestQuote={requestQuote}
+                        mode={edit === null ? 'create' : 'edit'}
                     />
                 ) : (
                     /*
@@ -1978,6 +2097,12 @@ const InquireFlow = () => {
                                 onBack={() =>
                                     setStep(previousStep(REQUIREMENTS_STEP))
                                 }
+                                deadlineLockReason={
+                                    editingProjectId === null
+                                        ? null
+                                        : (lockedDeadlines[editingProjectId] ??
+                                          null)
+                                }
                             />
                         )}
                     </FormProvider>
@@ -2035,7 +2160,18 @@ const Inquire = (props: InquirePageProps) => {
         edgeProfiles,
         finishes,
         locations,
+        mode,
+        reference,
+        projects,
     } = props;
+
+    const edit = useMemo(
+        () =>
+            mode === 'edit' && reference !== undefined
+                ? { reference, projects: projects ?? [] }
+                : null,
+        [mode, reference, projects],
+    );
 
     const catalog = useMemo(
         () =>
@@ -2052,7 +2188,7 @@ const Inquire = (props: InquirePageProps) => {
 
     return (
         <InquiryCatalogProvider value={catalog}>
-            <InquireFlow />
+            <InquireFlow edit={edit} />
         </InquiryCatalogProvider>
     );
 };

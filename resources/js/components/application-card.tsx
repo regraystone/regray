@@ -27,7 +27,7 @@ const ApplicationCard = ({
         onClick={onSelect}
         className={`relative aspect-[4/5] w-full overflow-hidden rounded-md border transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
             selected
-                ? 'border-primary ring-2 ring-primary'
+                ? 'border-primary bg-primary ring-2 ring-primary'
                 : 'border-sidebar-border'
         }`}
     >
@@ -48,7 +48,7 @@ const ApplicationCard = ({
         {selected ? (
             <span
                 aria-hidden
-                className="absolute top-0 right-0 rounded-md bg-black p-2 text-white"
+                className="absolute top-0 right-0 rounded-tr-[calc(var(--radius)-3px)] bg-primary p-2 text-white"
             >
                 <Check className="size-3 shrink-0" />
             </span>

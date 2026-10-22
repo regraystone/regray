@@ -72,8 +72,63 @@ class ScheduleService
             'title' => $projectName,
             'arrival_at' => self::arrivalAt($date, $time ?? self::DEFAULT_ARRIVAL_TIME)->setTimezone(config('app.timezone')),
             'status' => ScheduleStatus::Pending,
-            'notes' => "Inquiry {$inquiry->reference} · {$projectName} · {$location}",
+            'notes' => self::inquiryProjectNotes($inquiry, $projectName, $location),
         ]);
+    }
+
+    /**
+     * Bring an inquiry project's visit in line with an edit of the project:
+     * its title, its notes and, when it moved, its arrival.
+     *
+     * Does not decide whether the arrival may move. The caller asks
+     * deadlineLockedReason() first, because only it knows which project the
+     * refusal belongs to.
+     */
+    public function updateForInquiryProject(Schedule $schedule, Inquiry $inquiry, string $projectName, string $location, CarbonImmutable $arrivalAt): void
+    {
+        $this->scheduleRepository->update($schedule, [
+            'title' => $projectName,
+            'notes' => self::inquiryProjectNotes($inquiry, $projectName, $location),
+            'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
+        ]);
+    }
+
+    /**
+     * Where an edited inquiry project's visit should now arrive.
+     *
+     * A visit's own time when the project has one. Any other project keeps the
+     * time of day its schedule already has, so moving only the date never moves
+     * the hour, and an unchanged date compares equal to the stored arrival.
+     */
+    public function arrivalForInquiryProject(?Schedule $current, string $date, ?string $time): CarbonImmutable
+    {
+        if ($time !== null) {
+            return self::arrivalAt($date, $time);
+        }
+
+        $timeOfDay = $current?->arrival_at->setTimezone(self::timezone())->format('H:i') ?? self::DEFAULT_ARRIVAL_TIME;
+
+        return self::arrivalAt($date, $timeOfDay);
+    }
+
+    /**
+     * Why this visit's date and time can no longer be changed from the inquiry,
+     * or null while it still waits for approval.
+     */
+    public function deadlineLockedReason(Schedule $schedule): ?string
+    {
+        return match ($schedule->status) {
+            ScheduleStatus::Pending => null,
+            ScheduleStatus::Confirmed => 'This visit is already confirmed, so its date and time can no longer be changed here. Message the team to move it.',
+            ScheduleStatus::Completed => 'This visit has already taken place, so its date and time can no longer be changed.',
+            ScheduleStatus::Cancelled => 'This visit was cancelled, so its date and time can no longer be changed here.',
+        };
+    }
+
+    /** "Inquiry INQ-1048 · Kitchen counters · Makati" */
+    private static function inquiryProjectNotes(Inquiry $inquiry, string $projectName, string $location): string
+    {
+        return "Inquiry {$inquiry->reference} · {$projectName} · {$location}";
     }
 
     /** Cancel the inquiry's open visits along with it. */

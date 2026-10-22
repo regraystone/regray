@@ -78,6 +78,45 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         return $project->files()->create($attributes);
     }
 
+    public function projectsForUpdate(Inquiry $inquiry): Collection
+    {
+        return $inquiry->projects()
+            ->with(['schedule', 'files'])
+            ->orderBy('sort_order')
+            ->get();
+    }
+
+    public function updateProject(InquiryProject $project, array $attributes): void
+    {
+        $project->forceFill($attributes)->save();
+    }
+
+    public function syncServices(InquiryProject $project, array $serviceIds): void
+    {
+        $project->services()->sync($serviceIds);
+    }
+
+    public function syncApplications(InquiryProject $project, array $applicationIds): void
+    {
+        $project->categories()->detach();
+        $this->attachApplications($project, $applicationIds);
+    }
+
+    public function replaceStones(InquiryProject $project, array $stones): void
+    {
+        $project->stones()->delete();
+        $this->addStones($project, $stones);
+    }
+
+    public function deleteFilesExcept(InquiryProject $project, array $keepIds): array
+    {
+        $removed = $project->files()->whereNotIn('id', $keepIds)->get(['id', 'disk', 'path']);
+
+        $project->files()->whereIn('id', $removed->pluck('id'))->delete();
+
+        return array_values($removed->map(fn (InquiryFile $file): array => ['disk' => $file->disk, 'path' => $file->path])->all());
+    }
+
     public function paginateForClient(User $client, InquiryListFilters $filters, ?string $escapedSearch, int $perPage): LengthAwarePaginator
     {
         $direction = $filters->sort === InquiryListFilters::SORT_OLDEST ? 'asc' : 'desc';
@@ -165,7 +204,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'projects' => fn ($projects) => $projects->orderBy('sort_order'),
                 'projects.services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
                 'projects.categories',
-                'projects.schedule:id,arrival_at',
+                'projects.schedule:id,arrival_at,status',
                 'projects.stones' => fn ($stones) => $stones->orderBy('sort_order'),
                 'projects.stones.stone' => fn ($stone) => $stone->withTrashed(),
                 'projects.stones.edgeProfile',

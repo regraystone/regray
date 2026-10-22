@@ -24,6 +24,11 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
         return $schedule;
     }
 
+    public function update(Schedule $schedule, array $attributes): void
+    {
+        $schedule->forceFill($attributes)->save();
+    }
+
     public function between(?User $client, CarbonInterface $from, CarbonInterface $to): Collection
     {
         return $this->visibleTo($client)

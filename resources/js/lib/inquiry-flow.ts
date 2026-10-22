@@ -254,7 +254,17 @@ export const isStandaloneProject = (
 /* The request                                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A file on its way out: a new upload carries its bytes, a file the inquiry
+ * already holds (when editing) is only named by its id.
+ */
+export type RequestAttachment =
+    | { status: 'uploading' | 'done'; file: File }
+    | { status: 'saved'; fileId: number };
+
 export type RequestProject = {
+    /** The project's id; sent only when editing, where it is the database id. */
+    id?: string;
     name: string;
     serviceIds: string[];
     applications: string[];
@@ -265,7 +275,7 @@ export type RequestProject = {
     neededBy: string;
     neededByTime: string;
     notes: string;
-    attachments: Array<{ file: File }>;
+    attachments: RequestAttachment[];
 };
 
 /**
@@ -275,14 +285,23 @@ export type RequestProject = {
  * `projects[i][attachments][j]`.
  *
  * Multipart rather than JSON because the attachments are `File` objects.
+ *
+ * When editing (`withProjectIds`), each project also carries its database id
+ * as `projects[i][id]`, and the stored files it keeps as
+ * `projects[i][keepFileIds][k]`; `attachments` are then the new uploads only.
  */
-export const buildInquiryFormData = (values: {
-    projects: RequestProject[];
-}): FormData => {
+export const buildInquiryFormData = (
+    values: { projects: RequestProject[] },
+    { withProjectIds = false }: { withProjectIds?: boolean } = {},
+): FormData => {
     const body = new FormData();
 
     values.projects.forEach((project, i) => {
         const field = (name: string): string => `projects[${i}][${name}]`;
+
+        if (withProjectIds && project.id !== undefined) {
+            body.append(field('id'), project.id);
+        }
 
         body.append(field('name'), project.name);
 
@@ -311,9 +330,24 @@ export const buildInquiryFormData = (values: {
         body.append(field('neededByTime'), project.neededByTime);
         body.append(field('notes'), project.notes);
 
-        project.attachments.forEach((attachment, j) =>
-            body.append(`${field('attachments')}[${j}]`, attachment.file),
-        );
+        let kept = 0;
+        let uploaded = 0;
+
+        for (const attachment of project.attachments) {
+            if (attachment.status === 'saved') {
+                body.append(
+                    `${field('keepFileIds')}[${kept}]`,
+                    String(attachment.fileId),
+                );
+                kept += 1;
+            } else {
+                body.append(
+                    `${field('attachments')}[${uploaded}]`,
+                    attachment.file,
+                );
+                uploaded += 1;
+            }
+        }
     });
 
     return body;
@@ -411,3 +445,133 @@ export const readInquiryFlash = (flash: unknown): InquiryFlash | null => {
 
     return null;
 };
+
+/* ------------------------------------------------------------------ */
+/* Editing a sent inquiry                                               */
+/* ------------------------------------------------------------------ */
+
+/** One project as InquiryEditResource sends it. */
+export type InquiryEditProject = {
+    id: number;
+    name: string;
+    serviceSlugs: string[];
+    applicationSlugs: string[];
+    stones: StoneRow[];
+    location: string;
+    landmark: string | null;
+    areaSqm: number | null;
+    notes: string | null;
+    neededBy: string | null;
+    neededByTime: string | null;
+    deadlineLocked: boolean;
+    deadlineLockedReason: string | null;
+    attachments: Array<{
+        id: number;
+        name: string;
+        sizeBytes: number;
+        mimeType: string;
+        status: 'saved';
+    }>;
+};
+
+/** A committed project as the form holds it, filled from an edit payload. */
+export type EditFormProject = {
+    id: string;
+    name: string;
+    serviceIds: string[];
+    applications: string[];
+    stones: StoneRow[];
+    location: string;
+    landmark: string;
+    areaSqm: string;
+    neededBy: string;
+    neededByTime: string;
+    notes: string;
+    attachments: Array<{
+        id: string;
+        status: 'saved';
+        fileId: number;
+        name: string;
+        sizeBytes: number;
+        mimeType: string;
+    }>;
+};
+
+/**
+ * The edit payload in the shape the form commits a project in, so Review and
+ * Edit read a stored project exactly as they read one built on the page.
+ *
+ * The project's id becomes the form id, as a string, which is also what is
+ * sent back as `projects[i][id]`. Missing answers become the form's blank `''`.
+ */
+export const toEditFormProjects = (
+    projects: InquiryEditProject[],
+): EditFormProject[] =>
+    projects.map((project) => ({
+        id: String(project.id),
+        name: project.name,
+        serviceIds: [...project.serviceSlugs],
+        applications: [...project.applicationSlugs],
+        stones: project.stones.map((row) => ({ ...row })),
+        location: project.location,
+        landmark: project.landmark ?? '',
+        areaSqm: project.areaSqm === null ? '' : String(project.areaSqm),
+        neededBy: project.neededBy ?? '',
+        neededByTime: project.neededByTime ?? '',
+        notes: project.notes ?? '',
+        attachments: project.attachments.map((file) => ({
+            id: `saved-${file.id}`,
+            status: 'saved' as const,
+            fileId: file.id,
+            name: file.name,
+            sizeBytes: file.sizeBytes,
+            mimeType: file.mimeType,
+        })),
+    }));
+
+/**
+ * Why each project's date and time can no longer be changed, keyed by the form
+ * id. A project whose visit is still pending is not in it.
+ */
+export const deadlineLocks = (
+    projects: InquiryEditProject[],
+): Record<string, string> =>
+    Object.fromEntries(
+        projects
+            .filter((project) => project.deadlineLocked)
+            .map((project) => [
+                String(project.id),
+                project.deadlineLockedReason ??
+                    'This date and time can no longer be changed.',
+            ]),
+    );
+
+export type InquiryMode = 'create' | 'edit';
+
+/**
+ * What the Review sheet offers in each mode.
+ *
+ * Editing changes the projects an inquiry already has: none can be added or
+ * removed, only opened with Edit, and the send is a save of the same inquiry.
+ */
+export const reviewActions = (
+    mode: InquiryMode,
+): {
+    canAddProject: boolean;
+    canRemoveProject: boolean;
+    submitLabel: string;
+    footerNote: string;
+} =>
+    mode === 'edit'
+        ? {
+              canAddProject: false,
+              canRemoveProject: false,
+              submitLabel: 'Save changes',
+              footerNote: 'Nothing is saved until you save changes',
+          }
+        : {
+              canAddProject: true,
+              canRemoveProject: true,
+              submitLabel: 'Request a Quote',
+              footerNote: 'Nothing is sent until you request a quote',
+          };
