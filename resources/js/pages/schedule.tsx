@@ -181,7 +181,12 @@ const Schedule = () => {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setAnchor(startOfDay(new Date()))}
+                        onClick={() => {
+                            const today = startOfDay(new Date());
+
+                            setAnchor(today);
+                            setMonth(today);
+                        }}
                     >
                         Today
                     </Button>
