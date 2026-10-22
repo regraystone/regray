@@ -10,11 +10,7 @@ import { expect } from './fixtures';
  */
 
 export const CATALOG = {
-    visitService: 'Site Ocular & Technical Assessment',
-    otherVisitServices: [
-        'Stone Relocation, Dismantling & Reinstallation',
-        'Post-Installation Quality Care',
-    ],
+    visitService: 'Stone Relocation, Dismantling & Reinstallation',
     stoneService: 'Natural Stone Supply',
     stoneServiceSlug: 'natural-stone-supply',
     stones: ['Warm Beige Granite', 'Flamed - Gray'],

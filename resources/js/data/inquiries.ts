@@ -239,7 +239,6 @@ export const inquiries: Inquiry[] = [
                 name: 'Northgate Cafe — Counters and Flooring',
                 applications: ['Countertops & Backsplash'],
                 services: [
-                    'Site Ocular & Technical Assessment',
                     'Custom Stone Fabrication',
                     'Natural Stone Installation',
                 ],
@@ -323,11 +322,7 @@ export const inquiries: Inquiry[] = [
                 },
             },
         ],
-        services: [
-            'Site Ocular & Technical Assessment',
-            'Custom Stone Fabrication',
-            'Natural Stone Installation',
-        ],
+        services: ['Custom Stone Fabrication', 'Natural Stone Installation'],
         statusHistory: [
             { status: 'draft', at: '2026-09-27T03:40:00.000Z' },
             {
@@ -349,10 +344,7 @@ export const inquiries: Inquiry[] = [
                 id: 'prj-1044-1',
                 name: 'Garden Court — Vanity Tops',
                 applications: ['Lavatories'],
-                services: [
-                    'Design & Project Consultation',
-                    'Post-Installation Quality Care',
-                ],
+                services: ['Design & Project Consultation'],
                 stones: [
                     {
                         stoneId: 'beige',
@@ -382,10 +374,7 @@ export const inquiries: Inquiry[] = [
                 },
             },
         ],
-        services: [
-            'Design & Project Consultation',
-            'Post-Installation Quality Care',
-        ],
+        services: ['Design & Project Consultation'],
         statusHistory: [
             { status: 'draft', at: '2026-09-15T04:50:00.000Z' },
             { status: 'pending', at: '2026-09-16T01:05:00.000Z' },

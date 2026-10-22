@@ -21,7 +21,7 @@ return [
                     'id' => 'prj-1048-1',
                     'name' => 'Northgate Cafe — Counters and Flooring',
                     'categories' => ['countertops-backsplash'],
-                    'services' => ['Site Ocular & Technical Assessment', 'Custom Stone Fabrication', 'Natural Stone Installation'],
+                    'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
                     'stones' => [
                         ['stone_slug' => 'quartzite', 'quantity' => 7, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
                         ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
@@ -74,7 +74,7 @@ return [
                     'id' => 'prj-1044-1',
                     'name' => 'Garden Court — Vanity Tops',
                     'categories' => ['lavatories'],
-                    'services' => ['Design & Project Consultation', 'Post-Installation Quality Care'],
+                    'services' => ['Design & Project Consultation'],
                     'stones' => [
                         ['stone_slug' => 'travertine', 'quantity' => 8, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
                         ['stone_slug' => 'marble', 'quantity' => 5, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],

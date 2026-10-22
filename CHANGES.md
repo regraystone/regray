@@ -1,3 +1,7 @@
+# Services: Site Ocular and Post-Installation Quality Care removed
+
+Site Ocular & Technical Assessment and Post-Installation Quality Care are no longer offered. They are taken out of the service catalogue (`database/seeders/data/services.php`, `resources/js/data/services.ts`) and out of the seeded and mock inquiries that listed them. Stone Relocation, Dismantling & Reinstallation is now the only standalone service, so it is the one that asks for a needed-by time. Run `php artisan migrate:fresh --seed` to pick it up. Tests that used Site Ocular as their visit now use Stone Relocation, and e2e test 19 adds three named stone projects instead of three different visits.
+
 # Quote "Update": edit a sent inquiry from the Review step
 
 Update on a Quote card now opens the Inquire page at Review with that inquiry's projects. The client opens a project with Edit, changes it, comes back to Review and presses Save changes, which updates the same inquiry. No schema change.

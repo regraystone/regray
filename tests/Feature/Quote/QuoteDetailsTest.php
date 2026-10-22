@@ -68,7 +68,7 @@ it('opens the signed-in client\'s own inquiry', function (): void {
 });
 
 it('shows a visit\'s target deadline with the time from its schedule', function (): void {
-    $inquiry = makeInquiry($this->client, [['name' => 'Survey', 'stones' => [], 'services' => ['site-ocular-technical-assessment']]], ['reference' => 'INQ-V1']);
+    $inquiry = makeInquiry($this->client, [['name' => 'Survey', 'stones' => [], 'services' => ['stone-relocation-dismantling-reinstallation']]], ['reference' => 'INQ-V1']);
     $schedule = app(ScheduleService::class)->createForInquiryProject($inquiry, $this->client, 'Survey', 'Taguig', '2030-01-02', '14:15');
     $inquiry->projects()->sole()->update(['schedule_id' => $schedule->id]);
 

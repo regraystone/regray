@@ -175,7 +175,7 @@ describe('standalone and regular services', function (): void {
     });
 
     it('still needs stones when a regular service is picked beside a standalone one', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'site-ocular-technical-assessment'], 'stones' => []])])
+        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'stone-relocation-dismantling-reinstallation'], 'stones' => []])])
             ->assertSessionHasErrors('projects.0.stones');
     });
 });

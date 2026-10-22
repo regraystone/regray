@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '../support/fixtures';
 import {
     CATALOG,
+    addStoneProject,
     addVisitProject,
     expectStep,
     locationField,
@@ -49,21 +50,9 @@ test('19 · removing a project in the middle keeps the others’ answers and ren
     await openInquire(page);
 
     const projects = [
-        {
-            service: CATALOG.visitService,
-            location: 'Makati',
-            landmark: 'First',
-        },
-        {
-            service: CATALOG.otherVisitServices[0],
-            location: 'Taguig',
-            landmark: 'Second',
-        },
-        {
-            service: CATALOG.otherVisitServices[1],
-            location: 'Pasig',
-            landmark: 'Third',
-        },
+        { name: 'Kitchen counters', location: 'Makati', landmark: 'First' },
+        { name: 'Lobby wall', location: 'Taguig', landmark: 'Second' },
+        { name: 'Bathroom vanity', location: 'Pasig', landmark: 'Third' },
     ];
 
     for (const [index, project] of projects.entries()) {
@@ -71,13 +60,13 @@ test('19 · removing a project in the middle keeps the others’ answers and ren
             await addAnother(page).click();
         }
 
-        await addVisitProject(page, project);
+        await addStoneProject(page, project);
     }
 
     await expect(projectHeadings(page)).toHaveCount(3);
 
     await page
-        .getByRole('button', { name: `Remove ${projects[1].service}` })
+        .getByRole('button', { name: `Remove ${projects[1].name}` })
         .click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('Remove Project 2?');
@@ -85,17 +74,17 @@ test('19 · removing a project in the middle keeps the others’ answers and ren
 
     await expect(projectHeadings(page)).toHaveCount(2);
     await expect(projectHeadings(page).nth(0)).toHaveText(
-        new RegExp(`^Project 1\\s*${escape(projects[0].service)}$`),
+        new RegExp(`^Project 1\\s*${escape(projects[0].name)}$`),
     );
     await expect(projectHeadings(page).nth(1)).toHaveText(
-        new RegExp(`^Project 2\\s*${escape(projects[2].service)}$`),
+        new RegExp(`^Project 2\\s*${escape(projects[2].name)}$`),
     );
 
     for (const project of [projects[0], projects[2]]) {
         const card = page
             .locator('section')
             .filter({
-                has: page.getByRole('heading', { name: project.service }),
+                has: page.getByRole('heading', { name: project.name }),
             })
             .last();
         await expect(card).toContainText(project.location);
@@ -122,7 +111,7 @@ test("20 · each project's requirements are its own: project 1's location is not
 
     await page
         .getByRole('checkbox', {
-            name: CATALOG.otherVisitServices[0],
+            name: CATALOG.visitService,
             exact: true,
         })
         .click();

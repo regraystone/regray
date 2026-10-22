@@ -33,21 +33,9 @@ return [
             'is_standalone' => false,
         ],
         [
-            'slug' => 'site-ocular-technical-assessment',
-            'name' => 'Site Ocular & Technical Assessment',
-            'image_path' => 'stones/5b7cb3dae550009c37ad0cb518f4d09f.png',
-            'is_standalone' => true,
-        ],
-        [
             'slug' => 'stone-relocation-dismantling-reinstallation',
             'name' => 'Stone Relocation, Dismantling & Reinstallation',
             'image_path' => 'stones/8f7804fd9673f34737ecd0c1dfca9723.png',
-            'is_standalone' => true,
-        ],
-        [
-            'slug' => 'post-installation-quality-care',
-            'name' => 'Post-Installation Quality Care',
-            'image_path' => 'stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png',
             'is_standalone' => true,
         ],
         [
@@ -90,21 +78,10 @@ return [
             'Project assessment',
             'Recommendations based on dimensions, application, and design requirements',
         ],
-        'site-ocular-technical-assessment' => [
-            'Site visits and project assessment',
-            'Measurement and evaluation of site requirements',
-            'Technical recommendations for stone applications and installation',
-        ],
         'stone-relocation-dismantling-reinstallation' => [
             'Professional dismantling of existing stone',
             'Safe handling and relocation',
             'Reinstallation while maintaining the integrity of the material',
-        ],
-        'post-installation-quality-care' => [
-            'Final inspection',
-            'Surface and finish checking',
-            'Alignment assessment',
-            'Professional cleaning and polishing before project turnover',
         ],
         'kitchen-cabinetry-solutions' => [
             'Custom kitchen cabinetry',

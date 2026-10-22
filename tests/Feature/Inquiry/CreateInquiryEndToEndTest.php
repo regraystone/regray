@@ -64,7 +64,7 @@ it('writes a standalone-only project with no stones', function (): void {
 
     expect($project->stones()->count())->toBe(0)
         ->and($project->categories()->count())->toBe(0)
-        ->and($project->services()->pluck('slug')->all())->toBe(['site-ocular-technical-assessment']);
+        ->and($project->services()->pluck('slug')->all())->toBe(['stone-relocation-dismantling-reinstallation']);
 });
 
 it('keeps stones and applications picked as extras on a standalone project', function (): void {

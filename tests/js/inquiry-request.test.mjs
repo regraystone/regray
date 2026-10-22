@@ -148,7 +148,7 @@ describe('buildInquiryFormData', () => {
         const body = buildInquiryFormData({
             projects: [
                 project({
-                    serviceIds: ['site-ocular-technical-assessment'],
+                    serviceIds: ['stone-relocation-dismantling-reinstallation'],
                     stones: [
                         {
                             stoneId: 'marble',
