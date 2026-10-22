@@ -291,6 +291,7 @@ erDiagram
         varchar(150) name UK "partial unique, not deleted"
         varchar(255) image_path
         boolean is_standalone "needs no stone"
+        string selection_group "services share a project only within one group"
         boolean is_active
         smallint sort_order
         timestamptz created_at

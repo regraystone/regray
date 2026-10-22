@@ -18,6 +18,7 @@ class ServiceSeeder extends Seeder
                     'name' => $serviceData['name'],
                     'image_path' => $serviceData['image_path'],
                     'is_standalone' => $serviceData['is_standalone'],
+                    'selection_group' => $serviceData['selection_group'],
                     'is_active' => true,
                     'sort_order' => $sort,
                 ]

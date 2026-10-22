@@ -8,6 +8,8 @@ export type InquiryServiceOption = {
     features: string[];
     image: string;
     standalone: boolean;
+    /** Services share a project only when they share a group. */
+    group: string;
 };
 
 /** A stone the Inquire page offers, with what its search runs over. */

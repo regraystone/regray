@@ -121,6 +121,8 @@ class StoreInquiryRequest extends FormRequest
      * needs neither: whatever was picked is extra information. It is attended
      * at an hour, so it needs a time too, still ahead.
      *
+     * Services can share a project only when they share a selection group.
+     *
      * Every project needs a date, because sending the inquiry books it as a
      * schedule. A project without a time is booked for 10:00, when the showroom opens.
      */
@@ -144,17 +146,25 @@ class StoreInquiryRequest extends FormRequest
                     array_push($slugs, ...$project['serviceIds']);
                 }
 
-                $standaloneBySlug = Service::query()
+                $services = Service::query()
                     ->whereIn('slug', array_unique($slugs))
-                    ->pluck('is_standalone', 'slug');
+                    ->get(['slug', 'is_standalone', 'selection_group'])
+                    ->keyBy('slug');
 
                 foreach ($projects as $index => $project) {
                     $standaloneOnly = true;
+                    $groups = [];
 
                     foreach ($project['serviceIds'] as $slug) {
-                        if (! $standaloneBySlug->get($slug)) {
+                        if (! $services->get($slug)?->is_standalone) {
                             $standaloneOnly = false;
                         }
+
+                        $groups[$services->get($slug)->selection_group ?? ''] = true;
+                    }
+
+                    if (count($groups) > 1) {
+                        $validator->errors()->add("projects.{$index}.serviceIds", 'These services cannot be in the same project.');
                     }
 
                     $this->rejectRepeats($validator, "projects.{$index}.serviceIds", $project['serviceIds'], 'A service can only appear once in a project.');

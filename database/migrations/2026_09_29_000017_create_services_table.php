@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('name', 150)->unique();
             $table->string('image_path', 255);
             $table->boolean('is_standalone');
+            $table->string('selection_group', 50);
             $table->boolean('is_active');
             $table->smallInteger('sort_order');
             $table->timestampTz('created_at');

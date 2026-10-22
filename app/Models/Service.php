@@ -14,13 +14,14 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $image_path
  * @property bool $is_standalone
+ * @property string $selection_group
  * @property bool $is_active
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon|null $deleted_at
  */
-#[Fillable(['slug', 'name', 'image_path', 'is_standalone', 'is_active', 'sort_order'])]
+#[Fillable(['slug', 'name', 'image_path', 'is_standalone', 'selection_group', 'is_active', 'sort_order'])]
 class Service extends Model
 {
     use SoftDeletes;

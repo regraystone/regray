@@ -1,48 +1,59 @@
 <?php
 
 return [
+    /*
+     * selection_group: services can share a project only when they share a
+     * group. Stone relocation is its own job, so it sits alone in its group.
+     */
     'services' => [
         [
             'slug' => 'natural-stone-supply',
             'name' => 'Natural Stone Supply',
             'image_path' => 'stones/bac6a5d8d41046a9fe8cb35205cbd34c.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'custom-stone-fabrication',
             'name' => 'Custom Stone Fabrication',
             'image_path' => 'stones/4b683a754fea6cc2e9c52669a4c2ca34.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'natural-stone-installation',
             'name' => 'Natural Stone Installation',
             'image_path' => 'stones/20845a043f5abd823694192363b27458.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'custom-stone-furniture',
             'name' => 'Custom Stone Furniture',
             'image_path' => 'stones/a2a72c93b7369e681b72f0e05380df17.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'design-project-consultation',
             'name' => 'Design & Project Consultation',
             'image_path' => 'stones/32429db4b70ad914e80ab79f031e4263.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'stone-relocation-dismantling-reinstallation',
             'name' => 'Stone Relocation, Dismantling & Reinstallation',
             'image_path' => 'stones/8f7804fd9673f34737ecd0c1dfca9723.png',
             'is_standalone' => true,
+            'selection_group' => 'stone-relocation',
         ],
         [
             'slug' => 'kitchen-cabinetry-solutions',
             'name' => 'Kitchen & Cabinetry Solutions',
             'image_path' => 'stones/ef03fcfd4ff0e6063df004f6b897fe7a.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
     ],
     'features' => [

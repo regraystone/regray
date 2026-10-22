@@ -174,8 +174,13 @@ describe('standalone and regular services', function (): void {
         postInquiry($this, [inquiryProjectInput(['applicationIds' => []])])->assertSessionHasErrors('projects.0.applicationIds');
     });
 
-    it('still needs stones when a regular service is picked beside a standalone one', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'stone-relocation-dismantling-reinstallation'], 'stones' => []])])
-            ->assertSessionHasErrors('projects.0.stones');
+    it('refuses services from different selection groups in one project', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'stone-relocation-dismantling-reinstallation']])])
+            ->assertSessionHasErrors(['projects.0.serviceIds' => 'These services cannot be in the same project.']);
+    });
+
+    it('accepts services from the same selection group in one project', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication']])])
+            ->assertSessionDoesntHaveErrors();
     });
 });

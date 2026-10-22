@@ -1,3 +1,13 @@
+# Services: selection groups
+
+Each service now has a `selection_group` (string, in the original `create_services_table` migration). Services can share a project only when they share a group. The groups live in `database/seeders/data/services.php`: Stone Relocation, Dismantling & Reinstallation is in `stone-relocation`, and every other service is in `stone-work`. To change which services combine, edit the group there (or in the database). No code change is needed.
+
+- **Backend:** `InquiryServiceResource` sends `group`. `StoreInquiryRequest` (and so `UpdateInquiryRequest`) refuses a project whose services span more than one group, at `projects.N.serviceIds`: "These services cannot be in the same project."
+- **Frontend:** `canPickService()` in `lib/inquiry-catalog.ts`. On the Services step, a service from another group than the ones picked is disabled, with a note: "Some services can't share a project with the ones you picked. Add them as another project." Unpicking everything frees all services again.
+- **Tests:** `StoreInquiryRequestTest` (mixed groups refused, same group accepted), `InquiryControllerTest` (the payload has `group`), `tests/js/service-groups.test.mjs`.
+
+Run `php artisan migrate:fresh --seed`.
+
 # Services: Site Ocular and Post-Installation Quality Care removed
 
 Site Ocular & Technical Assessment and Post-Installation Quality Care are no longer offered. They are taken out of the service catalogue (`database/seeders/data/services.php`, `resources/js/data/services.ts`) and out of the seeded and mock inquiries that listed them. Stone Relocation, Dismantling & Reinstallation is now the only standalone service, so it is the one that asks for a needed-by time. Run `php artisan migrate:fresh --seed` to pick it up. Tests that used Site Ocular as their visit now use Stone Relocation, and e2e test 19 adds three named stone projects instead of three different visits.

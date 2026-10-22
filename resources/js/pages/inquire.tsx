@@ -34,7 +34,11 @@ import { useInquireStoreUrl } from '@/hooks/use-inquire-route';
 import { useInquiryDraftAutosave } from '@/hooks/use-inquiry-draft-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import { createInquiryCatalog, serviceNameIn } from '@/lib/inquiry-catalog';
+import {
+    canPickService,
+    createInquiryCatalog,
+    serviceNameIn,
+} from '@/lib/inquiry-catalog';
 import { readInquiryDraft } from '@/lib/inquiry-draft-storage';
 import {
     APPLICATION_STEP,
@@ -1981,6 +1985,20 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
                                 <h3 className="text-lg font-bold tracking-[-0.03em]">
                                     Our services
                                 </h3>
+                                {catalog.services.some(
+                                    (service) =>
+                                        !canPickService(
+                                            catalog.services,
+                                            chosenServiceIds,
+                                            service.id,
+                                        ),
+                                ) ? (
+                                    <p className="mt-1 text-sm text-secondary-foreground">
+                                        Some services can't share a project with
+                                        the ones you picked. Add them as another
+                                        project.
+                                    </p>
+                                ) : null}
 
                                 {/*
                                  * A list, not a grid: the stone grid two steps
@@ -1997,6 +2015,13 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
                                             selected={chosenServiceIds.includes(
                                                 service.id,
                                             )}
+                                            disabled={
+                                                !canPickService(
+                                                    catalog.services,
+                                                    chosenServiceIds,
+                                                    service.id,
+                                                )
+                                            }
                                             onSelect={() =>
                                                 toggleService(service.id)
                                             }

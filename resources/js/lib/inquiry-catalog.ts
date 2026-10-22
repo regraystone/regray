@@ -1,4 +1,8 @@
-import type { InquiryCatalog, InquirePageProps } from '@/types/inquiry';
+import type {
+    InquiryCatalog,
+    InquirePageProps,
+    InquiryServiceOption,
+} from '@/types/inquiry';
 
 /**
  * The answer a stone picked as extra information is given for its edge or finish.
@@ -32,6 +36,27 @@ export const createInquiryCatalog = (
     advisoryEdge: placeholderAnswer(props.edgeProfiles),
     advisoryFinish: placeholderAnswer(props.finishes),
 });
+
+/**
+ * Whether a service may join the ones already picked.
+ *
+ * Services share a project only when they share a group, which the database
+ * sets on each service. One that is already picked can always be unpicked.
+ */
+export const canPickService = (
+    services: readonly InquiryServiceOption[],
+    chosenIds: readonly string[],
+    id: string,
+): boolean => {
+    if (chosenIds.includes(id)) {
+        return true;
+    }
+
+    const groupOf = (serviceId: string) =>
+        services.find((service) => service.id === serviceId)?.group;
+
+    return chosenIds.every((chosenId) => groupOf(chosenId) === groupOf(id));
+};
 
 /** What a service is called, falling back to its id for one that is gone. */
 export const serviceNameIn = (catalog: InquiryCatalog, id: string): string =>
