@@ -76,7 +76,7 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
 - Added `laravel/reverb ^1.12`, `laravel-echo` and `pusher-js`.
 - Reverb needs Guzzle 7, so `guzzlehttp/guzzle`, `promises` and `psr7` were downgraded from 8 to 7 (`composer require -W --minimal-changes`). No other package moved.
 
-### Follow-up: reminders and limits
+### Follow-up: reminders, limits and attachments
 
 - **Unread reminders (email):** `messages:send-reminders` runs every five minutes on the scheduler. A message waiting unread past `messaging.reminders.after_minutes` (`MESSAGE_REMINDER_AFTER_MINUTES`, default 30) sends an email. Who gets it:
     - **A member** (a client, the staff member handling a thread, a group member) gets `UnreadMessagesNotification`, about messages someone else sent them.
@@ -93,7 +93,12 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
     - send: 60;
     - read/delivered receipts: 120 (`message-receipts`);
     - claim, release and reassign: 10 (`message-assignment`);
-    - people search: 60 (`message-people`).
+    - people search: 60 (`message-people`);
+    - opening an attachment: 300 (`message-attachments`).
+- **Attachments:** the paperclip sends photos (JPG, PNG, WebP), PDFs and Word documents (DOCX), up to 5 files, 10 MB each and 19 MB together (`messaging.attachments`, mirrored in `lib/message-attachments.ts`). A message may be files alone; its body is then empty, and the list reads "Sent a photo" or "Sent 3 files".
+    - **Storage:** `s3-private` (the private bucket) when `APP_ENV=production`, Laravel's own storage (`storage/app/private`) otherwise. This does not follow `FILESYSTEM_PRIVATE_DISK`, so a production server missing that line still cannot keep files inside a container the next deploy replaces. `MESSAGE_ATTACHMENT_DISK` overrides it. They are stored as `messages/{conversation id}/{uuid}.{ext}`, and the sender's file name is kept only in the row.
+    - **Serving:** `GET /message/attachments/{id}` is the only way to a file. It asks `ConversationPolicy::view`, the same as the thread. On S3 it redirects to a presigned link that expires after 5 minutes; locally it streams the file with `nosniff`.
+    - **Removed messages:** a removed message's files stay on the disk, like its row, but are no longer listed or served (404).
 
 ## Decisions (revision 2)
 
@@ -111,7 +116,6 @@ Branch `feat/messaging`. The Message page now runs on real data and updates live
     - Until they are, no real inquiry has a group, so status cards are not posted for real data and "Message the team" stays hidden.
     - Marked in `ConversationPolicy`, `PostInquiryStatusCard`, `InquiryStatusService`, `InquiryDetailsService`, `InquiryDetailsResource`, `GroupConversationService`, `ConversationSeeder` and `pages/inquiry-details.tsx`.
 - **`TODO(booking)`:** post a `schedule_card` when a client books and on every later status change. It goes where inquiry cards go: the inquiry's group chat when there is one, otherwise the client's Regray Team thread. The card's rendering is already built. Marked in `Schedule`, `PostInquiryStatusCard` and `pages/schedule-book.tsx`.
-- **`TODO(attachments)`:** the paperclip is disabled with a tooltip. `message_attachments` already exists. Marked in `components/conversations/composer.tsx`.
 - **`TODO(staff-inquiry-scope)`:** the inquiry details page only finds the viewer's own inquiries (`InquiryDetailsService::forClient`), so a staff member who clicks an inquiry card gets a 404. Marked in `components/conversations/inquiry-card.tsx`.
 
 ## Tests

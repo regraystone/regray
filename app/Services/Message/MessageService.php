@@ -15,10 +15,15 @@ use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Throwable;
 
 /**
  * Writing in a thread: sending, editing, removing, and the read and delivered
@@ -34,15 +39,18 @@ class MessageService
     ) {}
 
     /**
-     * Send a text message.
+     * Send a text message, with or without files. A message of files alone has
+     * an empty body.
      *
      * `$clientKey` is the sender's own id for this send. A retry with the same
      * key returns the message the first attempt created instead of a second
-     * copy, so a send that timed out after it landed is not posted twice.
+     * copy, so a send that timed out after it landed is not posted twice, and
+     * its files are not stored twice.
      *
+     * @param  list<UploadedFile>  $files
      * @return array{message: Message, created: bool}
      */
-    public function send(User $sender, Conversation $conversation, string $body, ?int $replyToId, string $clientKey): array
+    public function send(User $sender, Conversation $conversation, string $body, ?int $replyToId, string $clientKey, array $files = []): array
     {
         $conversation->loadMissing('assignee:id,name');
         $this->support->assertCanSend($sender, $conversation);
@@ -53,20 +61,32 @@ class MessageService
             return ['message' => $this->messages->loadForDisplay($existing), 'created' => false];
         }
 
+        $stored = $this->storeAttachments($conversation, $files);
+
         try {
-            $message = DB::transaction(fn (): Message => $this->messages->create([
-                'conversation_id' => $conversation->id,
-                'sender_id' => $sender->id,
-                'type' => MessageType::Text,
-                'body' => $body,
-                'reply_to_id' => $replyToId,
-                'client_key' => $clientKey,
-            ]));
+            $message = DB::transaction(function () use ($conversation, $sender, $body, $replyToId, $clientKey, $stored): Message {
+                $message = $this->messages->create([
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => $sender->id,
+                    'type' => MessageType::Text,
+                    'body' => $body,
+                    'reply_to_id' => $replyToId,
+                    'client_key' => $clientKey,
+                ]);
+                $this->messages->addAttachments($message, $stored);
+
+                return $message;
+            });
         } catch (UniqueConstraintViolationException) {
+            $this->deleteAttachments($stored);
             $message = $this->messages->findByClientKey($conversation->id, $clientKey)
-                ?? throw new \RuntimeException('The message could not be sent.');
+                ?? throw new RuntimeException('The message could not be sent.');
 
             return ['message' => $this->messages->loadForDisplay($message), 'created' => false];
+        } catch (Throwable $exception) {
+            $this->deleteAttachments($stored);
+
+            throw $exception;
         }
 
         $this->members->moveDeliveredPointer($conversation->id, $sender->id, $message->id);
@@ -146,6 +166,55 @@ class MessageService
             reason: $reason,
             lastMessageId: $lastMessageId,
         ));
+    }
+
+    /**
+     * Put the files on the attachments disk under messages/{conversation id}/.
+     * The stored name is generated: the sender's own file name is kept only as
+     * `original_name`, never as a path. If one file fails, the ones already
+     * written are removed again.
+     *
+     * @param  list<UploadedFile>  $files
+     * @return list<array{disk: string, path: string, original_name: string, mime_type: string, size_bytes: int}>
+     */
+    private function storeAttachments(Conversation $conversation, array $files): array
+    {
+        $disk = (string) config('messaging.attachments.disk');
+        $stored = [];
+
+        try {
+            foreach ($files as $file) {
+                $extension = strtolower($file->getClientOriginalExtension());
+                $name = Str::uuid()->toString().($extension === '' ? '' : '.'.$extension);
+                $path = Storage::disk($disk)->putFileAs("messages/{$conversation->id}", $file, $name);
+
+                if ($path === false) {
+                    throw new RuntimeException("Could not store {$file->getClientOriginalName()}.");
+                }
+
+                $stored[] = [
+                    'disk' => $disk,
+                    'path' => $path,
+                    'original_name' => Str::limit($file->getClientOriginalName(), 250, ''),
+                    'mime_type' => $file->getMimeType() ?? 'application/octet-stream',
+                    'size_bytes' => (int) $file->getSize(),
+                ];
+            }
+        } catch (Throwable $exception) {
+            $this->deleteAttachments($stored);
+
+            throw $exception;
+        }
+
+        return $stored;
+    }
+
+    /** @param  list<array{disk: string, path: string}>  $stored */
+    private function deleteAttachments(array $stored): void
+    {
+        foreach ($stored as $file) {
+            Storage::disk($file['disk'])->delete($file['path']);
+        }
     }
 
     /** Only the sender may change or remove a message, and only a text one. */

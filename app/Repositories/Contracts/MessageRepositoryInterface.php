@@ -32,6 +32,13 @@ interface MessageRepositoryInterface
      */
     public function create(array $attributes): Message;
 
+    /**
+     * Record the files sent with a message. They are already on the disk.
+     *
+     * @param  list<array{disk: string, path: string, original_name: string, mime_type: string, size_bytes: int}>  $files
+     */
+    public function addAttachments(Message $message, array $files): void;
+
     public function updateBody(Message $message, string $body, CarbonInterface $editedAt): Message;
 
     public function remove(Message $message): Message;

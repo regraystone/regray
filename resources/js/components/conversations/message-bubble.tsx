@@ -8,6 +8,10 @@ import {
     MessageActionSheet,
     MessageToolbar,
 } from '@/components/conversations/message-actions';
+import {
+    MessageAttachments,
+    PendingAttachments,
+} from '@/components/conversations/message-attachments';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useInitials } from '@/hooks/use-initials';
@@ -18,6 +22,7 @@ import {
     type LongPressEvent,
     type LongPressState,
 } from '@/lib/long-press';
+import { ATTACHMENT_SNIPPET } from '@/lib/message-attachments';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, PendingMessage } from '@/types/message';
 
@@ -43,7 +48,7 @@ type BubbleProps = {
 };
 
 /**
- * One text message: the bubble, its quoted reply, "Edited", and the actions —
+ * One text message: the bubble, its quoted reply, its files, "Edited", and the actions —
  * a hover toolbar on desktop and press-and-hold on touch.
  *
  * The press is ignored if the finger moves more than 10 px or the page
@@ -74,6 +79,13 @@ const MessageBubble = ({
     const removed = message?.isRemoved ?? false;
     const body = pending?.body ?? message?.body ?? '';
     const replyTo = pending?.replyTo ?? message?.replyTo ?? null;
+    const attachments = message?.attachments ?? [];
+    const pendingFiles = pending?.files ?? [];
+    const hasFiles = attachments.length > 0 || pendingFiles.length > 0;
+    // Photos sit almost edge to edge, in a thin frame of the bubble's colour;
+    // the words and the quote keep their usual inset.
+    const hasPhotos =
+        !removed && attachments.some((attachment) => attachment.isImage);
     const createdAt =
         pending?.createdAt ?? message?.createdAt ?? new Date().toISOString();
     const canAct = message !== null && !removed && onReply !== undefined;
@@ -201,7 +213,8 @@ const MessageBubble = ({
 
                     <div
                         className={cn(
-                            'rounded-md px-3 py-2 text-sm break-words whitespace-pre-wrap transition-shadow',
+                            'rounded-md text-sm break-words whitespace-pre-wrap transition-shadow',
+                            hasPhotos ? 'p-1' : 'px-3 py-2',
                             removed
                                 ? 'border border-dashed border-sidebar-border bg-transparent text-secondary-foreground italic'
                                 : isOwn
@@ -217,6 +230,8 @@ const MessageBubble = ({
                                 onClick={() => onJumpTo?.(replyTo.id)}
                                 className={cn(
                                     'mb-1.5 block w-full cursor-pointer border-l-2 pl-2 text-left text-xs opacity-80',
+                                    hasPhotos &&
+                                        'mx-2 mt-1 w-[calc(100%-1rem)]',
                                     isOwn
                                         ? 'border-primary-foreground/60'
                                         : 'border-secondary-foreground/60',
@@ -234,7 +249,28 @@ const MessageBubble = ({
                             </button>
                         ) : null}
 
-                        {removed ? REMOVED_TEXT : body}
+                        {!removed && attachments.length > 0 ? (
+                            <MessageAttachments
+                                attachments={attachments}
+                                isOwn={isOwn}
+                            />
+                        ) : null}
+                        {!removed && pendingFiles.length > 0 ? (
+                            <PendingAttachments files={pendingFiles} />
+                        ) : null}
+                        {removed ? (
+                            REMOVED_TEXT
+                        ) : body === '' ? null : (
+                            <span
+                                className={cn(
+                                    'block',
+                                    hasFiles && 'mt-1.5',
+                                    hasPhotos && 'mt-1 px-2 pb-1',
+                                )}
+                            >
+                                {body}
+                            </span>
+                        )}
                     </div>
 
                     {message?.isEdited && !removed ? (
@@ -288,7 +324,7 @@ const MessageBubble = ({
                     open={sheetOpen}
                     onOpenChange={setSheetOpen}
                     createdAt={createdAt}
-                    preview={body}
+                    preview={body || ATTACHMENT_SNIPPET}
                     onReply={onReply}
                     onEdit={onEdit}
                     onRemove={onRemove}

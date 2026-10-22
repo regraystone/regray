@@ -5,6 +5,7 @@ namespace App\Http\Resources\Message;
 use App\Enums\MessageType;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\MessageAttachment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -30,6 +31,9 @@ class MessageResource extends JsonResource
     public const SNIPPET_LENGTH = 120;
 
     public const SUPPORT_TEAM_NAME = 'Regray Team';
+
+    /** What a reply quotes when the message it answers is files only. */
+    public const ATTACHMENT_SNIPPET = 'Attachment';
 
     public function __construct(
         Message $message,
@@ -62,9 +66,11 @@ class MessageResource extends JsonResource
             'replyTo' => $this->replyTo === null ? null : [
                 'id' => $this->replyTo->id,
                 'senderName' => $this->replyTo->sender === null ? null : $this->senderName($this->replyTo),
-                'snippet' => $this->replyTo->trashed() || $this->replyTo->body === null
-                    ? null
-                    : Str::limit($this->replyTo->body, self::SNIPPET_LENGTH),
+                'snippet' => match (true) {
+                    $this->replyTo->trashed() || $this->replyTo->body === null => null,
+                    $this->replyTo->body === '' => self::ATTACHMENT_SNIPPET,
+                    default => Str::limit($this->replyTo->body, self::SNIPPET_LENGTH),
+                },
                 'isRemoved' => $this->replyTo->trashed(),
             ],
             'inquiryCard' => $this->type === MessageType::InquiryCard && $this->inquiry !== null
@@ -73,6 +79,17 @@ class MessageResource extends JsonResource
             'scheduleCard' => $this->type === MessageType::ScheduleCard && $this->mayReadSchedule()
                 ? (new ScheduleCardResource($this->resource))->resolve($request)
                 : null,
+            'attachments' => $removed || ! $this->relationLoaded('attachments') ? [] : $this->attachments
+                ->map(fn (MessageAttachment $attachment): array => [
+                    'id' => $attachment->id,
+                    'name' => $attachment->original_name,
+                    'mimeType' => $attachment->mime_type,
+                    'size' => $attachment->size_bytes,
+                    'isImage' => str_starts_with($attachment->mime_type, 'image/'),
+                    'url' => route('message.attachments.show', $attachment, absolute: false),
+                ])
+                ->values()
+                ->all(),
             'systemEvent' => $this->type === MessageType::System ? [
                 'event' => $this->system_event?->value,
                 'userName' => $this->systemUser?->name,

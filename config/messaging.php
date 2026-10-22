@@ -23,4 +23,35 @@ return [
         'after_minutes' => (int) env('MESSAGE_REMINDER_AFTER_MINUTES', 30),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Attachments
+    |--------------------------------------------------------------------------
+    |
+    | Files sent in a thread, always on a private disk: s3-private (the
+    | private S3 bucket) in production, and Laravel's own storage
+    | (storage/app/private) everywhere else. It does not follow
+    | FILESYSTEM_PRIVATE_DISK, so a production server that forgot that line
+    | still cannot keep files inside a container that the next deploy
+    | replaces. MESSAGE_ATTACHMENT_DISK overrides it.
+    |
+    | A file is only ever served through the download route, which checks that
+    | the viewer may read the conversation, and on S3 hands out a link that
+    | expires after `link_minutes`.
+    |
+    | The total stays under PHP's post_max_size (20M in docker/php.ini). The
+    | front end mirrors these in resources/js/lib/message-attachments.ts, so a
+    | change here has to be made there too.
+    |
+    */
+
+    'attachments' => [
+        'disk' => env('MESSAGE_ATTACHMENT_DISK', env('APP_ENV') === 'production' ? 's3-private' : 'local'),
+        'link_minutes' => 5,
+        'files' => 5,
+        'file_kilobytes' => 10 * 1024,
+        'total_kilobytes' => 19 * 1024,
+        'file_extensions' => ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'docx'],
+    ],
+
 ];

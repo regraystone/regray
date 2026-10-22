@@ -1,4 +1,4 @@
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, Upload } from 'lucide-react';
 import {
     useCallback,
     useEffect,
@@ -6,10 +6,13 @@ import {
     useMemo,
     useRef,
     useState,
+    type DragEvent,
 } from 'react';
 import { toast } from 'sonner';
 import AssignmentCard from '@/components/conversations/assignment-card';
-import Composer from '@/components/conversations/composer';
+import Composer, {
+    type ComposerHandle,
+} from '@/components/conversations/composer';
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
@@ -33,6 +36,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useConversationThread } from '@/hooks/use-conversation-thread';
 import { assignmentView } from '@/lib/assignment';
 import { threadLoadingState } from '@/lib/conversation-skeleton';
+import { isFileDrag, nextDragDepth } from '@/lib/file-drop';
 import { ApiError } from '@/lib/message-api';
 import { buildThreadItems } from '@/lib/message-grouping';
 import { latestOwnMessageId, receiptFor } from '@/lib/receipts';
@@ -110,6 +114,9 @@ const Thread = ({
     const [claiming, setClaiming] = useState(false);
     const [reassignOpen, setReassignOpen] = useState(false);
     const [highlighted, setHighlighted] = useState<number | null>(null);
+    const composerRef = useRef<ComposerHandle>(null);
+    const dragDepthRef = useRef(0);
+    const [dragging, setDragging] = useState(false);
 
     const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
         const viewport = scrollRef.current;
@@ -343,6 +350,68 @@ const Thread = ({
         );
     }
 
+    /*
+     * Files dragged anywhere over the thread, as in Messenger: an overlay while
+     * they are over it, and on drop they join the composer's chips, to be sent
+     * with the next message. Only while the viewer can send here and is not
+     * editing; otherwise the overlay says why, and the drop is swallowed so the
+     * browser does not open the file in place of the page.
+     */
+    const canDrop =
+        state.loaded &&
+        state.error === null &&
+        view.composer.mode === 'enabled' &&
+        editing === null;
+
+    const dropRefusal =
+        view.composer.mode !== 'enabled'
+            ? view.composer.note
+            : 'Finish editing your message first.';
+
+    const dropHandlers = {
+        onDragEnter: (event: DragEvent<HTMLElement>) => {
+            if (!isFileDrag([...event.dataTransfer.types])) {
+                return;
+            }
+
+            event.preventDefault();
+            dragDepthRef.current = nextDragDepth(dragDepthRef.current, 'enter');
+            setDragging(true);
+        },
+        onDragOver: (event: DragEvent<HTMLElement>) => {
+            if (!isFileDrag([...event.dataTransfer.types])) {
+                return;
+            }
+
+            event.preventDefault();
+            event.dataTransfer.dropEffect = canDrop ? 'copy' : 'none';
+        },
+        onDragLeave: (event: DragEvent<HTMLElement>) => {
+            if (!isFileDrag([...event.dataTransfer.types])) {
+                return;
+            }
+
+            dragDepthRef.current = nextDragDepth(dragDepthRef.current, 'leave');
+
+            if (dragDepthRef.current === 0) {
+                setDragging(false);
+            }
+        },
+        onDrop: (event: DragEvent<HTMLElement>) => {
+            if (!isFileDrag([...event.dataTransfer.types])) {
+                return;
+            }
+
+            event.preventDefault();
+            dragDepthRef.current = nextDragDepth(dragDepthRef.current, 'drop');
+            setDragging(false);
+
+            if (canDrop) {
+                composerRef.current?.addFiles([...event.dataTransfer.files]);
+            }
+        },
+    };
+
     const showsNames = (message: ChatMessage): boolean =>
         message.sender !== null &&
         message.sender.id !== currentUserId &&
@@ -356,7 +425,29 @@ const Thread = ({
             aria-label={`Conversation with ${conversation.name}`}
             className="relative flex min-w-0 flex-1 flex-col overflow-hidden"
             data-testid="thread"
+            {...dropHandlers}
         >
+            {dragging ? (
+                <div
+                    className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-background/85 p-4"
+                    data-testid="drop-overlay"
+                >
+                    <div className="flex w-full max-w-sm flex-col items-center gap-2 rounded-md border-2 border-dashed border-primary px-6 py-10 text-center">
+                        <Upload className="size-8 text-primary" aria-hidden />
+                        <p className="text-base font-bold">
+                            {canDrop
+                                ? 'Drop files to attach'
+                                : "Files can't be attached here right now"}
+                        </p>
+                        <p className="text-xs text-secondary-foreground">
+                            {canDrop
+                                ? 'Photos (JPG, PNG, WebP), PDF or Word · up to 5 files, 10 MB each'
+                                : dropRefusal}
+                        </p>
+                    </div>
+                </div>
+            ) : null}
+
             <ThreadHeader
                 conversation={conversation}
                 subtitle={view.subtitle}
@@ -533,15 +624,16 @@ const Thread = ({
 
             {state.loaded && state.error === null ? (
                 <Composer
+                    ref={composerRef}
                     placeholder={`Message ${conversation.name}`}
                     state={view.composer}
                     isTouch={isTouch}
                     replyTo={replyTo}
                     editing={editing}
                     claiming={claiming}
-                    onSend={(body) => {
+                    onSend={(body, files) => {
                         stickToBottomRef.current = true;
-                        thread.send(body, replyTo);
+                        thread.send(body, replyTo, files);
                         setReplyTo(null);
                     }}
                     onSaveEdit={async (body) => {

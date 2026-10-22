@@ -118,6 +118,8 @@ class AppServiceProvider extends ServiceProvider
      *   a few times an hour.
      * - `message-people`, the people search behind "New group": one request
      *   per pause in typing.
+     * - `message-attachments`, opening a file: a thread shows every photo in
+     *   it at once, so this only stops someone walking through the files.
      */
     protected function configureRateLimits(): void
     {
@@ -127,5 +129,6 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('message-receipts', fn (Request $request) => Limit::perMinute(120)->by($perUser($request)));
         RateLimiter::for('message-assignment', fn (Request $request) => Limit::perMinute(10)->by($perUser($request)));
         RateLimiter::for('message-people', fn (Request $request) => Limit::perMinute(60)->by($perUser($request)));
+        RateLimiter::for('message-attachments', fn (Request $request) => Limit::perMinute(300)->by($perUser($request)));
     }
 }
