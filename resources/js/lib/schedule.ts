@@ -98,8 +98,8 @@ export const rangeQuery = ({
 /**
  * The hours the showroom keeps: ten until six. The week grid always shows at
  * least these. Same as BOOKING_OPEN_HOUR and BOOKING_CLOSE_HOUR in
- * lib/booking-schema.ts (not imported, so this file stays import-free for
- * tests/js): a booking always falls inside them, while an inquiry project may
+ * lib/booking-slots.ts (not imported, to keep this file self-contained): a
+ * booking always falls inside them, while an inquiry project may
  * be set for any time of day.
  */
 export const SHOWROOM_OPEN_HOUR = 10;

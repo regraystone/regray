@@ -1,3 +1,32 @@
+# Book an appointment: bookings are saved and announced
+
+A client picks a day and a slot, enters a purpose and submits. A pending appointment is saved under the purpose, shows on their Schedule page and in Upcoming, and a "Booking pending" card is posted to their Regray Team thread. "Book a visit" is now "Book an appointment" in the booking flow.
+
+## What changed
+
+### Backend
+
+- **Route:** `POST schedule/book` (`schedule.book.store`), guarded by `schedule.create`. Both Book an appointment pages (under Schedule and under Profile) post here. `BookingController::store` follows `InquiryController::store`: it flashes `booking.status` (`success`, or `error` with a message after the failure is reported) and redirects back.
+- **`StoreBookingRequest`:** `date` (`Y-m-d`, not before today in Manila), `arrivalTime` (`H:i`, one of the 30-minute slots from 10:00 to 18:00, `StoreBookingRequest::slots()`), and the arrival must still be ahead of now. `purpose` is required, trimmed, at most 80 characters; `notes` is optional, trimmed, at most 500. Any client or user id in the payload is ignored.
+- **`ScheduleService::createForBooking()`:** `client_id` and `booked_by` are the signed-in client, `booked_by_type` is `client`, there is no inquiry, the status is `pending`, the purpose is the title, and the Manila arrival is stored in the app's zone (UTC).
+- **Schedule card:** `BookScheduleAction` saves the booking and dispatches `ScheduleBooked` (after commit). The queued `PostScheduleCard` listener posts a `schedule_card` with `announced_status = pending` through `EloquentMessageRepository::createScheduleCardOnce()`, then touches the conversation, broadcasts `MessageCreated` and announces the activity. The thread is picked in one place, `SupportConversationService::scheduleCardThreadFor()`: the client's Regray Team thread, created if missing. The group-chat rule goes there later. The listener's `post()` takes the status to announce, so status-change cards can reuse it.
+- **Index:** `idx_messages_schedule_card_once`, unique on `(conversation_id, schedule_id, announced_status) WHERE type = 'schedule_card'`. It is in the original `create_messages_table` migration, next to the inquiry-card one, to keep one migration per table. Run `php artisan migrate:fresh --seed`.
+- `ViewController::scheduleBook` passes `studioNow` (Manila's date and time), so the page decides which days and slots are past by the studio's clock.
+- **Staff booking is deferred:** the controller's staff branch, the page's client picker and the staff tests are commented out under `TODO(staff-booking)`. A staff post saves nothing for now.
+
+### Frontend
+
+- `pages/schedule-book.tsx` submits with `router.post` and maps the 422 errors onto the fields. A server failure opens the existing error dialog, and Try again resends. The fake `submitBooking()`, its timer and the `simulate=error` hook are gone.
+- **`lib/booking-slots.ts`** (new, import-free): `bookingSlots()` gives `HH:mm` values, `slotLabel()` shows them as 12-hour times, and `openSlotsOn(day, studioNow)` gives the slots still ahead. `lib/booking-schema.ts` keeps only the form schema.
+- **Wording:** the page title, heading and button, the success and error dialogs, the Schedule header button and description, the Profile row, and the schedule card headlines ("Appointment completed", "Appointment booked", fallback "Appointment") in `ConversationResource` and `lib/thread-cards.ts`.
+
+### Tests
+
+- `tests/Feature/Schedule/BookingStoreTest.php`: the saved row and the ignored client id, UTC storage, the schedule and Upcoming, the card posted once, every rejection, a failed write, and guests.
+- `tests/js/booking-slots.test.mjs`. `tests/js/thread-cards.test.mjs` and `tests/e2e/message/d-cards.spec.ts` use the new headlines.
+
+The `TODO(booking)` markers are removed.
+
 # Services: selection groups
 
 Each service now has a `selection_group` (string, in the original `create_services_table` migration). Services can share a project only when they share a group. The groups live in `database/seeders/data/services.php`: Stone Relocation, Dismantling & Reinstallation is in `stone-relocation`, and every other service is in `stone-work`. To change which services combine, edit the group there (or in the database). No code change is needed.

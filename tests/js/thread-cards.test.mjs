@@ -33,13 +33,16 @@ describe('schedule card', () => {
             scheduleHeadline('confirmed', 'client'),
             'Booking approved',
         );
-        assert.equal(scheduleHeadline('confirmed', 'staff'), 'Visit booked');
+        assert.equal(
+            scheduleHeadline('confirmed', 'staff'),
+            'Appointment booked',
+        );
     });
 
     it('says the same for every other status whoever booked it', () => {
         for (const [status, headline] of [
             ['pending', 'Booking pending'],
-            ['completed', 'Visit completed'],
+            ['completed', 'Appointment completed'],
             ['cancelled', 'Booking cancelled'],
         ]) {
             assert.equal(scheduleHeadline(status, 'client'), headline);

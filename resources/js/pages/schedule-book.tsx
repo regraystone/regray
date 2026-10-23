@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import BookingCalendar from '@/components/schedule/booking-calendar';
@@ -27,14 +27,13 @@ import { Spinner } from '@/components/ui/spinner';
 import { ResultBadge } from '@/components/result-badge';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as scheduleIndex } from '@/routes/schedule';
+import { store as bookingStore } from '@/routes/schedule/book';
 import { schedule as profileSchedule } from '@/routes/profile';
 import { usePermissions } from '@/hooks/use-permissions';
-import { formatFullDate, atTime, startOfDay } from '@/lib/date';
-import {
-    bookingSchema,
-    bookingSlots,
-    BOOKING_CLOSE_HOUR,
-} from '@/lib/booking-schema';
+import { formatFullDate, dayKey } from '@/lib/date';
+import { bookingSchema } from '@/lib/booking-schema';
+import { openSlotsOn, slotLabel } from '@/lib/booking-slots';
+import type { StudioNow } from '@/lib/booking-slots';
 import type { z } from 'zod';
 
 type BookingFormValues = z.infer<typeof bookingSchema>;
@@ -44,39 +43,93 @@ type BookingResult =
     | { status: 'error' }
     | null;
 
-// TODO(booking): when the client books a visit, post a schedule_card
-// (announced_status = status), and another on every later status change of the
-// booking. It goes to the inquiry's group chat when there is one, otherwise to
-// the client's Regray Team thread, as inquiry cards do (PostInquiryStatusCard).
-// A booking creates a schedule with client_id = the client, booked_by = the
-// client, booked_by_type = client, inquiry_id = NULL, status = pending. It is
-// not linked to any inquiry project.
-const submitBooking = async (_values: BookingFormValues): Promise<void> => {
-    const delay = 1200 + Math.random() * 600;
-    return new Promise((resolve, reject) => {
-        window.setTimeout(() => {
-            if (
-                import.meta.env.DEV &&
-                window.location.search.includes('simulate=error')
-            ) {
-                reject(new Error('simulated'));
-            } else {
-                resolve();
-            }
-        }, delay);
+const BOOKING_FIELDS: Array<keyof BookingFormValues> = [
+    'date',
+    'arrivalTime',
+    'purpose',
+    'notes',
+];
+
+/**
+ * How a send ended: the backend's own verdict (`flashed`), the form request
+ * refusing the answers (`invalid`), or anything else, where the backend never
+ * got to say anything (`failed`).
+ */
+type SendOutcome =
+    | { kind: 'flashed'; succeeded: boolean }
+    | { kind: 'invalid'; errors: Record<string, string> }
+    | { kind: 'failed' };
+
+/** Whether the flash after a send says the booking was saved. */
+const bookingSucceeded = (flash: unknown): boolean =>
+    (flash as { booking?: { status?: unknown } } | null | undefined)?.booking
+        ?.status === 'success';
+
+/**
+ * The send, as pages/inquire.tsx does it. `onHttpException` returns false so
+ * a server error opens this page's error dialog, which keeps the answers and
+ * offers a retry, rather than Inertia's dialog of the raw response.
+ */
+const sendBooking = (
+    values: BookingFormValues & { date: Date },
+): Promise<SendOutcome> =>
+    new Promise((resolve) => {
+        router.post(
+            bookingStore.url(),
+            {
+                date: dayKey(values.date),
+                arrivalTime: values.arrivalTime,
+                purpose: values.purpose,
+                notes: values.notes ?? '',
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: (page) =>
+                    resolve({
+                        kind: 'flashed',
+                        succeeded: bookingSucceeded(page.flash),
+                    }),
+                onError: (errors) =>
+                    resolve({
+                        kind: 'invalid',
+                        errors: errors as Record<string, string>,
+                    }),
+                onHttpException: () => false,
+                onFinish: () => resolve({ kind: 'failed' }),
+            },
+        );
     });
+
+/** A `YYYY-MM-DD` day as a local midnight, the shape the calendar works in. */
+const fromDayKey = (day: string): Date => {
+    const [year, month, date] = day.split('-').map(Number);
+
+    return new Date(year, month - 1, date);
 };
 
-const Page = () => {
+/**
+ * `studioNow` is Manila's date and time when the page was served, so which
+ * days and slots are already past is decided by the studio's clock, not the
+ * browser's.
+ *
+ * TODO(staff-booking): staff will pick the client the appointment is for, and
+ * the form will send that client's id. Until then the form books for the
+ * signed-in client only.
+ */
+const Page = ({ studioNow }: { studioNow: StudioNow }) => {
     const { url } = usePage();
     const { can } = usePermissions();
     const isProfile = url.startsWith('/profile');
     const scheduleHref = isProfile
         ? profileSchedule.url()
         : scheduleIndex.url();
-    const slots = useMemo(() => bookingSlots(), []);
+    const studioToday = useMemo(
+        () => fromDayKey(studioNow.date),
+        [studioNow.date],
+    );
 
-    const [month, setMonth] = useState(() => startOfDay(new Date()));
+    const [month, setMonth] = useState(studioToday);
     const [result, setResult] = useState<BookingResult>(null);
     const [isSending, setIsSending] = useState(false);
     const isSendingRef = useRef(false);
@@ -93,50 +146,18 @@ const Page = () => {
         },
     });
 
-    const { handleSubmit, setValue, watch, reset, formState } = methods;
+    const { handleSubmit, setValue, setError, watch, reset, formState } =
+        methods;
     const date = watch('date');
     const arrivalTime = watch('arrivalTime');
 
-    const [now] = useState(() => new Date());
+    const isDisabled = (day: Date): boolean =>
+        openSlotsOn(dayKey(day), studioNow).length === 0;
 
-    const isDisabled = (day: Date): boolean => {
-        const d = startOfDay(day);
-        const today = startOfDay(now);
-        if (d < today) {
-            return true;
-        }
-        if (d.getTime() === today.getTime()) {
-            if (now.getHours() >= BOOKING_CLOSE_HOUR) {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    const availableSlots = useMemo(() => {
-        if (!date) {
-            return slots;
-        }
-        const d = startOfDay(date);
-        const today = startOfDay(now);
-        if (d.getTime() !== today.getTime()) {
-            return slots;
-        }
-        return slots.filter((s) => {
-            const [hm, period] = s.split(' ');
-            const [hStr, mStr] = hm.split(':');
-            let h = parseInt(hStr, 10);
-            const m = parseInt(mStr, 10);
-            if (period === 'PM' && h !== 12) {
-                h += 12;
-            }
-            if (period === 'AM' && h === 12) {
-                h = 0;
-            }
-            const slotTime = atTime(d, h, m);
-            return slotTime >= now;
-        });
-    }, [date, now, slots]);
+    const availableSlots = useMemo(
+        () => (date ? openSlotsOn(dayKey(date), studioNow) : []),
+        [date, studioNow],
+    );
 
     useEffect(() => {
         if (!date || !arrivalTime) {
@@ -157,16 +178,32 @@ const Page = () => {
         }
         isSendingRef.current = true;
         setIsSending(true);
-        try {
-            await submitBooking(values);
-        } catch {
-            isSendingRef.current = false;
-            setIsSending(false);
-            setResult({ status: 'error' });
-            return;
-        }
+
+        const outcome = await sendBooking({ ...values, date: values.date });
+
         isSendingRef.current = false;
         setIsSending(false);
+
+        if (outcome.kind === 'invalid') {
+            setResult(null);
+
+            for (const field of BOOKING_FIELDS) {
+                const message = outcome.errors[field];
+
+                if (message) {
+                    setError(field, { type: 'server', message });
+                }
+            }
+
+            return;
+        }
+
+        if (outcome.kind === 'failed' || !outcome.succeeded) {
+            setResult({ status: 'error' });
+
+            return;
+        }
+
         setResult({
             status: 'success',
             date: values.date,
@@ -177,7 +214,7 @@ const Page = () => {
     const handleSuccessClose = () => {
         setResult(null);
         reset();
-        setMonth(startOfDay(new Date()));
+        setMonth(studioToday);
     };
 
     const handleRetry = async () => {
@@ -192,9 +229,9 @@ const Page = () => {
 
     return (
         <div className="mx-auto w-full max-w-6xl">
-            <Head title="Book a visit" />
+            <Head title="Book an appointment" />
             <PageHeading
-                title="Book a visit"
+                title="Book an appointment"
                 description="Pick a day and tell us when to expect you"
             />
 
@@ -251,7 +288,7 @@ const Page = () => {
                                                     value={slot}
                                                     className="rounded-none"
                                                 >
-                                                    {slot}
+                                                    {slotLabel(slot)}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -316,7 +353,7 @@ const Page = () => {
                                             Sending...
                                         </>
                                     ) : (
-                                        'Request visit'
+                                        'Request appointment'
                                     )}
                                 </Button>
                             </div>
@@ -367,17 +404,17 @@ const Page = () => {
                         <>
                             <div className="flex flex-col items-center text-center">
                                 <ResultBadge status="success" />
-                                <DialogHeader className="mt-6">
+                                <DialogHeader className="mt-6 sm:text-center">
                                     <DialogTitle
                                         tabIndex={-1}
                                         className="outline-none"
                                     >
-                                        Visit requested
+                                        Appointment requested
                                     </DialogTitle>
                                     <DialogDescription className="mt-2">
                                         We&apos;ll expect you on{' '}
                                         {formatFullDate.format(result.date)} at{' '}
-                                        {result.arrivalTime}.
+                                        {slotLabel(result.arrivalTime)}.
                                     </DialogDescription>
                                 </DialogHeader>
                             </div>
@@ -399,12 +436,12 @@ const Page = () => {
                         <>
                             <div className="flex flex-col items-center text-center">
                                 <ResultBadge status="error" />
-                                <DialogHeader className="mt-6">
+                                <DialogHeader className="mt-6 sm:text-center">
                                     <DialogTitle
                                         tabIndex={-1}
                                         className="outline-none"
                                     >
-                                        We couldn&apos;t book your visit
+                                        We couldn&apos;t book your appointment
                                     </DialogTitle>
                                     <DialogDescription className="mt-2">
                                         Something went wrong on our side. Your

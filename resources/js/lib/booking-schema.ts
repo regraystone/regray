@@ -1,25 +1,10 @@
 import { z } from 'zod';
 
-export const BOOKING_OPEN_HOUR = 10;
-export const BOOKING_CLOSE_HOUR = 18;
-export const SLOT_MINUTES = 30;
-
-export const bookingSlots = (): string[] => {
-    const slots: string[] = [];
-    for (let hour = BOOKING_OPEN_HOUR; hour <= BOOKING_CLOSE_HOUR; hour++) {
-        for (let minute = 0; minute < 60; minute += SLOT_MINUTES) {
-            if (hour === BOOKING_CLOSE_HOUR && minute > 0) {
-                continue;
-            }
-            const h = hour % 12 === 0 ? 12 : hour % 12;
-            const period = hour < 12 ? 'AM' : 'PM';
-            const m = String(minute).padStart(2, '0');
-            slots.push(`${h}:${m} ${period}`);
-        }
-    }
-    return slots;
-};
-
+/*
+ * The Book an appointment form's rules. StoreBookingRequest repeats them on
+ * the server, along with the time window (lib/booking-slots.ts), which the
+ * browser cannot be trusted with.
+ */
 export const bookingSchema = z.object({
     date: z
         .date({ message: 'Choose a day' })
@@ -38,6 +23,3 @@ export const bookingSchema = z.object({
         .optional()
         .or(z.literal('')),
 });
-
-// TODO: A real endpoint must repeat these rules in a FormRequest, because the
-// time window cannot be trusted from the browser.

@@ -77,6 +77,27 @@ class ScheduleService
     }
 
     /**
+     * A client's own booking from the Book an appointment page.
+     *
+     * Theirs and booked by them, with no inquiry, pending until Marketing or
+     * Sales approve it. The purpose is its title. `$arrivalAt` is read in the
+     * studio's zone and stored in the app's.
+     */
+    public function createForBooking(User $client, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
+    {
+        return $this->scheduleRepository->create([
+            'client_id' => $client->id,
+            'booked_by' => $client->id,
+            'booked_by_type' => BookedByType::Client,
+            'inquiry_id' => null,
+            'title' => $purpose,
+            'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
+            'status' => ScheduleStatus::Pending,
+            'notes' => $notes,
+        ]);
+    }
+
+    /**
      * Bring an inquiry project's visit in line with an edit of the project:
      * its title, its notes and, when it moved, its arrival.
      *

@@ -49,8 +49,11 @@ const SCHEDULE_HEADLINES: Record<
     Record<CardBookedByType, string>
 > = {
     pending: { client: 'Booking pending', staff: 'Booking pending' },
-    confirmed: { client: 'Booking approved', staff: 'Visit booked' },
-    completed: { client: 'Visit completed', staff: 'Visit completed' },
+    confirmed: { client: 'Booking approved', staff: 'Appointment booked' },
+    completed: {
+        client: 'Appointment completed',
+        staff: 'Appointment completed',
+    },
     cancelled: { client: 'Booking cancelled', staff: 'Booking cancelled' },
 };
 

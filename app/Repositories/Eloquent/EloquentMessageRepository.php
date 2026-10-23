@@ -128,6 +128,28 @@ class EloquentMessageRepository implements MessageRepositoryInterface
             ->first();
     }
 
+    public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus): ?Message
+    {
+        $inserted = Message::query()->insertOrIgnore([
+            'conversation_id' => $conversationId,
+            'type' => MessageType::ScheduleCard->value,
+            'schedule_id' => $scheduleId,
+            'announced_status' => $announcedStatus,
+            'created_at' => Date::now(),
+        ]);
+
+        if ($inserted === 0) {
+            return null;
+        }
+
+        return Message::query()
+            ->where('conversation_id', $conversationId)
+            ->where('type', MessageType::ScheduleCard->value)
+            ->where('schedule_id', $scheduleId)
+            ->where('announced_status', $announcedStatus)
+            ->first();
+    }
+
     public function belongsTo(int $messageId, int $conversationId): bool
     {
         return Message::query()->withTrashed()->whereKey($messageId)->where('conversation_id', $conversationId)->exists();
