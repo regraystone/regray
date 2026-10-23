@@ -14,6 +14,7 @@ use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
 use App\Http\Controllers\Saved\SavedStoneController;
 use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
+use App\Http\Controllers\Schedule\BookingController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
 
@@ -183,6 +184,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Permission::ScheduleCreate->middleware(),
         ])
         ->name('schedule.book');
+    /*
+     * Both Book an appointment pages post here: the one under Schedule and the
+     * one under Profile.
+     */
+    Route::post('schedule/book', [BookingController::class, 'store'])
+        ->middleware(Permission::ScheduleCreate->middleware())
+        ->name('schedule.book.store');
     /*
      * The Message page. Everything under it needs `messages.view`; the
      * conversation routes then ask ConversationPolicy whether this user may

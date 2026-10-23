@@ -26,19 +26,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  *
- * TODO(booking): the booking flow is being rebuilt. When a client books, and
- * again every time the booking changes status, post a schedule_card
- * (announced_status = the new status) the way PostInquiryStatusCard does for
- * inquiries:
- * - into the inquiry's group chat when the inquiry has one;
- * - otherwise into the client's Regray Team thread, so the team hears about
- *   every booking.
- * A booking creates a schedule with client_id = the client, booked_by = the
- * client, booked_by_type = client, inquiry_id = NULL, status = pending. It is
- * not linked to any inquiry project.
+ * A client's booking is made by ScheduleService::createForBooking(): booked by
+ * the client, with no inquiry, pending. Saving it posts a schedule_card into
+ * the client's Regray Team thread (PostScheduleCard).
  *
- * Sending an inquiry already creates one schedule per project (with
- * `inquiry_id` set), through ScheduleService::createForInquiryProject().
+ * Sending an inquiry creates one schedule per project (with `inquiry_id` set),
+ * through ScheduleService::createForInquiryProject().
  */
 #[Fillable(['booked_by', 'booked_by_type', 'inquiry_id', 'title', 'arrival_at', 'status', 'notes', 'approved_by', 'approved_at', 'cancelled_at', 'cancel_reason'])]
 class Schedule extends Model

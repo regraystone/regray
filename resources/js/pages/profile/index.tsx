@@ -65,7 +65,7 @@ const Profile = () => {
                                                 Schedule
                                             </div>
                                             <div className="truncate text-xs text-muted-foreground sm:text-sm">
-                                                Your showroom visits and when to
+                                                Your appointments and when to
                                                 expect them
                                             </div>
                                         </div>

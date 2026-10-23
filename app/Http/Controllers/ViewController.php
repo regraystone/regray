@@ -7,7 +7,9 @@ use App\Actions\Schedule\ListSchedulesAction;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\ScheduleResource;
+use App\Services\ScheduleService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -68,9 +70,17 @@ class ViewController extends Controller
         ]);
     }
 
+    /**
+     * The studio's date and time now, so the page decides which days and slots
+     * are already past by Manila's clock rather than the browser's.
+     */
     public function scheduleBook(Request $request): Response
     {
-        return Inertia::render('schedule-book');
+        $now = Date::now(ScheduleService::timezone());
+
+        return Inertia::render('schedule-book', [
+            'studioNow' => ['date' => $now->toDateString(), 'time' => $now->format('H:i')],
+        ]);
     }
 
     public function stones(Request $request): Response

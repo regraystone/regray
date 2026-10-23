@@ -27,7 +27,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  *
  * TODO(inquiry-binding): groups will be bound to inquiries later. Until then
  * no real inquiry has a group, so every card goes to the Regray Team thread.
- * TODO(booking): schedule cards follow the same rule (see Schedule).
+ * Schedule cards are PostScheduleCard's.
  */
 class PostInquiryStatusCard implements ShouldQueue
 {

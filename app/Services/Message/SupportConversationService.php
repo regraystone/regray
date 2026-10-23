@@ -9,6 +9,7 @@ use App\Enums\SystemEvent;
 use App\Models\Conversation;
 use App\Models\Inquiry;
 use App\Models\Message;
+use App\Models\Schedule;
 use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
@@ -67,13 +68,24 @@ class SupportConversationService
      * its client's Regray Team thread, created if the client has none yet.
      *
      * TODO(inquiry-binding): until groups are bound to inquiries, this is
-     * always the Regray Team thread. TODO(booking): schedule cards go to the
-     * same place.
+     * always the Regray Team thread.
      */
     public function cardThreadFor(Inquiry $inquiry): Conversation
     {
         return $this->conversations->groupForInquiry($inquiry->id)
             ?? $this->ensureFor($inquiry->loadMissing('client')->client);
+    }
+
+    /**
+     * Where a schedule's cards go: its client's Regray Team thread, created if
+     * the client has none yet.
+     *
+     * The one place that picks the thread. A booking has no inquiry, so it has
+     * no group chat yet; the group-chat rule goes here when it does.
+     */
+    public function scheduleCardThreadFor(Schedule $schedule): Conversation
+    {
+        return $this->ensureFor($schedule->loadMissing('client')->client);
     }
 
     /**

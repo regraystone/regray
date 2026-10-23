@@ -216,7 +216,7 @@ const Schedule = () => {
             <Button asChild type="button" variant={variant}>
                 <Link href={bookRoute.url()}>
                     <Plus aria-hidden />
-                    Book a visit
+                    Book an appointment
                 </Link>
             </Button>
         );
@@ -232,7 +232,7 @@ const Schedule = () => {
         <div className="mx-auto w-full max-w-6xl">
             <PageHeading
                 title="Schedule"
-                description="Your showroom visits"
+                description="Your appointments"
                 action={bookButton()}
             />
 

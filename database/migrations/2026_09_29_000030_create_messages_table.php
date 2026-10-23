@@ -57,6 +57,7 @@ return new class extends Migration
         ");
         DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_system_event CHECK (system_event IS NULL OR system_event IN ('assigned','released','reassigned'))");
         DB::statement("CREATE UNIQUE INDEX idx_messages_inquiry_card_once ON messages (conversation_id, inquiry_id, announced_status) WHERE type = 'inquiry_card'");
+        DB::statement("CREATE UNIQUE INDEX idx_messages_schedule_card_once ON messages (conversation_id, schedule_id, announced_status) WHERE type = 'schedule_card'");
 
         Schema::table('conversations', function (Blueprint $table) {
             $table->foreign('pool_notified_message_id')->references('id')->on('messages')->nullOnDelete();

@@ -49,6 +49,12 @@ interface MessageRepositoryInterface
      */
     public function createInquiryCardOnce(int $conversationId, int $inquiryId, string $announcedStatus): ?Message;
 
+    /**
+     * Post a schedule card once. Returns null when the same card is already in
+     * the conversation, which is what a retried listener will find.
+     */
+    public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus): ?Message;
+
     /** Whether the message belongs to the conversation. */
     public function belongsTo(int $messageId, int $conversationId): bool;
 

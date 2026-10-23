@@ -41,7 +41,7 @@ class ConversationResource extends JsonResource
     private const SCHEDULE_HEADLINES = [
         'pending' => 'Booking pending',
         'confirmed' => 'Booking approved',
-        'completed' => 'Visit completed',
+        'completed' => 'Appointment completed',
         'cancelled' => 'Booking cancelled',
     ];
 
@@ -141,7 +141,7 @@ class ConversationResource extends JsonResource
         return match ($message->type) {
             MessageType::Text => $this->textPreview($message, $isOwnSupport),
             MessageType::InquiryCard => $this->inquiryPreview($message),
-            MessageType::ScheduleCard => (self::SCHEDULE_HEADLINES[(string) $message->announced_status] ?? 'Visit').' · '.($message->schedule->title ?? ''),
+            MessageType::ScheduleCard => (self::SCHEDULE_HEADLINES[(string) $message->announced_status] ?? 'Appointment').' · '.($message->schedule->title ?? ''),
             MessageType::System => $this->systemPreview($message),
         };
     }
