@@ -89,17 +89,6 @@ export const serviceOptions: ServiceOption[] = [
         image: storageUrl('stones/32429db4b70ad914e80ab79f031e4263.png'),
     },
     {
-        id: 'site-ocular-technical-assessment',
-        name: 'Site Ocular & Technical Assessment',
-        features: [
-            'Site visits and project assessment',
-            'Measurement and evaluation of site requirements',
-            'Technical recommendations for stone applications and installation',
-        ],
-        image: storageUrl('stones/5b7cb3dae550009c37ad0cb518f4d09f.png'),
-        standalone: true,
-    },
-    {
         id: 'stone-relocation-dismantling-reinstallation',
         name: 'Stone Relocation, Dismantling & Reinstallation',
         features: [
@@ -108,18 +97,6 @@ export const serviceOptions: ServiceOption[] = [
             'Reinstallation while maintaining the integrity of the material',
         ],
         image: storageUrl('stones/8f7804fd9673f34737ecd0c1dfca9723.png'),
-        standalone: true,
-    },
-    {
-        id: 'post-installation-quality-care',
-        name: 'Post-Installation Quality Care',
-        features: [
-            'Final inspection',
-            'Surface and finish checking',
-            'Alignment assessment',
-            'Professional cleaning and polishing before project turnover',
-        ],
-        image: storageUrl('stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png'),
         standalone: true,
     },
     {

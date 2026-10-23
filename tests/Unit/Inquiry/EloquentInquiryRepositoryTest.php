@@ -10,6 +10,7 @@ use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Repositories\Eloquent\EloquentInquiryRepository;
+use App\Services\ScheduleService;
 use Illuminate\Support\Facades\Date;
 
 beforeEach(function (): void {
@@ -22,14 +23,14 @@ beforeEach(function (): void {
         'status' => InquiryStatus::Pending,
         'status_changed_at' => Date::now(),
     ]);
+    $this->schedule = app(ScheduleService::class)->createForInquiryProject($this->inquiry, $this->client, 'Counters', 'Makati', '2030-01-02', '09:30');
     $this->project = $this->repository->addProject($this->inquiry, [
         'name' => 'Counters',
         'sort_order' => 0,
         'location' => 'Makati',
         'landmark' => 'Church',
         'area_sqm' => 12.5,
-        'deadline_date' => '2030-01-02',
-        'deadline_time' => '09:30',
+        'schedule_id' => $this->schedule->id,
         'notes' => 'Notes',
     ]);
 });
@@ -63,7 +64,7 @@ it('adds a project', function (): void {
         ->name->toBe('Counters')
         ->location->toBe('Makati')
         ->landmark->toBe('Church')
-        ->deadline_time->toBe('09:30:00');
+        ->schedule_id->toBe($this->schedule->id);
 });
 
 it('attaches services', function (): void {

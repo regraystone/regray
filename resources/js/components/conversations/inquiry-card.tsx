@@ -6,7 +6,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import {
     inquiryHeadline,
-    inquirySubline,
+    projectCountText,
     serviceCountText,
 } from '@/lib/thread-cards';
 import { show as inquiryShow } from '@/routes/inquiry';
@@ -51,7 +51,7 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
 
             <Link
                 href={detailsHref}
-                aria-label={`${headline}: ${card.title}, inquiry ${card.reference}, ${STATUS_LABELS[card.announcedStatus]}. View details`}
+                aria-label={`${headline}: inquiry ${card.reference}, ${projectCountText(card.projectCount)}, ${STATUS_LABELS[card.announcedStatus]}. View details`}
                 className="block w-full overflow-hidden rounded-md bg-secondary text-left transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
             >
                 <span className="relative block h-32 bg-sidebar-border">
@@ -89,13 +89,13 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
                             className="block truncate text-sm font-bold text-background"
                             data-testid="inquiry-card-title"
                         >
-                            {card.title}
+                            {card.reference}
                         </span>
                         <span
                             className="block truncate text-xs text-background/80"
                             data-testid="inquiry-card-subline"
                         >
-                            {inquirySubline(card.projectCount, card.reference)}
+                            {projectCountText(card.projectCount)}
                         </span>
                     </span>
                 </span>

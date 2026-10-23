@@ -128,8 +128,8 @@ function inquiryProjectInput(array $overrides = []): array
 function inquiryVisitInput(array $overrides = []): array
 {
     return [
-        'name' => 'Site Ocular & Technical Assessment',
-        'serviceIds' => ['site-ocular-technical-assessment'],
+        'name' => 'Stone Relocation, Dismantling & Reinstallation',
+        'serviceIds' => ['stone-relocation-dismantling-reinstallation'],
         'location' => 'Taguig',
         'landmark' => '',
         'areaSqm' => '',

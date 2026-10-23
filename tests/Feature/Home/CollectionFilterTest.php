@@ -131,12 +131,10 @@ test('project mode and project options are not exposed without their permission'
         );
 });
 
-test('migration backfills existing stone filter values without changing profile fields', function (): void {
+test('a stone\'s primary filter values fill the filter tables without changing profile fields', function (): void {
     $stone = Stone::factory()->create(['size' => '99x210', 'thickness_mm' => 35]);
-    $migration = require database_path('migrations/2026_10_17_092511_create_stone_filter_tables.php');
 
-    $migration->down();
-    $migration->up();
+    $stone->attachPrimaryFilterOptions();
 
     expect($stone->fresh()->size)->toBe('99x210');
     expect($stone->fresh()->thickness_mm)->toBe(35);

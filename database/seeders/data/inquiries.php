@@ -1,6 +1,11 @@
 <?php
 
-/** stone_slug is a legacy category reference; InquirySeeder resolves its first individual stone. */
+/**
+ * stone_slug is a legacy category reference; InquirySeeder resolves its first individual stone.
+ *
+ * Every project has a deadline date and time (Manila): InquirySeeder books each
+ * one as the project's schedule, the way sending an inquiry does.
+ */
 return [
     'inquiries' => [
         [
@@ -16,7 +21,7 @@ return [
                     'id' => 'prj-1048-1',
                     'name' => 'Northgate Cafe — Counters and Flooring',
                     'categories' => ['countertops-backsplash'],
-                    'services' => ['Site Ocular & Technical Assessment', 'Custom Stone Fabrication', 'Natural Stone Installation'],
+                    'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
                     'stones' => [
                         ['stone_slug' => 'quartzite', 'quantity' => 7, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
                         ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
@@ -27,7 +32,7 @@ return [
                     'landmark' => 'Second floor, beside the mezzanine staircase',
                     'area_sqm' => 18.5,
                     'deadline_date' => '2026-11-14',
-                    'deadline_time' => null,
+                    'deadline_time' => '10:00',
                     'notes' => "The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.",
                     'attachments' => [
                         ['name' => 'northgate-bar-layout.pdf', 'size_bytes' => 1284096, 'mime_type' => 'application/pdf'],
@@ -46,7 +51,7 @@ return [
                     'landmark' => 'Ground floor, under the window wall',
                     'area_sqm' => 26,
                     'deadline_date' => '2026-10-24',
-                    'deadline_time' => null,
+                    'deadline_time' => '14:00',
                     'notes' => "Wanted square to the window wall so the joints run with it.\nPlease do the floor before the counters are set.",
                     'attachments' => [],
                 ],
@@ -69,7 +74,7 @@ return [
                     'id' => 'prj-1044-1',
                     'name' => 'Garden Court — Vanity Tops',
                     'categories' => ['lavatories'],
-                    'services' => ['Design & Project Consultation', 'Post-Installation Quality Care'],
+                    'services' => ['Design & Project Consultation'],
                     'stones' => [
                         ['stone_slug' => 'travertine', 'quantity' => 8, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
                         ['stone_slug' => 'marble', 'quantity' => 5, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
@@ -111,7 +116,7 @@ return [
                     'landmark' => null,
                     'area_sqm' => 12,
                     'deadline_date' => '2026-09-26',
-                    'deadline_time' => null,
+                    'deadline_time' => '13:00',
                     'notes' => null,
                     'attachments' => [
                         ['name' => 'hillcrest-display-units.png', 'size_bytes' => 655360, 'mime_type' => 'image/png'],
@@ -148,7 +153,7 @@ return [
                     'landmark' => 'Under the tree, at the far end of the deck',
                     'area_sqm' => 11.5,
                     'deadline_date' => '2026-09-05',
-                    'deadline_time' => null,
+                    'deadline_time' => '10:00',
                     'notes' => "The counter runs along the pool deck, so it is in full sun for the afternoon and under the tree for the morning.\n\nThe grill sits at the left-hand end, so we would cut a recess for it rather than run the top past it.\n\nIf that is already decided, please say so here so the workshop is not asked to move the cut once it has started.",
                     'attachments' => [
                         ['name' => 'grove-outdoor-kitchen-plan.pdf', 'size_bytes' => 2411724, 'mime_type' => 'application/pdf'],
@@ -168,7 +173,7 @@ return [
                     'landmark' => 'Pool deck, beside the barbecue counter',
                     'area_sqm' => 24.25,
                     'deadline_date' => '2026-08-28',
-                    'deadline_time' => null,
+                    'deadline_time' => '15:00',
                     'notes' => "The drainage channel the drawings show does not line up with the fall of the deck, and we would move it to the far end.\n\nThe deck goes down before the counter is set, so the earlier date on this one is deliberate.",
                     'attachments' => [
                         ['name' => 'grove-drainage-detail.pdf', 'size_bytes' => 384512, 'mime_type' => 'application/pdf'],
@@ -204,7 +209,7 @@ return [
                     'location' => 'Quezon City',
                     'landmark' => null,
                     'area_sqm' => null,
-                    'deadline_date' => null,
+                    'deadline_date' => '2026-08-20',
                     'deadline_time' => '08:00',
                     'notes' => null,
                     'attachments' => [],

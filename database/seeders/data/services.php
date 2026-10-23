@@ -1,60 +1,59 @@
 <?php
 
 return [
+    /*
+     * selection_group: services can share a project only when they share a
+     * group. Stone relocation is its own job, so it sits alone in its group.
+     */
     'services' => [
         [
             'slug' => 'natural-stone-supply',
             'name' => 'Natural Stone Supply',
             'image_path' => 'stones/bac6a5d8d41046a9fe8cb35205cbd34c.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'custom-stone-fabrication',
             'name' => 'Custom Stone Fabrication',
             'image_path' => 'stones/4b683a754fea6cc2e9c52669a4c2ca34.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'natural-stone-installation',
             'name' => 'Natural Stone Installation',
             'image_path' => 'stones/20845a043f5abd823694192363b27458.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'custom-stone-furniture',
             'name' => 'Custom Stone Furniture',
             'image_path' => 'stones/a2a72c93b7369e681b72f0e05380df17.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'design-project-consultation',
             'name' => 'Design & Project Consultation',
             'image_path' => 'stones/32429db4b70ad914e80ab79f031e4263.png',
             'is_standalone' => false,
-        ],
-        [
-            'slug' => 'site-ocular-technical-assessment',
-            'name' => 'Site Ocular & Technical Assessment',
-            'image_path' => 'stones/5b7cb3dae550009c37ad0cb518f4d09f.png',
-            'is_standalone' => true,
+            'selection_group' => 'stone-work',
         ],
         [
             'slug' => 'stone-relocation-dismantling-reinstallation',
             'name' => 'Stone Relocation, Dismantling & Reinstallation',
             'image_path' => 'stones/8f7804fd9673f34737ecd0c1dfca9723.png',
             'is_standalone' => true,
-        ],
-        [
-            'slug' => 'post-installation-quality-care',
-            'name' => 'Post-Installation Quality Care',
-            'image_path' => 'stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png',
-            'is_standalone' => true,
+            'selection_group' => 'stone-relocation',
         ],
         [
             'slug' => 'kitchen-cabinetry-solutions',
             'name' => 'Kitchen & Cabinetry Solutions',
             'image_path' => 'stones/ef03fcfd4ff0e6063df004f6b897fe7a.png',
             'is_standalone' => false,
+            'selection_group' => 'stone-work',
         ],
     ],
     'features' => [
@@ -90,21 +89,10 @@ return [
             'Project assessment',
             'Recommendations based on dimensions, application, and design requirements',
         ],
-        'site-ocular-technical-assessment' => [
-            'Site visits and project assessment',
-            'Measurement and evaluation of site requirements',
-            'Technical recommendations for stone applications and installation',
-        ],
         'stone-relocation-dismantling-reinstallation' => [
             'Professional dismantling of existing stone',
             'Safe handling and relocation',
             'Reinstallation while maintaining the integrity of the material',
-        ],
-        'post-installation-quality-care' => [
-            'Final inspection',
-            'Surface and finish checking',
-            'Alignment assessment',
-            'Professional cleaning and polishing before project turnover',
         ],
         'kitchen-cabinetry-solutions' => [
             'Custom kitchen cabinetry',

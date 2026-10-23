@@ -3,7 +3,10 @@ import {
     LANDMARK_MAX,
     NOTES_MAX,
     PROJECT_NAME_MAX,
+    attachmentMeta,
     type InquiryAttachment,
+    type InquirySavedAttachment,
+    type InquiryUploadAttachment,
 } from '@/data/inquiries';
 import {
     APPLICATION_STEP,
@@ -133,7 +136,10 @@ const localDateTime = (): string => {
  * schema would either strip it or reject it. The annotation is what holds the
  * four keys here to the four the uploader actually writes.
  */
-const attachmentSchema: z.ZodType<InquiryAttachment, InquiryAttachment> = z
+const uploadAttachmentSchema: z.ZodType<
+    InquiryUploadAttachment,
+    InquiryUploadAttachment
+> = z
     .object({
         id: z.string(),
         file: z.custom<File>((value) => value instanceof File, {
@@ -169,6 +175,25 @@ const attachmentSchema: z.ZodType<InquiryAttachment, InquiryAttachment> = z
     });
 
 /**
+ * A file already stored with the inquiry being edited. Checked when it was
+ * uploaded, so here it only has to be what the server described.
+ */
+const savedAttachmentSchema: z.ZodType<
+    InquirySavedAttachment,
+    InquirySavedAttachment
+> = z.object({
+    id: z.string(),
+    status: z.literal('saved'),
+    fileId: z.number(),
+    name: z.string(),
+    sizeBytes: z.number(),
+    mimeType: z.string(),
+});
+
+const attachmentSchema: z.ZodType<InquiryAttachment, InquiryAttachment> =
+    z.union([savedAttachmentSchema, uploadAttachmentSchema]);
+
+/**
  * The whole attachment list.
  *
  * The count and the per-file rules sit on the same value because the two rules
@@ -190,13 +215,14 @@ const attachmentsSchema = z
         const claimed = new Set<string>();
 
         entries.forEach((entry, index) => {
-            const key = `${entry.file.name}::${entry.file.size}`;
+            const { name, size } = attachmentMeta(entry);
+            const key = `${name}::${size}`;
 
             if (claimed.has(key)) {
                 ctx.addIssue({
                     code: 'custom',
                     path: [index],
-                    message: `${entry.file.name} is already attached.`,
+                    message: `${name} is already attached.`,
                 });
                 return;
             }
@@ -596,6 +622,16 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                         message: 'That time has already passed.',
                     });
                 }
+            } else if (project.neededBy === '') {
+                /*
+                 * Every project needs a day, because sending the inquiry books
+                 * it as a schedule. Without a time it is booked for 10:00.
+                 */
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['neededBy'],
+                    message: 'Say when this is needed.',
+                });
             }
         });
 
@@ -699,6 +735,12 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                         message: 'That time has already passed.',
                     });
                 }
+            } else if (draft.neededBy === '') {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['neededBy'],
+                    message: 'Say when this is needed.',
+                });
             }
         });
 

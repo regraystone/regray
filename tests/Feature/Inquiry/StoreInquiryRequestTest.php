@@ -34,7 +34,8 @@ dataset('accepted values', [
     'notes at 1000 characters' => [fn (array $p): array => [...$p, 'notes' => str_repeat('a', 1000)]],
     'area above zero' => [fn (array $p): array => [...$p, 'areaSqm' => '0.01']],
     'no area' => [fn (array $p): array => [...$p, 'areaSqm' => '']],
-    'deadline today' => [fn (array $p): array => [...$p, 'neededBy' => now()->toDateString()]],
+    'deadline today' => [fn (array $p): array => [...$p, 'neededBy' => now('Asia/Manila')->toDateString()]],
+    'no time on a project that is not a visit' => [fn (array $p): array => [...$p, 'neededByTime' => '']],
     'quantity 1' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1]]]],
     'quantity 9999' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 9999]]]],
     'a location from the list' => [fn (array $p): array => [...$p, 'location' => 'Las Piñas']],
@@ -56,6 +57,7 @@ dataset('refused values', [
     'area of zero' => [fn (array $p): array => [...$p, 'areaSqm' => '0'], 'projects.0.areaSqm'],
     'negative area' => [fn (array $p): array => [...$p, 'areaSqm' => '-3'], 'projects.0.areaSqm'],
     'deadline in the past' => [fn (array $p): array => [...$p, 'neededBy' => now()->subDay()->toDateString()], 'projects.0.neededBy'],
+    'no deadline date' => [fn (array $p): array => [...$p, 'neededBy' => ''], 'projects.0.neededBy'],
     'quantity of 0' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 0]]], 'projects.0.stones.0.quantity'],
     'quantity of 10000' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 10000]]], 'projects.0.stones.0.quantity'],
     'a fractional quantity' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1.5]]], 'projects.0.stones.0.quantity'],
@@ -172,8 +174,13 @@ describe('standalone and regular services', function (): void {
         postInquiry($this, [inquiryProjectInput(['applicationIds' => []])])->assertSessionHasErrors('projects.0.applicationIds');
     });
 
-    it('still needs stones when a regular service is picked beside a standalone one', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'site-ocular-technical-assessment'], 'stones' => []])])
-            ->assertSessionHasErrors('projects.0.stones');
+    it('refuses services from different selection groups in one project', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'stone-relocation-dismantling-reinstallation']])])
+            ->assertSessionHasErrors(['projects.0.serviceIds' => 'These services cannot be in the same project.']);
+    });
+
+    it('accepts services from the same selection group in one project', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication']])])
+            ->assertSessionDoesntHaveErrors();
     });
 });

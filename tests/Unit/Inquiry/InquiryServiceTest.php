@@ -24,8 +24,8 @@ function serviceInput(array $files = []): array
         'location' => 'Makati',
         'landmark' => null,
         'area_sqm' => null,
-        'deadline_date' => null,
-        'deadline_time' => null,
+        'deadline_date' => now()->addWeek()->toDateString(),
+        'deadline_time' => '10:00',
         'notes' => null,
         'files' => $files,
     ]]];

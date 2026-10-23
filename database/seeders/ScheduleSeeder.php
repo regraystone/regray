@@ -2,12 +2,18 @@
 
 namespace Database\Seeders;
 
-use App\Models\Inquiry;
 use App\Models\Schedule;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
+/**
+ * Booking-style visits (`inquiry_id` NULL) for the sample client.
+ *
+ * Inquiry visits are not seeded here: InquirySeeder books one per inquiry
+ * project through ScheduleService. These rows are looked up with
+ * `inquiry_id` NULL, so they never match or duplicate one of those.
+ */
 class ScheduleSeeder extends Seeder
 {
     public function run(): void
@@ -21,18 +27,9 @@ class ScheduleSeeder extends Seeder
         $clientEmail = 'rafael.doming@thenorthgatecafe.example';
         $client = User::where('email', $clientEmail)->first();
 
-        $inquiryMap = [
-            'apt-04' => 'INQ-1048',
-            'apt-06' => 'INQ-1044',
-            'apt-03' => 'INQ-1044',
-        ];
-
         foreach ($data['items'] as $itemData) {
             $dayOffset = $itemData['week'] === 'next' ? 7 + $itemData['day'] : min(max($todayIndex + $itemData['day'], 0), 6);
             $arrivalAt = $monday->copy()->addDays($dayOffset)->setHour($itemData['hour'])->setMinute(0);
-
-            $inquiryRef = $inquiryMap[$itemData['id']] ?? null;
-            $inquiry = $inquiryRef ? Inquiry::where('reference', $inquiryRef)->first() : null;
 
             $approvedAt = null;
             $approvedBy = null;
@@ -42,12 +39,11 @@ class ScheduleSeeder extends Seeder
             }
 
             Schedule::query()->firstOrCreate(
-                ['title' => $itemData['title'], 'arrival_at' => $arrivalAt],
+                ['title' => $itemData['title'], 'arrival_at' => $arrivalAt, 'inquiry_id' => null],
                 [
                     'client_id' => $client->id,
                     'booked_by' => $client->id,
                     'booked_by_type' => 'client',
-                    'inquiry_id' => $inquiry->id ?? null,
                     'status' => $itemData['status'],
                     'notes' => $itemData['notes'],
                     'approved_by' => $approvedBy,

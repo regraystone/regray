@@ -71,6 +71,21 @@ const openPickerOnClick = (event: MouseEvent<HTMLInputElement>): void => {
     }
 };
 
+const lockedDateFormatter = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'long',
+});
+
+/** "October 27, 2026 at 14:15", or the date alone when there is no time. */
+const formatLockedDeadline = (date: string, time: string): string => {
+    if (date === '') {
+        return 'Not set';
+    }
+
+    const day = lockedDateFormatter.format(new Date(`${date}T00:00`));
+
+    return time === '' ? day : `${day} at ${time}`;
+};
+
 /**
  * Where and when one project is, and whatever else the team needs about it.
  *
@@ -92,6 +107,7 @@ const openPickerOnClick = (event: MouseEvent<HTMLInputElement>): void => {
 const InquiryProjectDetails = ({
     projectNumber,
     needsNeededByTime,
+    deadlineLockReason = null,
 }: {
     /**
      * Which project these answers are for, 1-based. Only in the control ids, so a
@@ -109,6 +125,12 @@ const InquiryProjectDetails = ({
      * date is about.
      */
     needsNeededByTime: boolean;
+
+    /**
+     * Why the date and time can no longer be changed, when editing a sent
+     * inquiry whose visit is no longer pending. They are then shown, not asked.
+     */
+    deadlineLockReason?: string | null;
 }) => {
     const { locations } = useInquiryCatalog();
     const {
@@ -132,6 +154,8 @@ const InquiryProjectDetails = ({
      * at zero while the reader typed.
      */
     const notes = useWatch({ control, name: 'notes' });
+    const neededBy = useWatch({ control, name: 'neededBy' });
+    const neededByTime = useWatch({ control, name: 'neededByTime' });
 
     const today = todayIsoDate();
 
@@ -146,7 +170,7 @@ const InquiryProjectDetails = ({
             <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
                 {needsNeededByTime
                     ? 'Tell us where the work is and when you want it. This service needs a date and a time.'
-                    : 'Tell us where the work is. Only the location is needed.'}
+                    : 'Tell us where the work is and the day you want it.'}
             </p>
 
             <div className="mt-4 grid gap-5 md:grid-cols-2">
@@ -241,7 +265,32 @@ const InquiryProjectDetails = ({
                  * two columns would put the second half below the first on a
                  * narrow screen with the area in between.
                  */}
-                {needsNeededByTime ? (
+                {deadlineLockReason !== null ? (
+                    /*
+                     * Shown rather than asked: the visit has been confirmed (or
+                     * has happened), so the answer stands as it is. The value
+                     * stays in the draft, so saving sends it back unchanged.
+                     */
+                    <div>
+                        <p className="text-sm font-bold">Target deadline</p>
+                        <p
+                            id={id('needed-by')}
+                            className="mt-2 text-sm"
+                            aria-describedby={id('needed-by-locked')}
+                        >
+                            {formatLockedDeadline(
+                                neededBy,
+                                needsNeededByTime ? neededByTime : '',
+                            )}
+                        </p>
+                        <p
+                            id={id('needed-by-locked')}
+                            className="mt-1 text-xs text-secondary-foreground"
+                        >
+                            {deadlineLockReason}
+                        </p>
+                    </div>
+                ) : needsNeededByTime ? (
                     <FormField
                         id={id('needed-by')}
                         label="Target deadline"
@@ -306,6 +355,7 @@ const InquiryProjectDetails = ({
                     <FormField
                         id={id('needed-by')}
                         label="Target deadline"
+                        required
                         error={errors.neededBy?.message}
                     >
                         {(accessibility) => (

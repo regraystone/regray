@@ -291,6 +291,7 @@ erDiagram
         varchar(150) name UK "partial unique, not deleted"
         varchar(255) image_path
         boolean is_standalone "needs no stone"
+        string selection_group "services share a project only within one group"
         boolean is_active
         smallint sort_order
         timestamptz created_at
@@ -364,8 +365,7 @@ erDiagram
         varchar(255) location
         varchar(150) landmark "null"
         decimal area_sqm "null, 10,2"
-        date deadline_date "null"
-        time deadline_time "null"
+        bigint schedule_id FK "null, UK, set null, holds the target deadline"
         varchar(1000) notes "null"
         timestamptz created_at
         timestamptz updated_at
@@ -425,6 +425,9 @@ erDiagram
     finishes {
         bigint id PK
     }
+    schedules {
+        bigint id PK
+    }
 
     users ||--o{ inquiries : "sends as client"
     inquiries ||--o{ inquiry_handlers : "assigned to"
@@ -440,6 +443,7 @@ erDiagram
     edge_profiles ||--o{ inquiry_project_stones : "cut with"
     finishes ||--o{ inquiry_project_stones : "finished as"
     inquiry_projects ||--o{ inquiry_files : "attaches"
+    inquiry_projects |o--o| schedules : "is booked as"
 ```
 
 | Table                    | Indexes and rules                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -447,7 +451,7 @@ erDiagram
 | `inquiries`              | Unique `reference`. Index `client_id`, index `(status, created_at DESC)`. CHECK `status IN ('pending','quoted','paid','completed','cancelled')`. Never deleted: cancel instead. `reference` comes from a database sequence, never from `max(id)+1`. `client_id` must belong to a user holding the `client` role. A foreign key cannot say that, so the form request validates it. A walk-in client is created by staff as a user account first. |
 | `inquiry_handlers`       | Index `user_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `inquiry_status_history` | Index `(inquiry_id, changed_at)`. Append only. `draft` is allowed in `to_status` only for the first entry.                                                                                                                                                                                                                                                                                                                                      |
-| `inquiry_projects`       | Unique `(inquiry_id, sort_order)`. Index `deadline_date`. A time may exist without a date (the sample data has one).                                                                                                                                                                                                                                                                                                                            |
+| `inquiry_projects`       | Unique `(inquiry_id, sort_order)`. Unique `schedule_id` (nullable). A project has no deadline columns of its own: sending the inquiry creates one schedule per project, and the target deadline is that schedule's `arrival_at` (read in Asia/Manila). `schedule_id` is null only for projects that never had a date.                                                                                                                           |
 | `inquiry_project_stones` | **Unique `(inquiry_project_id, stone_id, edge_profile_id, finish_id)`**: the same stone twice is fine only when cut or finished differently. Index `stone_id`. CHECK `quantity BETWEEN 1 AND 9999`.                                                                                                                                                                                                                                             |
 | `inquiry_files`          | Index `inquiry_project_id`. Per project limits (count and size) are enforced in validation.                                                                                                                                                                                                                                                                                                                                                     |
 | Pivots                   | Reverse index on `service_id` and `project_category_id`.                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -457,7 +461,7 @@ erDiagram
 
 ## 5. Messaging and schedules
 
-A conversation is direct or a group, and a group may belong to an inquiry. Besides text, a message can be a **card** that points to an inquiry or a schedule and records which status it announces (so "Booking requested" and "Booking approved" are two messages about one schedule).
+A conversation is direct or a group, and a group may belong to an inquiry. Besides text, a message can be a **card** that points to an inquiry or a schedule and records which status it announces (so "Booking pending" and "Booking approved" are two messages about one schedule).
 
 ```mermaid
 erDiagram
@@ -510,7 +514,7 @@ erDiagram
         bigint inquiry_id FK "null, set null"
         varchar(150) title
         timestamptz arrival_at
-        varchar(20) status "requested, confirmed, completed, cancelled"
+        varchar(20) status "pending, confirmed, completed, cancelled"
         text notes "null"
         bigint approved_by FK "null, set null, staff user"
         timestamptz approved_at "null"
@@ -540,13 +544,13 @@ erDiagram
     inquiries |o--o{ schedules : "visit for"
 ```
 
-| Table                  | Indexes and rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `conversations`        | Unique `inquiry_id` (nullable), unique `direct_key` (nullable). CHECK `type IN ('direct','group')`, `(type = 'direct') = (direct_key IS NOT NULL)`, and `inquiry_id IS NULL OR type = 'group'`. The unique `direct_key` stops two direct chats between the same two people.                                                                                                                                                                                                                                                                                                    |
-| `conversation_members` | Index `user_id`. Unread count = messages with `id` greater than `last_read_message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `messages`             | Index `(conversation_id, id DESC)`. CHECK on `type`: `text` needs `body`, `inquiry_card` needs `inquiry_id` and `announced_status`, `schedule_card` needs `schedule_id` and `announced_status`, and no other combination of those columns may be set. Index `schedule_id`, index `inquiry_id`.                                                                                                                                                                                                                                                                                 |
-| `message_attachments`  | Index `message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `schedules`            | `client_id` is the user the visit is for, who holds the `client` role (validated in the form request). Index `(client_id, arrival_at)`, index `(status, arrival_at)`, index `inquiry_id`. CHECK `status IN ('requested','confirmed','completed','cancelled')`, `booked_by_type IN ('client','staff')`, and `approved_by IS NULL OR approved_at IS NOT NULL` (an approver always has a time; the reverse is allowed so that `ON DELETE SET NULL` on the approver never violates the rule). Posting a schedule card is done by the same service that changes `schedules.status`. |
+| Table                  | Indexes and rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conversations`        | Unique `inquiry_id` (nullable), unique `direct_key` (nullable). CHECK `type IN ('direct','group')`, `(type = 'direct') = (direct_key IS NOT NULL)`, and `inquiry_id IS NULL OR type = 'group'`. The unique `direct_key` stops two direct chats between the same two people.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `conversation_members` | Index `user_id`. Unread count = messages with `id` greater than `last_read_message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `messages`             | Index `(conversation_id, id DESC)`. CHECK on `type`: `text` needs `body`, `inquiry_card` needs `inquiry_id` and `announced_status`, `schedule_card` needs `schedule_id` and `announced_status`, and no other combination of those columns may be set. Index `schedule_id`, index `inquiry_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `message_attachments`  | Index `message_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `schedules`            | `client_id` is the user the visit is for, who holds the `client` role (validated in the form request). Index `(client_id, arrival_at)`, index `(status, arrival_at)`, index `inquiry_id`. CHECK `status IN ('pending','confirmed','completed','cancelled')`, `booked_by_type IN ('client','staff')`, and `approved_by IS NULL OR approved_at IS NOT NULL` (an approver always has a time; the reverse is allowed so that `ON DELETE SET NULL` on the approver never violates the rule). Posting a schedule card is done by the same service that changes `schedules.status`. `inquiry_id` is set on the schedules an inquiry creates (one per project, pointed at by `inquiry_projects.schedule_id`) and NULL on a booking, which is never linked to an inquiry project. Cancelling an inquiry cancels its pending and confirmed schedules. A schedule starts as `pending` until Marketing or Sales approve it. |
 
 ---
 
@@ -556,7 +560,7 @@ erDiagram
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's projects and their stones, files, message attachments, conversation members and messages.                                                                                 |
 | `RESTRICT` | Anything history depends on: `inquiry_project_stones` to stones, edge profiles and finishes, inquiries and schedules to the client's user, `inquiry_handlers` to users. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
-| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `sender_id`, `last_read_message_id`) and the link from a schedule to an inquiry.                                                                           |
+| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `sender_id`, `last_read_message_id`), the link from a schedule to an inquiry, and from an inquiry project to its schedule.                                 |
 
 ---
 

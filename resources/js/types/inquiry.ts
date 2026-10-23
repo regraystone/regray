@@ -1,3 +1,4 @@
+import type { InquiryEditProject, InquiryMode } from '@/lib/inquiry-flow';
 import type { StoneCardData } from '@/types/stone';
 
 /** A service the Inquire page offers. `id` is its slug. */
@@ -7,6 +8,8 @@ export type InquiryServiceOption = {
     features: string[];
     image: string;
     standalone: boolean;
+    /** Services share a project only when they share a group. */
+    group: string;
 };
 
 /** A stone the Inquire page offers, with what its search runs over. */
@@ -34,7 +37,11 @@ export type InquiryFinishingOption = {
     isAdvisory: boolean;
 };
 
-/** The props `ViewController::inquire` sends. */
+/**
+ * The props `ViewController::inquire` sends, and `InquiryEditController::edit`
+ * when the page edits a sent inquiry (`mode: 'edit'`, with its reference and
+ * its projects as `InquiryEditResource` describes them).
+ */
 export type InquirePageProps = {
     services: InquiryServiceOption[];
     stones: InquiryStoneOption[];
@@ -42,6 +49,9 @@ export type InquirePageProps = {
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
     locations: string[];
+    mode?: InquiryMode;
+    reference?: string;
+    projects?: InquiryEditProject[];
 };
 
 /**

@@ -469,6 +469,11 @@ type InquiryProjectFormProps = {
      */
     onCommit: () => void;
     onBack: () => void;
+    /**
+     * Why this project's date and time can no longer be changed, when editing a
+     * sent inquiry whose visit is no longer pending. Null otherwise.
+     */
+    deadlineLockReason?: string | null;
 };
 
 /**
@@ -507,6 +512,7 @@ const InquiryProjectForm = ({
     onChangeServices,
     onCommit,
     onBack,
+    deadlineLockReason = null,
 }: InquiryProjectFormProps) => {
     const {
         register,
@@ -852,6 +858,7 @@ const InquiryProjectForm = ({
                      * the same list to say so.
                      */
                     needsNeededByTime={isStandalone}
+                    deadlineLockReason={deadlineLockReason}
                 />
             </div>
 

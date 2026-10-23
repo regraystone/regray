@@ -11,7 +11,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class InquiryServiceResource extends JsonResource
 {
     /**
-     * @return array{id: string, name: string, features: list<string>, image: string, standalone: bool}
+     * @return array{id: string, name: string, features: list<string>, image: string, standalone: bool, group: string}
      */
     public function toArray(Request $request): array
     {
@@ -26,6 +26,7 @@ class InquiryServiceResource extends JsonResource
             ),
             'image' => ProjectCardResource::resolveThumbnailUrl($this->image_path),
             'standalone' => $this->is_standalone,
+            'group' => $this->selection_group,
         ];
     }
 }

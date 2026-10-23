@@ -14,7 +14,7 @@ import {
  */
 
 const HEADLINES: Record<string, Record<'client' | 'staff', string>> = {
-    requested: { client: 'Booking requested', staff: 'Booking requested' },
+    pending: { client: 'Booking pending', staff: 'Booking pending' },
     confirmed: { client: 'Booking approved', staff: 'Visit booked' },
     completed: { client: 'Visit completed', staff: 'Visit completed' },
     cancelled: { client: 'Booking cancelled', staff: 'Booking cancelled' },
@@ -102,15 +102,15 @@ test('13 · long names truncate on one line and the badge row does not wrap @lay
     const longInquiry = page
         .getByTestId('inquiry-card')
         .filter({ hasText: cards.longReference });
+    // The heading is the reference, never the project name, so even an
+    // inquiry with a long project name keeps a one-line heading.
     const title = longInquiry.getByTestId('inquiry-card-title');
     await title.scrollIntoViewIfNeeded();
-    await expect(title).toHaveText(cards.longProject);
+    await expect(title).toHaveText(cards.longReference);
 
     const titleMetrics = await title.evaluate((node) => ({
         height: node.getBoundingClientRect().height,
-        overflows: node.scrollWidth > node.clientWidth,
     }));
-    expect(titleMetrics.overflows).toBe(true);
     expect(titleMetrics.height).toBeLessThanOrEqual(
         (await lineHeight(title)) + 1,
     );
@@ -144,7 +144,7 @@ test('13 · long names truncate on one line and the badge row does not wrap @lay
     );
 });
 
-test('14 · the inquiry heading is the first project and the sub-line counts projects with the reference', async ({
+test('14 · the inquiry heading is the reference and the sub-line counts projects', async ({
     sessions,
 }) => {
     const { cards } = fixtures();
@@ -158,11 +158,12 @@ test('14 · the inquiry heading is the first project and the sub-line counts pro
 
     for (const card of await statusCards.all()) {
         await expect(card.getByTestId('inquiry-card-title')).toHaveText(
-            cards.firstProject,
+            cards.reference,
         );
         await expect(card.getByTestId('inquiry-card-subline')).toHaveText(
-            `${cards.projectCount} projects · Inquiry No: ${cards.reference}`,
+            `${cards.projectCount} projects`,
         );
+        await expect(card).not.toContainText(cards.firstProject);
     }
 });
 
@@ -230,20 +231,13 @@ test('17 · the cards show the seeded rows, not sample data', async ({
         ].sort(),
     );
 
-    const sublines = await page
-        .getByTestId('inquiry-card-subline')
-        .allTextContents();
-    expect(
-        sublines.filter((line) => line.endsWith(cards.reference)),
-    ).toHaveLength(6);
-    expect(
-        sublines.filter((line) => line.endsWith(cards.longReference)),
-    ).toHaveLength(1);
-
     const inquiryTitles = await page
         .getByTestId('inquiry-card-title')
         .allTextContents();
-    expect(new Set(inquiryTitles)).toEqual(
-        new Set([cards.firstProject, cards.longProject]),
-    );
+    expect(
+        inquiryTitles.filter((title) => title === cards.reference),
+    ).toHaveLength(6);
+    expect(
+        inquiryTitles.filter((title) => title === cards.longReference),
+    ).toHaveLength(1);
 });

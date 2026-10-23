@@ -1,15 +1,15 @@
-import type { ScheduleStatus } from '@/data/schedule';
+import type { ScheduleStatus } from '@/lib/schedule';
 import { cn } from '@/lib/utils';
 
 export const STATUS_LABELS: Record<ScheduleStatus, string> = {
-    requested: 'Requested',
+    pending: 'Pending',
     confirmed: 'Confirmed',
     completed: 'Completed',
     cancelled: 'Cancelled',
 };
 
 const STATUS_STYLES: Record<ScheduleStatus, { bg: string; text: string }> = {
-    requested: {
+    pending: {
         bg: 'bg-transparent border border-secondary-foreground',
         text: 'text-secondary-foreground',
     },

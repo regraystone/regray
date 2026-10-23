@@ -16,13 +16,15 @@ use Illuminate\Support\Carbon;
  * @property string $location
  * @property string|null $landmark
  * @property float|null $area_sqm
- * @property string|null $deadline_date
- * @property string|null $deadline_time
+ * @property int|null $schedule_id
  * @property string|null $notes
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ *
+ * When the project is wanted is not stored here: it is the `arrival_at` of the
+ * schedule the inquiry created for it (`schedule_id`).
  */
-#[Fillable(['name', 'sort_order', 'location', 'landmark', 'area_sqm', 'deadline_date', 'deadline_time', 'notes'])]
+#[Fillable(['name', 'sort_order', 'location', 'landmark', 'area_sqm', 'schedule_id', 'notes'])]
 class InquiryProject extends Model
 {
     protected function casts(): array
@@ -36,6 +38,12 @@ class InquiryProject extends Model
     public function inquiry(): BelongsTo
     {
         return $this->belongsTo(Inquiry::class);
+    }
+
+    /** @return BelongsTo<Schedule, $this> */
+    public function schedule(): BelongsTo
+    {
+        return $this->belongsTo(Schedule::class);
     }
 
     /** @return BelongsToMany<Service, $this> */

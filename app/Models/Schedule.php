@@ -33,6 +33,12 @@ use Illuminate\Support\Carbon;
  * - into the inquiry's group chat when the inquiry has one;
  * - otherwise into the client's Regray Team thread, so the team hears about
  *   every booking.
+ * A booking creates a schedule with client_id = the client, booked_by = the
+ * client, booked_by_type = client, inquiry_id = NULL, status = pending. It is
+ * not linked to any inquiry project.
+ *
+ * Sending an inquiry already creates one schedule per project (with
+ * `inquiry_id` set), through ScheduleService::createForInquiryProject().
  */
 #[Fillable(['booked_by', 'booked_by_type', 'inquiry_id', 'title', 'arrival_at', 'status', 'notes', 'approved_by', 'approved_at', 'cancelled_at', 'cancel_reason'])]
 class Schedule extends Model

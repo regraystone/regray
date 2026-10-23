@@ -23,6 +23,9 @@ class InquiryActions
 
     public const UPDATE_LOCKED_WHEN_CANCELLED = 'This inquiry was cancelled.';
 
+    /** Said when Update is not shown at all (paid, completed) but is asked for anyway. */
+    public const UPDATE_NOT_AVAILABLE = 'This inquiry can no longer be changed.';
+
     public function view(InquiryStatus $status): InquiryActionState
     {
         return InquiryActionState::enabled();
@@ -36,6 +39,23 @@ class InquiryActions
             InquiryStatus::Cancelled => InquiryActionState::disabled(self::UPDATE_LOCKED_WHEN_CANCELLED),
             default => InquiryActionState::hidden(),
         };
+    }
+
+    /**
+     * Why an inquiry in this status cannot be updated, or null when it can.
+     *
+     * The edit page and the update endpoint both ask this, so a status that
+     * hides the button still gets a sentence rather than a bare refusal.
+     */
+    public function updateRefusal(InquiryStatus $status): ?string
+    {
+        $update = $this->update($status);
+
+        if ($update->enabled) {
+            return null;
+        }
+
+        return $update->reason ?? self::UPDATE_NOT_AVAILABLE;
     }
 
     public function cancel(InquiryStatus $status): InquiryActionState

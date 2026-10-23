@@ -5,6 +5,7 @@ use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryProject;
 use App\Models\InquiryStatusHistory;
+use App\Models\Schedule;
 use App\Models\Service;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Eloquent\EloquentInquiryRepository;
@@ -45,8 +46,8 @@ it('writes the inquiry', function (): void {
             'location' => 'Makati',
             'landmark' => null,
             'area_sqm' => null,
-            'deadline_date' => null,
-            'deadline_time' => null,
+            'deadline_date' => now()->addWeek()->toDateString(),
+            'deadline_time' => '10:00',
             'notes' => null,
             'files' => [UploadedFile::fake()->create('a.pdf', 5, 'application/pdf')],
         ]],
@@ -71,8 +72,8 @@ it('leaves no rows and no files when a write fails after files are on disk', fun
             'location' => 'Makati',
             'landmark' => null,
             'area_sqm' => null,
-            'deadline_date' => null,
-            'deadline_time' => null,
+            'deadline_date' => now()->addWeek()->toDateString(),
+            'deadline_time' => '10:00',
             'notes' => null,
             'files' => [
                 UploadedFile::fake()->create('a.pdf', 5, 'application/pdf'),
@@ -86,6 +87,7 @@ it('leaves no rows and no files when a write fails after files are on disk', fun
 
     expect(Inquiry::query()->count())->toBe(0)
         ->and(InquiryProject::query()->count())->toBe(0)
+        ->and(Schedule::query()->count())->toBe(0)
         ->and(InquiryFile::query()->count())->toBe(0)
         ->and(InquiryStatusHistory::query()->count())->toBe(0)
         ->and(Storage::disk(config('inquiry.disk'))->allFiles())->toBe([]);

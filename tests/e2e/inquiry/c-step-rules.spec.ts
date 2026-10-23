@@ -12,6 +12,7 @@ import {
     answerStoneRow,
     checkbox,
     chooseInSelect,
+    answerDeadline,
     chooseLocation,
     continueButton,
     deadlineDate,
@@ -106,6 +107,7 @@ test('12 · Stones: no stone blocks Continue; quantity 0 and 10000 are refused, 
         finish: CATALOG.finishes[0],
     });
     await chooseLocation(page, 'Makati');
+    await answerDeadline(page);
     await addToInquiry(page).click();
     await expectStep(page, 5);
     await expect(page.getByText('9999 pcs')).toBeVisible();
@@ -119,6 +121,7 @@ test('13 · Stone rows: edge and finish are required, "advise me" is accepted, a
     await walkToRequirements(page);
     await page.getByLabel('Project name').fill('Row rules');
     await chooseLocation(page, 'Makati');
+    await answerDeadline(page);
 
     await addToInquiry(page).click();
     await expect(pageError(page, 'Choose an edge profile.')).toBeVisible();
@@ -301,6 +304,7 @@ test('17 · Back keeps the answers on every step', async ({ actors }) => {
         finish: CATALOG.finishes[1],
     });
     await chooseLocation(page, 'Pasig');
+    await answerDeadline(page);
 
     const back = page.getByRole('button', { name: 'Back', exact: true });
 

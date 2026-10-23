@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { Check, CircleDashed, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { ScheduleStatus } from '@/data/schedule';
+import type { ScheduleStatus } from '@/lib/schedule';
 
 /**
  * What each status is called on screen.
@@ -11,7 +11,7 @@ import type { ScheduleStatus } from '@/data/schedule';
  * like different systems.
  */
 export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
-    requested: 'Requested',
+    pending: 'Pending',
     confirmed: 'Confirmed',
     completed: 'Completed',
     cancelled: 'Cancelled',
@@ -29,7 +29,7 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
  */
 export const STATUS_BLOCK_STYLES: Record<ScheduleStatus, string> = {
     confirmed: 'border-l-2 border-l-foreground bg-muted',
-    requested: 'border border-dashed border-sidebar-border bg-background',
+    pending: 'border border-dashed border-sidebar-border bg-background',
     completed: 'border-l-2 border-l-border bg-muted/60 text-muted-foreground',
     cancelled:
         'border border-dashed border-sidebar-border bg-background text-muted-foreground',
@@ -47,7 +47,7 @@ export const isStruck = (status: ScheduleStatus): boolean =>
  * for everyone else.
  */
 const STATUS_ICONS: Record<ScheduleStatus, LucideIcon> = {
-    requested: CircleDashed,
+    pending: CircleDashed,
     confirmed: Check,
     completed: Check,
     cancelled: X,
@@ -76,7 +76,7 @@ export const ScheduleStatusBadge = ({ status }: { status: ScheduleStatus }) => {
         <Badge
             variant={variant}
             className={`gap-1 rounded-md px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] uppercase ${
-                status === 'requested' ? 'border-dashed' : ''
+                status === 'pending' ? 'border-dashed' : ''
             }`}
         >
             <Icon className="size-3" aria-hidden />

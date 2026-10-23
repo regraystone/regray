@@ -19,12 +19,15 @@ const ServiceCard = ({
     service,
     index,
     selected,
+    disabled = false,
     onSelect,
 }: {
     service: InquiryServiceOption;
     /** 0-based position, shown as 01, 02 and so on. */
     index: number;
     selected: boolean;
+    /** It cannot share a project with the services already picked. */
+    disabled?: boolean;
     onSelect: () => void;
 }) => (
     /*
@@ -39,8 +42,9 @@ const ServiceCard = ({
         role="checkbox"
         aria-checked={selected}
         aria-label={service.name}
+        disabled={disabled}
         onClick={onSelect}
-        className="flex w-full cursor-pointer items-start gap-4 rounded-md p-4 text-left transition-colors hover:bg-secondary focus-visible:inset-y-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-checked:bg-secondary sm:gap-6 sm:p-5"
+        className="flex w-full cursor-pointer items-start gap-4 p-4 text-left transition-colors hover:bg-secondary focus-visible:inset-y-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent aria-checked:bg-secondary sm:gap-6 sm:p-5"
     >
         {/*
          * Decoration beside a row that already names the service, hence the
@@ -56,7 +60,7 @@ const ServiceCard = ({
             {selected ? (
                 <span
                     aria-hidden
-                    className="absolute top-0 right-0 rounded-md bg-black p-2 text-white"
+                    className="absolute top-0 right-0 bg-black p-2 text-white"
                 >
                     <Check className="size-3 shrink-0" />
                 </span>

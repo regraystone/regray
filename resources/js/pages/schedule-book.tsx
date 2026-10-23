@@ -48,6 +48,9 @@ type BookingResult =
 // (announced_status = status), and another on every later status change of the
 // booking. It goes to the inquiry's group chat when there is one, otherwise to
 // the client's Regray Team thread, as inquiry cards do (PostInquiryStatusCard).
+// A booking creates a schedule with client_id = the client, booked_by = the
+// client, booked_by_type = client, inquiry_id = NULL, status = pending. It is
+// not linked to any inquiry project.
 const submitBooking = async (_values: BookingFormValues): Promise<void> => {
     const delay = 1200 + Math.random() * 600;
     return new Promise((resolve, reject) => {

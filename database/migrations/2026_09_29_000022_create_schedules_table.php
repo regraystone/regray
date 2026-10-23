@@ -31,7 +31,7 @@ return new class extends Migration
             $table->index('inquiry_id');
         });
 
-        DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_status CHECK (status IN ('requested','confirmed','completed','cancelled'))");
+        DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_status CHECK (status IN ('pending','confirmed','completed','cancelled'))");
         DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_booked_by_type CHECK (booked_by_type IN ('client','staff'))");
         DB::statement('ALTER TABLE schedules ADD CONSTRAINT chk_schedules_approved CHECK (approved_by IS NULL OR approved_at IS NOT NULL)');
     }

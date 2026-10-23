@@ -27,6 +27,7 @@ class InquiryStatusService
     public function __construct(
         public readonly InquiryRepositoryInterface $inquiryRepository,
         public readonly InquiryActions $inquiryActions,
+        public readonly ScheduleService $scheduleService,
     ) {}
 
     /**
@@ -63,7 +64,8 @@ class InquiryStatusService
      * the transaction commits.
      *
      * Expects the inquiry to be locked already, by whoever decided the change
-     * is allowed.
+     * is allowed. Cancelling the inquiry cancels its open visits in the same
+     * transaction.
      */
     public function transition(Inquiry $inquiry, InquiryStatus $to, ?User $by): Inquiry
     {
@@ -72,6 +74,10 @@ class InquiryStatusService
 
         $this->inquiryRepository->updateStatus($inquiry, $to, $now);
         $this->inquiryRepository->createStatusHistory($inquiry, $from, $to, $by?->id, $now);
+
+        if ($to === InquiryStatus::Cancelled) {
+            $this->scheduleService->cancelForInquiry($inquiry, $now);
+        }
 
         event(new InquiryStatusChanged($inquiry, $from, $to, $by?->id));
 

@@ -1,17 +1,17 @@
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Link } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import EventDialog from '@/components/schedule/event-dialog';
 import MiniCalendar from '@/components/schedule/mini-calendar';
 import UpcomingList from '@/components/schedule/upcoming-list';
 import WeekGrid from '@/components/schedule/week-grid';
 import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
-import { mockScheduleItems, type ScheduleItem } from '@/data/schedule';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useBookRoute } from '@/hooks/use-book-route';
 import { permissions } from '@/layouts/workspace-layout';
+import { monthDays } from '@/lib/calendar';
 import {
     addDays,
     dayKey,
@@ -19,6 +19,14 @@ import {
     startOfDay,
     startOfWeek,
 } from '@/lib/date';
+import {
+    fitsRange,
+    rangeCovering,
+    rangeQuery,
+    toScheduleItems,
+    type ScheduleData,
+    type ScheduleItem,
+} from '@/lib/schedule';
 
 /**
  * How many days the week grid shows.
@@ -55,9 +63,32 @@ const rangeLabel = (days: Date[]): string => {
     return `${formatDayMonth.format(first)} – ${formatDayMonth.format(last)}, ${last.getFullYear()}`;
 };
 
+/** The columns the week grid shows for an anchor day. */
+const visibleDays = (anchor: Date, isWide: boolean): Date[] =>
+    Array.from(
+        { length: isWide ? DESKTOP_DAY_COUNT : MOBILE_DAY_COUNT },
+        (_, index) => addDays(isWide ? startOfWeek(anchor) : anchor, index),
+    );
+
+type SchedulePageProps = {
+    /** Every visit in the range asked for, any status, ordered by arrival. */
+    schedules: ScheduleData[];
+    /** The next three pending or confirmed visits, soonest first. */
+    upcoming: ScheduleData[];
+};
+
 const Schedule = () => {
     const { can } = usePermissions();
-    const items = useMemo(() => mockScheduleItems(), []);
+    const { props } = usePage<SchedulePageProps>();
+    const items = useMemo(
+        () => toScheduleItems(props.schedules),
+        [props.schedules],
+    );
+    const upcoming = useMemo(
+        () => toScheduleItems(props.upcoming),
+        [props.upcoming],
+    );
+    const [isLoading, setIsLoading] = useState(false);
 
     const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
     const [month, setMonth] = useState(() => startOfDay(new Date()));
@@ -87,13 +118,50 @@ const Schedule = () => {
 
     const dayCount = isWide ? DESKTOP_DAY_COUNT : MOBILE_DAY_COUNT;
 
-    const days = useMemo(
-        () =>
-            Array.from({ length: dayCount }, (_, index) =>
-                addDays(isWide ? startOfWeek(anchor) : anchor, index),
-            ),
-        [anchor, dayCount, isWide],
-    );
+    const days = useMemo(() => visibleDays(anchor, isWide), [anchor, isWide]);
+
+    /*
+     * Move the week grid and the mini calendar, and read the visits for both.
+     *
+     * One request covers the grid's days and the month's six weeks, so the
+     * dots are right too. When the two have drifted too far apart to fit in
+     * one request, the side that did not move follows the one that did.
+     */
+    const show = (
+        next: { anchor: Date; month: Date },
+        moved: 'anchor' | 'month',
+    ) => {
+        let { anchor: nextAnchor, month: nextMonth } = next;
+        const covering = () =>
+            rangeCovering(
+                visibleDays(nextAnchor, isWide),
+                monthDays(nextMonth),
+            );
+
+        if (!fitsRange(covering())) {
+            if (moved === 'anchor') {
+                nextMonth = nextAnchor;
+            } else {
+                nextAnchor = new Date(
+                    nextMonth.getFullYear(),
+                    nextMonth.getMonth(),
+                    1,
+                );
+            }
+        }
+
+        setAnchor(nextAnchor);
+        setMonth(nextMonth);
+
+        router.get(window.location.pathname, rangeQuery(covering()), {
+            only: ['schedules'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            onStart: () => setIsLoading(true),
+            onFinish: () => setIsLoading(false),
+        });
+    };
 
     /*
      * `now` is held rather than read at draw time.
@@ -106,7 +174,13 @@ const Schedule = () => {
     const [now] = useState(() => new Date());
 
     const step = (daysToMove: number) =>
-        setAnchor((current) => addDays(current, daysToMove));
+        show({ anchor: addDays(anchor, daysToMove), month }, 'anchor');
+
+    const goToToday = () => {
+        const today = startOfDay(new Date());
+
+        show({ anchor: today, month: today }, 'anchor');
+    };
 
     const stepLabel = isWide ? 'week' : 'day';
 
@@ -169,19 +243,30 @@ const Schedule = () => {
                     view is a change of place, and a screen reader user would
                     otherwise be told nothing happened.
                  */}
-                <p
-                    aria-live="polite"
-                    className="text-sm font-bold tracking-[-0.02em]"
-                >
-                    {rangeLabel(days)}
-                </p>
+                <div className="flex items-center gap-2">
+                    <p
+                        aria-live="polite"
+                        className="text-sm font-bold tracking-[-0.02em]"
+                    >
+                        {rangeLabel(days)}
+                    </p>
+
+                    {isLoading ? (
+                        <span
+                            aria-hidden
+                            className="text-xs text-secondary-foreground"
+                        >
+                            Loading…
+                        </span>
+                    ) : null}
+                </div>
 
                 <div className="flex items-center gap-2">
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setAnchor(startOfDay(new Date()))}
+                        onClick={goToToday}
                     >
                         Today
                     </Button>
@@ -210,8 +295,15 @@ const Schedule = () => {
                 </div>
             </div>
 
+            {/*
+                The week stretches to the panel's height beside it (grid items
+                fill their row), so its bottom edge lines up with the panel's.
+             */}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-                <div>
+                <div
+                    aria-busy={isLoading}
+                    className={`transition-opacity ${isLoading ? 'opacity-60' : ''}`}
+                >
                     <WeekGrid
                         days={days}
                         items={items}
@@ -234,11 +326,18 @@ const Schedule = () => {
                             selectedDay={anchor}
                             visibleDays={days}
                             bookedDays={bookedDays}
-                            onSelectDay={(day) => {
-                                setAnchor(startOfDay(day));
-                                setMonth(startOfDay(day));
-                            }}
-                            onChangeMonth={setMonth}
+                            onSelectDay={(day) =>
+                                show(
+                                    {
+                                        anchor: startOfDay(day),
+                                        month: startOfDay(day),
+                                    },
+                                    'anchor',
+                                )
+                            }
+                            onChangeMonth={(nextMonth) =>
+                                show({ anchor, month: nextMonth }, 'month')
+                            }
                         />
                     </div>
 
@@ -248,7 +347,7 @@ const Schedule = () => {
                         </h3>
 
                         <UpcomingList
-                            items={items}
+                            items={upcoming}
                             onSelect={setSelected}
                             onReschedule={reschedule}
                             onCancel={cancel}

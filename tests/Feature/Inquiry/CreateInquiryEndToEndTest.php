@@ -30,7 +30,7 @@ it('creates the whole row graph', function (): void {
         ]])
         ->assertSessionHasNoErrors();
 
-    $inquiry = Inquiry::query()->with(['projects.services', 'projects.categories', 'projects.stones', 'projects.files', 'statusHistory'])->sole();
+    $inquiry = Inquiry::query()->with(['projects.services', 'projects.categories', 'projects.stones', 'projects.files', 'projects.schedule', 'statusHistory'])->sole();
 
     expect($inquiry->reference)->toStartWith('INQ-')
         ->and($inquiry->client_id)->toBe($this->client->id)
@@ -50,7 +50,7 @@ it('creates the whole row graph', function (): void {
         ->and($first->files->first()->path)->toStartWith("inquiries/{$inquiry->reference}/{$first->id}/")
         ->and($visit->sort_order)->toBe(1)
         ->and($visit->stones)->toBeEmpty()
-        ->and($visit->deadline_time)->toBe('12:00:00');
+        ->and($visit->schedule->arrival_at->setTimezone('Asia/Manila')->format('H:i'))->toBe('12:00');
 
     Storage::disk(config('inquiry.disk'))->assertExists($first->files->first()->path);
 });
@@ -64,7 +64,7 @@ it('writes a standalone-only project with no stones', function (): void {
 
     expect($project->stones()->count())->toBe(0)
         ->and($project->categories()->count())->toBe(0)
-        ->and($project->services()->pluck('slug')->all())->toBe(['site-ocular-technical-assessment']);
+        ->and($project->services()->pluck('slug')->all())->toBe(['stone-relocation-dismantling-reinstallation']);
 });
 
 it('keeps stones and applications picked as extras on a standalone project', function (): void {

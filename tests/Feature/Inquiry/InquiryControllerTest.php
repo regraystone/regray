@@ -79,7 +79,7 @@ it('sends the Inquire page its options', function (): void {
         ->get(route('quote.inquire'))
         ->assertInertia(fn ($page) => $page
             ->component('inquire')
-            ->has('services', 9, fn ($service) => $service->hasAll(['id', 'name', 'features', 'image', 'standalone']))
+            ->has('services', 7, fn ($service) => $service->hasAll(['id', 'name', 'features', 'image', 'standalone', 'group']))
             ->where('services.5.standalone', true)
             ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'recommended', 'category', 'description', 'specifications']))
             ->has('applications.0', fn ($application) => $application->hasAll(['id', 'name', 'image']))

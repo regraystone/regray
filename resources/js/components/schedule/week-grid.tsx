@@ -3,7 +3,7 @@ import {
     isStruck,
     STATUS_BLOCK_STYLES,
 } from '@/components/schedule/schedule-status-badge';
-import type { ScheduleItem } from '@/data/schedule';
+import { gridHours, type ScheduleItem } from '@/lib/schedule';
 import {
     atHour,
     formatFullDate,
@@ -15,34 +15,30 @@ import {
 } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
-/**
- * The hours the showroom keeps.
- *
- * Ten until six: a visit is booked for a time the client can be there and the
- * studio can show them round, and a morning before ten is not either of those.
- */
-const OPEN_HOUR = 10;
-const CLOSE_HOUR = 18;
-
 /** The least an hour row is ever drawn at, when it holds one event or none. */
 const MIN_HOUR_HEIGHT = 56;
 
 /** Every event is drawn at this height, however many share its hour. */
-const EVENT_HEIGHT = 28;
+const EVENT_HEIGHT = 36;
 
 /** Breathing room above and below an event inside its slot. */
-const EVENT_GAP = 2;
+const EVENT_GAP = 8;
 
-const HOUR_COUNT = CLOSE_HOUR - OPEN_HOUR;
+/** Breathing room between an event and the column's edges. */
+const EVENT_INSET = 6;
 
-const HOURS = Array.from(
-    { length: HOUR_COUNT },
-    (_, index) => OPEN_HOUR + index,
-);
+/**
+ * A pixel offset as a share of the grid's natural height.
+ *
+ * Rows are placed in percentages so they grow in step when the grid is
+ * stretched taller than its content, e.g. to match the panel beside it.
+ */
+const percentOf = (pixels: number, gridHeight: number): number =>
+    (pixels / gridHeight) * 100;
 
 /** Where an arrival sits, counted in hour slots from the top of the grid. */
-const slotOf = (item: ScheduleItem): number =>
-    item.arrival.getHours() - OPEN_HOUR;
+const slotOf = (item: ScheduleItem, firstHour: number): number =>
+    item.arrival.getHours() - firstHour;
 
 /**
  * One block's place on the grid.
@@ -63,7 +59,11 @@ type Placement = {
  * Grouped by hour rather than by arrival, so visits expected at 10:00 and 10:45
  * are recognised as sharing a row. Within an hour they are ordered by arrival.
  */
-const placeBlocks = (day: Date, items: ScheduleItem[]): Placement[] => {
+const placeBlocks = (
+    day: Date,
+    items: ScheduleItem[],
+    hours: number[],
+): Placement[] => {
     const byHour = new Map<number, ScheduleItem[]>();
 
     for (const item of items) {
@@ -71,19 +71,9 @@ const placeBlocks = (day: Date, items: ScheduleItem[]): Placement[] => {
             continue;
         }
 
-        const slot = slotOf(item);
-
-        if (slot < 0 || slot >= HOUR_COUNT) {
-            /*
-             * Expected outside the hours on show.
-             *
-             * Left off the grid: there is no row to put it in, and
-             * borrowing the nearest one would put a 07:00 arrival at the top of
-             * the morning as though it were an 08:00 one. It is still listed and
-             * still opens in the dialog, where the time is written out.
-             */
-            continue;
-        }
+        // `gridHours` widens the rows to take in every visit on show, so each
+        // one has a row of its own hour.
+        const slot = slotOf(item, hours[0]);
 
         byHour.set(slot, [...(byHour.get(slot) ?? []), item]);
     }
@@ -130,10 +120,12 @@ const DayHeading = ({ day, isToday }: { day: Date; isToday: boolean }) => (
 const ItemBlock = ({
     placement,
     rowTops,
+    gridHeight,
     onSelect,
 }: {
     placement: Placement;
     rowTops: number[];
+    gridHeight: number;
     onSelect: (item: ScheduleItem) => void;
 }) => {
     const { item, slot, row } = placement;
@@ -156,13 +148,13 @@ const ItemBlock = ({
             aria-label={label}
             title={label}
             style={{
-                top: `${rowTops[slot] + row * EVENT_HEIGHT + EVENT_GAP / 2}px`,
+                top: `calc(${percentOf(rowTops[slot], gridHeight)}% + ${row * EVENT_HEIGHT + EVENT_GAP / 2}px)`,
                 height: `${EVENT_HEIGHT - EVENT_GAP}px`,
-                left: '2px',
-                right: '2px',
+                left: `${EVENT_INSET}px`,
+                right: `${EVENT_INSET}px`,
             }}
             className={cn(
-                'absolute z-10 flex items-center overflow-hidden rounded-md px-2.5 text-left transition-opacity hover:opacity-85 focus-visible:z-20 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                'absolute z-10 flex items-center overflow-hidden rounded-none px-2.5 text-left transition-opacity hover:opacity-85 focus-visible:z-20 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
                 STATUS_BLOCK_STYLES[item.status],
             )}
         >
@@ -185,7 +177,8 @@ const ItemBlock = ({
  * the hour rows give way to them: an hour is as tall as the busiest day's stack
  * in it (never less than `MIN_HOUR_HEIGHT`), so every column shares the same
  * row lines and nothing overlaps. The whole grid scrolls inside its own
- * container rather than the page.
+ * container rather than the page, and fills that container when it is taller
+ * than the rows need, stretching every hour in proportion.
  */
 const WeekGrid = ({
     days,
@@ -202,9 +195,10 @@ const WeekGrid = ({
      * Placements are worked out once per day, up front, because the row heights
      * depend on every day at once: an hour is as tall as its fullest column.
      */
-    const placementsByDay = days.map((day) => placeBlocks(day, items));
+    const hours = gridHours(items, days);
+    const placementsByDay = days.map((day) => placeBlocks(day, items, hours));
 
-    const rowHeights = HOURS.map((_, slot) => {
+    const rowHeights = hours.map((_, slot) => {
         const busiest = Math.max(
             0,
             ...placementsByDay.map(
@@ -240,11 +234,12 @@ const WeekGrid = ({
     const minimumWidth = days.length > 5 ? '38rem' : '18rem';
 
     return (
-        <div className="overflow-auto rounded-md border border-sidebar-border bg-background">
+        <div className="flex h-full flex-col overflow-auto rounded-md border border-sidebar-border bg-background">
             <div
-                className="grid"
+                className="grid shrink-0 grow"
                 style={{
                     gridTemplateColumns: `4rem repeat(${days.length}, minmax(0, 1fr))`,
+                    gridTemplateRows: `auto minmax(${gridHeight}px, 1fr)`,
                     minWidth: minimumWidth,
                 }}
             >
@@ -259,12 +254,14 @@ const WeekGrid = ({
                 ))}
 
                 {/* Hour column */}
-                <div className="relative" style={{ height: gridHeight }}>
-                    {HOURS.map((hour, index) => (
+                <div className="relative">
+                    {hours.map((hour, index) => (
                         <div
                             key={hour}
                             className="absolute right-2 pt-1 text-[0.65rem] font-bold text-secondary-foreground tabular-nums"
-                            style={{ top: `${rowTops[index]}px` }}
+                            style={{
+                                top: `${percentOf(rowTops[index], gridHeight)}%`,
+                            }}
                         >
                             {formatHour.format(atHour(startOfDay(now), hour))}
                         </div>
@@ -285,7 +282,6 @@ const WeekGrid = ({
                                 'relative border-l border-sidebar-border',
                                 isToday && 'bg-muted/40',
                             )}
-                            style={{ height: gridHeight }}
                         >
                             {/* Hour lines, one per row, since the rows are no
                                 longer all the same height. */}
@@ -295,8 +291,8 @@ const WeekGrid = ({
                                     aria-hidden
                                     className="absolute inset-x-0 border-t border-border"
                                     style={{
-                                        top: `${top}px`,
-                                        height: `${rowHeights[slot]}px`,
+                                        top: `${percentOf(top, gridHeight)}%`,
+                                        height: `${percentOf(rowHeights[slot], gridHeight)}%`,
                                     }}
                                 />
                             ))}
@@ -306,6 +302,7 @@ const WeekGrid = ({
                                     key={placement.item.id}
                                     placement={placement}
                                     rowTops={rowTops}
+                                    gridHeight={gridHeight}
                                     onSelect={onSelect}
                                 />
                             ))}
