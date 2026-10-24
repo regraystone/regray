@@ -111,13 +111,20 @@ const fromDayKey = (day: string): Date => {
 /**
  * `studioNow` is Manila's date and time when the page was served, so which
  * days and slots are already past is decided by the studio's clock, not the
- * browser's.
+ * browser's. `earliestBookableDate` is the first day the signed-in user may
+ * book: tomorrow for a client, today for staff.
  *
  * TODO(staff-booking): staff will pick the client the appointment is for, and
  * the form will send that client's id. Until then the form books for the
  * signed-in client only.
  */
-const Page = ({ studioNow }: { studioNow: StudioNow }) => {
+const Page = ({
+    studioNow,
+    earliestBookableDate,
+}: {
+    studioNow: StudioNow;
+    earliestBookableDate: string;
+}) => {
     const { url } = usePage();
     const { can } = usePermissions();
     const isProfile = url.startsWith('/profile');
@@ -152,11 +159,14 @@ const Page = ({ studioNow }: { studioNow: StudioNow }) => {
     const arrivalTime = watch('arrivalTime');
 
     const isDisabled = (day: Date): boolean =>
-        openSlotsOn(dayKey(day), studioNow).length === 0;
+        openSlotsOn(dayKey(day), studioNow, earliestBookableDate).length === 0;
 
     const availableSlots = useMemo(
-        () => (date ? openSlotsOn(dayKey(date), studioNow) : []),
-        [date, studioNow],
+        () =>
+            date
+                ? openSlotsOn(dayKey(date), studioNow, earliestBookableDate)
+                : [],
+        [date, studioNow, earliestBookableDate],
     );
 
     useEffect(() => {

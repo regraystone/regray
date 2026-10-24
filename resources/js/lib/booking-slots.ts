@@ -39,21 +39,25 @@ export const slotLabel = (slot: string): string => {
 };
 
 /**
- * The slots still ahead on `day` (`YYYY-MM-DD`) by the studio's clock: every
- * slot on a later day, none on an earlier one, and on today only those after
- * the current time.
+ * The slots still open on `day` (`YYYY-MM-DD`) by the studio's clock: none
+ * before `earliestDay` (the first day the viewer may book, as the server sends
+ * it) or before today, every slot on a later day, and on today only those
+ * after the current time.
+ *
+ * Same rule as StoreBookingRequest, which refuses anything else.
  */
 export const openSlotsOn = (
     day: string,
     now: StudioNow,
+    earliestDay: string = now.date,
     slots: readonly string[] = bookingSlots(),
 ): string[] => {
-    if (day > now.date) {
-        return [...slots];
+    if (day < earliestDay || day < now.date) {
+        return [];
     }
 
-    if (day < now.date) {
-        return [];
+    if (day > now.date) {
+        return [...slots];
     }
 
     return slots.filter((slot) => slot > now.time);

@@ -4,6 +4,7 @@ use App\Actions\Schedule\BookScheduleAction;
 use App\Enums\BookedByType;
 use App\Enums\ConversationType;
 use App\Enums\MessageType;
+use App\Enums\Role;
 use App\Enums\ScheduleStatus;
 use App\Events\ScheduleBooked;
 use App\Listeners\PostScheduleCard;
@@ -18,7 +19,8 @@ use Inertia\Support\SessionKey;
 /*
  * Book an appointment: a client's booking is saved as a pending schedule and
  * announced with a schedule card in their Regray Team thread. "Now" is
- * Wednesday 14 October 2026, 13:05 in Manila.
+ * Wednesday 14 October 2026, 13:05 in Manila. A client books from tomorrow
+ * on, staff from today on.
  */
 
 beforeEach(function (): void {
@@ -124,7 +126,6 @@ it('refuses a booking the rules do not allow, and saves nothing', function (arra
     expect(Schedule::query()->count())->toBe(0);
 })->with([
     'yesterday' => [['date' => '2026-10-13'], 'date'],
-    'a time already past today' => [['date' => '2026-10-14', 'arrivalTime' => '12:00'], 'arrivalTime'],
     'after closing' => [['arrivalTime' => '18:15'], 'arrivalTime'],
     'before opening' => [['arrivalTime' => '09:30'], 'arrivalTime'],
     'off the 30-minute grid' => [['arrivalTime' => '10:15'], 'arrivalTime'],
@@ -133,13 +134,46 @@ it('refuses a booking the rules do not allow, and saves nothing', function (arra
     'a 501-character note' => [['notes' => str_repeat('a', 501)], 'notes'],
 ]);
 
-it('accepts a slot still ahead today and the last slot of the day', function (string $time): void {
+it('refuses a client booking for today, and saves nothing', function (): void {
     $this->actingAs(inquiryClient())
-        ->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', 'arrivalTime' => $time]))
+        ->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', 'arrivalTime' => '13:30']))
+        ->assertSessionHasErrors(['date' => 'Choose a day from tomorrow on']);
+
+    expect(Schedule::query()->count())->toBe(0);
+});
+
+it('accepts and saves a client booking for tomorrow', function (): void {
+    $this->actingAs(inquiryClient())
+        ->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-15', 'arrivalTime' => '10:00']))
         ->assertSessionHasNoErrors();
 
-    expect(Schedule::query()->count())->toBe(1);
+    expect(Schedule::query()->sole()->arrival_at->equalTo(CarbonImmutable::parse('2026-10-15 10:00', 'Asia/Manila')))->toBeTrue();
+});
+
+// Staff saving is still a stub (TODO(staff-booking)), so these assert on validation only.
+it('lets staff book a slot still ahead today and the last slot of the day', function (string $time): void {
+    $this->actingAs(inquiryClient(Role::Marketing))
+        ->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', 'arrivalTime' => $time]))
+        ->assertSessionHasNoErrors();
 })->with(['13:30', '18:00']);
+
+it('refuses staff a time already past today', function (): void {
+    $this->actingAs(inquiryClient(Role::Marketing))
+        ->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', 'arrivalTime' => '12:00']))
+        ->assertSessionHasErrors(['arrivalTime' => 'That time has already passed'])
+        ->assertSessionDoesntHaveErrors('date');
+});
+
+it('refuses yesterday for a client and for staff', function (Role $role, string $message): void {
+    $this->actingAs(inquiryClient($role))
+        ->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-13']))
+        ->assertSessionHasErrors(['date' => $message]);
+
+    expect(Schedule::query()->count())->toBe(0);
+})->with([
+    'a client' => [Role::Client, 'Choose a day from tomorrow on'],
+    'staff' => [Role::Marketing, 'Choose a day from today on'],
+]);
 
 it('flashes an error and keeps the page when the write fails', function (): void {
     $this->mock(BookScheduleAction::class)

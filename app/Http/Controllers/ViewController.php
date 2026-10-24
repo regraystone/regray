@@ -80,6 +80,7 @@ class ViewController extends Controller
 
         return Inertia::render('schedule-book', [
             'studioNow' => ['date' => $now->toDateString(), 'time' => $now->format('H:i')],
+            'earliestBookableDate' => ScheduleService::earliestBookableDate($request->user())->toDateString(),
         ]);
     }
 
