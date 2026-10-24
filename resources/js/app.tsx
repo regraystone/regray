@@ -1,10 +1,30 @@
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
+import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import AuthLayout from '@/layouts/auth-layout';
 import WorkspaceLayout from '@/layouts/workspace-layout';
+import { rateLimitFrom } from '@/lib/rate-limit';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+/*
+ * A 429 on a visit with no handler of its own (a filter change, a page of
+ * infinite scroll, the heart on a stone, the login form) says how long to
+ * wait in one toast, rather than in Inertia's dialog of the raw error page.
+ * A page that handles it itself returns false from onHttpException, which
+ * stops this event from firing.
+ */
+router.on('httpException', (event) => {
+    const limit = rateLimitFrom(event.detail.response);
+
+    if (limit === null) {
+        return;
+    }
+
+    event.preventDefault();
+    toast.error(limit.message, { id: 'rate-limit' });
+});
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

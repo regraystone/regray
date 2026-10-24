@@ -40,6 +40,8 @@ import {
     serviceNameIn,
 } from '@/lib/inquiry-catalog';
 import { readInquiryDraft } from '@/lib/inquiry-draft-storage';
+import { rateLimitFrom } from '@/lib/rate-limit';
+import type { RateLimit } from '@/lib/rate-limit';
 import {
     APPLICATION_STEP,
     buildCommittedProject,
@@ -138,7 +140,7 @@ const newProjectId = (): string => {
 
 type InquiryResultState =
     | { status: 'success'; title: string; reference: string }
-    | { status: 'error'; message?: string }
+    | { status: 'error'; message?: string; retryAt?: number | null }
     | null;
 
 /**
@@ -152,7 +154,7 @@ type InquiryResultState =
 type SendOutcome =
     | { kind: 'flashed'; flash: InquiryFlash | null }
     | { kind: 'invalid'; errors: Record<string, string> }
-    | { kind: 'failed' };
+    | { kind: 'failed'; rateLimit?: RateLimit };
 
 /**
  * The send, wrapped in a promise so the guard and the reset-on-success logic
@@ -164,7 +166,8 @@ type SendOutcome =
  *
  * `onHttpException` returns false so a server error is answered by the page's
  * own result panel, which keeps the answers and offers a retry, rather than by
- * Inertia's dialog of the raw response laid over it.
+ * Inertia's dialog of the raw response laid over it. A 429 carries how long to
+ * wait as the failure's message.
  *
  * `patch` is the edit of a sent inquiry. It still goes out as a POST carrying
  * `_method=PATCH`, because PHP does not parse a multipart body sent as PATCH,
@@ -184,6 +187,8 @@ const sendInquiryRequest = (
             body.append('_method', 'PATCH');
         }
 
+        let rateLimit: RateLimit | undefined;
+
         router.post(url, body, {
             forceFormData: true,
             preserveScroll: true,
@@ -198,8 +203,12 @@ const sendInquiryRequest = (
                     kind: 'invalid',
                     errors: errors as Record<string, string>,
                 }),
-            onHttpException: () => false,
-            onFinish: () => resolve({ kind: 'failed' }),
+            onHttpException: (response) => {
+                rateLimit = rateLimitFrom(response) ?? undefined;
+
+                return false;
+            },
+            onFinish: () => resolve({ kind: 'failed', rateLimit }),
         });
     });
 
@@ -1262,6 +1271,12 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
                     outcome.kind === 'flashed' &&
                     outcome.flash?.status === 'error'
                         ? outcome.flash.message
+                        : outcome.kind === 'failed'
+                          ? outcome.rateLimit?.message
+                          : undefined,
+                retryAt:
+                    outcome.kind === 'failed'
+                        ? outcome.rateLimit?.retryAt
                         : undefined,
             });
 
@@ -1333,7 +1348,10 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
         }
 
         if (outcome.kind === 'failed') {
-            toast.error('Your changes could not be saved. Try again.');
+            toast.error(
+                outcome.rateLimit?.message ??
+                    'Your changes could not be saved. Try again.',
+            );
         }
     };
 
@@ -1491,6 +1509,11 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
                             result.status === 'error'
                                 ? result.message
                                 : undefined
+                        }
+                        retryAt={
+                            result.status === 'error'
+                                ? (result.retryAt ?? null)
+                                : null
                         }
                         canChat={canChat}
                         inquiriesHref={inquiriesHref}

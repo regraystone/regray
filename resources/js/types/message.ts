@@ -144,6 +144,8 @@ export type PendingMessage = {
     state: 'sending' | 'failed';
     /** The server's reason when it refused the send (a 409 says who handles it). */
     error?: string;
+    /** When a 429 lets the send be retried (a Date.now() timestamp). */
+    retryAt?: number | null;
 };
 
 export type Realtime = {

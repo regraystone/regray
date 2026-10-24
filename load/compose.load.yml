@@ -1,0 +1,12 @@
+# The local load-test stack only (see load/RESULTS.md). Never deploy this.
+#
+# Layered over docker-compose.yml with its own project name, so its database
+# volume is separate from any other local stack:
+#   docker compose -p regray-load -f docker-compose.yml -f load/compose.load.yml --env-file <env> up -d
+#
+# Publishes Postgres on localhost only, so the host can seed it with
+# LoadTestSeeder (the image has no dev dependencies, which the seeders need).
+services:
+    db:
+        ports:
+            - '127.0.0.1:54329:5432'

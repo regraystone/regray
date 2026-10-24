@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Sentry\Laravel\Integration;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -25,7 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
         CreateAdminCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
+        /*
+         * Trusted proxies come from config/trustedproxy.php (TRUSTED_PROXIES),
+         * which trusts nobody unless a proxy is named.
+         */
         $middleware->encryptCookies(except: ['sidebar_state']);
 
         $middleware->web(append: [
@@ -56,6 +60,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        /*
+         * Reports every reported exception to Sentry, including the ones the
+         * app hands to report() itself. It does nothing while no DSN is set.
+         */
+        Integration::handles($exceptions);
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

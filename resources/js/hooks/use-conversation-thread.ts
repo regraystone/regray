@@ -394,6 +394,10 @@ export function useConversationThread(
                                       error instanceof ApiError
                                           ? error.message
                                           : undefined,
+                                  retryAt:
+                                      error instanceof ApiError
+                                          ? error.retryAt
+                                          : null,
                               }
                             : item,
                     ),

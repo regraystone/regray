@@ -151,6 +151,10 @@ function isNotAPageRoute(string $name): bool
         '_boost',
         '_inertia',
         'storage.',
+        // Livewire's own endpoints, used only by the Pulse dashboard. Pulse
+        // re-runs its viewPulse check on them as persistent middleware.
+        'livewire.',
+        'default-livewire.',
     ]);
 }
 
