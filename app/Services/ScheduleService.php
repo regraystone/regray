@@ -11,6 +11,7 @@ use App\Repositories\Contracts\ScheduleRepositoryInterface;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Date;
 
 /**
  * Reads and writes schedules.
@@ -167,6 +168,18 @@ class ScheduleService
     public static function arrivalAt(string $date, string $time): CarbonImmutable
     {
         return CarbonImmutable::parse("{$date} {$time}", self::timezone());
+    }
+
+    /**
+     * The first day `$user` may book an appointment for, by the studio's clock:
+     * tomorrow for a client, today for staff. Times already past are refused
+     * separately.
+     */
+    public static function earliestBookableDate(User $user): CarbonImmutable
+    {
+        $today = Date::now(self::timezone())->toImmutable()->startOfDay();
+
+        return $user->isClient() ? $today->addDay() : $today;
     }
 
     public static function timezone(): string

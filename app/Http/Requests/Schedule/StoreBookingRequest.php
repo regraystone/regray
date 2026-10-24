@@ -13,7 +13,8 @@ use Illuminate\Validation\Validator;
 /**
  * Mirrors `bookingSchema` in resources/js/lib/booking-schema.ts, plus the time
  * window the browser cannot be trusted with. Dates and times are read in the
- * studio's zone.
+ * studio's zone. A client books from tomorrow on, staff from today on; see
+ * ScheduleService::earliestBookableDate().
  *
  * Only these four fields are read. A client or user id in the payload is
  * ignored: the booking is always the signed-in client's.
@@ -36,10 +37,10 @@ class StoreBookingRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
-        $today = Date::now(ScheduleService::timezone())->toDateString();
+        $earliest = ScheduleService::earliestBookableDate($this->user())->toDateString();
 
         return [
-            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$today],
+            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$earliest],
             'arrivalTime' => ['required', 'date_format:H:i', Rule::in(self::slots())],
             'purpose' => ['required', 'string', 'max:80'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -52,7 +53,7 @@ class StoreBookingRequest extends FormRequest
         return [
             'date.required' => 'Choose a day',
             'date.date_format' => 'Choose a day',
-            'date.after_or_equal' => 'Choose a day from today on',
+            'date.after_or_equal' => $this->user()->isClient() ? 'Choose a day from tomorrow on' : 'Choose a day from today on',
             'arrivalTime.required' => 'Choose a time',
             'arrivalTime.date_format' => 'Choose a time',
             'arrivalTime.in' => 'Choose a time between 10:00 AM and 6:00 PM',

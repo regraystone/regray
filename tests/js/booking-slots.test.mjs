@@ -44,4 +44,19 @@ describe('openSlotsOn', () => {
             [],
         );
     });
+
+    it('offers nothing before the earliest bookable day', () => {
+        assert.deepEqual(openSlotsOn('2026-10-14', now, '2026-10-15'), []);
+        assert.deepEqual(openSlotsOn('2026-10-13', now, '2026-10-15'), []);
+    });
+
+    it('offers every slot from the earliest bookable day on', () => {
+        assert.equal(openSlotsOn('2026-10-15', now, '2026-10-15').length, 17);
+        assert.equal(openSlotsOn('2026-10-16', now, '2026-10-15').length, 17);
+    });
+
+    it('still offers only the slots ahead today when today is the earliest day', () => {
+        assert.equal(openSlotsOn('2026-10-14', now, '2026-10-14')[0], '13:30');
+        assert.deepEqual(openSlotsOn('2026-10-13', now, '2026-10-14'), []);
+    });
 });
