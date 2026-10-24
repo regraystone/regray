@@ -100,9 +100,9 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
                     </span>
                 </span>
 
-                <span className="block space-y-1 p-3">
+                <span className="flex items-center justify-between gap-2 p-3 text-xs text-secondary-foreground">
                     <span
-                        className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-secondary-foreground"
+                        className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap"
                         data-testid="inquiry-card-status"
                     >
                         <span className="shrink-0">
@@ -114,8 +114,8 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
                         </span>
                     </span>
 
-                    <span className="flex items-center gap-1 text-xs text-secondary-foreground">
-                        View details
+                    <span className="inline-flex shrink-0 items-center gap-1">
+                        View
                         <ArrowRight className="size-3" aria-hidden />
                     </span>
                 </span>

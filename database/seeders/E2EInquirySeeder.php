@@ -38,6 +38,7 @@ class E2EInquirySeeder extends Seeder
                 'name' => 'Retired Service',
                 'image_path' => (string) Service::query()->orderBy('sort_order')->value('image_path'),
                 'is_standalone' => false,
+                'selection_group' => 'stone-work',
                 'is_active' => false,
                 'sort_order' => 999,
             ],
