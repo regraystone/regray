@@ -31,7 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [RedirectController::class, 'dashboard'])->name('dashboard');
 
     Route::get('home', [StoneController::class, 'index'])
-        ->middleware(Permission::HomeView->middleware())
+        ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
         ->name('home.index');
 
     /*
@@ -73,7 +73,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(Permission::OverviewView->middleware())
         ->name('overview.index');
     Route::get('saved', [SavedStoneController::class, 'index'])
-        ->middleware(Permission::SavedView->middleware())
+        ->middleware([Permission::SavedView->middleware(), 'throttle:heavy-reads'])
         ->name('saved.index');
     /*
      * Saved is a separate door to the same stone profile and keeps its own guard,
@@ -90,12 +90,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([
             Permission::SavedView->middleware(),
             Permission::SavedManage->middleware(),
+            'throttle:saved-stone',
         ])
         ->name('saved.store');
     Route::delete('saved/{stone}', [SavedStoneController::class, 'destroy'])
         ->middleware([
             Permission::SavedView->middleware(),
             Permission::SavedManage->middleware(),
+            'throttle:saved-stone',
         ])
         ->name('saved.destroy');
     Route::get('sales', [ViewController::class, 'sales'])
@@ -105,7 +107,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(Permission::QuotationsView->middleware())
         ->name('quote.index');
     Route::patch('quote/{reference}/cancel', [QuoteController::class, 'cancel'])
-        ->middleware(Permission::QuotationsView->middleware())
+        ->middleware([Permission::QuotationsView->middleware(), 'throttle:inquiry-edit'])
         ->name('quote.cancel');
     Route::get('inquiry', [ViewController::class, 'inquiry'])
         ->middleware(Permission::InquiriesView->middleware())
@@ -126,13 +128,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('quote.inquire');
     Route::post('quote/inquire', [InquiryController::class, 'store'])
-        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
         ->name('quote.inquire.store');
     Route::get('inquiry/inquire', [ViewController::class, 'inquire'])
         ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('inquiry.inquire');
     Route::post('inquiry/inquire', [InquiryController::class, 'store'])
-        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
         ->name('inquiry.inquire.store');
 
     /*
@@ -165,7 +167,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('quote.edit');
     Route::patch('quote/{reference}', [InquiryEditController::class, 'update'])
-        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-edit'])
         ->name('quote.update');
 
     Route::get('quote/{reference}', [InquiryDetailsController::class, 'show'])
@@ -189,7 +191,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * one under Profile.
      */
     Route::post('schedule/book', [BookingController::class, 'store'])
-        ->middleware(Permission::ScheduleCreate->middleware())
+        ->middleware([Permission::ScheduleCreate->middleware(), 'throttle:booking'])
         ->name('schedule.book.store');
     /*
      * The Message page. Everything under it needs `messages.view`; the
@@ -203,7 +205,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
             ->name('message.people');
         Route::post('message/groups', [MessageController::class, 'storeGroup'])
-            ->middleware(Permission::ConversationsCreate->middleware())
+            ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
             ->name('message.groups.store');
 
         Route::patch('message/messages/{message}', [ThreadController::class, 'update'])

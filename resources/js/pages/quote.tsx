@@ -40,6 +40,7 @@ import {
     type QuoteStatusFilter,
 } from '@/lib/quote-filters';
 import { SKELETON_CARD_COUNT, skeletonState } from '@/lib/quote-skeleton';
+import { rateLimitFrom } from '@/lib/rate-limit';
 import {
     cancel as quoteCancel,
     edit as quoteEdit,
@@ -599,6 +600,7 @@ const Quote = () => {
         setCancellingReference(inquiry.reference);
 
         let settled = false;
+        let failureMessage: string | null = null;
 
         router.patch(
             quoteCancel.url({ reference: inquiry.reference }),
@@ -629,6 +631,13 @@ const Quote = () => {
                         reset: ['inquiries'],
                     });
                 },
+                // A 429 says how long to wait; any other error page is the
+                // generic toast below. Either way, not Inertia's raw dialog.
+                onHttpException: (response) => {
+                    failureMessage = rateLimitFrom(response)?.message ?? null;
+
+                    return false;
+                },
                 onFinish: () => {
                     setCancellingReference(null);
 
@@ -636,7 +645,8 @@ const Quote = () => {
                         // Nothing changed, so the dialog stays open and the user
                         // can simply press the button again.
                         toast.error(
-                            "We couldn't cancel this inquiry. Please try again.",
+                            failureMessage ??
+                                "We couldn't cancel this inquiry. Please try again.",
                         );
                     }
                 },

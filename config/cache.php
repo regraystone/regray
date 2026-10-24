@@ -13,9 +13,12 @@ return [
     | framework. This connection is utilized if another isn't explicitly
     | specified when running a cache operation inside the application.
     |
+    | `redis` is used only when REDIS_HOST is set too; without it this falls
+    | back to `database`, so a machine with no Redis keeps working.
+    |
     */
 
-    'default' => env('CACHE_STORE', 'database'),
+    'default' => env('CACHE_STORE') === 'redis' && ! env('REDIS_HOST') ? 'database' : env('CACHE_STORE', 'database'),
 
     /*
     |--------------------------------------------------------------------------

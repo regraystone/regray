@@ -1,4 +1,5 @@
 import { currentSocketId } from '@/lib/echo';
+import { rateLimitFrom } from '@/lib/rate-limit';
 import { readXsrfToken } from '@/lib/xsrf';
 import { store as storeGroup } from '@/routes/message/groups';
 import {
@@ -28,12 +29,17 @@ import type {
  * the requests a thread makes while it is open.
  */
 
-/** A request the server refused, with the status and the server's words. */
+/**
+ * A request the server refused, with the status and the server's words. A 429
+ * says how long to wait instead, from its Retry-After header, and `retryAt`
+ * is when a retry may go (a Date.now() timestamp).
+ */
 export class ApiError extends Error {
     constructor(
         public readonly status: number,
         message: string,
         public readonly errors: Record<string, string[]> = {},
+        public readonly retryAt: number | null = null,
     ) {
         super(message);
     }
@@ -70,10 +76,20 @@ const request = async <T>(
             errors?: Record<string, string[]>;
         };
 
+        const rateLimit = rateLimitFrom({
+            status: response.status,
+            headers: {
+                'retry-after': response.headers.get('Retry-After') ?? '',
+            },
+        });
+
         throw new ApiError(
             response.status,
-            data.message ?? 'Something went wrong. Please try again.',
+            rateLimit?.message ??
+                data.message ??
+                'Something went wrong. Please try again.',
             data.errors ?? {},
+            rateLimit?.retryAt ?? null,
         );
     }
 

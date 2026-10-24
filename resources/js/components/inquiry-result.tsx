@@ -1,8 +1,10 @@
 import { Link } from '@inertiajs/react';
 import { ArrowLeft, MessageCircle, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
+import Countdown from '@/components/countdown';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { retryLabel } from '@/lib/rate-limit';
 import { index as messageIndex } from '@/routes/message';
 import { ResultBadge } from './result-badge';
 
@@ -18,6 +20,11 @@ type InquiryResultProps = {
     reference?: string;
     /** What went wrong, in the backend's words, shown on error. */
     message?: string;
+    /**
+     * When a 429 lets the request go again (a Date.now() timestamp), or null.
+     * Try again is held until then, so a retry cannot extend the wait.
+     */
+    retryAt?: number | null;
     /** The chat is only offered to someone allowed to open it. */
     canChat: boolean;
     /**
@@ -53,6 +60,7 @@ const InquiryResult = ({
     title,
     reference,
     message,
+    retryAt = null,
     canChat,
     inquiriesHref,
     onTryAgain,
@@ -113,24 +121,27 @@ const InquiryResult = ({
               </Button>,
           ]
         : [
-              <Button
-                  key="retry"
-                  type="button"
-                  onClick={onTryAgain}
-                  disabled={submitting}
-              >
-                  {submitting ? (
-                      <>
-                          <Spinner />
-                          Sending...
-                      </>
-                  ) : (
-                      <>
-                          <RotateCcw aria-hidden />
-                          Try again
-                      </>
+              <Countdown key={`retry-${retryAt ?? 'now'}`} until={retryAt}>
+                  {(retryIn) => (
+                      <Button
+                          type="button"
+                          onClick={onTryAgain}
+                          disabled={submitting || retryIn > 0}
+                      >
+                          {submitting ? (
+                              <>
+                                  <Spinner />
+                                  Sending...
+                              </>
+                          ) : (
+                              <>
+                                  <RotateCcw aria-hidden />
+                                  {retryLabel(retryIn)}
+                              </>
+                          )}
+                      </Button>
                   )}
-              </Button>,
+              </Countdown>,
               <Button
                   key="back"
                   type="button"

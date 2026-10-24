@@ -7,7 +7,7 @@ WORKDIR /var/www/html
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git unzip libpq-dev libicu-dev libzip-dev ca-certificates curl gnupg \
-    && docker-php-ext-install -j"$(nproc)" pdo_pgsql intl zip bcmath \
+    && docker-php-ext-install -j"$(nproc)" pdo_pgsql intl zip bcmath pcntl \
     && curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource.sh \
     && bash /tmp/nodesource.sh \
     && apt-get install -y --no-install-recommends nodejs \
@@ -56,6 +56,9 @@ RUN apt-get update \
         libpq-dev libicu-dev libzip-dev libpq5 libicu76 libzip5 \
         postgresql-client-17 libfcgi-bin \
     && docker-php-ext-install -j"$(nproc)" pdo_pgsql intl zip bcmath pcntl \
+    && pecl install redis-6.3.0 \
+    && docker-php-ext-enable redis \
+    && rm -rf /tmp/pear \
     && php -r 'exit(extension_loaded("Zend OPcache") ? 0 : 1);' \
     && apt-get purge -y --auto-remove libpq-dev libicu-dev libzip-dev $PHPIZE_DEPS \
     && rm -rf /var/lib/apt/lists/* \

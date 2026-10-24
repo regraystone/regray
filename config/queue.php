@@ -11,9 +11,13 @@ return [
     | API, giving you convenient access to each backend using identical
     | syntax for each. The default queue connection is defined below.
     |
+    | `redis` is used only when REDIS_HOST is set too; without it this falls
+    | back to `database`, so a machine with no Redis keeps working. On redis,
+    | the worker container runs Horizon instead of queue:work.
+    |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env('QUEUE_CONNECTION') === 'redis' && ! env('REDIS_HOST') ? 'database' : env('QUEUE_CONNECTION', 'database'),
 
     /*
     |--------------------------------------------------------------------------

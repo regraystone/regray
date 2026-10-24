@@ -12,6 +12,7 @@ import {
     MessageAttachments,
     PendingAttachments,
 } from '@/components/conversations/message-attachments';
+import Countdown from '@/components/countdown';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useInitials } from '@/hooks/use-initials';
@@ -23,6 +24,7 @@ import {
     type LongPressState,
 } from '@/lib/long-press';
 import { ATTACHMENT_SNIPPET } from '@/lib/message-attachments';
+import { retryLabel } from '@/lib/rate-limit';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, PendingMessage } from '@/types/message';
 
@@ -295,15 +297,24 @@ const MessageBubble = ({
                                 <span className="text-destructive">
                                     {pending.error ?? 'Failed'}
                                 </span>
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    size="sm"
-                                    className="h-auto p-0 text-[0.7rem]"
-                                    onClick={onRetry}
+                                {/* Held until a 429's wait is over. */}
+                                <Countdown
+                                    key={pending.retryAt ?? 'now'}
+                                    until={pending.retryAt ?? null}
                                 >
-                                    Retry
-                                </Button>
+                                    {(retryIn) => (
+                                        <Button
+                                            type="button"
+                                            variant="link"
+                                            size="sm"
+                                            className="h-auto p-0 text-[0.7rem]"
+                                            onClick={onRetry}
+                                            disabled={retryIn > 0}
+                                        >
+                                            {retryLabel(retryIn, 'Retry')}
+                                        </Button>
+                                    )}
+                                </Countdown>
                                 <Button
                                     type="button"
                                     variant="link"

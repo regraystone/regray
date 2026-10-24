@@ -30,16 +30,42 @@ use App\Repositories\Eloquent\StoneRepository;
 use App\Repositories\Eloquent\UserRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Horizon\Horizon;
+use Laravel\Pulse\Facades\Pulse;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * The named rate limiters routes ask for with `throttle:{name}`. Each
+     * one's requests per minute is config/rate-limits.php's `per_minute.{name}`.
+     *
+     * @var list<string>
+     */
+    private const RATE_LIMITERS = [
+        'messages',
+        'message-receipts',
+        'message-assignment',
+        'message-people',
+        'message-attachments',
+        'inquiry-submit',
+        'inquiry-edit',
+        'booking',
+        'saved-stone',
+        'group-create',
+        'heavy-reads',
+        'register',
+        'password-reset',
+    ];
+
     /**
      * Register any application services.
      */
@@ -66,6 +92,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->grantSuperAdminEverything();
+        $this->authorizeDashboards();
         $this->configureRateLimits();
     }
 
@@ -91,6 +118,31 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Who may open the Pulse (/pulse) and Horizon (/horizon) dashboards: the
+     * owner and the admin, on every environment.
+     *
+     * Both packages let anyone in on a local environment by default; these
+     * gates replace that. The admin is also let through by the super-admin
+     * bypass above. Pulse shows each user by name and email with no avatar,
+     * since its default avatar asks Gravatar about the user's email.
+     */
+    protected function authorizeDashboards(): void
+    {
+        $isOwnerOrAdmin = fn (User $user): bool => $user->hasAnyRole([Role::Owner->value, Role::Admin->value]);
+
+        Gate::define('viewPulse', $isOwnerOrAdmin);
+        Gate::define('viewHorizon', $isOwnerOrAdmin);
+
+        Horizon::auth(fn (Request $request): bool => (bool) $request->user()?->can('viewHorizon'));
+
+        Pulse::user(fn (User $user): array => [
+            'name' => $user->name,
+            'extra' => $user->email,
+            'avatar' => null,
+        ]);
+    }
+
+    /**
      * Configure default behaviors for production-ready applications.
      */
     protected function configureDefaults(): void
@@ -100,6 +152,12 @@ class AppServiceProvider extends ServiceProvider
         DB::prohibitDestructiveCommands(
             app()->isProduction(),
         );
+
+        /*
+         * An N+1 throws everywhere but production, so the test suite and local
+         * use catch it. Production stays quiet and keeps serving.
+         */
+        Model::preventLazyLoading(! app()->isProduction());
 
         Password::defaults(fn (): ?Password => app()->isProduction()
             ? Password::min(12)
@@ -113,8 +171,11 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * The Message page's limits, each counted per user (per IP for a guest,
-     * who is refused anyway):
+     * The named limits, each counted per signed-in user and per IP for a
+     * guest, a minute at a time. The numbers are in config/rate-limits.php,
+     * read on every request so the environment can change them.
+     *
+     * The Message page's:
      * - `messages`, sending: generous enough for a fast typist, low enough
      *   that a stuck retry loop cannot flood a thread.
      * - `message-receipts`, read and delivered pointers: the page sends one
@@ -126,15 +187,49 @@ class AppServiceProvider extends ServiceProvider
      *   per pause in typing.
      * - `message-attachments`, opening a file: a thread shows every photo in
      *   it at once, so this only stops someone walking through the files.
+     *
+     * The rest:
+     * - `inquiry-submit` and `inquiry-edit`: sending, editing and cancelling
+     *   an inquiry, each of which writes files and visits. Both inquiry doors
+     *   share one count.
+     * - `booking`: Book an appointment.
+     * - `saved-stone`: the heart on a stone card. A person taps through a
+     *   feed; only a script reaches this.
+     * - `group-create`: New group on the Message page.
+     * - `heavy-reads`: the Home and Saved feeds, where every filter change,
+     *   search and page of infinite scroll is a request.
+     * - `register` and `password-reset`: Fortify's guest forms, per IP.
      */
     protected function configureRateLimits(): void
     {
         $perUser = fn (Request $request): string => (string) ($request->user()->id ?? $request->ip());
 
-        RateLimiter::for('messages', fn (Request $request) => Limit::perMinute(60)->by($perUser($request)));
-        RateLimiter::for('message-receipts', fn (Request $request) => Limit::perMinute(120)->by($perUser($request)));
-        RateLimiter::for('message-assignment', fn (Request $request) => Limit::perMinute(10)->by($perUser($request)));
-        RateLimiter::for('message-people', fn (Request $request) => Limit::perMinute(60)->by($perUser($request)));
-        RateLimiter::for('message-attachments', fn (Request $request) => Limit::perMinute(300)->by($perUser($request)));
+        foreach (self::RATE_LIMITERS as $name) {
+            RateLimiter::for($name, fn (Request $request): Limit => Limit::perMinute(config()->integer("rate-limits.per_minute.{$name}"))->by($perUser($request)));
+        }
+
+        $this->throttleFortifyForms();
+    }
+
+    /**
+     * Fortify registers its register and password-reset routes with no limit
+     * and has no setting for one, so the throttle goes onto the routes once
+     * they exist. `route:cache` runs this too, so a cached route list already
+     * carries it and is left alone.
+     */
+    protected function throttleFortifyForms(): void
+    {
+        $this->app->booted(function (): void {
+            if ($this->app->routesAreCached()) {
+                return;
+            }
+
+            $routes = Route::getRoutes();
+            $routes->refreshNameLookups();
+
+            foreach (['register.store' => 'register', 'password.email' => 'password-reset', 'password.update' => 'password-reset'] as $route => $limiter) {
+                $routes->getByName($route)?->middleware("throttle:{$limiter}");
+            }
+        });
     }
 }
