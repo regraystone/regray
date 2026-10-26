@@ -96,6 +96,36 @@ export const getEcho = (
     return instance;
 };
 
+type ListenableChannel = {
+    listen: (event: string, callback: CallableFunction) => unknown;
+    stopListening: (event: string, callback?: CallableFunction) => unknown;
+};
+
+/**
+ * Listen for each event in `handlers` on `channel`, and return a function that
+ * removes exactly those listeners. A whisper is the event `.client-{name}`.
+ *
+ * Call it before `echo.leave()`. Leaving a channel whose join is still waiting
+ * on /broadcasting/auth only cancels the join: pusher-js keeps the channel and
+ * its listeners, and the next join of the same name gets that object back. A
+ * cleanup that only left would let the old listeners fire again next to the
+ * new ones, so every event would arrive twice.
+ */
+export const listenTo = (
+    channel: ListenableChannel,
+    handlers: Record<string, CallableFunction>,
+): (() => void) => {
+    for (const [event, callback] of Object.entries(handlers)) {
+        channel.listen(event, callback);
+    }
+
+    return () => {
+        for (const [event, callback] of Object.entries(handlers)) {
+            channel.stopListening(event, callback);
+        }
+    };
+};
+
 /** The socket id, so the server can leave the sender out of a broadcast. */
 export const currentSocketId = (): string | undefined =>
     instance?.socketId() ?? undefined;
