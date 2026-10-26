@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getEcho, onReconnect } from '@/lib/echo';
+import { getEcho, listenTo, onReconnect } from '@/lib/echo';
 import { ATTACHMENT_SNIPPET } from '@/lib/message-attachments';
 import {
     ApiError,
@@ -224,51 +224,48 @@ export function useConversationThread(
         }
 
         const channelName = `conversation.${conversationId}`;
-        const channel = echo.private(channelName);
         const timers = typingTimers.current;
 
-        channel
-            .listen(
-                '.message.created',
-                (event: { message?: ChatMessage; needsFetch?: boolean }) => {
-                    if (event.message === undefined || event.needsFetch) {
-                        void catchUp();
+        const stopListening = listenTo(echo.private(channelName), {
+            '.message.created': (event: {
+                message?: ChatMessage;
+                needsFetch?: boolean;
+            }) => {
+                if (event.message === undefined || event.needsFetch) {
+                    void catchUp();
 
-                        return;
-                    }
+                    return;
+                }
 
-                    const message = event.message;
+                const message = event.message;
 
-                    setState((previous) => ({
-                        ...previous,
-                        messages: mergeMessages(previous.messages, [message]),
-                        pending: previous.pending.filter(
-                            (item) => item.clientKey !== message.clientKey,
-                        ),
-                    }));
+                setState((previous) => ({
+                    ...previous,
+                    messages: mergeMessages(previous.messages, [message]),
+                    pending: previous.pending.filter(
+                        (item) => item.clientKey !== message.clientKey,
+                    ),
+                }));
 
-                    if (message.sender?.id !== currentUserId) {
-                        callbacks.current.onIncoming?.(message);
-                    }
+                if (message.sender?.id !== currentUserId) {
+                    callbacks.current.onIncoming?.(message);
+                }
 
-                    if (message.sender !== null) {
-                        clearTyping(message.sender.id);
-                    }
-                },
-            )
-            .listen('.message.updated', (event: { message: ChatMessage }) =>
+                if (message.sender !== null) {
+                    clearTyping(message.sender.id);
+                }
+            },
+            '.message.updated': (event: { message: ChatMessage }) =>
                 setState((previous) => ({
                     ...previous,
                     messages: mergeMessages(previous.messages, [event.message]),
                 })),
-            )
-            .listen('.message.removed', (event: { message: ChatMessage }) =>
+            '.message.removed': (event: { message: ChatMessage }) =>
                 setState((previous) => ({
                     ...previous,
                     messages: mergeMessages(previous.messages, [event.message]),
                 })),
-            )
-            .listen('.pointer.moved', (event: Pointer) =>
+            '.pointer.moved': (event: Pointer) =>
                 setState((previous) => ({
                     ...previous,
                     pointers: [
@@ -278,36 +275,32 @@ export function useConversationThread(
                         event,
                     ],
                 })),
-            )
             // Staff who are not the assignee lose the thread on a claim; a
             // client and the super-admin keep it. The catch-up settles which,
             // by answering or by a 403.
-            .listen('.support.claimed', () => void catchUp())
-            .listen('.support.released', () => void catchUp())
-            .listenForWhisper(
-                'typing',
-                (event: { userId: number; name: string }) => {
-                    if (event.userId === currentUserId) {
-                        return;
-                    }
+            '.support.claimed': () => void catchUp(),
+            '.support.released': () => void catchUp(),
+            // The `typing` whisper.
+            '.client-typing': (event: { userId: number; name: string }) => {
+                if (event.userId === currentUserId) {
+                    return;
+                }
 
-                    setTyping((previous) => [
-                        ...previous.filter(
-                            (item) => item.userId !== event.userId,
-                        ),
-                        event,
-                    ]);
+                setTyping((previous) => [
+                    ...previous.filter((item) => item.userId !== event.userId),
+                    event,
+                ]);
 
-                    window.clearTimeout(timers.get(event.userId));
-                    timers.set(
-                        event.userId,
-                        window.setTimeout(
-                            () => clearTyping(event.userId),
-                            TYPING_VISIBLE_MS,
-                        ),
-                    );
-                },
-            );
+                window.clearTimeout(timers.get(event.userId));
+                timers.set(
+                    event.userId,
+                    window.setTimeout(
+                        () => clearTyping(event.userId),
+                        TYPING_VISIBLE_MS,
+                    ),
+                );
+            },
+        });
 
         const stopReconnect = onReconnect(echo, () => void catchUp());
 
@@ -321,6 +314,7 @@ export function useConversationThread(
 
         return () => {
             stopReconnect();
+            stopListening();
             echo.leave(channelName);
             timers.forEach((timer) => window.clearTimeout(timer));
             timers.clear();

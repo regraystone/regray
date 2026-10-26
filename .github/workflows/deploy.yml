@@ -112,14 +112,14 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/known_hosts"
 
-      - name: Copy production Compose file
+      - name: Copy production Compose file and check script
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           scp -i "$HOME/.ssh/deploy_key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            docker-compose.yml "${SSH_USER}@${SSH_HOST}:/srv/regray-studio/docker-compose.yml"
+            docker-compose.yml scripts/prod-check.sh "${SSH_USER}@${SSH_HOST}:/srv/regray-studio/"
 
       - name: Deploy production
         env:
@@ -149,7 +149,10 @@ jobs:
 
           docker compose pull
           docker compose up -d --no-build --wait --wait-timeout 180 db
-          docker compose run --rm app php artisan migrate --force
+          # This script reaches bash on stdin, and `compose run` reads stdin by
+          # default: without -T and </dev/null it swallows every line below,
+          # bash exits 0, and the containers are never replaced.
+          docker compose run --rm -T app php artisan migrate --force </dev/null
           docker compose up -d --no-build --remove-orphans --wait --wait-timeout 180
           docker compose ps
           docker image prune -f

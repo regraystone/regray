@@ -11,7 +11,7 @@ import { useIsMobile } from '@/hooks/use-is-mobile';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { conversationListSkeleton } from '@/lib/conversation-skeleton';
-import { getEcho, onReconnect } from '@/lib/echo';
+import { getEcho, listenTo, onReconnect } from '@/lib/echo';
 import { markDelivered } from '@/lib/message-api';
 import { cn } from '@/lib/utils';
 import { index as messageIndex } from '@/routes/message';
@@ -208,48 +208,49 @@ const Message = () => {
 
         const inbox = `user.${currentUserId}`;
 
-        echo.private(inbox)
-            .listen(
-                '.conversation.activity',
-                (event: {
-                    conversationId: number;
-                    lastMessageId?: number | null;
-                }) => {
-                    refreshList();
+        const stopInbox = listenTo(echo.private(inbox), {
+            '.conversation.activity': (event: {
+                conversationId: number;
+                lastMessageId?: number | null;
+            }) => {
+                refreshList();
 
-                    // The message reached this browser: delivered, though not read
-                    // unless the thread is open (the thread reads it itself).
-                    if (
-                        event.lastMessageId &&
-                        selectedRef.current?.id !== event.conversationId
-                    ) {
-                        void markDelivered(
-                            event.conversationId,
-                            event.lastMessageId,
-                        ).catch(() => undefined);
-                    }
-                },
-            )
-            .listen('.conversation.added', () => refreshList());
+                // The message reached this browser: delivered, though not read
+                // unless the thread is open (the thread reads it itself).
+                if (
+                    event.lastMessageId &&
+                    selectedRef.current?.id !== event.conversationId
+                ) {
+                    void markDelivered(
+                        event.conversationId,
+                        event.lastMessageId,
+                    ).catch(() => undefined);
+                }
+            },
+            '.conversation.added': () => refreshList(),
+        });
 
         // Only the pool joins the pool's channel: it admits `support.claim`
         // holders and refuses everyone else, staff included.
-        if (isInPool) {
-            echo.private('support.pool')
-                .listen('.conversation.activity', () => refreshList())
-                // A claimed thread leaves every other pool member's list. If it
-                // is open here, the thread's own catch-up gets a 403 and closes it.
-                .listen('.support.claimed', () => refreshList())
-                .listen('.support.released', () => refreshList());
-        }
+        const stopPool = isInPool
+            ? listenTo(echo.private('support.pool'), {
+                  '.conversation.activity': () => refreshList(),
+                  // A claimed thread leaves every other pool member's list. If it
+                  // is open here, the thread's own catch-up gets a 403 and closes it.
+                  '.support.claimed': () => refreshList(),
+                  '.support.released': () => refreshList(),
+              })
+            : null;
 
         const stopReconnect = onReconnect(echo, refreshList);
 
         return () => {
             stopReconnect();
+            stopInbox();
             echo.leave(inbox);
 
-            if (isInPool) {
+            if (stopPool !== null) {
+                stopPool();
                 echo.leave('support.pool');
             }
         };
