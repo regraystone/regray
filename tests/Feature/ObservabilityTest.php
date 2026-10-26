@@ -2,8 +2,10 @@
 
 use App\Enums\Role;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Auth\Events\Authenticated;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Sentry\Event;
 use Sentry\SentrySdk;
@@ -56,6 +58,23 @@ it('opens /pulse and /horizon for the owner', function (): void {
 
     $this->actingAs($owner)->get('/pulse')->assertOk();
     $this->actingAs($owner)->get('/horizon')->assertOk();
+});
+
+it('reads back the rows a Pulse card caches from a serializing cache store', function (): void {
+    $store = Cache::store('file');
+    $rows = collect([(object) [
+        'latest' => CarbonImmutable::now(),
+        'graph' => collect([1, 2]),
+    ]]);
+
+    $store->put('pulse-card', [$rows, 1.5, '2026-10-26 00:00:00'], 60);
+
+    [$cachedRows] = $store->get('pulse-card');
+
+    expect($cachedRows->first()->latest)->toBeInstanceOf(CarbonImmutable::class)
+        ->and($cachedRows->first()->graph->sum())->toBe(3);
+
+    $store->forget('pulse-card');
 });
 
 /** The user and tags the current Sentry scope would put on an event. */

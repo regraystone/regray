@@ -1,5 +1,7 @@
 <?php
 
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 return [
@@ -132,8 +134,16 @@ return [
     | storage. By default, no PHP classes will be unserialized from your
     | cache to prevent gadget chain attacks if your APP_KEY is leaked.
     |
+    | The Pulse dashboard caches each card's rows for a few seconds as
+    | collections of plain objects with dates, so those three are allowed.
+    | Any other class comes back as an incomplete object and errors.
+    |
     */
 
-    'serializable_classes' => false,
+    'serializable_classes' => [
+        Collection::class,
+        stdClass::class,
+        CarbonImmutable::class,
+    ],
 
 ];
