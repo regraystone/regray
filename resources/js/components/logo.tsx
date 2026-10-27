@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import BetaBadge from '@/components/beta-badge';
 import { dashboard } from '@/routes';
 
 const Logo = ({
@@ -12,7 +13,7 @@ const Logo = ({
 }) => (
     <Link
         href={dashboard()}
-        className={`flex items-center ${
+        className={`relative flex items-center ${
             compact ? 'justify-center' : 'gap-2'
         } ${className}`}
         aria-label="Regray Studio home"
@@ -31,6 +32,7 @@ const Logo = ({
                 </span>
             </span>
         )}
+        <BetaBadge compact={compact} />
     </Link>
 );
 
