@@ -12,7 +12,7 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('cancels a pending or quoted inquiry and writes the history', function (InquiryStatus $from): void {
+it('cancels a pending or ongoing inquiry and writes the history', function (InquiryStatus $from): void {
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C1', 'status' => $from]);
 
     $this->actingAs($this->client)
@@ -23,14 +23,14 @@ it('cancels a pending or quoted inquiry and writes the history', function (Inqui
     $inquiry->refresh();
     $history = InquiryStatusHistory::query()->sole();
 
-    expect($inquiry->status)->toBe(InquiryStatus::Cancelled)
+    expect($inquiry->status)->toBe(InquiryStatus::Lost)
         ->and($history->inquiry_id)->toBe($inquiry->id)
         ->and($history->from_status)->toBe($from)
-        ->and($history->to_status)->toBe(InquiryStatus::Cancelled)
+        ->and($history->to_status)->toBe(InquiryStatus::Lost)
         ->and($history->changed_by)->toBe($this->client->id);
 })->with([
     'pending' => [InquiryStatus::Pending],
-    'quoted' => [InquiryStatus::Quoted],
+    'ongoing' => [InquiryStatus::Ongoing],
 ]);
 
 it('refuses an inquiry that is no longer open', function (InquiryStatus $status): void {
@@ -44,9 +44,8 @@ it('refuses an inquiry that is no longer open', function (InquiryStatus $status)
     expect($inquiry->refresh()->status)->toBe($status)
         ->and(InquiryStatusHistory::query()->count())->toBe(0);
 })->with([
-    'paid' => [InquiryStatus::Paid],
-    'completed' => [InquiryStatus::Completed],
-    'cancelled' => [InquiryStatus::Cancelled],
+    'closed' => [InquiryStatus::Closed],
+    'lost' => [InquiryStatus::Lost],
 ]);
 
 it('gives another client a 404 and changes nothing', function (): void {
@@ -70,7 +69,7 @@ it('writes one history row when cancelled twice', function (): void {
     $this->actingAs($this->client)->patchJson(route('quote.cancel', 'INQ-C4'))->assertUnprocessable();
 
     expect(InquiryStatusHistory::query()->count())->toBe(1)
-        ->and(Inquiry::query()->where('reference', 'INQ-C4')->value('status'))->toBe(InquiryStatus::Cancelled);
+        ->and(Inquiry::query()->where('reference', 'INQ-C4')->value('status'))->toBe(InquiryStatus::Lost);
 });
 
 it('takes the row lock before reading the status', function (): void {

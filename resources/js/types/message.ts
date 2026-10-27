@@ -44,6 +44,28 @@ export type InquiryCard = {
     occurredAt: string;
 };
 
+export type ProjectStatus = 'pending' | 'ongoing' | 'closed' | 'cancelled';
+
+export type QuotationStatus =
+    | 'pending'
+    | 'closed'
+    | 'revision'
+    | 'closeable'
+    | 'rejected';
+
+export type PaymentStatus = 'awaiting' | 'partial' | 'fully_paid' | 'refunded';
+
+/** A snapshot of one project, as the `project_card` message announced it. */
+export type ProjectCard = {
+    reference: string;
+    name: string;
+    location: string;
+    projectStatus: ProjectStatus;
+    quotationStatus: QuotationStatus;
+    paymentStatus: PaymentStatus;
+    occurredAt: string;
+};
+
 export type ScheduleStatus =
     | 'pending'
     | 'confirmed'
@@ -79,7 +101,7 @@ export type ChatAttachment = {
 export type ChatMessage = {
     id: number;
     conversationId: number;
-    type: 'text' | 'inquiry_card' | 'schedule_card' | 'system';
+    type: 'text' | 'inquiry_card' | 'schedule_card' | 'project_card' | 'system';
     body: string | null;
     isRemoved: boolean;
     isEdited: boolean;
@@ -94,6 +116,7 @@ export type ChatMessage = {
     } | null;
     inquiryCard: InquiryCard | null;
     scheduleCard: ScheduleCard | null;
+    projectCard: ProjectCard | null;
     /** Empty for a removed message and for everything but text. */
     attachments: ChatAttachment[];
     systemEvent: { event: SystemEventName; userName: string | null } | null;

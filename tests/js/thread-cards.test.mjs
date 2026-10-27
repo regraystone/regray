@@ -4,7 +4,10 @@ import { describe, it } from 'node:test';
 import {
     bookedByText,
     inquiryHeadline,
+    paymentStatusText,
     projectCountText,
+    projectHeadline,
+    quotationStatusText,
     scheduleHeadline,
     serviceCountText,
 } from '../../resources/js/lib/thread-cards.ts';
@@ -24,6 +27,22 @@ describe('inquiry card', () => {
         assert.equal(projectCountText(2), '2 projects');
         assert.equal(serviceCountText(0), '0 services');
         assert.equal(serviceCountText(1), '1 service');
+    });
+});
+
+describe('project card', () => {
+    it('announces the project status it was posted for', () => {
+        assert.equal(projectHeadline('pending'), 'Project pending');
+        assert.equal(projectHeadline('ongoing'), 'Project ongoing');
+        assert.equal(projectHeadline('closed'), 'Project closed');
+        assert.equal(projectHeadline('cancelled'), 'Project cancelled');
+    });
+
+    it('reads the quotation and payment statuses as words', () => {
+        assert.equal(quotationStatusText('closeable'), 'Quotation closeable');
+        assert.equal(quotationStatusText('revision'), 'Quotation in revision');
+        assert.equal(paymentStatusText('fully_paid'), 'Payment fully paid');
+        assert.equal(paymentStatusText('awaiting'), 'Payment awaiting');
     });
 });
 

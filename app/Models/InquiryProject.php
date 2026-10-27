@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\InquiryProjectStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -18,19 +19,23 @@ use Illuminate\Support\Carbon;
  * @property float|null $area_sqm
  * @property int|null $schedule_id
  * @property string|null $notes
+ * @property InquiryProjectStatus $status
+ * @property Carbon $status_changed_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
  *
  * When the project is wanted is not stored here: it is the `arrival_at` of the
  * schedule the inquiry created for it (`schedule_id`).
  */
-#[Fillable(['name', 'sort_order', 'location', 'landmark', 'area_sqm', 'schedule_id', 'notes'])]
+#[Fillable(['name', 'sort_order', 'location', 'landmark', 'area_sqm', 'schedule_id', 'notes', 'status', 'status_changed_at'])]
 class InquiryProject extends Model
 {
     protected function casts(): array
     {
         return [
             'area_sqm' => 'decimal:2',
+            'status' => InquiryProjectStatus::class,
+            'status_changed_at' => 'datetime',
         ];
     }
 
@@ -70,5 +75,23 @@ class InquiryProject extends Model
     public function files(): HasMany
     {
         return $this->hasMany(InquiryFile::class);
+    }
+
+    /** @return HasMany<Quotation, $this> */
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class)->orderBy('revision_no');
+    }
+
+    /** @return HasMany<JobOrder, $this> */
+    public function jobOrders(): HasMany
+    {
+        return $this->hasMany(JobOrder::class);
+    }
+
+    /** @return HasMany<Payment, $this> */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 }

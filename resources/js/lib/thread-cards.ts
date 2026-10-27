@@ -1,6 +1,6 @@
 /*
- * The words on the inquiry and schedule cards in a thread. Pure, with no
- * imports, for tests/js.
+ * The words on the inquiry, project and schedule cards in a thread. Pure, with
+ * no imports, for tests/js.
  */
 
 export type CardInquiryStatus =
@@ -19,6 +19,21 @@ export type CardScheduleStatus =
 
 export type CardBookedByType = 'client' | 'staff';
 
+export type CardProjectStatus = 'pending' | 'ongoing' | 'closed' | 'cancelled';
+
+export type CardQuotationStatus =
+    | 'pending'
+    | 'closed'
+    | 'revision'
+    | 'closeable'
+    | 'rejected';
+
+export type CardPaymentStatus =
+    | 'awaiting'
+    | 'partial'
+    | 'fully_paid'
+    | 'refunded';
+
 /** The headline an inquiry card announces, from the status it was posted for. */
 export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
     draft: 'Project drafted',
@@ -32,6 +47,45 @@ export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
 
 export const inquiryHeadline = (status: CardInquiryStatus): string =>
     INQUIRY_HEADLINES[status];
+
+/** What each project status is called on a project card's badge. */
+export const PROJECT_STATUS_LABELS: Record<CardProjectStatus, string> = {
+    pending: 'Pending',
+    ongoing: 'Ongoing',
+    closed: 'Closed',
+    cancelled: 'Cancelled',
+};
+
+/**
+ * The headline a project card announces, from the project status it was
+ * posted for: "Project ongoing". The quotation and payment it was posted for
+ * are on the card's status line.
+ */
+export const projectHeadline = (status: CardProjectStatus): string =>
+    `Project ${PROJECT_STATUS_LABELS[status].toLowerCase()}`;
+
+const QUOTATION_STATUS_LABELS: Record<CardQuotationStatus, string> = {
+    pending: 'pending',
+    closed: 'closed',
+    revision: 'in revision',
+    closeable: 'closeable',
+    rejected: 'rejected',
+};
+
+const PAYMENT_STATUS_LABELS: Record<CardPaymentStatus, string> = {
+    awaiting: 'awaiting',
+    partial: 'partial',
+    fully_paid: 'fully paid',
+    refunded: 'refunded',
+};
+
+/** "Quotation closeable" */
+export const quotationStatusText = (status: CardQuotationStatus): string =>
+    `Quotation ${QUOTATION_STATUS_LABELS[status]}`;
+
+/** "Payment fully paid" */
+export const paymentStatusText = (status: CardPaymentStatus): string =>
+    `Payment ${PAYMENT_STATUS_LABELS[status]}`;
 
 const plural = (count: number, one: string, many: string): string =>
     `${count} ${count === 1 ? one : many}`;

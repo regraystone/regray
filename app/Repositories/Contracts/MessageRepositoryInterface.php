@@ -55,6 +55,21 @@ interface MessageRepositoryInterface
      */
     public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus): ?Message;
 
+    /**
+     * Post a project card once: a snapshot of the project's status, its
+     * quotation's and its payment's. Returns null when the same snapshot is
+     * already in the conversation, which is what a retried listener will find.
+     * Posted now unless `$postedAt` says when.
+     */
+    public function createProjectCardOnce(
+        int $conversationId,
+        int $inquiryProjectId,
+        string $projectStatus,
+        string $quotationStatus,
+        string $paymentStatus,
+        ?CarbonInterface $postedAt = null,
+    ): ?Message;
+
     /** Whether the message belongs to the conversation. */
     public function belongsTo(int $messageId, int $conversationId): bool;
 

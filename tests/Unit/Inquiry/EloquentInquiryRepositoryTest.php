@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\InquiryProjectStatus;
 use App\Enums\InquiryStatus;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
@@ -32,6 +33,8 @@ beforeEach(function (): void {
         'area_sqm' => 12.5,
         'schedule_id' => $this->schedule->id,
         'notes' => 'Notes',
+        'status' => InquiryProjectStatus::Pending,
+        'status_changed_at' => Date::now(),
     ]);
 });
 
@@ -64,7 +67,8 @@ it('adds a project', function (): void {
         ->name->toBe('Counters')
         ->location->toBe('Makati')
         ->landmark->toBe('Church')
-        ->schedule_id->toBe($this->schedule->id);
+        ->schedule_id->toBe($this->schedule->id)
+        ->status->toBe(InquiryProjectStatus::Pending);
 });
 
 it('attaches services', function (): void {

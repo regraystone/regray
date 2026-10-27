@@ -3,6 +3,7 @@
 namespace App\Repositories\Contracts;
 
 use App\Data\InquiryListFilters;
+use App\Enums\InquiryProjectStatus;
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
@@ -37,7 +38,7 @@ interface InquiryRepositoryInterface
      * The project has no deadline of its own: `schedule_id` is the visit that
      * holds its date and time.
      *
-     * @param  array{name: string, sort_order: int, location: string, landmark: ?string, area_sqm: ?float, schedule_id: int, notes: ?string}  $attributes
+     * @param  array{name: string, sort_order: int, location: string, landmark: ?string, area_sqm: ?float, schedule_id: int, notes: ?string, status: InquiryProjectStatus, status_changed_at: CarbonInterface}  $attributes
      */
     public function addProject(Inquiry $inquiry, array $attributes): InquiryProject;
 

@@ -24,7 +24,7 @@ return new class extends Migration
             $table->index(['status', 'created_at']);
         });
 
-        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_status CHECK (status IN ('pending','quoted','paid','completed','cancelled'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_status CHECK (status IN ('pending','ongoing','closed','lost'))");
     }
 
     public function down(): void

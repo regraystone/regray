@@ -149,10 +149,10 @@ describe('search', function (): void {
 describe('status and sort', function (): void {
     it('filters by status', function (): void {
         makeInquiry($this->client, attributes: ['reference' => 'INQ-F1', 'status' => InquiryStatus::Pending]);
-        makeInquiry($this->client, attributes: ['reference' => 'INQ-F2', 'status' => InquiryStatus::Quoted]);
-        makeInquiry($this->client, attributes: ['reference' => 'INQ-F3', 'status' => InquiryStatus::Quoted]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-F2', 'status' => InquiryStatus::Ongoing]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-F3', 'status' => InquiryStatus::Ongoing]);
 
-        $response = $this->actingAs($this->client)->get(route('quote.index', ['status' => 'quoted']));
+        $response = $this->actingAs($this->client)->get(route('quote.index', ['status' => 'ongoing']));
 
         expect(listedReferences($response))->toEqualCanonicalizing(['INQ-F2', 'INQ-F3']);
     });
@@ -192,7 +192,7 @@ describe('pages', function (): void {
 
 describe('bad query values', function (): void {
     it('fall back to the defaults instead of failing', function (array $query): void {
-        makeInquiry($this->client, attributes: ['reference' => 'INQ-D1', 'status' => InquiryStatus::Quoted]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-D1', 'status' => InquiryStatus::Ongoing]);
 
         $response = $this->actingAs($this->client)->get(route('quote.index', $query))->assertOk();
 
@@ -206,7 +206,7 @@ describe('bad query values', function (): void {
         'negative page' => [['page' => -4]],
         'page that is not a number' => [['page' => 'abc']],
         'search over 100 characters' => [['search' => str_repeat('a', 101)]],
-        'array where a string belongs' => [['search' => ['x'], 'status' => ['quoted']]],
+        'array where a string belongs' => [['search' => ['x'], 'status' => ['ongoing']]],
     ]);
 
     it('trims a search', function (): void {

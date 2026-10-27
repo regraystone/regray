@@ -32,6 +32,8 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         'schedule:id,client_id,booked_by,booked_by_type,inquiry_id,title,arrival_at,status,cancel_reason',
         'schedule.bookedBy:id,name',
         'schedule.inquiry:id,reference',
+        'inquiryProject:id,inquiry_id,name,location,status',
+        'inquiryProject.inquiry:id,reference',
     ];
 
     public function page(int $conversationId, ?int $before, ?int $after, int $limit): array
@@ -126,6 +128,35 @@ class EloquentMessageRepository implements MessageRepositoryInterface
             ->where('inquiry_id', $inquiryId)
             ->where('announced_status', $announcedStatus)
             ->first();
+    }
+
+    public function createProjectCardOnce(
+        int $conversationId,
+        int $inquiryProjectId,
+        string $projectStatus,
+        string $quotationStatus,
+        string $paymentStatus,
+        ?CarbonInterface $postedAt = null,
+    ): ?Message {
+        $snapshot = [
+            'conversation_id' => $conversationId,
+            'type' => MessageType::ProjectCard->value,
+            'inquiry_project_id' => $inquiryProjectId,
+            'announced_status' => $projectStatus,
+            'announced_quotation_status' => $quotationStatus,
+            'announced_payment_status' => $paymentStatus,
+        ];
+
+        $inserted = Message::query()->insertOrIgnore([
+            ...$snapshot,
+            'created_at' => $postedAt ?? Date::now(),
+        ]);
+
+        if ($inserted === 0) {
+            return null;
+        }
+
+        return Message::query()->where($snapshot)->first();
     }
 
     public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus): ?Message

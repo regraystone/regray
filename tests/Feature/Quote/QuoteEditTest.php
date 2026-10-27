@@ -92,10 +92,9 @@ describe('the edit page', function (): void {
             ->assertSessionHas(SessionKey::FLASH_DATA.'.toast.type', 'error')
             ->assertSessionHas(SessionKey::FLASH_DATA.'.toast.message', $reason);
     })->with([
-        'quoted' => [InquiryStatus::Quoted, InquiryActions::UPDATE_LOCKED_WHEN_QUOTED],
-        'paid' => [InquiryStatus::Paid, InquiryActions::UPDATE_NOT_AVAILABLE],
-        'completed' => [InquiryStatus::Completed, InquiryActions::UPDATE_NOT_AVAILABLE],
-        'cancelled' => [InquiryStatus::Cancelled, InquiryActions::UPDATE_LOCKED_WHEN_CANCELLED],
+        'ongoing' => [InquiryStatus::Ongoing, InquiryActions::UPDATE_LOCKED_WHEN_ONGOING],
+        'closed' => [InquiryStatus::Closed, InquiryActions::UPDATE_NOT_AVAILABLE],
+        'lost' => [InquiryStatus::Lost, InquiryActions::UPDATE_LOCKED_WHEN_LOST],
     ]);
 
     it('does not open another client\'s inquiry', function (): void {
@@ -235,15 +234,15 @@ describe('saving the edit', function (): void {
             ->and(AuditLog::query()->count())->toBe(0);
     });
 
-    it('refuses the save when the inquiry was quoted after the page was opened', function (): void {
+    it('refuses the save when the inquiry became ongoing after the page was opened', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
         $project = $inquiry->projects->sole();
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))->assertOk();
-        $inquiry->forceFill(['status' => InquiryStatus::Quoted])->save();
+        $inquiry->forceFill(['status' => InquiryStatus::Ongoing])->save();
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($project, ['name' => 'Changed'])]])
-            ->assertSessionHasErrors(['status' => InquiryActions::UPDATE_LOCKED_WHEN_QUOTED]);
+            ->assertSessionHasErrors(['status' => InquiryActions::UPDATE_LOCKED_WHEN_ONGOING]);
 
         expect($project->fresh()->name)->toBe('Kitchen');
     });

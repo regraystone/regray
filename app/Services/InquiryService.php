@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Data\WrittenFiles;
 use App\Enums\AuditEvent;
+use App\Enums\InquiryProjectStatus;
 use App\Enums\InquiryStatus;
 use App\Events\InquiryStatusChanged;
 use App\Models\Inquiry;
@@ -178,6 +179,7 @@ class InquiryService
      * Each project is booked as a visit first, and the project points at it:
      * the deadline the client gave is that schedule's arrival. Both are written
      * in the caller's transaction, so a failed inquiry leaves no schedule.
+     * A new project starts pending.
      *
      * @param  ProjectInput  $project
      */
@@ -200,6 +202,8 @@ class InquiryService
             'area_sqm' => $project['area_sqm'],
             'schedule_id' => $schedule->id,
             'notes' => $project['notes'],
+            'status' => InquiryProjectStatus::Pending,
+            'status_changed_at' => Date::now(),
         ]);
 
         $this->inquiryRepository->attachServices($row, $project['service_ids']);

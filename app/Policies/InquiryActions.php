@@ -12,18 +12,17 @@ use App\Enums\InquiryStatus;
  * | Status    | View details | Update   | Cancel       | Get invoice  |
  * |-----------|--------------|----------|--------------|--------------|
  * | pending   | clickable    | clickable| clickable    | not rendered |
- * | quoted    | clickable    | disabled | clickable    | not rendered |
- * | paid      | clickable    | not shown| not rendered | clickable    |
- * | completed | clickable    | not shown| not rendered | clickable    |
- * | cancelled | clickable    | disabled | not rendered | not rendered |
+ * | ongoing   | clickable    | disabled | clickable    | clickable    |
+ * | closed    | clickable    | not shown| not rendered | clickable    |
+ * | lost      | clickable    | disabled | not rendered | not rendered |
  */
 class InquiryActions
 {
-    public const UPDATE_LOCKED_WHEN_QUOTED = 'Locked once quoted. Message the team to request changes.';
+    public const UPDATE_LOCKED_WHEN_ONGOING = 'Locked once quoted. Message the team to request changes.';
 
-    public const UPDATE_LOCKED_WHEN_CANCELLED = 'This inquiry was cancelled.';
+    public const UPDATE_LOCKED_WHEN_LOST = 'This inquiry was cancelled.';
 
-    /** Said when Update is not shown at all (paid, completed) but is asked for anyway. */
+    /** Said when Update is not shown at all (closed) but is asked for anyway. */
     public const UPDATE_NOT_AVAILABLE = 'This inquiry can no longer be changed.';
 
     public function view(InquiryStatus $status): InquiryActionState
@@ -35,8 +34,8 @@ class InquiryActions
     {
         return match ($status) {
             InquiryStatus::Pending => InquiryActionState::enabled(),
-            InquiryStatus::Quoted => InquiryActionState::disabled(self::UPDATE_LOCKED_WHEN_QUOTED),
-            InquiryStatus::Cancelled => InquiryActionState::disabled(self::UPDATE_LOCKED_WHEN_CANCELLED),
+            InquiryStatus::Ongoing => InquiryActionState::disabled(self::UPDATE_LOCKED_WHEN_ONGOING),
+            InquiryStatus::Lost => InquiryActionState::disabled(self::UPDATE_LOCKED_WHEN_LOST),
             default => InquiryActionState::hidden(),
         };
     }
@@ -61,7 +60,7 @@ class InquiryActions
     public function cancel(InquiryStatus $status): InquiryActionState
     {
         return match ($status) {
-            InquiryStatus::Pending, InquiryStatus::Quoted => InquiryActionState::enabled(),
+            InquiryStatus::Pending, InquiryStatus::Ongoing => InquiryActionState::enabled(),
             default => InquiryActionState::hidden(),
         };
     }
@@ -69,7 +68,7 @@ class InquiryActions
     public function invoice(InquiryStatus $status): InquiryActionState
     {
         return match ($status) {
-            InquiryStatus::Paid, InquiryStatus::Completed => InquiryActionState::enabled(),
+            InquiryStatus::Ongoing, InquiryStatus::Closed => InquiryActionState::enabled(),
             default => InquiryActionState::hidden(),
         };
     }

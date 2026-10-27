@@ -119,7 +119,7 @@ it('posts a status change into the Regray Team thread when the inquiry has no gr
 
     $this->actingAs($client)->patchJson(route('quote.cancel', 'INQ-C3'))->assertRedirect();
 
-    expect(inquiryCardStatusesIn($thread))->toBe([InquiryStatus::Cancelled->value]);
+    expect(inquiryCardStatusesIn($thread))->toBe([InquiryStatus::Lost->value]);
 });
 
 it('posts into the inquiry\'s group, and not the Regray Team thread, once the inquiry has one', function (): void {
@@ -134,7 +134,7 @@ it('posts into the inquiry\'s group, and not the Regray Team thread, once the in
 
     expect($card->type)->toBe(MessageType::InquiryCard)
         ->and($card->inquiry_id)->toBe($inquiry->id)
-        ->and($card->announced_status)->toBe(InquiryStatus::Cancelled->value)
+        ->and($card->announced_status)->toBe(InquiryStatus::Lost->value)
         ->and(inquiryCardStatusesIn($thread))->toBe([]);
 });
 
@@ -144,9 +144,9 @@ it('does not post the same status change twice when the listener runs again', fu
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)->patchJson(route('quote.cancel', 'INQ-C2'))->assertRedirect();
-    event(new InquiryStatusChanged($inquiry->refresh(), InquiryStatus::Pending, InquiryStatus::Cancelled, $client->id));
+    event(new InquiryStatusChanged($inquiry->refresh(), InquiryStatus::Pending, InquiryStatus::Lost, $client->id));
 
-    expect(inquiryCardStatusesIn($thread))->toBe([InquiryStatus::Cancelled->value]);
+    expect(inquiryCardStatusesIn($thread))->toBe([InquiryStatus::Lost->value]);
 });
 
 it('keeps the sent and the cancelled card in order in one thread', function (): void {
@@ -161,6 +161,6 @@ it('keeps the sent and the cancelled card in order in one thread', function (): 
 
     expect(inquiryCardStatusesIn($thread))->toBe([
         InquiryStatus::Pending->value,
-        InquiryStatus::Cancelled->value,
+        InquiryStatus::Lost->value,
     ]);
 });

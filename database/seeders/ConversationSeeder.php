@@ -175,7 +175,9 @@ class ConversationSeeder extends Seeder
         if ($handled !== null && $marketing !== null) {
             $thread = $support->ensureFor($handled);
 
-            if (! $thread->messages()->exists()) {
+            // InquirySeeder has already posted this client's project cards
+            // here, so only a thread with no conversation yet gets one.
+            if (! $thread->messages()->where('type', MessageType::Text)->exists()) {
                 $first = $this->text($thread, $handled, 'Good morning — could someone confirm the delivery date for our counters?', now()->subDay());
 
                 $thread->forceFill(['assigned_to' => $marketing->id, 'assigned_at' => now()->subDay()->addMinutes(5)])->save();

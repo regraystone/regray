@@ -2,6 +2,7 @@
 
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\InquiryProjectStatus;
 use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
 use App\Enums\Role;
@@ -172,6 +173,8 @@ function makeInquiry(User $client, array $projects = [[]], array $attributes = [
             'name' => $project['name'] ?? 'Project '.($position + 1),
             'sort_order' => $position,
             'location' => 'Makati',
+            'status' => InquiryProjectStatus::Pending,
+            'status_changed_at' => now(),
         ]);
 
         $row->services()->attach(
@@ -201,10 +204,9 @@ function makeInquiry(User $client, array $projects = [[]], array $attributes = [
  */
 dataset('inquiry button table', [
     'pending' => ['pending', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
-    'quoted' => ['quoted', ['view' => [true], 'update' => [false, 'Locked once quoted. Message the team to request changes.'], 'cancel' => [true], 'invoice' => null]],
-    'paid' => ['paid', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
-    'completed' => ['completed', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
-    'cancelled' => ['cancelled', ['view' => [true], 'update' => [false, 'This inquiry was cancelled.'], 'cancel' => null, 'invoice' => null]],
+    'ongoing' => ['ongoing', ['view' => [true], 'update' => [false, 'Locked once quoted. Message the team to request changes.'], 'cancel' => [true], 'invoice' => [true]]],
+    'closed' => ['closed', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
+    'lost' => ['lost', ['view' => [true], 'update' => [false, 'This inquiry was cancelled.'], 'cancel' => null, 'invoice' => null]],
 ]);
 
 /**

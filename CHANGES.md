@@ -1,3 +1,47 @@
+# Inquiries broken down into projects: quotations, job orders and payments
+
+An inquiry's projects (`inquiry_projects`) now each have a status, quotations (one row per revision), job orders and a payment with its transactions. The inquiry's status is read from its projects'. The seeded demo inquiries carry realistic data for all of it, and a project card shows a project's snapshot in the thread. The rules that move statuses along are written down (`docs/database/regray-erd.md`, section 4) but not built: nothing changes a status by them yet. Run `php artisan migrate:fresh --seed`.
+
+## What changed
+
+### Database
+
+- **Statuses:** `inquiries.status` is `pending`, `ongoing`, `closed` or `lost`. `completed` became `closed` and `cancelled` became `lost`; `quoted` and `paid` are gone. `inquiry_status_history` has a CHECK on the same list plus `draft`, which stays history-only.
+- **`inquiry_projects`:** `status` (`pending`, `ongoing`, `closed`, `cancelled`), `status_changed_at`, and an index on `(inquiry_id, status)`. A new project starts `pending`.
+- **New tables**, one create migration each (`2026_09_29_000033` to `000036`):
+    - `quotations`: unique `(inquiry_project_id, revision_no)`, and one live quotation (pending, closeable or closed) per project (`idx_quotations_one_live`).
+    - `job_orders`: the reference comes from `job_order_reference_seq`, like inquiry references.
+    - `payments`: one per quotation, and the status has to agree with the amounts (awaiting has nothing paid, partial some, fully paid all of it).
+    - `payment_transactions`: the deposits and refunds behind a payment. `amount_paid` is the sum of its `payment` rows.
+- **`messages`:** `type = 'project_card'` with `inquiry_project_id`, `announced_status` (the project's), `announced_quotation_status` and `announced_payment_status`. Every other type has to leave the three new columns NULL. `idx_messages_project_card_once` keeps a snapshot to one card per conversation and project.
+- Every change is in the original create migration of its table.
+
+### Backend
+
+- **Enums:** `InquiryStatus` is `Pending`, `Ongoing`, `Closed`, `Lost` plus `Draft`. New `InquiryProjectStatus`, `QuotationStatus`, `JobOrderStatus`, `PaymentStatus`, and `MessageType::ProjectCard`.
+- **Models:** `Quotation`, `JobOrder`, `Payment`, `PaymentTransaction`. `InquiryProject` has a status cast and `quotations()`, `jobOrders()` and `payments()`; `Message` has `inquiryProject()`.
+- **Renames, not redesigns:** `InquiryActions` and `InquiryStatusService` read the new names. A client's cancel makes the inquiry `lost`. Ongoing takes the place of both quoted and paid, so it keeps quoted's locked Update and Cancel and paid's invoice. `UPDATE_LOCKED_WHEN_QUOTED` is now `UPDATE_LOCKED_WHEN_ONGOING`, and `UPDATE_LOCKED_WHEN_CANCELLED` is now `UPDATE_LOCKED_WHEN_LOST`; their wording is unchanged. The cancel refusal now reads "Only pending or ongoing inquiries can be cancelled."
+- **Project card:** `EloquentMessageRepository::createProjectCardOnce()` posts a snapshot once (`insertOrIgnore`, like `createInquiryCardOnce`), at an optional time. `Message\ProjectCardResource` sends the inquiry reference, project name and location, and the three statuses; `MessageResource` sends it as `projectCard`. `ConversationResource` previews it as "Project {name} · {Status}". The project and its inquiry are eager-loaded wherever cards are loaded. No listener posts project cards yet; that comes with the status flow.
+
+### Seeders
+
+- **`InquirySeeder`** throws in production, like `DemoSeeder`. It writes, per inquiry, the inquiry, handlers, projects (booked through `ScheduleService`), quotations, job orders and payments with their transactions, the status history, then the project cards into the client's Regray Team thread (`SupportConversationService::cardThreadFor`), oldest first.
+- **`data/inquiries.php`** keeps every reference, client, handler and attachment, and adds INQ-1046 for the one demo client without an inquiry. It covers a pending project, a project on a second revision, a closeable quotation with a partial payment and a job order for install, a job order on hold, projects cancelled by a rejected quotation, a refunded payment and a cancelled job order, closed projects, and a lost, a closed and an ongoing inquiry.
+- The inquiry id sequence is reset as before, and `job_order_reference_seq` is set past the seeded references.
+- `ConversationSeeder` gives Rafael's thread its sample conversation when it has no text yet. The project cards are already there.
+
+### Frontend
+
+- `components/conversations/project-card.tsx`: the inquiry card's layout, with the project name over the strip, "INQ-… · location" under it, a project status badge, and the quotation and payment statuses.
+- `thread.tsx`, `lib/message-grouping.ts` and `types/message.ts` handle `project_card`. `lib/thread-cards.ts` has `projectHeadline()` ("Project ongoing"), `quotationStatusText()` and `paymentStatusText()`.
+
+### Tests
+
+- `tests/Feature/Database/SchemaTest.php`: every new CHECK and unique index refuses a bad row.
+- `tests/Feature/Database/InquirySeedConsistencyTest.php`: after `DatabaseSeeder`, every stored status matches the status derived from the rules, payments add up, histories end on the inquiry's status, job orders and payments sit on a closeable or closed quotation, timestamps run in order, and no project card snapshot repeats. The production guards are tested as well.
+- `tests/Feature/Message/ProjectCardTest.php`: posted once, shown to the client and staff, previewed in the list. `tests/js/thread-cards.test.mjs` covers the new helpers.
+- Existing tests use the new names.
+
 # Book an appointment: bookings are saved and announced
 
 A client picks a day and a slot, enters a purpose and submits. A pending appointment is saved under the purpose, shows on their Schedule page and in Upcoming, and a "Booking pending" card is posted to their Regray Team thread. "Book a visit" is now "Book an appointment" in the booking flow.

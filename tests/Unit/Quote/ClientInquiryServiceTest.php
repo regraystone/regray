@@ -42,10 +42,9 @@ it('only offers cancel on an open inquiry', function (InquiryStatus $status, boo
     expect($this->service->listFor($this->client, new InquiryListFilters)['inquiries']->first()->actions['cancel']['visible'])->toBe($expected);
 })->with([
     [InquiryStatus::Pending, true],
-    [InquiryStatus::Quoted, true],
-    [InquiryStatus::Paid, false],
-    [InquiryStatus::Completed, false],
-    [InquiryStatus::Cancelled, false],
+    [InquiryStatus::Ongoing, true],
+    [InquiryStatus::Closed, false],
+    [InquiryStatus::Lost, false],
 ]);
 
 it('reads stones and services in one query each however many cards there are', function (): void {

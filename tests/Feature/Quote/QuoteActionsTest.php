@@ -29,7 +29,7 @@ it('enforces the table on the cancel endpoint', function (string $status, array 
     if ($table['cancel'] === [true]) {
         // Shown and clickable: the request goes through.
         $response->assertRedirect();
-        expect($inquiry->refresh()->status)->toBe(InquiryStatus::Cancelled)
+        expect($inquiry->refresh()->status)->toBe(InquiryStatus::Lost)
             ->and(InquiryStatusHistory::query()->count())->toBe(1);
 
         return;

@@ -54,7 +54,7 @@ it('cancels the inquiry\'s open schedules when the inquiry is cancelled', functi
 
     $this->actingAs($this->client)->patch(route('quote.cancel', $inquiry->reference))->assertRedirect();
 
-    expect($inquiry->fresh()->status)->toBe(InquiryStatus::Cancelled)
+    expect($inquiry->fresh()->status)->toBe(InquiryStatus::Lost)
         ->and($open->fresh())->toMatchArray([
             'status' => ScheduleStatus::Cancelled->value,
             'cancel_reason' => 'Inquiry cancelled',

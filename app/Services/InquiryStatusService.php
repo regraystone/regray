@@ -35,7 +35,7 @@ class InquiryStatusService
      *
      * Has to run inside a transaction: the row is locked until it ends, so two
      * cancels at once cannot both read `pending` and both write a history row.
-     * The one that waits finds `cancelled` and is refused.
+     * The one that waits finds `lost` and is refused.
      *
      * @throws ModelNotFoundException When the reference is not this client's.
      * @throws ValidationException When the inquiry is no longer open.
@@ -51,11 +51,11 @@ class InquiryStatusService
         // and locked, the request is refused too.
         if (! $cancel->visible || ! $cancel->enabled) {
             throw ValidationException::withMessages([
-                'status' => 'Only pending or quoted inquiries can be cancelled.',
+                'status' => 'Only pending or ongoing inquiries can be cancelled.',
             ]);
         }
 
-        return $this->transition($inquiry, InquiryStatus::Cancelled, $client);
+        return $this->transition($inquiry, InquiryStatus::Lost, $client);
     }
 
     /**
@@ -75,7 +75,7 @@ class InquiryStatusService
         $this->inquiryRepository->updateStatus($inquiry, $to, $now);
         $this->inquiryRepository->createStatusHistory($inquiry, $from, $to, $by?->id, $now);
 
-        if ($to === InquiryStatus::Cancelled) {
+        if ($to === InquiryStatus::Lost) {
             $this->scheduleService->cancelForInquiry($inquiry, $now);
         }
 

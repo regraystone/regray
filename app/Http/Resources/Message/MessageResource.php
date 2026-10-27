@@ -79,6 +79,9 @@ class MessageResource extends JsonResource
             'scheduleCard' => $this->type === MessageType::ScheduleCard && $this->mayReadSchedule()
                 ? (new ScheduleCardResource($this->resource))->resolve($request)
                 : null,
+            'projectCard' => $this->type === MessageType::ProjectCard && $this->inquiryProject !== null
+                ? (new ProjectCardResource($this->resource))->resolve($request)
+                : null,
             'attachments' => $removed || ! $this->relationLoaded('attachments') ? [] : $this->attachments
                 ->map(fn (MessageAttachment $attachment): array => [
                     'id' => $attachment->id,

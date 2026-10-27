@@ -15,6 +15,7 @@ import Composer, {
 } from '@/components/conversations/composer';
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
+import ProjectCard from '@/components/conversations/project-card';
 import MessageBubble from '@/components/conversations/message-bubble';
 import ReassignDialog from '@/components/conversations/reassign-dialog';
 import Receipts from '@/components/conversations/receipts';
@@ -516,6 +517,15 @@ const Thread = ({
                                 <InquiryCard
                                     key={item.key}
                                     card={message.inquiryCard}
+                                />
+                            ) : null;
+                        }
+
+                        if (message.type === 'project_card') {
+                            return message.projectCard ? (
+                                <ProjectCard
+                                    key={item.key}
+                                    card={message.projectCard}
                                 />
                             ) : null;
                         }

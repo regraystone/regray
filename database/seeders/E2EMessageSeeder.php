@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\BookedByType;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\InquiryProjectStatus;
 use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
 use App\Enums\Role;
@@ -167,8 +168,8 @@ class E2EMessageSeeder extends Seeder
 
         $longName = str_repeat('Long project name ', 6);
         $longName = substr($longName, 0, 100);
-        $long = $this->inquiry($client, 'INQ-E2E-LONG', InquiryStatus::Quoted, [$longName]);
-        $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $long->id, 'announced_status' => 'quoted']);
+        $long = $this->inquiry($client, 'INQ-E2E-LONG', InquiryStatus::Ongoing, [$longName]);
+        $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $long->id, 'announced_status' => 'ongoing']);
 
         $schedules = [];
 
@@ -327,7 +328,13 @@ class E2EMessageSeeder extends Seeder
         $service = Service::query()->where('slug', 'natural-stone-supply')->value('id');
 
         foreach ($projectNames as $position => $name) {
-            $project = $inquiry->projects()->create(['name' => $name, 'sort_order' => $position, 'location' => 'Makati']);
+            $project = $inquiry->projects()->create([
+                'name' => $name,
+                'sort_order' => $position,
+                'location' => 'Makati',
+                'status' => InquiryProjectStatus::Pending,
+                'status_changed_at' => Carbon::now(),
+            ]);
             $project->services()->attach($service);
             $project->stones()->create([
                 'stone_id' => $stone->id,
