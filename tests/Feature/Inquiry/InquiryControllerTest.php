@@ -31,6 +31,15 @@ it('lets a client post to the quote URL', function (): void {
     expect(Inquiry::query()->value('client_id'))->toBe($client->id);
 });
 
+it('names every inquiry it opened when more than one project was sent', function (): void {
+    $this->actingAs(inquiryClient())
+        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(), inquiryProjectInput(['name' => 'Bath'])]])
+        ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.title', 'Kitchen counters')
+        ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.reference', Inquiry::query()->orderBy('id')->pluck('reference')->implode(', '));
+
+    expect(Inquiry::query()->count())->toBe(2);
+});
+
 it('lets a staff role that can read and create inquiries post to the inquiry URL', function (): void {
     $this->actingAs(inquiryClient(Role::Marketing))
         ->post(route('inquiry.inquire.store'), ['projects' => [inquiryProjectInput()]])

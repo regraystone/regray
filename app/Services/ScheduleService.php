@@ -52,28 +52,26 @@ class ScheduleService
     }
 
     /**
-     * The visit an inquiry project is booked as.
+     * The visit an inquiry is booked as: its one deadline visit.
      *
      * The client made it by sending the inquiry, so it is theirs and booked by
      * them. It starts as pending until Marketing or Sales approve it. The date
      * and time are what the client typed, read in the studio's zone. Only a
      * visit asks for a time; any other project is booked for
-     * DEFAULT_ARRIVAL_TIME on its date.
-     *
-     * The notes name the inquiry and the project, since one inquiry can hold
-     * several projects and so book several visits.
+     * DEFAULT_ARRIVAL_TIME on its date. The title and notes are the inquiry's
+     * project name and location.
      */
-    public function createForInquiryProject(Inquiry $inquiry, User $client, string $projectName, string $location, string $date, ?string $time): Schedule
+    public function createForInquiry(Inquiry $inquiry, User $client, string $date, ?string $time): Schedule
     {
         return $this->scheduleRepository->create([
             'client_id' => $client->id,
             'booked_by' => $client->id,
             'booked_by_type' => BookedByType::Client,
             'inquiry_id' => $inquiry->id,
-            'title' => $projectName,
+            'title' => $inquiry->name,
             'arrival_at' => self::arrivalAt($date, $time ?? self::DEFAULT_ARRIVAL_TIME)->setTimezone(config('app.timezone')),
             'status' => ScheduleStatus::Pending,
-            'notes' => self::inquiryProjectNotes($inquiry, $projectName, $location),
+            'notes' => self::inquiryNotes($inquiry),
         ]);
     }
 
@@ -99,30 +97,30 @@ class ScheduleService
     }
 
     /**
-     * Bring an inquiry project's visit in line with an edit of the project:
-     * its title, its notes and, when it moved, its arrival.
+     * Bring an inquiry's visit in line with an edit of the inquiry: its title,
+     * its notes and, when it moved, its arrival.
      *
      * Does not decide whether the arrival may move. The caller asks
-     * deadlineLockedReason() first, because only it knows which project the
+     * deadlineLockedReason() first, because only it knows which field the
      * refusal belongs to.
      */
-    public function updateForInquiryProject(Schedule $schedule, Inquiry $inquiry, string $projectName, string $location, CarbonImmutable $arrivalAt): void
+    public function updateForInquiry(Schedule $schedule, Inquiry $inquiry, CarbonImmutable $arrivalAt): void
     {
         $this->scheduleRepository->update($schedule, [
-            'title' => $projectName,
-            'notes' => self::inquiryProjectNotes($inquiry, $projectName, $location),
+            'title' => $inquiry->name,
+            'notes' => self::inquiryNotes($inquiry),
             'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
         ]);
     }
 
     /**
-     * Where an edited inquiry project's visit should now arrive.
+     * Where an edited inquiry's visit should now arrive.
      *
      * A visit's own time when the project has one. Any other project keeps the
      * time of day its schedule already has, so moving only the date never moves
      * the hour, and an unchanged date compares equal to the stored arrival.
      */
-    public function arrivalForInquiryProject(?Schedule $current, string $date, ?string $time): CarbonImmutable
+    public function arrivalForInquiry(?Schedule $current, string $date, ?string $time): CarbonImmutable
     {
         if ($time !== null) {
             return self::arrivalAt($date, $time);
@@ -148,9 +146,9 @@ class ScheduleService
     }
 
     /** "Inquiry INQ-1048 · Kitchen counters · Makati" */
-    private static function inquiryProjectNotes(Inquiry $inquiry, string $projectName, string $location): string
+    private static function inquiryNotes(Inquiry $inquiry): string
     {
-        return "Inquiry {$inquiry->reference} · {$projectName} · {$location}";
+        return "Inquiry {$inquiry->reference} · {$inquiry->name} · {$inquiry->location}";
     }
 
     /** Cancel the inquiry's open visits along with it. */

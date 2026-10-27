@@ -24,7 +24,7 @@ it('escapes the characters a LIKE pattern would read as wildcards', function (?s
 ]);
 
 it('hands back cards, not models', function (): void {
-    makeInquiry($this->client, [['name' => 'Kitchen']], ['reference' => 'INQ-U1']);
+    makeInquiry($this->client, ['name' => 'Kitchen'], ['reference' => 'INQ-U1']);
 
     $result = $this->service->listFor($this->client, new InquiryListFilters);
     $card = $result['inquiries']->first();
@@ -32,6 +32,9 @@ it('hands back cards, not models', function (): void {
     expect($card)->toBeInstanceOf(ClientInquiryCard::class)
         ->and($card->reference)->toBe('INQ-U1')
         ->and($card->title)->toBe('Kitchen')
+        ->and($card->status)->toBe(InquiryStatus::Pending)
+        // Nothing to pay before the client approves the quotation.
+        ->and($card->paymentStatus)->toBeNull()
         ->and($card->actions['cancel']['visible'])->toBeTrue()
         ->and($result['hasMore'])->toBeFalse();
 });
@@ -42,14 +45,15 @@ it('only offers cancel on an open inquiry', function (InquiryStatus $status, boo
     expect($this->service->listFor($this->client, new InquiryListFilters)['inquiries']->first()->actions['cancel']['visible'])->toBe($expected);
 })->with([
     [InquiryStatus::Pending, true],
-    [InquiryStatus::Ongoing, true],
+    [InquiryStatus::Negotiation, true],
+    [InquiryStatus::Production, true],
     [InquiryStatus::Closed, false],
-    [InquiryStatus::Lost, false],
+    [InquiryStatus::Cancelled, false],
 ]);
 
-it('reads stones and services in one query each however many cards there are', function (): void {
-    foreach (range(1, 10) as $_) {
-        makeInquiry($this->client, [[], []]);
+it('reads stones, services and statuses in a fixed number of queries however many cards there are', function (): void {
+    foreach (range(1, 10) as $index) {
+        makeInquiry($this->client, attributes: ['status' => $index % 2 === 0 ? InquiryStatus::Production : InquiryStatus::Pending]);
     }
 
     DB::flushQueryLog();
@@ -58,6 +62,6 @@ it('reads stones and services in one query each however many cards there are', f
     $withTen = count(DB::getQueryLog());
     DB::disableQueryLog();
 
-    // count + page + projects + stones + services
-    expect($withTen)->toBe(5);
+    // count + page (with each one's job order flag) + stones + services
+    expect($withTen)->toBe(4);
 });

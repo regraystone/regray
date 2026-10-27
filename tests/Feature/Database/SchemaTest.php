@@ -2,12 +2,8 @@
 
 namespace Tests\Feature\Database;
 
-use App\Enums\InquiryProjectStatus;
-use App\Enums\InquiryStatus;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
-use App\Models\Inquiry;
-use App\Models\InquiryProject;
 use App\Models\Stone;
 use App\Models\User;
 use Closure;
@@ -47,21 +43,136 @@ class SchemaTest extends TestCase
         $this->assertNotEquals($stone->id, $newStone->id);
     }
 
-    public function test_check_constraints_reject_invalid_status(): void
+    public function test_a_new_inquiry_starts_with_marketing_pending_and_the_later_stages_null(): void
     {
-        $this->expectException(\Exception::class);
+        $id = $this->insertInquiry();
 
-        DB::insert('INSERT INTO inquiries (reference, client_id, status, status_changed_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [
-            'RGS-000001',
-            1,
-            'invalid_status',
-            now(),
-            now(),
-            now(),
+        $this->assertDatabaseHas('inquiries', [
+            'id' => $id,
+            'marketing_status' => 'pending',
+            'sales_status' => null,
+            'sales_status_changed_at' => null,
+            'payment_status' => null,
+            'payment_status_changed_at' => null,
+            'process_status' => null,
+            'process_status_changed_at' => null,
+            'quoted_total' => null,
+            'quote_revision' => null,
         ]);
     }
 
-    public function test_unique_constraint_on_inquiry_project_stones(): void
+    public function test_sales_payment_and_process_accept_null_and_their_own_values(): void
+    {
+        $id = $this->insertInquiry();
+
+        DB::table('inquiries')->where('id', $id)->update(['sales_status' => 'negotiation', 'payment_status' => 'awaiting', 'process_status' => 'received']);
+        DB::table('inquiries')->where('id', $id)->update(['sales_status' => null, 'payment_status' => null, 'process_status' => null]);
+
+        // Only one of payment and process set: their starting together is the app's rule.
+        DB::table('inquiries')->where('id', $id)->update(['payment_status' => 'awaiting']);
+
+        $this->assertDatabaseHas('inquiries', ['id' => $id, 'sales_status' => null, 'payment_status' => 'awaiting', 'process_status' => null]);
+    }
+
+    public function test_each_role_status_rejects_a_value_that_is_not_its_own(): void
+    {
+        $id = $this->insertInquiry();
+        $update = fn (array $values) => fn () => DB::table('inquiries')->where('id', $id)->update($values);
+
+        $this->assertRejectedBy('chk_inquiries_marketing_status', $update(['marketing_status' => 'negotiation']));
+        $this->assertRejectedBy('chk_inquiries_sales_status', $update(['sales_status' => 'won']));
+        $this->assertRejectedBy('chk_inquiries_sales_status', $update(['sales_status' => 'cancelled']));
+        $this->assertRejectedBy('chk_inquiries_payment_status', $update(['payment_status' => 'refunded']));
+        $this->assertRejectedBy('chk_inquiries_process_status', $update(['process_status' => 'fabrication']));
+
+        $this->assertRejectedBy('not-null', $update(['marketing_status' => null]));
+        $this->assertRejectedBy('not-null', $update(['marketing_status_changed_at' => null]));
+    }
+
+    public function test_the_quote_columns_reject_out_of_range_values(): void
+    {
+        $id = $this->insertInquiry();
+
+        $this->assertRejectedBy('chk_inquiries_quoted_total', fn () => DB::table('inquiries')->where('id', $id)->update(['quoted_total' => 0]));
+        $this->assertRejectedBy('chk_inquiries_quoted_total', fn () => DB::table('inquiries')->where('id', $id)->update(['quoted_total' => -5]));
+        $this->assertRejectedBy('chk_inquiries_quote_revision', fn () => DB::table('inquiries')->where('id', $id)->update(['quote_revision' => 0]));
+    }
+
+    public function test_no_check_ties_one_status_to_another(): void
+    {
+        $id = $this->insertInquiry();
+
+        // Sales quoted with no quotation and marketing still pending, a payment
+        // with no process, logistics past received with no job order: the app's
+        // rules, not the database's.
+        DB::table('inquiries')->where('id', $id)->update([
+            'marketing_status' => 'pending',
+            'sales_status' => 'quoted',
+            'payment_status' => 'fully_paid',
+        ]);
+        DB::table('inquiries')->where('id', $id)->update(['payment_status' => null, 'process_status' => 'dispatched']);
+
+        $this->assertDatabaseHas('inquiries', ['id' => $id, 'sales_status' => 'quoted', 'payment_status' => null, 'process_status' => 'dispatched', 'quote_revision' => null]);
+    }
+
+    public function test_the_status_history_holds_a_track_and_any_role_value_on_it(): void
+    {
+        $id = $this->insertInquiry();
+
+        $this->assertRejectedBy('chk_inquiry_status_history_track', fn () => $this->insertHistory($id, 'accounting', null, 'awaiting'));
+        $this->assertRejectedBy('chk_inquiry_status_history_to_status', fn () => $this->insertHistory($id, 'sales', null, 'draft'));
+        $this->assertRejectedBy('chk_inquiry_status_history_to_status', fn () => $this->insertHistory($id, 'sales', null, 'cancelled'));
+        $this->assertRejectedBy('chk_inquiry_status_history_from_status', fn () => $this->insertHistory($id, 'sales', 'draft', 'negotiation'));
+        $this->assertRejectedBy('not-null', fn () => $this->insertHistory($id, null, null, 'pending'));
+
+        // The values are not tied to the track.
+        $this->insertHistory($id, 'marketing', null, 'fully_paid');
+        $this->assertDatabaseHas('inquiry_status_history', ['inquiry_id' => $id, 'track' => 'marketing', 'to_status' => 'fully_paid']);
+    }
+
+    public function test_inquiry_files_have_a_known_document_type_and_a_revision_from_one(): void
+    {
+        $id = $this->insertInquiry();
+
+        $this->assertRejectedBy('chk_inquiry_files_document_type', fn () => $this->insertFile($id, 'invoice'));
+        $this->assertRejectedBy('not-null', fn () => $this->insertFile($id, null));
+        $this->assertRejectedBy('chk_inquiry_files_revision', fn () => $this->insertFile($id, 'quotation', 0));
+
+        foreach (['client_attachment', 'quotation', 'receipt', 'job_order'] as $type) {
+            $this->insertFile($id, $type, $type === 'quotation' ? 1 : null);
+        }
+
+        $this->assertDatabaseCount('inquiry_files', 4);
+    }
+
+    public function test_payment_transactions_have_a_known_kind_and_a_positive_amount(): void
+    {
+        $id = $this->insertInquiry();
+
+        $this->assertRejectedBy('chk_payment_transactions_amount', fn () => $this->insertTransaction($id, 'payment', '0'));
+        $this->assertRejectedBy('chk_payment_transactions_amount', fn () => $this->insertTransaction($id, 'refund', '-10.00'));
+        $this->assertRejectedBy('chk_payment_transactions_kind', fn () => $this->insertTransaction($id, 'deposit', '10.00'));
+
+        $this->insertTransaction($id, 'payment', '10.00');
+        $this->insertTransaction($id, 'refund', '10.00');
+        $this->assertDatabaseCount('payment_transactions', 2);
+    }
+
+    public function test_an_inquiry_has_one_deadline_visit_and_a_booking_has_none(): void
+    {
+        $id = $this->insertInquiry();
+        $clientId = DB::table('inquiries')->where('id', $id)->value('client_id');
+
+        $this->insertSchedule($clientId, $id);
+
+        $this->assertRejectedBy('idx_schedules_inquiry_once', fn () => $this->insertSchedule($clientId, $id));
+
+        $this->insertSchedule($clientId, null);
+        $this->insertSchedule($clientId, null);
+        $this->assertDatabaseCount('schedules', 3);
+    }
+
+    public function test_an_inquiry_stone_is_unique_per_stone_edge_and_finish(): void
     {
         $stone = Stone::factory()->create([
             'slug' => 'test-stone-2',
@@ -72,61 +183,25 @@ class SchemaTest extends TestCase
             'is_active' => true,
             'sort_order' => 1,
         ]);
+        $edgeProfile = EdgeProfile::create(['name' => 'Beveled', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 1]);
+        $finish = Finish::create(['name' => 'Polished', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 1]);
+        $id = $this->insertInquiry();
 
-        $edgeProfile = EdgeProfile::create([
-            'name' => 'Beveled',
-            'is_advisory' => false,
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
+        $row = fn (int $quantity) => [
+            'inquiry_id' => $id,
+            'stone_id' => $stone->id,
+            'edge_profile_id' => $edgeProfile->id,
+            'finish_id' => $finish->id,
+            'quantity' => $quantity,
+            'sort_order' => $quantity,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
 
-        $finish = Finish::create([
-            'name' => 'Polished',
-            'is_advisory' => false,
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
+        DB::table('inquiry_stones')->insert($row(5));
 
-        $client = User::factory()->create();
-
-        $inquiry = Inquiry::create([
-            'reference' => 'RGS-000001',
-            'client_id' => $client->id,
-            'status' => InquiryStatus::Pending,
-            'status_changed_at' => now(),
-        ]);
-
-        $project = $inquiry->projects()->create([
-            'name' => 'Kitchen',
-            'sort_order' => 1,
-            'location' => 'Cebu',
-            'status' => InquiryProjectStatus::Pending,
-            'status_changed_at' => now(),
-        ]);
-
-        DB::insert('INSERT INTO inquiry_project_stones (inquiry_project_id, stone_id, edge_profile_id, finish_id, quantity, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
-            $project->id,
-            $stone->id,
-            $edgeProfile->id,
-            $finish->id,
-            5,
-            1,
-            now(),
-            now(),
-        ]);
-
-        $this->expectException(\Exception::class);
-
-        DB::insert('INSERT INTO inquiry_project_stones (inquiry_project_id, stone_id, edge_profile_id, finish_id, quantity, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
-            $project->id,
-            $stone->id,
-            $edgeProfile->id,
-            $finish->id,
-            3,
-            2,
-            now(),
-            now(),
-        ]);
+        $this->assertRejectedBy('idx_inquiry_stones_unique', fn () => DB::table('inquiry_stones')->insert($row(3)));
+        $this->assertRejectedBy('chk_inquiry_stones_quantity', fn () => DB::table('inquiry_stones')->insert([...$row(0), 'finish_id' => Finish::create(['name' => 'Honed', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 2])->id]));
     }
 
     public function test_message_type_check_constraint(): void
@@ -145,140 +220,115 @@ class SchemaTest extends TestCase
         ]);
     }
 
-    public function test_inquiry_statuses_reject_the_retired_values(): void
+    public function test_an_inquiry_card_needs_its_display_and_marketing_status_and_takes_null_for_stages_not_started(): void
     {
-        $project = $this->makeProject();
+        $card = $this->inquiryCard();
 
-        $this->assertRejectedBy('chk_inquiries_status', fn () => DB::table('inquiries')->where('id', $project->inquiry_id)->update(['status' => 'cancelled']));
-        $this->assertRejectedBy('chk_inquiry_status_history_to_status', fn () => $this->insertHistory(null, 'quoted'));
-        $this->assertRejectedBy('chk_inquiry_status_history_from_status', fn () => $this->insertHistory('paid', 'ongoing', $project->inquiry_id));
+        foreach (['announced_status', 'announced_marketing_status', 'inquiry_id'] as $column) {
+            $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, $column => null]));
+        }
 
-        $this->insertHistory('draft', 'lost', $project->inquiry_id);
-        $this->assertDatabaseHas('inquiry_status_history', ['inquiry_id' => $project->inquiry_id, 'to_status' => 'lost']);
-    }
+        DB::table('messages')->insert([
+            ...$card,
+            'announced_status' => 'pending',
+            'announced_marketing_status' => 'pending',
+            'announced_sales_status' => null,
+            'announced_payment_status' => null,
+            'announced_process_status' => null,
+        ]);
 
-    public function test_project_quotation_job_order_and_payment_statuses_reject_unknown_values(): void
-    {
-        $project = $this->makeProject();
-        $quotationId = $this->insertQuotation($project->id, 1, 'closeable');
-
-        $this->assertRejectedBy('chk_inquiry_projects_status', fn () => DB::table('inquiry_projects')->where('id', $project->id)->update(['status' => 'in_progress']));
-        $this->assertRejectedBy('chk_quotations_status', fn () => $this->insertQuotation($project->id, 2, 'accepted'));
-        $this->assertRejectedBy('chk_job_orders_status', fn () => $this->insertJobOrder($project->id, $quotationId, 'installing'));
-        $this->assertRejectedBy('chk_payments_status', fn () => $this->insertPayment($project->id, $quotationId, 'paid', '0'));
-
-        $this->insertJobOrder($project->id, $quotationId, 'for_install');
-        $this->assertDatabaseHas('job_orders', ['quotation_id' => $quotationId, 'status' => 'for_install']);
-    }
-
-    public function test_a_payment_status_has_to_agree_with_the_amounts(): void
-    {
-        $project = $this->makeProject();
-        $quotationId = $this->insertQuotation($project->id, 1, 'closeable');
-
-        $this->assertRejectedBy('chk_payments_status_amounts', fn () => $this->insertPayment($project->id, $quotationId, 'awaiting', '100.00'));
-        $this->assertRejectedBy('chk_payments_status_amounts', fn () => $this->insertPayment($project->id, $quotationId, 'partial', '0'));
-        $this->assertRejectedBy('chk_payments_status_amounts', fn () => $this->insertPayment($project->id, $quotationId, 'partial', '1000.00'));
-        $this->assertRejectedBy('chk_payments_status_amounts', fn () => $this->insertPayment($project->id, $quotationId, 'fully_paid', '999.99'));
-        $this->assertRejectedBy('chk_payments_amount_paid', fn () => $this->insertPayment($project->id, $quotationId, 'refunded', '1000.01'));
-
-        $this->insertPayment($project->id, $quotationId, 'partial', '400.00');
-        $this->assertDatabaseHas('payments', ['quotation_id' => $quotationId, 'status' => 'partial', 'amount_paid' => '400.00']);
-    }
-
-    public function test_a_project_has_one_live_quotation_at_a_time(): void
-    {
-        $project = $this->makeProject();
-        $firstId = $this->insertQuotation($project->id, 1, 'pending');
-
-        $this->assertRejectedBy('idx_quotations_one_live', fn () => $this->insertQuotation($project->id, 2, 'closeable'));
-        $this->assertRejectedBy('quotations_inquiry_project_id_revision_no_unique', fn () => $this->insertQuotation($project->id, 1, 'rejected'));
-
-        DB::table('quotations')->where('id', $firstId)->update(['status' => 'revision']);
-        $this->insertQuotation($project->id, 2, 'pending');
-        $this->assertDatabaseCount('quotations', 2);
-    }
-
-    public function test_a_quotation_has_one_payment_record(): void
-    {
-        $project = $this->makeProject();
-        $quotationId = $this->insertQuotation($project->id, 1, 'closeable');
-        $this->insertPayment($project->id, $quotationId, 'awaiting', '0');
-
-        $this->assertRejectedBy('payments_quotation_id_unique', fn () => $this->insertPayment($project->id, $quotationId, 'awaiting', '0'));
-        $this->assertDatabaseCount('payments', 1);
-    }
-
-    public function test_a_project_card_needs_the_project_quotation_and_payment_status(): void
-    {
-        $project = $this->makeProject();
-        $conversationId = $this->insertConversation();
-        $card = [
-            'conversation_id' => $conversationId,
-            'type' => 'project_card',
-            'inquiry_project_id' => $project->id,
-            'announced_status' => 'ongoing',
-            'announced_quotation_status' => 'closeable',
-            'announced_payment_status' => 'partial',
-            'created_at' => now(),
-        ];
-
-        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'announced_status' => null]));
-        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'announced_quotation_status' => null]));
-        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'announced_payment_status' => null]));
-        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'inquiry_project_id' => null]));
-        $this->assertRejectedBy('chk_messages_announced_payment_status', fn () => DB::table('messages')->insert([...$card, 'announced_payment_status' => 'paid']));
+        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'body' => 'Hello']));
 
         DB::table('messages')->insert($card);
-        $this->assertDatabaseHas('messages', ['type' => 'project_card', 'inquiry_project_id' => $project->id]);
+        $this->assertDatabaseHas('messages', ['type' => 'inquiry_card', 'announced_status' => 'production']);
+        $this->assertDatabaseHas('messages', ['type' => 'inquiry_card', 'announced_status' => 'pending', 'announced_sales_status' => null]);
     }
 
-    public function test_a_project_card_snapshot_is_posted_once(): void
+    public function test_an_inquiry_card_announces_a_display_status_and_role_values(): void
     {
-        $project = $this->makeProject();
-        $conversationId = $this->insertConversation();
-        $card = [
-            'conversation_id' => $conversationId,
-            'type' => 'project_card',
-            'inquiry_project_id' => $project->id,
-            'announced_status' => 'ongoing',
-            'announced_quotation_status' => 'closeable',
-            'announced_payment_status' => 'partial',
-            'created_at' => now(),
-        ];
+        $card = $this->inquiryCard();
+
+        // `won` is a marketing value, `completed` a logistics one: neither is a display status.
+        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'announced_status' => 'won']));
+        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'announced_status' => 'completed']));
+        $this->assertRejectedBy('chk_messages_announced_marketing_status', fn () => DB::table('messages')->insert([...$card, 'announced_marketing_status' => 'quoted']));
+        $this->assertRejectedBy('chk_messages_announced_sales_status', fn () => DB::table('messages')->insert([...$card, 'announced_sales_status' => 'won']));
+        $this->assertRejectedBy('chk_messages_announced_payment_status', fn () => DB::table('messages')->insert([...$card, 'announced_payment_status' => 'refunded']));
+        $this->assertRejectedBy('chk_messages_announced_process_status', fn () => DB::table('messages')->insert([...$card, 'announced_process_status' => 'fabrication']));
+
+        $this->assertDatabaseCount('messages', 0);
+    }
+
+    public function test_an_inquiry_card_snapshot_is_posted_once(): void
+    {
+        $card = $this->inquiryCard();
         DB::table('messages')->insert($card);
 
-        $this->assertRejectedBy('idx_messages_project_card_once', fn () => DB::table('messages')->insert($card));
+        $this->assertRejectedBy('idx_messages_inquiry_card_once', fn () => DB::table('messages')->insert($card));
 
+        // Any column of the snapshot moving is a new card.
         DB::table('messages')->insert([...$card, 'announced_payment_status' => 'fully_paid']);
+        DB::table('messages')->insert([...$card, 'announced_process_status' => 'quality_check', 'announced_status' => 'quality_check']);
+        $this->assertDatabaseCount('messages', 3);
+    }
+
+    public function test_a_snapshot_with_stages_not_started_is_posted_once_too(): void
+    {
+        $card = [
+            ...$this->inquiryCard(),
+            'announced_status' => 'negotiation',
+            'announced_sales_status' => 'negotiation',
+            'announced_payment_status' => null,
+            'announced_process_status' => null,
+        ];
+        DB::table('messages')->insert($card);
+
+        // A NULL matches a NULL here: the index reads them through COALESCE.
+        $this->assertRejectedBy('idx_messages_inquiry_card_once', fn () => DB::table('messages')->insert($card));
+
+        DB::table('messages')->insert([...$card, 'announced_status' => 'pending', 'announced_marketing_status' => 'pending', 'announced_sales_status' => null]);
         $this->assertDatabaseCount('messages', 2);
     }
 
-    public function test_a_message_that_is_not_a_project_card_cannot_carry_the_project_columns(): void
+    public function test_a_schedule_card_keeps_its_own_statuses_and_no_snapshot(): void
     {
-        $project = $this->makeProject();
         $conversationId = $this->insertConversation();
+        $inquiryId = $this->insertInquiry();
+        $scheduleId = $this->insertSchedule(DB::table('inquiries')->where('id', $inquiryId)->value('client_id'), null);
+        $card = ['conversation_id' => $conversationId, 'type' => 'schedule_card', 'schedule_id' => $scheduleId, 'announced_status' => 'confirmed', 'created_at' => now()];
+
+        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([...$card, 'announced_payment_status' => 'awaiting']));
+
+        DB::table('messages')->insert($card);
+        $this->assertDatabaseHas('messages', ['type' => 'schedule_card', 'announced_status' => 'confirmed']);
+    }
+
+    public function test_a_message_that_is_not_an_inquiry_card_cannot_carry_the_snapshot_columns(): void
+    {
+        $conversationId = $this->insertConversation();
+
+        foreach (['announced_marketing_status' => 'won', 'announced_sales_status' => 'quoted', 'announced_payment_status' => 'partial', 'announced_process_status' => 'ready'] as $column => $value) {
+            $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([
+                'conversation_id' => $conversationId,
+                'type' => 'text',
+                'body' => 'Hello',
+                $column => $value,
+                'created_at' => now(),
+            ]));
+            $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([
+                'conversation_id' => $conversationId,
+                'type' => 'system',
+                'system_event' => 'assigned',
+                $column => $value,
+                'created_at' => now(),
+            ]));
+        }
 
         $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([
             'conversation_id' => $conversationId,
-            'type' => 'text',
-            'body' => 'Hello',
-            'inquiry_project_id' => $project->id,
-            'created_at' => now(),
-        ]));
-        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([
-            'conversation_id' => $conversationId,
-            'type' => 'inquiry_card',
-            'inquiry_id' => $project->inquiry_id,
-            'announced_status' => 'ongoing',
-            'announced_payment_status' => 'partial',
-            'created_at' => now(),
-        ]));
-        $this->assertRejectedBy('chk_messages_type', fn () => DB::table('messages')->insert([
-            'conversation_id' => $conversationId,
-            'type' => 'system',
-            'system_event' => 'assigned',
-            'announced_quotation_status' => 'pending',
+            'type' => 'project_card',
+            'inquiry_id' => $this->insertInquiry(),
+            'announced_status' => 'pending',
             'created_at' => now(),
         ]));
 
@@ -288,13 +338,18 @@ class SchemaTest extends TestCase
     /**
      * Runs a write that a constraint must refuse, in a savepoint so the test's
      * transaction survives it, and checks it was that constraint which refused.
+     * `not-null` stands for a NOT NULL column, which PostgreSQL reports by SQLSTATE.
      */
     private function assertRejectedBy(string $constraint, Closure $write): void
     {
         try {
             DB::transaction(fn () => $write());
         } catch (QueryException $exception) {
-            $this->assertStringContainsString($constraint, $exception->getMessage());
+            if ($constraint === 'not-null') {
+                $this->assertSame('23502', $exception->getCode());
+            } else {
+                $this->assertStringContainsString($constraint, $exception->getMessage());
+            }
 
             return;
         }
@@ -302,72 +357,85 @@ class SchemaTest extends TestCase
         $this->fail("Expected {$constraint} to refuse the write.");
     }
 
-    private function makeProject(): InquiryProject
+    /** A new inquiry: marketing is left to its default, the later stages to NULL. */
+    private function insertInquiry(): int
     {
-        $inquiry = Inquiry::create([
-            'reference' => 'INQ-S'.random_int(1000, 9999),
+        return DB::table('inquiries')->insertGetId([
+            'reference' => 'INQ-S'.random_int(100000, 999999),
             'client_id' => User::factory()->create()->id,
-            'status' => InquiryStatus::Ongoing,
-            'status_changed_at' => now(),
-        ]);
-
-        return $inquiry->projects()->create([
             'name' => 'Kitchen',
-            'sort_order' => 0,
-            'location' => 'Cebu',
-            'status' => InquiryProjectStatus::Ongoing,
-            'status_changed_at' => now(),
+            'location' => 'Makati',
+            'marketing_status_changed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
-    private function insertHistory(?string $from, string $to, ?int $inquiryId = null): void
+    private function insertHistory(int $inquiryId, ?string $track, ?string $from, string $to): void
     {
         DB::table('inquiry_status_history')->insert([
-            'inquiry_id' => $inquiryId ?? Inquiry::query()->value('id'),
+            'inquiry_id' => $inquiryId,
+            'track' => $track,
             'from_status' => $from,
             'to_status' => $to,
             'changed_at' => now(),
         ]);
     }
 
-    private function insertQuotation(int $projectId, int $revision, string $status): int
+    private function insertFile(int $inquiryId, ?string $documentType, ?int $revision = null): void
     {
-        return DB::table('quotations')->insertGetId([
-            'inquiry_project_id' => $projectId,
-            'revision_no' => $revision,
-            'status' => $status,
-            'total_amount' => '1000.00',
-            'issued_at' => now(),
+        DB::table('inquiry_files')->insert([
+            'inquiry_id' => $inquiryId,
+            'document_type' => $documentType,
+            'revision' => $revision,
+            'disk' => 'local',
+            'path' => 'inquiries/x.pdf',
+            'original_name' => 'x.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 10,
+            'created_at' => now(),
+        ]);
+    }
+
+    private function insertTransaction(int $inquiryId, string $kind, string $amount): void
+    {
+        DB::table('payment_transactions')->insert([
+            'inquiry_id' => $inquiryId,
+            'kind' => $kind,
+            'amount' => $amount,
+            'received_at' => now(),
+            'created_at' => now(),
+        ]);
+    }
+
+    private function insertSchedule(int $clientId, ?int $inquiryId): int
+    {
+        return DB::table('schedules')->insertGetId([
+            'client_id' => $clientId,
+            'booked_by_type' => 'client',
+            'inquiry_id' => $inquiryId,
+            'title' => 'Visit',
+            'arrival_at' => now(),
+            'status' => 'pending',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
     }
 
-    private function insertJobOrder(int $projectId, int $quotationId, string $status): void
+    /** @return array<string, mixed> */
+    private function inquiryCard(): array
     {
-        DB::table('job_orders')->insert([
-            'reference' => 'JO-'.DB::selectOne("SELECT nextval('job_order_reference_seq') AS number")->number,
-            'inquiry_project_id' => $projectId,
-            'quotation_id' => $quotationId,
-            'status' => $status,
-            'status_changed_at' => now(),
+        return [
+            'conversation_id' => $this->insertConversation(),
+            'type' => 'inquiry_card',
+            'inquiry_id' => $this->insertInquiry(),
+            'announced_status' => 'production',
+            'announced_marketing_status' => 'won',
+            'announced_sales_status' => 'quoted',
+            'announced_payment_status' => 'partial',
+            'announced_process_status' => 'production',
             'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
-
-    private function insertPayment(int $projectId, int $quotationId, string $status, string $amountPaid): void
-    {
-        DB::table('payments')->insert([
-            'inquiry_project_id' => $projectId,
-            'quotation_id' => $quotationId,
-            'amount_due' => '1000.00',
-            'amount_paid' => $amountPaid,
-            'status' => $status,
-            'status_changed_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        ];
     }
 
     private function insertConversation(): int

@@ -1,17 +1,20 @@
 <?php
 
-use App\Enums\InquiryProjectStatus;
+use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
+use App\Enums\MarketingStatus;
+use App\Enums\ProcessStatus;
+use App\Enums\SalesStatus;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\InquiryFile;
-use App\Models\InquiryProjectStone;
 use App\Models\InquiryStatusHistory;
+use App\Models\InquiryStone;
 use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Repositories\Eloquent\EloquentInquiryRepository;
-use App\Services\ScheduleService;
 use Illuminate\Support\Facades\Date;
 
 beforeEach(function (): void {
@@ -21,20 +24,13 @@ beforeEach(function (): void {
     $this->inquiry = $this->repository->create([
         'reference' => 'INQ-9001',
         'client_id' => $this->client->id,
-        'status' => InquiryStatus::Pending,
-        'status_changed_at' => Date::now(),
-    ]);
-    $this->schedule = app(ScheduleService::class)->createForInquiryProject($this->inquiry, $this->client, 'Counters', 'Makati', '2030-01-02', '09:30');
-    $this->project = $this->repository->addProject($this->inquiry, [
         'name' => 'Counters',
-        'sort_order' => 0,
         'location' => 'Makati',
         'landmark' => 'Church',
         'area_sqm' => 12.5,
-        'schedule_id' => $this->schedule->id,
         'notes' => 'Notes',
-        'status' => InquiryProjectStatus::Pending,
-        'status_changed_at' => Date::now(),
+        'marketing_status' => MarketingStatus::Pending,
+        'marketing_status_changed_at' => Date::now(),
     ]);
 });
 
@@ -44,47 +40,52 @@ it('increments the reference sequence', function (): void {
     expect($this->repository->nextReferenceNumber())->toBe($first + 1);
 });
 
-it('creates the inquiry row', function (): void {
+it('creates the inquiry row with its project', function (): void {
     expect($this->inquiry->fresh())
         ->reference->toBe('INQ-9001')
         ->client_id->toBe($this->client->id)
-        ->status->toBe(InquiryStatus::Pending);
-});
-
-it('creates a status history row', function (): void {
-    $this->repository->createStatusHistory($this->inquiry, null, InquiryStatus::Pending, $this->client->id, Date::now());
-
-    expect(InquiryStatusHistory::query()->sole())
-        ->inquiry_id->toBe($this->inquiry->id)
-        ->from_status->toBeNull()
-        ->to_status->toBe(InquiryStatus::Pending)
-        ->changed_by->toBe($this->client->id);
-});
-
-it('adds a project', function (): void {
-    expect($this->project->fresh())
-        ->inquiry_id->toBe($this->inquiry->id)
         ->name->toBe('Counters')
         ->location->toBe('Makati')
         ->landmark->toBe('Church')
-        ->schedule_id->toBe($this->schedule->id)
-        ->status->toBe(InquiryProjectStatus::Pending);
+        ->status->toBe(InquiryStatus::Pending);
+});
+
+it('creates a status history row on a track', function (): void {
+    $this->repository->createStatusHistory($this->inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, SalesStatus::SiteVisited, $this->client->id, Date::now());
+
+    expect(InquiryStatusHistory::query()->sole())
+        ->inquiry_id->toBe($this->inquiry->id)
+        ->track->toBe(InquiryStatusTrack::Sales)
+        ->from_status->toBe('negotiation')
+        ->to_status->toBe('site_visited')
+        ->changed_by->toBe($this->client->id);
+});
+
+it('updates one role status and when it changed', function (): void {
+    $at = Date::now()->addHour();
+
+    $this->repository->updateStatus($this->inquiry, InquiryStatusTrack::Process, ProcessStatus::Measure, $at);
+
+    expect($this->inquiry->fresh())
+        ->process_status->toBe(ProcessStatus::Measure)
+        ->sales_status->toBeNull()
+        ->and($this->inquiry->fresh()->process_status_changed_at->toDateTimeString())->toBe($at->toDateTimeString());
 });
 
 it('attaches services', function (): void {
     $ids = Service::query()->limit(2)->pluck('id')->all();
 
-    $this->repository->attachServices($this->project, $ids);
+    $this->repository->attachServices($this->inquiry, $ids);
 
-    expect($this->project->services()->pluck('services.id')->all())->toEqualCanonicalizing($ids);
+    expect($this->inquiry->services()->pluck('services.id')->all())->toEqualCanonicalizing($ids);
 });
 
 it('attaches applications in the order given', function (): void {
     $ids = ProjectCategory::query()->orderBy('id')->limit(3)->pluck('id')->reverse()->values()->all();
 
-    $this->repository->attachApplications($this->project, $ids);
+    $this->repository->attachApplications($this->inquiry, $ids);
 
-    expect($this->project->categories()->pluck('project_categories.id')->all())->toBe($ids);
+    expect($this->inquiry->categories()->pluck('project_categories.id')->all())->toBe($ids);
 });
 
 it('adds stones in the order given', function (): void {
@@ -92,12 +93,12 @@ it('adds stones in the order given', function (): void {
     $edge = EdgeProfile::query()->value('id');
     $finish = Finish::query()->value('id');
 
-    $this->repository->addStones($this->project, [
+    $this->repository->addStones($this->inquiry, [
         ['stone_id' => $stones[1], 'edge_profile_id' => $edge, 'finish_id' => $finish, 'quantity' => 3],
         ['stone_id' => $stones[0], 'edge_profile_id' => $edge, 'finish_id' => $finish, 'quantity' => 5],
     ]);
 
-    $rows = InquiryProjectStone::query()->orderBy('sort_order')->get();
+    $rows = InquiryStone::query()->orderBy('sort_order')->get();
 
     expect($rows->pluck('stone_id')->all())->toBe([$stones[1], $stones[0]])
         ->and($rows->pluck('quantity')->all())->toBe([3, 5])
@@ -105,9 +106,10 @@ it('adds stones in the order given', function (): void {
 });
 
 it('adds a file row', function (): void {
-    $this->repository->addFile($this->project, [
+    $this->repository->addFile($this->inquiry, [
+        'document_type' => DocumentType::ClientAttachment,
         'disk' => 'local',
-        'path' => 'inquiries/INQ-9001/1/a.pdf',
+        'path' => 'inquiries/INQ-9001/a.pdf',
         'original_name' => 'a.pdf',
         'mime_type' => 'application/pdf',
         'size_bytes' => 1234,
@@ -116,8 +118,19 @@ it('adds a file row', function (): void {
     ]);
 
     expect(InquiryFile::query()->sole())
-        ->inquiry_project_id->toBe($this->project->id)
-        ->path->toBe('inquiries/INQ-9001/1/a.pdf')
+        ->inquiry_id->toBe($this->inquiry->id)
+        ->document_type->toBe(DocumentType::ClientAttachment)
+        ->path->toBe('inquiries/INQ-9001/a.pdf')
         ->size_bytes->toBe(1234)
         ->uploaded_by->toBe($this->client->id);
+});
+
+it('deletes only the client attachments it is not told to keep', function (): void {
+    addInquiryFile($this->inquiry, DocumentType::ClientAttachment);
+    addInquiryFile($this->inquiry, DocumentType::Receipt);
+
+    $removed = $this->repository->deleteClientAttachmentsExcept($this->inquiry, []);
+
+    expect($removed)->toHaveCount(1)
+        ->and($this->inquiry->files()->pluck('document_type')->all())->toBe([DocumentType::Receipt]);
 });

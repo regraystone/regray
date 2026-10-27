@@ -30,8 +30,8 @@ use Illuminate\Support\Carbon;
  * the client, with no inquiry, pending. Saving it posts a schedule_card into
  * the client's Regray Team thread (PostScheduleCard).
  *
- * Sending an inquiry creates one schedule per project (with `inquiry_id` set),
- * through ScheduleService::createForInquiryProject().
+ * Sending an inquiry creates its one schedule (with `inquiry_id` set),
+ * through ScheduleService::createForInquiry(). An inquiry has at most one.
  */
 #[Fillable(['booked_by', 'booked_by_type', 'inquiry_id', 'title', 'arrival_at', 'status', 'notes', 'approved_by', 'approved_at', 'cancelled_at', 'cancel_reason'])]
 class Schedule extends Model

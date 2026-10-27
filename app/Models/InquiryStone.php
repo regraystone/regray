@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property int $inquiry_project_id
+ * @property int $inquiry_id
  * @property int $stone_id
  * @property int $edge_profile_id
  * @property int $finish_id
@@ -18,12 +18,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  */
 #[Fillable(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'sort_order'])]
-class InquiryProjectStone extends Model
+class InquiryStone extends Model
 {
-    /** @return BelongsTo<InquiryProject, $this> */
-    public function inquiryProject(): BelongsTo
+    /** @return BelongsTo<Inquiry, $this> */
+    public function inquiry(): BelongsTo
     {
-        return $this->belongsTo(InquiryProject::class);
+        return $this->belongsTo(Inquiry::class);
     }
 
     /** @return BelongsTo<Stone, $this> */

@@ -9,9 +9,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('inquiry_project_stones', function (Blueprint $table) {
+        Schema::create('inquiry_stones', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inquiry_project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
             $table->foreignId('stone_id')->constrained()->restrictOnDelete();
             $table->foreignId('edge_profile_id')->constrained()->restrictOnDelete();
             $table->foreignId('finish_id')->constrained()->restrictOnDelete();
@@ -20,19 +20,15 @@ return new class extends Migration
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
-            $table->unique(['inquiry_project_id', 'stone_id', 'edge_profile_id', 'finish_id'], 'idx_inquiry_project_stones_unique');
+            $table->unique(['inquiry_id', 'stone_id', 'edge_profile_id', 'finish_id'], 'idx_inquiry_stones_unique');
             $table->index('stone_id');
         });
 
-        DB::statement('ALTER TABLE inquiry_project_stones ADD CONSTRAINT chk_inquiry_project_stones_quantity CHECK (quantity BETWEEN 1 AND 9999)');
+        DB::statement('ALTER TABLE inquiry_stones ADD CONSTRAINT chk_inquiry_stones_quantity CHECK (quantity BETWEEN 1 AND 9999)');
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE inquiry_project_stones DROP CONSTRAINT IF EXISTS chk_inquiry_project_stones_quantity');
-        Schema::table('inquiry_project_stones', function (Blueprint $table) {
-            $table->dropUnique('idx_inquiry_project_stones_unique');
-        });
-        Schema::dropIfExists('inquiry_project_stones');
+        Schema::dropIfExists('inquiry_stones');
     }
 };

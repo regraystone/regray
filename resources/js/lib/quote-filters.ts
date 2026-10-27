@@ -1,19 +1,35 @@
 /*
- * The Quote page's pure logic: what goes into the URL when the list is filtered,
- * which statuses may be cancelled, and how a long row is cut down to a tally.
+ * The Quote page's pure logic: the status tabs, what goes into the URL when the
+ * list is filtered, and how a long row is cut down to a tally.
  *
  * No imports, on purpose. The tests under tests/js run this file straight under
  * Node, where the `@/` alias does not exist.
  */
 
-export type QuoteStatus =
+/**
+ * The Quote list's status tabs. Pending, closed and cancelled are the display
+ * statuses of the same name; every other display status is in progress
+ * (App\Enums\InquiryStatus::group()).
+ */
+export type QuoteStatusGroup =
     | 'pending'
-    | 'quoted'
-    | 'paid'
-    | 'completed'
+    | 'in_progress'
+    | 'closed'
     | 'cancelled';
 
-export type QuoteStatusFilter = 'all' | QuoteStatus;
+export type QuoteStatusFilter = 'all' | QuoteStatusGroup;
+
+/** The tabs in the order they are drawn, with what each is called. */
+export const QUOTE_STATUS_TABS: ReadonlyArray<{
+    value: QuoteStatusFilter;
+    label: string;
+}> = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'in_progress', label: 'In progress' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'cancelled', label: 'Cancelled' },
+];
 
 export type QuoteSort = 'newest' | 'oldest';
 

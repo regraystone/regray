@@ -2,9 +2,10 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\DocumentType;
+use App\Models\Inquiry;
 use App\Models\InquiryFile;
-use App\Models\InquiryProject;
-use App\Models\InquiryProjectStone;
+use App\Models\InquiryStone;
 use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Services\ScheduleService;
@@ -12,14 +13,15 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One inquiry project as the Inquire page's edit mode is filled from.
+ * An inquiry as the Inquire page's edit mode is filled from: the one project
+ * it is, in the shape of a project on that page.
  *
  * Unlike InquiryDetailsResource, which is for reading, every identifier here is
- * the one the form sends back: the project's and the files' real ids, service
- * and application slugs, stone slugs, and edge and finish names. Nothing about
- * the client and no file paths.
+ * the one the form sends back: the inquiry's and the files' real ids, service
+ * and application slugs, stone slugs, and edge and finish names. Only the
+ * client's own attachments, nothing about the client and no file paths.
  *
- * @mixin InquiryProject
+ * @mixin Inquiry
  */
 class InquiryEditResource extends JsonResource
 {
@@ -38,7 +40,7 @@ class InquiryEditResource extends JsonResource
             'name' => $this->name,
             'serviceSlugs' => array_values($this->services->map(fn (Service $service): string => $service->slug)->all()),
             'applicationSlugs' => array_values($this->categories->map(fn (ProjectCategory $category): string => $category->slug)->all()),
-            'stones' => array_values($this->stones->map(fn (InquiryProjectStone $row): array => [
+            'stones' => array_values($this->stones->map(fn (InquiryStone $row): array => [
                 'stoneId' => $row->stone->slug,
                 'quantity' => $row->quantity,
                 'edge' => $row->edgeProfile->name,
@@ -54,13 +56,15 @@ class InquiryEditResource extends JsonResource
             'neededByTime' => $isVisit ? $arrivalAt?->format('H:i') : null,
             'deadlineLocked' => $lockedReason !== null,
             'deadlineLockedReason' => $lockedReason,
-            'attachments' => array_values($this->files->map(fn (InquiryFile $file): array => [
-                'id' => $file->id,
-                'name' => $file->original_name,
-                'sizeBytes' => $file->size_bytes,
-                'mimeType' => $file->mime_type,
-                'status' => 'saved',
-            ])->all()),
+            'attachments' => array_values($this->files
+                ->filter(fn (InquiryFile $file): bool => $file->document_type === DocumentType::ClientAttachment)
+                ->map(fn (InquiryFile $file): array => [
+                    'id' => $file->id,
+                    'name' => $file->original_name,
+                    'sizeBytes' => $file->size_bytes,
+                    'mimeType' => $file->mime_type,
+                    'status' => 'saved',
+                ])->all()),
         ];
     }
 }

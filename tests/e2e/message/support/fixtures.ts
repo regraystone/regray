@@ -26,8 +26,9 @@ export type Fixtures = {
     cards: {
         conversationId: number;
         reference: string;
-        firstProject: string;
-        projectCount: number;
+        projectName: string;
+        /** How many display statuses there are: one card each. */
+        statusCount: number;
         longReference: string;
         longProject: string;
         longScheduleTitle: string;

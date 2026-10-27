@@ -1,3 +1,93 @@
+# A role's status exists only once its stage has started
+
+Sales, payment and logistics are no longer set from the moment an inquiry is created. Each is NULL until its stage starts, and nothing is shown for it until then. Marketing starts at creation (`pending`). Sales starts when marketing is won (`negotiation`). Accounting and logistics start together when the client approves the quotation, which sets sales to `quoted`: payment at `awaiting`, process at `received`. Until approval an inquiry shows only marketing and sales. The flow that starts the stages is written down (`docs/database/regray-erd.md`, section 4) but not built. Run `php artisan migrate:fresh --seed`.
+
+## What changed
+
+### Database
+
+- **`inquiries`:** `sales_status`, `payment_status` and `process_status` are nullable with no default, and so are their `*_changed_at`. Their value CHECKs stay and pass a NULL. `marketing_status` is unchanged: `NOT NULL`, default `pending`. No CHECK ties payment and process together; the app sets them together.
+- **`inquiry_status_history`:** an inquiry's first entry is marketing `pending` only. Sales, payment and process begin, from NULL, when their stage starts.
+- **`messages`:** an `inquiry_card` needs `inquiry_id`, `announced_status` and `announced_marketing_status`; the sales, payment and process snapshot columns are NULL until their stage started. `idx_messages_inquiry_card_once` reads those three through `COALESCE(column, '')`, so a snapshot with NULLs is still posted once.
+
+### Backend
+
+- **`InquiryStatusCalculator`:** takes a nullable sales and process status. The logistics status shows once the job order is in and process is set; the sales status shows once sales is set (no longer "once marketing is won"). The SQL `CASE` treats NULL the same way.
+- **Creating:** a new inquiry sets marketing only, with one history row.
+- **Cancelling:** the client can cancel only before approving the quotation. It marks sales `rejected` once sales has started, and marketing `lost` before it has; open schedules are cancelled either way. From sales `quoted` on, the client's Cancel is shown locked ("You approved the quotation, so only the team can cancel now. Message the team.", `InquiryActions::CANCEL_LOCKED_WHEN_QUOTED`) and the endpoint refuses it with the same sentence: only sales can cancel then, by rejecting, which shows the inquiry as cancelled. The sales reject action itself is not built.
+- **Resources:** the details page and the thread card send `null` for a stage not started, never a placeholder. The Quote card sends `paymentStatus` as stored, which is null until approval. `InquiryDetailsResource` sends the client's activity log (sales, payment and logistics changes, a stage starting included; marketing left out except a cancel) and `documents`: the quotations (with their revision) and payment receipts the team has shared, oldest first, without paths. The job order is internal and never sent.
+- `createInquiryCardOnce()` and `PostInquiryStatusCard` take and post NULL snapshot columns.
+
+### Seeders
+
+- **`InquirySeeder`** sets each role status only when its stage starts, in history, inquiry and cards alike, and refuses a sales event before sales has started. Every reference and every display status is unchanged; only the NULLs are new (see the inquiry list in the report).
+- `E2EMessageSeeder` writes NULL for stages not started in its card snapshots and inquiries.
+
+### Frontend
+
+- `StatusBadge` takes `null` and renders nothing. The group is named in its tooltip.
+- `lib/inquiry-statuses.ts`: `startedStatuses()` leaves out every stage not started.
+- **Details page:** two badges at most: the inquiry status, and the payment status once it is set. The aside has the **Activity Log** in the client's words ("Inquiry sent", "In discussion", "Quote approved", "Awaiting payment", "Partially paid", "In production"…), newest first, with the date always on the right, and below it **Documents**: each quotation ("Quotation · Rev 2") and payment receipt, with its file name, size and date. The wording is `activityLabel()` and `documentLabel()` in `lib/inquiry-statuses.ts`.
+- **Quote list and thread card:** the inquiry status, then the payment badge only when payment is set.
+
+### Tests
+
+- `InquiryStatusCalculatorTest`: the NULL cases, and PHP and SQL agreeing on all 432 combinations, NULL included.
+- `SchemaTest`: NULL accepted for sales, payment and process; invalid values still refused; marketing defaults to `pending`; an inquiry card needs its marketing status; a snapshot with NULLs is posted once.
+- `InquirySeedConsistencyTest`: no role status before its stage started, payment and process both NULL or both set, each history track starting with its stage and ending on its current value, no duplicate snapshots.
+- `tests/js/inquiry-statuses.test.mjs`: a null payment, sales or logistics status gives no badge.
+- Cancel, card, details and creation tests follow the new rules.
+
+# One inquiry is one project, with four role statuses and one display status
+
+An inquiry is now one project: the project level (`inquiry_projects`) is gone and its columns are on `inquiries`. A client who wants another project opens another inquiry, and the Inquire page opens one inquiry per project it sends. Each inquiry has four role statuses (marketing, sales, accounting's payment, logistics' process), all set from the moment it is created, and one display status, the inquiry status, which is the single status shown for it everywhere. Sales uploads quotations and the job order, accounting uploads receipts. The Quote list and the details page are reworked. The flow between the statuses is written down (`docs/database/regray-erd.md`, section 4) but not built: only the client's cancel moves a status. Run `php artisan migrate:fresh --seed`.
+
+## What changed
+
+### Database
+
+- **`inquiries`** loses `status` and `status_changed_at` and gains the project's `name`, `location`, `landmark`, `area_sqm` and `notes`; `marketing_status` (default `pending`), `sales_status` (default `negotiation`), `payment_status` (default `awaiting`) and `process_status` (default `received`), each `NOT NULL` with its own value CHECK and `*_changed_at`; and `quoted_total` (`> 0`) and `quote_revision` (`>= 1`). Indexes on `client_id` and each status.
+- **Renamed and re-keyed on `inquiry_id`:** `inquiry_services`, `inquiry_categories`, `inquiry_stones` (still unique on stone, edge and finish). `inquiry_files` is re-keyed too and gains `document_type` (`client_attachment`, `quotation`, `receipt`, `job_order`) and `revision` (`>= 1`).
+- **`inquiry_status_history`** gains `track` (`marketing`, `sales`, `payment`, `process`). `to_status` and `from_status` take any role value, with no link to the track; `draft` is gone. Each inquiry's first four entries are the defaults, from nothing.
+- **`schedules`:** partial unique `inquiry_id WHERE inquiry_id IS NOT NULL`, one deadline visit per inquiry.
+- **`messages`:** the `project_card` type and `inquiry_project_id` are gone. An `inquiry_card` carries `announced_status` (a display status) and `announced_marketing_status`, `announced_sales_status`, `announced_payment_status`, `announced_process_status`, each with a value CHECK; every other type leaves them NULL. `idx_messages_inquiry_card_once` is unique on the whole snapshot.
+- **Removed:** the `inquiry_projects`, `quotations`, `job_orders` and `payments` create migrations. `payment_transactions` is recreated as `2026_09_29_000033`, keyed on `inquiry_id`.
+- Only single-column value and range CHECKs were added; nothing ties one status to another. Every change is in the original create migration of its table.
+
+### Backend
+
+- **Enums:** `InquiryStatus` is the display status (16 values) with `group()` for the Quote tabs (`InquiryStatusGroup`: pending, in progress, closed, cancelled). New `MarketingStatus`, `SalesStatus`, `PaymentStatus` (without `refunded`), `ProcessStatus`, `InquiryStatusTrack` and `DocumentType`. `InquiryProjectStatus`, `QuotationStatus`, `JobOrderStatus` and `MessageType::ProjectCard` are gone.
+- **`InquiryStatusCalculator`:** the display rule in PHP (`calculate()`) and as a SQL `CASE` (`sql()`). `Inquiry` reads it as `$inquiry->status` and has `withDisplayStatus`, `whereDisplayStatus`, `inStatusGroup` and `withJobOrderFlag` scopes. A removed job order file does not count.
+- **Models:** `Inquiry` holds the project's relations (`services`, `categories`, `stones`, `files`, `schedule`, `paymentTransactions`). `InquiryProject`, `Quotation`, `JobOrder` and `Payment` are gone; `InquiryProjectStone` is `InquiryStone`.
+- **`InquiryFileUploads`:** who uploads which document (the inquiry's client, sales, accounting). The client's own uploads go through it.
+- **`InquiryStatusService::transition()`** takes a track, and `InquiryStatusChanged` carries it. A client's cancel sets sales to `rejected` and cancels the open schedule.
+- **`InquiryActions`** reads the inquiry: Update is open until the client approves the quotation (sales quoted), the invoice from approval on, Cancel until closed or cancelled. `UPDATE_LOCKED_WHEN_ONGOING` is `UPDATE_LOCKED_WHEN_QUOTED` again and `UPDATE_LOCKED_WHEN_LOST` is `UPDATE_LOCKED_WHEN_CANCELLED`; their wording is unchanged.
+- **Creating and editing:** `InquiryService::create()` returns one inquiry per project sent, and the success flash names every reference. Update on a Quote card opens the inquiry's project at the first step (Services) with every answer filled in, instead of on Review; Review is still where Save changes is. The edit still sends one project, which must be this inquiry, and only ever keeps or drops client attachments. `ScheduleService::createForInquiryProject` is `createForInquiry`.
+- **Cards:** `EloquentMessageRepository::createInquiryCardOnce()` takes the snapshot (and an optional time) and inserts it once. `PostInquiryStatusCard` posts the inquiry as it is. `InquiryCardResource` sends the project name and location, the announced snapshot and the current display status.
+- **Resources:** the Quote card sends `status` and `paymentStatus`, which is null until the client has approved the quotation (sales quoted). `InquiryDetailsResource` sends one flat `project`, `status`, `marketingStatus`, `salesStatus`, `paymentStatus` and `processStatus`, and `history`: every role status change (track, status, time), oldest first, without the four starting defaults and without who made it. `statusHistory` is no longer sent.
+
+### Seeders
+
+- **`InquirySeeder`** throws in production. It replays each inquiry's events against the flow before writing (a step out of order, payments that do not add up, or an inquiry not ending at the status its data says it shows stops it), then writes the inquiry, handlers, schedule, marketing and sales history, quotation files, the approval, the job order, payments with receipts, and logistics history, every file through `InquiryFileUploads`. One inquiry card per distinct snapshot goes into the client's Regray Team thread, each client's in time order.
+- **`data/inquiries.php`:** 21 inquiries. Every existing reference, client, handler and attachment is kept; the second projects of INQ-1048, INQ-1041 and INQ-1046 are now INQ-1049, INQ-1042 and INQ-1047, and INQ-1050 to INQ-1061 are new. Between them every display status and every payment status is shown. `inquiry_reference_seq` is set past the seeded references.
+- `E2EMessageSeeder` writes one card per display status with a matching snapshot. `ConversationSeeder` no longer writes inquiry cards.
+
+### Frontend
+
+- `lib/inquiry-statuses.ts` (new, import-free): the status types, a label map for every display, marketing, sales, payment and logistics value, and the badge treatment (solid for reached states, outline for open ones, secondary for stopped ones).
+- `components/inquiry-status-badge.tsx`: one `StatusBadge` read in its group (`inquiry`, `marketing`, `sales`, `payment`, `process`).
+- **Quote list:** each card shows the inquiry status, and the payment status beside it once the client has approved the quotation (sales quoted). The tabs are All, Pending, In progress, Closed, Cancelled (`QUOTE_STATUS_TABS` in `lib/quote-filters.ts`).
+- **Details page:** the Status card, the collapsing, "Project N" and the "N projects" line are gone. The header has the reference, the inquiry status badge and, once sales is quoted, the payment status badge, with no captions. The project's name heads its section. The side column is an **Activity Log**: every marketing, sales, payment and logistics change ("Sales · Site visited"), newest first, ending on "Inquiry sent".
+- **Thread card:** the sub-line is the project name and the status row is two badges, the announced display status and payment status. The project card is gone.
+- `data/inquiries.ts`, `types/quote.ts`, `types/message.ts`, `lib/thread-cards.ts` and `lib/message-grouping.ts` use the new shape.
+
+### Tests
+
+- `SchemaTest`: every value CHECK and unique index refuses a bad row, no CHECK ties statuses together, and each `messages` type rule still holds.
+- `InquiryStatusCalculatorTest`: every precedence case, and PHP and SQL agreeing on all 330 combinations. `InquiryFileUploadsTest`: quotations and job orders by sales only, receipts by accounting only.
+- `InquirySeedConsistencyTest`: display statuses, PHP and SQL alike; payments against the payment status; each history track; documents and their uploaders in flow order; one card per snapshot; the coverage list; and the production guards.
+- Existing tests, `tests/js` and the Playwright specs use the new statuses and the single project. `ProjectCardTest` is folded into `InquiryStatusCardTest`.
+
 # Inquiries broken down into projects: quotations, job orders and payments
 
 An inquiry's projects (`inquiry_projects`) now each have a status, quotations (one row per revision), job orders and a payment with its transactions. The inquiry's status is read from its projects'. The seeded demo inquiries carry realistic data for all of it, and a project card shows a project's snapshot in the thread. The rules that move statuses along are written down (`docs/database/regray-erd.md`, section 4) but not built: nothing changes a status by them yet. Run `php artisan migrate:fresh --seed`.

@@ -141,7 +141,6 @@ class ConversationResource extends JsonResource
         return match ($message->type) {
             MessageType::Text => $this->textPreview($message, $isOwnSupport),
             MessageType::InquiryCard => $this->inquiryPreview($message),
-            MessageType::ProjectCard => $this->projectPreview($message),
             MessageType::ScheduleCard => (self::SCHEDULE_HEADLINES[(string) $message->announced_status] ?? 'Appointment').' · '.($message->schedule->title ?? ''),
             MessageType::System => $this->systemPreview($message),
         };
@@ -160,14 +159,6 @@ class ConversationResource extends JsonResource
         }
 
         return "Inquiry {$reference} · ".Str::headline((string) $message->announced_status);
-    }
-
-    /** A project card's line: "Project Dining Floor · Ongoing". */
-    private function projectPreview(Message $message): string
-    {
-        $name = $message->inquiryProject->name ?? '';
-
-        return "Project {$name} · ".Str::headline((string) $message->announced_status);
     }
 
     private function textPreview(Message $message, bool $isOwnSupport): string

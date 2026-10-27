@@ -6,8 +6,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Every status an inquiry has been at, in order. `draft` is history only: the
- * first entry of every timeline, never an inquiry's current status.
+ * Every status an inquiry's roles have been at, in order, one track per role:
+ * `marketing`, `sales`, `payment` and `process`. Each inquiry's first entry is
+ * marketing pending, from nothing. Each other track begins, from nothing, when
+ * its stage starts: sales at negotiation when marketing is won, payment at
+ * awaiting and process at received when the client approves the quotation.
+ *
+ * The status CHECKs are the union of every role's values. Which values belong
+ * to which track is the app's rule, not the database's.
  */
 return new class extends Migration
 {
@@ -16,17 +22,21 @@ return new class extends Migration
         Schema::create('inquiry_status_history', function (Blueprint $table) {
             $table->id();
             $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
+            $table->string('track', 20);
             $table->string('from_status', 20)->nullable();
             $table->string('to_status', 20);
             $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('note', 500)->nullable();
             $table->timestampTz('changed_at');
 
-            $table->index(['inquiry_id', 'changed_at']);
+            $table->index(['inquiry_id', 'track', 'changed_at']);
         });
 
-        DB::statement("ALTER TABLE inquiry_status_history ADD CONSTRAINT chk_inquiry_status_history_to_status CHECK (to_status IN ('draft','pending','ongoing','closed','lost'))");
-        DB::statement("ALTER TABLE inquiry_status_history ADD CONSTRAINT chk_inquiry_status_history_from_status CHECK (from_status IS NULL OR from_status IN ('draft','pending','ongoing','closed','lost'))");
+        $statuses = "'pending','won','lost','negotiation','site_visited','on_hold','quoted','rejected','awaiting','partial','fully_paid','received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','delayed'";
+
+        DB::statement("ALTER TABLE inquiry_status_history ADD CONSTRAINT chk_inquiry_status_history_track CHECK (track IN ('marketing','sales','payment','process'))");
+        DB::statement("ALTER TABLE inquiry_status_history ADD CONSTRAINT chk_inquiry_status_history_to_status CHECK (to_status IN ({$statuses}))");
+        DB::statement("ALTER TABLE inquiry_status_history ADD CONSTRAINT chk_inquiry_status_history_from_status CHECK (from_status IS NULL OR from_status IN ({$statuses}))");
     }
 
     public function down(): void

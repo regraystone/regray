@@ -3,7 +3,6 @@
 use App\Actions\Inquiry\CreateInquiryAction;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
-use App\Models\InquiryProject;
 use App\Models\InquiryStatusHistory;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -25,13 +24,13 @@ class FailsOnSecondFileRepository extends EloquentInquiryRepository
 {
     private int $files = 0;
 
-    public function addFile(InquiryProject $project, array $attributes): InquiryFile
+    public function addFile(Inquiry $inquiry, array $attributes): InquiryFile
     {
         if (++$this->files === 2) {
             throw new RuntimeException('forced failure');
         }
 
-        return parent::addFile($project, $attributes);
+        return parent::addFile($inquiry, $attributes);
     }
 }
 
@@ -53,7 +52,7 @@ it('writes the inquiry', function (): void {
         ]],
     ];
 
-    $inquiry = app(CreateInquiryAction::class)->execute($client, $input);
+    [$inquiry] = app(CreateInquiryAction::class)->execute($client, $input);
 
     expect($inquiry->exists)->toBeTrue()
         ->and(InquiryFile::query()->count())->toBe(1);
@@ -86,7 +85,6 @@ it('leaves no rows and no files when a write fails after files are on disk', fun
         ->toThrow(RuntimeException::class, 'forced failure');
 
     expect(Inquiry::query()->count())->toBe(0)
-        ->and(InquiryProject::query()->count())->toBe(0)
         ->and(Schedule::query()->count())->toBe(0)
         ->and(InquiryFile::query()->count())->toBe(0)
         ->and(InquiryStatusHistory::query()->count())->toBe(0)

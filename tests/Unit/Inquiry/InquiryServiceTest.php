@@ -1,7 +1,10 @@
 <?php
 
 use App\Data\WrittenFiles;
+use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
+use App\Enums\MarketingStatus;
 use App\Models\InquiryStatusHistory;
 use App\Models\Service;
 use App\Services\InquiryService;
@@ -41,36 +44,43 @@ it('generates a reference from the sequence', function (): void {
         ->and((int) substr($second, 4))->toBe((int) substr($first, 4) + 1);
 });
 
-it('creates a pending inquiry with its status history', function (): void {
+it('creates an inquiry with only marketing started, at pending, and its one history row', function (): void {
     $client = inquiryClient();
 
-    $inquiry = app(InquiryService::class)->create($client, serviceInput(), new WrittenFiles);
+    [$inquiry] = app(InquiryService::class)->create($client, serviceInput(), new WrittenFiles);
 
     expect($inquiry->status)->toBe(InquiryStatus::Pending)
-        ->and($inquiry->status_changed_at)->not->toBeNull()
+        ->and($inquiry->name)->toBe('Counters')
+        ->and($inquiry->marketing_status)->toBe(MarketingStatus::Pending)
+        ->and($inquiry->sales_status)->toBeNull()
+        ->and($inquiry->payment_status)->toBeNull()
+        ->and($inquiry->process_status)->toBeNull()
+        ->and($inquiry->marketing_status_changed_at)->not->toBeNull()
+        ->and($inquiry->fresh()->sales_status_changed_at)->toBeNull()
         ->and($inquiry->reference)->toStartWith('INQ-');
 
-    $history = InquiryStatusHistory::query()->sole();
+    $history = InquiryStatusHistory::query()->orderBy('id')->get();
 
-    expect($history->inquiry_id)->toBe($inquiry->id)
-        ->and($history->from_status)->toBeNull()
-        ->and($history->to_status)->toBe(InquiryStatus::Pending)
-        ->and($history->changed_by)->toBe($client->id);
+    expect($history->map(fn (InquiryStatusHistory $row): array => [$row->track, $row->from_status, $row->to_status])->all())->toBe([
+        [InquiryStatusTrack::Marketing, null, 'pending'],
+    ])
+        ->and($history->pluck('inquiry_id')->unique()->all())->toBe([$inquiry->id])
+        ->and($history->pluck('changed_by')->unique()->all())->toBe([$client->id]);
 });
 
-it('stores files under the reference and project on the private disk and records them', function (): void {
+it('stores the client\'s files under the reference on the private disk and records them as client attachments', function (): void {
     $written = new WrittenFiles;
 
-    $inquiry = app(InquiryService::class)->create(
+    [$inquiry] = app(InquiryService::class)->create(
         inquiryClient(),
         serviceInput([UploadedFile::fake()->create('plan.pdf', 5, 'application/pdf')]),
         $written,
     );
 
-    $project = $inquiry->projects()->sole();
-
     expect($written->paths())->toHaveCount(1)
-        ->and($written->paths()[0])->toStartWith("inquiries/{$inquiry->reference}/{$project->id}/")
-        ->and($written->paths()[0])->toEndWith('.pdf');
+        ->and($written->paths()[0])->toStartWith("inquiries/{$inquiry->reference}/")
+        ->and($written->paths()[0])->toEndWith('.pdf')
+        ->and($inquiry->files()->sole()->document_type)->toBe(DocumentType::ClientAttachment)
+        ->and($inquiry->files()->sole()->revision)->toBeNull();
     Storage::disk(config('inquiry.disk'))->assertExists($written->paths()[0]);
 });

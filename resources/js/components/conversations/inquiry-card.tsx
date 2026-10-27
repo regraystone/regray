@@ -1,14 +1,11 @@
 import { Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
 import CardHeader from '@/components/conversations/card-header';
-import { StatusBadge, STATUS_LABELS } from '@/components/inquiry-status-badge';
+import { StatusBadge } from '@/components/inquiry-status-badge';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
-import {
-    inquiryHeadline,
-    projectCountText,
-    serviceCountText,
-} from '@/lib/thread-cards';
+import { statusLabel } from '@/lib/inquiry-statuses';
+import { inquiryHeadline } from '@/lib/thread-cards';
 import { show as inquiryShow } from '@/routes/inquiry';
 import { show as quoteShow } from '@/routes/quote';
 import type { InquiryCard as InquiryCardData } from '@/types/message';
@@ -24,11 +21,12 @@ const HERO_COLUMNS = ['grid-cols-1', 'grid-cols-2'] as const;
  *
  * One size whatever it holds: `max-w-sm` wide at every breakpoint, a `h-32`
  * strip with or without pictures, and every line on one line — the heading,
- * the sub-line and the status row all truncate rather than wrap — so a thread
- * of cards reads as a column of identical tiles.
+ * the sub-line (the project the inquiry is) and the status row all truncate
+ * rather than wrap — so a thread of cards reads as a column of identical tiles.
  *
- * The headline and the badge are the status the card was posted for, not
- * whatever the inquiry is now: a card is a record of a change.
+ * The headline and the badges, the inquiry status and then the payment status
+ * (once accounting's stage had started), are the snapshot the card was posted
+ * for, not whatever the inquiry is now: a card is a record of a change.
  *
  * TODO(staff-inquiry-scope): the details page only finds inquiries the viewer
  * owns (InquiryDetailsService::forClient), so for staff this
@@ -51,7 +49,11 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
 
             <Link
                 href={detailsHref}
-                aria-label={`${headline}: inquiry ${card.reference}, ${projectCountText(card.projectCount)}, ${STATUS_LABELS[card.announcedStatus]}. View details`}
+                aria-label={`${headline}: inquiry ${card.reference}, ${card.name}, ${statusLabel('inquiry', card.announcedStatus)}${
+                    card.announcedPaymentStatus === null
+                        ? ''
+                        : `, ${statusLabel('payment', card.announcedPaymentStatus)}`
+                }. View details`}
                 className="block w-full overflow-hidden rounded-md bg-secondary text-left transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
             >
                 <span className="relative block h-32 bg-sidebar-border">
@@ -95,7 +97,7 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
                             className="block truncate text-xs text-background/80"
                             data-testid="inquiry-card-subline"
                         >
-                            {projectCountText(card.projectCount)}
+                            {card.name}
                         </span>
                     </span>
                 </span>
@@ -106,12 +108,20 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
                         data-testid="inquiry-card-status"
                     >
                         <span className="shrink-0">
-                            <StatusBadge status={card.announcedStatus} />
+                            <StatusBadge
+                                group="inquiry"
+                                status={card.announcedStatus}
+                            />
                         </span>
-                        <span aria-hidden>·</span>
-                        <span className="truncate">
-                            {serviceCountText(card.serviceCount)}
-                        </span>
+                        {/* Only once accounting's stage had started. */}
+                        {card.announcedPaymentStatus === null ? null : (
+                            <span className="min-w-0 truncate">
+                                <StatusBadge
+                                    group="payment"
+                                    status={card.announcedPaymentStatus}
+                                />
+                            </span>
+                        )}
                     </span>
 
                     <span className="inline-flex shrink-0 items-center gap-1">

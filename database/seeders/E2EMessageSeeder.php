@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use App\Enums\BookedByType;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
-use App\Enums\InquiryProjectStatus;
 use App\Enums\InquiryStatus;
+use App\Enums\MarketingStatus;
 use App\Enums\MessageType;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
@@ -153,23 +153,24 @@ class E2EMessageSeeder extends Seeder
     }
 
     /**
-     * A group holding an inquiry card for every status, one with a 100-character
-     * project name, and a visit card for every status and booking type.
+     * A group holding an inquiry card for every display status, one with a
+     * 100-character project name, and a visit card for every status and
+     * booking type.
      */
     private function seedCards(User $client, User $sales, User $marketingA): void
     {
         $group = $this->group('E2E Cards', [$sales, $marketingA, $client]);
 
-        $inquiry = $this->inquiry($client, 'INQ-E2E-CARDS', InquiryStatus::Pending, ['Kitchen island', 'Guest bathroom']);
+        $inquiry = $this->inquiry($client, 'INQ-E2E-CARDS', 'Kitchen island');
 
         foreach (InquiryStatus::cases() as $status) {
-            $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $inquiry->id, 'announced_status' => $status->value]);
+            $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $inquiry->id, ...$this->snapshot($status)]);
         }
 
         $longName = str_repeat('Long project name ', 6);
         $longName = substr($longName, 0, 100);
-        $long = $this->inquiry($client, 'INQ-E2E-LONG', InquiryStatus::Ongoing, [$longName]);
-        $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $long->id, 'announced_status' => 'ongoing']);
+        $long = $this->inquiry($client, 'INQ-E2E-LONG', $longName);
+        $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $long->id, ...$this->snapshot(InquiryStatus::Production)]);
 
         $schedules = [];
 
@@ -180,7 +181,7 @@ class E2EMessageSeeder extends Seeder
                     'client_id' => $client->id,
                     'booked_by' => $type === BookedByType::Staff ? $sales->id : $client->id,
                     'booked_by_type' => $type,
-                    'inquiry_id' => $inquiry->id,
+                    'inquiry_id' => null,
                     'title' => "Visit {$status->value} by {$type->value}",
                     'arrival_at' => Carbon::now()->addDays(5)->setTime(10, 30),
                     'status' => $status,
@@ -206,8 +207,8 @@ class E2EMessageSeeder extends Seeder
         $this->fixtures['cards'] = [
             'conversationId' => $group->id,
             'reference' => $inquiry->reference,
-            'firstProject' => 'Kitchen island',
-            'projectCount' => 2,
+            'projectName' => 'Kitchen island',
+            'statusCount' => count(InquiryStatus::cases()),
             'longReference' => $long->reference,
             'longProject' => $longName,
             'longScheduleTitle' => $longTitle,
@@ -252,13 +253,13 @@ class E2EMessageSeeder extends Seeder
     private function seedBoundInquiries(User $client, User $sales): void
     {
         foreach (['shown' => 'INQ-E2E-B1', 'cancel' => 'INQ-E2E-B2', 'queue' => 'INQ-E2E-B3'] as $key => $reference) {
-            $inquiry = $this->inquiry($client, $reference, InquiryStatus::Pending, ["Bound project {$key}"]);
+            $inquiry = $this->inquiry($client, $reference, "Bound project {$key}");
             $group = $this->group("E2E Bound {$key}", [$sales, $client], ['inquiry_id' => $inquiry->id]);
 
             $this->fixtures['bound'][$key] = ['reference' => $reference, 'conversationId' => $group->id, 'name' => $group->name];
         }
 
-        $free = $this->inquiry($client, 'INQ-E2E-F1', InquiryStatus::Pending, ['Unbound project']);
+        $free = $this->inquiry($client, 'INQ-E2E-F1', 'Unbound project');
         $this->fixtures['bound']['free'] = ['reference' => $free->reference];
     }
 
@@ -313,38 +314,54 @@ class E2EMessageSeeder extends Seeder
         ]);
     }
 
-    /** @param  list<string>  $projectNames */
-    private function inquiry(User $client, string $reference, InquiryStatus $status, array $projectNames): Inquiry
+    /** A pending inquiry: one project, only marketing's stage started. */
+    private function inquiry(User $client, string $reference, string $projectName): Inquiry
     {
         $inquiry = new Inquiry;
         $inquiry->forceFill([
             'reference' => $reference,
             'client_id' => $client->id,
-            'status' => $status,
-            'status_changed_at' => Carbon::now(),
+            'name' => $projectName,
+            'location' => 'Makati',
+            'marketing_status' => MarketingStatus::Pending,
+            'marketing_status_changed_at' => Carbon::now(),
         ])->save();
 
-        $stone = Stone::query()->orderBy('id')->firstOrFail();
-        $service = Service::query()->where('slug', 'natural-stone-supply')->value('id');
-
-        foreach ($projectNames as $position => $name) {
-            $project = $inquiry->projects()->create([
-                'name' => $name,
-                'sort_order' => $position,
-                'location' => 'Makati',
-                'status' => InquiryProjectStatus::Pending,
-                'status_changed_at' => Carbon::now(),
-            ]);
-            $project->services()->attach($service);
-            $project->stones()->create([
-                'stone_id' => $stone->id,
-                'edge_profile_id' => EdgeProfile::query()->value('id'),
-                'finish_id' => Finish::query()->value('id'),
-                'quantity' => 1,
-                'sort_order' => 0,
-            ]);
-        }
+        $inquiry->services()->attach(Service::query()->where('slug', 'natural-stone-supply')->value('id'));
+        $inquiry->stones()->create([
+            'stone_id' => Stone::query()->orderBy('id')->value('id'),
+            'edge_profile_id' => EdgeProfile::query()->value('id'),
+            'finish_id' => Finish::query()->value('id'),
+            'quantity' => 1,
+            'sort_order' => 0,
+        ]);
 
         return $inquiry;
+    }
+
+    /**
+     * An inquiry card's snapshot that shows `$status`: role statuses an inquiry
+     * could have while shown at it, NULL for a stage not started yet.
+     *
+     * @return array<string, string|null>
+     */
+    private function snapshot(InquiryStatus $status): array
+    {
+        [$marketing, $sales, $payment, $process] = match ($status) {
+            InquiryStatus::Pending => ['pending', null, null, null],
+            InquiryStatus::Cancelled => ['won', 'rejected', null, null],
+            InquiryStatus::Closed => ['won', 'quoted', 'fully_paid', 'completed'],
+            InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => ['won', $status->value, null, null],
+            InquiryStatus::Quoted => ['won', 'quoted', 'awaiting', 'received'],
+            default => ['won', 'quoted', 'awaiting', $status->value],
+        };
+
+        return [
+            'announced_status' => $status->value,
+            'announced_marketing_status' => $marketing,
+            'announced_sales_status' => $sales,
+            'announced_payment_status' => $payment,
+            'announced_process_status' => $process,
+        ];
     }
 }

@@ -1,15 +1,26 @@
 /*
- * The words on the inquiry, project and schedule cards in a thread. Pure, with
- * no imports, for tests/js.
+ * The words on the inquiry and schedule cards in a thread. Pure, with no
+ * imports, for tests/js.
  */
 
+/** The display statuses an inquiry card can announce. */
 export type CardInquiryStatus =
-    | 'draft'
     | 'pending'
+    | 'cancelled'
+    | 'closed'
+    | 'negotiation'
+    | 'site_visited'
+    | 'on_hold'
     | 'quoted'
-    | 'paid'
-    | 'completed'
-    | 'cancelled';
+    | 'received'
+    | 'measure'
+    | 'sourcing'
+    | 'production'
+    | 'quality_check'
+    | 'ready'
+    | 'dispatched'
+    | 'installation'
+    | 'delayed';
 
 export type CardScheduleStatus =
     | 'pending'
@@ -19,84 +30,32 @@ export type CardScheduleStatus =
 
 export type CardBookedByType = 'client' | 'staff';
 
-export type CardProjectStatus = 'pending' | 'ongoing' | 'closed' | 'cancelled';
-
-export type CardQuotationStatus =
-    | 'pending'
-    | 'closed'
-    | 'revision'
-    | 'closeable'
-    | 'rejected';
-
-export type CardPaymentStatus =
-    | 'awaiting'
-    | 'partial'
-    | 'fully_paid'
-    | 'refunded';
-
-/** The headline an inquiry card announces, from the status it was posted for. */
+/**
+ * The headline an inquiry card announces, from the display status it was
+ * posted for. The payment status it was posted for is the card's second badge.
+ */
 export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
-    draft: 'Project drafted',
     // A pending card is the one a newly sent inquiry posts.
     pending: 'New Inquiry',
-    quoted: 'Inquiry quoted',
-    paid: 'Inquiry paid',
-    completed: 'Inquiry completed',
     cancelled: 'Inquiry cancelled',
+    closed: 'Inquiry closed',
+    negotiation: 'In negotiation',
+    site_visited: 'Site visited',
+    on_hold: 'Inquiry on hold',
+    quoted: 'Quotation approved',
+    received: 'Job order received',
+    measure: 'Measuring',
+    sourcing: 'Sourcing stone',
+    production: 'In production',
+    quality_check: 'Quality check',
+    ready: 'Ready to dispatch',
+    dispatched: 'Dispatched',
+    installation: 'Installing',
+    delayed: 'Inquiry delayed',
 };
 
 export const inquiryHeadline = (status: CardInquiryStatus): string =>
     INQUIRY_HEADLINES[status];
-
-/** What each project status is called on a project card's badge. */
-export const PROJECT_STATUS_LABELS: Record<CardProjectStatus, string> = {
-    pending: 'Pending',
-    ongoing: 'Ongoing',
-    closed: 'Closed',
-    cancelled: 'Cancelled',
-};
-
-/**
- * The headline a project card announces, from the project status it was
- * posted for: "Project ongoing". The quotation and payment it was posted for
- * are on the card's status line.
- */
-export const projectHeadline = (status: CardProjectStatus): string =>
-    `Project ${PROJECT_STATUS_LABELS[status].toLowerCase()}`;
-
-const QUOTATION_STATUS_LABELS: Record<CardQuotationStatus, string> = {
-    pending: 'pending',
-    closed: 'closed',
-    revision: 'in revision',
-    closeable: 'closeable',
-    rejected: 'rejected',
-};
-
-const PAYMENT_STATUS_LABELS: Record<CardPaymentStatus, string> = {
-    awaiting: 'awaiting',
-    partial: 'partial',
-    fully_paid: 'fully paid',
-    refunded: 'refunded',
-};
-
-/** "Quotation closeable" */
-export const quotationStatusText = (status: CardQuotationStatus): string =>
-    `Quotation ${QUOTATION_STATUS_LABELS[status]}`;
-
-/** "Payment fully paid" */
-export const paymentStatusText = (status: CardPaymentStatus): string =>
-    `Payment ${PAYMENT_STATUS_LABELS[status]}`;
-
-const plural = (count: number, one: string, many: string): string =>
-    `${count} ${count === 1 ? one : many}`;
-
-/** "1 project", "2 projects" */
-export const projectCountText = (count: number): string =>
-    plural(count, 'project', 'projects');
-
-/** "1 service", "3 services", "0 services" */
-export const serviceCountText = (count: number): string =>
-    plural(count, 'service', 'services');
 
 const SCHEDULE_HEADLINES: Record<
     CardScheduleStatus,

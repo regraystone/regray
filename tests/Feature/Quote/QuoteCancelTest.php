@@ -1,9 +1,13 @@
 <?php
 
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
+use App\Enums\MarketingStatus;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStatusHistory;
+use App\Policies\InquiryActions;
 use Illuminate\Support\Facades\DB;
 use Inertia\Support\SessionKey;
 
@@ -12,7 +16,7 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('cancels a pending or ongoing inquiry and writes the history', function (InquiryStatus $from): void {
+it('cancels a started sales stage as rejected and the sales history says so', function (InquiryStatus $from): void {
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C1', 'status' => $from]);
 
     $this->actingAs($this->client)
@@ -23,15 +27,51 @@ it('cancels a pending or ongoing inquiry and writes the history', function (Inqu
     $inquiry->refresh();
     $history = InquiryStatusHistory::query()->sole();
 
-    expect($inquiry->status)->toBe(InquiryStatus::Lost)
+    expect($inquiry->status)->toBe(InquiryStatus::Cancelled)
+        ->and($inquiry->sales_status)->toBe(SalesStatus::Rejected)
         ->and($history->inquiry_id)->toBe($inquiry->id)
-        ->and($history->from_status)->toBe($from)
-        ->and($history->to_status)->toBe(InquiryStatus::Lost)
+        ->and($history->track)->toBe(InquiryStatusTrack::Sales)
+        ->and($history->from_status)->toBe(roleStatusesShowing($from)['sales_status']->value)
+        ->and($history->to_status)->toBe(SalesStatus::Rejected->value)
         ->and($history->changed_by)->toBe($this->client->id);
 })->with([
-    'pending' => [InquiryStatus::Pending],
-    'ongoing' => [InquiryStatus::Ongoing],
+    'negotiation' => [InquiryStatus::Negotiation],
+    'site visited' => [InquiryStatus::SiteVisited],
+    'sales on hold' => [InquiryStatus::OnHold],
 ]);
+
+it('refuses the client once they have approved the quotation: only sales can cancel then, by rejecting', function (InquiryStatus $status): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C8', 'status' => $status]);
+
+    $this->actingAs($this->client)
+        ->patchJson(route('quote.cancel', 'INQ-C8'))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['status' => InquiryActions::CANCEL_LOCKED_WHEN_QUOTED]);
+
+    expect($inquiry->refresh()->status)->toBe($status)
+        ->and($inquiry->sales_status)->toBe(SalesStatus::Quoted)
+        ->and(InquiryStatusHistory::query()->count())->toBe(0);
+})->with([
+    'quoted' => [InquiryStatus::Quoted],
+    'production' => [InquiryStatus::Production],
+    'delayed' => [InquiryStatus::Delayed],
+]);
+
+it('cancels an inquiry whose sales stage has not started as lost by marketing, leaving sales unset', function (): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C7']);
+
+    $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-C7'))->assertRedirect();
+
+    $inquiry->refresh();
+    $history = InquiryStatusHistory::query()->sole();
+
+    expect($inquiry->status)->toBe(InquiryStatus::Cancelled)
+        ->and($inquiry->marketing_status)->toBe(MarketingStatus::Lost)
+        ->and($inquiry->sales_status)->toBeNull()
+        ->and($history->track)->toBe(InquiryStatusTrack::Marketing)
+        ->and($history->from_status)->toBe(MarketingStatus::Pending->value)
+        ->and($history->to_status)->toBe(MarketingStatus::Lost->value);
+});
 
 it('refuses an inquiry that is no longer open', function (InquiryStatus $status): void {
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C2', 'status' => $status]);
@@ -45,7 +85,7 @@ it('refuses an inquiry that is no longer open', function (InquiryStatus $status)
         ->and(InquiryStatusHistory::query()->count())->toBe(0);
 })->with([
     'closed' => [InquiryStatus::Closed],
-    'lost' => [InquiryStatus::Lost],
+    'cancelled' => [InquiryStatus::Cancelled],
 ]);
 
 it('gives another client a 404 and changes nothing', function (): void {
@@ -69,7 +109,7 @@ it('writes one history row when cancelled twice', function (): void {
     $this->actingAs($this->client)->patchJson(route('quote.cancel', 'INQ-C4'))->assertUnprocessable();
 
     expect(InquiryStatusHistory::query()->count())->toBe(1)
-        ->and(Inquiry::query()->where('reference', 'INQ-C4')->value('status'))->toBe(InquiryStatus::Lost);
+        ->and(Inquiry::query()->where('reference', 'INQ-C4')->sole()->status)->toBe(InquiryStatus::Cancelled);
 });
 
 it('takes the row lock before reading the status', function (): void {

@@ -2,7 +2,7 @@
 
 namespace App\Data;
 
-use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusGroup;
 
 final readonly class InquiryListFilters
 {
@@ -12,7 +12,8 @@ final readonly class InquiryListFilters
 
     public function __construct(
         public ?string $search = null,
-        public ?InquiryStatus $status = null,
+        /** The Quote list tab; null is all of them. */
+        public ?InquiryStatusGroup $status = null,
         public string $sort = self::SORT_NEWEST,
         public int $page = 1,
     ) {}

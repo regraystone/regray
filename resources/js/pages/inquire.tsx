@@ -399,10 +399,11 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
     const inquireStoreUrl = useInquireStoreUrl();
 
     const [isLoading, setIsLoading] = useState(true);
-    /** An edit opens on Review, where the reader picks the project to change. */
-    const [step, setStep] = useState(
-        edit === null ? SERVICES_STEP : REVIEW_STEP,
-    );
+    /**
+     * Both start on the first step. An edit opens the inquiry's one project
+     * there as soon as it is loaded (see the effect after `openProject`).
+     */
+    const [step, setStep] = useState<number>(SERVICES_STEP);
     const [filter, setFilter] = useState<StoneFilter>('latest');
     const [search, setSearch] = useState('');
     const [applicationSearch, setApplicationSearch] = useState('');
@@ -792,7 +793,8 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
     };
 
     /**
-     * One committed project, reopened in the requirements step.
+     * One committed project, reopened in the requirements step, or at
+     * `startAt` when an edit opens it from the beginning.
      *
      * The stones come back both as the step 2 picks and as their specifications,
      * because those are two views of one answer: the reader can walk back to the
@@ -813,7 +815,7 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
      * what is there and this project's own service not being in it is exactly
      * what "this project is the service" means.
      */
-    const openProject = (id: string) => {
+    const openProject = (id: string, startAt: number = REQUIREMENTS_STEP) => {
         const project = getValues('projects').find((entry) => entry.id === id);
 
         if (project === undefined) {
@@ -848,8 +850,31 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
         });
         hasDraftContinued.current = false;
         setEditingProjectId(id);
-        setStep(REQUIREMENTS_STEP);
+        setStep(startAt);
     };
+
+    /*
+     * An inquiry is one project, so an edit skips Review and opens that project
+     * at the first step, with every answer already filled in. It runs once, after
+     * the restore effect above has put the stored inquiry into the form, and
+     * before the skeleton comes down. Review is still where the change is saved.
+     */
+    const hasOpenedEditRef = useRef(false);
+
+    useEffect(() => {
+        if (edit === null || hasOpenedEditRef.current) {
+            return;
+        }
+
+        const [project] = getValues('projects');
+
+        if (project === undefined) {
+            return;
+        }
+
+        hasOpenedEditRef.current = true;
+        openProject(project.id, SERVICES_STEP);
+    });
 
     /**
      * Name the draft after the service at the head of the queue, so the

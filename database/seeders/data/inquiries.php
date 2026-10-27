@@ -1,466 +1,721 @@
 <?php
 
 /**
- * stone_slug is a legacy category reference; InquirySeeder resolves its first individual stone.
+ * The demo clients' inquiries. One inquiry is one project.
  *
- * Every project has a deadline date and time (Manila): InquirySeeder books each
- * one as the project's schedule, the way sending an inquiry does.
+ * stone_slug is a legacy category reference; InquirySeeder resolves its first
+ * individual stone. Every project has a deadline date and time (Manila):
+ * InquirySeeder books it as the inquiry's schedule, the way sending an
+ * inquiry does.
  *
- * Each project also carries what happened to it, in UTC:
- * - `status` and `status_changed_at`: where the project is now, and since when;
- * - `quotations`: one row per revision, the last one live;
- * - `payment`: what was paid against the live quotation, as transactions. The
- *   amount due is the quotation's total and the amount paid is the sum of the
- *   `payment` transactions, so neither is written here;
- * - `job_orders`: the work done against the live quotation;
- * - `cards`: every snapshot (project, quotation, payment status) a project
- *   card announced, in the order it happened.
+ * `events` is what happened to the inquiry after it was sent, oldest first, in
+ * UTC. Each event has an `at`, a `by` (the short keys InquirySeeder maps to
+ * users) and one of:
+ * - `marketing`, `sales` or `process`: that role status moves to this value
+ *   (`sales => quoted` is the client approving the quotation);
+ * - `quote`: sales issues a quotation for this total (quotation file, the next
+ *   quote_revision and quoted_total). Sales stays where it is;
+ * - `job_order`: sales uploads the job order file;
+ * - `payment`: accounting records a payment of this amount with its
+ *   `reference`, uploads its receipt and sets `payment_status`.
  *
- * Staff and clients are named by the short keys InquirySeeder maps to users.
- * The statuses follow the rules in docs/database/regray-erd.md section 4, and
- * tests/Feature/Database/InquirySeedConsistencyTest.php checks that they do.
+ * Every inquiry starts with marketing pending, sales negotiation, payment
+ * awaiting and logistics received. `shows` is the status the inquiry ends up
+ * shown at; InquirySeeder checks it, and every step, against the flow in
+ * docs/database/regray-erd.md, and tests/Feature/Database/InquirySeedConsistencyTest.php
+ * checks the result.
  */
 return [
     'inquiries' => [
         [
-            'id' => 'inq-1048',
-            'reference' => 'INQ-1048',
-            'status' => 'ongoing',
-            'created_at' => '2026-09-27T03:40:00Z',
-            'updated_at' => '2026-10-24T08:00:00Z',
-            'client_id' => 'cl-rafael',
-            'handlers' => ['daniel', 'maria'],
-            'projects' => [
-                [
-                    'id' => 'prj-1048-1',
-                    'name' => 'Northgate Cafe — Counters and Flooring',
-                    'categories' => ['countertops-backsplash'],
-                    'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
-                    'stones' => [
-                        ['stone_slug' => 'quartzite', 'quantity' => 7, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
-                        ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
-                        ['stone_slug' => 'granite', 'quantity' => 4, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
-                        ['stone_slug' => 'crazy-cut', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
-                    ],
-                    'location' => 'Makati',
-                    'landmark' => 'Second floor, beside the mezzanine staircase',
-                    'area_sqm' => 18.5,
-                    'deadline_date' => '2026-11-14',
-                    'deadline_time' => '10:00',
-                    'notes' => "The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.",
-                    'attachments' => [
-                        ['name' => 'northgate-bar-layout.pdf', 'size_bytes' => 1284096, 'mime_type' => 'application/pdf'],
-                        ['name' => 'exposed-concrete-photo.png', 'size_bytes' => 486400, 'mime_type' => 'image/png'],
-                    ],
-                    // Quoted and waiting on the client: still pending.
-                    'status' => 'pending',
-                    'status_changed_at' => '2026-09-27T03:40:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'pending', 'total_amount' => '486500.00', 'issued_at' => '2026-10-02T03:00:00Z', 'responded_at' => null, 'created_by' => 'daniel'],
-                    ],
-                    'payment' => null,
-                    'job_orders' => [],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-10-02T03:00:00Z'],
-                    ],
-                ],
-                [
-                    'id' => 'prj-1048-2',
-                    'name' => 'Northgate Cafe — Dining Floor',
-                    'categories' => ['dining-tables'],
-                    'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
-                    'stones' => [
-                        ['stone_slug' => 'quartzite', 'quantity' => 9, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
-                    ],
-                    'location' => 'Makati',
-                    'landmark' => 'Ground floor, under the window wall',
-                    'area_sqm' => 26,
-                    'deadline_date' => '2026-10-24',
-                    'deadline_time' => '14:00',
-                    'notes' => "Wanted square to the window wall so the joints run with it.\nPlease do the floor before the counters are set.",
-                    'attachments' => [],
-                    // Quoted, accepted, paid in two parts and installed: closed.
-                    'status' => 'closed',
-                    'status_changed_at' => '2026-10-24T08:00:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'closed', 'total_amount' => '312000.00', 'issued_at' => '2026-09-29T02:00:00Z', 'responded_at' => '2026-09-30T05:30:00Z', 'updated_at' => '2026-10-24T08:00:00Z', 'created_by' => 'maria'],
-                    ],
-                    'payment' => [
-                        'status' => 'fully_paid',
-                        'created_at' => '2026-09-30T05:30:00Z',
-                        'status_changed_at' => '2026-10-20T06:00:00Z',
-                        'transactions' => [
-                            ['kind' => 'payment', 'amount' => '156000.00', 'reference' => 'BDO-1001-4471', 'received_at' => '2026-10-01T02:00:00Z', 'recorded_by' => 'maria'],
-                            ['kind' => 'payment', 'amount' => '156000.00', 'reference' => 'BDO-1020-5183', 'received_at' => '2026-10-20T06:00:00Z', 'recorded_by' => 'maria'],
-                        ],
-                    ],
-                    'job_orders' => [
-                        ['reference' => 'JO-2039', 'status' => 'completed', 'created_at' => '2026-09-30T08:00:00Z', 'status_changed_at' => '2026-10-24T08:00:00Z', 'notes' => 'Cut as one run so the veining follows across the floor, then installed under the window wall.'],
-                    ],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-09-29T02:00:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'awaiting', 'at' => '2026-09-30T05:30:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'partial', 'at' => '2026-10-01T02:00:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'fully_paid', 'at' => '2026-10-20T06:00:00Z'],
-                        ['project' => 'closed', 'quotation' => 'closed', 'payment' => 'fully_paid', 'at' => '2026-10-24T08:00:00Z'],
-                    ],
-                ],
-            ],
-            'status_history' => [
-                ['from_status' => null, 'to_status' => 'draft', 'at' => '2026-09-27T03:40:00Z', 'changed_by' => 'cl-rafael'],
-                ['from_status' => 'draft', 'to_status' => 'pending', 'at' => '2026-09-28T06:15:00Z', 'changed_by' => 'maria'],
-                ['from_status' => 'pending', 'to_status' => 'ongoing', 'at' => '2026-09-30T05:30:00Z', 'changed_by' => 'maria'],
-            ],
-        ],
-        [
-            'id' => 'inq-1044',
-            'reference' => 'INQ-1044',
-            'status' => 'ongoing',
-            'created_at' => '2026-09-15T04:50:00Z',
-            'updated_at' => '2026-09-24T07:15:00Z',
-            'client_id' => 'cl-nadine',
-            'handlers' => ['maria'],
-            'projects' => [
-                [
-                    'id' => 'prj-1044-1',
-                    'name' => 'Garden Court — Vanity Tops',
-                    'categories' => ['lavatories'],
-                    'services' => ['Design & Project Consultation'],
-                    'stones' => [
-                        ['stone_slug' => 'travertine', 'quantity' => 8, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
-                        ['stone_slug' => 'marble', 'quantity' => 5, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
-                    ],
-                    'location' => 'San Juan',
-                    'landmark' => 'Ground floor, beside the garden court entrance',
-                    'area_sqm' => 9.75,
-                    'deadline_date' => '2026-10-30',
-                    'deadline_time' => '09:00',
-                    'notes' => null,
-                    'attachments' => [],
-                    // The client asked for changes, so revision 2 replaced revision 1.
-                    'status' => 'ongoing',
-                    'status_changed_at' => '2026-09-24T07:15:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'revision', 'total_amount' => '148200.00', 'issued_at' => '2026-09-19T09:30:00Z', 'responded_at' => '2026-09-22T03:00:00Z', 'updated_at' => '2026-09-24T07:15:00Z', 'created_by' => 'maria'],
-                        ['revision_no' => 2, 'status' => 'pending', 'total_amount' => '151750.00', 'issued_at' => '2026-09-24T07:15:00Z', 'responded_at' => null, 'created_by' => 'maria'],
-                    ],
-                    'payment' => null,
-                    'job_orders' => [],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-09-19T09:30:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-09-24T07:15:00Z'],
-                    ],
-                ],
-            ],
-            'status_history' => [
-                ['from_status' => null, 'to_status' => 'draft', 'at' => '2026-09-15T04:50:00Z', 'changed_by' => 'cl-nadine'],
-                ['from_status' => 'draft', 'to_status' => 'pending', 'at' => '2026-09-16T01:05:00Z', 'changed_by' => 'maria'],
-                ['from_status' => 'pending', 'to_status' => 'ongoing', 'at' => '2026-09-24T07:15:00Z', 'changed_by' => 'maria'],
-            ],
-        ],
-        [
-            'id' => 'inq-1043',
-            'reference' => 'INQ-1043',
-            'status' => 'ongoing',
-            'created_at' => '2026-09-11T08:25:00Z',
-            'updated_at' => '2026-09-24T05:00:00Z',
-            'client_id' => 'cl-ivan',
-            'handlers' => ['priya'],
-            'projects' => [
-                [
-                    'id' => 'prj-1043-1',
-                    'name' => 'Hillcrest Showroom — Display Units',
-                    'categories' => ['center-side-tables'],
-                    'services' => ['Custom Stone Furniture', 'Custom Stone Fabrication', 'Natural Stone Installation'],
-                    'stones' => [
-                        ['stone_slug' => 'granite', 'quantity' => 5, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
-                        ['stone_slug' => 'monumental', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
-                    ],
-                    'location' => 'San Juan',
-                    'landmark' => null,
-                    'area_sqm' => 12,
-                    'deadline_date' => '2026-09-26',
-                    'deadline_time' => '13:00',
-                    'notes' => null,
-                    'attachments' => [
-                        ['name' => 'hillcrest-display-units.png', 'size_bytes' => 655360, 'mime_type' => 'image/png'],
-                    ],
-                    // Accepted with a deposit paid: one job order is ready to install, the other is on hold.
-                    'status' => 'ongoing',
-                    'status_changed_at' => '2026-09-13T04:20:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'closeable', 'total_amount' => '268400.00', 'issued_at' => '2026-09-12T10:45:00Z', 'responded_at' => '2026-09-13T04:20:00Z', 'created_by' => 'priya'],
-                    ],
-                    'payment' => [
-                        'status' => 'partial',
-                        'created_at' => '2026-09-13T04:20:00Z',
-                        'status_changed_at' => '2026-09-14T07:40:00Z',
-                        'transactions' => [
-                            ['kind' => 'payment', 'amount' => '134200.00', 'reference' => 'GCASH-0914-2208', 'received_at' => '2026-09-14T07:40:00Z', 'recorded_by' => 'priya'],
-                        ],
-                    ],
-                    'job_orders' => [
-                        ['reference' => 'JO-2036', 'status' => 'for_install', 'created_at' => '2026-09-14T09:00:00Z', 'status_changed_at' => '2026-09-24T05:00:00Z', 'notes' => 'Granite plinths fabricated; waiting for the showroom to clear the floor.'],
-                        ['reference' => 'JO-2037', 'status' => 'on_hold', 'created_at' => '2026-09-14T09:05:00Z', 'status_changed_at' => '2026-09-18T03:30:00Z', 'notes' => 'Monumental pedestals on hold for a replacement block: the first one cracked at the saw.'],
-                    ],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-09-12T10:45:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'awaiting', 'at' => '2026-09-13T04:20:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'partial', 'at' => '2026-09-14T07:40:00Z'],
-                    ],
-                ],
-            ],
-            'status_history' => [
-                ['from_status' => null, 'to_status' => 'draft', 'at' => '2026-09-11T08:25:00Z', 'changed_by' => 'cl-ivan'],
-                ['from_status' => 'draft', 'to_status' => 'pending', 'at' => '2026-09-12T02:10:00Z', 'changed_by' => 'priya'],
-                ['from_status' => 'pending', 'to_status' => 'ongoing', 'at' => '2026-09-13T04:20:00Z', 'changed_by' => 'priya'],
-            ],
-        ],
-        [
-            'id' => 'inq-1041',
-            'reference' => 'INQ-1041',
-            'status' => 'closed',
-            'created_at' => '2026-08-28T05:45:00Z',
-            'updated_at' => '2026-09-08T04:15:00Z',
-            'client_id' => 'cl-haruki',
-            'handlers' => ['daniel', 'sofia'],
-            'projects' => [
-                [
-                    'id' => 'prj-1041-1',
-                    'name' => 'The Grove — Outdoor Kitchen and Deck',
-                    'categories' => ['kitchen-islands'],
-                    'services' => ['Natural Stone Supply', 'Custom Stone Fabrication', 'Natural Stone Installation'],
-                    'stones' => [
-                        ['stone_slug' => 'quartzite', 'quantity' => 12, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
-                        ['stone_slug' => 'granite', 'quantity' => 6, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
-                        ['stone_slug' => 'marble', 'quantity' => 4, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
-                    ],
-                    'location' => 'Muntinlupa',
-                    'landmark' => 'Under the tree, at the far end of the deck',
-                    'area_sqm' => 11.5,
-                    'deadline_date' => '2026-09-05',
-                    'deadline_time' => '10:00',
-                    'notes' => "The counter runs along the pool deck, so it is in full sun for the afternoon and under the tree for the morning.\n\nThe grill sits at the left-hand end, so we would cut a recess for it rather than run the top past it.\n\nIf that is already decided, please say so here so the workshop is not asked to move the cut once it has started.",
-                    'attachments' => [
-                        ['name' => 'grove-outdoor-kitchen-plan.pdf', 'size_bytes' => 2411724, 'mime_type' => 'application/pdf'],
-                        ['name' => 'grove-bar-reference.jpg', 'size_bytes' => 921600, 'mime_type' => 'image/jpeg'],
-                        ['name' => 'quartzite-slabsite-mockup.png', 'size_bytes' => 1572864, 'mime_type' => 'image/png'],
-                    ],
-                    'status' => 'closed',
-                    'status_changed_at' => '2026-09-08T04:15:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'closed', 'total_amount' => '412800.00', 'issued_at' => '2026-08-31T08:55:00Z', 'responded_at' => '2026-09-01T02:00:00Z', 'updated_at' => '2026-09-08T04:15:00Z', 'created_by' => 'daniel'],
-                    ],
-                    'payment' => [
-                        'status' => 'fully_paid',
-                        'created_at' => '2026-09-01T02:00:00Z',
-                        'status_changed_at' => '2026-09-05T03:00:00Z',
-                        'transactions' => [
-                            ['kind' => 'payment', 'amount' => '206400.00', 'reference' => 'BPI-0901-7720', 'received_at' => '2026-09-01T06:30:00Z', 'recorded_by' => 'daniel'],
-                            ['kind' => 'payment', 'amount' => '206400.00', 'reference' => 'BPI-0905-7794', 'received_at' => '2026-09-05T03:00:00Z', 'recorded_by' => 'sofia'],
-                        ],
-                    ],
-                    'job_orders' => [
-                        ['reference' => 'JO-2034', 'status' => 'completed', 'created_at' => '2026-09-01T07:00:00Z', 'status_changed_at' => '2026-09-07T08:00:00Z', 'notes' => 'Counter top installed with the grill recess cut at the left-hand end.'],
-                        ['reference' => 'JO-2035', 'status' => 'completed', 'created_at' => '2026-09-01T07:10:00Z', 'status_changed_at' => '2026-09-06T04:00:00Z', 'notes' => 'Offcut stepping stones, picked up by the client.'],
-                    ],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-08-31T08:55:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'awaiting', 'at' => '2026-09-01T02:00:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'partial', 'at' => '2026-09-01T06:30:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'fully_paid', 'at' => '2026-09-05T03:00:00Z'],
-                        ['project' => 'closed', 'quotation' => 'closed', 'payment' => 'fully_paid', 'at' => '2026-09-08T04:15:00Z'],
-                    ],
-                ],
-                [
-                    'id' => 'prj-1041-2',
-                    'name' => 'The Grove - Pool Deck',
-                    'categories' => ['exterior-walls'],
-                    'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
-                    'stones' => [
-                        ['stone_slug' => 'travertine', 'quantity' => 20, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
-                    ],
-                    'location' => 'Muntinlupa',
-                    'landmark' => 'Pool deck, beside the barbecue counter',
-                    'area_sqm' => 24.25,
-                    'deadline_date' => '2026-08-28',
-                    'deadline_time' => '15:00',
-                    'notes' => "The drainage channel the drawings show does not line up with the fall of the deck, and we would move it to the far end.\n\nThe deck goes down before the counter is set, so the earlier date on this one is deliberate.",
-                    'attachments' => [
-                        ['name' => 'grove-drainage-detail.pdf', 'size_bytes' => 384512, 'mime_type' => 'application/pdf'],
-                    ],
-                    'status' => 'closed',
-                    'status_changed_at' => '2026-09-04T09:00:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'closed', 'total_amount' => '289000.00', 'issued_at' => '2026-08-30T06:00:00Z', 'responded_at' => '2026-08-31T01:30:00Z', 'updated_at' => '2026-09-04T09:00:00Z', 'created_by' => 'daniel'],
-                    ],
-                    'payment' => [
-                        'status' => 'fully_paid',
-                        'created_at' => '2026-08-31T01:30:00Z',
-                        'status_changed_at' => '2026-09-03T02:00:00Z',
-                        'transactions' => [
-                            ['kind' => 'payment', 'amount' => '144500.00', 'reference' => 'BPI-0831-7651', 'received_at' => '2026-08-31T05:00:00Z', 'recorded_by' => 'daniel'],
-                            ['kind' => 'payment', 'amount' => '144500.00', 'reference' => 'BPI-0903-7702', 'received_at' => '2026-09-03T02:00:00Z', 'recorded_by' => 'daniel'],
-                        ],
-                    ],
-                    'job_orders' => [
-                        ['reference' => 'JO-2033', 'status' => 'completed', 'created_at' => '2026-08-31T03:00:00Z', 'status_changed_at' => '2026-09-04T09:00:00Z', 'notes' => 'Travertine pavers, delivered to the pool deck in two drops.'],
-                    ],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-08-30T06:00:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'awaiting', 'at' => '2026-08-31T01:30:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'partial', 'at' => '2026-08-31T05:00:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'fully_paid', 'at' => '2026-09-03T02:00:00Z'],
-                        ['project' => 'closed', 'quotation' => 'closed', 'payment' => 'fully_paid', 'at' => '2026-09-04T09:00:00Z'],
-                    ],
-                ],
-            ],
-            'status_history' => [
-                ['from_status' => null, 'to_status' => 'draft', 'at' => '2026-08-28T05:45:00Z', 'changed_by' => 'cl-haruki'],
-                ['from_status' => 'draft', 'to_status' => 'pending', 'at' => '2026-08-29T03:20:00Z', 'changed_by' => 'daniel'],
-                ['from_status' => 'pending', 'to_status' => 'ongoing', 'at' => '2026-08-31T01:30:00Z', 'changed_by' => 'daniel'],
-                ['from_status' => 'ongoing', 'to_status' => 'closed', 'at' => '2026-09-08T04:15:00Z', 'changed_by' => 'sofia'],
-            ],
-        ],
-        [
-            'id' => 'inq-1039',
             'reference' => 'INQ-1039',
-            'status' => 'lost',
-            'created_at' => '2026-08-12T06:55:00Z',
-            'updated_at' => '2026-08-14T01:10:00Z',
             'client_id' => 'cl-grace',
+            'created_at' => '2026-08-12T06:55:00Z',
             'handlers' => ['sofia'],
-            'projects' => [
-                [
-                    'id' => 'prj-1039-1',
-                    'name' => 'Maple Lane - Laundry',
-                    'categories' => ['wall-accents'],
-                    'services' => ['Stone Relocation, Dismantling & Reinstallation'],
-                    'stones' => [
-                        ['stone_slug' => 'onyx', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
-                        ['stone_slug' => 'cobblestone', 'quantity' => 10, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
-                    ],
-                    'location' => 'Quezon City',
-                    'landmark' => null,
-                    'area_sqm' => null,
-                    'deadline_date' => '2026-08-20',
-                    'deadline_time' => '08:00',
-                    'notes' => null,
-                    'attachments' => [],
-                    // The client turned the quotation down.
-                    'status' => 'cancelled',
-                    'status_changed_at' => '2026-08-14T01:10:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'rejected', 'total_amount' => '58600.00', 'issued_at' => '2026-08-13T02:00:00Z', 'responded_at' => '2026-08-14T01:10:00Z', 'created_by' => 'sofia'],
-                    ],
-                    'payment' => null,
-                    'job_orders' => [],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-08-13T02:00:00Z'],
-                        ['project' => 'cancelled', 'quotation' => 'rejected', 'payment' => 'awaiting', 'at' => '2026-08-14T01:10:00Z'],
-                    ],
+            'project' => [
+                'name' => 'Maple Lane - Laundry',
+                'categories' => ['wall-accents'],
+                'services' => ['Stone Relocation, Dismantling & Reinstallation'],
+                'stones' => [
+                    ['stone_slug' => 'onyx', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
+                    ['stone_slug' => 'cobblestone', 'quantity' => 10, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
                 ],
+                'location' => 'Quezon City',
+                'landmark' => null,
+                'area_sqm' => null,
+                'deadline_date' => '2026-08-20',
+                'deadline_time' => '08:00',
+                'notes' => null,
+                'attachments' => [],
             ],
-            'status_history' => [
-                ['from_status' => null, 'to_status' => 'draft', 'at' => '2026-08-12T06:55:00Z', 'changed_by' => 'cl-grace'],
-                ['from_status' => 'draft', 'to_status' => 'pending', 'at' => '2026-08-12T09:30:00Z', 'changed_by' => 'sofia'],
-                ['from_status' => 'pending', 'to_status' => 'lost', 'at' => '2026-08-14T01:10:00Z', 'changed_by' => 'sofia'],
+            // The client turned the quotation down.
+            'shows' => 'cancelled',
+            'events' => [
+                ['at' => '2026-08-12T09:30:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-08-13T02:00:00Z', 'by' => 'sofia', 'quote' => '58600.00'],
+                ['at' => '2026-08-14T01:10:00Z', 'by' => 'sofia', 'sales' => 'rejected'],
             ],
         ],
         [
-            'id' => 'inq-1046',
-            'reference' => 'INQ-1046',
-            'status' => 'lost',
-            'created_at' => '2026-09-20T02:30:00Z',
-            'updated_at' => '2026-10-06T02:20:00Z',
-            'client_id' => 'cl-elena',
-            'handlers' => ['daniel'],
-            'projects' => [
-                [
-                    'id' => 'prj-1046-1',
-                    'name' => 'Brightleaf Studio — Reception Desk',
-                    'categories' => ['countertops-backsplash'],
-                    'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
-                    'stones' => [
-                        ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Polished'],
-                    ],
-                    'location' => 'Pasig',
-                    'landmark' => 'Second floor, facing the lift lobby',
-                    'area_sqm' => 4.5,
-                    'deadline_date' => '2026-10-30',
-                    'deadline_time' => '10:00',
-                    'notes' => 'The desk front is one slab, so please keep the veining running across the full width.',
-                    'attachments' => [
-                        ['name' => 'brightleaf-reception-desk.pdf', 'size_bytes' => 812544, 'mime_type' => 'application/pdf'],
-                    ],
-                    // Paid in full, then refunded when the lease fell through.
-                    'status' => 'cancelled',
-                    'status_changed_at' => '2026-10-06T02:00:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'closed', 'total_amount' => '96500.00', 'issued_at' => '2026-09-22T03:00:00Z', 'responded_at' => '2026-09-23T01:15:00Z', 'updated_at' => '2026-09-23T05:00:00Z', 'created_by' => 'daniel'],
-                    ],
-                    'payment' => [
-                        'status' => 'refunded',
-                        'created_at' => '2026-09-23T01:15:00Z',
-                        'status_changed_at' => '2026-10-06T02:00:00Z',
-                        'transactions' => [
-                            ['kind' => 'payment', 'amount' => '96500.00', 'reference' => 'BDO-0923-6015', 'received_at' => '2026-09-23T05:00:00Z', 'recorded_by' => 'daniel'],
-                            ['kind' => 'refund', 'amount' => '96500.00', 'reference' => 'BDO-1006-6390', 'received_at' => '2026-10-06T02:00:00Z', 'recorded_by' => 'daniel'],
-                        ],
-                    ],
-                    'job_orders' => [],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-09-22T03:00:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'awaiting', 'at' => '2026-09-23T01:15:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closed', 'payment' => 'fully_paid', 'at' => '2026-09-23T05:00:00Z'],
-                        ['project' => 'cancelled', 'quotation' => 'closed', 'payment' => 'refunded', 'at' => '2026-10-06T02:00:00Z'],
-                    ],
+            'reference' => 'INQ-1041',
+            'client_id' => 'cl-haruki',
+            'created_at' => '2026-08-28T05:45:00Z',
+            'handlers' => ['daniel', 'sofia'],
+            'project' => [
+                'name' => 'The Grove — Outdoor Kitchen and Deck',
+                'categories' => ['kitchen-islands'],
+                'services' => ['Natural Stone Supply', 'Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'quartzite', 'quantity' => 12, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
+                    ['stone_slug' => 'granite', 'quantity' => 6, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
+                    ['stone_slug' => 'marble', 'quantity' => 4, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
                 ],
-                [
-                    'id' => 'prj-1046-2',
-                    'name' => 'Brightleaf Studio — Feature Wall',
-                    'categories' => ['wall-accents'],
-                    'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
-                    'stones' => [
-                        ['stone_slug' => 'onyx', 'quantity' => 6, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
-                    ],
-                    'location' => 'Pasig',
-                    'landmark' => null,
-                    'area_sqm' => 14,
-                    'deadline_date' => '2026-11-06',
-                    'deadline_time' => '09:00',
-                    'notes' => null,
-                    'attachments' => [],
-                    // Its job order was cancelled in fabrication; the deposit covers the slabs already cut.
-                    'status' => 'cancelled',
-                    'status_changed_at' => '2026-10-06T02:20:00Z',
-                    'quotations' => [
-                        ['revision_no' => 1, 'status' => 'closeable', 'total_amount' => '174000.00', 'issued_at' => '2026-09-22T03:30:00Z', 'responded_at' => '2026-09-24T02:00:00Z', 'created_by' => 'daniel'],
-                    ],
-                    'payment' => [
-                        'status' => 'partial',
-                        'created_at' => '2026-09-24T02:00:00Z',
-                        'status_changed_at' => '2026-09-25T03:00:00Z',
-                        'transactions' => [
-                            ['kind' => 'payment', 'amount' => '87000.00', 'reference' => 'BDO-0925-6102', 'received_at' => '2026-09-25T03:00:00Z', 'recorded_by' => 'daniel'],
-                        ],
-                    ],
-                    'job_orders' => [
-                        ['reference' => 'JO-2038', 'status' => 'cancelled', 'created_at' => '2026-09-25T05:00:00Z', 'status_changed_at' => '2026-10-06T02:20:00Z', 'notes' => 'Cancelled in fabrication when the second-floor lease fell through.'],
-                    ],
-                    'cards' => [
-                        ['project' => 'pending', 'quotation' => 'pending', 'payment' => 'awaiting', 'at' => '2026-09-22T03:30:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'awaiting', 'at' => '2026-09-24T02:00:00Z'],
-                        ['project' => 'ongoing', 'quotation' => 'closeable', 'payment' => 'partial', 'at' => '2026-09-25T03:00:00Z'],
-                        ['project' => 'cancelled', 'quotation' => 'closeable', 'payment' => 'partial', 'at' => '2026-10-06T02:20:00Z'],
-                    ],
+                'location' => 'Muntinlupa',
+                'landmark' => 'Under the tree, at the far end of the deck',
+                'area_sqm' => 11.5,
+                'deadline_date' => '2026-09-05',
+                'deadline_time' => '10:00',
+                'notes' => "The counter runs along the pool deck, so it is in full sun for the afternoon and under the tree for the morning.\n\nThe grill sits at the left-hand end, so we would cut a recess for it rather than run the top past it.\n\nIf that is already decided, please say so here so the workshop is not asked to move the cut once it has started.",
+                'attachments' => [
+                    ['name' => 'grove-outdoor-kitchen-plan.pdf', 'size_bytes' => 2411724, 'mime_type' => 'application/pdf'],
+                    ['name' => 'grove-bar-reference.jpg', 'size_bytes' => 921600, 'mime_type' => 'image/jpeg'],
+                    ['name' => 'quartzite-slabsite-mockup.png', 'size_bytes' => 1572864, 'mime_type' => 'image/png'],
                 ],
             ],
-            'status_history' => [
-                ['from_status' => null, 'to_status' => 'draft', 'at' => '2026-09-20T02:30:00Z', 'changed_by' => 'cl-elena'],
-                ['from_status' => 'draft', 'to_status' => 'pending', 'at' => '2026-09-20T06:00:00Z', 'changed_by' => 'daniel'],
-                ['from_status' => 'pending', 'to_status' => 'ongoing', 'at' => '2026-09-23T01:15:00Z', 'changed_by' => 'daniel'],
-                ['from_status' => 'ongoing', 'to_status' => 'lost', 'at' => '2026-10-06T02:20:00Z', 'changed_by' => 'daniel'],
+            // Visited, quoted, approved, paid in two parts and installed.
+            'shows' => 'closed',
+            'events' => [
+                ['at' => '2026-08-29T03:20:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-08-30T02:00:00Z', 'by' => 'sofia', 'sales' => 'site_visited'],
+                ['at' => '2026-08-31T08:55:00Z', 'by' => 'sofia', 'quote' => '412800.00'],
+                ['at' => '2026-09-01T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-09-01T03:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2034'],
+                ['at' => '2026-09-01T06:30:00Z', 'by' => 'accounting', 'payment' => '206400.00', 'reference' => 'BPI-0901-7720', 'payment_status' => 'partial'],
+                ['at' => '2026-09-01T08:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-02T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-09-02T09:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+                ['at' => '2026-09-04T03:00:00Z', 'by' => 'tomas', 'process' => 'quality_check'],
+                ['at' => '2026-09-04T08:00:00Z', 'by' => 'tomas', 'process' => 'ready'],
+                ['at' => '2026-09-05T01:00:00Z', 'by' => 'tomas', 'process' => 'dispatched'],
+                ['at' => '2026-09-05T03:00:00Z', 'by' => 'accounting', 'payment' => '206400.00', 'reference' => 'BPI-0905-7794', 'payment_status' => 'fully_paid'],
+                ['at' => '2026-09-06T02:00:00Z', 'by' => 'tomas', 'process' => 'installation'],
+                ['at' => '2026-09-08T04:15:00Z', 'by' => 'tomas', 'process' => 'completed'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1042',
+            'client_id' => 'cl-haruki',
+            'created_at' => '2026-08-28T05:50:00Z',
+            'handlers' => ['daniel'],
+            'project' => [
+                'name' => 'The Grove - Pool Deck',
+                'categories' => ['exterior-walls'],
+                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'travertine', 'quantity' => 20, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                ],
+                'location' => 'Muntinlupa',
+                'landmark' => 'Pool deck, beside the barbecue counter',
+                'area_sqm' => 24.25,
+                'deadline_date' => '2026-08-28',
+                'deadline_time' => '15:00',
+                'notes' => "The drainage channel the drawings show does not line up with the fall of the deck, and we would move it to the far end.\n\nThe deck goes down before the counter is set, so the earlier date on this one is deliberate.",
+                'attachments' => [
+                    ['name' => 'grove-drainage-detail.pdf', 'size_bytes' => 384512, 'mime_type' => 'application/pdf'],
+                ],
+            ],
+            // The pavers were delivered in two drops and laid by the client's
+            // own crew, so logistics went from dispatched to completed with no
+            // installation step.
+            'shows' => 'closed',
+            'events' => [
+                ['at' => '2026-08-29T03:25:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-08-30T06:00:00Z', 'by' => 'sofia', 'quote' => '289000.00'],
+                ['at' => '2026-08-31T01:30:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-08-31T03:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2033'],
+                ['at' => '2026-08-31T05:00:00Z', 'by' => 'accounting', 'payment' => '144500.00', 'reference' => 'BPI-0831-7651', 'payment_status' => 'partial'],
+                ['at' => '2026-08-31T07:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-01T01:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-09-01T06:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+                ['at' => '2026-09-02T03:00:00Z', 'by' => 'tomas', 'process' => 'quality_check'],
+                ['at' => '2026-09-02T08:00:00Z', 'by' => 'tomas', 'process' => 'ready'],
+                ['at' => '2026-09-03T01:00:00Z', 'by' => 'tomas', 'process' => 'dispatched'],
+                ['at' => '2026-09-03T02:00:00Z', 'by' => 'accounting', 'payment' => '144500.00', 'reference' => 'BPI-0903-7702', 'payment_status' => 'fully_paid'],
+                ['at' => '2026-09-04T09:00:00Z', 'by' => 'tomas', 'process' => 'completed'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1043',
+            'client_id' => 'cl-ivan',
+            'created_at' => '2026-09-11T08:25:00Z',
+            'handlers' => ['priya'],
+            'project' => [
+                'name' => 'Hillcrest Showroom — Display Units',
+                'categories' => ['center-side-tables'],
+                'services' => ['Custom Stone Furniture', 'Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'granite', 'quantity' => 5, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                    ['stone_slug' => 'monumental', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                ],
+                'location' => 'San Juan',
+                'landmark' => null,
+                'area_sqm' => 12,
+                'deadline_date' => '2026-09-26',
+                'deadline_time' => '13:00',
+                'notes' => null,
+                'attachments' => [
+                    ['name' => 'hillcrest-display-units.png', 'size_bytes' => 655360, 'mime_type' => 'image/png'],
+                ],
+            ],
+            // Deposit paid; on hold for a replacement block after the first
+            // one cracked at the saw.
+            'shows' => 'on_hold',
+            'events' => [
+                ['at' => '2026-09-12T02:10:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-12T10:45:00Z', 'by' => 'maria', 'quote' => '268400.00'],
+                ['at' => '2026-09-13T04:20:00Z', 'by' => 'maria', 'sales' => 'quoted'],
+                ['at' => '2026-09-14T05:00:00Z', 'by' => 'maria', 'job_order' => 'JO-2036'],
+                ['at' => '2026-09-14T07:40:00Z', 'by' => 'accounting', 'payment' => '134200.00', 'reference' => 'GCASH-0914-2208', 'payment_status' => 'partial'],
+                ['at' => '2026-09-15T02:00:00Z', 'by' => 'kenji', 'process' => 'measure'],
+                ['at' => '2026-09-16T03:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-09-18T03:30:00Z', 'by' => 'kenji', 'process' => 'on_hold'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1044',
+            'client_id' => 'cl-nadine',
+            'created_at' => '2026-09-15T04:50:00Z',
+            'handlers' => ['maria'],
+            'project' => [
+                'name' => 'Garden Court — Vanity Tops',
+                'categories' => ['lavatories'],
+                'services' => ['Design & Project Consultation'],
+                'stones' => [
+                    ['stone_slug' => 'travertine', 'quantity' => 8, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
+                    ['stone_slug' => 'marble', 'quantity' => 5, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
+                ],
+                'location' => 'San Juan',
+                'landmark' => 'Ground floor, beside the garden court entrance',
+                'area_sqm' => 9.75,
+                'deadline_date' => '2026-10-30',
+                'deadline_time' => '09:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // The client asked for changes, so a second quotation was issued.
+            // Not approved yet, so sales is still negotiating.
+            'shows' => 'negotiation',
+            'events' => [
+                ['at' => '2026-09-16T01:05:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-19T09:30:00Z', 'by' => 'maria', 'quote' => '148200.00'],
+                ['at' => '2026-09-24T07:15:00Z', 'by' => 'maria', 'quote' => '151750.00'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1046',
+            'client_id' => 'cl-elena',
+            'created_at' => '2026-09-20T02:30:00Z',
+            'handlers' => ['daniel'],
+            'project' => [
+                'name' => 'Brightleaf Studio — Reception Desk',
+                'categories' => ['countertops-backsplash'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Polished'],
+                ],
+                'location' => 'Pasig',
+                'landmark' => 'Second floor, facing the lift lobby',
+                'area_sqm' => 4.5,
+                'deadline_date' => '2026-10-30',
+                'deadline_time' => '10:00',
+                'notes' => 'The desk front is one slab, so please keep the veining running across the full width.',
+                'attachments' => [
+                    ['name' => 'brightleaf-reception-desk.pdf', 'size_bytes' => 812544, 'mime_type' => 'application/pdf'],
+                ],
+            ],
+            // Paid in full up front; the desk is being cut.
+            'shows' => 'production',
+            'events' => [
+                ['at' => '2026-09-20T06:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-21T03:00:00Z', 'by' => 'sofia', 'sales' => 'site_visited'],
+                ['at' => '2026-09-22T03:00:00Z', 'by' => 'sofia', 'quote' => '96500.00'],
+                ['at' => '2026-09-23T01:15:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-09-23T03:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2037'],
+                ['at' => '2026-09-23T05:00:00Z', 'by' => 'accounting', 'payment' => '96500.00', 'reference' => 'BDO-0923-6015', 'payment_status' => 'fully_paid'],
+                ['at' => '2026-09-24T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-26T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-10-02T02:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1047',
+            'client_id' => 'cl-elena',
+            'created_at' => '2026-09-20T02:35:00Z',
+            'handlers' => ['daniel'],
+            'project' => [
+                'name' => 'Brightleaf Studio — Feature Wall',
+                'categories' => ['wall-accents'],
+                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'onyx', 'quantity' => 6, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                ],
+                'location' => 'Pasig',
+                'landmark' => null,
+                'area_sqm' => 14,
+                'deadline_date' => '2026-11-06',
+                'deadline_time' => '09:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // The onyx shipment is late at the port.
+            'shows' => 'delayed',
+            'events' => [
+                ['at' => '2026-09-20T06:05:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-22T03:30:00Z', 'by' => 'sofia', 'quote' => '174000.00'],
+                ['at' => '2026-09-24T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-09-24T04:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2038'],
+                ['at' => '2026-09-25T03:00:00Z', 'by' => 'accounting', 'payment' => '87000.00', 'reference' => 'BDO-0925-6102', 'payment_status' => 'partial'],
+                ['at' => '2026-09-26T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-29T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-10-06T02:20:00Z', 'by' => 'kenji', 'process' => 'delayed'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1048',
+            'client_id' => 'cl-rafael',
+            'created_at' => '2026-09-27T03:40:00Z',
+            'handlers' => ['daniel', 'maria'],
+            'project' => [
+                'name' => 'Northgate Cafe — Counters and Flooring',
+                'categories' => ['countertops-backsplash'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'quartzite', 'quantity' => 7, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
+                    ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                    ['stone_slug' => 'granite', 'quantity' => 4, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
+                    ['stone_slug' => 'crazy-cut', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
+                ],
+                'location' => 'Makati',
+                'landmark' => 'Second floor, beside the mezzanine staircase',
+                'area_sqm' => 18.5,
+                'deadline_date' => '2026-11-14',
+                'deadline_time' => '10:00',
+                'notes' => "The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.",
+                'attachments' => [
+                    ['name' => 'northgate-bar-layout.pdf', 'size_bytes' => 1284096, 'mime_type' => 'application/pdf'],
+                    ['name' => 'exposed-concrete-photo.png', 'size_bytes' => 486400, 'mime_type' => 'image/png'],
+                ],
+            ],
+            // Quoted and waiting on the client: still in negotiation.
+            'shows' => 'negotiation',
+            'events' => [
+                ['at' => '2026-09-28T06:15:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-10-02T03:00:00Z', 'by' => 'maria', 'quote' => '486500.00'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1049',
+            'client_id' => 'cl-rafael',
+            'created_at' => '2026-09-27T03:45:00Z',
+            'handlers' => ['maria'],
+            'project' => [
+                'name' => 'Northgate Cafe — Dining Floor',
+                'categories' => ['dining-tables'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'quartzite', 'quantity' => 9, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                ],
+                'location' => 'Makati',
+                'landmark' => 'Ground floor, under the window wall',
+                'area_sqm' => 26,
+                'deadline_date' => '2026-10-24',
+                'deadline_time' => '14:00',
+                'notes' => "Wanted square to the window wall so the joints run with it.\nPlease do the floor before the counters are set.",
+                'attachments' => [],
+            ],
+            // Quoted, approved, paid in two parts and installed.
+            'shows' => 'closed',
+            'events' => [
+                ['at' => '2026-09-28T06:20:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-29T02:00:00Z', 'by' => 'maria', 'quote' => '312000.00'],
+                ['at' => '2026-09-30T05:30:00Z', 'by' => 'maria', 'sales' => 'quoted'],
+                ['at' => '2026-09-30T08:00:00Z', 'by' => 'maria', 'job_order' => 'JO-2039'],
+                ['at' => '2026-10-01T02:00:00Z', 'by' => 'accounting', 'payment' => '156000.00', 'reference' => 'BDO-1001-4471', 'payment_status' => 'partial'],
+                ['at' => '2026-10-02T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-10-05T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-10-08T02:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+                ['at' => '2026-10-14T02:00:00Z', 'by' => 'tomas', 'process' => 'quality_check'],
+                ['at' => '2026-10-15T02:00:00Z', 'by' => 'tomas', 'process' => 'ready'],
+                ['at' => '2026-10-17T02:00:00Z', 'by' => 'tomas', 'process' => 'dispatched'],
+                ['at' => '2026-10-20T06:00:00Z', 'by' => 'accounting', 'payment' => '156000.00', 'reference' => 'BDO-1020-5183', 'payment_status' => 'fully_paid'],
+                ['at' => '2026-10-21T02:00:00Z', 'by' => 'tomas', 'process' => 'installation'],
+                ['at' => '2026-10-24T08:00:00Z', 'by' => 'tomas', 'process' => 'completed'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1050',
+            'client_id' => 'cl-grace',
+            'created_at' => '2026-10-26T02:00:00Z',
+            'handlers' => [],
+            'project' => [
+                'name' => 'Maple Lane — Kitchen Island',
+                'categories' => ['kitchen-islands'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'marble', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Polished'],
+                ],
+                'location' => 'Quezon City',
+                'landmark' => null,
+                'area_sqm' => 3.2,
+                'deadline_date' => '2026-12-05',
+                'deadline_time' => '10:00',
+                'notes' => 'The island has a waterfall end on the side facing the dining room.',
+                'attachments' => [],
+            ],
+            // Just sent: marketing has not reached the client yet.
+            'shows' => 'pending',
+            'events' => [],
+        ],
+        [
+            'reference' => 'INQ-1051',
+            'client_id' => 'cl-nadine',
+            'created_at' => '2026-10-12T03:00:00Z',
+            'handlers' => ['maria'],
+            'project' => [
+                'name' => 'Lumen & Co — Lobby Feature Wall',
+                'categories' => ['wall-accents'],
+                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'onyx', 'quantity' => 8, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                ],
+                'location' => 'Taguig',
+                'landmark' => 'Ground floor lobby, behind the reception desk',
+                'area_sqm' => 16,
+                'deadline_date' => '2026-12-12',
+                'deadline_time' => '10:00',
+                'notes' => 'The wall is backlit, so the onyx needs to be book-matched.',
+                'attachments' => [
+                    ['name' => 'lumen-lobby-elevation.pdf', 'size_bytes' => 702464, 'mime_type' => 'application/pdf'],
+                ],
+            ],
+            'shows' => 'site_visited',
+            'events' => [
+                ['at' => '2026-10-13T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-10-16T06:00:00Z', 'by' => 'maria', 'sales' => 'site_visited'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1052',
+            'client_id' => 'cl-ivan',
+            'created_at' => '2026-10-05T04:00:00Z',
+            'handlers' => ['priya'],
+            'project' => [
+                'name' => 'Hillcrest Showroom — Front Steps',
+                'categories' => ['exterior-walls'],
+                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'granite', 'quantity' => 14, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
+                ],
+                'location' => 'San Juan',
+                'landmark' => 'Street entrance',
+                'area_sqm' => 9,
+                'deadline_date' => '2026-12-01',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // The client is waiting on the building's permit before going on.
+            'shows' => 'on_hold',
+            'events' => [
+                ['at' => '2026-10-06T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-10-08T03:00:00Z', 'by' => 'maria', 'sales' => 'site_visited'],
+                ['at' => '2026-10-10T05:00:00Z', 'by' => 'maria', 'sales' => 'on_hold'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1053',
+            'client_id' => 'cl-haruki',
+            'created_at' => '2026-10-14T02:00:00Z',
+            'handlers' => ['sofia'],
+            'project' => [
+                'name' => 'The Grove — Guest Bath Vanity',
+                'categories' => ['lavatories'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
+                ],
+                'location' => 'Muntinlupa',
+                'landmark' => null,
+                'area_sqm' => 2.4,
+                'deadline_date' => '2026-11-28',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // Approved by the client; accounting is waiting on the deposit.
+            'shows' => 'quoted',
+            'events' => [
+                ['at' => '2026-10-15T01:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-10-17T03:00:00Z', 'by' => 'sofia', 'quote' => '128900.00'],
+                ['at' => '2026-10-20T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1054',
+            'client_id' => 'cl-grace',
+            'created_at' => '2026-10-01T03:00:00Z',
+            'handlers' => ['sofia'],
+            'project' => [
+                'name' => 'Maple Lane — Garden Path',
+                'categories' => ['exterior-walls'],
+                'services' => ['Natural Stone Supply'],
+                'stones' => [
+                    ['stone_slug' => 'cobblestone', 'quantity' => 40, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                ],
+                'location' => 'Quezon City',
+                'landmark' => null,
+                'area_sqm' => 22,
+                'deadline_date' => '2026-11-10',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // The client went with a landscaper's own supplier.
+            'shows' => 'cancelled',
+            'events' => [
+                ['at' => '2026-10-03T02:00:00Z', 'by' => 'marketing', 'marketing' => 'lost'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1055',
+            'client_id' => 'cl-elena',
+            'created_at' => '2026-10-08T02:00:00Z',
+            'handlers' => ['daniel'],
+            'project' => [
+                'name' => 'Brightleaf Studio — Pantry Counter',
+                'categories' => ['countertops-backsplash'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                ],
+                'location' => 'Pasig',
+                'landmark' => null,
+                'area_sqm' => 2.8,
+                'deadline_date' => '2026-11-20',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // The job order is in; logistics has it, the deposit is not.
+            'shows' => 'received',
+            'events' => [
+                ['at' => '2026-10-09T01:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-10-12T03:00:00Z', 'by' => 'sofia', 'quote' => '84300.00'],
+                ['at' => '2026-10-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-10-22T03:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2045'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1056',
+            'client_id' => 'cl-rafael',
+            'created_at' => '2026-10-03T02:00:00Z',
+            'handlers' => ['maria'],
+            'project' => [
+                'name' => 'Northgate Cafe — Restroom Vanities',
+                'categories' => ['lavatories'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'quartzite', 'quantity' => 4, 'edge' => 'Half Bevel', 'finish' => 'Honed'],
+                ],
+                'location' => 'Makati',
+                'landmark' => 'Second floor, beside the mezzanine staircase',
+                'area_sqm' => 3.6,
+                'deadline_date' => '2026-11-21',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            'shows' => 'measure',
+            'events' => [
+                ['at' => '2026-10-04T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-10-07T03:00:00Z', 'by' => 'maria', 'quote' => '142000.00'],
+                ['at' => '2026-10-09T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted'],
+                ['at' => '2026-10-10T03:00:00Z', 'by' => 'maria', 'job_order' => 'JO-2043'],
+                ['at' => '2026-10-11T02:00:00Z', 'by' => 'accounting', 'payment' => '71000.00', 'reference' => 'BPI-1011-3301', 'payment_status' => 'partial'],
+                ['at' => '2026-10-13T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1057',
+            'client_id' => 'cl-nadine',
+            'created_at' => '2026-09-25T02:00:00Z',
+            'handlers' => ['maria'],
+            'project' => [
+                'name' => 'Lumen & Co — Conference Table',
+                'categories' => ['dining-tables'],
+                'services' => ['Custom Stone Furniture'],
+                'stones' => [
+                    ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                ],
+                'location' => 'Taguig',
+                'landmark' => 'Fourteenth floor boardroom',
+                'area_sqm' => 4,
+                'deadline_date' => '2026-11-14',
+                'deadline_time' => '10:00',
+                'notes' => 'The top seats twelve; the base is the client\'s own steel frame.',
+                'attachments' => [],
+            ],
+            'shows' => 'sourcing',
+            'events' => [
+                ['at' => '2026-09-26T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-29T03:00:00Z', 'by' => 'maria', 'quote' => '98500.00'],
+                ['at' => '2026-10-01T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted'],
+                ['at' => '2026-10-02T02:00:00Z', 'by' => 'maria', 'job_order' => 'JO-2042'],
+                ['at' => '2026-10-02T06:00:00Z', 'by' => 'accounting', 'payment' => '49250.00', 'reference' => 'GCASH-1002-4410', 'payment_status' => 'partial'],
+                ['at' => '2026-10-05T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-10-09T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1058',
+            'client_id' => 'cl-ivan',
+            'created_at' => '2026-09-18T02:00:00Z',
+            'handlers' => ['priya'],
+            'project' => [
+                'name' => 'Hillcrest Showroom — Reception Counter',
+                'categories' => ['countertops-backsplash'],
+                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Leather'],
+                ],
+                'location' => 'San Juan',
+                'landmark' => null,
+                'area_sqm' => 5.5,
+                'deadline_date' => '2026-11-07',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            'shows' => 'quality_check',
+            'events' => [
+                ['at' => '2026-09-19T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-21T03:00:00Z', 'by' => 'maria', 'quote' => '156000.00'],
+                ['at' => '2026-09-23T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted'],
+                ['at' => '2026-09-23T05:00:00Z', 'by' => 'maria', 'job_order' => 'JO-2040'],
+                ['at' => '2026-09-24T02:00:00Z', 'by' => 'accounting', 'payment' => '78000.00', 'reference' => 'BDO-0924-5521', 'payment_status' => 'partial'],
+                ['at' => '2026-09-25T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-29T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-10-03T02:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+                ['at' => '2026-10-21T02:00:00Z', 'by' => 'tomas', 'process' => 'quality_check'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1059',
+            'client_id' => 'cl-haruki',
+            'created_at' => '2026-09-16T02:00:00Z',
+            'handlers' => ['daniel'],
+            'project' => [
+                'name' => 'The Grove — Outdoor Shower Wall',
+                'categories' => ['exterior-walls'],
+                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'travertine', 'quantity' => 10, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                ],
+                'location' => 'Muntinlupa',
+                'landmark' => 'Beside the pool deck',
+                'area_sqm' => 6,
+                'deadline_date' => '2026-10-31',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // Paid in full; cut, checked and waiting to go out.
+            'shows' => 'ready',
+            'events' => [
+                ['at' => '2026-09-17T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-19T03:00:00Z', 'by' => 'sofia', 'quote' => '112400.00'],
+                ['at' => '2026-09-21T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-09-21T05:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2041'],
+                ['at' => '2026-09-22T02:00:00Z', 'by' => 'accounting', 'payment' => '112400.00', 'reference' => 'BPI-0922-7810', 'payment_status' => 'fully_paid'],
+                ['at' => '2026-09-23T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-26T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-10-01T02:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+                ['at' => '2026-10-15T02:00:00Z', 'by' => 'tomas', 'process' => 'quality_check'],
+                ['at' => '2026-10-19T02:00:00Z', 'by' => 'tomas', 'process' => 'ready'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1060',
+            'client_id' => 'cl-elena',
+            'created_at' => '2026-09-10T02:00:00Z',
+            'handlers' => ['daniel'],
+            'project' => [
+                'name' => 'Brightleaf Studio — Window Sills',
+                'categories' => ['fixtures'],
+                'services' => ['Natural Stone Supply', 'Custom Stone Fabrication'],
+                'stones' => [
+                    ['stone_slug' => 'travertine', 'quantity' => 12, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                ],
+                'location' => 'Pasig',
+                'landmark' => null,
+                'area_sqm' => 3,
+                'deadline_date' => '2026-10-30',
+                'deadline_time' => '10:00',
+                'notes' => 'Supply only: the studio\'s contractor sets the sills.',
+                'attachments' => [],
+            ],
+            'shows' => 'dispatched',
+            'events' => [
+                ['at' => '2026-09-11T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-13T03:00:00Z', 'by' => 'sofia', 'quote' => '46800.00'],
+                ['at' => '2026-09-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-09-15T05:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2035'],
+                ['at' => '2026-09-16T02:00:00Z', 'by' => 'accounting', 'payment' => '23400.00', 'reference' => 'BDO-0916-6020', 'payment_status' => 'partial'],
+                ['at' => '2026-09-17T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-21T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-09-28T02:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+                ['at' => '2026-10-08T02:00:00Z', 'by' => 'tomas', 'process' => 'quality_check'],
+                ['at' => '2026-10-12T02:00:00Z', 'by' => 'tomas', 'process' => 'ready'],
+                ['at' => '2026-10-23T02:00:00Z', 'by' => 'tomas', 'process' => 'dispatched'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1061',
+            'client_id' => 'cl-grace',
+            'created_at' => '2026-09-05T02:00:00Z',
+            'handlers' => ['sofia'],
+            'project' => [
+                'name' => 'Maple Lane — Bathroom Floor',
+                'categories' => ['lavatories'],
+                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'stones' => [
+                    ['stone_slug' => 'marble', 'quantity' => 18, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                ],
+                'location' => 'Quezon City',
+                'landmark' => null,
+                'area_sqm' => 7.5,
+                'deadline_date' => '2026-10-28',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [
+                    ['name' => 'maple-lane-bathroom-plan.jpg', 'size_bytes' => 534528, 'mime_type' => 'image/jpeg'],
+                ],
+            ],
+            'shows' => 'installation',
+            'events' => [
+                ['at' => '2026-09-06T02:00:00Z', 'by' => 'marketing', 'marketing' => 'won'],
+                ['at' => '2026-09-08T03:00:00Z', 'by' => 'sofia', 'sales' => 'site_visited'],
+                ['at' => '2026-09-10T03:00:00Z', 'by' => 'sofia', 'quote' => '134500.00'],
+                ['at' => '2026-09-12T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted'],
+                ['at' => '2026-09-12T05:00:00Z', 'by' => 'sofia', 'job_order' => 'JO-2032'],
+                ['at' => '2026-09-13T02:00:00Z', 'by' => 'accounting', 'payment' => '67250.00', 'reference' => 'GCASH-0913-1180', 'payment_status' => 'partial'],
+                ['at' => '2026-09-14T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-09-17T02:00:00Z', 'by' => 'kenji', 'process' => 'sourcing'],
+                ['at' => '2026-09-22T02:00:00Z', 'by' => 'tomas', 'process' => 'production'],
+                ['at' => '2026-10-02T02:00:00Z', 'by' => 'tomas', 'process' => 'quality_check'],
+                ['at' => '2026-10-06T02:00:00Z', 'by' => 'tomas', 'process' => 'ready'],
+                ['at' => '2026-10-14T02:00:00Z', 'by' => 'tomas', 'process' => 'dispatched'],
+                ['at' => '2026-10-20T02:00:00Z', 'by' => 'tomas', 'process' => 'installation'],
             ],
         ],
     ],

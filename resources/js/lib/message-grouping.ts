@@ -5,7 +5,7 @@
 
 export type GroupableMessage = {
     id: number | string;
-    type: 'text' | 'inquiry_card' | 'schedule_card' | 'project_card' | 'system';
+    type: 'text' | 'inquiry_card' | 'schedule_card' | 'system';
     createdAt: string;
     sender: { id: number; name: string } | null;
 };

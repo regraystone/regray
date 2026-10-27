@@ -3,6 +3,14 @@
  * app/Http/Resources/Message). Keys are camelCase, like every other resource.
  */
 
+import type {
+    InquiryStatus,
+    MarketingStatus,
+    PaymentStatus,
+    ProcessStatus,
+    SalesStatus,
+} from '@/lib/inquiry-statuses';
+
 export type ConversationType = 'direct' | 'group' | 'support';
 
 /** A conversation as a list row and as a thread header. */
@@ -25,44 +33,32 @@ export type ConversationSummary = {
     memberCount: number | null;
 };
 
-export type InquiryStatus =
-    | 'draft'
-    | 'pending'
-    | 'quoted'
-    | 'paid'
-    | 'completed'
-    | 'cancelled';
-
-export type InquiryCard = {
-    reference: string;
-    projectCount: number;
-    serviceCount: number;
-    stones: Array<{ slug: string; name: string; thumbnail: string }>;
-    stoneCount: number;
-    announcedStatus: InquiryStatus;
-    status: InquiryStatus;
-    occurredAt: string;
+export type {
+    InquiryStatus,
+    MarketingStatus,
+    PaymentStatus,
+    ProcessStatus,
+    SalesStatus,
 };
 
-export type ProjectStatus = 'pending' | 'ongoing' | 'closed' | 'cancelled';
-
-export type QuotationStatus =
-    | 'pending'
-    | 'closed'
-    | 'revision'
-    | 'closeable'
-    | 'rejected';
-
-export type PaymentStatus = 'awaiting' | 'partial' | 'fully_paid' | 'refunded';
-
-/** A snapshot of one project, as the `project_card` message announced it. */
-export type ProjectCard = {
+/**
+ * An inquiry as the `inquiry_card` message announced it: the project it is,
+ * and the snapshot the card was posted for. `status` is the inquiry's display
+ * status now, which can have moved on since.
+ */
+export type InquiryCard = {
     reference: string;
     name: string;
     location: string;
-    projectStatus: ProjectStatus;
-    quotationStatus: QuotationStatus;
-    paymentStatus: PaymentStatus;
+    stones: Array<{ slug: string; name: string; thumbnail: string }>;
+    stoneCount: number;
+    announcedStatus: InquiryStatus;
+    announcedMarketingStatus: MarketingStatus;
+    /** Null for a stage that had not started when the card was posted. */
+    announcedSalesStatus: SalesStatus | null;
+    announcedPaymentStatus: PaymentStatus | null;
+    announcedProcessStatus: ProcessStatus | null;
+    status: InquiryStatus;
     occurredAt: string;
 };
 
@@ -101,7 +97,7 @@ export type ChatAttachment = {
 export type ChatMessage = {
     id: number;
     conversationId: number;
-    type: 'text' | 'inquiry_card' | 'schedule_card' | 'project_card' | 'system';
+    type: 'text' | 'inquiry_card' | 'schedule_card' | 'system';
     body: string | null;
     isRemoved: boolean;
     isEdited: boolean;
@@ -116,7 +112,6 @@ export type ChatMessage = {
     } | null;
     inquiryCard: InquiryCard | null;
     scheduleCard: ScheduleCard | null;
-    projectCard: ProjectCard | null;
     /** Empty for a removed message and for everything but text. */
     attachments: ChatAttachment[];
     systemEvent: { event: SystemEventName; userName: string | null } | null;

@@ -3,6 +3,7 @@
 namespace App\Data;
 
 use App\Enums\InquiryStatus;
+use App\Enums\PaymentStatus;
 use Carbon\CarbonInterface;
 
 /**
@@ -18,9 +19,10 @@ final readonly class ClientInquiryCard
     public function __construct(
         public string $reference,
         public InquiryStatus $status,
+        /** Null until accounting's stage starts, when the client approves the quotation. */
+        public ?PaymentStatus $paymentStatus,
         public CarbonInterface $createdAt,
         public string $title,
-        public int $projectCount,
         public array $stones,
         public array $services,
         public array $actions,

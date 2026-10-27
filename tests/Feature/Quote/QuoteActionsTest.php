@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\InquiryStatus;
+use App\Enums\MarketingStatus;
+use App\Enums\SalesStatus;
 use App\Models\InquiryStatusHistory;
 
 beforeEach(function (): void {
@@ -29,7 +31,9 @@ it('enforces the table on the cancel endpoint', function (string $status, array 
     if ($table['cancel'] === [true]) {
         // Shown and clickable: the request goes through.
         $response->assertRedirect();
-        expect($inquiry->refresh()->status)->toBe(InquiryStatus::Lost)
+        // Rejected by sales once its stage has started, lost by marketing before.
+        expect($inquiry->refresh()->status)->toBe(InquiryStatus::Cancelled)
+            ->and($inquiry->sales_status === SalesStatus::Rejected || $inquiry->marketing_status === MarketingStatus::Lost)->toBeTrue()
             ->and(InquiryStatusHistory::query()->count())->toBe(1);
 
         return;

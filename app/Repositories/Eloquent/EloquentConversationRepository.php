@@ -89,7 +89,7 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
         return Message::query()
             ->withTrashed()
             ->whereIn('id', $messageIds)
-            ->with(['sender:id,name', 'attachments:id,message_id,mime_type', 'systemUser:id,name', 'inquiry:id,reference', 'inquiryProject:id,name', 'schedule:id,title,booked_by_type'])
+            ->with(['sender:id,name', 'attachments:id,message_id,mime_type', 'systemUser:id,name', 'inquiry:id,reference', 'schedule:id,title,booked_by_type'])
             ->get();
     }
 

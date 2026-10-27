@@ -20,21 +20,22 @@ class CreateInquiryAction
     ) {}
 
     /**
-     * Write the inquiry in one transaction.
+     * Write the inquiries, one per project, in one transaction.
      *
      * A failure rolls the rows back and deletes every file the service had
-     * already written before it is rethrown, so no half of an inquiry survives:
+     * already written before it is rethrown, so no half of a request survives:
      * neither a row without its files nor a file without its row.
      *
      * @param  array{projects: list<ProjectInput>}  $input
+     * @return list<Inquiry>
      */
-    public function execute(User $client, array $input): Inquiry
+    public function execute(User $client, array $input): array
     {
         $written = new WrittenFiles;
 
         try {
             return DB::transaction(
-                fn (): Inquiry => $this->inquiryService->create($client, $input, $written),
+                fn (): array => $this->inquiryService->create($client, $input, $written),
             );
         } catch (Throwable $exception) {
             $this->deleteWrittenFiles($written);

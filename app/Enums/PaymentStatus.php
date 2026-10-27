@@ -3,14 +3,12 @@
 namespace App\Enums;
 
 /**
- * A payment's status, which the amounts have to agree with: awaiting has
- * nothing paid, partial has some, fully_paid has all of it. A partial or
- * fully paid payment can be refunded.
+ * Accounting's status, set by hand as payments come in: awaiting, then
+ * partial, then fully paid. Not derived from the payment transactions.
  */
 enum PaymentStatus: string
 {
     case Awaiting = 'awaiting';
     case Partial = 'partial';
     case FullyPaid = 'fully_paid';
-    case Refunded = 'refunded';
 }

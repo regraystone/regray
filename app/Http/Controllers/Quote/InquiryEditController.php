@@ -15,8 +15,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Editing an inquiry from the Quote page: the Inquire page opened at its Review
- * step with the inquiry's projects, and the save that writes them back.
+ * Editing an inquiry from the Quote page: the Inquire page with the inquiry's
+ * one project open at the first step, and the save that writes it back.
  *
  * Client-only, like the Quote list. Both are scoped to the signed-in client's
  * own inquiries, so another client's reference is a 404, and both ask
@@ -45,7 +45,7 @@ class InquiryEditController extends Controller
             ...InquiryCatalogResource::make($this->listInquiryOptions->execute())->resolve($request),
             'mode' => 'edit',
             'reference' => $result['inquiry']->reference,
-            'projects' => InquiryEditResource::collection($result['inquiry']->projects)->resolve($request),
+            'projects' => [InquiryEditResource::make($result['inquiry'])->resolve($request)],
         ]);
     }
 

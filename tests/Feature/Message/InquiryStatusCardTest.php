@@ -2,18 +2,25 @@
 
 use App\Enums\ConversationType;
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
+use App\Enums\MarketingStatus;
 use App\Enums\MessageType;
+use App\Enums\PaymentStatus;
+use App\Enums\ProcessStatus;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Events\InquiryStatusChanged;
 use App\Models\Conversation;
 use App\Models\Inquiry;
 use App\Models\Message;
 use App\Models\User;
+use App\Repositories\Contracts\MessageRepositoryInterface;
 
 /*
- * Inquiry cards (R9): every status an inquiry reaches, from the moment it is
- * sent, posts a card. It goes to the inquiry's group chat when there is one,
- * otherwise to the client's Regray Team thread.
+ * Inquiry cards (R9): every change to an inquiry's statuses, from the moment
+ * it is sent, posts a card with the inquiry's snapshot: its display status
+ * and its four role statuses. It goes to the inquiry's group chat when there
+ * is one, otherwise to the client's Regray Team thread.
  */
 
 beforeEach(function (): void {
@@ -40,7 +47,7 @@ function inquiryCardStatusesIn(Conversation $conversation): array
         ->all();
 }
 
-it('posts a "New inquiry" card into the Regray Team thread when a client sends an inquiry', function (): void {
+it('posts a "New inquiry" card with only marketing in its snapshot into the Regray Team thread when a client sends an inquiry', function (): void {
     $client = inquiryClient();
     $thread = supportThreadFor($client);
 
@@ -54,7 +61,25 @@ it('posts a "New inquiry" card into the Regray Team thread when a client sends a
     expect($card->type)->toBe(MessageType::InquiryCard)
         ->and($card->inquiry_id)->toBe($inquiry->id)
         ->and($card->announced_status)->toBe(InquiryStatus::Pending->value)
+        ->and($card->announced_marketing_status)->toBe(MarketingStatus::Pending->value)
+        // Sales, payment and logistics have not started.
+        ->and($card->announced_sales_status)->toBeNull()
+        ->and($card->announced_payment_status)->toBeNull()
+        ->and($card->announced_process_status)->toBeNull()
         ->and($card->sender_id)->toBeNull();
+});
+
+it('posts one card per inquiry when several projects are sent at once', function (): void {
+    $client = inquiryClient();
+    $thread = supportThreadFor($client);
+
+    $this->actingAs($client)
+        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(), inquiryProjectInput(['name' => 'Bath'])]])
+        ->assertRedirect();
+
+    expect(Message::query()->where('conversation_id', $thread->id)->pluck('inquiry_id')->all())
+        ->toEqualCanonicalizing(Inquiry::query()->pluck('id')->all())
+        ->toHaveCount(2);
 });
 
 it('creates the Regray Team thread for a client who has none yet', function (): void {
@@ -96,9 +121,13 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
             ->assertOk()
             ->assertJsonPath('messages.0.type', MessageType::InquiryCard->value)
             ->assertJsonPath('messages.0.inquiryCard.reference', $reference)
-            ->assertJsonPath('messages.0.inquiryCard.projectCount', 1)
-            ->assertJsonMissingPath('messages.0.inquiryCard.title')
-            ->assertJsonPath('messages.0.inquiryCard.announcedStatus', InquiryStatus::Pending->value);
+            ->assertJsonPath('messages.0.inquiryCard.name', 'Kitchen island')
+            ->assertJsonPath('messages.0.inquiryCard.location', 'Makati')
+            ->assertJsonMissingPath('messages.0.inquiryCard.projectCount')
+            ->assertJsonMissingPath('messages.0.projectCard')
+            ->assertJsonPath('messages.0.inquiryCard.announcedStatus', InquiryStatus::Pending->value)
+            ->assertJsonPath('messages.0.inquiryCard.announcedMarketingStatus', MarketingStatus::Pending->value)
+            ->assertJsonPath('messages.0.inquiryCard.announcedPaymentStatus', null);
     }
 
     $page = $this->actingAs($client)->get(route('message.index'))->viewData('page');
@@ -112,6 +141,66 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
     expect(collect($list)->firstWhere('id', $thread->id)['preview'])->toBe("New Inquiry · {$reference}");
 });
 
+it('sends the snapshot the card was posted for, not the inquiry as it is now, and previews it by its display status', function (): void {
+    $client = inquiryClient();
+    $inquiry = makeInquiry($client, ['name' => 'Kitchen island'], ['reference' => 'INQ-P1', 'status' => InquiryStatus::Production, 'payment_status' => PaymentStatus::Partial]);
+    $thread = supportThreadFor($client);
+    app(MessageRepositoryInterface::class)->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Production, MarketingStatus::Won, SalesStatus::Quoted, PaymentStatus::Partial, ProcessStatus::Production);
+    showInquiryAs($inquiry, InquiryStatus::Closed);
+
+    $card = $this->actingAs($client)->getJson(route('message.thread', $thread))
+        ->assertOk()
+        ->json('messages.0.inquiryCard');
+
+    expect($card)->toMatchArray([
+        'reference' => 'INQ-P1',
+        'name' => 'Kitchen island',
+        'location' => 'Makati',
+        'stoneCount' => 1,
+        'announcedStatus' => 'production',
+        'announcedMarketingStatus' => 'won',
+        'announcedSalesStatus' => 'quoted',
+        'announcedPaymentStatus' => 'partial',
+        'announcedProcessStatus' => 'production',
+        'status' => 'closed',
+        'occurredAt' => Message::query()->sole()->created_at->toIso8601String(),
+    ]);
+
+    $page = $this->actingAs($client)->get(route('message.index'))->viewData('page');
+    $list = $this->actingAs($client)->get(route('message.index'), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => (string) $page['version'],
+        'X-Inertia-Partial-Component' => 'message',
+        'X-Inertia-Partial-Data' => 'conversations',
+    ])->json('props.conversations.data');
+
+    expect(collect($list)->firstWhere('id', $thread->id)['preview'])->toBe('Inquiry INQ-P1 · Production');
+});
+
+it('posts a snapshot once, however many times it is asked to, and a new one for any change', function (): void {
+    $client = inquiryClient();
+    $inquiry = makeInquiry($client);
+    $thread = supportThreadFor($client);
+    $messages = app(MessageRepositoryInterface::class);
+
+    $first = $messages->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Quoted, MarketingStatus::Won, SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::Received);
+    $again = $messages->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Quoted, MarketingStatus::Won, SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::Received);
+    // Only the payment moved: the display status is the same, the snapshot is not.
+    $next = $messages->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Quoted, MarketingStatus::Won, SalesStatus::Quoted, PaymentStatus::Partial, ProcessStatus::Received);
+    // Stages not started are NULL, and a NULL snapshot is posted once too.
+    $early = $messages->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Negotiation, MarketingStatus::Won, SalesStatus::Negotiation, null, null);
+    $earlyAgain = $messages->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Negotiation, MarketingStatus::Won, SalesStatus::Negotiation, null, null);
+
+    expect($first)->toBeInstanceOf(Message::class)
+        ->and($first->type)->toBe(MessageType::InquiryCard)
+        ->and($again)->toBeNull()
+        ->and($next)->toBeInstanceOf(Message::class)
+        ->and($early)->toBeInstanceOf(Message::class)
+        ->and($early->announced_payment_status)->toBeNull()
+        ->and($earlyAgain)->toBeNull()
+        ->and(Message::query()->where('conversation_id', $thread->id)->count())->toBe(3);
+});
+
 it('posts a status change into the Regray Team thread when the inquiry has no group', function (): void {
     $client = inquiryClient();
     makeInquiry($client, attributes: ['reference' => 'INQ-C3']);
@@ -119,7 +208,12 @@ it('posts a status change into the Regray Team thread when the inquiry has no gr
 
     $this->actingAs($client)->patchJson(route('quote.cancel', 'INQ-C3'))->assertRedirect();
 
-    expect(inquiryCardStatusesIn($thread))->toBe([InquiryStatus::Lost->value]);
+    $card = Message::query()->where('conversation_id', $thread->id)->sole();
+
+    // Sales had not started, so the cancel is marketing's.
+    expect($card->announced_status)->toBe(InquiryStatus::Cancelled->value)
+        ->and($card->announced_marketing_status)->toBe(MarketingStatus::Lost->value)
+        ->and($card->announced_sales_status)->toBeNull();
 });
 
 it('posts into the inquiry\'s group, and not the Regray Team thread, once the inquiry has one', function (): void {
@@ -134,7 +228,7 @@ it('posts into the inquiry\'s group, and not the Regray Team thread, once the in
 
     expect($card->type)->toBe(MessageType::InquiryCard)
         ->and($card->inquiry_id)->toBe($inquiry->id)
-        ->and($card->announced_status)->toBe(InquiryStatus::Lost->value)
+        ->and($card->announced_status)->toBe(InquiryStatus::Cancelled->value)
         ->and(inquiryCardStatusesIn($thread))->toBe([]);
 });
 
@@ -144,9 +238,9 @@ it('does not post the same status change twice when the listener runs again', fu
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)->patchJson(route('quote.cancel', 'INQ-C2'))->assertRedirect();
-    event(new InquiryStatusChanged($inquiry->refresh(), InquiryStatus::Pending, InquiryStatus::Lost, $client->id));
+    event(new InquiryStatusChanged($inquiry->refresh(), InquiryStatusTrack::Marketing, MarketingStatus::Pending, MarketingStatus::Lost, $client->id));
 
-    expect(inquiryCardStatusesIn($thread))->toBe([InquiryStatus::Lost->value]);
+    expect(inquiryCardStatusesIn($thread))->toBe([InquiryStatus::Cancelled->value]);
 });
 
 it('keeps the sent and the cancelled card in order in one thread', function (): void {
@@ -161,6 +255,6 @@ it('keeps the sent and the cancelled card in order in one thread', function (): 
 
     expect(inquiryCardStatusesIn($thread))->toBe([
         InquiryStatus::Pending->value,
-        InquiryStatus::Lost->value,
+        InquiryStatus::Cancelled->value,
     ]);
 });

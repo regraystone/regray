@@ -3,7 +3,7 @@ import { Download, Plus, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
-import { STATUS_LABELS, StatusBadge } from '@/components/inquiry-status-badge';
+import { StatusBadge } from '@/components/inquiry-status-badge';
 import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +34,7 @@ import { buildCardActions, type CardButton } from '@/lib/quote-actions';
 import {
     buildQuoteQuery,
     QUOTE_DEFAULT_FILTERS,
+    QUOTE_STATUS_TABS,
     tally,
     type QuoteFilters,
     type QuoteSort,
@@ -72,15 +73,6 @@ const COLLAPSED_STONE_COUNT = 3;
  */
 const SERVICE_TAG_CLASS =
     'rounded-md border border-sidebar-border px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.05em] text-secondary-foreground uppercase';
-
-const STATUS_TABS: Array<{ value: QuoteStatusFilter; label: string }> = [
-    { value: 'all', label: 'All' },
-    { value: 'pending', label: STATUS_LABELS.pending },
-    { value: 'quoted', label: STATUS_LABELS.quoted },
-    { value: 'paid', label: STATUS_LABELS.paid },
-    { value: 'completed', label: STATUS_LABELS.completed },
-    { value: 'cancelled', label: STATUS_LABELS.cancelled },
-];
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
     day: '2-digit',
@@ -280,7 +272,28 @@ const InquiryCard = ({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
                 <div className="min-w-0 flex-1 space-y-3">
                     <div className="flex items-center justify-between gap-3">
-                        <StatusBadge status={inquiry.status} />
+                        {/*
+                         * The inquiry status, which is the one status the
+                         * inquiry is shown at, then accounting's once the
+                         * client has approved the quotation: before that there
+                         * is nothing to pay, so the server sends no payment
+                         * status.
+                         */}
+                        <span
+                            className="flex min-w-0 flex-wrap items-center gap-1.5"
+                            data-testid="quote-card-statuses"
+                        >
+                            <StatusBadge
+                                group="inquiry"
+                                status={inquiry.status}
+                            />
+                            {inquiry.paymentStatus ? (
+                                <StatusBadge
+                                    group="payment"
+                                    status={inquiry.paymentStatus}
+                                />
+                            ) : null}
+                        </span>
                         <time
                             dateTime={inquiry.createdAt}
                             className="shrink-0 text-xs text-secondary-foreground"
@@ -744,7 +757,7 @@ const Quote = () => {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {STATUS_TABS.map((tab) => (
+                                        {QUOTE_STATUS_TABS.map((tab) => (
                                             <SelectItem
                                                 key={tab.value}
                                                 value={tab.value}
@@ -794,7 +807,7 @@ const Quote = () => {
                         role="tablist"
                         aria-label="Filter by status"
                     >
-                        {STATUS_TABS.map((tab) => {
+                        {QUOTE_STATUS_TABS.map((tab) => {
                             const isActive = status === tab.value;
 
                             return (

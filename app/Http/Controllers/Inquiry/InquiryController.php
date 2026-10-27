@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Inquiry;
 use App\Actions\Inquiry\CreateInquiryAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inquiry\StoreInquiryRequest;
+use App\Models\Inquiry;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Throwable;
@@ -16,7 +17,8 @@ class InquiryController extends Controller
     ) {}
 
     /**
-     * Send the inquiry the Inquire page built.
+     * Send the inquiry the Inquire page built. Each project on it opens an
+     * inquiry of its own, so the success names every reference.
      *
      * Validation failures are the form request's and come back as Inertia
      * errors. Anything else is reported once and flashed as an error, and the
@@ -27,7 +29,7 @@ class InquiryController extends Controller
         $input = $request->inquiryInput();
 
         try {
-            $inquiry = $this->createInquiry->execute($request->user(), $input);
+            $inquiries = $this->createInquiry->execute($request->user(), $input);
         } catch (Throwable $exception) {
             report($exception);
 
@@ -42,7 +44,7 @@ class InquiryController extends Controller
         Inertia::flash('inquiry', [
             'status' => 'success',
             'title' => $input['projects'][0]['name'],
-            'reference' => $inquiry->reference,
+            'reference' => implode(', ', array_map(fn (Inquiry $inquiry): string => $inquiry->reference, $inquiries)),
         ]);
 
         return back();

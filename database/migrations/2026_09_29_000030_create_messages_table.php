@@ -13,11 +13,13 @@ use Illuminate\Support\Facades\Schema;
  *   once: unique per conversation.
  * - `system` messages record a claim, a release or a reassignment of a
  *   Regray Team thread, and `system_user_id` is who it was about.
- * - An inquiry card is posted once per conversation, inquiry and status, so a
- *   retried listener cannot post the same change twice.
- * - A project card announces a snapshot of one project: its own status
- *   (`announced_status`), its quotation's and its payment's. It is posted
- *   once per conversation, project and snapshot, for the same reason.
+ * - An inquiry card announces a snapshot of one inquiry: the status it is
+ *   shown at (`announced_status`) and its four role statuses. Marketing's is
+ *   always there; sales', payment's and process' are NULL until their stage
+ *   has started. It is posted once per conversation, inquiry and snapshot (a
+ *   NULL counting as equal to a NULL), so a retried listener cannot post the
+ *   same change twice.
+ * - A schedule card announces a visit's status in `announced_status`.
  *
  * `conversations.pool_notified_message_id` points at this table while this
  * table points at `conversations`, so that one foreign key is added here, once
@@ -35,10 +37,11 @@ return new class extends Migration
             $table->text('body')->nullable();
             $table->foreignId('inquiry_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('schedule_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('inquiry_project_id')->nullable()->constrained()->nullOnDelete();
             $table->string('announced_status', 20)->nullable();
-            $table->string('announced_quotation_status', 20)->nullable();
+            $table->string('announced_marketing_status', 20)->nullable();
+            $table->string('announced_sales_status', 20)->nullable();
             $table->string('announced_payment_status', 20)->nullable();
+            $table->string('announced_process_status', 20)->nullable();
             $table->foreignId('reply_to_id')->nullable()->constrained('messages')->nullOnDelete();
             $table->uuid('client_key')->nullable();
             $table->string('system_event', 30)->nullable();
@@ -50,32 +53,37 @@ return new class extends Migration
             $table->index(['conversation_id', 'id']);
             $table->index('inquiry_id');
             $table->index('schedule_id');
-            $table->index('inquiry_project_id');
             $table->unique(['conversation_id', 'client_key'], 'idx_messages_conversation_client_key');
         });
+
+        $noSnapshot = 'announced_marketing_status IS NULL AND announced_sales_status IS NULL AND announced_payment_status IS NULL AND announced_process_status IS NULL';
 
         DB::statement("
             ALTER TABLE messages ADD CONSTRAINT chk_messages_type CHECK (
                 (type = 'text' AND body IS NOT NULL AND system_event IS NULL AND system_user_id IS NULL AND inquiry_id IS NULL AND schedule_id IS NULL AND announced_status IS NULL
-                    AND inquiry_project_id IS NULL AND announced_quotation_status IS NULL AND announced_payment_status IS NULL)
-                OR (type = 'inquiry_card' AND body IS NULL AND inquiry_id IS NOT NULL AND announced_status IS NOT NULL AND schedule_id IS NULL AND system_event IS NULL AND system_user_id IS NULL
-                    AND inquiry_project_id IS NULL AND announced_quotation_status IS NULL AND announced_payment_status IS NULL)
+                    AND {$noSnapshot})
+                OR (type = 'inquiry_card' AND body IS NULL AND inquiry_id IS NOT NULL AND schedule_id IS NULL AND system_event IS NULL AND system_user_id IS NULL
+                    AND announced_status IS NOT NULL
+                    AND announced_status IN ('pending','cancelled','closed','negotiation','site_visited','on_hold','quoted','received','measure','sourcing','production','quality_check','ready','dispatched','installation','delayed')
+                    AND announced_marketing_status IS NOT NULL)
                 OR (type = 'schedule_card' AND body IS NULL AND schedule_id IS NOT NULL AND announced_status IS NOT NULL AND inquiry_id IS NULL AND system_event IS NULL AND system_user_id IS NULL
-                    AND inquiry_project_id IS NULL AND announced_quotation_status IS NULL AND announced_payment_status IS NULL)
-                OR (type = 'project_card' AND body IS NULL AND inquiry_project_id IS NOT NULL
-                    AND announced_status IS NOT NULL AND announced_status IN ('pending','ongoing','closed','cancelled')
-                    AND announced_quotation_status IS NOT NULL AND announced_payment_status IS NOT NULL
-                    AND inquiry_id IS NULL AND schedule_id IS NULL AND system_event IS NULL AND system_user_id IS NULL)
+                    AND {$noSnapshot})
                 OR (type = 'system' AND body IS NULL AND system_event IS NOT NULL AND inquiry_id IS NULL AND schedule_id IS NULL AND announced_status IS NULL
-                    AND inquiry_project_id IS NULL AND announced_quotation_status IS NULL AND announced_payment_status IS NULL)
+                    AND {$noSnapshot})
             )
         ");
         DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_system_event CHECK (system_event IS NULL OR system_event IN ('assigned','released','reassigned'))");
-        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_quotation_status CHECK (announced_quotation_status IS NULL OR announced_quotation_status IN ('pending','closed','revision','closeable','rejected'))");
-        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_payment_status CHECK (announced_payment_status IS NULL OR announced_payment_status IN ('awaiting','partial','fully_paid','refunded'))");
-        DB::statement("CREATE UNIQUE INDEX idx_messages_inquiry_card_once ON messages (conversation_id, inquiry_id, announced_status) WHERE type = 'inquiry_card'");
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_marketing_status CHECK (announced_marketing_status IN ('pending','won','lost'))");
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_sales_status CHECK (announced_sales_status IN ('negotiation','site_visited','on_hold','quoted','rejected'))");
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_payment_status CHECK (announced_payment_status IN ('awaiting','partial','fully_paid'))");
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_process_status CHECK (announced_process_status IN ('received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','on_hold','delayed'))");
+        DB::statement("
+            CREATE UNIQUE INDEX idx_messages_inquiry_card_once ON messages (
+                conversation_id, inquiry_id, announced_status, announced_marketing_status,
+                (COALESCE(announced_sales_status, '')), (COALESCE(announced_payment_status, '')), (COALESCE(announced_process_status, ''))
+            ) WHERE type = 'inquiry_card'
+        ");
         DB::statement("CREATE UNIQUE INDEX idx_messages_schedule_card_once ON messages (conversation_id, schedule_id, announced_status) WHERE type = 'schedule_card'");
-        DB::statement("CREATE UNIQUE INDEX idx_messages_project_card_once ON messages (conversation_id, inquiry_project_id, announced_status, announced_quotation_status, announced_payment_status) WHERE type = 'project_card'");
 
         Schema::table('conversations', function (Blueprint $table) {
             $table->foreign('pool_notified_message_id')->references('id')->on('messages')->nullOnDelete();

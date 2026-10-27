@@ -90,10 +90,10 @@ it('refuses', function (Closure $change, string $errorKey): void {
 })->with('refused values');
 
 describe('projects', function (): void {
-    it('accepts up to 10 projects', function (): void {
+    it('accepts up to 10 projects, one inquiry each', function (): void {
         postInquiry($this, array_fill(0, 10, inquiryProjectInput()))->assertSessionHasNoErrors();
 
-        expect(Inquiry::query()->first()->projects()->count())->toBe(10);
+        expect(Inquiry::query()->count())->toBe(10);
     });
 
     it('refuses an 11th project', function (): void {

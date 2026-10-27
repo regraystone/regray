@@ -3,29 +3,48 @@
 namespace App\Enums;
 
 /**
- * An inquiry's status, read from its projects': lost when every project is
- * cancelled, closed when none is still open and one is closed, ongoing once
- * work has started on any, pending while every project is.
+ * The status shown for an inquiry everywhere, to the client and to staff: the
+ * stage it has reached. Calculated from the four role statuses by
+ * App\Services\InquiryStatusCalculator, never stored.
+ *
+ * The stage values are the role values they come from: a sales status while
+ * sales has it, a logistics status once the job order is in. `pending` is
+ * marketing's, `closed` is logistics completed, and `cancelled` is marketing
+ * lost or sales rejected.
  */
 enum InquiryStatus: string
 {
-    case Draft = 'draft';
     case Pending = 'pending';
-    case Ongoing = 'ongoing';
+    case Cancelled = 'cancelled';
     case Closed = 'closed';
-    case Lost = 'lost';
+    case Negotiation = 'negotiation';
+    case SiteVisited = 'site_visited';
+    case OnHold = 'on_hold';
+    case Quoted = 'quoted';
+    case Received = 'received';
+    case Measure = 'measure';
+    case Sourcing = 'sourcing';
+    case Production = 'production';
+    case QualityCheck = 'quality_check';
+    case Ready = 'ready';
+    case Dispatched = 'dispatched';
+    case Installation = 'installation';
+    case Delayed = 'delayed';
 
-    /**
-     * The statuses a list can be filtered by. `draft` is history only: no
-     * inquiry sits at it, so offering it would filter to nothing.
-     *
-     * @return list<string>
-     */
-    public static function listable(): array
+    /** The tab on the Quote list this status is filtered under. */
+    public function group(): InquiryStatusGroup
     {
-        return array_values(array_map(
-            fn (self $status): string => $status->value,
-            array_filter(self::cases(), fn (self $status): bool => $status !== self::Draft),
-        ));
+        return match ($this) {
+            self::Pending => InquiryStatusGroup::Pending,
+            self::Closed => InquiryStatusGroup::Closed,
+            self::Cancelled => InquiryStatusGroup::Cancelled,
+            default => InquiryStatusGroup::InProgress,
+        };
+    }
+
+    /** @return list<string> */
+    public static function values(): array
+    {
+        return array_map(fn (self $status): string => $status->value, self::cases());
     }
 }

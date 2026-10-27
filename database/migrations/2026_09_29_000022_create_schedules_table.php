@@ -28,8 +28,10 @@ return new class extends Migration
 
             $table->index(['client_id', 'arrival_at']);
             $table->index(['status', 'arrival_at']);
-            $table->index('inquiry_id');
         });
+
+        // One inquiry has one deadline visit. A booking has no inquiry.
+        DB::statement('CREATE UNIQUE INDEX idx_schedules_inquiry_once ON schedules (inquiry_id) WHERE inquiry_id IS NOT NULL');
 
         DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_status CHECK (status IN ('pending','confirmed','completed','cancelled'))");
         DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_booked_by_type CHECK (booked_by_type IN ('client','staff'))");

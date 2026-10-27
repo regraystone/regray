@@ -6,8 +6,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * The ledger behind a payment: each deposit and each refund, as received.
- * A payment's `amount_paid` is the sum of its `payment` rows.
+ * The ledger behind an inquiry's payment: each payment and each refund, as
+ * accounting received it.
+ *
+ * `inquiries.payment_status` is set by accounting by hand and is not derived
+ * from these rows. A refund has no payment status of its own.
  */
 return new class extends Migration
 {
@@ -15,7 +18,7 @@ return new class extends Migration
     {
         Schema::create('payment_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('payment_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
             $table->string('kind', 10);
             $table->decimal('amount', 12, 2);
             $table->string('reference', 60)->nullable();
@@ -23,7 +26,7 @@ return new class extends Migration
             $table->timestampTz('received_at');
             $table->timestampTz('created_at');
 
-            $table->index(['payment_id', 'received_at']);
+            $table->index(['inquiry_id', 'received_at']);
         });
 
         DB::statement("ALTER TABLE payment_transactions ADD CONSTRAINT chk_payment_transactions_kind CHECK (kind IN ('payment','refund'))");
