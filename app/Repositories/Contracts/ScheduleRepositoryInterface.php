@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 interface ScheduleRepositoryInterface
 {
     /**
-     * @param  array{client_id: int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string}  $attributes
+     * @param  array{client_id: ?int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string}  $attributes
      */
     public function create(array $attributes): Schedule;
 

@@ -16,8 +16,8 @@ class CreateGroupAction
     /**
      * @param  list<int>  $staffIds
      */
-    public function execute(User $creator, string $name, array $staffIds, int $clientId): Conversation
+    public function execute(User $creator, string $name, array $staffIds, int $clientId, int $inquiryId): Conversation
     {
-        return DB::transaction(fn (): Conversation => $this->groupService->create($creator, $name, $staffIds, $clientId));
+        return DB::transaction(fn (): Conversation => $this->groupService->create($creator, $name, $staffIds, $clientId, $inquiryId));
     }
 }

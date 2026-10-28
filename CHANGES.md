@@ -1,3 +1,135 @@
+# Inquiry and Leads tables, Update Status by role, and Manila time
+
+The Inquiry page is now one table for every staff role, with the actions each role has on a row: View, Edit, the status of the track it owns, and Upload job order.
+
+Logistics' first status is renamed **`order_received`** (was `received`), everywhere: enum, CHECKs, display value, seeds and labels ("Order received"). Each status move goes through one **Update Status** dialog, with a required note and the files and amount its target needs, and the server checks all of it again. The Leads page uses the same table. Files are grouped per status update, and the client sees them that way. The app now runs on Manila time. Run `npm install` (a new Radix package) and `php artisan migrate:fresh --seed`.
+
+## What changed
+
+### Database
+
+- **`inquiry_files`:** `document_type` adds `billing_statement` and `invoice`; new `status_history_id` (FK `inquiry_status_history`, `RESTRICT`, indexed): the status update a file came with, so each update's files are one group.
+- **`lead_status_history`:** new `note` (500), why a lead was won or lost.
+- Both edits are in the tables' create migrations.
+
+### The flow (ERD section 4)
+
+- **Sales** moves to any value but its current one once started; `rejected` is final. **Quoted** is the client's verbal approval in the group chat and needs the quotation (client-visible) and the quoted total; the job order (internal) is optional there. Each quote is a new `quote_revision`. Quoting no longer starts payment.
+- **Job order:** with the quote, or later from its own row action (`POST inquiries/{reference}/job-order`, sales, once). It starts logistics at `order_received`; until then the inquiry shows `quoted`.
+- **Payment** starts NULL and only once quoted, forward only: `awaiting` with the billing statement, then `partial` or `fully_paid` with receipts, an invoice and the amount received (a `payment_transactions` row). A partial payment must leave a balance; `fully_paid` must bring the payments to exactly the quoted total.
+- **Logistics** moves to any value but its current one once the job order has started it; `completed` is final. No files.
+
+### Backend
+
+- **Permissions:** `leads.update` (marketing), `inquiries.edit` (marketing, sales), `inquiries.status.sales` (sales), `inquiries.status.payment` (accounting), `inquiries.status.process` (logistics); the admin holds all. Technical and owner only read.
+- **Endpoints:** `POST inquiries/{reference}/status` (track, to, note, `files[type][]`, `quotedTotal` or `amountReceived`; `InquiryPolicy::updateStatus` then `InquiryStatusUpdateService`, in one transaction); `POST leads/{reference}/status` (to, note; was a PATCH without a note); `GET inquiry/{reference}/edit` and `PATCH inquiry/{reference}` (staff Edit: the project only, never the client, a status or the client's files).
+- **Rules:** `InquiryStatusRules` (allowed targets, required files, extra field), mirrored by `resources/js/lib/status-rules.ts`. `InquiryStatusService::transition()` takes a note and returns its history row.
+- **Uploads:** `InquiryFileUploads` follows the track's permission instead of the role, so the admin may upload too: quotation and job order with `inquiries.status.sales`; billing statement, receipt and invoice with `inquiries.status.payment`.
+- **Lists:** `ViewController::inquiry` and `::leads` send `{ data, meta }` and `filters` (`DataTableRequest`: search, page, perPage of 10, 25, 50 or 100). Each row's `actions` are the `Gate::allows` checks its routes make, plus whether the inquiry's state still allows them. Contact is the phone number; the Leads list also sends the email.
+- **Details:** staff open any inquiry on `inquiry.show` (the list's View); a client still only their own. Documents come grouped per update, headed by its status and date; the job order is never sent, to anyone.
+- **Timezone:** `app.timezone` is `Asia/Manila`, and the database session reads in the same zone. Eloquent converts every date to the app's zone before writing it, so a stored instant never moves; only display changes.
+
+### Frontend
+
+- New `ui/table`, `ui/pagination`, `ui/radio-group` (with `@radix-ui/react-radio-group`), `DataTable` (debounced search, page size, pager, skeleton rows, EmptyState; server-side through partial reloads), `RowActions` (one icon button per task, each with a tooltip and label), `StatusUpdateDialog`, `formatDate` ("June 22, 2020", in Manila).
+- **Inquiry page:** Date, Inquiry No., Client, Contact (phone), Status (the inquiry status, and the payment status beside it once started), Actions; Add (marketing, sales, admin) opens the Platform or Direct modal.
+- **Status colours:** every inquiry and payment status has its own colour (`statusTone()` in `lib/inquiry-statuses.ts`), the same on every page and for every role. The payment badge reads "Awaiting", not "Awaiting payment".
+- **Sidebar:** Leads sits above Inquiry.
+- **Direct (walk-in) client:** the phone number is required (the form's first contact, and the server refuses a client without one); Viber, WhatsApp and email are optional.
+- The Update Status dialog is wider, with a group's files side by side. A slot that takes one file (quotation, job order, billing statement, invoice) says so and refuses a second; `FileUpload` has a `maxFiles` prop for it.
+- **Leads page:** Date, Client, Contact (phone), Email, Actions (View; Won and Lost while idle, each with a note). View shows the lead, its history with notes and its inquiries, with Create inquiry and a group chat per inquiry.
+- Staff edit on the Inquire page in edit mode, without attachments, back to the Inquiry list.
+
+### Tests
+
+- New `tests/Feature/Inquiry/InquiryDashboardTest.php`: the role-to-action matrix (admin included), quoting with its grouped files, quoting without the job order and uploading it later (once), the status endpoint refusing the current status, a missing note, quotation or quoted total, and a payment that does not add up; payment starting NULL and needing a billing statement; a job order never on the details page; a booking's stored instant unchanged and shown in Manila.
+- New `tests/js/dashboard.test.mjs`: `formatDate`, status options, required file groups, page sizes and clamping, the pagination range text.
+- Updated: `InquirySeedConsistencyTest` (payment and process no longer start together; each update's files grouped), `LeadStatusTest`, `LeadsPageTest`, `QuoteDetailsTest`, `InquiryFileUploadsTest`, `SchemaTest`, `WorkspacePagesTest`, and the schedule tests that read times (now Manila).
+
+# Staff ask Platform or Direct before opening an inquiry; walk-in clients without an account
+
+When marketing or sales press **Inquire**, a modal asks first whether the client has a Regray account. **Platform** ("The client has a Regray account.") finds the account and then one of its leads, as before. **Direct (walk-in)** ("The client has no account.") takes the client down, checks for a duplicate contact, and opens the inquiry with no lead and sales at `negotiation` straight away. Every client now has a record in a new `clients` table, `platform` or `direct`; there is no `walk_in` kind. The client's own Inquire flow is unchanged. Run `php artisan migrate:fresh --seed`.
+
+The walk-in and direct clients prompt and the assign-to-account addendum this builds on were not available; the `clients` and `client_contacts` design below is drawn from this addendum alone.
+
+## What changed
+
+### Database
+
+- **New `clients`** (`2026_09_29_000018_create_clients_table`): `kind` (CHECK `platform`, `direct`), `user_id` (nullable, unique, `RESTRICT`), `full_name`, `company`, `address`, `created_by`. `platform` if and only if `user_id` is set is the app's rule. An account has one record at most; records are never merged.
+- **New `client_contacts`** (`2026_09_29_000035`): `kind` (CHECK `phone`, `viber`, `whatsapp`, `email`) and a normalised `value`, unique per kind and value across all clients (`idx_client_contacts_once`), which is what the duplicate check finds.
+- **`inquiries`:** `client_record_id` (FK `clients`, `RESTRICT`, indexed) is the inquiry's client; `client_id` (the account) is nullable, NULL for a direct client.
+- **`schedules`:** `client_id` is nullable, NULL only for a direct client's inquiry visit.
+
+### Backend
+
+- `ClientKind` and `ContactKind` enums; `Client` and `ClientContact` models; `ClientRepositoryInterface`; `ClientService` (`findOrCreateForUser()`, `createDirect()` with the duplicate check, `searchAccounts()`).
+- Every inquiry is filed under a client record: an account's is made the first time it is needed (by the client's own inquiry or by staff on the Platform branch).
+- New staff routes, guarded like the staff stepper (`inquiries.view` and `inquiries.create`): `GET inquiry/inquire/accounts` (client accounts by name or email), `POST inquiry/direct-clients` (201 created, or 200 with `existing: true` and the matched contact when the client is already on file; nothing is created then), `POST inquiry/direct-clients/{client}/inquiries` (a direct client only; a platform record is a 404 there).
+- `InquiryService::createForDirectClient()`: no account, no lead, sales `negotiation` with its history row by the staff member, the visit booked by them. `SupportConversationService::cardThreadFor()` returns null for a direct client's inquiry with no group chat, so it posts no card.
+- Lead options sent to the Inquire page carry `clientId`, so the Platform branch shows only the chosen account's leads that this role may use.
+
+### Seeders
+
+- `InquirySeeder` files every seeded inquiry under a client record (a platform record per account) and adds one direct client, Carmela Reyes of Reyes Bakeshop (phone, Viber, email), with INQ-1062 at `negotiation`: no lead, no card, its visit with no account.
+
+### Frontend
+
+- `StaffInquireDialog` (Platform or Direct) opens from the staff Inquire button (`useInquiryEntry`), and on the staff stepper URL when no branch is chosen. The branch and the lead are kept in the URL (`?kind=`, `?lead=`).
+- `StaffInquireStart`: the Platform account search and lead step, and the Direct form (full name, company, address, contact rows) with the "already on file" offer. The stepper shows who it is for ("For Carmela Reyes · Direct (walk-in)") with "Change client", and takes no attachments.
+- `lib/staff-inquire.ts` (the two options and the contact kinds) and `lib/staff-clients-api.ts`.
+
+### Tests
+
+- New `tests/Feature/Inquiry/StaffInquireTest.php`: account search for staff only, lead options with their client, a platform record made once, a direct client taken down and normalised, the duplicate offer, validation, a direct inquiry with no lead and sales at `negotiation`, the direct route refusing a platform record, and no `walk_in` value in the schema or anywhere in `app`, `database`, `resources/js` and `routes`.
+- `SchemaTest`: client kinds, one record per account, unique contacts, a direct client's inquiry and visit with no account. `InquirySeedConsistencyTest`: every inquiry has a client record, direct ones with no lead and no card.
+- `tests/js/staff-inquire.test.mjs`: exactly two options. e2e: `m-staff-modal.spec.ts` (the modal, the client never seeing it, the duplicate offer), and the staff stepper specs now enter past the modal.
+
+# Marketing works leads; group chats belong to an inquiry
+
+Marketing's status moves off the inquiry onto a **lead**: marketing's record of one client, created when a marketing user is given the client's Regray Team thread, with its own status (`idle`, `won`, `lost`). Every inquiry points to its client's lead. A won lead starts sales on its inquiries; a lost lead shows them cancelled. Marketing gets a **Leads** page, staff open inquiries for a lead's client, and a group chat is now made for one client's inquiry, with its status cards posted there. Clients see only the inquiry status and the payment status. Run `php artisan migrate:fresh --seed`.
+
+## What changed
+
+### Database
+
+- **New `leads`** (`2026_09_29_000018`): `reference` (`LEAD-0001`, from `lead_reference_seq`), `client_id` and `marketing_user_id` (both `RESTRICT`), `status` (default `idle`, CHECK `idle`, `won`, `lost`), `status_changed_at`. Indexes on `status`, `marketing_user_id` and `client_id`, and a partial unique `idx_leads_client_open` on `client_id` where the status is `idle` or `won`: a client has one open lead at a time.
+- **New `lead_status_history`** (`2026_09_29_000034`): `from_status`, `to_status` (CHECKed), `changed_by` (set null), `changed_at`; index `(lead_id, changed_at)`. Append only.
+- **`inquiries`:** `marketing_status`, `marketing_status_changed_at`, their CHECK and their index are gone. `lead_id` is added (nullable, `RESTRICT`, indexed): NULL until the client's thread is claimed.
+- **`inquiry_status_history`:** the `track` CHECK is `sales`, `payment`, `process`; `pending`, `won` and `lost` are gone from the status CHECKs.
+- **`conversations`:** `inquiry_id` is `RESTRICT` (was set null), and unique only among groups (`idx_conversations_inquiry_group`, `WHERE type = 'group'`): an inquiry has one group chat at most.
+- **`messages`:** `announced_marketing_status` is gone, with its CHECK and its place in `idx_messages_inquiry_card_once`. An inquiry card needs only `inquiry_id` and `announced_status`.
+- Every change is in the table's create migration; the two new tables have their own.
+
+### Backend
+
+- **Enums:** new `LeadStatus`. `MarketingStatus` and `InquiryStatusTrack::Marketing` are gone. New permission `leads.view`, granted to marketing alone; `inquiries.create` is now also granted to sales.
+- **`InquiryStatusCalculator`:** takes `?LeadStatus` instead of marketing. Rule 1 is cancelled when the lead is lost or sales is rejected; in SQL, an `EXISTS` on `leads`. `Inquiry::leadStatus()` reads it from a selected `lead_status` (`withLeadStatus` scope), the loaded lead or the database.
+- **`LeadService`:** `assign()` (claim and reassign: creates the client's idle lead, moves an idle lead to the new holder, links unlinked inquiries), `leadForNewInquiry()` (the open lead, or a new idle lead for the thread's holder after a lost one) and `transition()` (status, history row and `LeadStatusChanged` in one transaction). The listener `ApplyLeadStatusCascade` starts sales at `negotiation` on won (through `InquiryStatusService::transition()`), and on lost cancels open visits and posts a card for each inquiry whose display status changed. The claim action runs `assign()` in the claim's transaction.
+- **Creating:** a new inquiry has no role status and no history row; it links to the client's open lead, and starts sales at once on a won lead. Staff open one for a lead's client with `POST leads/{reference}/inquiries` (`inquiries.view` and `inquiries.create`, then `LeadPolicy::createInquiry`: marketing its own idle or won leads, sales won leads). Staff send no attachments; the visit is booked by the staff member. The staff `POST inquiry/inquire`, which filed the inquiry under the staff member as the client, is gone.
+- **Cancelling:** unchanged for the client (only before approval). Sales started: sales `rejected`. Not started: the lead becomes `lost` (cancelling every inquiry on it). No lead yet: sales `rejected` from NULL.
+- **Leads page:** `GET leads` (`leads.view`), `ViewController::leads`: tabs Idle, Won, Lost with counts; the marketing user's own leads (every lead for the admin). `PATCH leads/{reference}/status` marks an idle lead won or lost (`LeadPolicy::update`: its marketing user).
+- **Group chats:** `GroupConversationService::create()` takes a client and one of that client's inquiries, which the group is bound to. Marketing picks staff from sales and technical only; every owner is always added; the creator is its admin. A sales member of an inquiry's group may add accounting and logistics users and nobody else (`GET`/`POST message/{conversation}/members`, `ConversationPolicy::addMembers`). The `TODO(inquiry-binding)` notes are resolved: cards go to the inquiry's group chat once it has one.
+- **Resources:** `InquiryDetailsResource` drops `marketingStatus` and the marketing history; an inquiry cancelled by its lost lead ends its activity log with `inquiry` `cancelled`. Staff are also sent `lead` (reference, status); a client never is. Cards drop `announcedMarketingStatus`. `ConversationResource` has `canAddMembers`.
+
+### Seeders
+
+- **`InquirySeeder`** writes eight leads with their history (won where sales started, lost where cancelled before sales, idle otherwise), each held by `marketing@example.com`, who is given the client's Regray Team thread when the lead was created. INQ-1050 and INQ-1054 moved to Lucas Moreau, whose first lead was lost and whose next inquiry opened a new idle lead; every inquiry still shows the status it did. Three inquiries (INQ-1044, INQ-1046, INQ-1049) have a group chat staffed by the rules above, with accounting and logistics added later on the two approved ones; their cards go to the group from when it was made.
+- `E2EMessageSeeder` and `ConversationSeeder` no longer write marketing status; `ConversationSeeder` leaves a thread InquirySeeder already assigned as it is.
+
+### Frontend
+
+- **`pages/leads.tsx`:** tabs with counts; each row has the reference, client, linked inquiries, lead badge and updated date, and Mark won, Mark lost (with a confirmation), Create inquiry and a group chat per inquiry without one. **Leads** is in the sidebar for `leads.view`.
+- **Staff Inquire:** picks the lead first (`?lead=` in the URL), then the usual steps, without attachments, sent under the lead.
+- **Group form:** client, then one of the client's inquiries (those with a group are disabled), then staff; owners are listed as always included. Sales members of an inquiry's group get an "Add accounting or logistics" control in the thread header.
+- `lib/lead-statuses.ts` and `LeadStatusBadge`; marketing is gone from `lib/inquiry-statuses.ts`, the badge, the types and the mock data.
+
+### Tests
+
+- New `tests/Feature/Lead/LeadStatusTest.php` and `LeadsPageTest.php`: lead on claim and on reassignment, won starting sales, lost cancelling inquiries and visits, client cancel before sales marking the lead lost, a new lead after a lost one, page access by role, and staff inquiry creation by role.
+- `GroupConversationTest`: sales and technical only for marketing, owners always added, inquiry of the chosen client, one group per inquiry, cards into the group, later additions by sales.
+- `InquiryStatusCalculatorTest` covers lead NULL, idle, won and lost, PHP against SQL on all 576 combinations. `SchemaTest`, `InquirySeedConsistencyTest`, the card, Quote, service and repository tests, `tests/js/inquiry-statuses.test.mjs` and the e2e staff Inquire specs follow the new rules.
+
 # A role's status exists only once its stage has started
 
 Sales, payment and logistics are no longer set from the moment an inquiry is created. Each is NULL until its stage starts, and nothing is shown for it until then. Marketing starts at creation (`pending`). Sales starts when marketing is won (`negotiation`). Accounting and logistics start together when the client approves the quotation, which sets sales to `quoted`: payment at `awaiting`, process at `received`. Until approval an inquiry shows only marketing and sales. The flow that starts the stages is written down (`docs/database/regray-erd.md`, section 4) but not built. Run `php artisan migrate:fresh --seed`.

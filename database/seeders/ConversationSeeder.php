@@ -69,8 +69,8 @@ class ConversationSeeder extends Seeder
                 $directKey = hash('sha256', implode(':', $memberIds));
             }
 
-            // TODO(inquiry-binding): groups are not bound to inquiries yet, so
-            // the sample groups carry no inquiry either.
+            // The sample groups are not bound to an inquiry. The inquiries'
+            // own group chats are InquirySeeder's.
 
             $conversation = Conversation::firstOrCreate(
                 ['direct_key' => $directKey, 'name' => $conversationData['name'], 'type' => $conversationData['type']],
@@ -172,16 +172,20 @@ class ConversationSeeder extends Seeder
             if (! $thread->messages()->where('type', MessageType::Text)->exists()) {
                 $first = $this->text($thread, $handled, 'Good morning — could someone confirm the delivery date for our counters?', now()->subDay());
 
-                $thread->forceFill(['assigned_to' => $marketing->id, 'assigned_at' => now()->subDay()->addMinutes(5)])->save();
-                $members->upsert($thread->id, $marketing->id, ConversationMemberRole::Member);
+                // InquirySeeder gave the thread to marketing with the client's
+                // lead; without it, marketing claims it here.
+                if ($thread->assigned_to === null) {
+                    $thread->forceFill(['assigned_to' => $marketing->id, 'assigned_at' => now()->subDay()->addMinutes(5)])->save();
+                    $members->upsert($thread->id, $marketing->id, ConversationMemberRole::Member);
 
-                Message::create([
-                    'conversation_id' => $thread->id,
-                    'type' => MessageType::System,
-                    'system_event' => SystemEvent::Assigned,
-                    'system_user_id' => $marketing->id,
-                    'created_at' => now()->subDay()->addMinutes(5),
-                ]);
+                    Message::create([
+                        'conversation_id' => $thread->id,
+                        'type' => MessageType::System,
+                        'system_event' => SystemEvent::Assigned,
+                        'system_user_id' => $marketing->id,
+                        'created_at' => now()->subDay()->addMinutes(5),
+                    ]);
+                }
 
                 $reply = $this->text($thread, $marketing, 'Good morning! Your counters are scheduled for delivery on Friday.', now()->subDay()->addMinutes(6));
 

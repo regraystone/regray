@@ -5,7 +5,6 @@
 
 import type {
     InquiryStatus,
-    MarketingStatus,
     PaymentStatus,
     ProcessStatus,
     SalesStatus,
@@ -31,15 +30,11 @@ export type ConversationSummary = {
     supportClient: { id: number; name: string } | null;
     canClaim: boolean;
     memberCount: number | null;
+    /** Whether the reader may add accounting or logistics: a sales member of an inquiry's group chat. */
+    canAddMembers: boolean;
 };
 
-export type {
-    InquiryStatus,
-    MarketingStatus,
-    PaymentStatus,
-    ProcessStatus,
-    SalesStatus,
-};
+export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
 
 /**
  * An inquiry as the `inquiry_card` message announced it: the project it is,
@@ -53,7 +48,6 @@ export type InquiryCard = {
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
     stoneCount: number;
     announcedStatus: InquiryStatus;
-    announcedMarketingStatus: MarketingStatus;
     /** Null for a stage that had not started when the card was posted. */
     announcedSalesStatus: SalesStatus | null;
     announcedPaymentStatus: PaymentStatus | null;

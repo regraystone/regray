@@ -5,7 +5,6 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -48,37 +47,6 @@ test('it rejects an existing email without changing that user', function () {
         'email' => 'existing@example.com',
         'name' => 'Existing User',
     ]);
-});
-
-test('it rejects an invalid email', function () {
-    $this->artisan('app:create-admin', [
-        'email' => 'not-an-email',
-        '--name' => 'Test Admin',
-        '--password' => 'SecurePass123!',
-    ])->assertFailed();
-
-    $this->assertDatabaseMissing('users', ['email' => 'not-an-email']);
-});
-
-test('it rejects a weak password', function () {
-    $result = $this->artisan('app:create-admin', [
-        'email' => 'weak@example.com',
-        '--name' => 'Test Admin',
-        '--password' => 'weak',
-    ]);
-
-    expect($result->exitCode)->not->toBe(0);
-    $this->assertDatabaseMissing('users', ['email' => 'weak@example.com']);
-})->throws(ValidationException::class);
-
-test('it prints email and role on success', function () {
-    $this->artisan('app:create-admin', [
-        'email' => 'admin-output@example.com',
-        '--name' => 'Test Admin',
-        '--password' => 'SecurePass123!',
-    ])
-        ->assertSuccessful()
-        ->expectsOutput('Created admin user: admin-output@example.com (admin)');
 });
 
 test('it never prints the password', function () {

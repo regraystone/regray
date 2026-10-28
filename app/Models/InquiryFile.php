@@ -25,7 +25,7 @@ use Illuminate\Support\Carbon;
  *
  * Who may upload which document type is App\Policies\InquiryFileUploads.
  */
-#[Fillable(['document_type', 'revision', 'disk', 'path', 'original_name', 'mime_type', 'size_bytes', 'sha256', 'uploaded_by'])]
+#[Fillable(['document_type', 'status_history_id', 'revision', 'disk', 'path', 'original_name', 'mime_type', 'size_bytes', 'sha256', 'uploaded_by'])]
 class InquiryFile extends Model
 {
     use SoftDeletes;

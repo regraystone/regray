@@ -3,6 +3,7 @@ import {
     addStoneProject,
     addVisitProject,
     openInquire,
+    openStaffInquire,
     sendAndReadReference,
 } from '../support/inquiry-flow';
 
@@ -25,7 +26,7 @@ test('38 · the whole flow, for the client and for marketing, logs no console er
     await expect(client.page.locator('main')).toContainText(reference);
 
     const marketing = await actors.open('marketing');
-    await openInquire(marketing.page, '/inquiry/inquire');
+    await openStaffInquire(marketing.page);
     await addVisitProject(marketing.page);
 
     expect(client.errors).toEqual([]);

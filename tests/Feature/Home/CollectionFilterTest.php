@@ -18,42 +18,34 @@ beforeEach(function (): void {
     $this->seed(RolePermissionSeeder::class);
 });
 
-test('all lookup options remain available with no matching items in either collection', function (string $collection): void {
+test('offers every active lookup option in both collections, matched or not, and no inactive one', function (): void {
     $this->seed([ProjectCategorySeeder::class, ProjectSeeder::class]);
     $category = StoneCategory::factory()->create();
     StoneSize::factory()->create(['name' => '90x90']);
     StoneThickness::factory()->create(['slug' => '12-mm', 'name' => '12 mm']);
+    $inactive = StoneCategory::factory()->create(['is_active' => false]);
+    StoneSize::factory()->create(['name' => '95x95', 'is_active' => false]);
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.index', ['collection' => $collection, 'search' => 'no matching item']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has($collection.'.data', 0)
-            ->where('filterOptions.categories', fn ($options) => $options->pluck('value')->contains($category->slug))
-            ->where('filterOptions.sizes', fn ($options) => $options->pluck('value')->contains('90x90'))
-            ->where('filterOptions.thicknesses', fn ($options) => $options->pluck('value')->contains('12-mm'))
-            ->has('filterOptions.projectCategories', 9)
-            ->where('filterOptions.projectCategories.2', ['value' => 'kitchen-islands', 'label' => 'Kitchen Islands'])
-            ->where('filterOptions.projectCategories.8', ['value' => 'fixtures', 'label' => 'Fixtures'])
-        );
-})->with(['stones', 'projects']);
+    foreach (['stones', 'projects'] as $collection) {
+        $this->actingAs($user)->get(route('home.index', ['collection' => $collection, 'search' => 'no matching item']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has($collection.'.data', 0)
+                ->where('filterOptions.categories', fn ($options) => $options->pluck('value')->contains($category->slug) && ! $options->pluck('value')->contains($inactive->slug))
+                ->where('filterOptions.sizes', fn ($options) => $options->pluck('value')->contains('90x90') && ! $options->pluck('value')->contains('95x95'))
+                ->where('filterOptions.thicknesses', fn ($options) => $options->pluck('value')->contains('12-mm'))
+                ->has('filterOptions.projectCategories', 9)
+                ->where('filterOptions.projectCategories.2', ['value' => 'kitchen-islands', 'label' => 'Kitchen Islands'])
+                ->where('filterOptions.projectCategories.8', ['value' => 'fixtures', 'label' => 'Fixtures'])
+            );
+    }
 
-test('inactive lookup options are not offered in either collection', function (string $collection): void {
-    $this->seed(ProjectCategorySeeder::class);
-    $category = StoneCategory::factory()->create(['is_active' => false]);
-    StoneSize::factory()->create(['name' => '90x90', 'is_active' => false]);
-    StoneThickness::factory()->create(['slug' => '12-mm', 'is_active' => false]);
     ProjectCategory::query()->where('slug', 'fixtures')->update(['is_active' => false]);
-    $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.index', ['collection' => $collection]))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('filterOptions.categories', fn ($options) => ! $options->pluck('value')->contains($category->slug))
-            ->where('filterOptions.sizes', fn ($options) => ! $options->pluck('value')->contains('90x90'))
-            ->where('filterOptions.thicknesses', fn ($options) => ! $options->pluck('value')->contains('12-mm'))
-            ->has('filterOptions.projectCategories', 8)
-        );
-})->with(['stones', 'projects']);
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'projects']))
+        ->assertInertia(fn (Assert $page) => $page->has('filterOptions.projectCategories', 8));
+});
 
 test('stones can match additional categories sizes and thicknesses through pivots', function (): void {
     $stone = Stone::factory()->create();
@@ -75,19 +67,6 @@ test('stones can match additional categories sizes and thicknesses through pivot
     expect($stone->categories()->count())->toBe(2);
     expect($stone->sizes()->count())->toBe(2);
     expect($stone->thicknesses()->count())->toBe(2);
-});
-
-test('an unused project category can be selected without losing its option', function (): void {
-    $this->seed([ProjectCategorySeeder::class, ProjectSeeder::class]);
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'projects', 'project_category' => 'kitchen-islands']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('projects.data', 0)
-            ->where('filters.projectCategory', 'kitchen-islands')
-            ->has('filterOptions.projectCategories', 9)
-        );
 });
 
 test('unused database stone options are valid filters even without any stones', function (): void {

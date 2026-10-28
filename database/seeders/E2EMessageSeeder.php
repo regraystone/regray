@@ -6,7 +6,6 @@ use App\Enums\BookedByType;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
 use App\Enums\InquiryStatus;
-use App\Enums\MarketingStatus;
 use App\Enums\MessageType;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
@@ -314,7 +313,7 @@ class E2EMessageSeeder extends Seeder
         ]);
     }
 
-    /** A pending inquiry: one project, only marketing's stage started. */
+    /** A pending inquiry: one project, with no lead and no role status started. */
     private function inquiry(User $client, string $reference, string $projectName): Inquiry
     {
         $inquiry = new Inquiry;
@@ -323,8 +322,6 @@ class E2EMessageSeeder extends Seeder
             'client_id' => $client->id,
             'name' => $projectName,
             'location' => 'Makati',
-            'marketing_status' => MarketingStatus::Pending,
-            'marketing_status_changed_at' => Carbon::now(),
         ])->save();
 
         $inquiry->services()->attach(Service::query()->where('slug', 'natural-stone-supply')->value('id'));
@@ -347,18 +344,17 @@ class E2EMessageSeeder extends Seeder
      */
     private function snapshot(InquiryStatus $status): array
     {
-        [$marketing, $sales, $payment, $process] = match ($status) {
-            InquiryStatus::Pending => ['pending', null, null, null],
-            InquiryStatus::Cancelled => ['won', 'rejected', null, null],
-            InquiryStatus::Closed => ['won', 'quoted', 'fully_paid', 'completed'],
-            InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => ['won', $status->value, null, null],
-            InquiryStatus::Quoted => ['won', 'quoted', 'awaiting', 'received'],
-            default => ['won', 'quoted', 'awaiting', $status->value],
+        [$sales, $payment, $process] = match ($status) {
+            InquiryStatus::Pending => [null, null, null],
+            InquiryStatus::Cancelled => ['rejected', null, null],
+            InquiryStatus::Closed => ['quoted', 'fully_paid', 'completed'],
+            InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [$status->value, null, null],
+            InquiryStatus::Quoted => ['quoted', 'awaiting', 'order_received'],
+            default => ['quoted', 'awaiting', $status->value],
         };
 
         return [
             'announced_status' => $status->value,
-            'announced_marketing_status' => $marketing,
             'announced_sales_status' => $sales,
             'announced_payment_status' => $payment,
             'announced_process_status' => $process,

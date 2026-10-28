@@ -19,7 +19,8 @@ use Inertia\Response;
 
 /**
  * The Message page and the two things it does without a thread open: starting
- * a group, and finding people to start it with.
+ * a group for one client's inquiry, and finding the people and the inquiry to
+ * start it with.
  */
 class MessageController extends Controller
 {
@@ -53,18 +54,20 @@ class MessageController extends Controller
 
     public function people(SearchPeopleRequest $request): JsonResponse
     {
-        $people = $this->searchPeople->execute($request->search());
+        $people = $this->searchPeople->execute($request->user(), $request->search(), $request->clientId());
 
         return response()->json([
             'staff' => PersonResource::collection($people['staff'])->resolve($request),
             'clients' => PersonResource::collection($people['clients'])->resolve($request),
+            'owners' => PersonResource::collection($people['owners'])->resolve($request),
+            'inquiries' => $people['inquiries'],
         ]);
     }
 
     public function storeGroup(CreateGroupRequest $request): JsonResponse
     {
         $user = $request->user();
-        $conversation = $this->createGroup->execute($user, $request->name(), $request->staffIds(), $request->clientId());
+        $conversation = $this->createGroup->execute($user, $request->name(), $request->staffIds(), $request->clientId(), $request->inquiryId());
 
         return response()->json([
             'conversation' => ConversationResource::make($this->conversationService->summary($user, $conversation))->viewedBy($user)->resolve($request),

@@ -3,7 +3,6 @@
 namespace App\Events;
 
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
@@ -13,10 +12,13 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * One of an inquiry's role statuses moved, on `$track`. Dispatched by every
- * transition through InquiryStatusService::transition(), and for a new inquiry
- * (marketing, from nothing to pending), only once the transaction that made
- * the change has committed.
+ * What an inquiry shows changed, only once the transaction that made the change
+ * has committed. It posts the inquiry's card (PostInquiryStatusCard).
+ *
+ * One of its role statuses moved on `$track`, from `$from` to `$to`, in every
+ * transition through InquiryStatusService::transition(). `$track`, `$from` and
+ * `$to` are all null when no role status moved: the inquiry was just sent, or
+ * its lead was lost.
  */
 class InquiryStatusChanged implements ShouldDispatchAfterCommit
 {
@@ -24,9 +26,9 @@ class InquiryStatusChanged implements ShouldDispatchAfterCommit
 
     public function __construct(
         public Inquiry $inquiry,
-        public InquiryStatusTrack $track,
-        public MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus|null $from,
-        public MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus $to,
+        public ?InquiryStatusTrack $track,
+        public SalesStatus|PaymentStatus|ProcessStatus|null $from,
+        public SalesStatus|PaymentStatus|ProcessStatus|null $to,
         public ?int $changedBy,
     ) {}
 }

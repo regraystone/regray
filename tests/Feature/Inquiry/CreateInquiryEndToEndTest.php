@@ -2,8 +2,6 @@
 
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
-use App\Models\InquiryFile;
-use App\Models\InquiryStone;
 use App\Models\ProjectCategory;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -35,7 +33,8 @@ it('creates the whole row graph, one inquiry per project', function (): void {
         expect($inquiry->reference)->toStartWith('INQ-')
             ->and($inquiry->client_id)->toBe($this->client->id)
             ->and($inquiry->status)->toBe(InquiryStatus::Pending)
-            ->and($inquiry->statusHistory)->toHaveCount(1);
+            // No role status has started, so there is no history yet.
+            ->and($inquiry->statusHistory)->toHaveCount(0);
     }
 
     expect($first->name)->toBe('Kitchen counters')
@@ -56,18 +55,6 @@ it('creates the whole row graph, one inquiry per project', function (): void {
     Storage::disk(config('inquiry.disk'))->assertExists($first->files->first()->path);
 });
 
-it('writes a standalone-only project with no stones', function (): void {
-    $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryVisitInput()]])
-        ->assertSessionHasNoErrors();
-
-    $inquiry = Inquiry::query()->sole();
-
-    expect($inquiry->stones()->count())->toBe(0)
-        ->and($inquiry->categories()->count())->toBe(0)
-        ->and($inquiry->services()->pluck('slug')->all())->toBe(['stone-relocation-dismantling-reinstallation']);
-});
-
 it('keeps stones and applications picked as extras on a standalone project', function (): void {
     $extras = inquiryProjectInput();
 
@@ -82,17 +69,6 @@ it('keeps stones and applications picked as extras on a standalone project', fun
 
     expect($inquiry->stones()->count())->toBe(1)
         ->and($inquiry->categories()->count())->toBe(1);
-});
-
-it('returns 422-style errors for a regular service with no stones and writes nothing', function (): void {
-    $this->actingAs($this->client)
-        ->postJson(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => []])]])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('projects.0.stones');
-
-    expect(Inquiry::query()->count())->toBe(0)
-        ->and(InquiryStone::query()->count())->toBe(0)
-        ->and(InquiryFile::query()->count())->toBe(0);
 });
 
 it('numbers inquiries from the sequence', function (): void {

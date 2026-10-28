@@ -3,7 +3,9 @@
 namespace App\Policies;
 
 use App\Enums\ConversationMemberRole;
+use App\Enums\ConversationType;
 use App\Enums\Permission;
+use App\Enums\Role;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
@@ -19,10 +21,6 @@ use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
  * Whether a send is allowed *right now* — the thread is unassigned, or someone
  * else is handling it — is not access and is answered with 409 by
  * SupportAssignmentService, not here.
- *
- * TODO(inquiry-binding): groups will be bound to inquiries later. Until then no
- * group is linked to an inquiry, so R8 does nothing for real data, and R9's
- * cards go to the client's Regray Team thread instead.
  */
 class ConversationPolicy
 {
@@ -87,6 +85,18 @@ class ConversationPolicy
         return $conversation->isSupport()
             && $conversation->assigned_to !== null
             && $conversation->assigned_to === $user->id;
+    }
+
+    /**
+     * Add accounting or logistics to an inquiry's group chat: a sales member of
+     * the group. Who may be added is GroupConversationService::addMembers().
+     */
+    public function addMembers(User $user, Conversation $conversation): bool
+    {
+        return $conversation->type === ConversationType::Group
+            && $conversation->inquiry_id !== null
+            && $user->hasRole(Role::Sales->value)
+            && $this->members->isActiveMember($conversation->id, $user->id);
     }
 
     /** Give the thread to someone else: the super-admin only. */

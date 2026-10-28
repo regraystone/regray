@@ -3,17 +3,18 @@
 namespace App\Services;
 
 use App\Enums\InquiryStatus;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
 
 /**
- * The status an inquiry is shown at, from its role statuses. Pure: the same
- * four answers always give the same status. A NULL role status is a stage that
- * has not started, and is never shown.
+ * The status an inquiry is shown at, from its lead's status and its role
+ * statuses. Pure: the same four answers always give the same status. A NULL
+ * role status is a stage that has not started, and is never shown; a NULL lead
+ * is an inquiry not linked to a lead yet.
  *
  * The first rule that matches wins:
- * 1. cancelled when marketing lost the inquiry or sales was rejected;
+ * 1. cancelled when its lead was lost or sales was rejected;
  * 2. closed when logistics has completed;
  * 3. the logistics status once sales has uploaded the job order (and
  *    logistics has started, which approval guarantees);
@@ -28,12 +29,12 @@ use App\Enums\SalesStatus;
 class InquiryStatusCalculator
 {
     public static function calculate(
-        MarketingStatus $marketing,
+        ?LeadStatus $lead,
         ?SalesStatus $sales,
         ?ProcessStatus $process,
         bool $hasJobOrder,
     ): InquiryStatus {
-        if ($marketing === MarketingStatus::Lost || $sales === SalesStatus::Rejected) {
+        if ($lead === LeadStatus::Lost || $sales === SalesStatus::Rejected) {
             return InquiryStatus::Cancelled;
         }
 
@@ -57,16 +58,21 @@ class InquiryStatusCalculator
      * gives the display status's value. NULL is a stage that has not started:
      * a comparison with it is never true, so it falls through to the next rule.
      * A soft-deleted job order file does not count, as it does not for the
-     * model's `files` relation.
+     * model's `files` relation. An inquiry with no lead has no lost lead.
      *
      * One literal string, with nothing interpolated, so it is safe to put into
-     * raw SQL as it is. `job_order` is DocumentType::JobOrder's value; the test
+     * raw SQL as it is. `job_order` is DocumentType::JobOrder's value and `lost`
+     * LeadStatus::Lost's; the test
      * that the PHP and SQL rules agree on every combination would catch the two
      * drifting apart.
      */
     public const SQL = <<<'SQL'
         CASE
-            WHEN inquiries.marketing_status = 'lost' OR inquiries.sales_status = 'rejected' THEN 'cancelled'
+            WHEN inquiries.sales_status = 'rejected' OR EXISTS (
+                SELECT 1 FROM leads
+                WHERE leads.id = inquiries.lead_id
+                    AND leads.status = 'lost'
+            ) THEN 'cancelled'
             WHEN inquiries.process_status = 'completed' THEN 'closed'
             WHEN inquiries.process_status IS NOT NULL AND EXISTS (
                 SELECT 1 FROM inquiry_files

@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\ConversationType;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusGroup;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
@@ -23,19 +24,20 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * One inquiry, which is one project: a client who wants another project opens
- * another inquiry. A role's status exists only once its stage has started.
+ * another inquiry. It belongs to its client's lead, which holds marketing's
+ * status. A role's status exists only once its stage has started.
  *
  * @property int $id
  * @property string $reference
- * @property int $client_id
+ * @property int|null $client_id The client's account; null for a direct (walk-in) client.
+ * @property int|null $client_record_id The client's record (`clients`), with or without an account.
+ * @property int|null $lead_id Null until the client's Regray Team thread is claimed.
  * @property string $name
  * @property string $location
  * @property string|null $landmark
  * @property string|null $area_sqm
  * @property string|null $notes
- * @property MarketingStatus $marketing_status
- * @property Carbon $marketing_status_changed_at
- * @property SalesStatus|null $sales_status Null until marketing has won the client.
+ * @property SalesStatus|null $sales_status Null until the inquiry's lead is won.
  * @property Carbon|null $sales_status_changed_at
  * @property PaymentStatus|null $payment_status Null until the client approves the quotation.
  * @property Carbon|null $payment_status_changed_at
@@ -45,14 +47,14 @@ use Illuminate\Support\Facades\DB;
  * @property int|null $quote_revision
  * @property Carbon $created_at
  * @property Carbon $updated_at
- * @property-read InquiryStatus $status The status shown for the inquiry, calculated from the role statuses.
+ * @property-read InquiryStatus $status The status shown for the inquiry, calculated from its lead and role statuses.
  *
  * When the project is wanted is not stored here: it is the `arrival_at` of
  * the inquiry's schedule.
  */
 #[Fillable([
-    'reference', 'client_id', 'name', 'location', 'landmark', 'area_sqm', 'notes',
-    'marketing_status', 'marketing_status_changed_at', 'sales_status', 'sales_status_changed_at',
+    'reference', 'client_id', 'client_record_id', 'lead_id', 'name', 'location', 'landmark', 'area_sqm', 'notes',
+    'sales_status', 'sales_status_changed_at',
     'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at',
     'quoted_total', 'quote_revision',
 ])]
@@ -62,8 +64,6 @@ class Inquiry extends Model
     {
         return [
             'area_sqm' => 'decimal:2',
-            'marketing_status' => MarketingStatus::class,
-            'marketing_status_changed_at' => 'datetime',
             'sales_status' => SalesStatus::class,
             'sales_status_changed_at' => 'datetime',
             'payment_status' => PaymentStatus::class,
@@ -83,11 +83,33 @@ class Inquiry extends Model
     protected function status(): Attribute
     {
         return Attribute::get(fn (): InquiryStatus => InquiryStatusCalculator::calculate(
-            $this->marketing_status,
+            $this->leadStatus(),
             $this->sales_status,
             $this->process_status,
             $this->hasJobOrder(),
         ))->withoutObjectCaching();
+    }
+
+    /**
+     * Its lead's status, or null while it has no lead. Read from a
+     * `lead_status` column when the query selected one (withLeadStatus), from
+     * the loaded lead, or else from the database.
+     */
+    public function leadStatus(): ?LeadStatus
+    {
+        if ($this->lead_id === null) {
+            return null;
+        }
+
+        if (array_key_exists('lead_status', $this->attributes)) {
+            return LeadStatus::tryFrom((string) $this->attributes['lead_status']);
+        }
+
+        if ($this->relationLoaded('lead')) {
+            return $this->lead?->status;
+        }
+
+        return Lead::query()->whereKey($this->lead_id)->first(['id', 'status'])?->status;
     }
 
     /**
@@ -117,6 +139,21 @@ class Inquiry extends Model
     protected function withJobOrderFlag(Builder $query): void
     {
         $query->withExists(['files as has_job_order' => fn (Builder $files) => $files->where('document_type', DocumentType::JobOrder)]);
+    }
+
+    /**
+     * Select each inquiry's lead status, as `lead_status`, so a list reads its status without a query per row.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function withLeadStatus(Builder $query): void
+    {
+        if ($query->getQuery()->columns === null) {
+            $query->select($this->qualifyColumn('*'));
+        }
+
+        $query->addSelect(['lead_status' => Lead::query()->select('status')->whereColumn('leads.id', 'inquiries.lead_id')]);
     }
 
     /**
@@ -163,6 +200,18 @@ class Inquiry extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'client_id');
+    }
+
+    /** @return BelongsTo<Client, $this> */
+    public function clientRecord(): BelongsTo
+    {
+        return $this->belongsTo(Client::class, 'client_record_id');
+    }
+
+    /** @return BelongsTo<Lead, $this> */
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class);
     }
 
     /** @return HasMany<InquiryHandler, $this> */
@@ -219,10 +268,14 @@ class Inquiry extends Model
         return $this->hasOne(Schedule::class);
     }
 
-    /** @return HasOne<Conversation, $this> */
+    /**
+     * The inquiry's group chat, which its status cards post into. At most one.
+     *
+     * @return HasOne<Conversation, $this>
+     */
     public function conversation(): HasOne
     {
-        return $this->hasOne(Conversation::class);
+        return $this->hasOne(Conversation::class)->where('type', ConversationType::Group);
     }
 
     /** @return HasMany<Message, $this> */

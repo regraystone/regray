@@ -5,13 +5,14 @@ namespace App\Repositories\Contracts;
 use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
+use App\Models\Lead;
+use App\Models\PaymentTransaction;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
@@ -26,20 +27,21 @@ interface InquiryRepositoryInterface
 
     /**
      * The inquiry has no deadline of its own: its schedule holds the date and
-     * time. Only marketing's stage has started; the other role statuses stay
-     * NULL until theirs do.
+     * time. No role status has started: each stays NULL until its stage does.
+     * `lead_id` is the client's open lead, or NULL when they have none yet.
      *
-     * @param  array{reference: string, client_id: int, name: string, location: string, landmark: ?string, area_sqm: ?float, notes: ?string, marketing_status: MarketingStatus, marketing_status_changed_at: CarbonInterface}  $attributes
+     * @param  array{reference: string, client_id: ?int, client_record_id: int, lead_id: ?int, name: string, location: string, landmark: ?string, area_sqm: ?float, notes: ?string}  $attributes
      */
     public function create(array $attributes): Inquiry;
 
     public function createStatusHistory(
         Inquiry $inquiry,
         InquiryStatusTrack $track,
-        MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus|null $from,
-        MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus $to,
+        SalesStatus|PaymentStatus|ProcessStatus|null $from,
+        SalesStatus|PaymentStatus|ProcessStatus $to,
         ?int $changedBy,
         CarbonInterface $changedAt,
+        ?string $note = null,
     ): InquiryStatusHistory;
 
     /** @param  list<int>  $serviceIds */
@@ -54,9 +56,21 @@ interface InquiryRepositoryInterface
     public function addStones(Inquiry $inquiry, array $stones): void;
 
     /**
-     * @param  array{document_type: DocumentType, revision?: ?int, disk: string, path: string, original_name: string, mime_type: string, size_bytes: int, sha256: ?string, uploaded_by: ?int}  $attributes
+     * @param  array{document_type: DocumentType, status_history_id?: ?int, revision?: ?int, disk: string, path: string, original_name: string, mime_type: string, size_bytes: int, sha256: ?string, uploaded_by: ?int}  $attributes
      */
     public function addFile(Inquiry $inquiry, array $attributes): InquiryFile;
+
+    /** The inquiry by its reference, whoever's it is, locked until the transaction ends. */
+    public function findByReferenceForUpdate(string $reference): ?Inquiry;
+
+    /** A payment received, as accounting recorded it. */
+    public function addPayment(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $receivedAt): PaymentTransaction;
+
+    /** What has been paid so far, refunds taken off, in centavos. */
+    public function paidCentavos(Inquiry $inquiry): int;
+
+    /** The quote revision and quoted total of a new quotation. */
+    public function recordQuote(Inquiry $inquiry, int $revision, string $quotedTotal): void;
 
     /**
      * One page of this client's inquiries. The scope is the `$client` argument
@@ -92,10 +106,20 @@ interface InquiryRepositoryInterface
     public function findForClientByReferenceForUpdate(User $client, string $reference): ?Inquiry;
 
     /** Set one role status and when it changed. */
+    /**
+     * The lead's inquiries, oldest first, locked until the transaction ends.
+     *
+     * @return Collection<int, Inquiry>
+     */
+    public function lockForLead(Lead $lead): Collection;
+
+    /** Link every one of the lead's client's inquiries that has no lead yet to it. Returns how many. */
+    public function linkUnlinkedToLead(Lead $lead): int;
+
     public function updateStatus(
         Inquiry $inquiry,
         InquiryStatusTrack $track,
-        MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus $status,
+        SalesStatus|PaymentStatus|ProcessStatus $status,
         CarbonInterface $changedAt,
     ): void;
 
@@ -132,4 +156,17 @@ interface InquiryRepositoryInterface
      * schedule and the status history. Null for a reference that is not theirs.
      */
     public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry;
+
+    /** Any inquiry by its reference, with what the details page reads: for staff. */
+    public function findByReferenceWithDetails(string $reference): ?Inquiry;
+
+    /**
+     * One page of every inquiry, newest first, for the Inquiry list, with
+     * each one's client record, contacts and account. `$escapedSearch`
+     * matches the reference, the project name, the client's name and their
+     * contacts.
+     *
+     * @return LengthAwarePaginator<int, Inquiry>
+     */
+    public function paginateForStaff(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator;
 }

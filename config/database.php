@@ -99,7 +99,7 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
             // Eloquent writes timestamps without an offset, in the app's zone, so
             // the session has to read them in that zone whatever the server's is.
-            'timezone' => env('DB_TIMEZONE', 'UTC'),
+            'timezone' => env('DB_TIMEZONE', env('APP_TIMEZONE', 'Asia/Manila')),
         ],
 
         'sqlsrv' => [

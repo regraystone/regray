@@ -151,7 +151,6 @@ it('shows a booking without an inquiry, and an inquiry visit with its reference'
         'client_id' => $client->id,
         'name' => 'Kitchen',
         'location' => 'Makati',
-        'marketing_status_changed_at' => now(),
         'sales_status_changed_at' => now(),
         'payment_status_changed_at' => now(),
         'process_status_changed_at' => now(),
@@ -166,7 +165,8 @@ it('shows a booking without an inquiry, and an inquiry visit with its reference'
     expect($schedules[0])->toBe([
         'id' => $booking->id,
         'title' => 'Visit at 2026-10-15 10:00',
-        'arrivalAt' => '2026-10-15T02:00:00+00:00',
+        // The same instant, shown in Manila.
+        'arrivalAt' => '2026-10-15T10:00:00+08:00',
         'status' => 'pending',
         'notes' => null,
         'inquiryReference' => null,

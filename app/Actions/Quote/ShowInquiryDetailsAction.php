@@ -15,13 +15,13 @@ class ShowInquiryDetailsAction
     /**
      * @return array{inquiry: Inquiry, conversation: array{id: int, name: string}|null}
      */
-    public function execute(User $client, string $reference): array
+    public function execute(User $viewer, string $reference): array
     {
-        $inquiry = $this->inquiryDetailsService->forClient($client, $reference);
+        $inquiry = $this->inquiryDetailsService->forViewer($viewer, $reference);
 
         return [
             'inquiry' => $inquiry,
-            'conversation' => $this->inquiryDetailsService->conversationFor($client, $inquiry),
+            'conversation' => $this->inquiryDetailsService->conversationFor($viewer, $inquiry),
         ];
     }
 }

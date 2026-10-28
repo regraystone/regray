@@ -2,25 +2,41 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ClientKind;
+use App\Enums\ContactKind;
+use App\Enums\ConversationMemberRole;
+use App\Enums\ConversationType;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
+use App\Enums\MessageType;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
+use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Enums\SystemEvent;
+use App\Models\Client;
+use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
 use App\Models\InquiryStatusHistory;
+use App\Models\Lead;
+use App\Models\LeadStatusHistory;
+use App\Models\Message;
 use App\Models\PaymentTransaction;
 use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use App\Policies\InquiryFileUploads;
+use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
+use App\Services\ClientService;
 use App\Services\InquiryStatusCalculator;
+use App\Services\InquiryStatusRules;
+use App\Services\Message\GroupConversationService;
 use App\Services\Message\SupportConversationService;
 use App\Services\ScheduleService;
 use Carbon\Carbon;
@@ -29,28 +45,44 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * The demo clients' inquiries and everything that happened to them, from
- * database/seeders/data/inquiries.php. One inquiry is one project.
+ * The demo clients' leads, inquiries and everything that happened to them,
+ * from database/seeders/data/inquiries.php. One inquiry is one project.
  *
- * Each inquiry's events are replayed first, in memory, against the flow in
- * docs/database/regray-erd.md: a step the flow does not allow, a time out of
- * order, payments that do not add up, or an inquiry that does not end at the
- * status its data says it `shows`, stops the seeder. Then it is written in this
- * order: the inquiry and its project, handlers, its schedule (through
- * ScheduleService, the path sending an inquiry takes), marketing and sales
- * history, quotation issues, the client's approval, the job order file,
- * payments with their receipts, logistics history. Every file goes through the
+ * Each lead is written first, with its history, and its client's Regray Team
+ * thread is given to its marketing user when the lead was created, as a claim
+ * would. Then each inquiry's events are replayed, in memory, against the flow
+ * in docs/database/regray-erd.md, its lead's won or lost among them: a step the
+ * flow does not allow, a time out of order, payments that do not add up, or an
+ * inquiry that does not end at the status its data says it `shows`, stops the
+ * seeder. Then it is written: the inquiry and its project, handlers, its
+ * schedule (through ScheduleService, the path sending an inquiry takes), and
+ * every status update in order, each with its note and the files it carried
+ * (the quotation and job order of a quote, the billing statement, a payment's
+ * receipt and invoice), grouped on its history row. Every file goes through the
  * uploader rule (InquiryFileUploads). A cancelled inquiry's visits are
  * cancelled with it.
  *
- * A role's status is set only when its stage starts: marketing at creation
- * (pending), sales when marketing is won (negotiation), payment and process
- * together when the client approves the quotation (awaiting and received).
- * Until then they are NULL, in the inquiry, its history and its cards.
+ * A role's status is set only when its stage starts: sales when the lead is
+ * won (negotiation), or at once for an inquiry sent on a lead already won or
+ * for a direct client; logistics when sales is quoted (received); payment with
+ * the billing statement (awaiting). Until then they are NULL, in the inquiry,
+ * its history and its cards.
+ *
+ * Every inquiry is filed under its client's record (`clients`): a platform
+ * record for an account, made the first time it is needed, or a direct
+ * (walk-in) client from `direct_clients`, with its contacts. A direct client's
+ * inquiry has no lead, starts sales with it, and posts no cards: there is no
+ * account to have a Regray Team thread.
+ *
+ * Then the group chats marketing made for some inquiries, by the same rules as
+ * GroupConversationService: sales and technical staff, every owner, the
+ * client, marketing as admin, and accounting and logistics added later by a
+ * sales member.
  *
  * Last, the inquiry cards: one per distinct snapshot of each inquiry, posted
- * into its client's Regray Team thread (SupportConversationService::cardThreadFor),
- * every client's cards in the order they happened.
+ * where they would have gone at the time (the inquiry's group chat once it
+ * existed, otherwise its client's Regray Team thread), every thread's cards in
+ * the order they happened.
  *
  * Demo data only: it throws in production, like DemoSeeder.
  */
@@ -76,10 +108,8 @@ class InquirySeeder extends Seeder
         'cl-ivan' => 'ivan.mercado@hillcrestshowroom.example',
         'cl-haruki' => 'haruki.nakamura@groveresidences.example',
         'cl-grace' => 'grace.lim@maplelane.example',
+        'lucas' => 'lucas.moreau@example.com',
     ];
-
-    /** The order logistics moves through. On hold and delayed sit beside it. */
-    private const PROCESS_STEPS = ['received', 'measure', 'sourcing', 'production', 'quality_check', 'ready', 'dispatched', 'installation', 'completed'];
 
     /** @var array<string, User> */
     private array $users = [];
@@ -88,7 +118,9 @@ class InquirySeeder extends Seeder
         ScheduleService $scheduleService,
         SupportConversationService $support,
         MessageRepositoryInterface $messages,
+        ConversationMemberRepositoryInterface $members,
         InquiryFileUploads $fileUploads,
+        ClientService $clientService,
     ): void {
         if (app()->isProduction()) {
             throw new RuntimeException(
@@ -97,18 +129,38 @@ class InquirySeeder extends Seeder
         }
 
         $data = require database_path('seeders/data/inquiries.php');
-        $cards = [];
+        $leadData = array_column($data['leads'], null, 'reference');
+        $leads = $this->seedLeads($support, $members, $data['leads']);
+        $directClients = $this->seedDirectClients($data['direct_clients']);
+        $inquiries = [];
+        $snapshots = [];
 
         foreach ($data['inquiries'] as $inquiryData) {
-            $client = $this->user($inquiryData['client_id']);
-            $replay = $this->replay($inquiryData);
+            if (isset($inquiryData['direct_client'])) {
+                $direct = $directClients[$inquiryData['direct_client']] ?? throw new RuntimeException("{$inquiryData['reference']}: unknown direct client {$inquiryData['direct_client']}.");
+                $client = null;
+                $record = $direct['client'];
+                $lead = null;
+                $openedBy = $direct['created_by'];
+            } else {
+                $client = $this->user($inquiryData['client_id']);
+                $record = $clientService->findOrCreateForUser($client);
+                $lead = $leadData[$inquiryData['lead']] ?? throw new RuntimeException("{$inquiryData['reference']}: unknown lead {$inquiryData['lead']}.");
+                $openedBy = null;
 
-            $inquiry = $this->seedInquiry($fileUploads, $inquiryData, $client, $replay['final']);
+                if ($lead['client_id'] !== $inquiryData['client_id']) {
+                    throw new RuntimeException("{$inquiryData['reference']} is not for the client of {$lead['reference']}.");
+                }
+            }
+
+            $replay = $this->replay($inquiryData, $lead, $openedBy);
+
+            $inquiry = $this->seedInquiry($fileUploads, $inquiryData, $client, $record, $lead === null ? null : $leads[$lead['reference']], $replay['final']);
 
             foreach ($inquiryData['handlers'] as $handlerName) {
                 $inquiry->handlers()->create([
                     'user_id' => $this->user($handlerName)->id,
-                    'assigned_by' => $client->id,
+                    'assigned_by' => ($client ?? $this->user($openedBy))->id,
                     'assigned_at' => Carbon::parse($inquiryData['created_at']),
                 ]);
             }
@@ -118,68 +170,220 @@ class InquirySeeder extends Seeder
                 $client,
                 $inquiryData['project']['deadline_date'],
                 $inquiryData['project']['deadline_time'],
+                $client === null ? $this->user($openedBy) : null,
             );
 
-            $this->seedHistory($inquiry, $client, $inquiryData);
-            $this->seedQuotations($fileUploads, $inquiry, $inquiryData['events']);
-            $this->seedApproval($inquiry, $inquiryData['events']);
-            $this->seedJobOrder($fileUploads, $inquiry, $inquiryData['events']);
-            $this->seedPayments($fileUploads, $inquiry, $inquiryData['events']);
-            $this->seedLogistics($inquiry, $inquiryData['events']);
+            $this->seedEvents($fileUploads, $inquiry, $inquiryData, $replay['final']);
 
             if ($inquiry->status === InquiryStatus::Cancelled) {
-                $scheduleService->cancelForInquiry($inquiry, Carbon::parse(end($inquiryData['events'])['at']));
+                $scheduleService->cancelForInquiry($inquiry, Carbon::parse($replay['final']['cancelled_at']));
             }
 
-            foreach ($replay['snapshots'] as $snapshot) {
-                $cards[] = ['inquiry' => $inquiry, ...$snapshot];
+            $inquiries[$inquiry->reference] = $inquiry;
+
+            // A direct client has no thread for a card to go to.
+            foreach ($client === null ? [] : $replay['snapshots'] as $snapshot) {
+                $snapshots[] = ['inquiry' => $inquiry, ...$snapshot];
             }
         }
 
-        $this->postInquiryCards($support, $messages, $cards);
+        $groups = $this->seedGroups($members, $data['groups'], $inquiries);
+
+        $this->postInquiryCards($support, $messages, $snapshots, $groups);
 
         $this->setSequence('inquiries_id_seq', (Inquiry::max('id') ?? 0) + 1);
+        $this->setSequence('leads_id_seq', (Lead::max('id') ?? 0) + 1);
+        $number = fn (string $reference): int => (int) preg_replace('/\D/', '', $reference);
 
-        $lastReference = Inquiry::query()->pluck('reference')
-            ->map(fn (string $reference): int => (int) preg_replace('/\D/', '', $reference))
-            ->max();
-
-        if ($lastReference !== null) {
-            $this->setSequence('inquiry_reference_seq', $lastReference);
-        }
+        $this->setSequence('inquiry_reference_seq', Inquiry::query()->pluck('reference')->map($number)->max() ?? 1);
+        $this->setSequence('lead_reference_seq', Lead::query()->pluck('reference')->map($number)->max() ?? 1);
     }
 
     /**
-     * Play the inquiry's events against the flow, from the four defaults, and
-     * keep every distinct snapshot (display status and the four role statuses)
-     * with when it started. Throws on anything the flow does not allow.
+     * Each lead at its final status, with its history: idle from nothing when
+     * it was created (by its marketing user, who was given the thread, or by
+     * nobody when the client's inquiry opened it), then won or lost. The
+     * client's Regray Team thread is given to the marketing user when their
+     * first lead was created, as a claim would.
+     *
+     * @param  list<array<string, mixed>>  $leadsData
+     * @return array<string, Lead>
+     */
+    private function seedLeads(SupportConversationService $support, ConversationMemberRepositoryInterface $members, array $leadsData): array
+    {
+        $leads = [];
+        $open = [];
+
+        foreach ($leadsData as $leadData) {
+            $reference = $leadData['reference'];
+            $client = $this->user($leadData['client_id']);
+            $marketing = $this->user($leadData['marketing']);
+            $createdAt = Carbon::parse($leadData['created_at']);
+            $closedAt = $leadData['won_at'] ?? $leadData['lost_at'] ?? null;
+            $status = isset($leadData['won_at']) ? LeadStatus::Won : (isset($leadData['lost_at']) ? LeadStatus::Lost : LeadStatus::Idle);
+
+            if (isset($leadData['won_at'], $leadData['lost_at'])) {
+                throw new RuntimeException("{$reference} is won and lost; both are final.");
+            }
+
+            if ($closedAt !== null && strcmp($closedAt, $leadData['created_at']) <= 0) {
+                throw new RuntimeException("{$reference} is closed before it was created.");
+            }
+
+            if (($open[$leadData['client_id']] ?? null) !== null) {
+                throw new RuntimeException("{$reference}: {$leadData['client_id']} already has an open lead, {$open[$leadData['client_id']]}.");
+            }
+
+            if ($status !== LeadStatus::Lost) {
+                $open[$leadData['client_id']] = $reference;
+            }
+
+            if (! $marketing->hasRole(Role::Marketing->value)) {
+                throw new RuntimeException("{$reference} is held by someone outside marketing.");
+            }
+
+            $lead = Lead::query()->forceCreate([
+                'reference' => $reference,
+                'client_id' => $client->id,
+                'marketing_user_id' => $marketing->id,
+                'status' => $status,
+                'status_changed_at' => Carbon::parse($closedAt ?? $leadData['created_at']),
+                'created_at' => $createdAt,
+                'updated_at' => Carbon::parse($closedAt ?? $leadData['created_at']),
+            ]);
+
+            $this->leadHistory($lead, null, LeadStatus::Idle, ($leadData['opened_by_inquiry'] ?? false) ? null : $marketing, $createdAt);
+
+            if ($closedAt !== null) {
+                $this->leadHistory($lead, LeadStatus::Idle, $status, $marketing, Carbon::parse($closedAt));
+            }
+
+            $this->assignThread($support, $members, $client, $marketing, $createdAt);
+
+            $leads[$reference] = $lead;
+        }
+
+        return $leads;
+    }
+
+    /**
+     * The walk-ins with no account, as `direct` client records with their
+     * contacts, normalised as the app stores them. Keyed by their data id,
+     * with who took them down.
+     *
+     * @param  list<array<string, mixed>>  $directClientsData
+     * @return array<string, array{client: Client, created_by: string}>
+     */
+    private function seedDirectClients(array $directClientsData): array
+    {
+        $records = [];
+
+        foreach ($directClientsData as $clientData) {
+            $client = Client::query()->forceCreate([
+                'kind' => ClientKind::Direct,
+                'user_id' => null,
+                'full_name' => $clientData['full_name'],
+                'company' => $clientData['company'],
+                'address' => $clientData['address'],
+                'created_by' => $this->user($clientData['created_by'])->id,
+            ]);
+
+            foreach ($clientData['contacts'] as $contact) {
+                $kind = ContactKind::from($contact['kind']);
+                $client->contacts()->create(['kind' => $kind, 'value' => $kind->normalise($contact['value'])]);
+            }
+
+            $records[$clientData['id']] = ['client' => $client, 'created_by' => $clientData['created_by']];
+        }
+
+        return $records;
+    }
+
+    /** Give the client's Regray Team thread to `$marketing` at `$at`, once, with its "assigned" notice. */
+    private function assignThread(SupportConversationService $support, ConversationMemberRepositoryInterface $members, User $client, User $marketing, Carbon $at): void
+    {
+        $thread = $support->ensureFor($client);
+
+        if ($thread->assigned_to !== null) {
+            return;
+        }
+
+        $thread->forceFill(['assigned_to' => $marketing->id, 'assigned_at' => $at])->save();
+        $members->upsert($thread->id, $marketing->id, ConversationMemberRole::Member);
+
+        Message::query()->create([
+            'conversation_id' => $thread->id,
+            'type' => MessageType::System,
+            'system_event' => SystemEvent::Assigned,
+            'system_user_id' => $marketing->id,
+            'created_at' => $at,
+        ]);
+    }
+
+    /**
+     * Play the inquiry's events against the flow, its lead's won or lost among
+     * them, and keep every distinct snapshot (display status and the three
+     * role statuses) with when it started. Throws on anything the flow does
+     * not allow.
+     *
+     * A direct client's inquiry has no lead (`$lead` null): sales starts with
+     * it, by `$openedBy`, who took the client down.
      *
      * @param  array<string, mixed>  $inquiryData
-     * @return array{final: array{marketing: MarketingStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, changed: array<string, ?string>, last_at: string}, snapshots: list<array{at: string, status: InquiryStatus, marketing: MarketingStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}>}
+     * @param  array<string, mixed>|null  $lead
+     * @return array{final: array{lead: ?LeadStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}, snapshots: list<array{at: string, status: InquiryStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}>}
      */
-    private function replay(array $inquiryData): array
+    private function replay(array $inquiryData, ?array $lead, ?string $openedBy = null): array
     {
         $reference = $inquiryData['reference'];
         $createdAt = $inquiryData['created_at'];
 
+        if ($lead === null) {
+            $lead = ['reference' => null, 'created_at' => $createdAt, 'opened_by_inquiry' => true];
+        }
+
+        if (isset($lead['lost_at']) && strcmp($lead['lost_at'], $createdAt) <= 0) {
+            throw new RuntimeException("{$reference} cannot be sent on {$lead['reference']}, which was already lost.");
+        }
+
+        if (strcmp($lead['created_at'], $createdAt) > 0 && ! $this->isFirstLead($lead)) {
+            throw new RuntimeException("{$reference} is older than {$lead['reference']}, but the client had a lead before it.");
+        }
+
         $state = [
-            'marketing' => MarketingStatus::Pending,
+            'lead' => $lead['reference'] === null ? null : LeadStatus::Idle,
             'sales' => null,
             'payment' => null,
             'process' => null,
             'quote_revision' => null,
             'quoted_total' => null,
-            'changed' => ['marketing' => $createdAt, 'sales' => null, 'payment' => null, 'process' => null],
+            'changed' => ['sales' => null, 'payment' => null, 'process' => null],
+            'sales_start' => null,
+            'cancelled_at' => null,
             'last_at' => $createdAt,
         ];
         $hasJobOrder = false;
         $paidCentavos = 0;
         $snapshots = [];
 
+        // Sent on a lead already won: sales starts with it, by the client.
+        if (isset($lead['won_at']) && strcmp($lead['won_at'], $createdAt) <= 0) {
+            $state['lead'] = LeadStatus::Won;
+            $state['sales'] = SalesStatus::Negotiation;
+            $state['changed']['sales'] = $createdAt;
+            $state['sales_start'] = ['at' => $createdAt, 'by' => $inquiryData['client_id']];
+        }
+
+        // A direct client's: no lead, and sales starts with it, by staff.
+        if ($lead['reference'] === null) {
+            $state['sales'] = SalesStatus::Negotiation;
+            $state['changed']['sales'] = $createdAt;
+            $state['sales_start'] = ['at' => $createdAt, 'by' => $openedBy ?? throw new RuntimeException("{$reference}: who opened it?")];
+        }
+
         $snapshot = function (string $at) use (&$state, &$hasJobOrder, &$snapshots): void {
             $current = [
-                'status' => InquiryStatusCalculator::calculate($state['marketing'], $state['sales'], $state['process'], $hasJobOrder),
-                'marketing' => $state['marketing'],
+                'status' => InquiryStatusCalculator::calculate($state['lead'], $state['sales'], $state['process'], $hasJobOrder),
                 'sales' => $state['sales'],
                 'payment' => $state['payment'],
                 'process' => $state['process'],
@@ -194,7 +398,17 @@ class InquirySeeder extends Seeder
 
         $snapshot($createdAt);
 
-        foreach ($inquiryData['events'] as $event) {
+        $events = $inquiryData['events'];
+
+        foreach (['won_at' => 'won', 'lost_at' => 'lost'] as $key => $to) {
+            if (isset($lead[$key]) && strcmp($lead[$key], $createdAt) > 0) {
+                $events[] = ['at' => $lead[$key], 'by' => $lead['marketing'], 'lead' => $to];
+            }
+        }
+
+        usort($events, fn (array $first, array $second): int => strcmp($first['at'], $second['at']));
+
+        foreach ($events as $event) {
             $at = $event['at'];
             $fail = fn (string $why) => throw new RuntimeException("{$reference} at {$at}: {$why}");
 
@@ -203,88 +417,85 @@ class InquirySeeder extends Seeder
             }
 
             $state['last_at'] = $at;
-            $cancelled = $state['marketing'] === MarketingStatus::Lost || $state['sales'] === SalesStatus::Rejected;
             $approved = $state['sales'] === SalesStatus::Quoted;
 
-            if ($cancelled) {
+            if ($state['cancelled_at'] !== null) {
                 $fail('nothing happens to a cancelled inquiry.');
             }
 
-            if (isset($event['marketing'])) {
-                if ($state['marketing'] !== MarketingStatus::Pending) {
-                    $fail('marketing only moves from pending.');
-                }
+            if (isset($event['lead'])) {
+                $state['lead'] = LeadStatus::from($event['lead']);
 
-                $state['marketing'] = MarketingStatus::from($event['marketing']);
-                $state['changed']['marketing'] = $at;
-
-                // Winning the client starts sales, at negotiation.
-                if ($state['marketing'] === MarketingStatus::Won) {
+                // Winning the lead starts sales, at negotiation.
+                if ($state['lead'] === LeadStatus::Won) {
                     $state['sales'] = SalesStatus::Negotiation;
                     $state['changed']['sales'] = $at;
+                    $state['sales_start'] = ['at' => $at, 'by' => $event['by']];
+                } else {
+                    $state['cancelled_at'] = $at;
                 }
             } elseif (isset($event['sales'])) {
                 $to = SalesStatus::from($event['sales']);
 
-                if ($state['sales'] === null || $approved) {
-                    $fail('sales moves only once its stage has started, and not after approval.');
-                }
-
-                if ($to === SalesStatus::Quoted && $state['quote_revision'] === null) {
-                    $fail('the client can only approve a quotation that was issued.');
+                if (! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Sales, $state['sales']?->value), true)) {
+                    $fail("sales does not move from {$state['sales']?->value} to {$to->value}.");
                 }
 
                 $state['sales'] = $to;
                 $state['changed']['sales'] = $at;
 
-                // The client's approval starts accounting and logistics together.
-                if ($to === SalesStatus::Quoted) {
-                    $state['payment'] = PaymentStatus::Awaiting;
-                    $state['process'] = ProcessStatus::Received;
-                    $state['changed']['payment'] = $at;
-                    $state['changed']['process'] = $at;
-                }
-            } elseif (isset($event['quote'])) {
-                if ($state['sales'] === null || $approved) {
-                    $fail('sales issues quotes once its stage has started and before approval.');
+                if ($to === SalesStatus::Rejected) {
+                    $state['cancelled_at'] = $at;
                 }
 
-                $state['quote_revision'] = ($state['quote_revision'] ?? 0) + 1;
-                $state['quoted_total'] = $event['quote'];
+                // Quoting is a new revision with its total; a job order with it
+                // starts logistics at order_received.
+                if ($to === SalesStatus::Quoted) {
+                    if (! isset($event['quote'])) {
+                        $fail('quoting carries the quoted total.');
+                    }
+
+                    $state['quote_revision'] = ($state['quote_revision'] ?? 0) + 1;
+                    $state['quoted_total'] = $event['quote'];
+
+                    if (isset($event['job_order']) && $state['process'] === null) {
+                        $hasJobOrder = true;
+                        $state['process'] = ProcessStatus::OrderReceived;
+                        $state['changed']['process'] = $at;
+                    }
+                }
             } elseif (isset($event['job_order'])) {
-                if (! $approved || $hasJobOrder) {
-                    $fail('the job order is uploaded once, after the client has approved.');
+                // The job order after the quote, by sales: logistics starts.
+                if ($state['sales'] !== SalesStatus::Quoted || $state['process'] !== null) {
+                    $fail('the job order comes once, after the quote.');
                 }
 
                 $hasJobOrder = true;
-            } elseif (isset($event['payment'])) {
-                if (! $approved) {
-                    $fail('accounting starts once the client has approved.');
-                }
-
-                $paidCentavos += $this->centavos($event['payment']);
-                $total = $this->centavos($state['quoted_total']);
+                $state['process'] = ProcessStatus::OrderReceived;
+                $state['changed']['process'] = $at;
+            } elseif (isset($event['payment_status'])) {
                 $to = PaymentStatus::from($event['payment_status']);
-                $expected = $paidCentavos >= $total ? PaymentStatus::FullyPaid : PaymentStatus::Partial;
 
-                if ($paidCentavos > $total || $to !== $expected) {
-                    $fail("payments of {$paidCentavos} centavos against {$total} are not {$to->value}.");
+                if ($state['sales'] !== SalesStatus::Quoted || ! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Payment, $state['payment']?->value), true)) {
+                    $fail("payment does not move from {$state['payment']?->value} to {$to->value}, or the inquiry is not quoted.");
                 }
 
-                if ($to !== $state['payment']) {
-                    $state['payment'] = $to;
-                    $state['changed']['payment'] = $at;
+                if ($to !== PaymentStatus::Awaiting) {
+                    $paidCentavos += $this->centavos($event['payment'] ?? '0');
+                    $total = $this->centavos($state['quoted_total']);
+
+                    if (($to === PaymentStatus::FullyPaid) !== ($paidCentavos === $total) || $paidCentavos > $total || ! isset($event['payment'])) {
+                        $fail("payments of {$paidCentavos} centavos against {$total} are not {$to->value}.");
+                    }
                 }
+
+                $state['payment'] = $to;
+                $state['changed']['payment'] = $at;
             } elseif (isset($event['process'])) {
                 $to = ProcessStatus::from($event['process']);
-                $from = $state['process'] ?? ProcessStatus::Received;
 
-                if (! $hasJobOrder) {
-                    $fail('logistics starts from the job order.');
-                }
-
-                if (! $this->isLogisticsMove($from, $to)) {
-                    $fail("logistics does not move from {$from->value} to {$to->value}.");
+                if (! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Process, $state['process']?->value), true)) {
+                    $fail("logistics does not move from {$state['process']?->value} to {$to->value}.");
                 }
 
                 $state['process'] = $to;
@@ -296,7 +507,7 @@ class InquirySeeder extends Seeder
             $snapshot($at);
         }
 
-        $shows = InquiryStatusCalculator::calculate($state['marketing'], $state['sales'], $state['process'], $hasJobOrder);
+        $shows = InquiryStatusCalculator::calculate($state['lead'], $state['sales'], $state['process'], $hasJobOrder);
 
         if ($shows->value !== $inquiryData['shows']) {
             throw new RuntimeException("{$reference} shows {$shows->value}, not {$inquiryData['shows']}.");
@@ -306,56 +517,39 @@ class InquirySeeder extends Seeder
     }
 
     /**
-     * Whether logistics may move from `$from` to `$to`: on to the next step
-     * (installation may be skipped, so completed can follow dispatched), into
-     * on hold or delayed from any active step, and back to any step from a hold
-     * or a delay. Nothing moves on from completed.
+     * Whether the lead is its client's first: an inquiry sent before its lead
+     * existed waited, unlinked, for the claim that created the lead. A later
+     * lead is opened by the inquiry itself, so nothing can be older than it.
+     *
+     * @param  array<string, mixed>  $lead
      */
-    private function isLogisticsMove(ProcessStatus $from, ProcessStatus $to): bool
+    private function isFirstLead(array $lead): bool
     {
-        if ($from === ProcessStatus::Completed) {
-            return false;
-        }
-
-        $fromStep = array_search($from->value, self::PROCESS_STEPS, true);
-        $toStep = array_search($to->value, self::PROCESS_STEPS, true);
-
-        // On hold or delayed: only from a step, not from another hold.
-        if ($toStep === false) {
-            return $fromStep !== false;
-        }
-
-        // Back from a hold or a delay.
-        if ($fromStep === false) {
-            return true;
-        }
-
-        return $toStep === $fromStep + 1
-            || ($from === ProcessStatus::Dispatched && $to === ProcessStatus::Completed);
+        return ! ($lead['opened_by_inquiry'] ?? false);
     }
 
     /**
-     * The inquiry at its final statuses, with the project it is: its stones,
-     * services, applications and the client's attachments.
+     * The inquiry at its final statuses, on its lead, with the project it is:
+     * its stones, services, applications and the client's attachments.
      *
      * @param  array<string, mixed>  $inquiryData
-     * @param  array{marketing: MarketingStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, changed: array<string, ?string>, last_at: string}  $final
+     * @param  array{lead: ?LeadStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}  $final
      */
-    private function seedInquiry(InquiryFileUploads $fileUploads, array $inquiryData, User $client, array $final): Inquiry
+    private function seedInquiry(InquiryFileUploads $fileUploads, array $inquiryData, ?User $client, Client $record, ?Lead $lead, array $final): Inquiry
     {
         $project = $inquiryData['project'];
         $createdAt = Carbon::parse($inquiryData['created_at']);
 
         $inquiry = Inquiry::query()->forceCreate([
             'reference' => $inquiryData['reference'],
-            'client_id' => $client->id,
+            'client_id' => $client?->id,
+            'client_record_id' => $record->id,
+            'lead_id' => $lead?->id,
             'name' => $project['name'],
             'location' => $project['location'],
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
             'notes' => $project['notes'],
-            'marketing_status' => $final['marketing'],
-            'marketing_status_changed_at' => Carbon::parse($final['changed']['marketing']),
             'sales_status' => $final['sales'],
             'sales_status_changed_at' => $this->time($final['changed']['sales']),
             'payment_status' => $final['payment'],
@@ -367,6 +561,12 @@ class InquirySeeder extends Seeder
             'created_at' => $createdAt,
             'updated_at' => Carbon::parse($final['last_at']),
         ]);
+
+        $inquiry->setRelation('lead', $lead);
+
+        if ($client === null && $project['attachments'] !== []) {
+            throw new RuntimeException("{$inquiryData['reference']}: a direct client has no account to upload attachments.");
+        }
 
         foreach ($project['stones'] as $stoneSort => $stoneSelection) {
             $stone = Stone::query()
@@ -390,7 +590,7 @@ class InquirySeeder extends Seeder
             $inquiry->categories()->attach(ProjectCategory::where('slug', $categorySlug)->firstOrFail()->id, ['sort_order' => $categorySort]);
         }
 
-        foreach ($project['attachments'] as $fileData) {
+        foreach ($client === null ? [] : $project['attachments'] as $fileData) {
             $this->seedFile($fileUploads, $inquiry, $client, DocumentType::ClientAttachment, $fileData, $createdAt);
         }
 
@@ -398,156 +598,187 @@ class InquirySeeder extends Seeder
     }
 
     /**
-     * Marketing's first entry, pending from nothing, by the client who sent it;
-     * then every marketing change, sales starting at negotiation from nothing
-     * when marketing is won, and every sales change before the client's
-     * approval.
+     * Every status update, in order, as staff made it in the Update Status
+     * dialog: its history row with its note and the files it carried, which
+     * point to that row.
+     *
+     * - Sales starts at negotiation, from nothing (when the lead was won, by
+     *   whoever won it; with the inquiry, by its client or by staff).
+     * - Each `quoted` carries the quotation (the next revision), and the job
+     *   order when sales has it; the job order, with the quote or later, starts
+     *   logistics at order_received, from nothing.
+     * - Payment starts at awaiting with the billing statement; each payment
+     *   after is a `payment_transactions` row with a receipt and an invoice.
      *
      * @param  array<string, mixed>  $inquiryData
+     * @param  array{sales_start: ?array{at: string, by: string}}  $final
      */
-    private function seedHistory(Inquiry $inquiry, User $client, array $inquiryData): void
+    private function seedEvents(InquiryFileUploads $fileUploads, Inquiry $inquiry, array $inquiryData, array $final): void
     {
-        $createdAt = Carbon::parse($inquiryData['created_at']);
+        $current = ['sales' => null, 'payment' => null, 'process' => null];
+        $revision = 0;
+        $receipt = 0;
 
-        $this->history($inquiry, InquiryStatusTrack::Marketing, null, MarketingStatus::Pending->value, $client, $createdAt);
+        $move = function (InquiryStatusTrack $track, string $to, User $by, Carbon $at, ?string $note) use ($inquiry, &$current): InquiryStatusHistory {
+            $history = $this->history($inquiry, $track, $current[$track->value], $to, $by, $at, $note);
+            $current[$track->value] = $to;
 
-        $marketing = MarketingStatus::Pending->value;
-        $sales = null;
+            return $history;
+        };
+
+        if ($final['sales_start'] !== null) {
+            $move(InquiryStatusTrack::Sales, SalesStatus::Negotiation->value, $this->user($final['sales_start']['by']), Carbon::parse($final['sales_start']['at']), null);
+        }
 
         foreach ($inquiryData['events'] as $event) {
-            if (isset($event['marketing'])) {
-                $this->history($inquiry, InquiryStatusTrack::Marketing, $marketing, $event['marketing'], $this->user($event['by']), Carbon::parse($event['at']));
-                $marketing = $event['marketing'];
+            $at = Carbon::parse($event['at']);
+            $by = $this->user($event['by']);
+            $note = $event['note'] ?? null;
 
-                if ($marketing === MarketingStatus::Won->value) {
-                    $this->history($inquiry, InquiryStatusTrack::Sales, null, SalesStatus::Negotiation->value, $this->user($event['by']), Carbon::parse($event['at']));
-                    $sales = SalesStatus::Negotiation->value;
+            if (isset($event['sales'])) {
+                $history = $move(InquiryStatusTrack::Sales, $event['sales'], $by, $at, $note);
+
+                if ($event['sales'] === SalesStatus::Quoted->value) {
+                    $revision++;
+
+                    $this->seedFile($fileUploads, $inquiry, $by, DocumentType::Quotation, [
+                        'name' => "{$inquiry->reference}-quotation-r{$revision}.pdf",
+                        'size_bytes' => 180224 + $revision * 4096,
+                        'mime_type' => 'application/pdf',
+                    ], $at, $revision, $history);
+
+                    if (isset($event['job_order'])) {
+                        $this->seedJobOrder($fileUploads, $inquiry, $by, $event['job_order'], $at, $history);
+
+                        if ($current['process'] === null) {
+                            $move(InquiryStatusTrack::Process, ProcessStatus::OrderReceived->value, $by, $at, $note);
+                        }
+                    }
+                }
+            } elseif (isset($event['job_order'])) {
+                $history = $move(InquiryStatusTrack::Process, ProcessStatus::OrderReceived->value, $by, $at, $note);
+                $this->seedJobOrder($fileUploads, $inquiry, $by, $event['job_order'], $at, $history);
+            } elseif (isset($event['payment_status'])) {
+                if (isset($event['payment'])) {
+                    PaymentTransaction::query()->forceCreate([
+                        'inquiry_id' => $inquiry->id,
+                        'kind' => 'payment',
+                        'amount' => $event['payment'],
+                        'reference' => $event['reference'],
+                        'recorded_by' => $by->id,
+                        'received_at' => $at,
+                        'created_at' => $at,
+                    ]);
+                }
+
+                $history = $move(InquiryStatusTrack::Payment, $event['payment_status'], $by, $at, $note);
+
+                if ($event['payment_status'] === PaymentStatus::Awaiting->value) {
+                    $this->seedFile($fileUploads, $inquiry, $by, DocumentType::BillingStatement, [
+                        'name' => "{$inquiry->reference}-billing-statement.pdf",
+                        'size_bytes' => 86016,
+                        'mime_type' => 'application/pdf',
+                    ], $at, null, $history);
+                } else {
+                    $receipt++;
+
+                    $this->seedFile($fileUploads, $inquiry, $by, DocumentType::Receipt, [
+                        'name' => "{$inquiry->reference}-receipt-{$receipt}-{$event['reference']}.pdf",
+                        'size_bytes' => 98304,
+                        'mime_type' => 'application/pdf',
+                    ], $at, null, $history);
+                    $this->seedFile($fileUploads, $inquiry, $by, DocumentType::Invoice, [
+                        'name' => "{$inquiry->reference}-invoice-{$receipt}.pdf",
+                        'size_bytes' => 73728,
+                        'mime_type' => 'application/pdf',
+                    ], $at, null, $history);
+                }
+            } elseif (isset($event['process'])) {
+                $move(InquiryStatusTrack::Process, $event['process'], $by, $at, $note);
+            }
+        }
+    }
+
+    /** The job order, internal, in the group of the update it came with. */
+    private function seedJobOrder(InquiryFileUploads $fileUploads, Inquiry $inquiry, User $by, string $name, Carbon $at, InquiryStatusHistory $update): void
+    {
+        $this->seedFile($fileUploads, $inquiry, $by, DocumentType::JobOrder, [
+            'name' => "{$name}.pdf",
+            'size_bytes' => 241664,
+            'mime_type' => 'application/pdf',
+        ], $at, null, $update);
+    }
+
+    /**
+     * The group chats marketing made for some inquiries, by
+     * GroupConversationService's rules: the inquiry's lead's marketing user
+     * creates it and is its admin, picks sales and technical staff, and every
+     * owner and the client are in it. Later a sales member adds accounting and
+     * logistics.
+     *
+     * @param  list<array<string, mixed>>  $groupsData
+     * @param  array<string, Inquiry>  $inquiries
+     * @return array<int, array{conversation: Conversation, created_at: string}> Keyed by inquiry id.
+     */
+    private function seedGroups(ConversationMemberRepositoryInterface $members, array $groupsData, array $inquiries): array
+    {
+        $owners = User::role(Role::Owner->value)->get();
+        $groups = [];
+
+        foreach ($groupsData as $groupData) {
+            $inquiry = $inquiries[$groupData['inquiry']] ?? throw new RuntimeException("Group {$groupData['name']}: unknown inquiry {$groupData['inquiry']}.");
+            $creator = Lead::query()->whereKey($inquiry->lead_id)->firstOrFail()->marketingUser()->firstOrFail();
+            $createdAt = Carbon::parse($groupData['created_at']);
+
+            if ($createdAt->lessThan($inquiry->created_at)) {
+                throw new RuntimeException("Group {$groupData['name']} is older than {$inquiry->reference}.");
+            }
+
+            $conversation = Conversation::query()->forceCreate([
+                'type' => ConversationType::Group,
+                'name' => $groupData['name'],
+                'inquiry_id' => $inquiry->id,
+                'created_by' => $creator->id,
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+
+            foreach ($groupData['staff'] as $key) {
+                $this->requireRole($this->user($key), GroupConversationService::MARKETING_STAFF_ROLES, $groupData['name']);
+                $members->upsert($conversation->id, $this->user($key)->id, ConversationMemberRole::Member);
+            }
+
+            foreach ($owners as $owner) {
+                $members->upsert($conversation->id, $owner->id, ConversationMemberRole::Member);
+            }
+
+            $members->upsert($conversation->id, $inquiry->client_id, ConversationMemberRole::Member);
+            $members->upsert($conversation->id, $creator->id, ConversationMemberRole::Admin);
+
+            if (isset($groupData['later'])) {
+                $adder = $this->user($groupData['later']['by']);
+
+                if (! in_array($groupData['later']['by'], $groupData['staff'], true) || ! $adder->hasRole(Role::Sales->value)) {
+                    throw new RuntimeException("Group {$groupData['name']}: only a sales member adds people later.");
+                }
+
+                foreach ($groupData['later']['add'] as $key) {
+                    $this->requireRole($this->user($key), GroupConversationService::LATER_STAFF_ROLES, $groupData['name']);
+                    $members->upsert($conversation->id, $this->user($key)->id, ConversationMemberRole::Member);
                 }
             }
 
-            if (isset($event['sales']) && $event['sales'] !== SalesStatus::Quoted->value) {
-                $this->history($inquiry, InquiryStatusTrack::Sales, $sales, $event['sales'], $this->user($event['by']), Carbon::parse($event['at']));
-                $sales = $event['sales'];
-            }
+            $groups[$inquiry->id] = ['conversation' => $conversation, 'created_at' => $groupData['created_at']];
         }
+
+        return $groups;
     }
 
-    /**
-     * Each quotation issued, as the file sales uploaded, carrying its revision.
-     *
-     * @param  list<array<string, mixed>>  $events
-     */
-    private function seedQuotations(InquiryFileUploads $fileUploads, Inquiry $inquiry, array $events): void
+    /** @param  list<Role>  $roles */
+    private function requireRole(User $user, array $roles, string $group): void
     {
-        $revision = 0;
-
-        foreach ($events as $event) {
-            if (isset($event['quote'])) {
-                $revision++;
-
-                $this->seedFile($fileUploads, $inquiry, $this->user($event['by']), DocumentType::Quotation, [
-                    'name' => "{$inquiry->reference}-quotation-r{$revision}.pdf",
-                    'size_bytes' => 180224 + $revision * 4096,
-                    'mime_type' => 'application/pdf',
-                ], Carbon::parse($event['at']), $revision);
-            }
-        }
-    }
-
-    /**
-     * The client's approval, in one step: sales becomes quoted, and accounting
-     * and logistics start, at awaiting and received, from nothing.
-     *
-     * @param  list<array<string, mixed>>  $events
-     */
-    private function seedApproval(Inquiry $inquiry, array $events): void
-    {
-        foreach ($events as $event) {
-            if (($event['sales'] ?? null) === SalesStatus::Quoted->value) {
-                $from = InquiryStatusHistory::query()
-                    ->where('inquiry_id', $inquiry->id)
-                    ->where('track', InquiryStatusTrack::Sales)
-                    ->orderByDesc('changed_at')->orderByDesc('id')
-                    ->value('to_status');
-
-                $by = $this->user($event['by']);
-                $at = Carbon::parse($event['at']);
-
-                $this->history($inquiry, InquiryStatusTrack::Sales, $from, SalesStatus::Quoted->value, $by, $at);
-                $this->history($inquiry, InquiryStatusTrack::Payment, null, PaymentStatus::Awaiting->value, $by, $at);
-                $this->history($inquiry, InquiryStatusTrack::Process, null, ProcessStatus::Received->value, $by, $at);
-            }
-        }
-    }
-
-    /** @param  list<array<string, mixed>>  $events */
-    private function seedJobOrder(InquiryFileUploads $fileUploads, Inquiry $inquiry, array $events): void
-    {
-        foreach ($events as $event) {
-            if (isset($event['job_order'])) {
-                $this->seedFile($fileUploads, $inquiry, $this->user($event['by']), DocumentType::JobOrder, [
-                    'name' => "{$event['job_order']}.pdf",
-                    'size_bytes' => 241664,
-                    'mime_type' => 'application/pdf',
-                ], Carbon::parse($event['at']));
-            }
-        }
-    }
-
-    /**
-     * Each payment accounting recorded: the transaction, its receipt, and the
-     * payment status when it moved.
-     *
-     * @param  list<array<string, mixed>>  $events
-     */
-    private function seedPayments(InquiryFileUploads $fileUploads, Inquiry $inquiry, array $events): void
-    {
-        $status = PaymentStatus::Awaiting->value;
-        $receipt = 0;
-
-        foreach ($events as $event) {
-            if (! isset($event['payment'])) {
-                continue;
-            }
-
-            $at = Carbon::parse($event['at']);
-            $accountant = $this->user($event['by']);
-
-            PaymentTransaction::query()->forceCreate([
-                'inquiry_id' => $inquiry->id,
-                'kind' => 'payment',
-                'amount' => $event['payment'],
-                'reference' => $event['reference'],
-                'recorded_by' => $accountant->id,
-                'received_at' => $at,
-                'created_at' => $at,
-            ]);
-
-            $receipt++;
-
-            $this->seedFile($fileUploads, $inquiry, $accountant, DocumentType::Receipt, [
-                'name' => "{$inquiry->reference}-receipt-{$receipt}-{$event['reference']}.pdf",
-                'size_bytes' => 98304,
-                'mime_type' => 'application/pdf',
-            ], $at);
-
-            if ($event['payment_status'] !== $status) {
-                $this->history($inquiry, InquiryStatusTrack::Payment, $status, $event['payment_status'], $accountant, $at);
-                $status = $event['payment_status'];
-            }
-        }
-    }
-
-    /** @param  list<array<string, mixed>>  $events */
-    private function seedLogistics(Inquiry $inquiry, array $events): void
-    {
-        $status = ProcessStatus::Received->value;
-
-        foreach ($events as $event) {
-            if (isset($event['process'])) {
-                $this->history($inquiry, InquiryStatusTrack::Process, $status, $event['process'], $this->user($event['by']), Carbon::parse($event['at']));
-                $status = $event['process'];
-            }
+        if (! $user->hasRole(array_map(fn (Role $role): string => $role->value, $roles))) {
+            throw new RuntimeException("Group {$group}: {$user->name} may not be added.");
         }
     }
 
@@ -556,12 +787,13 @@ class InquirySeeder extends Seeder
      *
      * @param  array{name: string, size_bytes: int, mime_type: string}  $fileData
      */
-    private function seedFile(InquiryFileUploads $fileUploads, Inquiry $inquiry, User $uploader, DocumentType $type, array $fileData, Carbon $at, ?int $revision = null): void
+    private function seedFile(InquiryFileUploads $fileUploads, Inquiry $inquiry, User $uploader, DocumentType $type, array $fileData, Carbon $at, ?int $revision = null, ?InquiryStatusHistory $update = null): void
     {
         $fileUploads->authorize($uploader, $type, $inquiry);
 
         $inquiry->files()->forceCreate([
             'document_type' => $type,
+            'status_history_id' => $update?->id,
             'revision' => $revision,
             'disk' => 'local',
             'path' => 'inquiries/'.$inquiry->reference.'/'.$fileData['name'],
@@ -574,38 +806,57 @@ class InquirySeeder extends Seeder
         ]);
     }
 
-    private function history(Inquiry $inquiry, InquiryStatusTrack $track, ?string $from, string $to, User $by, Carbon $at): void
+    private function history(Inquiry $inquiry, InquiryStatusTrack $track, ?string $from, string $to, User $by, Carbon $at, ?string $note = null): InquiryStatusHistory
     {
-        InquiryStatusHistory::query()->create([
+        return InquiryStatusHistory::query()->create([
             'inquiry_id' => $inquiry->id,
             'track' => $track,
             'from_status' => $from,
             'to_status' => $to,
             'changed_by' => $by->id,
+            'note' => $note,
+            'changed_at' => $at,
+        ]);
+    }
+
+    private function leadHistory(Lead $lead, ?LeadStatus $from, LeadStatus $to, ?User $by, Carbon $at): void
+    {
+        LeadStatusHistory::query()->create([
+            'lead_id' => $lead->id,
+            'from_status' => $from,
+            'to_status' => $to,
+            'changed_by' => $by?->id,
             'changed_at' => $at,
         ]);
     }
 
     /**
-     * Every snapshot into its inquiry's thread, oldest first across all the
-     * inquiries, so a client with several reads them in the order they happened.
+     * Every snapshot into the thread it would have gone to at the time (the
+     * inquiry's group chat once it existed, otherwise its client's Regray Team
+     * thread), oldest first across all the inquiries, so a client with several
+     * reads them in the order they happened.
      *
-     * @param  list<array{inquiry: Inquiry, at: string, status: InquiryStatus, marketing: MarketingStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}>  $cards
+     * @param  list<array{inquiry: Inquiry, at: string, status: InquiryStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}>  $snapshots
+     * @param  array<int, array{conversation: Conversation, created_at: string}>  $groups
      */
-    private function postInquiryCards(SupportConversationService $support, MessageRepositoryInterface $messages, array $cards): void
+    private function postInquiryCards(SupportConversationService $support, MessageRepositoryInterface $messages, array $snapshots, array $groups): void
     {
-        usort($cards, fn (array $first, array $second): int => [$first['at'], $first['inquiry']->id] <=> [$second['at'], $second['inquiry']->id]);
+        usort($snapshots, fn (array $first, array $second): int => [$first['at'], $first['inquiry']->id] <=> [$second['at'], $second['inquiry']->id]);
 
-        foreach ($cards as $card) {
+        foreach ($snapshots as $snapshot) {
+            $group = $groups[$snapshot['inquiry']->id] ?? null;
+            $thread = $group !== null && strcmp($group['created_at'], $snapshot['at']) <= 0
+                ? $group['conversation']
+                : $support->ensureFor($snapshot['inquiry']->client()->firstOrFail());
+
             $messages->createInquiryCardOnce(
-                $support->cardThreadFor($card['inquiry'])->id,
-                $card['inquiry']->id,
-                $card['status'],
-                $card['marketing'],
-                $card['sales'],
-                $card['payment'],
-                $card['process'],
-                Carbon::parse($card['at']),
+                $thread->id,
+                $snapshot['inquiry']->id,
+                $snapshot['status'],
+                $snapshot['sales'],
+                $snapshot['payment'],
+                $snapshot['process'],
+                Carbon::parse($snapshot['at']),
             );
         }
     }

@@ -10,7 +10,6 @@ function inquiryShowing(InquiryStatus $status): Inquiry
     $statuses = roleStatusesShowing($status);
 
     return (new Inquiry)->forceFill([
-        'marketing_status' => $statuses['marketing_status'],
         'sales_status' => $statuses['sales_status'],
         'process_status' => $statuses['process_status'],
         'has_job_order' => $statuses['job_order'],

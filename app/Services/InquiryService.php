@@ -4,11 +4,15 @@ namespace App\Services;
 
 use App\Data\WrittenFiles;
 use App\Enums\AuditEvent;
+use App\Enums\ClientKind;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
+use App\Enums\SalesStatus;
 use App\Events\InquiryStatusChanged;
+use App\Models\Client;
 use App\Models\Inquiry;
+use App\Models\Lead;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Policies\InquiryFileUploads;
@@ -38,22 +42,68 @@ class InquiryService
         public readonly InquiryActions $inquiryActions,
         public readonly InquiryFileUploads $fileUploads,
         public readonly AuditLogRepositoryInterface $auditLogRepository,
+        public readonly LeadService $leadService,
+        public readonly InquiryStatusService $inquiryStatusService,
+        public readonly ClientService $clientService,
     ) {}
 
     /**
      * Write one inquiry per project sent: an inquiry is one project, so a
      * client who sends three projects opens three inquiries.
      *
+     * The client sends their own (`$by` is null). Staff open one for the client
+     * of `$lead` (`$by` is the staff member); the lead is checked to still be
+     * open here, under its row lock, and who may use which lead is the
+     * caller's question (LeadPolicy). A client's own inquiry links to their
+     * open lead, or to none yet (LeadService::leadForNewInquiry()). Either
+     * way the inquiry is filed under the account's client record, made the
+     * first time it is needed (ClientService::findOrCreateForUser()).
+     *
      * Every file that reaches the disk is recorded on `$written` the moment it
      * lands, so the caller can remove them if anything after this point fails.
      *
      * @param  array{projects: list<ProjectInput>}  $input
      * @return list<Inquiry> In the order the projects were sent.
+     *
+     * @throws ValidationException When `$lead` has been lost meanwhile.
      */
-    public function create(User $client, array $input, WrittenFiles $written): array
+    public function create(User $client, array $input, WrittenFiles $written, ?Lead $lead = null, ?User $by = null): array
     {
+        if ($lead !== null) {
+            $lead = $this->leadService->leads->lockForUpdate($lead->id);
+
+            if (! $lead->status->isOpen() || $lead->client_id !== $client->id) {
+                throw ValidationException::withMessages(['lead' => 'This lead is closed. Choose another lead.']);
+            }
+        }
+
+        $record = $this->clientService->findOrCreateForUser($client);
+
         return array_map(
-            fn (array $project): Inquiry => $this->createOne($client, $project, $written),
+            fn (array $project): Inquiry => $this->createOne($client, $record, $project, $written, $lead ?? $this->leadService->leadForNewInquiry($client), $by),
+            $input['projects'],
+        );
+    }
+
+    /**
+     * Staff open inquiries for a direct (walk-in) client, who has no account:
+     * no lead is created or linked, and sales starts at negotiation at once.
+     * No attachments (the caller's request takes none), and nothing reaches a
+     * client account or a Regray Team thread.
+     *
+     * @param  array{projects: list<ProjectInput>}  $input
+     * @return list<Inquiry> In the order the projects were sent.
+     *
+     * @throws ValidationException When the record is not a direct client.
+     */
+    public function createForDirectClient(Client $record, array $input, WrittenFiles $written, User $by): array
+    {
+        if ($record->kind !== ClientKind::Direct) {
+            throw ValidationException::withMessages(['client' => 'This client has a Regray account. Open the inquiry from their lead instead.']);
+        }
+
+        return array_map(
+            fn (array $project): Inquiry => $this->createOne(null, $record, $project, $written, null, $by),
             $input['projects'],
         );
     }
@@ -103,18 +153,7 @@ class InquiryService
         $inquiry->load(['schedule', 'files']);
         $before = $this->auditSnapshot($inquiry);
 
-        $this->inquiryRepository->updateDetails($inquiry, [
-            'name' => $project['name'],
-            'location' => $project['location'],
-            'landmark' => $project['landmark'],
-            'area_sqm' => $project['area_sqm'],
-            'notes' => $project['notes'],
-        ]);
-
-        $this->moveVisit($inquiry, $client, $project);
-        $this->inquiryRepository->syncServices($inquiry, $project['service_ids']);
-        $this->inquiryRepository->syncApplications($inquiry, $project['application_ids']);
-        $this->inquiryRepository->replaceStones($inquiry, $project['stones']);
+        $this->applyProject($inquiry, $client, null, $project);
 
         $removedFiles = $this->inquiryRepository->deleteClientAttachmentsExcept($inquiry, $project['keep_file_ids']);
 
@@ -135,6 +174,54 @@ class InquiryService
         return ['inquiry' => $inquiry, 'removedFiles' => $removedFiles];
     }
 
+    /**
+     * Staff change an inquiry's project from the Inquiry list (Edit): its
+     * name, location, landmark, area, notes, services, applications, stones
+     * and deadline. Never its client, its statuses or the client's files.
+     * Refused once the inquiry is closed or cancelled. An audit row records
+     * the change under the staff member.
+     *
+     * Has to run inside a transaction: the inquiry row is locked until it ends.
+     *
+     * @param  array{projects: list<ProjectUpdateInput>}  $input
+     *
+     * @throws ModelNotFoundException When there is no such inquiry.
+     * @throws ValidationException When the inquiry may no longer be changed, or the input does not fit it.
+     */
+    public function updateByStaff(User $staff, string $reference, array $input, ?string $ipAddress, ?string $userAgent): Inquiry
+    {
+        $inquiry = $this->inquiryRepository->findByReferenceForUpdate($reference)
+            ?? throw (new ModelNotFoundException)->setModel(Inquiry::class, [$reference]);
+
+        if (! InquiryStatusRules::isOpen($inquiry)) {
+            throw ValidationException::withMessages(['status' => 'This inquiry is closed or cancelled, so it can no longer be changed.']);
+        }
+
+        if (count($input['projects']) !== 1 || $input['projects'][0]['id'] !== $inquiry->id) {
+            throw ValidationException::withMessages([
+                'projects' => 'This inquiry has changed. Reload the page and try again.',
+            ]);
+        }
+
+        $inquiry->load(['schedule', 'files']);
+        $before = $this->auditSnapshot($inquiry);
+        $client = $inquiry->client_id === null ? null : User::query()->findOrFail($inquiry->client_id);
+
+        $this->applyProject($inquiry, $client, $staff, $input['projects'][0]);
+
+        $this->auditLogRepository->record(
+            $staff->id,
+            AuditEvent::Updated,
+            $inquiry,
+            $before,
+            $this->auditSnapshot($inquiry->refresh()),
+            $ipAddress,
+            $userAgent,
+        );
+
+        return $inquiry;
+    }
+
     public function nextReference(): string
     {
         $number = $this->inquiryRepository->nextReferenceNumber();
@@ -143,11 +230,14 @@ class InquiryService
     }
 
     /**
-     * One inquiry for one project. Only marketing's stage has started: it is
-     * pending, with its history row from nothing, by the client who sent it.
-     * Sales, payment and logistics stay NULL until their stages start. Its visit is booked first: the deadline the client gave is that
-     * schedule's arrival. All of it is written in the caller's transaction, so
-     * a failed inquiry leaves no schedule.
+     * One inquiry for one project, for `$record` (and its account `$client`,
+     * which a direct client has none of), linked to `$lead`. No role status
+     * has started: sales, payment and logistics stay NULL until their stages
+     * do. On a lead that is already won, or for a direct client, sales starts
+     * at once, at negotiation. Its visit is booked first: the deadline given is
+     * that schedule's arrival.
+     * All of it is written in the caller's transaction, so a failed inquiry
+     * leaves no schedule.
      *
      * The new inquiry is announced with InquiryStatusChanged, which posts the
      * "New inquiry" card. The event waits for the caller's transaction to
@@ -155,42 +245,71 @@ class InquiryService
      *
      * @param  ProjectInput  $project
      */
-    private function createOne(User $client, array $project, WrittenFiles $written): Inquiry
+    private function createOne(?User $client, Client $record, array $project, WrittenFiles $written, ?Lead $lead, ?User $by): Inquiry
     {
-        $now = Date::now();
+        $actor = $by ?? $client ?? throw new RuntimeException('An inquiry is sent by its client or by staff.');
 
         $inquiry = $this->inquiryRepository->create([
             'reference' => $this->nextReference(),
-            'client_id' => $client->id,
+            'client_id' => $client?->id,
+            'client_record_id' => $record->id,
+            'lead_id' => $lead?->id,
             'name' => $project['name'],
             'location' => $project['location'],
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
             'notes' => $project['notes'],
-            'marketing_status' => MarketingStatus::Pending,
-            'marketing_status_changed_at' => $now,
         ]);
-
-        $this->inquiryRepository->createStatusHistory($inquiry, InquiryStatusTrack::Marketing, null, MarketingStatus::Pending, $client->id, $now);
 
         $this->scheduleService->createForInquiry(
             $inquiry,
             $client,
             $project['deadline_date'],
             $project['deadline_time'],
+            $by,
         );
 
         $this->inquiryRepository->attachServices($inquiry, $project['service_ids']);
         $this->inquiryRepository->attachApplications($inquiry, $project['application_ids']);
         $this->inquiryRepository->addStones($inquiry, $project['stones']);
 
-        foreach ($project['files'] as $file) {
-            $this->addFile($inquiry, $client, $file, $written);
+        if ($client !== null) {
+            foreach ($project['files'] as $file) {
+                $this->addFile($inquiry, $client, $file, $written);
+            }
         }
 
-        event(new InquiryStatusChanged($inquiry, InquiryStatusTrack::Marketing, null, MarketingStatus::Pending, $client->id));
+        event(new InquiryStatusChanged($inquiry, null, null, null, $actor->id));
+
+        if ($client === null || $lead?->status === LeadStatus::Won) {
+            $inquiry->setRelation('lead', $lead);
+            $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $actor);
+        }
 
         return $inquiry;
+    }
+
+    /**
+     * The project's fields, services, applications and stones, and its visit
+     * moved to the edited deadline. `$bookedBy` is the staff member when staff
+     * edit, for a visit booked afresh.
+     *
+     * @param  ProjectUpdateInput  $project
+     */
+    private function applyProject(Inquiry $inquiry, ?User $client, ?User $bookedBy, array $project): void
+    {
+        $this->inquiryRepository->updateDetails($inquiry, [
+            'name' => $project['name'],
+            'location' => $project['location'],
+            'landmark' => $project['landmark'],
+            'area_sqm' => $project['area_sqm'],
+            'notes' => $project['notes'],
+        ]);
+
+        $this->moveVisit($inquiry, $client, $project, $bookedBy);
+        $this->inquiryRepository->syncServices($inquiry, $project['service_ids']);
+        $this->inquiryRepository->syncApplications($inquiry, $project['application_ids']);
+        $this->inquiryRepository->replaceStones($inquiry, $project['stones']);
     }
 
     /**
@@ -204,7 +323,7 @@ class InquiryService
      *
      * @param  ProjectUpdateInput  $project
      */
-    private function moveVisit(Inquiry $inquiry, User $client, array $project): void
+    private function moveVisit(Inquiry $inquiry, ?User $client, array $project, ?User $bookedBy = null): void
     {
         $schedule = $inquiry->schedule;
 
@@ -214,6 +333,7 @@ class InquiryService
                 $client,
                 $project['deadline_date'],
                 $project['deadline_time'],
+                $bookedBy,
             );
 
             return;

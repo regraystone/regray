@@ -6,13 +6,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * One inquiry is one project: what the client asked for and where, and the
- * four role statuses it moves through. A role's status exists only once its
- * stage has started; until then it is NULL.
+ * One inquiry is one project: what the client asked for and where, the lead it
+ * belongs to, and the three role statuses it moves through. A role's status
+ * exists only once its stage has started; until then it is NULL.
  *
- * - `marketing_status`: from creation. Pending until marketing has engaged the
- *   client (won) or dropped the inquiry (lost).
- * - `sales_status`: from marketing won, starting at negotiation. Negotiation,
+ * - `client_id`: the client's account. NULL for a direct (walk-in) client,
+ *   who has none; `client_record_id` is the client either way (`clients`).
+ * - `lead_id`: marketing's lead for the client (`leads`), which holds the
+ *   marketing status. NULL until the client's Regray Team thread is claimed,
+ *   which links it.
+ * - `sales_status`: from the lead being won, starting at negotiation. Negotiation,
  *   site_visited and on_hold while sales talks with the client; quoted once
  *   the client has approved the quotation; rejected when the client turns it
  *   down or cancels.
@@ -38,14 +41,14 @@ return new class extends Migration
         Schema::create('inquiries', function (Blueprint $table) {
             $table->id();
             $table->string('reference', 30)->unique();
-            $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('client_id')->nullable()->constrained('users')->restrictOnDelete();
+            $table->foreignId('client_record_id')->nullable()->constrained('clients')->restrictOnDelete();
+            $table->foreignId('lead_id')->nullable()->constrained()->restrictOnDelete();
             $table->string('name', 100);
             $table->string('location', 255);
             $table->string('landmark', 150)->nullable();
             $table->decimal('area_sqm', 10, 2)->nullable();
             $table->string('notes', 1000)->nullable();
-            $table->string('marketing_status', 20)->default('pending');
-            $table->timestampTz('marketing_status_changed_at');
             $table->string('sales_status', 20)->nullable();
             $table->timestampTz('sales_status_changed_at')->nullable();
             $table->string('payment_status', 20)->nullable();
@@ -58,16 +61,16 @@ return new class extends Migration
             $table->timestampTz('updated_at');
 
             $table->index('client_id');
-            $table->index('marketing_status');
+            $table->index('client_record_id');
+            $table->index('lead_id');
             $table->index('sales_status');
             $table->index('payment_status');
             $table->index('process_status');
         });
 
-        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_marketing_status CHECK (marketing_status IN ('pending','won','lost'))");
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_sales_status CHECK (sales_status IN ('negotiation','site_visited','on_hold','quoted','rejected'))");
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_payment_status CHECK (payment_status IN ('awaiting','partial','fully_paid'))");
-        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_process_status CHECK (process_status IN ('received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','on_hold','delayed'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_process_status CHECK (process_status IN ('order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','on_hold','delayed'))");
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quoted_total CHECK (quoted_total > 0)');
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quote_revision CHECK (quote_revision >= 1)');
     }

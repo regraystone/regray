@@ -25,39 +25,20 @@ afterEach(function (): void {
     SentrySdk::getCurrentHub()->configureScope(fn (Scope $scope) => $scope->clear());
 });
 
-it('opens the Pulse and Horizon dashboards to the owner and the admin', function (Role $role): void {
+it('opens Pulse and Horizon to the owner and the admin, and to nobody else', function (string $role): void {
     $user = User::factory()->role($role)->create();
+    $allowed = in_array($role, [Role::Owner->value, Role::Admin->value], true);
 
-    expect(Gate::forUser($user)->allows('viewPulse'))->toBeTrue()
-        ->and(Gate::forUser($user)->allows('viewHorizon'))->toBeTrue();
-})->with([Role::Owner, Role::Admin]);
+    expect(Gate::forUser($user)->allows('viewPulse'))->toBe($allowed)
+        ->and(Gate::forUser($user)->allows('viewHorizon'))->toBe($allowed);
 
-it('keeps every other role out of the Pulse and Horizon dashboards', function (Role $role): void {
-    $user = User::factory()->role($role)->create();
+    $this->actingAs($user)->get('/pulse')->assertStatus($allowed ? 200 : 403);
+    $this->actingAs($user)->get('/horizon')->assertStatus($allowed ? 200 : 403);
+})->with(Role::names());
 
-    expect(Gate::forUser($user)->allows('viewPulse'))->toBeFalse()
-        ->and(Gate::forUser($user)->allows('viewHorizon'))->toBeFalse();
-})->with([Role::Client, Role::Marketing, Role::Sales, Role::Accounting, Role::Technical, Role::Logistics]);
-
-it('keeps a guest out of the Pulse and Horizon dashboards', function (): void {
-    expect(Gate::allows('viewPulse'))->toBeFalse()
-        ->and(Gate::allows('viewHorizon'))->toBeFalse();
-});
-
-it('answers 403 at /pulse and /horizon for anyone but the owner and the admin', function (): void {
-    $marketing = User::factory()->role(Role::Marketing)->create();
-
+it('keeps a guest out of Pulse and Horizon', function (): void {
     $this->get('/pulse')->assertForbidden();
     $this->get('/horizon')->assertForbidden();
-    $this->actingAs($marketing)->get('/pulse')->assertForbidden();
-    $this->actingAs($marketing)->get('/horizon')->assertForbidden();
-});
-
-it('opens /pulse and /horizon for the owner', function (): void {
-    $owner = User::factory()->role(Role::Owner)->create();
-
-    $this->actingAs($owner)->get('/pulse')->assertOk();
-    $this->actingAs($owner)->get('/horizon')->assertOk();
 });
 
 it('reads back the rows a Pulse card caches from a serializing cache store', function (): void {

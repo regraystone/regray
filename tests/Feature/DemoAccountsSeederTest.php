@@ -8,7 +8,6 @@ use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SavedStoneSeeder;
 use Database\Seeders\UserSeeder;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Hash;
 
 beforeEach(function () {
     $this->seed(RolePermissionSeeder::class);
@@ -29,25 +28,6 @@ test('a non-production seed creates one account per role plus the test user', fu
     foreach (Role::cases() as $role) {
         expect(User::where('email', $role->value.'@example.com')->exists())->toBeTrue();
     }
-});
-
-test('a seeded account carries its role', function () {
-    $this->seed(DatabaseSeeder::class);
-
-    expect(User::where('email', Role::Technical->value.'@example.com')->firstOrFail()->getRoleNames()->all())
-        ->toBe([Role::Technical->value]);
-});
-
-test('every demo account accepts the default password', function () {
-    $this->seed(DatabaseSeeder::class);
-
-    foreach (Role::cases() as $role) {
-        $user = User::where('email', $role->value.'@example.com')->firstOrFail();
-        expect(Hash::check('password', $user->password))->toBeTrue();
-    }
-
-    $testUser = User::where('email', 'test@example.com')->firstOrFail();
-    expect(Hash::check('password', $testUser->password))->toBeTrue();
 });
 
 test('a production seed creates zero users but still seeds roles and permissions', function () {

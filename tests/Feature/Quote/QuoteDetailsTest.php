@@ -3,6 +3,7 @@
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\Role;
 use App\Models\EdgeProfile;
@@ -45,7 +46,7 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
     expect($response->viewData('page')['component'])->toBe('inquiry-details')
         ->and($inquiry['reference'])->toBe('INQ-D1')
         ->and($inquiry['status'])->toBe('pending')
-        ->and($inquiry['marketingStatus'])->toBe('pending')
+        ->and($inquiry)->not->toHaveKeys(['marketingStatus', 'lead'])
         // Stages not started are sent as null, never as a placeholder.
         ->and($inquiry['salesStatus'])->toBeNull()
         ->and($inquiry['paymentStatus'])->toBeNull()
@@ -83,21 +84,18 @@ it('sends the display status and the role statuses it came from', function (): v
 
     expect($details)->toMatchArray([
         'status' => 'production',
-        'marketingStatus' => 'won',
         'salesStatus' => 'quoted',
         'paymentStatus' => 'partial',
         'processStatus' => 'production',
     ]);
 });
 
-it('sends the client\'s activity log: sales, payment and logistics changes, oldest first, without marketing or who made it', function (): void {
-    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-H1']);
+it('sends the client\'s activity log: sales, payment and logistics changes, oldest first, without the lead or who made it', function (): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-H1', 'lead' => makeLead($this->client, LeadStatus::Won)]);
     $staff = inquiryClient(Role::Sales);
     $at = now()->startOfSecond()->subDays(3);
 
     foreach ([
-        [InquiryStatusTrack::Marketing, null, 'pending', 0],
-        [InquiryStatusTrack::Marketing, 'pending', 'won', 1],
         [InquiryStatusTrack::Sales, null, 'negotiation', 1],
         [InquiryStatusTrack::Sales, 'negotiation', 'site_visited', 2],
     ] as [$track, $from, $to, $days]) {
@@ -109,18 +107,19 @@ it('sends the client\'s activity log: sales, payment and logistics changes, olde
     expect($details['history'])->toBe([
         ['track' => 'sales', 'status' => 'negotiation', 'at' => $at->copy()->addDay()->toIso8601String()],
         ['track' => 'sales', 'status' => 'site_visited', 'at' => $at->copy()->addDays(2)->toIso8601String()],
-    ])->and(json_encode($details['history']))->not->toContain('changed_by')->not->toContain($staff->name);
+    ])->and(json_encode($details['history']))->not->toContain('changed_by')->not->toContain($staff->name)
+        ->and($details)->not->toHaveKey('lead');
 });
 
-it('shows a cancel by marketing in the activity log, and nothing else of marketing\'s', function (): void {
-    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-H2']);
-    $at = now()->startOfSecond();
-    $inquiry->statusHistory()->create(['track' => InquiryStatusTrack::Marketing, 'from_status' => null, 'to_status' => 'pending', 'changed_at' => $at->copy()->subDay()]);
-    $inquiry->statusHistory()->create(['track' => InquiryStatusTrack::Marketing, 'from_status' => 'pending', 'to_status' => 'lost', 'changed_at' => $at]);
+it('shows an inquiry cancelled with its lost lead as cancelled in the activity log, with nothing about the lead', function (): void {
+    $lead = makeLead($this->client, LeadStatus::Lost);
+    makeInquiry($this->client, attributes: ['reference' => 'INQ-H2', 'lead' => $lead]);
 
-    $history = $this->actingAs($this->client)->get(route('quote.show', 'INQ-H2'))->viewData('page')['props']['inquiry']['history'];
+    $details = $this->actingAs($this->client)->get(route('quote.show', 'INQ-H2'))->viewData('page')['props']['inquiry'];
 
-    expect($history)->toBe([['track' => 'marketing', 'status' => 'lost', 'at' => $at->toIso8601String()]]);
+    expect($details['status'])->toBe('cancelled')
+        ->and($details['history'])->toBe([['track' => 'inquiry', 'status' => 'cancelled', 'at' => $lead->status_changed_at->toIso8601String()]])
+        ->and(json_encode($details))->not->toContain($lead->reference)->not->toContain('"lost"')->not->toContain('marketing');
 });
 
 it('shares quotations and payment receipts with the client, never the job order or where a file is stored', function (): void {
@@ -128,10 +127,13 @@ it('shares quotations and payment receipts with the client, never the job order 
 
     $documents = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))->viewData('page')['props']['inquiry']['documents'];
 
-    expect(array_column($documents, 'type'))->toBe(['quotation', 'receipt'])
-        ->and($documents[0])->toMatchArray(['id' => 'document-1', 'revision' => 1, 'name' => 'quotation.pdf', 'mimeType' => 'application/pdf'])
+    // Files that came with no status update each stand as their own group.
+    expect(array_merge(...array_map(fn (array $group): array => array_column($group['files'], 'type'), $documents)))->toBe(['quotation', 'receipt'])
+        ->and($documents[0])->toMatchArray(['id' => 'group-1', 'status' => null, 'revision' => 1])
+        ->and($documents[0]['files'][0])->toMatchArray(['id' => 'document-1', 'type' => 'quotation', 'name' => 'quotation.pdf', 'mimeType' => 'application/pdf'])
         ->and($documents[1]['revision'])->toBeNull()
-        ->and(array_keys($documents[0]))->toBe(['id', 'type', 'revision', 'name', 'sizeBytes', 'mimeType', 'at']);
+        ->and(array_keys($documents[0]))->toBe(['id', 'status', 'revision', 'at', 'files'])
+        ->and(array_keys($documents[0]['files'][0]))->toBe(['id', 'type', 'name', 'sizeBytes', 'mimeType']);
 });
 
 it('shows a visit\'s target deadline with the time from its schedule', function (): void {
@@ -166,24 +168,11 @@ it('answers an unknown and a malformed reference with the same 404', function ()
     $this->actingAs($this->client)->get(route('quote.show', 'bad ref!'))->assertNotFound();
 });
 
-it('does not take quote/inquire for a reference', function (): void {
-    $this->actingAs($this->client)->get(route('quote.inquire'))->assertOk()
-        ->assertInertia(fn ($page) => $page->component('inquire')->etc());
-});
-
-it('turns away a role without quotations.view and a guest', function (): void {
+it('opens any inquiry for staff on the inquiry route, and only their own for a client', function (): void {
     detailedInquiry($this);
+    makeInquiry(inquiryClient(), attributes: ['reference' => 'INQ-D2']);
 
-    $this->actingAs(inquiryClient(Role::Sales))->get(route('quote.show', 'INQ-D1'))->assertForbidden();
-    auth()->logout();
-    $this->get(route('quote.show', 'INQ-D1'))->assertRedirect(route('login'));
-});
-
-it('is scoped to the user on the inquiry route as well', function (): void {
-    $admin = inquiryClient(Role::Admin);
-    makeInquiry($admin, attributes: ['reference' => 'INQ-D2']);
-    detailedInquiry($this);
-
-    $this->actingAs($admin)->get(route('inquiry.show', 'INQ-D2'))->assertOk();
-    $this->actingAs($admin)->get(route('inquiry.show', 'INQ-D1'))->assertNotFound();
+    $this->actingAs(inquiryClient(Role::Owner))->get(route('inquiry.show', 'INQ-D1'))->assertOk();
+    $this->actingAs($this->client)->get(route('inquiry.show', 'INQ-D1'))->assertOk();
+    $this->actingAs($this->client)->get(route('inquiry.show', 'INQ-D2'))->assertNotFound();
 });

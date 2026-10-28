@@ -3,15 +3,17 @@
 namespace App\Services;
 
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
 use App\Events\InquiryStatusChanged;
 use App\Models\Inquiry;
+use App\Models\InquiryStatusHistory;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
+use App\Repositories\Contracts\LeadRepositoryInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Validation\ValidationException;
@@ -25,11 +27,10 @@ use InvalidArgumentException;
  * The event posts an inquiry card (PostInquiryStatusCard): into the inquiry's
  * group chat when it has one, otherwise into the client's Regray Team thread.
  *
- * The flow between the statuses (who moves which track, and when) is not built
- * yet; see docs/database/regray-erd.md. Only the client's cancel uses this.
- *
- * TODO(inquiry-binding): groups will be bound to inquiries later. Until then
- * no real inquiry has a group, so every card goes to the Regray Team thread.
+ * Marketing's status is the lead's (LeadService). Staff move the sales,
+ * payment and logistics tracks by hand through InquiryStatusUpdateService; the
+ * client's cancel, a lead being won and an inquiry opened from a won lead or
+ * for a direct client move them here too.
  */
 class InquiryStatusService
 {
@@ -37,14 +38,17 @@ class InquiryStatusService
         public readonly InquiryRepositoryInterface $inquiryRepository,
         public readonly InquiryActions $inquiryActions,
         public readonly ScheduleService $scheduleService,
+        public readonly LeadService $leadService,
+        public readonly LeadRepositoryInterface $leads,
     ) {}
 
     /**
-     * Cancel the client's own inquiry, before they have approved the quotation:
-     * sales becomes rejected once sales has started, and marketing becomes lost
-     * before it has. Either shows the inquiry as cancelled. After approval the
-     * client cannot cancel; only sales can, by rejecting. Further conditions
-     * are not decided yet beyond the button table.
+     * Cancel the client's own inquiry, before they have approved the quotation.
+     * Once sales has started, sales becomes rejected. Before it has, the
+     * inquiry's lead becomes lost, which shows every inquiry on that lead as
+     * cancelled (ApplyLeadStatusCascade). An inquiry with no lead yet has no
+     * lead to lose, so its sales becomes rejected straight away. After approval
+     * the client cannot cancel; only sales can, by rejecting.
      *
      * Has to run inside a transaction: the row is locked until it ends, so two
      * cancels at once cannot both read an open inquiry and both write a history
@@ -68,31 +72,39 @@ class InquiryStatusService
             ]);
         }
 
-        return $inquiry->sales_status === null
-            ? $this->transition($inquiry, InquiryStatusTrack::Marketing, MarketingStatus::Lost, $client)
-            : $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Rejected, $client);
+        if ($inquiry->sales_status !== null || $inquiry->lead_id === null) {
+            $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Rejected, $client);
+
+            return $inquiry;
+        }
+
+        $this->leadService->transition($this->leads->lockForUpdate($inquiry->lead_id), LeadStatus::Lost, $client);
+        $inquiry->unsetRelation('lead');
+
+        return $inquiry;
     }
 
     /**
      * Move one of an inquiry's role statuses: the status and when it changed, a
-     * history row on its track saying who changed it, and the event that posts
-     * the status card once the transaction commits. A track whose stage has not
-     * started moves from nothing (NULL).
+     * history row on its track saying who changed it and why (`$note`), and the
+     * event that posts the status card once the transaction commits. A track
+     * whose stage has not started moves from nothing (NULL). Returns the
+     * history row, which the files of the update point to.
      *
-     * Starting the later stages (sales at negotiation on marketing won; payment
-     * at awaiting and process at received on the client's approval) is the
-     * flow's job, which is not built yet; see docs/database/regray-erd.md.
+     * What may move where, and what a move has to carry, is the caller's
+     * question (InquiryStatusUpdateService, InquiryStatusRules).
      *
      * Expects the inquiry to be locked already, by whoever decided the change
-     * is allowed. A change that cancels the inquiry (sales rejected, marketing
-     * lost) cancels its open visits in the same transaction.
+     * is allowed. Sales rejected cancels the inquiry's open visits in the same
+     * transaction.
      */
     public function transition(
         Inquiry $inquiry,
         InquiryStatusTrack $track,
-        MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus $to,
+        SalesStatus|PaymentStatus|ProcessStatus $to,
         ?User $by,
-    ): Inquiry {
+        ?string $note = null,
+    ): InquiryStatusHistory {
         if (! $to instanceof ($track->enum())) {
             throw new InvalidArgumentException("{$to->value} is not a {$track->value} status.");
         }
@@ -101,14 +113,14 @@ class InquiryStatusService
         $now = Date::now();
 
         $this->inquiryRepository->updateStatus($inquiry, $track, $to, $now);
-        $this->inquiryRepository->createStatusHistory($inquiry, $track, $from, $to, $by?->id, $now);
+        $history = $this->inquiryRepository->createStatusHistory($inquiry, $track, $from, $to, $by?->id, $now, $note);
 
-        if ($to === SalesStatus::Rejected || $to === MarketingStatus::Lost) {
+        if ($to === SalesStatus::Rejected) {
             $this->scheduleService->cancelForInquiry($inquiry, $now);
         }
 
         event(new InquiryStatusChanged($inquiry, $track, $from, $to, $by?->id));
 
-        return $inquiry;
+        return $history;
     }
 }

@@ -51,6 +51,16 @@ enum Permission: string
     case ProfileView = 'profile.view';
 
     /**
+     * The Leads page: marketing's record of each client, with the lead's
+     * status (idle, won, lost) and the inquiries linked to it. Marketing's
+     * alone; the super-admin passes every check anyway.
+     */
+    case LeadsView = 'leads.view';
+
+    /** Marking a lead won or lost, from the Leads page: marketing's. */
+    case LeadsUpdate = 'leads.update';
+
+    /**
      * The schedule as reached from the Profile page, at /profile/schedule.
      *
      * The same page `ScheduleView` guards is on show at two URLs, and each role is
@@ -117,6 +127,23 @@ enum Permission: string
     case SavedProjectsView = 'saved-projects.view';
 
     case InquiriesCreate = 'inquiries.create';
+
+    /**
+     * Changing an inquiry's project from the Inquiry list (Edit): its name,
+     * location, landmark, area, notes, services and stones. Never the client
+     * or a status.
+     */
+    case InquiriesEdit = 'inquiries.edit';
+
+    /** Moving an inquiry's sales status (Update Status): sales'. */
+    case InquiriesStatusSales = 'inquiries.status.sales';
+
+    /** Moving an inquiry's payment status: accounting's. */
+    case InquiriesStatusPayment = 'inquiries.status.payment';
+
+    /** Moving an inquiry's logistics (process) status: logistics'. */
+    case InquiriesStatusProcess = 'inquiries.status.process';
+
     case ScheduleCreate = 'schedule.create';
 
     /**
@@ -182,6 +209,16 @@ enum Permission: string
     public function action(): string
     {
         return explode('.', $this->value, 2)[1];
+    }
+
+    /** The permission that moves a status track. */
+    public static function forStatusTrack(InquiryStatusTrack $track): self
+    {
+        return match ($track) {
+            InquiryStatusTrack::Sales => self::InquiriesStatusSales,
+            InquiryStatusTrack::Payment => self::InquiriesStatusPayment,
+            InquiryStatusTrack::Process => self::InquiriesStatusProcess,
+        };
     }
 
     /**

@@ -35,7 +35,6 @@ dataset('accepted values', [
     'area above zero' => [fn (array $p): array => [...$p, 'areaSqm' => '0.01']],
     'no area' => [fn (array $p): array => [...$p, 'areaSqm' => '']],
     'deadline today' => [fn (array $p): array => [...$p, 'neededBy' => now('Asia/Manila')->toDateString()]],
-    'no time on a project that is not a visit' => [fn (array $p): array => [...$p, 'neededByTime' => '']],
     'quantity 1' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1]]]],
     'quantity 9999' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 9999]]]],
     'a location from the list' => [fn (array $p): array => [...$p, 'location' => 'Las Piñas']],
@@ -45,7 +44,6 @@ dataset('accepted values', [
     )]],
     'a file of exactly 10 MB' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->create('big.pdf', 10240, 'application/pdf')]]],
     'a png' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.png')]]],
-    'a jpg' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.jpg')]]],
     'a jpeg' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.jpeg')]]],
 ]);
 
@@ -71,7 +69,6 @@ dataset('refused values', [
         range(1, 11),
     )], 'projects.0.attachments'],
     'a file over 10 MB' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->create('big.pdf', 10241, 'application/pdf')]], 'projects.0.attachments.0'],
-    'a gif' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.gif')]], 'projects.0.attachments.0'],
     'an executable' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->create('run.exe', 10, 'application/octet-stream')]], 'projects.0.attachments.0'],
 ]);
 

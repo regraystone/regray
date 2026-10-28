@@ -108,7 +108,13 @@ const InquiryProjectDetails = ({
     projectNumber,
     needsNeededByTime,
     deadlineLockReason = null,
+    allowAttachments = true,
 }: {
+    /**
+     * Whether files can be attached. Staff opening an inquiry for a lead's
+     * client cannot: a client attachment is the client's own to upload.
+     */
+    allowAttachments?: boolean;
     /**
      * Which project these answers are for, 1-based. Only in the control ids, so a
      * label cannot end up pointing at another project's field.
@@ -376,15 +382,16 @@ const InquiryProjectDetails = ({
 
             <div className="mt-8">
                 <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                    Attachments and notes
+                    {allowAttachments ? 'Attachments and notes' : 'Notes'}
                 </h4>
 
                 <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
-                    Plans, sketches or site photos help us quote accurately.
-                    Everything here is optional.
+                    {allowAttachments
+                        ? 'Plans, sketches or site photos help us quote accurately. Everything here is optional.'
+                        : 'Optional. Files are added by the client.'}
                 </p>
 
-                <div className="mt-4">
+                <div className={allowAttachments ? 'mt-4' : 'hidden'}>
                     <Controller
                         control={control}
                         name="attachments"

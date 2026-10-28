@@ -3,11 +3,17 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     activityLabel,
-    documentLabel,
+    documentGroupLabel,
     startedStatuses,
     statusLabel,
+    statusTone,
     statusTreatment,
 } from '../../resources/js/lib/inquiry-statuses.ts';
+import {
+    isLeadOpenForDecision,
+    LEAD_STATUSES,
+    leadStatusLabel,
+} from '../../resources/js/lib/lead-statuses.ts';
 
 describe('statusTreatment', () => {
     it('draws a positive or reached state solid', () => {
@@ -29,7 +35,7 @@ describe('statusTreatment', () => {
         for (const status of [
             'pending',
             'negotiation',
-            'received',
+            'order_received',
             'awaiting',
         ]) {
             assert.equal(statusTreatment(status), 'outline', status);
@@ -54,7 +60,6 @@ describe('statusLabel', () => {
         assert.equal(statusLabel('inquiry', 'quality_check'), 'Quality check');
         assert.equal(statusLabel('sales', 'on_hold'), 'On hold');
         assert.equal(statusLabel('payment', 'fully_paid'), 'Fully paid');
-        assert.equal(statusLabel('marketing', 'won'), 'Won');
         assert.equal(statusLabel('process', 'completed'), 'Completed');
     });
 });
@@ -64,22 +69,17 @@ describe('startedStatuses', () => {
         assert.deepEqual(
             startedStatuses([
                 { group: 'inquiry', status: 'pending' },
-                { group: 'marketing', status: 'pending' },
                 { group: 'sales', status: null },
                 { group: 'process', status: null },
                 { group: 'payment', status: null },
             ]),
-            [
-                { group: 'inquiry', status: 'pending' },
-                { group: 'marketing', status: 'pending' },
-            ],
+            [{ group: 'inquiry', status: 'pending' }],
         );
     });
 
     it('keeps every status once its stage has started, in the order given', () => {
         const entries = [
             { group: 'inquiry', status: 'production' },
-            { group: 'marketing', status: 'won' },
             { group: 'sales', status: 'quoted' },
             { group: 'process', status: 'production' },
             { group: 'payment', status: 'partial' },
@@ -120,17 +120,57 @@ describe('activityLabel', () => {
             activityLabel({ track: 'sales', status: 'rejected' }),
             'Cancelled',
         );
+        // An inquiry cancelled with its lost lead: the client hears only that.
         assert.equal(
-            activityLabel({ track: 'marketing', status: 'lost' }),
+            activityLabel({ track: 'inquiry', status: 'cancelled' }),
             'Cancelled',
         );
     });
 });
 
-describe('documentLabel', () => {
+describe('documentGroupLabel', () => {
     it('names a quotation by its revision and a receipt as a payment receipt', () => {
-        assert.equal(documentLabel('quotation', 2), 'Quotation · Rev 2');
-        assert.equal(documentLabel('quotation', null), 'Quotation');
-        assert.equal(documentLabel('receipt', null), 'Payment receipt');
+        assert.equal(documentGroupLabel('quoted', 2), 'Quotation · Rev 2');
+        assert.equal(documentGroupLabel('awaiting', null), 'Billing statement');
+        assert.equal(documentGroupLabel('partial', null), 'Partial payment');
+        assert.equal(documentGroupLabel('fully_paid', null), 'Full payment');
+        assert.equal(documentGroupLabel(null, null), 'Documents');
+    });
+});
+
+describe('lead statuses', () => {
+    it('labels each lead status and lists the Leads tabs in order', () => {
+        assert.deepEqual(LEAD_STATUSES, ['idle', 'won', 'lost']);
+        assert.equal(leadStatusLabel('idle'), 'Idle');
+        assert.equal(leadStatusLabel('won'), 'Won');
+        assert.equal(leadStatusLabel('lost'), 'Lost');
+    });
+
+    it('draws a lead badge like the inquiry badges: won solid, idle outlined, lost stopped', () => {
+        assert.equal(statusTreatment('won'), 'solid');
+        assert.equal(statusTreatment('idle'), 'outline');
+        assert.equal(statusTreatment('lost'), 'secondary');
+    });
+
+    it('lets marketing decide an idle lead only', () => {
+        assert.equal(isLeadOpenForDecision('idle'), true);
+        assert.equal(isLeadOpenForDecision('won'), false);
+        assert.equal(isLeadOpenForDecision('lost'), false);
+    });
+});
+
+describe('statusTone', () => {
+    it('gives every inquiry and payment status a colour of its own kind', () => {
+        assert.equal(statusTone('pending'), 'slate');
+        assert.equal(statusTone('quoted'), 'violet');
+        assert.equal(statusTone('order_received'), 'sky');
+        assert.equal(statusTone('cancelled'), 'red');
+        assert.equal(statusTone('closed'), 'green');
+        assert.equal(statusTone('awaiting'), 'amber');
+        assert.equal(statusTone('fully_paid'), 'green');
+    });
+
+    it('labels the payment badge "Awaiting", not "Awaiting payment"', () => {
+        assert.equal(statusLabel('payment', 'awaiting'), 'Awaiting');
     });
 });

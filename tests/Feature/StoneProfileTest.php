@@ -2,7 +2,6 @@
 
 use App\Actions\Home\ShowProjectAction;
 use App\Actions\Stone\ShowStoneAction;
-use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Application;
 use App\Models\CareTip;
@@ -14,12 +13,13 @@ use App\Models\User;
 use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
-use Database\Seeders\SavedStoneSeeder;
 use Database\Seeders\StoneSeeder;
-use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
-use Spatie\Permission\Models\Role as RoleModel;
+
+/*
+ * A stone's profile, opened from Home or Saved. Who may open which door is
+ * WorkspacePagesTest's; the rules for the database rows are SchemaTest's.
+ */
 
 beforeEach(function (): void {
     $this->seed([
@@ -128,173 +128,40 @@ test('a client reads the full database stone profile through either door', funct
     $response->assertInertia(fn (Assert $page) => $page->missing('projectSlug'));
 })->with(['saved.show', 'home.stone']);
 
-test('a stone profile guest is redirected to login through either door', function (string $routeName, array $parameters): void {
-    $this->get(route($routeName, $parameters))->assertRedirect(route('login'));
-})->with([
-    ['saved.show', ['stone' => 'arancia']],
-    ['home.stone', ['stone' => 'arancia']],
-]);
-
-test('an unverified stone reader is redirected to verification through either door', function (string $routeName, array $parameters): void {
-    $user = User::factory()->unverified()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route($routeName, $parameters))->assertRedirect(route('verification.notice'));
-})->with([
-    ['saved.show', ['stone' => 'arancia']],
-    ['home.stone', ['stone' => 'arancia']],
-]);
-
-test('a forbidden role cannot probe stone or project existence through either door', function (string $role): void {
-    $user = User::factory()->role($role)->create();
-
-    foreach (['arancia', 'no-such-stone'] as $slug) {
-        $this->actingAs($user)->get(route('saved.show', $slug))
-            ->assertForbidden()
-            ->assertInertia(fn (Assert $page) => $page->component('forbidden'));
-        foreach (['ginza-one', 'no-such-project'] as $projectSlug) {
-            $this->actingAs($user)->get(route('home.show', $projectSlug))
-                ->assertForbidden()
-                ->assertInertia(fn (Assert $page) => $page->component('forbidden'));
-        }
-    }
-})->with(collect(Role::names())->reject(fn (string $role) => in_array($role, [Role::Client->value, Role::Admin->value], true))->all());
-
-test('each stone door requires its own permission rather than either one', function (Permission $permission, string $allowed, string $denied): void {
-    $role = RoleModel::create(['name' => 'single-door-reader', 'guard_name' => RolePermissionSeeder::GUARD]);
-    $role->givePermissionTo($permission->value);
-    $user = User::factory()->role($role->name)->create();
-
-    $parameters = ['stone' => 'arancia'];
-    $this->actingAs($user)->get(route($allowed, $parameters))
-        ->assertOk()->assertInertia(fn (Assert $page) => $page->component('stone-profile'));
-    $this->actingAs($user)->get(route($denied, $parameters))
-        ->assertForbidden()->assertInertia(fn (Assert $page) => $page->component('forbidden'));
-})->with([
-    [Permission::HomeStoneView, 'home.stone', 'saved.show'],
-    [Permission::SavedStoneView, 'saved.show', 'home.stone'],
-]);
-
-test('an unknown stone returns the not-found page through both doors', function (): void {
+test('shows the not-found page for an unknown, inactive or deleted stone through both doors', function (): void {
     $user = User::factory()->role(Role::Client)->create();
+    $notFound = function (string $slug) use ($user): void {
+        foreach ([route('saved.show', $slug), route('home.stone', ['stone' => $slug])] as $url) {
+            $this->actingAs($user)->get($url)->assertNotFound()
+                ->assertInertia(fn (Assert $page) => $page->component('not-found'));
+        }
+    };
 
-    foreach ([route('saved.show', 'no-such-stone'), route('home.stone', ['stone' => 'no-such-stone'])] as $url) {
-        $this->actingAs($user)->get($url)->assertNotFound()
-            ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-    }
+    $notFound('no-such-stone');
+
+    Stone::query()->where('slug', 'arancia')->update(['is_active' => false]);
+    $notFound('arancia');
+
+    Stone::query()->where('slug', 'cosmic-black')->firstOrFail()->delete();
+    $notFound('cosmic-black');
 });
 
-test('malformed stone and project slugs return 404 without a lookup', function (string $routeName, array $parameters): void {
+test('answers a malformed stone or project slug with 404 without looking it up', function (): void {
     $this->mock(ShowStoneAction::class)->shouldNotReceive('execute');
     $this->mock(ShowProjectAction::class)->shouldNotReceive('execute');
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route($routeName, $parameters))->assertNotFound()
-        ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-})->with([
-    ['saved.show', ['stone' => 'Bad_Stone']],
-    ['saved.show', ['stone' => str_repeat('a', 101)]],
-    ['home.stone', ['stone' => 'onyx--stone']],
-    ['home.show', ['slug' => 'Bad_Project']],
-    ['home.show', ['slug' => str_repeat('a', 101)]],
-]);
-
-test('an inactive stone returns 404 through both doors', function (): void {
-    Stone::query()->where('slug', 'arancia')->update(['is_active' => false]);
-    $user = User::factory()->role(Role::Client)->create();
-
-    foreach ([route('saved.show', 'arancia'), route('home.stone', ['stone' => 'arancia'])] as $url) {
+    foreach ([
+        route('saved.show', ['stone' => 'Bad_Stone']),
+        route('saved.show', ['stone' => str_repeat('a', 101)]),
+        route('home.stone', ['stone' => 'onyx--stone']),
+        route('home.show', ['slug' => 'Bad_Project']),
+        route('home.show', ['slug' => str_repeat('a', 101)]),
+    ] as $url) {
         $this->actingAs($user)->get($url)->assertNotFound()
             ->assertInertia(fn (Assert $page) => $page->component('not-found'));
     }
 });
-
-test('a soft-deleted stone returns 404 through both doors', function (): void {
-    Stone::query()->where('slug', 'arancia')->firstOrFail()->delete();
-    $user = User::factory()->role(Role::Client)->create();
-
-    foreach ([route('saved.show', 'arancia'), route('home.stone', ['stone' => 'arancia'])] as $url) {
-        $this->actingAs($user)->get($url)->assertNotFound()
-            ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-    }
-});
-
-test('an unknown project under a stone returns 404', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'no-such-project'))
-        ->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
-});
-
-test('an unpublished project under a stone returns 404', function (): void {
-    Project::query()->where('slug', 'ginza-one')->update(['is_published' => false]);
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
-        ->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
-});
-
-test('a soft-deleted project under a stone returns 404', function (): void {
-    Project::query()->where('slug', 'ginza-one')->firstOrFail()->delete();
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
-        ->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
-});
-
-test('a project slug opens the project profile, not a stone profile', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
-        ->assertOk()->assertInertia(fn (Assert $page) => $page->component('project-profile'));
-});
-
-test('a standalone stone without projects has empty highlights and no project prop', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('saved.show', ['stone' => 'flamed-brushed-black', 'project' => 'ginza-one']))
-        ->assertOk()->assertInertia(fn (Assert $page) => $page
-        ->missing('projectSlug')
-        ->where('stone.data.projects', [])
-        ->where('stone.data.specifications.thicknessMm', 75)
-        );
-});
-
-test('a forbidden stone JSON request remains a 403 JSON error through either door', function (string $routeName, array $parameters): void {
-    $user = User::factory()->role(Role::Technical)->create();
-
-    $this->actingAs($user)->get(route($routeName, $parameters), ['Accept' => 'application/json'])
-        ->assertForbidden()->assertJsonStructure(['message'])->assertJsonMissingPath('component');
-})->with([
-    ['saved.show', ['stone' => 'arancia']],
-    ['home.stone', ['stone' => 'arancia']],
-]);
-
-test('a missing stone JSON request remains a 404 JSON error', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->getJson(route('saved.show', 'no-such-stone'))
-        ->assertNotFound()->assertJsonStructure(['message'])->assertJsonMissingPath('component');
-});
-
-test('stone schema rejects duplicate identifiers and invalid thickness', function (array $invalid, string $constraint): void {
-    $attributes = [
-        'slug' => 'schema-stone', 'name' => 'Schema Stone', 'thumbnail_path' => 'stones/test.jpg',
-        'stone_category_id' => StoneCategory::factory()->create()->id, 'size' => '60x120', 'thickness_mm' => 20,
-        'recommended' => false, 'is_active' => true, 'sort_order' => 0,
-        ...$invalid,
-    ];
-
-    // A savepoint rolls back the rejected insert so Postgres does not leave the test transaction aborted.
-    expect(fn () => DB::transaction(fn () => Stone::create($attributes)))
-        ->toThrow(QueryException::class, $constraint);
-})->with([
-    'case-insensitive name' => [['name' => 'CoSmIc BlAcK'], 'idx_stones_name_unique_not_deleted'],
-    'case-insensitive slug' => [['slug' => 'CoSmIc-BlAcK'], 'idx_stones_slug_not_deleted'],
-    'name is required' => [['name' => null], '"name"'],
-    'slug is required' => [['slug' => null], '"slug"'],
-    'thickness is positive' => [['thickness_mm' => 0], 'chk_stones_thickness_positive'],
-    'thickness is required' => [['thickness_mm' => null], '"thickness_mm"'],
-]);
 
 test('stones in one category share its facts but have their own galleries', function (): void {
     $category = StoneCategory::query()->where('slug', 'granite')->firstOrFail();
@@ -325,15 +192,4 @@ test('saving and unsaving uses the individual stone and exposes its category', f
     );
     $this->actingAs($user)->delete(route('saved.destroy', $stone->slug))->assertRedirect();
     $this->assertDatabaseMissing('saved_stones', ['user_id' => $user->id, 'stone_id' => $stone->id]);
-});
-
-test('saved demo categories map to their first individual stone', function (): void {
-    $user = User::factory()->role(Role::Client)->create(['email' => 'client@example.com']);
-
-    $this->seed(SavedStoneSeeder::class);
-
-    expect($user->savedStones()->orderBy('stones.sort_order')->pluck('stones.slug')->all())->toBe([
-        'flamed-brushed-black', 'bronze-sand-granite', 'cosmic-black',
-        'arabescato-white', 'flamed-brushed-black-monumental', 'arancia',
-    ]);
 });

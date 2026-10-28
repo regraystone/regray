@@ -1,12 +1,12 @@
 import type {
     ActivityEntry,
     InquiryStatus,
-    MarketingStatus,
     PaymentStatus,
     ProcessStatus,
     SalesStatus,
     SharedDocumentType,
 } from '@/lib/inquiry-statuses';
+import type { LeadStatus } from '@/lib/lead-statuses';
 import type { QuoteActions } from '@/lib/quote-actions';
 import type { QuoteFilters } from '@/lib/quote-filters';
 
@@ -38,8 +38,7 @@ export type QuoteInquiryDetails = {
     reference: string;
     /** The display status: the one status shown for the inquiry. */
     status: InquiryStatus;
-    marketingStatus: MarketingStatus;
-    /** Null until marketing has won the client. */
+    /** Null until the inquiry's lead is won. */
     salesStatus: SalesStatus | null;
     /** Null, with `processStatus`, until the client approves the quotation. */
     paymentStatus: PaymentStatus | null;
@@ -47,25 +46,33 @@ export type QuoteInquiryDetails = {
     createdAt: string;
     /**
      * The client's activity log, oldest first: every change to sales, payment
-     * and logistics, a stage starting included. Marketing is left out, except a
-     * cancel (`lost`).
+     * and logistics, a stage starting included, and `inquiry` `cancelled` when
+     * the inquiry was cancelled with its lead. Nothing about the lead itself.
      */
     history: Array<ActivityEntry & { at: string }>;
     /**
-     * The documents the team has shared, oldest first: quotations and payment
-     * receipts. The job order is internal and never sent.
+     * The documents the team has shared, one group per status update, oldest
+     * first: each quotation, the billing statement, and each payment's
+     * receipts and invoice. The job order is internal and never sent.
      */
     documents: Array<{
         id: string;
-        type: SharedDocumentType;
+        /** The update the files came with; null for files with none. */
+        status: string | null;
         revision: number | null;
-        name: string;
-        sizeBytes: number;
-        mimeType: string;
         at: string;
+        files: Array<{
+            id: string;
+            type: SharedDocumentType;
+            name: string;
+            sizeBytes: number;
+            mimeType: string;
+        }>;
     }>;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
+    /** Its lead's reference and status: staff only, never sent to a client. */
+    lead?: { reference: string; status: LeadStatus } | null;
     /** The one project the inquiry is. */
     project: {
         name: string;

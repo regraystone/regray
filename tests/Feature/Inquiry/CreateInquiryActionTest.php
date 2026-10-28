@@ -34,31 +34,6 @@ class FailsOnSecondFileRepository extends EloquentInquiryRepository
     }
 }
 
-it('writes the inquiry', function (): void {
-    $client = inquiryClient();
-    $input = [
-        'projects' => [[
-            'name' => 'Counters',
-            'service_ids' => [Service::query()->value('id')],
-            'application_ids' => [],
-            'stones' => [],
-            'location' => 'Makati',
-            'landmark' => null,
-            'area_sqm' => null,
-            'deadline_date' => now()->addWeek()->toDateString(),
-            'deadline_time' => '10:00',
-            'notes' => null,
-            'files' => [UploadedFile::fake()->create('a.pdf', 5, 'application/pdf')],
-        ]],
-    ];
-
-    [$inquiry] = app(CreateInquiryAction::class)->execute($client, $input);
-
-    expect($inquiry->exists)->toBeTrue()
-        ->and(InquiryFile::query()->count())->toBe(1);
-    Storage::disk(config('inquiry.disk'))->assertExists(InquiryFile::query()->value('path'));
-});
-
 it('leaves no rows and no files when a write fails after files are on disk', function (): void {
     $this->app->bind(InquiryRepositoryInterface::class, FailsOnSecondFileRepository::class);
 

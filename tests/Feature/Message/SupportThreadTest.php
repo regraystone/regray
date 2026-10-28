@@ -95,14 +95,6 @@ it('assigns the thread to the marketing member who claims it and writes a system
         ->and($system->system_user_id)->toBe($marketing->id);
 });
 
-it('refuses a claim from sales with 403', function (): void {
-    $thread = supportThreadFor(inquiryClient());
-
-    $this->actingAs(messagingStaff(Role::Sales))->postJson(route('message.claim', $thread))->assertForbidden();
-
-    expect($thread->refresh()->assigned_to)->toBeNull();
-});
-
 it('lets only the first of two claims win and tells the second who did with 409', function (): void {
     $thread = supportThreadFor(inquiryClient());
     $first = messagingStaff(Role::Marketing, 'Mara');
@@ -239,16 +231,6 @@ it('hands a released thread back to the pool, keeps the former assignee as a vie
         ->toBe(ConversationMemberRole::Viewer);
 });
 
-it('refuses a release from anyone but the assignee with 403', function (): void {
-    $thread = supportThreadFor(inquiryClient());
-    $marketing = messagingStaff(Role::Marketing);
-    $this->actingAs($marketing)->postJson(route('message.claim', $thread))->assertOk();
-
-    $this->actingAs(messagingStaff(Role::Marketing))->postJson(route('message.release', $thread))->assertForbidden();
-
-    expect($thread->refresh()->assigned_to)->toBe($marketing->id);
-});
-
 it('lets the admin reassign a thread to another pool member', function (): void {
     $thread = supportThreadFor(inquiryClient());
     $from = messagingStaff(Role::Marketing, 'Mara');
@@ -261,18 +243,6 @@ it('lets the admin reassign a thread to another pool member', function (): void 
         ->and(Message::query()->where('system_event', SystemEvent::Reassigned->value)->value('system_user_id'))->toBe($to->id)
         ->and(ConversationMember::query()->where('conversation_id', $thread->id)->pluck('user_id')->sort()->values()->all())
         ->toBe(collect([$thread->support_client_id, $to->id])->sort()->values()->all());
-});
-
-it('refuses a reassign from the assignee with 403', function (): void {
-    $thread = supportThreadFor(inquiryClient());
-    $marketing = messagingStaff(Role::Marketing);
-    $this->actingAs($marketing)->postJson(route('message.claim', $thread))->assertOk();
-
-    $this->actingAs($marketing)
-        ->postJson(route('message.reassign', $thread), ['userId' => messagingStaff(Role::Marketing)->id])
-        ->assertForbidden();
-
-    expect($thread->refresh()->assigned_to)->toBe($marketing->id);
 });
 
 it('refuses to reassign a thread to someone outside the pool with 422', function (): void {

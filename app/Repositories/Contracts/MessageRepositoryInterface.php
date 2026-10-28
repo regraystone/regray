@@ -3,7 +3,6 @@
 namespace App\Repositories\Contracts;
 
 use App\Enums\InquiryStatus;
-use App\Enums\MarketingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
@@ -50,15 +49,14 @@ interface MessageRepositoryInterface
 
     /**
      * Post an inquiry card once: a snapshot of the inquiry's display status and
-     * its four role statuses, NULL for a stage that has not started. Returns null when the same snapshot is already in
-     * the conversation, which is what a retried listener will find. Posted now
+     * its three role statuses, NULL for a stage that has not started. Returns
+     * null when the same snapshot is already in the conversation, which is what a retried listener will find. Posted now
      * unless `$postedAt` says when.
      */
     public function createInquiryCardOnce(
         int $conversationId,
         int $inquiryId,
         InquiryStatus $status,
-        MarketingStatus $marketingStatus,
         ?SalesStatus $salesStatus,
         ?PaymentStatus $paymentStatus,
         ?ProcessStatus $processStatus,

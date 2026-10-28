@@ -17,6 +17,7 @@ import {
     Menu,
     MessageCircle,
     Package,
+    Target,
     PanelLeftClose,
     PanelLeftOpen,
     Users,
@@ -46,6 +47,7 @@ import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
 import { index as homeIndex } from '@/routes/home';
+import { index as leadsIndex } from '@/routes/leads';
 import { logout } from '@/routes';
 import {
     index as inquiryIndex,
@@ -97,6 +99,7 @@ export const permissions = {
     accountsView: 'accounts.view',
     projectsView: 'projects.view',
     profileView: 'profile.view',
+    leadsView: 'leads.view',
     profileScheduleView: 'profile-schedule.view',
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
@@ -159,6 +162,13 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 href: quoteIndex.url(),
                 icon: Handshake,
                 permission: permissions.quotationsView,
+            },
+            {
+                slug: 'leads',
+                label: 'Leads',
+                href: leadsIndex.url(),
+                icon: Target,
+                permission: permissions.leadsView,
             },
             {
                 slug: 'inquiry',

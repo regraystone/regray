@@ -6,32 +6,14 @@ use App\Notifications\QueuedVerifyEmail;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Notification;
 
-test('verification requests send a queued verification notification', function () {
+test('queues the verification and the password reset emails', function () {
     Notification::fake();
-    $user = User::factory()->unverified()->create();
-
-    $this->actingAs($user)
-        ->post(route('verification.send'))
-        ->assertRedirect(route('verification.notice', absolute: false));
-
-    Notification::assertSentTo($user, QueuedVerifyEmail::class, function (QueuedVerifyEmail $notification) {
-        expect($notification)->toBeInstanceOf(ShouldQueue::class);
-
-        return true;
-    });
-});
-
-test('password reset requests send a queued reset notification', function () {
-    Notification::fake();
+    $unverified = User::factory()->unverified()->create();
     $user = User::factory()->create();
 
-    $this->post(route('password.email'), ['email' => $user->email])
-        ->assertSessionHasNoErrors()
-        ->assertSessionHas('status', __('passwords.sent'));
+    $this->post(route('password.email'), ['email' => $user->email])->assertSessionHasNoErrors();
+    $this->actingAs($unverified)->post(route('verification.send'));
 
-    Notification::assertSentTo($user, QueuedResetPassword::class, function (QueuedResetPassword $notification) {
-        expect($notification)->toBeInstanceOf(ShouldQueue::class);
-
-        return true;
-    });
+    Notification::assertSentTo($unverified, QueuedVerifyEmail::class, fn ($notification) => $notification instanceof ShouldQueue);
+    Notification::assertSentTo($user, QueuedResetPassword::class, fn ($notification) => $notification instanceof ShouldQueue);
 });

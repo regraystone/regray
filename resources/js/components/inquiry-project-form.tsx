@@ -474,6 +474,8 @@ type InquiryProjectFormProps = {
      * sent inquiry whose visit is no longer pending. Null otherwise.
      */
     deadlineLockReason?: string | null;
+    /** Whether files can be attached: not when staff open an inquiry for a lead's client. */
+    allowAttachments?: boolean;
 };
 
 /**
@@ -513,6 +515,7 @@ const InquiryProjectForm = ({
     onCommit,
     onBack,
     deadlineLockReason = null,
+    allowAttachments = true,
 }: InquiryProjectFormProps) => {
     const {
         register,
@@ -850,6 +853,7 @@ const InquiryProjectForm = ({
             <div className="mt-10">
                 <InquiryProjectDetails
                     projectNumber={projectNumber}
+                    allowAttachments={allowAttachments}
                     /*
                      * The same fact the schema asks the time about, read from the
                      * same flag: a project that is nothing but a service which

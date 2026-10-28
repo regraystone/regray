@@ -14,6 +14,13 @@ import InquiryStepper from '@/components/inquiry-stepper';
 import InputError from '@/components/input-error';
 import PageHeading from '@/components/page-heading';
 import ServiceCard from '@/components/service-card';
+import StaffInquireStart, {
+    leadTarget,
+} from '@/components/staff-inquire-start';
+import {
+    staffInquireKindFrom,
+    type StaffInquireKind,
+} from '@/lib/staff-inquire';
 import StoneCard from '@/components/stone-card';
 import { Button } from '@/components/ui/button';
 import {
@@ -80,9 +87,14 @@ import {
 import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex, update as quoteUpdate } from '@/routes/quote';
+import { update as inquiryUpdate } from '@/routes/inquiry';
 import { show as savedShow } from '@/routes/saved';
 import type { Auth } from '@/types';
-import type { InquirePageProps, InquiryStoneOption } from '@/types/inquiry';
+import type {
+    InquirePageProps,
+    InquiryStoneOption,
+    StaffInquireTarget,
+} from '@/types/inquiry';
 
 const STEPS = [...INQUIRY_STEP_LABELS];
 
@@ -383,20 +395,38 @@ const InquireSkeleton = () => {
 type InquiryEdit = {
     reference: string;
     projects: InquiryEditProject[];
+    /** Where the edit is saved, and the list it was started from. */
+    updateUrl: string;
+    back: { url: string; label: string };
+    /** Staff edit the project only: the client's files stay as they are. */
+    allowAttachments: boolean;
 };
 
 /**
  * The stepper. `edit` is null when starting a new inquiry; when it is set, the
  * same steps change that inquiry instead (see `reviewActions`).
+ *
+ * `target` is set when staff open the inquiry for someone: a Platform client's
+ * lead or a Direct (walk-in) client. It is sent there rather than for the
+ * reader, and takes no attachments.
  */
-const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
+const InquireFlow = ({
+    edit,
+    target = null,
+    onChangeTarget,
+}: {
+    edit: InquiryEdit | null;
+    target?: StaffInquireTarget | null;
+    onChangeTarget?: () => void;
+}) => {
     const catalog = useInquiryCatalog();
     const { stones } = catalog;
     const { inquirySchema, projectDraftSchema } = useMemo(
         () => createInquirySchemas(catalog),
         [catalog],
     );
-    const inquireStoreUrl = useInquireStoreUrl();
+    const ownStoreUrl = useInquireStoreUrl();
+    const inquireStoreUrl = target === null ? ownStoreUrl : target.storeUrl;
 
     const [isLoading, setIsLoading] = useState(true);
     /**
@@ -1351,7 +1381,7 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
         setIsSending(true);
 
         const outcome = await sendInquiryRequest(
-            quoteUpdate.url({ reference: edit.reference }),
+            edit.updateUrl,
             getValues(),
             'patch',
         );
@@ -1507,12 +1537,35 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
                               : STEP_DESCRIPTIONS[step]
                     }
                     action={
-                        edit === null ? undefined : (
+                        edit === null ? (
+                            target !== null && onChangeTarget ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                        className="text-sm"
+                                        data-testid="inquire-target"
+                                    >
+                                        For{' '}
+                                        <span className="font-bold">
+                                            {target.name}
+                                        </span>{' '}
+                                        · {target.detail}
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={onChangeTarget}
+                                    >
+                                        Change client
+                                    </Button>
+                                </div>
+                            ) : undefined
+                        ) : (
                             <Button asChild variant="outline">
                                 {/* Back to the list the edit was started from. */}
-                                <Link href={quoteIndex.url()}>
+                                <Link href={edit.back.url}>
                                     <ArrowLeft aria-hidden />
-                                    Back to Quote
+                                    {edit.back.label}
                                 </Link>
                             </Button>
                         )
@@ -2166,6 +2219,10 @@ const InquireFlow = ({ edit }: { edit: InquiryEdit | null }) => {
                                 standalone={standalone}
                                 submitLabel={requirementsSubmitLabel}
                                 onChangeServices={() => setStep(SERVICES_STEP)}
+                                allowAttachments={
+                                    target === null &&
+                                    (edit?.allowAttachments ?? true)
+                                }
                                 onCommit={commitDraft}
                                 onBack={() =>
                                     setStep(previousStep(REQUIREMENTS_STEP))
@@ -2236,14 +2293,89 @@ const Inquire = (props: InquirePageProps) => {
         mode,
         reference,
         projects,
+        editor = 'client',
+        leads = null,
+        lead: leadInUrl = null,
     } = props;
+
+    /*
+     * Staff say who the inquiry is for first: the branch (`?kind=`, Platform or
+     * Direct), then the client and, on Platform, the lead (`?lead=`). The URL
+     * keeps both, so a reload, or the Leads page's "Create inquiry", lands past
+     * what was already answered. A direct client is not in the URL: it is taken
+     * down again after a reload, and the duplicate check finds it.
+     */
+    const [kind, setKind] = useState<StaffInquireKind | null>(() =>
+        leadInUrl !== null
+            ? 'platform'
+            : staffInquireKindFrom(
+                  typeof window === 'undefined'
+                      ? null
+                      : new URLSearchParams(window.location.search).get('kind'),
+              ),
+    );
+    const [target, setTarget] = useState<StaffInquireTarget | null>(() => {
+        const lead = leads?.find((option) => option.reference === leadInUrl);
+
+        return lead === undefined ? null : leadTarget(lead);
+    });
+
+    const keepInUrl = (
+        nextKind: StaffInquireKind | null,
+        lead: string | null,
+    ) => {
+        const url = new URL(window.location.href);
+
+        url.searchParams.delete('kind');
+        url.searchParams.delete('lead');
+
+        if (nextKind !== null) {
+            url.searchParams.set('kind', nextKind);
+        }
+
+        if (lead !== null) {
+            url.searchParams.set('lead', lead);
+        }
+
+        window.history.replaceState(window.history.state, '', url);
+    };
+
+    const chooseKind = (next: StaffInquireKind | null) => {
+        setKind(next);
+        setTarget(null);
+        keepInUrl(next, null);
+    };
+
+    const chooseTarget = (next: StaffInquireTarget) => {
+        setTarget(next);
+        keepInUrl(next.kind, next.kind === 'platform' ? next.detail : null);
+    };
 
     const edit = useMemo(
         () =>
             mode === 'edit' && reference !== undefined
-                ? { reference, projects: projects ?? [] }
+                ? {
+                      reference,
+                      projects: projects ?? [],
+                      // Staff edit from the Inquiry list; a client from Quote.
+                      updateUrl:
+                          editor === 'staff'
+                              ? inquiryUpdate.url(reference)
+                              : quoteUpdate.url({ reference }),
+                      back:
+                          editor === 'staff'
+                              ? {
+                                    url: inquiryIndex.url(),
+                                    label: 'Back to Inquiry',
+                                }
+                              : {
+                                    url: quoteIndex.url(),
+                                    label: 'Back to Quote',
+                                },
+                      allowAttachments: editor !== 'staff',
+                  }
                 : null,
-        [mode, reference, projects],
+        [mode, reference, projects, editor],
     );
 
     const catalog = useMemo(
@@ -2259,9 +2391,24 @@ const Inquire = (props: InquirePageProps) => {
         [services, stones, applications, edgeProfiles, finishes, locations],
     );
 
+    if (edit === null && leads !== null && target === null) {
+        return (
+            <StaffInquireStart
+                kind={kind}
+                leads={leads}
+                onKind={chooseKind}
+                onTarget={chooseTarget}
+            />
+        );
+    }
+
     return (
         <InquiryCatalogProvider value={catalog}>
-            <InquireFlow edit={edit} />
+            <InquireFlow
+                edit={edit}
+                target={edit === null ? target : null}
+                onChangeTarget={() => chooseKind(kind)}
+            />
         </InquiryCatalogProvider>
     );
 };

@@ -19,7 +19,6 @@ use Illuminate\Support\Carbon;
  * @property int|null $inquiry_id
  * @property int|null $schedule_id
  * @property string|null $announced_status
- * @property string|null $announced_marketing_status
  * @property string|null $announced_sales_status
  * @property string|null $announced_payment_status
  * @property string|null $announced_process_status
@@ -37,7 +36,7 @@ use Illuminate\Support\Carbon;
  * Nothing prunes these rows; do not make this model Prunable without
  * deciding that policy again.
  */
-#[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'announced_marketing_status', 'announced_sales_status', 'announced_payment_status', 'announced_process_status', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
+#[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'announced_sales_status', 'announced_payment_status', 'announced_process_status', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
 class Message extends Model
 {
     use SoftDeletes;

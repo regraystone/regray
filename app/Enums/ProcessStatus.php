@@ -4,13 +4,13 @@ namespace App\Enums;
 
 /**
  * Logistics' status, which starts once sales has uploaded the job order:
- * received, measure, sourcing, production, quality check, ready, dispatched,
+ * order received, measure, sourcing, production, quality check, ready, dispatched,
  * installation (when the job has one) and completed. On hold and delayed can
  * be entered from any active step.
  */
 enum ProcessStatus: string
 {
-    case Received = 'received';
+    case OrderReceived = 'order_received';
     case Measure = 'measure';
     case Sourcing = 'sourcing';
     case Production = 'production';

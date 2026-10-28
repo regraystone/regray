@@ -13,10 +13,10 @@ class SearchPeopleAction
     ) {}
 
     /**
-     * @return array{staff: Collection<int, User>, clients: Collection<int, User>}
+     * @return array{staff: Collection<int, User>, clients: Collection<int, User>, owners: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool}>}
      */
-    public function execute(?string $search): array
+    public function execute(User $creator, ?string $search, ?int $clientId = null): array
     {
-        return $this->groupService->people($search);
+        return $this->groupService->people($creator, $search, $clientId);
     }
 }

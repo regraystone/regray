@@ -11,7 +11,8 @@ return new class extends Migration
     {
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
+            // NULL for a direct (walk-in) client's inquiry visit: they have no account.
+            $table->foreignId('client_id')->nullable()->constrained('users')->restrictOnDelete();
             $table->foreignId('booked_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('booked_by_type', 10);
             $table->foreignId('inquiry_id')->nullable()->constrained()->nullOnDelete();

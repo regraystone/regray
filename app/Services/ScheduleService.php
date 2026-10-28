@@ -55,18 +55,21 @@ class ScheduleService
      * The visit an inquiry is booked as: its one deadline visit.
      *
      * The client made it by sending the inquiry, so it is theirs and booked by
-     * them. It starts as pending until Marketing or Sales approve it. The date
-     * and time are what the client typed, read in the studio's zone. Only a
+     * them; an inquiry staff opened for the client from a lead is booked by
+     * that staff member (`$bookedBy`), and a direct (walk-in) client's has no
+     * account to be for (`$client` null). It starts as pending until Marketing or
+     * Sales approve it. The date and time are what was typed, read in the
+     * studio's zone. Only a
      * visit asks for a time; any other project is booked for
      * DEFAULT_ARRIVAL_TIME on its date. The title and notes are the inquiry's
      * project name and location.
      */
-    public function createForInquiry(Inquiry $inquiry, User $client, string $date, ?string $time): Schedule
+    public function createForInquiry(Inquiry $inquiry, ?User $client, string $date, ?string $time, ?User $bookedBy = null): Schedule
     {
         return $this->scheduleRepository->create([
-            'client_id' => $client->id,
-            'booked_by' => $client->id,
-            'booked_by_type' => BookedByType::Client,
+            'client_id' => $client?->id,
+            'booked_by' => ($bookedBy ?? $client)?->id,
+            'booked_by_type' => $bookedBy === null ? BookedByType::Client : BookedByType::Staff,
             'inquiry_id' => $inquiry->id,
             'title' => $inquiry->name,
             'arrival_at' => self::arrivalAt($date, $time ?? self::DEFAULT_ARRIVAL_TIME)->setTimezone(config('app.timezone')),

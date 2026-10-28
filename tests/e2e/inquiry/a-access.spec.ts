@@ -1,5 +1,10 @@
 import { expect, test } from '../support/fixtures';
-import { expectStep, openInquire, stepper } from '../support/inquiry-flow';
+import {
+    expectStep,
+    openInquire,
+    openStaffInquire,
+    stepper,
+} from '../support/inquiry-flow';
 
 /* A. Access: who reaches the Inquire page, and where everyone else is sent. */
 
@@ -19,31 +24,35 @@ test('1 · a client opens /quote/inquire and lands on "Step 1 of 5 · Services"'
     await expect(page.getByRole('checkbox').first()).toBeVisible();
 });
 
-test('2 · a marketing user opens /inquiry/inquire', async ({ actors }) => {
+test("2 · a marketing user opens a lead's inquiry on /inquiry/inquire and lands on step 1", async ({
+    actors,
+}) => {
     const { page } = await actors.open('marketing');
 
-    await openInquire(page, '/inquiry/inquire');
+    await openStaffInquire(page);
 
-    await expect(page).toHaveURL(/\/inquiry\/inquire$/);
+    await expect(page).toHaveURL(/\/inquiry\/inquire\?.*lead=LEAD-0008/);
     await expectStep(page, 1);
 });
 
-test('3 · a sales user gets the forbidden page on both Inquire URLs, never the form', async ({
+test('3 · a sales user is asked Platform or Direct on /inquiry/inquire, and gets the forbidden page on /quote/inquire', async ({
     actors,
 }) => {
     const { page } = await actors.open('sales');
     actors.allowConsole(/status of 403/);
 
-    for (const url of ['/quote/inquire', '/inquiry/inquire']) {
-        const response = await page.goto(url);
+    await page.goto('/inquiry/inquire');
+    await expect(
+        page
+            .getByTestId('staff-inquire-dialog')
+            .locator('[data-staff-inquire-kind]'),
+    ).toHaveCount(2);
 
-        expect(response?.status(), url).toBe(403);
-        await expect(page.getByText(FORBIDDEN_TEXT)).toBeVisible();
-        await expect(stepper(page)).toHaveCount(0);
-        await expect(
-            page.getByRole('heading', { name: 'Our services' }),
-        ).toHaveCount(0);
-    }
+    const response = await page.goto('/quote/inquire');
+
+    expect(response?.status()).toBe(403);
+    await expect(page.getByText(FORBIDDEN_TEXT)).toBeVisible();
+    await expect(stepper(page)).toHaveCount(0);
 });
 
 test('4 · a guest is sent to the login page', async ({ actors }) => {

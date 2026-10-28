@@ -20,6 +20,7 @@ class CreateGroupRequest extends FormRequest
             'staffIds' => ['required', 'array', 'min:1', 'max:50'],
             'staffIds.*' => ['integer', 'distinct', 'exists:users,id'],
             'clientId' => ['required', 'integer', 'exists:users,id'],
+            'inquiryId' => ['required', 'integer', 'exists:inquiries,id'],
         ];
     }
 
@@ -31,6 +32,7 @@ class CreateGroupRequest extends FormRequest
             'staffIds.required' => 'Add at least one staff member.',
             'staffIds.min' => 'Add at least one staff member.',
             'clientId.required' => 'Choose one client.',
+            'inquiryId.required' => 'Choose the inquiry this group is for.',
         ];
     }
 
@@ -48,5 +50,10 @@ class CreateGroupRequest extends FormRequest
     public function clientId(): int
     {
         return (int) $this->validated('clientId');
+    }
+
+    public function inquiryId(): int
+    {
+        return (int) $this->validated('inquiryId');
     }
 }

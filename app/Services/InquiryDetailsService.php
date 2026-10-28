@@ -21,9 +21,6 @@ class InquiryDetailsService
      * The inquiry's group chat, only when the viewer is a member of it, for the
      * "Message the team" button.
      *
-     * TODO(inquiry-binding): groups will be bound to inquiries later. Until
-     * then no group is linked to an inquiry, so this returns null.
-     *
      * @return array{id: int, name: string}|null
      */
     public function conversationFor(User $viewer, Inquiry $inquiry): ?array
@@ -35,6 +32,29 @@ class InquiryDetailsService
         }
 
         return ['id' => $conversation->id, 'name' => (string) $conversation->name];
+    }
+
+    /**
+     * Any inquiry, by its reference, with everything the details page and the
+     * edit page show: for staff, who read every inquiry from the Inquiry list.
+     *
+     * @throws ModelNotFoundException
+     */
+    public function forStaff(string $reference): Inquiry
+    {
+        return $this->inquiryRepository->findByReferenceWithDetails($reference)
+            ?? throw (new ModelNotFoundException)->setModel(Inquiry::class, [$reference]);
+    }
+
+    /**
+     * The details page's inquiry for this reader: their own inquiry for a
+     * client, any inquiry for staff.
+     *
+     * @throws ModelNotFoundException
+     */
+    public function forViewer(User $viewer, string $reference): Inquiry
+    {
+        return $viewer->isClient() ? $this->forClient($viewer, $reference) : $this->forStaff($reference);
     }
 
     /**

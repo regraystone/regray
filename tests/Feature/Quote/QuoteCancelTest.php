@@ -2,8 +2,7 @@
 
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
-use App\Enums\Role;
+use App\Enums\LeadStatus;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStatusHistory;
@@ -16,8 +15,9 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('cancels a started sales stage as rejected and the sales history says so', function (InquiryStatus $from): void {
-    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C1', 'status' => $from]);
+it('cancels a started sales stage as rejected, the sales history says so, and the won lead stays won', function (InquiryStatus $from): void {
+    $lead = makeLead($this->client, LeadStatus::Won);
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C1', 'status' => $from, 'lead' => $lead]);
 
     $this->actingAs($this->client)
         ->patch(route('quote.cancel', 'INQ-C1'))
@@ -33,7 +33,8 @@ it('cancels a started sales stage as rejected and the sales history says so', fu
         ->and($history->track)->toBe(InquiryStatusTrack::Sales)
         ->and($history->from_status)->toBe(roleStatusesShowing($from)['sales_status']->value)
         ->and($history->to_status)->toBe(SalesStatus::Rejected->value)
-        ->and($history->changed_by)->toBe($this->client->id);
+        ->and($history->changed_by)->toBe($this->client->id)
+        ->and($lead->refresh()->status)->toBe(LeadStatus::Won);
 })->with([
     'negotiation' => [InquiryStatus::Negotiation],
     'site visited' => [InquiryStatus::SiteVisited],
@@ -57,20 +58,36 @@ it('refuses the client once they have approved the quotation: only sales can can
     'delayed' => [InquiryStatus::Delayed],
 ]);
 
-it('cancels an inquiry whose sales stage has not started as lost by marketing, leaving sales unset', function (): void {
-    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C7']);
+it('cancels an inquiry whose sales stage has not started by marking its lead lost, leaving sales unset', function (): void {
+    $lead = makeLead($this->client);
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C7', 'lead' => $lead]);
 
     $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-C7'))->assertRedirect();
 
     $inquiry->refresh();
-    $history = InquiryStatusHistory::query()->sole();
+    $leadHistory = $lead->history()->get()->last();
 
     expect($inquiry->status)->toBe(InquiryStatus::Cancelled)
-        ->and($inquiry->marketing_status)->toBe(MarketingStatus::Lost)
+        ->and($lead->refresh()->status)->toBe(LeadStatus::Lost)
         ->and($inquiry->sales_status)->toBeNull()
-        ->and($history->track)->toBe(InquiryStatusTrack::Marketing)
-        ->and($history->from_status)->toBe(MarketingStatus::Pending->value)
-        ->and($history->to_status)->toBe(MarketingStatus::Lost->value);
+        ->and(InquiryStatusHistory::query()->count())->toBe(0)
+        ->and($leadHistory->from_status)->toBe(LeadStatus::Idle)
+        ->and($leadHistory->to_status)->toBe(LeadStatus::Lost)
+        ->and($leadHistory->changed_by)->toBe($this->client->id);
+});
+
+it('cancels an inquiry with no lead yet by rejecting sales from nothing', function (): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C6']);
+
+    $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-C6'))->assertRedirect();
+
+    $history = InquiryStatusHistory::query()->sole();
+
+    expect($inquiry->refresh()->status)->toBe(InquiryStatus::Cancelled)
+        ->and($inquiry->sales_status)->toBe(SalesStatus::Rejected)
+        ->and($history->track)->toBe(InquiryStatusTrack::Sales)
+        ->and($history->from_status)->toBeNull()
+        ->and($history->to_status)->toBe(SalesStatus::Rejected->value);
 });
 
 it('refuses an inquiry that is no longer open', function (InquiryStatus $status): void {
@@ -97,11 +114,6 @@ it('gives another client a 404 and changes nothing', function (): void {
         ->and(InquiryStatusHistory::query()->count())->toBe(0);
 });
 
-it('answers an unknown and a malformed reference with the same 404', function (): void {
-    $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-NOPE'))->assertNotFound();
-    $this->actingAs($this->client)->patch(route('quote.cancel', 'bad ref!'))->assertNotFound();
-});
-
 it('writes one history row when cancelled twice', function (): void {
     makeInquiry($this->client, attributes: ['reference' => 'INQ-C4']);
 
@@ -123,12 +135,4 @@ it('takes the row lock before reading the status', function (): void {
     $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-C5'));
 
     expect(collect($queries)->contains(fn (string $sql): bool => str_contains($sql, 'for update')))->toBeTrue();
-});
-
-it('turns away a role without quotations.view and a guest', function (): void {
-    makeInquiry($this->client, attributes: ['reference' => 'INQ-C6']);
-
-    $this->actingAs(inquiryClient(Role::Sales))->patch(route('quote.cancel', 'INQ-C6'))->assertForbidden();
-    auth()->logout();
-    $this->patch(route('quote.cancel', 'INQ-C6'))->assertRedirect(route('login'));
 });

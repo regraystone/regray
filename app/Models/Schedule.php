@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property int $client_id
+ * @property int|null $client_id Null for a direct (walk-in) client's inquiry visit.
  * @property int|null $booked_by
  * @property BookedByType $booked_by_type
  * @property int|null $inquiry_id

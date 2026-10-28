@@ -65,7 +65,10 @@ interface ConversationRepositoryInterface
     public function setAssignee(int $id, ?int $userId, ?CarbonInterface $at): void;
 
     /**
-     * @param  array{name: string, created_by: int}  $attributes
+     * A group bound to an inquiry: the inquiry's group chat. Throws on a
+     * second group for the same inquiry.
+     *
+     * @param  array{name: string, created_by: int, inquiry_id: int}  $attributes
      */
     public function createGroup(array $attributes): Conversation;
 

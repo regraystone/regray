@@ -3,7 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\DocumentType;
-use App\Enums\Role;
+use App\Enums\Permission;
 use App\Models\Inquiry;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -12,17 +12,20 @@ use Illuminate\Auth\Access\AuthorizationException;
  * Who may upload which kind of file on an inquiry. The one place the rule
  * lives; the database only holds the kind.
  *
- * | Document          | Uploaded by                     |
- * |-------------------|---------------------------------|
- * | client_attachment | the inquiry's client            |
- * | quotation         | sales                           |
- * | job_order         | sales                           |
- * | receipt           | accounting                      |
+ * | Document          | Uploaded by                                   |
+ * |-------------------|-----------------------------------------------|
+ * | client_attachment | the inquiry's client                          |
+ * | quotation         | whoever moves sales (`inquiries.status.sales`)  |
+ * | job_order         | whoever moves sales                           |
+ * | billing_statement | whoever moves payment (`inquiries.status.payment`) |
+ * | receipt           | whoever moves payment                         |
+ * | invoice           | whoever moves payment                         |
  *
  * The client is whoever the inquiry belongs to, so an inquiry sent from the
  * Inquire page carries its sender's attachments whatever their role. The staff
- * documents go by role, not permission, because the rule is about who does the
- * work: no other role, the super-admin included, uploads them.
+ * documents go with the status update they belong to, so they follow that
+ * track's permission: sales and accounting, and the super-admin, who holds
+ * every permission.
  */
 class InquiryFileUploads
 {
@@ -30,8 +33,8 @@ class InquiryFileUploads
     {
         return match ($type) {
             DocumentType::ClientAttachment => $inquiry->client_id === $user->id,
-            DocumentType::Quotation, DocumentType::JobOrder => $user->hasRole(Role::Sales->value),
-            DocumentType::Receipt => $user->hasRole(Role::Accounting->value),
+            DocumentType::Quotation, DocumentType::JobOrder => $user->can(Permission::InquiriesStatusSales->value),
+            DocumentType::BillingStatement, DocumentType::Receipt, DocumentType::Invoice => $user->can(Permission::InquiriesStatusPayment->value),
         };
     }
 
@@ -45,7 +48,9 @@ class InquiryFileUploads
                 DocumentType::ClientAttachment => 'Only the inquiry\'s client can attach files to it.',
                 DocumentType::Quotation => 'Only sales can upload a quotation.',
                 DocumentType::JobOrder => 'Only sales can upload a job order.',
+                DocumentType::BillingStatement => 'Only accounting can upload a billing statement.',
                 DocumentType::Receipt => 'Only accounting can upload a receipt.',
+                DocumentType::Invoice => 'Only accounting can upload an invoice.',
             });
         }
     }

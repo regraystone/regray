@@ -61,6 +61,22 @@ export const openInquire = async (
     ).toBeVisible();
 };
 
+/**
+ * Staff open the stepper on the Platform branch, for a lead's client, the way
+ * the Leads page's "Create inquiry" does: past the modal, the account and the
+ * lead. LEAD-0008 is marketing's idle lead in the demo seed.
+ */
+export const openStaffInquire = async (
+    page: Page,
+    lead = 'LEAD-0008',
+): Promise<void> => {
+    await page.goto(`/inquiry/inquire?lead=${lead}`);
+    await expect(
+        page.getByRole('heading', { name: 'Our services' }),
+    ).toBeVisible();
+    await expect(page.getByTestId('inquire-target')).toContainText(lead);
+};
+
 export const checkbox = (page: Page, name: string): Locator =>
     page.getByRole('checkbox', { name, exact: true });
 

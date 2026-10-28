@@ -5,19 +5,12 @@
  */
 import type {
     InquiryStatus,
-    MarketingStatus,
     PaymentStatus,
     ProcessStatus,
     SalesStatus,
 } from '@/lib/inquiry-statuses';
 
-export type {
-    InquiryStatus,
-    MarketingStatus,
-    PaymentStatus,
-    ProcessStatus,
-    SalesStatus,
-};
+export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
 
 /** Limits the details form holds its free text fields to. */
 export const PROJECT_NAME_MAX = 100;
@@ -148,10 +141,9 @@ export type Inquiry = {
     reference: string;
     /** What the client called the work: "Kitchen counters", "Pool deck". */
     name: string;
-    /** The one status shown for the inquiry, worked out from the four below. */
+    /** The one status shown for the inquiry, worked out from its lead and the three below. */
     status: InquiryStatus;
-    marketingStatus: MarketingStatus;
-    /** Null until marketing has won the client. */
+    /** Null until the inquiry's lead is won. */
     salesStatus: SalesStatus | null;
     /** Null, with `processStatus`, until the client approves the quotation. */
     paymentStatus: PaymentStatus | null;
@@ -187,7 +179,6 @@ export const inquiries: Inquiry[] = [
         reference: 'INQ-1050',
         name: 'Maple Lane — Kitchen Island',
         status: 'pending',
-        marketingStatus: 'pending',
         salesStatus: null,
         paymentStatus: null,
         processStatus: null,
@@ -217,10 +208,9 @@ export const inquiries: Inquiry[] = [
         reference: 'INQ-1053',
         name: 'The Grove — Guest Bath Vanity',
         status: 'quoted',
-        marketingStatus: 'won',
         salesStatus: 'quoted',
         paymentStatus: 'awaiting',
-        processStatus: 'received',
+        processStatus: 'order_received',
         createdAt: '2026-10-14T02:00:00.000Z',
         clientId: 'cl-haruki',
         handledByIds: ['sofia'],
@@ -246,7 +236,6 @@ export const inquiries: Inquiry[] = [
         reference: 'INQ-1048',
         name: 'Northgate Cafe — Counters and Flooring',
         status: 'negotiation',
-        marketingStatus: 'won',
         salesStatus: 'negotiation',
         paymentStatus: null,
         processStatus: null,
@@ -290,7 +279,6 @@ export const inquiries: Inquiry[] = [
         reference: 'INQ-1046',
         name: 'Brightleaf Studio — Reception Desk',
         status: 'production',
-        marketingStatus: 'won',
         salesStatus: 'quoted',
         paymentStatus: 'fully_paid',
         processStatus: 'production',
@@ -328,7 +316,6 @@ export const inquiries: Inquiry[] = [
         reference: 'INQ-1041',
         name: 'The Grove — Outdoor Kitchen and Deck',
         status: 'closed',
-        marketingStatus: 'won',
         salesStatus: 'quoted',
         paymentStatus: 'fully_paid',
         processStatus: 'completed',
@@ -369,7 +356,6 @@ export const inquiries: Inquiry[] = [
         reference: 'INQ-1039',
         name: 'Maple Lane - Laundry',
         status: 'cancelled',
-        marketingStatus: 'won',
         salesStatus: 'rejected',
         paymentStatus: null,
         processStatus: null,

@@ -3,37 +3,41 @@
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusGroup;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
+use App\Models\Lead;
 use App\Services\InquiryStatusCalculator;
 use Illuminate\Support\Facades\DB;
 
-it('takes the first rule that matches, NULL being a stage not started', function (MarketingStatus $marketing, ?SalesStatus $sales, ?ProcessStatus $process, bool $hasJobOrder, InquiryStatus $expected): void {
-    expect(InquiryStatusCalculator::calculate($marketing, $sales, $process, $hasJobOrder))->toBe($expected);
+it('takes the first rule that matches, NULL being a stage not started', function (?LeadStatus $lead, ?SalesStatus $sales, ?ProcessStatus $process, bool $hasJobOrder, InquiryStatus $expected): void {
+    expect(InquiryStatusCalculator::calculate($lead, $sales, $process, $hasJobOrder))->toBe($expected);
 })->with([
-    'marketing pending, sales not started' => [MarketingStatus::Pending, null, null, false, InquiryStatus::Pending],
-    'marketing won, sales negotiating' => [MarketingStatus::Won, SalesStatus::Negotiation, null, false, InquiryStatus::Negotiation],
-    'marketing won, site visited' => [MarketingStatus::Won, SalesStatus::SiteVisited, null, false, InquiryStatus::SiteVisited],
-    'marketing won, sales on hold' => [MarketingStatus::Won, SalesStatus::OnHold, null, false, InquiryStatus::OnHold],
-    'marketing lost, sales not started' => [MarketingStatus::Lost, null, null, false, InquiryStatus::Cancelled],
-    'marketing lost wins over a job order' => [MarketingStatus::Lost, SalesStatus::Quoted, ProcessStatus::Production, true, InquiryStatus::Cancelled],
-    'sales rejected' => [MarketingStatus::Won, SalesStatus::Rejected, null, false, InquiryStatus::Cancelled],
-    'sales rejected wins over logistics completed' => [MarketingStatus::Won, SalesStatus::Rejected, ProcessStatus::Completed, true, InquiryStatus::Cancelled],
-    'sales quoted, process not started' => [MarketingStatus::Won, SalesStatus::Quoted, null, false, InquiryStatus::Quoted],
-    'sales quoted, process received, no job order yet' => [MarketingStatus::Won, SalesStatus::Quoted, ProcessStatus::Received, false, InquiryStatus::Quoted],
-    'job order in, process received' => [MarketingStatus::Won, SalesStatus::Quoted, ProcessStatus::Received, true, InquiryStatus::Received],
-    'job order in, in production' => [MarketingStatus::Won, SalesStatus::Quoted, ProcessStatus::Production, true, InquiryStatus::Production],
-    'job order in, logistics on hold' => [MarketingStatus::Won, SalesStatus::Quoted, ProcessStatus::OnHold, true, InquiryStatus::OnHold],
-    'job order in, delayed' => [MarketingStatus::Won, SalesStatus::Quoted, ProcessStatus::Delayed, true, InquiryStatus::Delayed],
-    'job order in, process not started' => [MarketingStatus::Won, SalesStatus::Quoted, null, true, InquiryStatus::Quoted],
-    'logistics completed' => [MarketingStatus::Won, SalesStatus::Quoted, ProcessStatus::Completed, true, InquiryStatus::Closed],
-    'logistics completed wins over everything but a cancel' => [MarketingStatus::Pending, null, ProcessStatus::Completed, false, InquiryStatus::Closed],
+    'no lead yet, sales not started' => [null, null, null, false, InquiryStatus::Pending],
+    'lead idle, sales not started' => [LeadStatus::Idle, null, null, false, InquiryStatus::Pending],
+    'lead won, sales negotiating' => [LeadStatus::Won, SalesStatus::Negotiation, null, false, InquiryStatus::Negotiation],
+    'lead won, sales not started yet' => [LeadStatus::Won, null, null, false, InquiryStatus::Pending],
+    'lead won, site visited' => [LeadStatus::Won, SalesStatus::SiteVisited, null, false, InquiryStatus::SiteVisited],
+    'lead won, sales on hold' => [LeadStatus::Won, SalesStatus::OnHold, null, false, InquiryStatus::OnHold],
+    'lead lost, sales not started' => [LeadStatus::Lost, null, null, false, InquiryStatus::Cancelled],
+    'lead lost wins over a job order' => [LeadStatus::Lost, SalesStatus::Quoted, ProcessStatus::Production, true, InquiryStatus::Cancelled],
+    'sales rejected' => [LeadStatus::Won, SalesStatus::Rejected, null, false, InquiryStatus::Cancelled],
+    'sales rejected with no lead' => [null, SalesStatus::Rejected, null, false, InquiryStatus::Cancelled],
+    'sales rejected wins over logistics completed' => [LeadStatus::Won, SalesStatus::Rejected, ProcessStatus::Completed, true, InquiryStatus::Cancelled],
+    'sales quoted, process not started' => [LeadStatus::Won, SalesStatus::Quoted, null, false, InquiryStatus::Quoted],
+    'sales quoted, process received, no job order yet' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::OrderReceived, false, InquiryStatus::Quoted],
+    'job order in, process received' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::OrderReceived, true, InquiryStatus::OrderReceived],
+    'job order in, in production' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::Production, true, InquiryStatus::Production],
+    'job order in, logistics on hold' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::OnHold, true, InquiryStatus::OnHold],
+    'job order in, delayed' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::Delayed, true, InquiryStatus::Delayed],
+    'job order in, process not started' => [LeadStatus::Won, SalesStatus::Quoted, null, true, InquiryStatus::Quoted],
+    'logistics completed' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::Completed, true, InquiryStatus::Closed],
+    'logistics completed wins over everything but a cancel' => [LeadStatus::Idle, null, ProcessStatus::Completed, false, InquiryStatus::Closed],
 ]);
 
 it('shows every logistics value but completed as itself once the job order is in', function (ProcessStatus $process): void {
-    expect(InquiryStatusCalculator::calculate(MarketingStatus::Won, SalesStatus::Quoted, $process, true)->value)->toBe($process->value);
+    expect(InquiryStatusCalculator::calculate(LeadStatus::Won, SalesStatus::Quoted, $process, true)->value)->toBe($process->value);
 })->with(array_filter(ProcessStatus::cases(), fn (ProcessStatus $process): bool => $process !== ProcessStatus::Completed));
 
 it('files every display status under one Quote list tab', function (): void {
@@ -47,28 +51,29 @@ it('files every display status under one Quote list tab', function (): void {
         ->and($grouped->all())->toBe(['pending' => 1, 'cancelled' => 1, 'closed' => 1, 'in_progress' => 13]);
 });
 
-it('agrees with the SQL scope on every combination of the role statuses, NULL included', function (): void {
+it('agrees with the SQL scope on every combination of the lead and the role statuses, NULL included', function (): void {
     seedInquiryCatalog();
     $client = inquiryClient();
+    // One lead per status, each for a client of its own: a client has one open lead at a time.
+    $leads = collect(LeadStatus::cases())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => makeLead(inquiryClient(), $status)]);
     $rows = [];
     $expected = [];
     $sequence = 0;
 
-    foreach (MarketingStatus::cases() as $marketing) {
+    foreach ([null, ...LeadStatus::cases()] as $lead) {
         foreach ([null, ...SalesStatus::cases()] as $sales) {
             foreach ([null, ...ProcessStatus::cases()] as $process) {
                 foreach ([false, true] as $hasJobOrder) {
                     $reference = sprintf('INQ-X%04d', ++$sequence);
-                    $expected[$reference] = InquiryStatusCalculator::calculate($marketing, $sales, $process, $hasJobOrder)->value;
+                    $expected[$reference] = InquiryStatusCalculator::calculate($lead, $sales, $process, $hasJobOrder)->value;
                     $rows[] = [
                         'reference' => $reference,
                         'client_id' => $client->id,
                         'name' => $reference,
                         'location' => 'Makati',
-                        'marketing_status' => $marketing->value,
+                        'lead_id' => $lead === null ? null : $leads[$lead->value]->id,
                         'sales_status' => $sales?->value,
                         'process_status' => $process?->value,
-                        'marketing_status_changed_at' => now(),
                         'created_at' => now(),
                         'updated_at' => now(),
                         'job_order' => $hasJobOrder,
@@ -92,15 +97,27 @@ it('agrees with the SQL scope on every combination of the role statuses, NULL in
     DB::table('inquiry_files')->insert($files);
 
     $fromSql = Inquiry::query()->withDisplayStatus()->pluck('display_status', 'reference')->all();
-    $fromModel = Inquiry::query()->withJobOrderFlag()->get()->mapWithKeys(fn (Inquiry $inquiry): array => [$inquiry->reference => $inquiry->status->value])->all();
+    $fromModel = Inquiry::query()->withLeadStatus()->withJobOrderFlag()->get()->mapWithKeys(fn (Inquiry $inquiry): array => [$inquiry->reference => $inquiry->status->value])->all();
 
-    expect($fromSql)->toEqual($expected)
+    expect(count($expected))->toBe(4 * 6 * 12 * 2)
+        ->and($fromSql)->toEqual($expected)
         ->and($fromModel)->toEqual($expected);
 
     foreach (InquiryStatusGroup::cases() as $group) {
         expect(Inquiry::query()->inStatusGroup($group)->pluck('reference')->sort()->values()->all())
             ->toBe(collect($expected)->filter(fn (string $status): bool => InquiryStatus::from($status)->group() === $group)->keys()->sort()->values()->all(), $group->value);
     }
+});
+
+it('reads the lead from the loaded lead, a selected column or the database alike', function (): void {
+    seedInquiryCatalog();
+    $client = inquiryClient();
+    $inquiry = makeInquiry($client, attributes: ['lead' => makeLead($client, LeadStatus::Lost)]);
+
+    expect($inquiry->fresh()->status)->toBe(InquiryStatus::Cancelled)
+        ->and(Inquiry::query()->with('lead')->find($inquiry->id)->status)->toBe(InquiryStatus::Cancelled)
+        ->and(Inquiry::query()->withLeadStatus()->find($inquiry->id)->status)->toBe(InquiryStatus::Cancelled)
+        ->and(Lead::query()->count())->toBe(1);
 });
 
 it('does not count a removed job order file', function (): void {

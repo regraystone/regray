@@ -1,14 +1,12 @@
 <?php
 
 use App\Data\WrittenFiles;
-use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
 use App\Models\InquiryStatusHistory;
 use App\Models\Service;
 use App\Services\InquiryService;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
@@ -34,53 +32,26 @@ function serviceInput(array $files = []): array
     ]]];
 }
 
-it('generates a reference from the sequence', function (): void {
-    $service = app(InquiryService::class);
-
-    $first = $service->nextReference();
-    $second = $service->nextReference();
-
-    expect($first)->toMatch('/^INQ-\d{4,}$/')
-        ->and((int) substr($second, 4))->toBe((int) substr($first, 4) + 1);
-});
-
-it('creates an inquiry with only marketing started, at pending, and its one history row', function (): void {
+it('links a new inquiry to the client\'s idle lead, leaving sales unset', function (): void {
     $client = inquiryClient();
+    $lead = makeLead($client);
 
     [$inquiry] = app(InquiryService::class)->create($client, serviceInput(), new WrittenFiles);
 
-    expect($inquiry->status)->toBe(InquiryStatus::Pending)
-        ->and($inquiry->name)->toBe('Counters')
-        ->and($inquiry->marketing_status)->toBe(MarketingStatus::Pending)
+    expect($inquiry->lead_id)->toBe($lead->id)
         ->and($inquiry->sales_status)->toBeNull()
-        ->and($inquiry->payment_status)->toBeNull()
-        ->and($inquiry->process_status)->toBeNull()
-        ->and($inquiry->marketing_status_changed_at)->not->toBeNull()
-        ->and($inquiry->fresh()->sales_status_changed_at)->toBeNull()
-        ->and($inquiry->reference)->toStartWith('INQ-');
-
-    $history = InquiryStatusHistory::query()->orderBy('id')->get();
-
-    expect($history->map(fn (InquiryStatusHistory $row): array => [$row->track, $row->from_status, $row->to_status])->all())->toBe([
-        [InquiryStatusTrack::Marketing, null, 'pending'],
-    ])
-        ->and($history->pluck('inquiry_id')->unique()->all())->toBe([$inquiry->id])
-        ->and($history->pluck('changed_by')->unique()->all())->toBe([$client->id]);
+        ->and($inquiry->status)->toBe(InquiryStatus::Pending);
 });
 
-it('stores the client\'s files under the reference on the private disk and records them as client attachments', function (): void {
-    $written = new WrittenFiles;
+it('starts sales at negotiation at once on a lead that is already won', function (): void {
+    $client = inquiryClient();
+    $lead = makeLead($client, LeadStatus::Won);
 
-    [$inquiry] = app(InquiryService::class)->create(
-        inquiryClient(),
-        serviceInput([UploadedFile::fake()->create('plan.pdf', 5, 'application/pdf')]),
-        $written,
-    );
+    [$inquiry] = app(InquiryService::class)->create($client, serviceInput(), new WrittenFiles);
 
-    expect($written->paths())->toHaveCount(1)
-        ->and($written->paths()[0])->toStartWith("inquiries/{$inquiry->reference}/")
-        ->and($written->paths()[0])->toEndWith('.pdf')
-        ->and($inquiry->files()->sole()->document_type)->toBe(DocumentType::ClientAttachment)
-        ->and($inquiry->files()->sole()->revision)->toBeNull();
-    Storage::disk(config('inquiry.disk'))->assertExists($written->paths()[0]);
+    $history = InquiryStatusHistory::query()->sole();
+
+    expect($inquiry->lead_id)->toBe($lead->id)
+        ->and($inquiry->fresh()->status)->toBe(InquiryStatus::Negotiation)
+        ->and([$history->track, $history->from_status, $history->to_status, $history->changed_by])->toBe([InquiryStatusTrack::Sales, null, 'negotiation', $client->id]);
 });

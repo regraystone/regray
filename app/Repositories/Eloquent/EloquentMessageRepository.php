@@ -3,7 +3,6 @@
 namespace App\Repositories\Eloquent;
 
 use App\Enums\InquiryStatus;
-use App\Enums\MarketingStatus;
 use App\Enums\MessageType;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
@@ -29,7 +28,8 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         'systemUser:id,name',
         'replyTo:id,conversation_id,sender_id,type,body,deleted_at',
         'replyTo.sender:id,name',
-        'inquiry:id,reference,name,location,marketing_status,sales_status,payment_status,process_status',
+        'inquiry:id,reference,lead_id,name,location,sales_status,payment_status,process_status',
+        'inquiry.lead:id,status',
         'inquiry.stones:id,inquiry_id,stone_id,sort_order',
         'inquiry.stones.stone:id,slug,name,thumbnail_path',
         'inquiry.files:id,inquiry_id,document_type,deleted_at',
@@ -114,7 +114,6 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         int $conversationId,
         int $inquiryId,
         InquiryStatus $status,
-        MarketingStatus $marketingStatus,
         ?SalesStatus $salesStatus,
         ?PaymentStatus $paymentStatus,
         ?ProcessStatus $processStatus,
@@ -125,7 +124,6 @@ class EloquentMessageRepository implements MessageRepositoryInterface
             'type' => MessageType::InquiryCard->value,
             'inquiry_id' => $inquiryId,
             'announced_status' => $status->value,
-            'announced_marketing_status' => $marketingStatus->value,
             'announced_sales_status' => $salesStatus?->value,
             'announced_payment_status' => $paymentStatus?->value,
             'announced_process_status' => $processStatus?->value,
@@ -133,7 +131,9 @@ class EloquentMessageRepository implements MessageRepositoryInterface
 
         $inserted = Message::query()->insertOrIgnore([
             ...$snapshot,
-            'created_at' => $postedAt ?? Date::now(),
+            // In the app's zone, which the session reads it in: a query-builder
+            // insert writes the date without its offset.
+            'created_at' => Date::instance($postedAt ?? Date::now())->setTimezone(config('app.timezone')),
         ]);
 
         if ($inserted === 0) {

@@ -4,7 +4,7 @@ use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
-use App\Enums\MarketingStatus;
+use App\Enums\LeadStatus;
 use App\Enums\MessageType;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
@@ -14,6 +14,7 @@ use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\Lead;
 use App\Models\Message;
 use App\Models\ProjectCategory;
 use App\Models\Service;
@@ -147,25 +148,46 @@ function inquiryVisitInput(array $overrides = []): array
 
 /**
  * Role statuses that show `$status`, for an inquiry or a card snapshot, NULL
- * for a stage that has not started: sales starts when marketing is won, payment
+ * for a stage that has not started: sales starts when the lead is won, payment
  * and process when the client approves. Where the job order has to be in for
  * it (a logistics stage, closed), `job_order` is true. On hold is sales' on
- * hold, before the client approved.
+ * hold, before the client approved; cancelled is sales rejected.
  *
- * @return array{marketing_status: MarketingStatus, sales_status: ?SalesStatus, payment_status: ?PaymentStatus, process_status: ?ProcessStatus, job_order: bool}
+ * @return array{sales_status: ?SalesStatus, payment_status: ?PaymentStatus, process_status: ?ProcessStatus, job_order: bool}
  */
 function roleStatusesShowing(InquiryStatus $status): array
 {
-    [$marketing, $sales, $payment, $process, $jobOrder] = match ($status) {
-        InquiryStatus::Pending => [MarketingStatus::Pending, null, null, null, false],
-        InquiryStatus::Cancelled => [MarketingStatus::Won, SalesStatus::Rejected, null, null, false],
-        InquiryStatus::Closed => [MarketingStatus::Won, SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::Completed, true],
-        InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [MarketingStatus::Won, SalesStatus::from($status->value), null, null, false],
-        InquiryStatus::Quoted => [MarketingStatus::Won, SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::Received, false],
-        default => [MarketingStatus::Won, SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::from($status->value), true],
+    [$sales, $payment, $process, $jobOrder] = match ($status) {
+        InquiryStatus::Pending => [null, null, null, false],
+        InquiryStatus::Cancelled => [SalesStatus::Rejected, null, null, false],
+        InquiryStatus::Closed => [SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::Completed, true],
+        InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [SalesStatus::from($status->value), null, null, false],
+        InquiryStatus::Quoted => [SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::OrderReceived, false],
+        default => [SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::from($status->value), true],
     };
 
-    return ['marketing_status' => $marketing, 'sales_status' => $sales, 'payment_status' => $payment, 'process_status' => $process, 'job_order' => $jobOrder];
+    return ['sales_status' => $sales, 'payment_status' => $payment, 'process_status' => $process, 'job_order' => $jobOrder];
+}
+
+/**
+ * A lead for `$client`, held by `$marketing` (a new marketing user when not
+ * given), with its first history row.
+ */
+function makeLead(User $client, LeadStatus $status = LeadStatus::Idle, ?User $marketing = null): Lead
+{
+    $lead = Lead::factory()->create([
+        'client_id' => $client->id,
+        'marketing_user_id' => ($marketing ?? User::factory()->role(Role::Marketing)->create())->id,
+        'status' => $status,
+    ]);
+
+    $lead->history()->create(['to_status' => LeadStatus::Idle, 'changed_at' => now()]);
+
+    if ($status !== LeadStatus::Idle) {
+        $lead->history()->create(['from_status' => LeadStatus::Idle, 'to_status' => $status, 'changed_at' => now()]);
+    }
+
+    return $lead;
 }
 
 /**
@@ -174,13 +196,14 @@ function roleStatusesShowing(InquiryStatus $status): array
  * [stone slugs], 'services' => [service slugs]]`, its stones stored in the
  * order given.
  *
- * `$attributes` may set `reference` and `created_at`, `status` (a display
- * status, reached through roleStatusesShowing()), any of the four role
- * statuses, and `job_order` (whether sales has uploaded the job order file).
- * Without them only marketing's stage has started, at pending.
+ * `$attributes` may set `reference` and `created_at`, `lead` (the lead it is
+ * linked to), `status` (a display status, reached through
+ * roleStatusesShowing()), any of the three role statuses, and `job_order`
+ * (whether sales has uploaded the job order file). Without them it has no lead
+ * and no role status has started.
  *
  * @param  array{name?: string, stones?: list<string>, services?: list<string>}  $project
- * @param  array{reference?: string, created_at?: mixed, status?: InquiryStatus, marketing_status?: MarketingStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, job_order?: bool}  $attributes
+ * @param  array{reference?: string, created_at?: mixed, lead?: Lead, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, job_order?: bool}  $attributes
  */
 function makeInquiry(User $client, array $project = [], array $attributes = []): Inquiry
 {
@@ -189,17 +212,16 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
 
     $statuses = [
         ...isset($attributes['status']) ? roleStatusesShowing($attributes['status']) : [],
-        ...array_intersect_key($attributes, array_flip(['marketing_status', 'sales_status', 'payment_status', 'process_status', 'job_order'])),
+        ...array_intersect_key($attributes, array_flip(['sales_status', 'payment_status', 'process_status', 'job_order'])),
     ];
 
     $inquiry = new Inquiry;
     $inquiry->forceFill([
         'reference' => $attributes['reference'] ?? sprintf('INQ-T%04d', $sequence),
         'client_id' => $client->id,
+        'lead_id' => $attributes['lead']->id ?? null,
         'name' => $project['name'] ?? 'Project '.$sequence,
         'location' => 'Makati',
-        'marketing_status' => $statuses['marketing_status'] ?? MarketingStatus::Pending,
-        'marketing_status_changed_at' => now(),
         'sales_status' => $statuses['sales_status'] ?? null,
         'sales_status_changed_at' => isset($statuses['sales_status']) ? now() : null,
         'payment_status' => $statuses['payment_status'] ?? null,

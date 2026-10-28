@@ -5,13 +5,14 @@ namespace App\Repositories\Eloquent;
 use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\MarketingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
+use App\Models\Lead;
+use App\Models\PaymentTransaction;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
@@ -37,16 +38,18 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     public function createStatusHistory(
         Inquiry $inquiry,
         InquiryStatusTrack $track,
-        MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus|null $from,
-        MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus $to,
+        SalesStatus|PaymentStatus|ProcessStatus|null $from,
+        SalesStatus|PaymentStatus|ProcessStatus $to,
         ?int $changedBy,
         CarbonInterface $changedAt,
+        ?string $note = null,
     ): InquiryStatusHistory {
         return $inquiry->statusHistory()->create([
             'track' => $track,
             'from_status' => $from?->value,
             'to_status' => $to->value,
             'changed_by' => $changedBy,
+            'note' => $note,
             'changed_at' => $changedAt,
         ]);
     }
@@ -77,6 +80,38 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     public function addFile(Inquiry $inquiry, array $attributes): InquiryFile
     {
         return $inquiry->files()->create($attributes);
+    }
+
+    public function findByReferenceForUpdate(string $reference): ?Inquiry
+    {
+        return Inquiry::query()->where('reference', $reference)->lockForUpdate()->first();
+    }
+
+    public function addPayment(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $receivedAt): PaymentTransaction
+    {
+        return PaymentTransaction::query()->create([
+            'inquiry_id' => $inquiry->id,
+            'kind' => 'payment',
+            'amount' => $amount,
+            'recorded_by' => $recordedBy,
+            'received_at' => $receivedAt,
+            'created_at' => $receivedAt,
+        ]);
+    }
+
+    public function paidCentavos(Inquiry $inquiry): int
+    {
+        $row = DB::selectOne(
+            "SELECT COALESCE(SUM(CASE WHEN kind = 'refund' THEN -amount ELSE amount END), 0) * 100 AS centavos FROM payment_transactions WHERE inquiry_id = ?",
+            [$inquiry->id],
+        );
+
+        return (int) round((float) $row->centavos);
+    }
+
+    public function recordQuote(Inquiry $inquiry, int $revision, string $quotedTotal): void
+    {
+        $inquiry->forceFill(['quote_revision' => $revision, 'quoted_total' => $quotedTotal])->save();
     }
 
     public function updateDetails(Inquiry $inquiry, array $attributes): void
@@ -128,6 +163,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                         ->orWhereHas('stones.stone', fn (Builder $stone) => $stone->where('name', 'ILIKE', $pattern));
                 });
             })
+            ->withLeadStatus()
             ->withJobOrderFlag()
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
@@ -177,10 +213,27 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->first();
     }
 
+    public function lockForLead(Lead $lead): Collection
+    {
+        return Inquiry::query()
+            ->whereBelongsTo($lead)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+    }
+
+    public function linkUnlinkedToLead(Lead $lead): int
+    {
+        return Inquiry::query()
+            ->where('client_id', $lead->client_id)
+            ->whereNull('lead_id')
+            ->update(['lead_id' => $lead->id, 'updated_at' => now()]);
+    }
+
     public function updateStatus(
         Inquiry $inquiry,
         InquiryStatusTrack $track,
-        MarketingStatus|SalesStatus|PaymentStatus|ProcessStatus $status,
+        SalesStatus|PaymentStatus|ProcessStatus $status,
         CarbonInterface $changedAt,
     ): void {
         $column = $track->column();
@@ -190,9 +243,55 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
 
     public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry
     {
-        return Inquiry::query()
-            ->whereBelongsTo($client, 'client')
+        return $this->withDetails(Inquiry::query()->whereBelongsTo($client, 'client'))
             ->where('reference', $reference)
+            ->first();
+    }
+
+    public function findByReferenceWithDetails(string $reference): ?Inquiry
+    {
+        return $this->withDetails(Inquiry::query())
+            ->where('reference', $reference)
+            ->first();
+    }
+
+    public function paginateForStaff(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator
+    {
+        return Inquiry::query()
+            ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
+                $pattern = "%{$escapedSearch}%";
+
+                $query->where(function (Builder $query) use ($pattern): void {
+                    $query->where('reference', 'ILIKE', $pattern)
+                        ->orWhere('name', 'ILIKE', $pattern)
+                        ->orWhereHas('clientRecord', fn (Builder $client) => $client->where('full_name', 'ILIKE', $pattern)
+                            ->orWhereHas('contacts', fn (Builder $contact) => $contact->where('value', 'ILIKE', $pattern)))
+                        ->orWhereHas('client', fn (Builder $client) => $client->where('name', 'ILIKE', $pattern)
+                            ->orWhere('email', 'ILIKE', $pattern));
+                });
+            })
+            ->with([
+                'clientRecord:id,kind,user_id,full_name',
+                'clientRecord.contacts:id,client_id,kind,value',
+                'client:id,name,email',
+                'client.profile:user_id,phone',
+            ])
+            ->withLeadStatus()
+            ->withJobOrderFlag()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage, page: $page);
+    }
+
+    /**
+     * What the details and edit pages read of an inquiry.
+     *
+     * @param  Builder<Inquiry>  $query
+     * @return Builder<Inquiry>
+     */
+    private function withDetails(Builder $query): Builder
+    {
+        return $query
             ->with([
                 'services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
                 'categories',
@@ -203,7 +302,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'stones.finish',
                 'files' => fn ($files) => $files->orderBy('id'),
                 'statusHistory',
-            ])
-            ->first();
+                'lead:id,reference,status,status_changed_at',
+            ]);
     }
 }

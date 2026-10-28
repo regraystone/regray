@@ -103,7 +103,7 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
     $expected = [
         'id' => $schedule->id,
         'title' => 'Kitchen',
-        'arrivalAt' => CarbonImmutable::parse('2026-10-20 10:00', 'Asia/Manila')->utc()->toIso8601String(),
+        'arrivalAt' => CarbonImmutable::parse('2026-10-20 10:00', 'Asia/Manila')->toIso8601String(),
         'status' => ScheduleStatus::Pending->value,
         'notes' => "Inquiry {$inquiry->reference} · Kitchen · Makati",
         'inquiryReference' => $inquiry->reference,

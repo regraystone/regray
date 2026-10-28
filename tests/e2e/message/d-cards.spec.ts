@@ -178,7 +178,7 @@ test('14 · the inquiry heading is the reference, the sub-line is the project, a
         const hasPayment = [
             'quoted',
             'closed',
-            'received',
+            'order_received',
             'measure',
             'sourcing',
             'production',

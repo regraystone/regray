@@ -6,7 +6,9 @@ import {
     MessageCircle,
 } from 'lucide-react';
 import { formatSize } from '@/components/file-upload';
+import { formatDate } from '@/lib/format-date';
 import { StatusBadge } from '@/components/inquiry-status-badge';
+import { LeadStatusBadge } from '@/components/lead-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type {
@@ -18,7 +20,8 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import {
     activityLabel,
-    documentLabel,
+    documentGroupLabel,
+    DOCUMENT_TYPE_LABELS,
     INQUIRY_SENT_LABEL,
     startedStatuses,
 } from '@/lib/inquiry-statuses';
@@ -168,7 +171,7 @@ const DatedRow = ({
  * The client's activity log: what has happened to their inquiry, newest first,
  * ending on it being sent, in the client's own words ("Quote approved",
  * "Partially paid"). Only sales, payment and logistics, and a cancel: the
- * server leaves the rest of marketing out, and never says who made a change.
+ * server never sends anything about the lead, nor who made a change.
  */
 const ActivityLogCard = ({
     history,
@@ -255,48 +258,76 @@ const DocumentsCard = ({ documents }: { documents: SharedDocument[] }) => (
             >
                 Documents
             </span>
-            <CountBadge count={documents.length} />
+            <CountBadge
+                count={documents.reduce(
+                    (total, group) => total + group.files.length,
+                    0,
+                )}
+            />
         </h2>
 
         <div className="border-t border-sidebar-border p-4 sm:p-5">
             {documents.length > 0 ? (
                 <ul className="divide-y divide-dashed divide-sidebar-border">
-                    {[...documents].reverse().map((document) => (
+                    {[...documents].reverse().map((group) => (
                         <li
-                            key={document.id}
-                            className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+                            key={group.id}
+                            className="py-3 first:pt-0 last:pb-0"
+                            data-testid="inquiry-document-group"
                         >
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
-                                {document.mimeType === 'application/pdf' ? (
-                                    <FileText className="size-4" aria-hidden />
-                                ) : (
-                                    <ImageIcon className="size-4" aria-hidden />
-                                )}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                                <DatedRow
-                                    label={documentLabel(
-                                        document.type,
-                                        document.revision,
-                                    )}
-                                    at={document.at}
-                                    isCurrent
-                                />
-                                <p
-                                    className="mt-0.5 truncate text-xs text-secondary-foreground"
-                                    title={document.name}
-                                >
-                                    {document.name} ·{' '}
-                                    {formatSize(document.sizeBytes)}
-                                </p>
-                            </div>
+                            <p className="text-sm font-bold">
+                                {documentGroupLabel(
+                                    group.status,
+                                    group.revision,
+                                )}{' '}
+                                · {formatDate(group.at)}
+                            </p>
+                            <ul className="mt-2 space-y-2">
+                                {group.files.map((file) => (
+                                    <li
+                                        key={file.id}
+                                        className="flex items-start gap-3"
+                                    >
+                                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
+                                            {file.mimeType ===
+                                            'application/pdf' ? (
+                                                <FileText
+                                                    className="size-4"
+                                                    aria-hidden
+                                                />
+                                            ) : (
+                                                <ImageIcon
+                                                    className="size-4"
+                                                    aria-hidden
+                                                />
+                                            )}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm">
+                                                {
+                                                    DOCUMENT_TYPE_LABELS[
+                                                        file.type
+                                                    ]
+                                                }
+                                            </p>
+                                            <p
+                                                className="truncate text-xs text-secondary-foreground"
+                                                title={file.name}
+                                            >
+                                                {file.name} ·{' '}
+                                                {formatSize(file.sizeBytes)}
+                                            </p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
                         </li>
                     ))}
                 </ul>
             ) : (
                 <p className="text-sm text-secondary-foreground">
-                    Quotations and payment receipts from the team will appear
-                    here.
+                    Quotations, billing statements, receipts and invoices from
+                    the team will appear here.
                 </p>
             )}
         </div>
@@ -687,6 +718,10 @@ const InquiryDetails = () => {
                                     status={entry.status}
                                 />
                             ))}
+                            {/* Staff only: the server never sends a client the lead. */}
+                            {inquiry.lead ? (
+                                <LeadStatusBadge status={inquiry.lead.status} />
+                            ) : null}
                         </div>
                     </div>
                     <p className="text-sm text-secondary-foreground">
@@ -699,10 +734,6 @@ const InquiryDetails = () => {
                  * Read-only page: the only thing it offers is a way to ask a
                  * question, and only where there is a group chat for this
                  * inquiry that the reader is in.
-                 *
-                 * TODO(inquiry-binding): groups will be bound to inquiries
-                 * later. Until then no group is linked to an inquiry, so the
-                 * button never shows for real data.
                  */}
                 {inquiry.conversation ? (
                     <Button

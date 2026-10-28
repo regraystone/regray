@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Direct chats, groups and Regray Team (`support`) threads.
  *
+ * - `inquiry_id` binds a group to one inquiry: it is that inquiry's group chat,
+ *   and the inquiry's status cards post into it. An inquiry has at most one
+ *   (`idx_conversations_inquiry_group`), and an inquiry with a group chat
+ *   cannot be deleted.
  * - `support_client_id` says whose Regray Team thread it is and is unique, so a
  *   client can never have two.
  * - `assigned_to` and `assigned_at` say who has claimed a support thread, and
@@ -29,7 +33,7 @@ return new class extends Migration
             $table->string('type', 10);
             $table->string('name', 150)->nullable();
             $table->string('avatar_path', 255)->nullable();
-            $table->foreignId('inquiry_id')->nullable()->unique()->constrained()->nullOnDelete();
+            $table->foreignId('inquiry_id')->nullable()->constrained()->restrictOnDelete();
             $table->char('direct_key', 64)->nullable()->unique();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('support_client_id')->nullable()->unique()->constrained('users')->cascadeOnDelete();
@@ -42,6 +46,7 @@ return new class extends Migration
             $table->index('assigned_to');
         });
 
+        DB::statement("CREATE UNIQUE INDEX idx_conversations_inquiry_group ON conversations (inquiry_id) WHERE type = 'group'");
         DB::statement("ALTER TABLE conversations ADD CONSTRAINT chk_conversations_type CHECK (type IN ('direct','group','support'))");
         DB::statement("ALTER TABLE conversations ADD CONSTRAINT chk_conversations_direct_key CHECK ((type = 'direct') = (direct_key IS NOT NULL))");
         DB::statement("ALTER TABLE conversations ADD CONSTRAINT chk_conversations_inquiry CHECK (inquiry_id IS NULL OR type = 'group')");
