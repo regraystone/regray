@@ -229,80 +229,90 @@ const Schedule = () => {
         toast.info(`Cancelling ${item.title} is not available yet.`);
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="mx-auto w-full max-w-6xl min-w-0">
             <PageHeading
                 title="Schedule"
                 description="Your appointments"
                 action={bookButton()}
             />
 
-            <div className="mb-3 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
-                {/*
-                    The label is the only thing that says where the arrows have
-                    taken you, so it is announced when they move: stepping the
-                    view is a change of place, and a screen reader user would
-                    otherwise be told nothing happened.
-                 */}
-                <div className="flex items-center gap-2">
-                    <p
-                        aria-live="polite"
-                        className="text-sm font-bold tracking-[-0.02em]"
-                    >
-                        {rangeLabel(days)}
-                    </p>
-
-                    {isLoading ? (
-                        <span
-                            aria-hidden
-                            className="text-xs text-secondary-foreground"
-                        >
-                            Loading…
-                        </span>
-                    ) : null}
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={goToToday}
-                    >
-                        Today
-                    </Button>
-
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => step(-dayCount)}
-                        aria-label={`Go to previous ${stepLabel}`}
-                        className="h-11 w-11"
-                    >
-                        <ChevronLeft aria-hidden />
-                    </Button>
-
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => step(dayCount)}
-                        aria-label={`Go to next ${stepLabel}`}
-                        className="h-11 w-11"
-                    >
-                        <ChevronRight aria-hidden />
-                    </Button>
-                </div>
-            </div>
-
             {/*
                 The week stretches to the panel's height beside it (grid items
                 fill their row), so its bottom edge lines up with the panel's.
+
+                One `minmax(0, 1fr)` column below `lg`, and `min-w-0` on every
+                child: without them the column grows to the week's minimum
+                width and pushes the page past the screen on a phone, when the
+                week should scroll inside its own border instead.
+
+                The order classes set the reading order. On a phone: upcoming
+                events and the month first, then the range and its arrows right
+                above the week they move. From `lg`: the range across the top,
+                the week on the left and the panel on the right.
              */}
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <div className="order-2 flex min-w-0 flex-col items-start justify-between gap-3 sm:flex-row sm:items-center sm:gap-4 lg:order-1 lg:col-span-2">
+                    {/*
+                        The label is the only thing that says where the arrows have
+                        taken you, so it is announced when they move: stepping the
+                        view is a change of place, and a screen reader user would
+                        otherwise be told nothing happened.
+                     */}
+                    <div className="flex items-center gap-2">
+                        <p
+                            aria-live="polite"
+                            className="text-sm font-bold tracking-[-0.02em]"
+                        >
+                            {rangeLabel(days)}
+                        </p>
+
+                        {isLoading ? (
+                            <span
+                                aria-hidden
+                                className="text-xs text-secondary-foreground"
+                            >
+                                Loading…
+                            </span>
+                        ) : null}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={goToToday}
+                        >
+                            Today
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => step(-dayCount)}
+                            aria-label={`Go to previous ${stepLabel}`}
+                            className="h-11 w-11"
+                        >
+                            <ChevronLeft aria-hidden />
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => step(dayCount)}
+                            aria-label={`Go to next ${stepLabel}`}
+                            className="h-11 w-11"
+                        >
+                            <ChevronRight aria-hidden />
+                        </Button>
+                    </div>
+                </div>
+
                 <div
                     aria-busy={isLoading}
-                    className={`transition-opacity ${isLoading ? 'opacity-60' : ''}`}
+                    className={`order-3 min-w-0 transition-opacity lg:order-2 ${isLoading ? 'opacity-60' : ''}`}
                 >
                     <WeekGrid
                         days={days}
@@ -315,12 +325,13 @@ const Schedule = () => {
                 {/*
                     The panel. Beside the calendar only once there is room for
                     both, since seven days and a month side by side need the
-                    width. Below `lg` it lands underneath instead, which is the
-                    order a phone reads anyway: the week first, then what else
-                    is coming.
+                    width. Below `lg` it comes first instead, upcoming events
+                    before the month, so a phone opens on what is coming next
+                    and reaches the week after. The order classes put the panel
+                    back on the right, month above the list, once there is room.
                  */}
-                <aside className="space-y-4">
-                    <div className="rounded-md border border-sidebar-border bg-background p-4">
+                <aside className="order-1 flex min-w-0 flex-col gap-4 lg:order-3">
+                    <div className="order-2 rounded-md border border-sidebar-border bg-background p-4 lg:order-1">
                         <MiniCalendar
                             month={month}
                             selectedDay={anchor}
@@ -341,7 +352,7 @@ const Schedule = () => {
                         />
                     </div>
 
-                    <div>
+                    <div className="order-1 lg:order-2">
                         <h3 className="mb-3 text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
                             Upcoming events
                         </h3>

@@ -234,7 +234,7 @@ const WeekGrid = ({
     const minimumWidth = days.length > 5 ? '38rem' : '18rem';
 
     return (
-        <div className="flex h-full flex-col overflow-auto rounded-md border border-sidebar-border bg-background">
+        <div className="flex h-full w-full min-w-0 flex-col overflow-auto overscroll-x-contain rounded-md border border-sidebar-border bg-background">
             <div
                 className="grid shrink-0 grow"
                 style={{
