@@ -283,14 +283,7 @@ class InquirySeeder extends Seeder
                     $fail('logistics starts from the job order.');
                 }
 
-                $isStep = in_array($to->value, self::PROCESS_STEPS, true);
-                $fromStep = array_search($from->value, self::PROCESS_STEPS, true);
-                $toStep = array_search($to->value, self::PROCESS_STEPS, true);
-                // Installation is skipped when the job has none.
-                $nextStep = $isStep && $fromStep !== false
-                    && ($toStep === $fromStep + 1 || ($to === ProcessStatus::Completed && $from === ProcessStatus::Dispatched));
-
-                if ($from === ProcessStatus::Completed || ($isStep && ! $nextStep && $fromStep !== false) || (! $isStep && $fromStep === false)) {
+                if (! $this->isLogisticsMove($from, $to)) {
                     $fail("logistics does not move from {$from->value} to {$to->value}.");
                 }
 
@@ -310,6 +303,35 @@ class InquirySeeder extends Seeder
         }
 
         return ['final' => $state, 'snapshots' => $snapshots];
+    }
+
+    /**
+     * Whether logistics may move from `$from` to `$to`: on to the next step
+     * (installation may be skipped, so completed can follow dispatched), into
+     * on hold or delayed from any active step, and back to any step from a hold
+     * or a delay. Nothing moves on from completed.
+     */
+    private function isLogisticsMove(ProcessStatus $from, ProcessStatus $to): bool
+    {
+        if ($from === ProcessStatus::Completed) {
+            return false;
+        }
+
+        $fromStep = array_search($from->value, self::PROCESS_STEPS, true);
+        $toStep = array_search($to->value, self::PROCESS_STEPS, true);
+
+        // On hold or delayed: only from a step, not from another hold.
+        if ($toStep === false) {
+            return $fromStep !== false;
+        }
+
+        // Back from a hold or a delay.
+        if ($fromStep === false) {
+            return true;
+        }
+
+        return $toStep === $fromStep + 1
+            || ($from === ProcessStatus::Dispatched && $to === ProcessStatus::Completed);
     }
 
     /**

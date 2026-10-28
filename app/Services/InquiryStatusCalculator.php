@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\MarketingStatus;
 use App\Enums\ProcessStatus;
@@ -23,8 +22,8 @@ use App\Enums\SalesStatus;
  *
  * Accounting's status is not part of it: it has a badge of its own.
  *
- * sql() is the same rules as a CASE expression, for filtering and sorting in
- * the database (Inquiry::scopeWithDisplayStatus). The two are tested to agree.
+ * SQL is the same rules as a CASE expression, for filtering and sorting in
+ * the database (the Inquiry display-status scopes). The two are tested to agree.
  */
 class InquiryStatusCalculator
 {
@@ -59,24 +58,24 @@ class InquiryStatusCalculator
      * a comparison with it is never true, so it falls through to the next rule.
      * A soft-deleted job order file does not count, as it does not for the
      * model's `files` relation.
+     *
+     * One literal string, with nothing interpolated, so it is safe to put into
+     * raw SQL as it is. `job_order` is DocumentType::JobOrder's value; the test
+     * that the PHP and SQL rules agree on every combination would catch the two
+     * drifting apart.
      */
-    public static function sql(string $table = 'inquiries'): string
-    {
-        $jobOrder = DocumentType::JobOrder->value;
-
-        return <<<SQL
-            CASE
-                WHEN {$table}.marketing_status = 'lost' OR {$table}.sales_status = 'rejected' THEN 'cancelled'
-                WHEN {$table}.process_status = 'completed' THEN 'closed'
-                WHEN {$table}.process_status IS NOT NULL AND EXISTS (
-                    SELECT 1 FROM inquiry_files
-                    WHERE inquiry_files.inquiry_id = {$table}.id
-                        AND inquiry_files.document_type = '{$jobOrder}'
-                        AND inquiry_files.deleted_at IS NULL
-                ) THEN {$table}.process_status
-                WHEN {$table}.sales_status IS NOT NULL THEN {$table}.sales_status
-                ELSE 'pending'
-            END
-            SQL;
-    }
+    public const SQL = <<<'SQL'
+        CASE
+            WHEN inquiries.marketing_status = 'lost' OR inquiries.sales_status = 'rejected' THEN 'cancelled'
+            WHEN inquiries.process_status = 'completed' THEN 'closed'
+            WHEN inquiries.process_status IS NOT NULL AND EXISTS (
+                SELECT 1 FROM inquiry_files
+                WHERE inquiry_files.inquiry_id = inquiries.id
+                    AND inquiry_files.document_type = 'job_order'
+                    AND inquiry_files.deleted_at IS NULL
+            ) THEN inquiries.process_status
+            WHEN inquiries.sales_status IS NOT NULL THEN inquiries.sales_status
+            ELSE 'pending'
+        END
+        SQL;
 }

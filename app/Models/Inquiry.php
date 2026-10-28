@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * One inquiry, which is one project: a client who wants another project opens
@@ -107,14 +108,22 @@ class Inquiry extends Model
         return $this->files()->where('document_type', DocumentType::JobOrder)->exists();
     }
 
-    /** Select whether each inquiry has a job order, as `has_job_order`, so a list reads its status without a query per row. */
+    /**
+     * Select whether each inquiry has a job order, as `has_job_order`, so a list reads its status without a query per row.
+     *
+     * @param  Builder<static>  $query
+     */
     #[Scope]
     protected function withJobOrderFlag(Builder $query): void
     {
         $query->withExists(['files as has_job_order' => fn (Builder $files) => $files->where('document_type', DocumentType::JobOrder)]);
     }
 
-    /** Select the display status as `display_status`, calculated in the database by the same rules. */
+    /**
+     * Select the display status as `display_status`, calculated in the database by the same rules.
+     *
+     * @param  Builder<static>  $query
+     */
     #[Scope]
     protected function withDisplayStatus(Builder $query): void
     {
@@ -122,22 +131,28 @@ class Inquiry extends Model
             $query->select($this->qualifyColumn('*'));
         }
 
-        $query->selectRaw('('.InquiryStatusCalculator::sql($this->getTable()).') AS display_status');
+        $query->selectRaw('('.InquiryStatusCalculator::SQL.') AS display_status');
     }
 
-    /** Only inquiries shown at one of these statuses. */
+    /**
+     * Only inquiries shown at one of these statuses.
+     *
+     * @param  Builder<static>  $query
+     */
     #[Scope]
     protected function whereDisplayStatus(Builder $query, InquiryStatus ...$statuses): void
     {
-        $values = array_map(fn (InquiryStatus $status): string => $status->value, $statuses);
-
-        $query->whereRaw(
-            '('.InquiryStatusCalculator::sql($this->getTable()).') IN ('.implode(',', array_fill(0, count($values), '?')).')',
-            $values,
+        $query->whereIn(
+            DB::raw('('.InquiryStatusCalculator::SQL.')'),
+            array_map(fn (InquiryStatus $status): string => $status->value, $statuses),
         );
     }
 
-    /** Only inquiries under this Quote list tab. */
+    /**
+     * Only inquiries under this Quote list tab.
+     *
+     * @param  Builder<static>  $query
+     */
     #[Scope]
     protected function inStatusGroup(Builder $query, InquiryStatusGroup $group): void
     {
