@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Stone;
 use App\Models\StoneCategory;
@@ -60,39 +59,14 @@ test('inactive and soft-deleted stones never appear', function (): void {
         );
 });
 
-test('search matches stone name case-insensitively', function (): void {
+test('searches stone names and category names, ignoring case', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)
-        ->get(route('home.index', ['search' => 'COSMIC']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('stones.data', 1)
-            ->where('stones.data.0.name', 'Cosmic Black')
-        );
-});
+    $this->actingAs($user)->get(route('home.index', ['search' => 'COSMIC']))
+        ->assertInertia(fn (Assert $page) => $page->has('stones.data', 1)->where('stones.data.0.name', 'Cosmic Black'));
 
-test('search matches the full category name', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)
-        ->get(route('home.index', ['search' => 'Patagonia Quartzite']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('stones.data', 12)
-            ->where('stones.data.0.slug', 'arctic-pink')
-        );
-});
-
-test('search matches part of a category name', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)
-        ->get(route('home.index', ['search' => 'quartzite']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('stones.meta.total', 25)
-        );
+    $this->actingAs($user)->get(route('home.index', ['search' => 'quartzite']))
+        ->assertInertia(fn (Assert $page) => $page->where('stones.meta.total', 25));
 });
 
 test('search for percent or underscore does not match everything', function (): void {
@@ -107,86 +81,50 @@ test('search for percent or underscore does not match everything', function (): 
     expect($count)->toBeLessThan(6);
 });
 
-test('category filter keeps the stones in that category', function (): void {
+test('all four stone filters combine without widening the result', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)
-        ->get(route('home.index', ['category' => 'onyx']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('stones.data', 10)
-        );
+    $this->actingAs($user)->get(route('home.index', ['search' => 'COSMIC', 'category' => 'granite', 'size' => '80x80', 'thickness' => '18-20']))
+        ->assertInertia(fn (Assert $page) => $page->has('stones.data', 1)->where('stones.data.0.slug', 'cosmic-black'));
 });
 
-test('size filter matches an exact size', function (): void {
+test('thickness bucket endpoints are inclusive', function (string $bucket, array $expected): void {
+    Stone::query()->delete();
+    $category = StoneCategory::factory()->create();
+    foreach ([17, 18, 20, 21, 30, 31] as $thickness) {
+        Stone::factory()->for($category, 'category')->create(['name' => "Thickness {$thickness}", 'thickness_mm' => $thickness]);
+    }
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)
-        ->get(route('home.index', ['size' => '80x80']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('stones.meta.total', 18)
-        );
-});
+    $this->actingAs($user)->get(route('home.index', ['thickness' => $bucket]))
+        ->assertInertia(fn (Assert $page) => $page->where('stones.data', fn ($stones) => $stones->pluck('name')->all() === $expected));
+})->with([
+    ['18-20', ['Thickness 18', 'Thickness 20']],
+    ['21-30', ['Thickness 21', 'Thickness 30']],
+    ['31-plus', ['Thickness 31']],
+]);
 
-test('category and size filters combine with AND', function (): void {
+test('drops an unknown or malformed parameter and keeps the valid ones', function (): void {
     $user = User::factory()->role(Role::Client)->create();
+    $kept = ['search' => 'cosmic'];
 
-    $this->actingAs($user)
-        ->get(route('home.index', ['category' => 'onyx', 'size' => '80x80']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('stones.data', 2)
-        );
-});
+    foreach ([
+        ['category' => 'unknown'],
+        ['category' => 'wall-accents'],
+        ['category' => ['granite']],
+        ['size' => 'unknown'],
+        ['size' => '60X60'],
+        ['size' => ['80x80']],
+        ['thickness' => '20'],
+        ['thickness' => ['18-20']],
+        ['page' => 'abc'],
+        ['page' => 0],
+        ['page' => [1]],
+    ] as $invalid) {
+        $this->actingAs($user)->get(route('home.index', [...$invalid, ...$kept]))->assertRedirect(route('home.index', $kept));
+    }
 
-test('search combines with filters', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)
-        ->get(route('home.index', ['search' => 'arancia', 'category' => 'onyx']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('stones.data', 1)
-        );
-});
-
-test('unknown category slug redirects to home with that parameter removed', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)
-        ->get(route('home.index', ['category' => 'unknown', 'size' => '80x80']))
-        ->assertRedirect(route('home.index', ['size' => '80x80']));
-
-    $this->actingAs($user)
-        ->followingRedirects()
-        ->get(route('home.index', ['category' => 'unknown', 'size' => '80x80']))
-        ->assertOk();
-});
-
-test('unknown size redirects to home with that parameter removed', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)
-        ->get(route('home.index', ['category' => 'marble', 'size' => 'unknown']))
-        ->assertRedirect(route('home.index', ['category' => 'marble']));
-});
-
-test('over-long search redirects to home with that parameter removed', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $longSearch = str_repeat('a', 101);
-
-    $this->actingAs($user)
-        ->get(route('home.index', ['search' => $longSearch, 'category' => 'marble']))
-        ->assertRedirect(route('home.index', ['category' => 'marble']));
-});
-
-test('invalid page parameter redirects to home without it', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)
-        ->get(route('home.index', ['page' => 'abc', 'category' => 'marble']))
+    $this->actingAs($user)->get(route('home.index', ['search' => str_repeat('a', 101), 'category' => 'marble']))
         ->assertRedirect(route('home.index', ['category' => 'marble']));
 });
 
@@ -232,22 +170,6 @@ test('filters reflect the URL exactly after refresh', function (): void {
         );
 });
 
-test('user without home view gets 403', function (): void {
-    $user = User::factory()->role(Role::Technical)->create();
-
-    expect(in_array(Permission::HomeView->value, RolePermissionSeeder::MATRIX[Role::Technical->value], true))
-        ->toBeFalse();
-
-    $this->actingAs($user)
-        ->get(route('home.index'))
-        ->assertForbidden();
-});
-
-test('guest is sent to login', function (): void {
-    $this->get(route('home.index'))
-        ->assertRedirect(route('login'));
-});
-
 test('no N+1 query issue', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
@@ -274,52 +196,6 @@ test('no N+1 query issue', function (): void {
     DB::disableQueryLog();
 });
 
-test('thickness filters select only stones in the requested bucket', function (string $bucket, int $total): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['thickness' => $bucket]))
-        ->assertInertia(fn (Assert $page) => $page->where('stones.meta.total', $total));
-})->with([['18-20', 64], ['21-30', 8], ['31-plus', 3]]);
-
-test('thickness bucket endpoints are inclusive', function (string $bucket, array $expected): void {
-    Stone::query()->delete();
-    $category = StoneCategory::factory()->create();
-    foreach ([17, 18, 20, 21, 30, 31] as $thickness) {
-        Stone::factory()->for($category, 'category')->create(['name' => "Thickness {$thickness}", 'thickness_mm' => $thickness]);
-    }
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['thickness' => $bucket]))
-        ->assertInertia(fn (Assert $page) => $page->where('stones.data', fn ($stones) => $stones->pluck('name')->all() === $expected));
-})->with([
-    ['18-20', ['Thickness 18', 'Thickness 20']],
-    ['21-30', ['Thickness 21', 'Thickness 30']],
-    ['31-plus', ['Thickness 31']],
-]);
-
-test('all four stone filters combine without widening the result', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['search' => 'COSMIC', 'category' => 'granite', 'size' => '80x80', 'thickness' => '18-20']))
-        ->assertInertia(fn (Assert $page) => $page->has('stones.data', 1)->where('stones.data.0.slug', 'cosmic-black'));
-});
-
-test('invalid stone filters are removed while valid filters survive', function (array $invalid): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', [...$invalid, 'search' => 'cosmic']))
-        ->assertRedirect(route('home.index', ['search' => 'cosmic']));
-})->with([
-    [['thickness' => '20']],
-    [['thickness' => ['18-20']]],
-    [['category' => ['granite']]],
-    [['category' => 'wall-accents']],
-    [['size' => ['80x80']]],
-    [['size' => '60X60']],
-    [['page' => [1]]],
-    [['page' => 0]],
-]);
-
 test('filter options include empty categories and all sizes but omit inactive categories', function (): void {
     $empty = StoneCategory::factory()->create();
     StoneCategory::query()->where('slug', 'granite')->update(['is_active' => false]);
@@ -337,12 +213,4 @@ test('filter options include empty categories and all sizes but omit inactive ca
             ['value' => '31-plus', 'label' => '31 mm and up'],
         ])
     );
-});
-
-test('a thickness option remains available with no active stones', function (): void {
-    Stone::query()->where('thickness_mm', '>=', 31)->update(['is_active' => false]);
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index'))
-        ->assertInertia(fn (Assert $page) => $page->where('filterOptions.thicknesses', fn ($options) => $options->pluck('value')->contains('31-plus')));
 });

@@ -17,11 +17,11 @@ import {
     Menu,
     MessageCircle,
     Package,
+    Target,
     PanelLeftClose,
     PanelLeftOpen,
     Users,
     Wrench,
-    X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -46,6 +46,7 @@ import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
 import { index as homeIndex } from '@/routes/home';
+import { index as leadsIndex } from '@/routes/leads';
 import { logout } from '@/routes';
 import {
     index as inquiryIndex,
@@ -97,6 +98,7 @@ export const permissions = {
     accountsView: 'accounts.view',
     projectsView: 'projects.view',
     profileView: 'profile.view',
+    leadsView: 'leads.view',
     profileScheduleView: 'profile-schedule.view',
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
@@ -159,6 +161,13 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 href: quoteIndex.url(),
                 icon: Handshake,
                 permission: permissions.quotationsView,
+            },
+            {
+                slug: 'leads',
+                label: 'Leads',
+                href: leadsIndex.url(),
+                icon: Target,
+                permission: permissions.leadsView,
             },
             {
                 slug: 'inquiry',
@@ -416,7 +425,17 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
 
+        // No close button: the overlay, a link, or Escape closes the drawer.
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setDrawerOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', closeOnEscape);
+
         return () => {
+            document.removeEventListener('keydown', closeOnEscape);
             document.body.style.overflow = previousOverflow;
         };
     }, [drawerOpen]);
@@ -732,16 +751,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     drawerOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
-                <div className="flex h-16 items-center justify-between border-b border-border px-6">
+                <div className="flex h-16 items-center border-b border-border px-6">
                     <Logo />
-                    <button
-                        type="button"
-                        onClick={() => setDrawerOpen(false)}
-                        className="grid size-9 place-items-center rounded-md transition-opacity hover:opacity-85"
-                        aria-label="Close navigation"
-                    >
-                        <X className="size-4" />
-                    </button>
                 </div>
                 <SidebarNav
                     collapsed={false}

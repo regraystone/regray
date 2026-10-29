@@ -153,7 +153,7 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
     };
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
             <section className="relative flex min-h-[280px] items-center overflow-hidden text-on-image sm:min-h-[480px]">
                 <img
                     src={stone.thumbnail}

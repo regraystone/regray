@@ -2,13 +2,19 @@
 
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
+use App\Enums\LeadStatus;
 use App\Enums\MessageType;
+use App\Enums\PaymentStatus;
+use App\Enums\ProcessStatus;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\Lead;
 use App\Models\Message;
 use App\Models\ProjectCategory;
 use App\Models\Service;
@@ -141,69 +147,166 @@ function inquiryVisitInput(array $overrides = []): array
 }
 
 /**
- * An inquiry in the database for `$client`, without going through the form.
+ * Role statuses that show `$status`, for an inquiry or a card snapshot, NULL
+ * for a stage that has not started: sales starts when the lead is won, payment
+ * and process when the client approves. Where the job order has to be in for
+ * it (a logistics stage, closed), `job_order` is true. On hold is sales' on
+ * hold, before the client approved; cancelled is sales rejected.
  *
- * Each project is `['name' => ..., 'stones' => [stone slugs], 'services' => [service slugs]]`,
- * its stones stored in the order given. `$attributes` may set `reference`,
- * `status` and `created_at`.
- *
- * @param  list<array{name?: string, stones?: list<string>, services?: list<string>}>  $projects
- * @param  array{reference?: string, status?: InquiryStatus, created_at?: mixed}  $attributes
+ * @return array{sales_status: ?SalesStatus, payment_status: ?PaymentStatus, process_status: ?ProcessStatus, job_order: bool}
  */
-function makeInquiry(User $client, array $projects = [[]], array $attributes = []): Inquiry
+function roleStatusesShowing(InquiryStatus $status): array
+{
+    [$sales, $payment, $process, $jobOrder] = match ($status) {
+        InquiryStatus::Pending => [null, null, null, false],
+        InquiryStatus::Cancelled => [SalesStatus::Rejected, null, null, false],
+        InquiryStatus::Closed => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::Completed, true],
+        InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [SalesStatus::from($status->value), null, null, false],
+        InquiryStatus::Quoted, InquiryStatus::Revision => [SalesStatus::from($status->value), null, null, false],
+        InquiryStatus::Won => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::OrderReceived, false],
+        default => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::from($status->value), true],
+    };
+
+    return ['sales_status' => $sales, 'payment_status' => $payment, 'process_status' => $process, 'job_order' => $jobOrder];
+}
+
+/**
+ * A lead for `$client`, held by `$marketing` (a new marketing user when not
+ * given), with its first history row.
+ */
+function makeLead(User $client, LeadStatus $status = LeadStatus::Idle, ?User $marketing = null): Lead
+{
+    $lead = Lead::factory()->create([
+        'client_id' => $client->id,
+        'marketing_user_id' => ($marketing ?? User::factory()->role(Role::Marketing)->create())->id,
+        'status' => $status,
+    ]);
+
+    $lead->history()->create(['to_status' => LeadStatus::Idle, 'changed_at' => now()]);
+
+    if ($status !== LeadStatus::Idle) {
+        $lead->history()->create(['from_status' => LeadStatus::Idle, 'to_status' => $status, 'changed_at' => now()]);
+    }
+
+    return $lead;
+}
+
+/**
+ * An inquiry in the database for `$client`, without going through the form.
+ * One inquiry is one project: `$project` is `['name' => ..., 'stones' =>
+ * [stone slugs], 'services' => [service slugs]]`, its stones stored in the
+ * order given.
+ *
+ * `$attributes` may set `reference` and `created_at`, `lead` (the lead it is
+ * linked to), `status` (a display status, reached through
+ * roleStatusesShowing()), any of the three role statuses, and `job_order`
+ * (whether sales has uploaded the job order file). Without them it has no lead
+ * and no role status has started.
+ *
+ * @param  array{name?: string, stones?: list<string>, services?: list<string>}  $project
+ * @param  array{reference?: string, created_at?: mixed, lead?: Lead, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, job_order?: bool}  $attributes
+ */
+function makeInquiry(User $client, array $project = [], array $attributes = []): Inquiry
 {
     static $sequence = 0;
     $sequence++;
+
+    $statuses = [
+        ...isset($attributes['status']) ? roleStatusesShowing($attributes['status']) : [],
+        ...array_intersect_key($attributes, array_flip(['sales_status', 'payment_status', 'process_status', 'job_order'])),
+    ];
 
     $inquiry = new Inquiry;
     $inquiry->forceFill([
         'reference' => $attributes['reference'] ?? sprintf('INQ-T%04d', $sequence),
         'client_id' => $client->id,
-        'status' => $attributes['status'] ?? InquiryStatus::Pending,
-        'status_changed_at' => now(),
+        'lead_id' => $attributes['lead']->id ?? null,
+        'name' => $project['name'] ?? 'Project '.$sequence,
+        'location' => 'Makati',
+        'sales_status' => $statuses['sales_status'] ?? null,
+        'sales_status_changed_at' => isset($statuses['sales_status']) ? now() : null,
+        'payment_status' => $statuses['payment_status'] ?? null,
+        'payment_status_changed_at' => isset($statuses['payment_status']) ? now() : null,
+        'process_status' => $statuses['process_status'] ?? null,
+        'process_status_changed_at' => isset($statuses['process_status']) ? now() : null,
         ...(isset($attributes['created_at']) ? ['created_at' => $attributes['created_at']] : []),
     ])->save();
 
+    if ($statuses['job_order'] ?? false) {
+        addInquiryFile($inquiry, DocumentType::JobOrder);
+    }
+
+    $inquiry->services()->attach(
+        Service::query()->whereIn('slug', $project['services'] ?? ['natural-stone-supply'])->pluck('id')->all(),
+    );
+
     $edge = EdgeProfile::query()->value('id');
     $finish = Finish::query()->value('id');
+    $stones = $project['stones'] ?? [Stone::query()->orderBy('id')->value('slug')];
 
-    foreach (array_values($projects) as $position => $project) {
-        $row = $inquiry->projects()->create([
-            'name' => $project['name'] ?? 'Project '.($position + 1),
-            'sort_order' => $position,
-            'location' => 'Makati',
+    foreach (array_values($stones) as $order => $slug) {
+        $inquiry->stones()->create([
+            'stone_id' => Stone::query()->where('slug', $slug)->value('id'),
+            'edge_profile_id' => $edge,
+            'finish_id' => $finish,
+            'quantity' => 1,
+            'sort_order' => $order,
         ]);
-
-        $row->services()->attach(
-            Service::query()->whereIn('slug', $project['services'] ?? ['natural-stone-supply'])->pluck('id')->all(),
-        );
-
-        $stones = $project['stones'] ?? [Stone::query()->orderBy('id')->value('slug')];
-
-        foreach (array_values($stones) as $order => $slug) {
-            $row->stones()->create([
-                'stone_id' => Stone::query()->where('slug', $slug)->value('id'),
-                'edge_profile_id' => $edge,
-                'finish_id' => $finish,
-                'quantity' => 1,
-                'sort_order' => $order,
-            ]);
-        }
     }
 
     return $inquiry;
 }
 
+/** Move an existing inquiry's role statuses so it shows `$status`, adding the job order file where one is needed. */
+function showInquiryAs(Inquiry $inquiry, InquiryStatus $status): Inquiry
+{
+    $statuses = roleStatusesShowing($status);
+
+    $inquiry->forceFill([
+        ...array_diff_key($statuses, ['job_order' => true]),
+        'sales_status_changed_at' => $statuses['sales_status'] === null ? null : now(),
+        'payment_status_changed_at' => $statuses['payment_status'] === null ? null : now(),
+        'process_status_changed_at' => $statuses['process_status'] === null ? null : now(),
+    ])->save();
+
+    if ($statuses['job_order'] && ! $inquiry->hasJobOrder()) {
+        addInquiryFile($inquiry, DocumentType::JobOrder);
+    }
+
+    return $inquiry;
+}
+
+/** A file row on the inquiry, written straight to the database. Nothing is put on a disk. */
+function addInquiryFile(Inquiry $inquiry, DocumentType $type, ?User $uploader = null, ?int $revision = null): void
+{
+    $inquiry->files()->create([
+        'document_type' => $type,
+        'revision' => $revision,
+        'disk' => 'local',
+        'path' => "inquiries/{$inquiry->reference}/{$type->value}.pdf",
+        'original_name' => "{$type->value}.pdf",
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 1024,
+        'uploaded_by' => $uploader?->id,
+    ]);
+}
+
 /*
- * The Quote card's button table, exactly as the product states it: for every
- * status, what each of the four buttons is. `null` is a button that is not
+ * The Quote card's button table, exactly as the product states it: for an
+ * inquiry shown at each status (on hold being sales' on hold, before the client
+ * approved), what each of the four buttons is. `null` is a button that is not
  * rendered; `[true]` is clickable; `[false, reason]` is shown and locked.
  */
 dataset('inquiry button table', [
     'pending' => ['pending', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
-    'quoted' => ['quoted', ['view' => [true], 'update' => [false, 'Locked once quoted. Message the team to request changes.'], 'cancel' => [true], 'invoice' => null]],
-    'paid' => ['paid', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
-    'completed' => ['completed', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
+    'negotiation' => ['negotiation', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'site_visited' => ['site_visited', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'on_hold' => ['on_hold', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'quoted' => ['quoted', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'revision' => ['revision', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'won' => ['won', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
+    'production' => ['production', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
+    'closed' => ['closed', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
     'cancelled' => ['cancelled', ['view' => [true], 'update' => [false, 'This inquiry was cancelled.'], 'cancel' => null, 'invoice' => null]],
 ]);
 

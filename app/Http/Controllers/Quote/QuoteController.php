@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Quote;
 
 use App\Actions\Quote\CancelInquiryAction;
 use App\Actions\Quote\ListClientInquiriesAction;
-use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusGroup;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Quote\CancelInquiryRequest;
 use App\Http\Requests\Quote\ListQuoteInquiriesRequest;
@@ -33,7 +33,7 @@ class QuoteController extends Controller
                 'status' => $filters->status->value ?? 'all',
                 'sort' => $filters->sort,
             ],
-            'statusOptions' => Inertia::once(fn (): array => ['all', ...InquiryStatus::listable()]),
+            'statusOptions' => Inertia::once(fn (): array => ['all', ...InquiryStatusGroup::values()]),
         ]);
     }
 

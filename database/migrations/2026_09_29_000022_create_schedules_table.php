@@ -11,7 +11,8 @@ return new class extends Migration
     {
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
+            // NULL for a direct (walk-in) client's inquiry visit: they have no account.
+            $table->foreignId('client_id')->nullable()->constrained('users')->restrictOnDelete();
             $table->foreignId('booked_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('booked_by_type', 10);
             $table->foreignId('inquiry_id')->nullable()->constrained()->nullOnDelete();
@@ -28,8 +29,10 @@ return new class extends Migration
 
             $table->index(['client_id', 'arrival_at']);
             $table->index(['status', 'arrival_at']);
-            $table->index('inquiry_id');
         });
+
+        // One inquiry has one deadline visit. A booking has no inquiry.
+        DB::statement('CREATE UNIQUE INDEX idx_schedules_inquiry_once ON schedules (inquiry_id) WHERE inquiry_id IS NOT NULL');
 
         DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_status CHECK (status IN ('pending','confirmed','completed','cancelled'))");
         DB::statement("ALTER TABLE schedules ADD CONSTRAINT chk_schedules_booked_by_type CHECK (booked_by_type IN ('client','staff'))");

@@ -10,9 +10,9 @@ use Illuminate\Validation\Validator;
  * The edit of an inquiry from the Quote page: the same answers the Inquire page
  * sends, so every create rule applies unchanged, plus what an edit needs on top.
  *
- * - `projects.*.id` is the `inquiry_projects` id each project was opened from.
- *   Whether those ids belong to this inquiry is checked by InquiryService, which
- *   holds the inquiry's row lock.
+ * - `projects.*.id` is the inquiry's own id: an inquiry is one project, and the
+ *   page sends it as the one project it opened. Whether it is this inquiry is
+ *   checked by InquiryService, which holds the inquiry's row lock.
  * - `projects.*.keepFileIds` are the stored files the client left in place.
  *   `projects.*.attachments` are new uploads only, and the two together may not
  *   exceed the per-project file limit.

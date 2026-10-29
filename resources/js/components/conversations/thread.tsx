@@ -16,6 +16,7 @@ import Composer, {
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
+import AddMembersDialog from '@/components/conversations/add-members-dialog';
 import ReassignDialog from '@/components/conversations/reassign-dialog';
 import Receipts from '@/components/conversations/receipts';
 import ScheduleCard from '@/components/conversations/schedule-card';
@@ -113,6 +114,7 @@ const Thread = ({
     const [removing, setRemoving] = useState(false);
     const [claiming, setClaiming] = useState(false);
     const [reassignOpen, setReassignOpen] = useState(false);
+    const [addMembersOpen, setAddMembersOpen] = useState(false);
     const [highlighted, setHighlighted] = useState<number | null>(null);
     const composerRef = useRef<ComposerHandle>(null);
     const dragDepthRef = useRef(0);
@@ -456,6 +458,7 @@ const Thread = ({
                 onBack={onBack}
                 onRelease={() => void release()}
                 onReassign={() => setReassignOpen(true)}
+                onAddMembers={() => setAddMembersOpen(true)}
             />
 
             {state.error !== null ? (
@@ -715,6 +718,18 @@ const Thread = ({
                                     : 'The conversation could not be reassigned.',
                             );
                         }
+                    }}
+                />
+            ) : null}
+
+            {conversation.canAddMembers ? (
+                <AddMembersDialog
+                    open={addMembersOpen}
+                    conversationId={conversation.id}
+                    onOpenChange={setAddMembersOpen}
+                    onAdded={(summary) => {
+                        onSummaryChange(summary);
+                        toast.success('Added to the group');
                     }}
                 />
             ) : null}

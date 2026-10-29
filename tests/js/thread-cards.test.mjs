@@ -2,16 +2,19 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    INQUIRY_HEADLINES,
     bookedByText,
     inquiryHeadline,
-    projectCountText,
     scheduleHeadline,
-    serviceCountText,
 } from '../../resources/js/lib/thread-cards.ts';
+import { INQUIRY_STATUS_LABELS } from '../../resources/js/lib/inquiry-statuses.ts';
 
 describe('inquiry card', () => {
-    it('announces the status it was posted for', () => {
-        assert.equal(inquiryHeadline('quoted'), 'Inquiry quoted');
+    it('announces the display status it was posted for', () => {
+        assert.equal(inquiryHeadline('quoted'), 'Quotation sent');
+        assert.equal(inquiryHeadline('won'), 'Quotation approved');
+        assert.equal(inquiryHeadline('production'), 'In production');
+        assert.equal(inquiryHeadline('closed'), 'Inquiry closed');
         assert.equal(inquiryHeadline('cancelled'), 'Inquiry cancelled');
     });
 
@@ -19,11 +22,11 @@ describe('inquiry card', () => {
         assert.equal(inquiryHeadline('pending'), 'New Inquiry');
     });
 
-    it('counts projects and services in the singular and the plural', () => {
-        assert.equal(projectCountText(1), '1 project');
-        assert.equal(projectCountText(2), '2 projects');
-        assert.equal(serviceCountText(0), '0 services');
-        assert.equal(serviceCountText(1), '1 service');
+    it('has a headline for every display status and nothing else', () => {
+        assert.deepEqual(
+            Object.keys(INQUIRY_HEADLINES).sort(),
+            Object.keys(INQUIRY_STATUS_LABELS).sort(),
+        );
     });
 });
 

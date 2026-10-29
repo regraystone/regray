@@ -97,6 +97,8 @@ const startUpload = (
 type FileUploadProps = {
     files: InquiryAttachment[];
     onFilesChange: (files: InquiryAttachment[]) => void;
+    /** How many files the field takes; one turns off multi-select. */
+    maxFiles?: number;
 };
 
 /**
@@ -108,7 +110,11 @@ type FileUploadProps = {
  * URLs behind the image previews and the timers driving the progress bars, both
  * of which have to be cleaned up rather than left to the next render.
  */
-const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
+const FileUpload = ({
+    files,
+    onFilesChange,
+    maxFiles = MAX_ATTACHMENTS,
+}: FileUploadProps) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [messages, setMessages] = useState<string[]>([]);
@@ -213,8 +219,12 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
         const alreadyAttached = filesRef.current;
 
         for (const file of incoming) {
-            if (alreadyAttached.length + accepted.length >= MAX_ATTACHMENTS) {
-                problems.push(`You can attach up to ${MAX_ATTACHMENTS} files.`);
+            if (alreadyAttached.length + accepted.length >= maxFiles) {
+                problems.push(
+                    maxFiles === 1
+                        ? 'You can attach one file. Remove it to add another.'
+                        : `You can attach up to ${maxFiles} files.`,
+                );
                 break;
             }
 
@@ -317,14 +327,14 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                 className="rounded-md border border-sidebar-border bg-background p-3"
             >
                 <div className="flex items-center gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-md border border-sidebar-border bg-background text-secondary-foreground">
+                    <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border bg-background text-secondary-foreground">
                         {isPdf || !preview ? (
                             <FileText className="size-5" aria-hidden />
                         ) : (
                             <img
                                 src={preview}
                                 alt=""
-                                className="size-full object-cover"
+                                className="h-10 w-10 object-cover"
                             />
                         )}
                     </span>
@@ -427,7 +437,9 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
                     Drag files here or click to browse
                 </span>
                 <span className="text-xs text-secondary-foreground">
-                    PDF, PNG, JPG or JPEG. Up to 10 MB each, 10 files.
+                    {maxFiles === 1
+                        ? 'PDF, PNG, JPG or JPEG. One file, up to 10 MB.'
+                        : `PDF, PNG, JPG or JPEG. Up to 10 MB each, ${maxFiles} files.`}
                 </span>
             </button>
 
@@ -439,7 +451,7 @@ const FileUpload = ({ files, onFilesChange }: FileUploadProps) => {
             <input
                 ref={inputRef}
                 type="file"
-                multiple
+                multiple={maxFiles > 1}
                 accept={ACCEPT}
                 aria-label="Attach files"
                 tabIndex={-1}

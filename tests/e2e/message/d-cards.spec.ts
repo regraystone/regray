@@ -9,8 +9,8 @@ import {
 
 /*
  * D. Inquiry and schedule cards (R5, R5b). "E2E Cards" holds an inquiry card
- * for each of the six statuses, one with a 100-character project name, a visit
- * card for each status and booking type, and one with a 150-character title.
+ * for each display status, one with a 100-character project name, a visit card
+ * for each status and booking type, and one with a 150-character title.
  */
 
 const HEADLINES: Record<string, Record<'client' | 'staff', string>> = {
@@ -25,8 +25,11 @@ const HEADLINES: Record<string, Record<'client' | 'staff', string>> = {
 
 /** Load every message of the thread, so all cards are in the DOM. */
 const openCards = async (page: Page): Promise<void> => {
-    await openConversation(page, fixtures().cards.conversationId);
-    await expect(page.getByTestId('inquiry-card')).toHaveCount(7);
+    const { cards } = fixtures();
+    await openConversation(page, cards.conversationId);
+    await expect(page.getByTestId('inquiry-card')).toHaveCount(
+        cards.statusCount + 1,
+    );
     await expect(page.getByTestId('schedule-card')).toHaveCount(9);
 };
 
@@ -147,7 +150,7 @@ test('13 · long names truncate on one line and the badge row does not wrap @lay
     );
 });
 
-test('14 · the inquiry heading is the reference and the sub-line counts projects', async ({
+test('14 · the inquiry heading is the reference, the sub-line is the project, and the status row is two badges', async ({
     sessions,
 }) => {
     const { cards } = fixtures();
@@ -157,16 +160,41 @@ test('14 · the inquiry heading is the reference and the sub-line counts project
     const statusCards = page
         .getByTestId('inquiry-card')
         .filter({ hasText: cards.reference });
-    await expect(statusCards).toHaveCount(6);
+    await expect(statusCards).toHaveCount(cards.statusCount);
 
     for (const card of await statusCards.all()) {
         await expect(card.getByTestId('inquiry-card-title')).toHaveText(
             cards.reference,
         );
         await expect(card.getByTestId('inquiry-card-subline')).toHaveText(
-            `${cards.projectCount} projects`,
+            cards.projectName,
         );
-        await expect(card).not.toContainText(cards.firstProject);
+        // The inquiry status, then the payment status once accounting's stage
+        // had started: before the client's approval there is no payment badge.
+        const status = card.getByTestId('inquiry-card-status');
+        const shown = await status
+            .locator('[data-status-group="inquiry"]')
+            .getAttribute('data-status');
+        const hasPayment = [
+            'quoted',
+            'closed',
+            'order_received',
+            'measure',
+            'sourcing',
+            'production',
+            'quality_check',
+            'ready',
+            'dispatched',
+            'installation',
+            'delayed',
+        ].includes(shown ?? '');
+
+        await expect(
+            status.locator('[data-status-group="payment"]'),
+        ).toHaveCount(hasPayment ? 1 : 0);
+        await expect(status.locator('[data-status]')).toHaveCount(
+            hasPayment ? 2 : 1,
+        );
     }
 });
 
@@ -239,7 +267,7 @@ test('17 · the cards show the seeded rows, not sample data', async ({
         .allTextContents();
     expect(
         inquiryTitles.filter((title) => title === cards.reference),
-    ).toHaveLength(6);
+    ).toHaveLength(cards.statusCount);
     expect(
         inquiryTitles.filter((title) => title === cards.longReference),
     ).toHaveLength(1);

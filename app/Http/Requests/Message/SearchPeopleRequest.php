@@ -17,6 +17,7 @@ class SearchPeopleRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:100'],
+            'clientId' => ['nullable', 'integer'],
         ];
     }
 
@@ -25,5 +26,13 @@ class SearchPeopleRequest extends FormRequest
         $search = $this->validated('search');
 
         return is_string($search) ? $search : null;
+    }
+
+    /** The client whose inquiries to list, once one is chosen. */
+    public function clientId(): ?int
+    {
+        $clientId = $this->validated('clientId');
+
+        return $clientId === null ? null : (int) $clientId;
     }
 }

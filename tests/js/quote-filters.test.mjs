@@ -3,9 +3,20 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     QUOTE_DEFAULT_FILTERS,
+    QUOTE_STATUS_TABS,
     buildQuoteQuery,
     tally,
 } from '../../resources/js/lib/quote-filters.ts';
+
+describe('QUOTE_STATUS_TABS', () => {
+    it('offers all, pending, in progress, closed and cancelled, in that order', () => {
+        assert.deepEqual(
+            QUOTE_STATUS_TABS.map((tab) => tab.value),
+            ['all', 'pending', 'in_progress', 'closed', 'cancelled'],
+        );
+        assert.equal(QUOTE_STATUS_TABS[2].label, 'In progress');
+    });
+});
 
 describe('buildQuoteQuery', () => {
     it('is empty for the default view, so /quote stays bare', () => {
@@ -28,8 +39,11 @@ describe('buildQuoteQuery', () => {
 
     it('carries a status other than all', () => {
         assert.deepEqual(
-            buildQuoteQuery({ ...QUOTE_DEFAULT_FILTERS, status: 'quoted' }),
-            { status: 'quoted' },
+            buildQuoteQuery({
+                ...QUOTE_DEFAULT_FILTERS,
+                status: 'in_progress',
+            }),
+            { status: 'in_progress' },
         );
     });
 
@@ -44,10 +58,10 @@ describe('buildQuoteQuery', () => {
         assert.deepEqual(
             buildQuoteQuery({
                 search: 'INQ-1',
-                status: 'paid',
+                status: 'closed',
                 sort: 'oldest',
             }),
-            { search: 'INQ-1', status: 'paid', sort: 'oldest' },
+            { search: 'INQ-1', status: 'closed', sort: 'oldest' },
         );
     });
 

@@ -1,21 +1,16 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
-    ChevronDown,
     FileText,
     Image as ImageIcon,
     MessageCircle,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
 import { formatSize } from '@/components/file-upload';
-import { STATUS_LABELS, StatusBadge } from '@/components/inquiry-status-badge';
+import { formatDate } from '@/lib/format-date';
+import { StatusBadge } from '@/components/inquiry-status-badge';
+import { LeadStatusBadge } from '@/components/lead-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import type {
     InquiryFile,
     InquiryRequirementsRecord,
@@ -23,6 +18,13 @@ import type {
 } from '@/data/inquiries';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
+import {
+    activityLabel,
+    documentGroupLabel,
+    DOCUMENT_TYPE_LABELS,
+    INQUIRY_SENT_LABEL,
+    startedStatuses,
+} from '@/lib/inquiry-statuses';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as messageIndex } from '@/routes/message';
 import { index as quoteIndex } from '@/routes/quote';
@@ -33,7 +35,7 @@ type InquiryDetailsProps = {
 };
 
 /**
- * One project as the page draws it.
+ * The project the inquiry is, as the page draws it. One inquiry is one project.
  *
  * The server sends it already resolved — stones with their names and pictures,
  * services with theirs — so the page looks nothing up. A project with no stones
@@ -51,7 +53,6 @@ type ResolvedStone = {
 };
 
 type ResolvedProject = {
-    id: string;
     name: string;
     services: Array<{ name: string; image?: string }>;
     stones: ResolvedStone[];
@@ -67,7 +68,8 @@ const countPieces = (
     selections.reduce((total, selection) => total + selection.quantity, 0);
 
 /**
- * When a status moved, read the way a reader would say it aloud.
+ * When the inquiry was sent, or a status moved, read the way a reader would
+ * say it aloud.
  *
  * `Intl` rather than `toISOString()`, which reports UTC: a reader east of
  * Greenwich would be shown a day and an hour the record never had. `undefined`
@@ -132,99 +134,204 @@ const SummaryRow = ({ label, value }: { label: string; value?: string }) => (
     </div>
 );
 
+type HistoryEntry = QuoteInquiryDetails['history'][number];
+type SharedDocument = QuoteInquiryDetails['documents'][number];
+
 /**
- * The card every band on this page sits in, whoever wrote the heading.
- *
- * The header row carries whatever the section has to report about itself — a
- * count, a status — and the chevron that folds the body away, because a reader
- * who has read the notes does not want the notes taking up the screen while they
- * read the timeline. `open` is local rather than lifted: there is no reason for
- * one card to close another, and a reader who folds the stones back after the
- * services should find them folded on the way back too.
- *
- * The heading is a slot rather than a string because the page has two kinds of
- * card that want different headings: an inquiry-wide section is a short label in
- * caps, and a project is a name somebody typed, which wants room and lower case
- * and must not be truncated to fit beside a chevron.
+ * One line of the aside: what happened on the left, when on the right. The
+ * date never wraps under the words; a long label wraps on its own side.
  */
-const CollapsibleCard = ({
-    header,
-    badge,
-    footer,
-    name,
-    children,
+const DatedRow = ({
+    label,
+    at,
+    isCurrent = false,
 }: {
-    header: ReactNode;
-    badge?: ReactNode;
-    footer?: ReactNode;
-    /** What the card is, for the chevron, which carries no text of its own. */
-    name: string;
-    children: ReactNode;
+    label: string;
+    at: string;
+    isCurrent?: boolean;
+}) => (
+    <div className="flex min-w-0 flex-1 items-baseline justify-between gap-4">
+        <p
+            className={`min-w-0 text-sm font-bold break-words ${
+                isCurrent ? 'text-foreground' : 'text-secondary-foreground'
+            }`}
+        >
+            {label}
+        </p>
+        <time
+            dateTime={at}
+            className="shrink-0 text-right text-xs whitespace-nowrap text-secondary-foreground"
+        >
+            {dateTimeFormatter.format(new Date(at))}
+        </time>
+    </div>
+);
+
+/**
+ * The client's activity log: what has happened to their inquiry, newest first,
+ * ending on it being sent, in the client's own words ("Quote approved",
+ * "Partially paid"). Only sales, payment and logistics, and a cancel: the
+ * server never sends anything about the lead, nor who made a change.
+ */
+const ActivityLogCard = ({
+    history,
+    createdAt,
+}: {
+    history: HistoryEntry[];
+    createdAt: string;
 }) => {
-    const [open, setOpen] = useState(true);
+    const entries = [
+        ...[...history].reverse().map((entry) => ({
+            key: `${entry.track}-${entry.status}-${entry.at}`,
+            label: activityLabel(entry),
+            at: entry.at,
+        })),
+        { key: 'sent', label: INQUIRY_SENT_LABEL, at: createdAt },
+    ];
 
     return (
-        <section className="overflow-hidden rounded-md border border-sidebar-border bg-background">
-            <Collapsible open={open} onOpenChange={setOpen}>
-                <h2 className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                    <span className="min-w-0 flex-1">{header}</span>
-                    {badge}
-                    <CollapsibleTrigger
-                        aria-label={`${open ? 'Collapse' : 'Expand'} ${name}`}
-                        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-secondary-foreground transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                    >
-                        <ChevronDown
-                            className={`size-4 transition-transform ${
-                                open ? 'rotate-180' : ''
-                            }`}
-                            aria-hidden
-                        />
-                    </CollapsibleTrigger>
-                </h2>
+        <section
+            aria-labelledby="inquiry-activity-log-title"
+            className="overflow-hidden rounded-md border border-sidebar-border bg-background"
+            data-testid="inquiry-activity-log"
+        >
+            <h2 className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                <span
+                    id="inquiry-activity-log-title"
+                    className="block min-w-0 flex-1 truncate text-sm font-bold tracking-[0.08em] uppercase"
+                >
+                    Activity Log
+                </span>
+                <CountBadge count={entries.length} />
+            </h2>
 
-                <CollapsibleContent>
-                    <div className="border-t border-sidebar-border p-4 sm:p-5">
-                        {children}
-                    </div>
-                    {footer ? (
-                        <div className="border-t border-sidebar-border bg-secondary px-4 py-3 text-sm text-secondary-foreground">
-                            {footer}
-                        </div>
-                    ) : null}
-                </CollapsibleContent>
-            </Collapsible>
+            <ol className="space-y-5 border-t border-sidebar-border p-4 sm:p-5">
+                {entries.map((entry, index) => {
+                    const isCurrent = index === 0;
+
+                    return (
+                        <li key={entry.key} className="flex gap-4">
+                            <span
+                                aria-hidden
+                                className="relative flex w-3 shrink-0 justify-center"
+                            >
+                                <span
+                                    className={`mt-1 size-3 shrink-0 ${
+                                        isCurrent
+                                            ? 'bg-primary'
+                                            : 'border border-sidebar-border'
+                                    }`}
+                                />
+                                {index < entries.length - 1 ? (
+                                    <span className="absolute top-4 bottom-[-1.25rem] w-px bg-sidebar-border" />
+                                ) : null}
+                            </span>
+                            <DatedRow
+                                label={entry.label}
+                                at={entry.at}
+                                isCurrent={isCurrent}
+                            />
+                        </li>
+                    );
+                })}
+            </ol>
         </section>
     );
 };
 
-/** A band about the inquiry as a whole: status, client, timeline. */
-const DetailsCard = ({
-    title,
-    badge,
-    footer,
-    name,
-    children,
-}: {
-    title: string;
-    /** A small status badge beside the title, where the section reports one. */
-    badge?: ReactNode;
-    /** The band along the bottom, which holds a count or a hint. */
-    footer?: ReactNode;
-    name: string;
-    children: ReactNode;
-}) => (
-    <CollapsibleCard
-        name={name}
-        badge={badge}
-        footer={footer}
-        header={
-            <span className="block truncate text-sm font-bold tracking-[0.08em] uppercase">
-                {title}
-            </span>
-        }
+/**
+ * The documents the team has shared with the client: each quotation, with its
+ * revision, and each payment receipt, newest first. The job order is internal
+ * and never reaches the page. Name, size and date only: there is no download
+ * endpoint yet, so nothing here pretends to open a file.
+ */
+const DocumentsCard = ({ documents }: { documents: SharedDocument[] }) => (
+    <section
+        aria-labelledby="inquiry-documents-title"
+        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
+        data-testid="inquiry-documents"
     >
-        {children}
-    </CollapsibleCard>
+        <h2 className="flex items-center gap-3 px-4 py-3 sm:px-5">
+            <span
+                id="inquiry-documents-title"
+                className="block min-w-0 flex-1 truncate text-sm font-bold tracking-[0.08em] uppercase"
+            >
+                Documents
+            </span>
+            <CountBadge
+                count={documents.reduce(
+                    (total, group) => total + group.files.length,
+                    0,
+                )}
+            />
+        </h2>
+
+        <div className="border-t border-sidebar-border p-4 sm:p-5">
+            {documents.length > 0 ? (
+                <ul className="divide-y divide-dashed divide-sidebar-border">
+                    {[...documents].reverse().map((group) => (
+                        <li
+                            key={group.id}
+                            className="py-3 first:pt-0 last:pb-0"
+                            data-testid="inquiry-document-group"
+                        >
+                            <p className="text-sm font-bold">
+                                {documentGroupLabel(
+                                    group.status,
+                                    group.revision,
+                                )}{' '}
+                                · {formatDate(group.at)}
+                            </p>
+                            <ul className="mt-2 space-y-2">
+                                {group.files.map((file) => (
+                                    <li
+                                        key={file.id}
+                                        className="flex items-start gap-3"
+                                    >
+                                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
+                                            {file.mimeType ===
+                                            'application/pdf' ? (
+                                                <FileText
+                                                    className="size-4"
+                                                    aria-hidden
+                                                />
+                                            ) : (
+                                                <ImageIcon
+                                                    className="size-4"
+                                                    aria-hidden
+                                                />
+                                            )}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm">
+                                                {
+                                                    DOCUMENT_TYPE_LABELS[
+                                                        file.type
+                                                    ]
+                                                }
+                                            </p>
+                                            <p
+                                                className="truncate text-xs text-secondary-foreground"
+                                                title={file.name}
+                                            >
+                                                {file.name} ·{' '}
+                                                {formatSize(file.sizeBytes)}
+                                            </p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-sm text-secondary-foreground">
+                    Quotations, billing statements, receipts and invoices from
+                    the team will appear here.
+                </p>
+            )}
+        </div>
+    </section>
 );
 
 /** The small square count a card reports on itself. */
@@ -301,79 +408,49 @@ const FileRow = ({ file }: { file: InquiryFile }) => {
 };
 
 /**
- * One project, whole.
- *
- * Services, stones and requirements in a single card, because that is the shape
- * the reader built them in and the shape they answer for. It used to be three
- * cards — stones, services, then one set of requirements for the whole request —
- * which read well on a request with one project and fell apart on a request with
- * three: the same project name was printed twice in two different cards, and the
- * one answer that most obviously differed between projects, where and when, was
- * the one answer there was only ever room for once.
+ * The project, whole: services, stones and requirements in one section,
+ * because that is the shape the reader built them in and the shape they answer
+ * for. Its name is the heading. Always open: there is one project, and nothing
+ * on the page competes with it for room.
  *
  * Within it the order is what the reader entered it in: what they want done,
  * what it is made of, what it is for, and then where and when. A project
  * that was named only by its services reads in that order too, which is the
  * whole of what it is.
  */
-const ProjectCard = ({
-    index,
-    project,
-    ofMany,
-}: {
-    index: number;
-    project: ResolvedProject;
-    /** How many projects the inquiry holds, which is what decides numbering. */
-    ofMany: number;
-}) => {
+const ProjectSection = ({ project }: { project: ResolvedProject }) => {
     const pieces = countPieces(project.stones);
     const stoneTypes = new Set(project.stones.map((stone) => stone.id)).size;
     const files = project.requirements.attachments;
     const neededBy = formatNeededBy(project.requirements);
     const serviceCount = project.services.length;
 
-    return (
-        <CollapsibleCard
-            name={project.name}
-            badge={stoneTypes > 0 ? <CountBadge count={stoneTypes} /> : null}
-            footer={
-                stoneTypes > 0
-                    ? `${serviceCount} ${
-                          serviceCount === 1 ? 'service' : 'services'
-                      } · ${pieces} ${
-                          pieces === 1 ? 'piece' : 'pieces'
-                      } of ${stoneTypes} ${
-                          stoneTypes === 1 ? 'stone' : 'stones'
-                      }`
-                    : `${serviceCount} ${
-                          serviceCount === 1 ? 'service' : 'services'
-                      }`
-            }
-            header={
-                <>
-                    {/*
-                     * Numbered only when there is more than one. "Project 1 of 1"
-                     * says the reader is partway through a set when there is no
-                     * set, and on a single-project request the name is the whole
-                     * of what identifies it.
-                     */}
-                    {ofMany > 1 ? (
-                        <span className="block text-[0.65rem] font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                            Project {index + 1}
-                        </span>
-                    ) : null}
+    const footer =
+        stoneTypes > 0
+            ? `${serviceCount} ${
+                  serviceCount === 1 ? 'service' : 'services'
+              } · ${pieces} ${pieces === 1 ? 'piece' : 'pieces'} of ${stoneTypes} ${
+                  stoneTypes === 1 ? 'stone' : 'stones'
+              }`
+            : `${serviceCount} ${serviceCount === 1 ? 'service' : 'services'}`;
 
-                    <span
-                        className={`block text-sm font-bold break-words ${
-                            ofMany > 1 ? 'mt-1' : ''
-                        }`}
-                    >
-                        {project.name}
-                    </span>
-                </>
-            }
+    return (
+        <section
+            aria-labelledby="inquiry-project-name"
+            className="overflow-hidden rounded-md border border-sidebar-border bg-background"
+            data-testid="inquiry-project"
         >
-            <div className="space-y-7">
+            <h2 className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                <span
+                    id="inquiry-project-name"
+                    className="block min-w-0 flex-1 text-sm font-bold break-words"
+                >
+                    {project.name}
+                </span>
+                {stoneTypes > 0 ? <CountBadge count={stoneTypes} /> : null}
+            </h2>
+
+            <div className="space-y-7 border-t border-sidebar-border p-4 sm:p-5">
                 <section>
                     <SectionLabel count={stoneTypes}>Stones</SectionLabel>
 
@@ -558,13 +635,17 @@ const ProjectCard = ({
                     </div>
                 </section>
             </div>
-        </CollapsibleCard>
+
+            <div className="border-t border-sidebar-border bg-secondary px-4 py-3 text-sm text-secondary-foreground">
+                {footer}
+            </div>
+        </section>
     );
 };
 
 /** The server's nulls are the page's absent answers. */
 const toRequirements = (
-    requirements: QuoteInquiryDetails['projects'][number]['requirements'],
+    requirements: QuoteInquiryDetails['project']['requirements'],
 ): InquiryRequirementsRecord => ({
     location: requirements.location,
     landmark: requirements.landmark ?? undefined,
@@ -589,38 +670,16 @@ const InquiryDetails = () => {
         ? quoteIndex.url()
         : inquiryIndex.url();
 
-    const inquiryProjects: ResolvedProject[] = inquiry.projects.map(
-        (project) => ({
-            id: project.id,
-            name: project.name,
-            services: project.services,
-            stones: project.stones,
-            applications: project.applications,
-            requirements: toRequirements(project.requirements),
-        }),
-    );
-
-    /*
-     * The shape of the whole request, for the line under the reference.
-     *
-     * Counted the way the cards count rather than from the inquiry's own
-     * shortcuts: stones across projects are pieces, because the same material in
-     * two projects is two lots of it, and the reader is about to see that in two
-     * different cards.
-     */
-    const projectCount = inquiryProjects.length;
-    const pieceTotal = inquiryProjects.reduce(
-        (total, project) => total + countPieces(project.stones),
-        0,
-    );
-    const stoneTypeTotal = new Set(
-        inquiry.projects.flatMap((project) =>
-            project.stones.map((stone) => stone.id),
-        ),
-    ).size;
+    const project: ResolvedProject = {
+        name: inquiry.project.name,
+        services: inquiry.project.services,
+        stones: inquiry.project.stones,
+        applications: inquiry.project.applications,
+        requirements: toRequirements(inquiry.project.requirements),
+    };
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
             <Button asChild variant="outline" className="mb-6 w-full sm:w-auto">
                 <Link href={backHref}>
                     <ArrowLeft aria-hidden />
@@ -629,31 +688,45 @@ const InquiryDetails = () => {
             </Button>
 
             <div className="mb-8 flex flex-col gap-4 border-b border-sidebar-border pb-6 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 space-y-2">
-                    <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-0 space-y-3">
+                    {/*
+                     * The reference, then at most two statuses beside it: the
+                     * inquiry status, the one status shown everywhere (worked
+                     * out from the role statuses), and accounting's payment
+                     * status once its stage has started. The role statuses
+                     * themselves are in the Activity Log.
+                     */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                         <h1 className="text-2xl font-bold tracking-[-0.03em]">
                             {inquiry.reference}
                         </h1>
-                        <StatusBadge status={inquiry.status} />
+
+                        <div
+                            className="flex flex-row flex-nowrap items-center gap-1.5 whitespace-nowrap"
+                            data-testid="inquiry-statuses"
+                        >
+                            {startedStatuses([
+                                { group: 'inquiry', status: inquiry.status },
+                                {
+                                    group: 'payment',
+                                    status: inquiry.paymentStatus,
+                                },
+                            ]).map((entry) => (
+                                <StatusBadge
+                                    key={entry.group}
+                                    group={entry.group}
+                                    status={entry.status}
+                                />
+                            ))}
+                            {/* Staff only: the server never sends a client the lead. */}
+                            {inquiry.lead ? (
+                                <LeadStatusBadge status={inquiry.lead.status} />
+                            ) : null}
+                        </div>
                     </div>
                     <p className="text-sm text-secondary-foreground">
                         Submitted{' '}
                         {dateTimeFormatter.format(new Date(inquiry.createdAt))}
-                    </p>
-                    {/*
-                     * What was asked for, before any of it. The project names are
-                     * deliberately not here: they are the headings of the cards
-                     * below, and repeating the first one beside the reference is
-                     * the same line printed twice.
-                     */}
-                    <p className="text-xs text-secondary-foreground">
-                        {projectCount}{' '}
-                        {projectCount === 1 ? 'project' : 'projects'} ·{' '}
-                        {inquiry.services.length}{' '}
-                        {inquiry.services.length === 1 ? 'service' : 'services'}{' '}
-                        · {pieceTotal} {pieceTotal === 1 ? 'piece' : 'pieces'}{' '}
-                        of {stoneTypeTotal}{' '}
-                        {stoneTypeTotal === 1 ? 'stone' : 'stones'}
                     </p>
                 </div>
 
@@ -661,10 +734,6 @@ const InquiryDetails = () => {
                  * Read-only page: the only thing it offers is a way to ask a
                  * question, and only where there is a group chat for this
                  * inquiry that the reader is in.
-                 *
-                 * TODO(inquiry-binding): groups will be bound to inquiries
-                 * later. Until then no group is linked to an inquiry, so the
-                 * button never shows for real data.
                  */}
                 {inquiry.conversation ? (
                     <Button
@@ -689,122 +758,22 @@ const InquiryDetails = () => {
             </div>
 
             {/*
-             * The side column is written first so that below `lg` it reads before
-             * the projects: where this has got to, who it is for and how it got
-             * there are the things worth knowing before the detail. The order
-             * classes put the projects back on the left once there is room for
-             * both.
+             * The aside (the activity log and the documents) is written first so that below `lg` it reads
+             * before the project: where the inquiry has got to is worth knowing
+             * before the detail. The order classes put the project back on the
+             * left once there is room for both.
              */}
             <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-                <div className="space-y-6 lg:order-2">
-                    <DetailsCard
-                        title="Status"
-                        name="status"
-                        badge={<StatusBadge status={inquiry.status} />}
-                    >
-                        <div className="space-y-5">
-                            <p className="text-sm text-secondary-foreground">
-                                Last updated{' '}
-                                {dateTimeFormatter.format(
-                                    new Date(inquiry.updatedAt),
-                                )}
-                            </p>
-                        </div>
-                    </DetailsCard>
+                <aside className="space-y-6 lg:order-2">
+                    <ActivityLogCard
+                        history={inquiry.history}
+                        createdAt={inquiry.createdAt}
+                    />
+                    <DocumentsCard documents={inquiry.documents} />
+                </aside>
 
-                    <DetailsCard
-                        title="Timeline"
-                        name="timeline"
-                        badge={
-                            <CountBadge count={inquiry.statusHistory.length} />
-                        }
-                    >
-                        {/*
-                         * Newest first, so the state the inquiry is in now is the
-                         * first thing read and the marker that says so is the
-                         * filled one. `updatedAt` is the last entry's time, which
-                         * is what makes "first" and "current" the same entry.
-
-                         * A status and a time, and nothing else. A timeline on a
-                         * read-only page answers "when did this move and to
-                         * what", and anything written about the move belongs
-                         * with whoever wrote it rather than here.
-                         */}
-                        <ol className="space-y-5">
-                            {[...inquiry.statusHistory]
-                                .reverse()
-                                .map((change, index) => {
-                                    const isCurrent = index === 0;
-
-                                    return (
-                                        <li
-                                            key={`${change.status}-${change.at}`}
-                                            className="flex gap-4"
-                                        >
-                                            <span
-                                                aria-hidden
-                                                className="relative flex w-3 shrink-0 justify-center"
-                                            >
-                                                <span
-                                                    className={`mt-1 size-3 shrink-0 ${
-                                                        isCurrent
-                                                            ? 'bg-primary'
-                                                            : 'border border-sidebar-border'
-                                                    }`}
-                                                />
-                                                {index <
-                                                inquiry.statusHistory.length -
-                                                    1 ? (
-                                                    <span className="absolute top-4 bottom-[-1.25rem] w-px bg-sidebar-border" />
-                                                ) : null}
-                                            </span>
-                                            <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                                                <p
-                                                    className={`text-sm font-bold ${
-                                                        isCurrent
-                                                            ? 'text-foreground'
-                                                            : 'text-secondary-foreground'
-                                                    }`}
-                                                >
-                                                    {
-                                                        STATUS_LABELS[
-                                                            change.status
-                                                        ]
-                                                    }
-                                                </p>
-                                                <time
-                                                    dateTime={change.at}
-                                                    className="text-xs text-secondary-foreground"
-                                                >
-                                                    {dateTimeFormatter.format(
-                                                        new Date(change.at),
-                                                    )}
-                                                </time>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                        </ol>
-                    </DetailsCard>
-                </div>
-
-                <div className="space-y-6 lg:order-1">
-                    {projectCount > 0 ? (
-                        inquiryProjects.map((project, index) => (
-                            <ProjectCard
-                                key={project.id}
-                                index={index}
-                                project={project}
-                                ofMany={projectCount}
-                            />
-                        ))
-                    ) : (
-                        <div className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5">
-                            <p className="text-sm text-secondary-foreground">
-                                This inquiry has no projects on it.
-                            </p>
-                        </div>
-                    )}
+                <div className="min-w-0 lg:order-1">
+                    <ProjectSection project={project} />
                 </div>
             </div>
         </div>

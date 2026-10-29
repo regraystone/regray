@@ -15,16 +15,16 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ClientInquiryResource extends JsonResource
 {
     /**
-     * @return array{reference: string, status: string, createdAt: string, title: string, projectCount: int, stones: list<array{slug: string, name: string, thumbnail: string}>, services: list<array{id: string, name: string}>, actions: array<string, array{visible: bool, enabled: bool, reason?: string}>}
+     * @return array{reference: string, status: string, paymentStatus: string|null, createdAt: string, title: string, stones: list<array{slug: string, name: string, thumbnail: string}>, services: list<array{id: string, name: string}>, actions: array<string, array{visible: bool, enabled: bool, reason?: string}>}
      */
     public function toArray(Request $request): array
     {
         return [
             'reference' => $this->reference,
             'status' => $this->status->value,
+            'paymentStatus' => $this->paymentStatus?->value,
             'createdAt' => $this->createdAt->toIso8601String(),
             'title' => $this->title,
-            'projectCount' => $this->projectCount,
             'stones' => array_map(fn (array $stone): array => [
                 'slug' => $stone['slug'],
                 'name' => $stone['name'],

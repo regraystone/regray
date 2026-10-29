@@ -16,8 +16,9 @@ class InquiryDetailsController extends Controller
     ) {}
 
     /**
-     * One inquiry, read only, loaded by its reference and scoped to the signed-in
-     * user. Both `quote.show` and `inquiry.show` land here.
+     * One inquiry, read only, loaded by its reference: a client's own inquiry
+     * on `quote.show`, and any inquiry for staff on `inquiry.show` (the
+     * Inquiry list's View). Both land here.
      *
      * TODO: leave the parameter a plain `{reference}` string and never type-hint
      * `Inquiry` on this method. SubstituteBindings is prioritized ahead of the
@@ -25,11 +26,6 @@ class InquiryDetailsController extends Controller
      * let a reader who may not open an inquiry tell which references exist. The
      * 404 comes from the scoped lookup (`whereBelongsTo` the user), never from
      * the route.
-     *
-     * TODO: `inquiry.show` is the staff list's twin of this route and is scoped
-     * to the signed-in user as well, which is right for a client and wrong for
-     * staff reading someone else's inquiry. Staff scoping (handlers, assignment)
-     * is a separate change; until it lands, staff see only inquiries they sent.
      *
      * TODO: before this reaches staff, add `resources/js/pages/not-found.tsx` and
      * a 404 handler beside the 403 one in bootstrap/app.php. Today a 404 renders

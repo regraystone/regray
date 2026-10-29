@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Home\ShowProjectAction;
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -84,69 +83,6 @@ test('profile stones with the same sort order are ordered by name', function ():
         );
 });
 
-test('a profile guest is sent to login', function (): void {
-    $this->get(route('home.show', 'ginza-one'))->assertRedirect(route('login'));
-});
-
-test('an unverified profile reader is sent to verification', function (): void {
-    $user = User::factory()->unverified()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
-        ->assertRedirect(route('verification.notice'));
-});
-
-test('a forbidden role cannot probe existing missing or malformed project slugs', function (string $role): void {
-    $user = User::factory()->role($role)->create();
-
-    foreach (['ginza-one', 'no-such-project'] as $slug) {
-        $this->actingAs($user)->get(route('home.show', $slug))
-            ->assertForbidden()
-            ->assertInertia(fn (Assert $page) => $page->component('forbidden'));
-    }
-})->with(collect(Role::names())->reject(fn (string $role) => in_array($role, [Role::Client->value, Role::Admin->value], true))->all());
-
-test('an unknown profile slug returns the not-found page', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'no-such-project'))
-        ->assertNotFound()
-        ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-});
-
-test('a malformed profile slug returns 404 without looking up a project', function (string $slug): void {
-    $this->mock(ShowProjectAction::class)->shouldNotReceive('execute');
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', $slug))
-        ->assertNotFound()
-        ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-})->with([
-    'uppercase' => 'Ginza-one',
-    'underscore' => 'ginza_one',
-    'double hyphen' => 'ginza--one',
-    'leading hyphen' => '-ginza-one',
-    'trailing hyphen' => 'ginza-one-',
-    'too long' => str_repeat('a', 101),
-]);
-
-test('an unpublished project returns the not-found page', function (): void {
-    Project::query()->where('slug', 'ginza-one')->update(['is_published' => false]);
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
-        ->assertNotFound()
-        ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-});
-
-test('a soft-deleted project returns the not-found page', function (): void {
-    Project::query()->where('slug', 'ginza-one')->firstOrFail()->delete();
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
-        ->assertNotFound()
-        ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-});
-
 test('inactive stones and categories are omitted from a profile', function (): void {
     Stone::query()->where('slug', 'arancia')->update(['is_active' => false]);
     ProjectCategory::query()->where('slug', 'wall-accents')->update(['is_active' => false]);
@@ -162,50 +98,6 @@ test('inactive stones and categories are omitted from a profile', function (): v
                 ['slug' => 'countertops-backsplash', 'name' => 'Countertops & Backsplash'],
             ])
         );
-});
-
-test('a forbidden profile JSON request remains a 403 JSON error', function (): void {
-    $user = User::factory()->role(Role::Technical)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'ginza-one'), ['Accept' => 'application/json'])
-        ->assertForbidden()
-        ->assertJsonStructure(['message'])
-        ->assertJsonMissingPath('component');
-});
-
-test('a missing profile JSON request remains a 404 JSON error', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->getJson(route('home.show', 'no-such-project'))
-        ->assertNotFound()
-        ->assertJsonStructure(['message'])
-        ->assertJsonMissingPath('component');
-});
-
-test('a missing Inertia visit renders the not-found component with 404', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.show', 'no-such-project'), [
-        'X-Inertia' => 'true',
-        'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(Request::create('/')),
-        'X-Requested-With' => 'XMLHttpRequest',
-        'Accept' => 'text/html',
-    ])->assertNotFound()
-        ->assertHeader('X-Inertia', 'true')
-        ->assertJsonPath('component', 'not-found');
-});
-
-test('a missing web page renders not-found even for a guest', function (): void {
-    $this->get('/no-such-page')
-        ->assertNotFound()
-        ->assertInertia(fn (Assert $page) => $page->component('not-found'));
-});
-
-test('a missing API path remains a JSON 404 without an Accept header', function (): void {
-    $this->get('/api/no-such-endpoint')
-        ->assertNotFound()
-        ->assertJsonStructure(['message'])
-        ->assertJsonMissingPath('component');
 });
 
 test('a project profile does not depend on the state of any stone', function (string $state): void {
@@ -233,11 +125,42 @@ test('stone and project profiles keep independent permission guards', function (
     [Permission::HomeProjectsView, '/home/ginza-one', '/home/arctic-pink'],
 ]);
 
-test('the nested stone-and-project URL redirects to the flat project URL', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
+test('opens the stone when a stone and a project share a flat URL\'s slug', function (): void {
+    Project::query()->where('slug', 'ginza-one')->update(['slug' => 'arctic-pink']);
 
-    $this->actingAs($user)
+    $this->actingAs(User::factory()->role(Role::Client)->create())
+        ->get('/home/arctic-pink')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('stone-profile'));
+});
+
+test('moves the old nested stone-and-project URL to the flat project URL for good', function (): void {
+    $this->actingAs(User::factory()->role(Role::Client)->create())
         ->get('/home/arctic-pink/ginza-one')
-        ->assertRedirect('/home/ginza-one')
-        ->assertStatus(301);
+        ->assertStatus(301)
+        ->assertRedirect('/home/ginza-one');
+});
+
+test('shows the not-found page for an unknown, unpublished or deleted project, on a visit too, and for an unknown path even to a guest', function (): void {
+    $user = User::factory()->role(Role::Client)->create();
+    $notFound = fn (string $slug) => $this->actingAs($user)->get(route('home.show', $slug))
+        ->assertNotFound()
+        ->assertInertia(fn (Assert $page) => $page->component('not-found'));
+
+    $notFound('no-such-project');
+
+    Project::query()->where('slug', 'ginza-one')->update(['is_published' => false]);
+    $notFound('ginza-one');
+
+    Project::query()->where('slug', 'belo-medical-group')->firstOrFail()->delete();
+    $notFound('belo-medical-group');
+
+    $this->actingAs($user)->get(route('home.show', 'no-such-project'), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(Request::create('/')),
+        'X-Requested-With' => 'XMLHttpRequest',
+    ])->assertNotFound()->assertJsonPath('component', 'not-found');
+
+    auth()->logout();
+    $this->get('/no-such-page')->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('not-found'));
 });

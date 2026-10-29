@@ -11,22 +11,22 @@ use App\Services\Message\SupportConversationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 /**
- * Posts an inquiry card announcing the new status every time an inquiry's
- * status changes, including the first one: a newly sent inquiry posts a
- * "New inquiry" card.
+ * Posts an inquiry card announcing the inquiry's snapshot (its display status
+ * and its three role statuses) every time what it shows changes: a role status
+ * moved, the inquiry was just sent ("New inquiry"), or its lead was lost.
+ * The snapshot is the inquiry as it is when the card is posted.
  *
  * Where the card goes is SupportConversationService::cardThreadFor():
- * - the inquiry's group chat, once the inquiry has one;
+ * - the inquiry's group chat, once marketing has made one for it;
  * - otherwise the client's Regray Team thread, created if the client has none
- *   yet, so the team hears about every inquiry from the start.
+ *   yet, so the team hears about every inquiry from the start;
+ * - nowhere, for a direct (walk-in) client with no group chat.
  *
  * Queued, so posting the card can never fail the request that changed the
  * status. A newly sent inquiry would otherwise be reported as not saved.
- * Retries are safe: the card is unique per conversation, inquiry and status,
- * and a second insert is ignored.
+ * Retries are safe: the card is unique per conversation, inquiry and
+ * snapshot, and a second insert is ignored.
  *
- * TODO(inquiry-binding): groups will be bound to inquiries later. Until then
- * no real inquiry has a group, so every card goes to the Regray Team thread.
  * Schedule cards are PostScheduleCard's.
  */
 class PostInquiryStatusCard implements ShouldQueue
@@ -40,9 +40,22 @@ class PostInquiryStatusCard implements ShouldQueue
 
     public function handle(InquiryStatusChanged $event): void
     {
-        $conversation = $this->support->cardThreadFor($event->inquiry);
+        $inquiry = $event->inquiry;
+        $conversation = $this->support->cardThreadFor($inquiry);
 
-        $message = $this->messages->createInquiryCardOnce($conversation->id, $event->inquiry->id, $event->to->value);
+        // A direct (walk-in) client's inquiry with no group chat has nowhere to post.
+        if ($conversation === null) {
+            return;
+        }
+
+        $message = $this->messages->createInquiryCardOnce(
+            $conversation->id,
+            $inquiry->id,
+            $inquiry->status,
+            $inquiry->sales_status,
+            $inquiry->payment_status,
+            $inquiry->process_status,
+        );
 
         if ($message === null) {
             return;

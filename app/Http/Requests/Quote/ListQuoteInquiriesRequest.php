@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Quote;
 
 use App\Data\InquiryListFilters;
-use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusGroup;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Validator as ValidatorFactory;
@@ -22,7 +22,7 @@ class ListQuoteInquiriesRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', Rule::in(['all', ...InquiryStatus::listable()])],
+            'status' => ['nullable', Rule::in(['all', ...InquiryStatusGroup::values()])],
             'sort' => ['nullable', Rule::in([InquiryListFilters::SORT_NEWEST, InquiryListFilters::SORT_OLDEST])],
             'page' => ['nullable', 'integer', 'min:1'],
         ];
@@ -44,7 +44,7 @@ class ListQuoteInquiriesRequest extends FormRequest
 
         return new InquiryListFilters(
             search: $search === '' ? null : $search,
-            status: $status === 'all' ? null : InquiryStatus::from($status),
+            status: $status === 'all' ? null : InquiryStatusGroup::from($status),
             sort: $valid['sort'] ?? InquiryListFilters::SORT_NEWEST,
             page: (int) ($valid['page'] ?? 1),
         );

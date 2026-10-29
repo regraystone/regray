@@ -146,7 +146,15 @@ describe('upcoming', function (): void {
 it('shows a booking without an inquiry, and an inquiry visit with its reference', function (): void {
     $client = inquiryClient();
     $inquiry = new Inquiry;
-    $inquiry->forceFill(['reference' => 'INQ-S1', 'client_id' => $client->id, 'status' => 'pending', 'status_changed_at' => now()])->save();
+    $inquiry->forceFill([
+        'reference' => 'INQ-S1',
+        'client_id' => $client->id,
+        'name' => 'Kitchen',
+        'location' => 'Makati',
+        'sales_status_changed_at' => now(),
+        'payment_status_changed_at' => now(),
+        'process_status_changed_at' => now(),
+    ])->save();
     $booking = scheduledVisit($client, '2026-10-15 10:00');
     scheduledVisit($client, '2026-10-16 10:00', inquiry: $inquiry);
 
@@ -157,7 +165,8 @@ it('shows a booking without an inquiry, and an inquiry visit with its reference'
     expect($schedules[0])->toBe([
         'id' => $booking->id,
         'title' => 'Visit at 2026-10-15 10:00',
-        'arrivalAt' => '2026-10-15T02:00:00+00:00',
+        // The same instant, shown in Manila.
+        'arrivalAt' => '2026-10-15T10:00:00+08:00',
         'status' => 'pending',
         'notes' => null,
         'inquiryReference' => null,

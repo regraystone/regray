@@ -26,7 +26,7 @@ class ShowInquiryEditAction
 
         return [
             'inquiry' => $inquiry,
-            'refusal' => $this->inquiryActions->updateRefusal($inquiry->status),
+            'refusal' => $this->inquiryActions->updateRefusal($inquiry),
         ];
     }
 }

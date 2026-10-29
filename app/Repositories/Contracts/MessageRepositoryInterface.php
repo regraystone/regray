@@ -2,6 +2,10 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Enums\InquiryStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\ProcessStatus;
+use App\Enums\SalesStatus;
 use App\Models\Message;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -44,10 +48,20 @@ interface MessageRepositoryInterface
     public function remove(Message $message): Message;
 
     /**
-     * Post an inquiry card once. Returns null when the same card is already in
-     * the conversation, which is what a retried listener will find.
+     * Post an inquiry card once: a snapshot of the inquiry's display status and
+     * its three role statuses, NULL for a stage that has not started. Returns
+     * null when the same snapshot is already in the conversation, which is what a retried listener will find. Posted now
+     * unless `$postedAt` says when.
      */
-    public function createInquiryCardOnce(int $conversationId, int $inquiryId, string $announcedStatus): ?Message;
+    public function createInquiryCardOnce(
+        int $conversationId,
+        int $inquiryId,
+        InquiryStatus $status,
+        ?SalesStatus $salesStatus,
+        ?PaymentStatus $paymentStatus,
+        ?ProcessStatus $processStatus,
+        ?CarbonInterface $postedAt = null,
+    ): ?Message;
 
     /**
      * Post a schedule card once. Returns null when the same card is already in

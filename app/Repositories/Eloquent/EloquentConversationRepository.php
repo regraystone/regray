@@ -144,6 +144,7 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
             'type' => ConversationType::Group,
             'name' => $attributes['name'],
             'created_by' => $attributes['created_by'],
+            'inquiry_id' => $attributes['inquiry_id'],
         ]);
     }
 

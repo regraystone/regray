@@ -65,7 +65,10 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // The studio's zone, so "today" and every date shown are Manila's. Stored
+    // instants (timestamptz) are unaffected: the database session reads and
+    // writes in the same zone (config/database.php, pgsql `timezone`).
+    'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
     /*
     |--------------------------------------------------------------------------

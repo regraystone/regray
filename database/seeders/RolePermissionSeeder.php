@@ -56,6 +56,16 @@ class RolePermissionSeeder extends Seeder
      * door. The client keeps `schedule.create` either way, because booking a visit
      * is allowed from the appropriate door depending on which URL they use.
      *
+     * `leads.view` and `leads.update` are marketing's alone (and the
+     * super-admin's, listed like every other permission). On the Inquiry list,
+     * `inquiries.edit` is marketing's and sales'; each status track is its
+     * role's (`inquiries.status.sales` sales', `.payment` accounting's,
+     * `.process` logistics'); technical and owner only read
+     * (`inquiries.view`). `inquiries.create` goes to the client, who sends
+     * their own inquiries, to marketing, who may open one for a client from
+     * their idle or won lead, and to sales, who may open one only from a won
+     * lead.
+     *
      * `home-projects.view` goes to the client and to the super-admin and to
      * nobody else: it names the project profile and the stone profile nested
      * under it, which are portfolio pages a client reads from Home. The
@@ -98,12 +108,18 @@ class RolePermissionSeeder extends Seeder
             Permission::AccountsView->value,
             Permission::ProjectsView->value,
             Permission::ProfileView->value,
+            Permission::LeadsView->value,
             Permission::ProfileScheduleView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
             Permission::SavedManage->value,
             Permission::ConversationsCreate->value,
             Permission::SupportClaim->value,
+            Permission::LeadsUpdate->value,
+            Permission::InquiriesEdit->value,
+            Permission::InquiriesStatusSales->value,
+            Permission::InquiriesStatusPayment->value,
+            Permission::InquiriesStatusProcess->value,
         ],
         Role::Owner->value => [
             Permission::OverviewView->value,
@@ -119,10 +135,13 @@ class RolePermissionSeeder extends Seeder
             Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
+            Permission::LeadsView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
             Permission::ConversationsCreate->value,
             Permission::SupportClaim->value,
+            Permission::LeadsUpdate->value,
+            Permission::InquiriesEdit->value,
         ],
         Role::Sales->value => [
             Permission::OverviewView->value,
@@ -130,7 +149,10 @@ class RolePermissionSeeder extends Seeder
             Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
+            Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
+            Permission::InquiriesEdit->value,
+            Permission::InquiriesStatusSales->value,
         ],
         Role::Accounting->value => [
             Permission::OverviewView->value,
@@ -138,6 +160,7 @@ class RolePermissionSeeder extends Seeder
             Permission::InquiriesView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
+            Permission::InquiriesStatusPayment->value,
         ],
         Role::Technical->value => [
             Permission::OverviewView->value,
@@ -154,6 +177,7 @@ class RolePermissionSeeder extends Seeder
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::ScheduleCreate->value,
+            Permission::InquiriesStatusProcess->value,
         ],
     ];
 

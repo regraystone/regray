@@ -1,4 +1,4 @@
-import { ArrowLeft, Info, MoreVertical, Phone } from 'lucide-react';
+import { ArrowLeft, Info, MoreVertical, Phone, UserPlus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,9 +12,10 @@ import type { ConversationSummary } from '@/types/message';
 
 /**
  * The thread's header: who it is with, what the thread is ("Handled by …" on
- * a Regray Team thread, the member count of a group), and the staff actions on
- * a Regray Team thread. The call and info icons are kept as they were, with no
- * behaviour yet.
+ * a Regray Team thread, the member count of a group), the staff actions on a
+ * Regray Team thread, and, for a sales member of an inquiry's group chat,
+ * adding accounting or logistics. The call and info icons are kept as they
+ * were, with no behaviour yet.
  */
 const ThreadHeader = ({
     conversation,
@@ -24,6 +25,7 @@ const ThreadHeader = ({
     onBack,
     onRelease,
     onReassign,
+    onAddMembers,
 }: {
     conversation: ConversationSummary;
     subtitle: string | null;
@@ -32,6 +34,7 @@ const ThreadHeader = ({
     onBack: () => void;
     onRelease: () => void;
     onReassign: () => void;
+    onAddMembers: () => void;
 }) => {
     const getInitials = useInitials();
     const secondLine =
@@ -97,6 +100,19 @@ const ThreadHeader = ({
                 >
                     <Info className="size-5" aria-hidden />
                 </Button>
+                {conversation.canAddMembers ? (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={onAddMembers}
+                        aria-label="Add accounting or logistics"
+                        title="Add accounting or logistics"
+                        className="cursor-pointer rounded-md"
+                    >
+                        <UserPlus className="size-5" aria-hidden />
+                    </Button>
+                ) : null}
                 {canRelease || canReassign ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

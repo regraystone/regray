@@ -47,9 +47,9 @@ class ClientInquiryService
         $cards = $page->through(fn (Inquiry $inquiry): ClientInquiryCard => new ClientInquiryCard(
             reference: $inquiry->reference,
             status: $inquiry->status,
+            paymentStatus: $inquiry->payment_status,
             createdAt: $inquiry->created_at,
-            title: (string) data_get($inquiry->projects->first(), 'name', $inquiry->reference),
-            projectCount: $inquiry->projects->count(),
+            title: $inquiry->name,
             stones: array_values(($stones->get($inquiry->id) ?? collect())
                 ->map(fn (Stone $stone): array => [
                     'slug' => $stone->slug,
@@ -59,7 +59,7 @@ class ClientInquiryService
             services: array_values(($services->get($inquiry->id) ?? collect())
                 ->map(fn (Service $service): array => ['id' => $service->slug, 'name' => $service->name])
                 ->all()),
-            actions: $this->inquiryActions->for($inquiry->status),
+            actions: $this->inquiryActions->for($inquiry),
         ));
 
         return ['inquiries' => $cards, 'hasMore' => $cards->hasMorePages()];

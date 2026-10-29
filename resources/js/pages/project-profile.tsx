@@ -26,7 +26,7 @@ const ProjectProfile = ({
         .join(', ');
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
             {/*
              * The mobile order is the DOM order: return and a centred title,
              * the image, then the facts with Discover leading them. At lg one

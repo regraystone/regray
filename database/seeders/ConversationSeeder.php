@@ -7,7 +7,6 @@ use App\Enums\MessageType;
 use App\Enums\Role;
 use App\Enums\SystemEvent;
 use App\Models\Conversation;
-use App\Models\Inquiry;
 use App\Models\Message;
 use App\Models\Schedule;
 use App\Models\User;
@@ -70,11 +69,8 @@ class ConversationSeeder extends Seeder
                 $directKey = hash('sha256', implode(':', $memberIds));
             }
 
-            // TODO(inquiry-binding): groups are not bound to inquiries yet, so
-            // the sample groups carry no inquiry either.
-            $inquiry = $conversationData['inquiry_id']
-                ? Inquiry::where('reference', strtoupper($conversationData['inquiry_id']))->first()
-                : null;
+            // The sample groups are not bound to an inquiry. The inquiries'
+            // own group chats are InquirySeeder's.
 
             $conversation = Conversation::firstOrCreate(
                 ['direct_key' => $directKey, 'name' => $conversationData['name'], 'type' => $conversationData['type']],
@@ -100,9 +96,10 @@ class ConversationSeeder extends Seeder
                 $kind = $messageData['kind'];
                 $scheduleId = $kind === 'schedule' ? ($scheduleMap[$messageData['schedule_id'] ?? ''] ?? null) : null;
 
-                // A card whose visit or inquiry is not in the sample data has
-                // nothing to show, so it is left out rather than broken.
-                if (($kind === 'schedule' && $scheduleId === null) || ($kind === 'inquiry' && $inquiry === null)) {
+                // A card whose visit is not in the sample data has nothing to
+                // show, so it is left out rather than broken. Inquiry cards are
+                // InquirySeeder's, one per snapshot, so none are written here.
+                if ($kind === 'inquiry' || ($kind === 'schedule' && $scheduleId === null)) {
                     continue;
                 }
 
@@ -113,13 +110,8 @@ class ConversationSeeder extends Seeder
                 $message = Message::create([
                     'conversation_id' => $conversation->id,
                     'sender_id' => $senderId,
-                    'type' => match ($kind) {
-                        'schedule' => MessageType::ScheduleCard,
-                        'inquiry' => MessageType::InquiryCard,
-                        default => MessageType::Text,
-                    },
+                    'type' => $kind === 'schedule' ? MessageType::ScheduleCard : MessageType::Text,
                     'body' => $kind === 'text' ? ($messageData['body'] ?? null) : null,
-                    'inquiry_id' => $kind === 'inquiry' ? $inquiry->id : null,
                     'schedule_id' => $scheduleId,
                     'announced_status' => $kind === 'text' ? null : ($messageData['announced_status'] ?? null),
                     'created_at' => Carbon::parse($messageData['sent_at']),
@@ -175,19 +167,25 @@ class ConversationSeeder extends Seeder
         if ($handled !== null && $marketing !== null) {
             $thread = $support->ensureFor($handled);
 
-            if (! $thread->messages()->exists()) {
+            // InquirySeeder has already posted this client's inquiry cards
+            // here, so only a thread with no conversation yet gets one.
+            if (! $thread->messages()->where('type', MessageType::Text)->exists()) {
                 $first = $this->text($thread, $handled, 'Good morning — could someone confirm the delivery date for our counters?', now()->subDay());
 
-                $thread->forceFill(['assigned_to' => $marketing->id, 'assigned_at' => now()->subDay()->addMinutes(5)])->save();
-                $members->upsert($thread->id, $marketing->id, ConversationMemberRole::Member);
+                // InquirySeeder gave the thread to marketing with the client's
+                // lead; without it, marketing claims it here.
+                if ($thread->assigned_to === null) {
+                    $thread->forceFill(['assigned_to' => $marketing->id, 'assigned_at' => now()->subDay()->addMinutes(5)])->save();
+                    $members->upsert($thread->id, $marketing->id, ConversationMemberRole::Member);
 
-                Message::create([
-                    'conversation_id' => $thread->id,
-                    'type' => MessageType::System,
-                    'system_event' => SystemEvent::Assigned,
-                    'system_user_id' => $marketing->id,
-                    'created_at' => now()->subDay()->addMinutes(5),
-                ]);
+                    Message::create([
+                        'conversation_id' => $thread->id,
+                        'type' => MessageType::System,
+                        'system_event' => SystemEvent::Assigned,
+                        'system_user_id' => $marketing->id,
+                        'created_at' => now()->subDay()->addMinutes(5),
+                    ]);
+                }
 
                 $reply = $this->text($thread, $marketing, 'Good morning! Your counters are scheduled for delivery on Friday.', now()->subDay()->addMinutes(6));
 

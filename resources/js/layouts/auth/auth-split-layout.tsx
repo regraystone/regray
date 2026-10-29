@@ -26,17 +26,8 @@ export default function AuthSplitLayout({
                             className="flex w-fit items-center gap-2 text-white"
                             aria-label="Regray Studio"
                         >
-                            <img
-                                src="/images/regray-logo.svg"
-                                alt=""
-                                aria-hidden="true"
-                                className="h-8 w-auto shrink-0 object-contain invert sm:h-9 lg:h-10"
-                            />
-                            <span className="text-sm font-extrabold sm:text-lg lg:text-xl">
-                                Regray{' '}
-                                <span className="font-normal text-white/70">
-                                    Studio
-                                </span>
+                            <span className="text-base font-extrabold sm:text-lg lg:text-xl">
+                                Regray Studio
                             </span>
                         </Link>
 
@@ -60,17 +51,8 @@ export default function AuthSplitLayout({
                         className="flex items-center justify-center gap-2.5 text-center lg:hidden"
                         aria-label="Regray Studio"
                     >
-                        <img
-                            src="/images/regray-logo.svg"
-                            alt=""
-                            aria-hidden="true"
-                            className="h-8 w-auto shrink-0 object-contain sm:h-9 md:h-10"
-                        />
-                        <span className="text-base font-extrabold sm:text-lg md:text-xl">
-                            Regray{' '}
-                            <span className="font-normal text-secondary-foreground">
-                                Studio
-                            </span>
+                        <span className="text-xl font-extrabold md:text-2xl">
+                            Regray Studio
                         </span>
                     </Link>
 

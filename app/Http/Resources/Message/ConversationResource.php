@@ -6,6 +6,7 @@ use App\Enums\ConversationType;
 use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
 use App\Enums\Permission;
+use App\Enums\Role;
 use App\Enums\SystemEvent;
 use App\Models\Conversation;
 use App\Models\ConversationMember;
@@ -85,7 +86,22 @@ class ConversationResource extends JsonResource
                 && $this->assigned_to === null
                 && $this->viewer->can(Permission::SupportClaim->value),
             'memberCount' => $this->type === ConversationType::Group ? $this->members->count() : null,
+            'canAddMembers' => $this->canAddMembers($viewerIsClient),
         ];
+    }
+
+    /**
+     * Whether the reader may add accounting or logistics to this group: a sales
+     * member of an inquiry's group chat. The same answer as
+     * ConversationPolicy::addMembers, read off the loaded members.
+     */
+    private function canAddMembers(bool $viewerIsClient): bool
+    {
+        return $this->type === ConversationType::Group
+            && $this->inquiry_id !== null
+            && ! $viewerIsClient
+            && $this->viewer->hasRole(Role::Sales->value)
+            && $this->members->contains(fn (ConversationMember $member): bool => $member->user_id === $this->viewer->id);
     }
 
     /**

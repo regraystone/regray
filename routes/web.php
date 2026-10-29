@@ -4,7 +4,11 @@ use App\Enums\Permission;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\Inquiry\InquiryController;
+use App\Http\Controllers\Inquiry\InquiryStatusController;
+use App\Http\Controllers\Inquiry\StaffClientController;
+use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Message\AttachmentController;
+use App\Http\Controllers\Message\GroupMemberController;
 use App\Http\Controllers\Message\MessageController;
 use App\Http\Controllers\Message\ThreadController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
@@ -120,9 +124,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * so a client cannot reach the staff stepper and marketing cannot reach the
      * client one, and an action permission on top. `quotations.view` is Quote
      * alone and `inquiries.view` is shared by six staff roles, so neither of
-     * them names `client` and `marketing` and nothing else; `inquiries.create` is
-     * granted to exactly those two and is what every entry point checks before
-     * it offers the button that leads here.
+     * them names only the roles that send inquiries; `inquiries.create` is
+     * granted to exactly those (client, marketing and sales) and is what every
+     * entry point checks before it offers the button that leads here. Staff
+     * send theirs for a lead's client, through `leads.inquiries.store` below.
      */
     Route::get('quote/inquire', [ViewController::class, 'inquire'])
         ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
@@ -133,9 +138,59 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('inquiry/inquire', [ViewController::class, 'inquire'])
         ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
         ->name('inquiry.inquire');
-    Route::post('inquiry/inquire', [InquiryController::class, 'store'])
+
+    /*
+     * Staff send the stepper's inquiry for a lead's client rather than for
+     * themselves, so the staff stepper posts here, under the lead. Guarded
+     * like the staff stepper (`inquiries.view` keeps clients out, and
+     * `inquiries.create` is the action); LeadPolicy then says whether this
+     * user may use this lead. `{reference}` stays a plain string so the
+     * permissions are checked before anything says whether the lead exists.
+     */
+    Route::post('leads/{reference}/inquiries', [InquiryController::class, 'storeForLead'])
         ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
-        ->name('inquiry.inquire.store');
+        ->name('leads.inquiries.store');
+
+    /*
+     * The two branches of the staff Inquire flow, guarded like the staff
+     * stepper. Platform: find the client's account, then their lead (above).
+     * Direct (walk-in): take the client down, with the duplicate check, then
+     * send the inquiry for them, with no lead.
+     */
+    Route::get('inquiry/inquire/accounts', [StaffClientController::class, 'accounts'])
+        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:message-people'])
+        ->name('inquiry.inquire.accounts');
+    Route::post('inquiry/direct-clients', [StaffClientController::class, 'storeDirect'])
+        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-edit'])
+        ->name('inquiry.direct-clients.store');
+    Route::post('inquiry/direct-clients/{client}/inquiries', [InquiryController::class, 'storeForDirectClient'])
+        ->whereNumber('client')
+        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
+        ->name('inquiry.direct-clients.inquiries.store');
+
+    Route::get('leads', [ViewController::class, 'leads'])
+        ->middleware(Permission::LeadsView->middleware())
+        ->name('leads.index');
+    Route::post('leads/{reference}/status', [LeadController::class, 'updateStatus'])
+        ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
+        ->name('leads.status');
+    Route::post('leads/{reference}/update', [LeadController::class, 'update'])
+        ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
+        ->name('leads.update');
+
+    /*
+     * Update Status, from the Inquiry list: one endpoint for the three tracks.
+     * `inquiries.view` keeps clients out; InquiryPolicy then asks for the
+     * track's own permission (`inquiries.status.sales`, `.payment`,
+     * `.process`), the same one that puts its button on the row.
+     */
+    Route::post('inquiries/{reference}/status', [InquiryStatusController::class, 'store'])
+        ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
+        ->name('inquiries.status');
+    // Sales uploads the job order after the quote, which starts logistics.
+    Route::post('inquiries/{reference}/job-order', [InquiryStatusController::class, 'jobOrder'])
+        ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
+        ->name('inquiries.job-order');
 
     /*
      * The inquiry details page hangs off whichever list the user reads their
@@ -173,6 +228,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('quote/{reference}', [InquiryDetailsController::class, 'show'])
         ->middleware(Permission::QuotationsView->middleware())
         ->name('quote.show');
+    /*
+     * Editing an inquiry's project from the Inquiry list (Edit): staff with
+     * `inquiries.edit`, on the Inquire page in edit mode. Kept above
+     * `inquiry/{reference}` so that route never takes these.
+     */
+    Route::get('inquiry/{reference}/edit', [InquiryEditController::class, 'staffEdit'])
+        ->middleware(Permission::InquiriesEdit->middleware())
+        ->name('inquiry.edit');
+    Route::patch('inquiry/{reference}', [InquiryEditController::class, 'staffUpdate'])
+        ->middleware([Permission::InquiriesEdit->middleware(), 'throttle:inquiry-edit'])
+        ->name('inquiry.update');
+
     Route::get('inquiry/{reference}', [InquiryDetailsController::class, 'show'])
         ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
         ->name('inquiry.show');
@@ -241,6 +308,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('reassign', [ThreadController::class, 'reassign'])
                 ->middleware(['can:reassign,conversation', 'throttle:message-assignment'])
                 ->name('message.reassign');
+
+            /*
+             * A sales member of an inquiry's group chat adds accounting and
+             * logistics: who may be added, then adding them.
+             */
+            Route::get('members', [GroupMemberController::class, 'index'])
+                ->middleware(['can:addMembers,conversation', 'throttle:message-people'])
+                ->name('message.members.index');
+            Route::post('members', [GroupMemberController::class, 'store'])
+                ->middleware(['can:addMembers,conversation', 'throttle:group-create'])
+                ->name('message.members.store');
         });
     });
     Route::get('stones', [ViewController::class, 'stones'])

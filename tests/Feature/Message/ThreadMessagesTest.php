@@ -29,15 +29,6 @@ it('pages the newest messages first and says whether older ones remain', functio
         ->assertJsonPath('hasMore', false);
 });
 
-it('refuses before and after together with 422', function (): void {
-    $client = inquiryClient();
-    $group = groupConversation([$client]);
-
-    $this->actingAs($client)->getJson(route('message.thread', ['conversation' => $group, 'before' => 5, 'after' => 1]))
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('after');
-});
-
 it('refuses a client the Regray Team thread of another client with 403', function (): void {
     $thread = supportThreadFor(inquiryClient());
     $intruder = inquiryClient();

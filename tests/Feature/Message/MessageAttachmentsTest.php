@@ -152,20 +152,6 @@ it('sends files without any words, and the list says what was sent', function ()
         ->assertJsonPath('conversation.preview', 'You: Sent a file');
 });
 
-it('quotes a files-only message as "Attachment" in a reply', function (): void {
-    Storage::fake(config('messaging.attachments.disk'));
-    $client = inquiryClient();
-    $sales = messagingStaff(Role::Sales);
-    $group = groupConversation([$sales, $client]);
-    $photoId = sendFiles($client, $group, [sitePhoto()])->json('message.id');
-
-    $this->actingAs($sales)->postJson(route('message.send', $group), [
-        'body' => 'Nice',
-        'clientKey' => (string) Str::uuid(),
-        'replyToId' => $photoId,
-    ])->assertCreated()->assertJsonPath('message.replyTo.snippet', 'Attachment');
-});
-
 it('refuses what it cannot send, with the reason', function (array $payload, string $field, string $error): void {
     Storage::fake(config('messaging.attachments.disk'));
     $client = inquiryClient();

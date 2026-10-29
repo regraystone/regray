@@ -197,7 +197,7 @@ test('14 · Requirements: location is required, and "Parañaque" survives the ro
     expect(inquiryReferences(clientAId)[0]).toBe(reference);
     expect(
         php<string>(
-            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first()->projects()->value('location')`,
+            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->value('location')`,
         ),
     ).toBe('Parañaque');
 });

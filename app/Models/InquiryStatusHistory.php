@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -10,13 +10,14 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $inquiry_id
- * @property InquiryStatus|null $from_status
- * @property InquiryStatus $to_status
+ * @property InquiryStatusTrack $track
+ * @property string|null $from_status A value of the track's own status enum.
+ * @property string $to_status A value of the track's own status enum.
  * @property int|null $changed_by
  * @property string|null $note
  * @property Carbon $changed_at
  */
-#[Fillable(['inquiry_id', 'from_status', 'to_status', 'changed_by', 'note', 'changed_at'])]
+#[Fillable(['inquiry_id', 'track', 'from_status', 'to_status', 'changed_by', 'note', 'changed_at'])]
 class InquiryStatusHistory extends Model
 {
     protected $table = 'inquiry_status_history';
@@ -26,8 +27,7 @@ class InquiryStatusHistory extends Model
     protected function casts(): array
     {
         return [
-            'from_status' => InquiryStatus::class,
-            'to_status' => InquiryStatus::class,
+            'track' => InquiryStatusTrack::class,
             'changed_at' => 'datetime',
         ];
     }

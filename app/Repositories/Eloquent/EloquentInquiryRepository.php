@@ -3,11 +3,18 @@
 namespace App\Repositories\Eloquent;
 
 use App\Data\InquiryListFilters;
+use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
+use App\Enums\PaymentStatus;
+use App\Enums\ProcessStatus;
+use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
-use App\Models\InquiryProject;
 use App\Models\InquiryStatusHistory;
+use App\Models\Lead;
+use App\Models\PaymentTransaction;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
@@ -32,30 +39,29 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
 
     public function createStatusHistory(
         Inquiry $inquiry,
-        ?InquiryStatus $from,
-        InquiryStatus $to,
+        InquiryStatusTrack $track,
+        SalesStatus|PaymentStatus|ProcessStatus|null $from,
+        SalesStatus|PaymentStatus|ProcessStatus $to,
         ?int $changedBy,
         CarbonInterface $changedAt,
+        ?string $note = null,
     ): InquiryStatusHistory {
         return $inquiry->statusHistory()->create([
-            'from_status' => $from,
-            'to_status' => $to,
+            'track' => $track,
+            'from_status' => $from?->value,
+            'to_status' => $to->value,
             'changed_by' => $changedBy,
+            'note' => $note,
             'changed_at' => $changedAt,
         ]);
     }
 
-    public function addProject(Inquiry $inquiry, array $attributes): InquiryProject
+    public function attachServices(Inquiry $inquiry, array $serviceIds): void
     {
-        return $inquiry->projects()->create($attributes);
+        $inquiry->services()->attach($serviceIds);
     }
 
-    public function attachServices(InquiryProject $project, array $serviceIds): void
-    {
-        $project->services()->attach($serviceIds);
-    }
-
-    public function attachApplications(InquiryProject $project, array $applicationIds): void
+    public function attachApplications(Inquiry $inquiry, array $applicationIds): void
     {
         $rows = [];
 
@@ -63,56 +69,82 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             $rows[$applicationId] = ['sort_order' => $position];
         }
 
-        $project->categories()->attach($rows);
+        $inquiry->categories()->attach($rows);
     }
 
-    public function addStones(InquiryProject $project, array $stones): void
+    public function addStones(Inquiry $inquiry, array $stones): void
     {
         foreach ($stones as $position => $stone) {
-            $project->stones()->create([...$stone, 'sort_order' => $position]);
+            $inquiry->stones()->create([...$stone, 'sort_order' => $position]);
         }
     }
 
-    public function addFile(InquiryProject $project, array $attributes): InquiryFile
+    public function addFile(Inquiry $inquiry, array $attributes): InquiryFile
     {
-        return $project->files()->create($attributes);
+        return $inquiry->files()->create($attributes);
     }
 
-    public function projectsForUpdate(Inquiry $inquiry): Collection
+    public function findByReferenceForUpdate(string $reference): ?Inquiry
     {
-        return $inquiry->projects()
-            ->with(['schedule', 'files'])
-            ->orderBy('sort_order')
-            ->get();
+        return Inquiry::query()->where('reference', $reference)->lockForUpdate()->first();
     }
 
-    public function updateProject(InquiryProject $project, array $attributes): void
+    public function addPayment(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $receivedAt): PaymentTransaction
     {
-        $project->forceFill($attributes)->save();
+        return PaymentTransaction::query()->create([
+            'inquiry_id' => $inquiry->id,
+            'kind' => 'payment',
+            'amount' => $amount,
+            'recorded_by' => $recordedBy,
+            'received_at' => $receivedAt,
+            'created_at' => $receivedAt,
+        ]);
     }
 
-    public function syncServices(InquiryProject $project, array $serviceIds): void
+    public function paidCentavos(Inquiry $inquiry): int
     {
-        $project->services()->sync($serviceIds);
+        $row = DB::selectOne(
+            "SELECT COALESCE(SUM(CASE WHEN kind = 'refund' THEN -amount ELSE amount END), 0) * 100 AS centavos FROM payment_transactions WHERE inquiry_id = ?",
+            [$inquiry->id],
+        );
+
+        return (int) round((float) $row->centavos);
     }
 
-    public function syncApplications(InquiryProject $project, array $applicationIds): void
+    public function recordQuote(Inquiry $inquiry, int $revision, string $quotedTotal): void
     {
-        $project->categories()->detach();
-        $this->attachApplications($project, $applicationIds);
+        $inquiry->forceFill(['quote_revision' => $revision, 'quoted_total' => $quotedTotal])->save();
     }
 
-    public function replaceStones(InquiryProject $project, array $stones): void
+    public function updateDetails(Inquiry $inquiry, array $attributes): void
     {
-        $project->stones()->delete();
-        $this->addStones($project, $stones);
+        $inquiry->forceFill($attributes)->save();
     }
 
-    public function deleteFilesExcept(InquiryProject $project, array $keepIds): array
+    public function syncServices(Inquiry $inquiry, array $serviceIds): void
     {
-        $removed = $project->files()->whereNotIn('id', $keepIds)->get(['id', 'disk', 'path']);
+        $inquiry->services()->sync($serviceIds);
+    }
 
-        $project->files()->whereIn('id', $removed->pluck('id'))->delete();
+    public function syncApplications(Inquiry $inquiry, array $applicationIds): void
+    {
+        $inquiry->categories()->detach();
+        $this->attachApplications($inquiry, $applicationIds);
+    }
+
+    public function replaceStones(Inquiry $inquiry, array $stones): void
+    {
+        $inquiry->stones()->delete();
+        $this->addStones($inquiry, $stones);
+    }
+
+    public function deleteClientAttachmentsExcept(Inquiry $inquiry, array $keepIds): array
+    {
+        $attachments = fn () => $inquiry->files()->where('document_type', DocumentType::ClientAttachment);
+
+        $removed = $attachments()->whereNotIn('id', $keepIds)->get(['id', 'disk', 'path']);
+
+        $attachments()->whereIn('id', $removed->pluck('id'))->delete();
 
         return array_values($removed->map(fn (InquiryFile $file): array => ['disk' => $file->disk, 'path' => $file->path])->all());
     }
@@ -123,19 +155,18 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
 
         return Inquiry::query()
             ->whereBelongsTo($client, 'client')
-            ->when($filters->status !== null, fn (Builder $query) => $query->where('status', $filters->status))
+            ->when($filters->status !== null, fn (Builder $query) => $query->inStatusGroup($filters->status))
             ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
                 $pattern = "%{$escapedSearch}%";
 
                 $query->where(function (Builder $query) use ($pattern): void {
                     $query->where('reference', 'ILIKE', $pattern)
-                        ->orWhereHas('projects', function (Builder $project) use ($pattern): void {
-                            $project->where('name', 'ILIKE', $pattern)
-                                ->orWhereHas('stones.stone', fn (Builder $stone) => $stone->where('name', 'ILIKE', $pattern));
-                        });
+                        ->orWhere('name', 'ILIKE', $pattern)
+                        ->orWhereHas('stones.stone', fn (Builder $stone) => $stone->where('name', 'ILIKE', $pattern));
                 });
             })
-            ->with(['projects' => fn ($projects) => $projects->select(['id', 'inquiry_id', 'name', 'sort_order'])->orderBy('sort_order')])
+            ->withLeadStatus()
+            ->withJobOrderFlag()
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
             ->paginate($perPage, page: $filters->page);
@@ -148,13 +179,12 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         }
 
         return Stone::query()
-            ->join('inquiry_project_stones as ips', 'ips.stone_id', '=', 'stones.id')
-            ->join('inquiry_projects as ip', 'ip.id', '=', 'ips.inquiry_project_id')
-            ->whereIn('ip.inquiry_id', $inquiryIds)
-            ->groupBy('stones.id', 'ip.inquiry_id')
-            ->select(['stones.id', 'stones.slug', 'stones.name', 'stones.thumbnail_path', 'ip.inquiry_id'])
-            ->selectRaw('MIN(ip.sort_order * 1000 + ips.sort_order) as first_position')
-            ->orderBy('ip.inquiry_id')
+            ->join('inquiry_stones as ist', 'ist.stone_id', '=', 'stones.id')
+            ->whereIn('ist.inquiry_id', $inquiryIds)
+            ->groupBy('stones.id', 'ist.inquiry_id')
+            ->select(['stones.id', 'stones.slug', 'stones.name', 'stones.thumbnail_path', 'ist.inquiry_id'])
+            ->selectRaw('MIN(ist.sort_order) as first_position')
+            ->orderBy('ist.inquiry_id')
             ->orderBy('first_position')
             ->orderBy('stones.id')
             ->get();
@@ -167,14 +197,10 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         }
 
         return Service::query()
-            ->join('inquiry_project_services as ipsv', 'ipsv.service_id', '=', 'services.id')
-            ->join('inquiry_projects as ip', 'ip.id', '=', 'ipsv.inquiry_project_id')
-            ->whereIn('ip.inquiry_id', $inquiryIds)
-            ->groupBy('services.id', 'ip.inquiry_id')
-            ->select(['services.id', 'services.slug', 'services.name', 'ip.inquiry_id'])
-            ->selectRaw('MIN(ip.sort_order) as first_position')
-            ->orderBy('ip.inquiry_id')
-            ->orderBy('first_position')
+            ->join('inquiry_services as isv', 'isv.service_id', '=', 'services.id')
+            ->whereIn('isv.inquiry_id', $inquiryIds)
+            ->select(['services.id', 'services.slug', 'services.name', 'isv.inquiry_id'])
+            ->orderBy('isv.inquiry_id')
             ->orderBy('services.sort_order')
             ->orderBy('services.id')
             ->get();
@@ -189,28 +215,112 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->first();
     }
 
-    public function updateStatus(Inquiry $inquiry, InquiryStatus $status, CarbonInterface $changedAt): void
+    public function lockForLead(Lead $lead): Collection
     {
-        $inquiry->forceFill(['status' => $status, 'status_changed_at' => $changedAt])->save();
+        return Inquiry::query()
+            ->whereBelongsTo($lead)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+    }
+
+    public function linkUnlinkedToLead(Lead $lead): int
+    {
+        return Inquiry::query()
+            ->where('client_id', $lead->client_id)
+            ->whereNull('lead_id')
+            ->update(['lead_id' => $lead->id, 'updated_at' => now()]);
+    }
+
+    public function updateStatus(
+        Inquiry $inquiry,
+        InquiryStatusTrack $track,
+        SalesStatus|PaymentStatus|ProcessStatus $status,
+        CarbonInterface $changedAt,
+    ): void {
+        $column = $track->column();
+
+        $inquiry->forceFill([$column => $status, "{$column}_changed_at" => $changedAt])->save();
     }
 
     public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry
     {
-        return Inquiry::query()
-            ->whereBelongsTo($client, 'client')
+        return $this->withDetails(Inquiry::query()->whereBelongsTo($client, 'client'))
             ->where('reference', $reference)
-            ->with([
-                'statusHistory',
-                'projects' => fn ($projects) => $projects->orderBy('sort_order'),
-                'projects.services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
-                'projects.categories',
-                'projects.schedule:id,arrival_at,status',
-                'projects.stones' => fn ($stones) => $stones->orderBy('sort_order'),
-                'projects.stones.stone' => fn ($stone) => $stone->withTrashed(),
-                'projects.stones.edgeProfile',
-                'projects.stones.finish',
-                'projects.files' => fn ($files) => $files->orderBy('id'),
-            ])
             ->first();
+    }
+
+    public function findByReferenceWithDetails(string $reference): ?Inquiry
+    {
+        return $this->withDetails(Inquiry::query())
+            ->where('reference', $reference)
+            ->first();
+    }
+
+    public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator
+    {
+        $role = $user?->primaryRole();
+        $seesPending = $user?->hasAnyRole([Role::Admin->value, Role::Owner->value]) ?? false;
+
+        return Inquiry::query()
+            ->when(! $seesPending, fn (Builder $query) => $query->whereNot(fn (Builder $query) => $query->whereDisplayStatus(InquiryStatus::Pending)))
+            ->when(in_array($role, [Role::Accounting, Role::Logistics], true), fn (Builder $query) => $query->where('sales_status', SalesStatus::Won))
+            ->when($statusFilter !== null && $statusFilter !== 'all', function (Builder $query) use ($role, $statusFilter): void {
+                // Accounting and logistics filter by their own status; everyone
+                // else by the inquiry's. An unknown value is no filter.
+                if ($role === Role::Accounting) {
+                    $query->where('payment_status', $statusFilter);
+                } elseif ($role === Role::Logistics) {
+                    $query->where('process_status', $statusFilter);
+                } elseif (($status = InquiryStatus::tryFrom($statusFilter)) !== null) {
+                    $query->whereDisplayStatus($status);
+                }
+            })
+            ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
+                $pattern = "%{$escapedSearch}%";
+
+                $query->where(function (Builder $query) use ($pattern): void {
+                    $query->where('reference', 'ILIKE', $pattern)
+                        ->orWhere('name', 'ILIKE', $pattern)
+                        ->orWhereHas('clientRecord', fn (Builder $client) => $client->where('full_name', 'ILIKE', $pattern)
+                            ->orWhereHas('contacts', fn (Builder $contact) => $contact->where('value', 'ILIKE', $pattern)))
+                        ->orWhereHas('client', fn (Builder $client) => $client->where('name', 'ILIKE', $pattern)
+                            ->orWhere('email', 'ILIKE', $pattern));
+                });
+            })
+            ->with([
+                'clientRecord:id,kind,user_id,full_name',
+                'clientRecord.contacts:id,client_id,kind,value',
+                'client:id,name,email',
+                'client.profile:user_id,phone',
+            ])
+            ->withLeadStatus()
+            ->withJobOrderFlag()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage, page: $page);
+    }
+
+    /**
+     * What the details and edit pages read of an inquiry.
+     *
+     * @param  Builder<Inquiry>  $query
+     * @return Builder<Inquiry>
+     */
+    private function withDetails(Builder $query): Builder
+    {
+        return $query
+            ->with([
+                'services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
+                'categories',
+                'schedule:id,inquiry_id,arrival_at,status',
+                'stones' => fn ($stones) => $stones->orderBy('sort_order'),
+                'stones.stone' => fn ($stone) => $stone->withTrashed(),
+                'stones.edgeProfile',
+                'stones.finish',
+                'files' => fn ($files) => $files->orderBy('id'),
+                'statusHistory',
+                'lead:id,reference,status,status_changed_at',
+            ]);
     }
 }

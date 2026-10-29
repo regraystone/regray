@@ -18,48 +18,21 @@ beforeEach(function (): void {
  * URL; the inquiry URL is the staff list's, so it takes `inquiries.view` and
  * the client is turned away from it exactly as they are from its GET.
  */
-it('lets a client post to the quote URL', function (): void {
+it('lets marketing send an inquiry for its own lead\'s client, never for itself', function (): void {
+    $marketing = inquiryClient(Role::Marketing);
     $client = inquiryClient();
+    $lead = makeLead($client, marketing: $marketing);
 
-    $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
-        ->assertRedirect()
-        ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.status', 'success')
-        ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.title', 'Kitchen counters')
-        ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.reference', Inquiry::query()->value('reference'));
-
-    expect(Inquiry::query()->value('client_id'))->toBe($client->id);
-});
-
-it('lets a staff role that can read and create inquiries post to the inquiry URL', function (): void {
-    $this->actingAs(inquiryClient(Role::Marketing))
-        ->post(route('inquiry.inquire.store'), ['projects' => [inquiryProjectInput()]])
+    $this->actingAs($marketing)
+        ->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput()]])
         ->assertRedirect()
         ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.status', 'success');
 
-    expect(Inquiry::query()->count())->toBe(1);
-});
+    $inquiry = Inquiry::query()->sole();
 
-it('keeps a client out of the inquiry URL, as it does on the GET', function (): void {
-    $client = inquiryClient();
-
-    $this->actingAs($client)->get(route('inquiry.inquire'))->assertForbidden();
-    $this->actingAs($client)
-        ->post(route('inquiry.inquire.store'), ['projects' => [inquiryProjectInput()]])
-        ->assertForbidden();
-});
-
-it('refuses a staff role without inquiries.create on both URLs', function (): void {
-    $sales = inquiryClient(Role::Sales);
-
-    $this->actingAs($sales)->post(route('inquiry.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertForbidden();
-    $this->actingAs($sales)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertForbidden();
-
-    expect(Inquiry::query()->count())->toBe(0);
-});
-
-it('redirects a guest to log in', function (): void {
-    $this->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertRedirect(route('login'));
+    expect($inquiry->client_id)->toBe($client->id)
+        ->and($inquiry->lead_id)->toBe($lead->id)
+        ->and($inquiry->schedule()->value('booked_by'))->toBe($marketing->id);
 });
 
 it('flashes an error and keeps the page when the write fails', function (): void {
@@ -94,16 +67,4 @@ it('leaves an inactive edge profile off the Inquire page', function (): void {
     $this->actingAs(inquiryClient())
         ->get(route('quote.inquire'))
         ->assertInertia(fn ($page) => $page->has('edgeProfiles', 7));
-});
-
-it('hands the page its flash after the redirect back', function (): void {
-    $this->actingAs(inquiryClient())
-        ->from(route('quote.inquire'))
-        ->followingRedirects()
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
-        ->assertInertia(fn ($page) => $page
-            ->component('inquire')
-            ->hasFlash('inquiry.status', 'success')
-            ->hasFlash('inquiry.title', 'Kitchen counters')
-            ->hasFlash('inquiry.reference', Inquiry::query()->value('reference')));
 });

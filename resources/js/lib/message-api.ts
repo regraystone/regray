@@ -3,6 +3,10 @@ import { rateLimitFrom } from '@/lib/rate-limit';
 import { readXsrfToken } from '@/lib/xsrf';
 import { store as storeGroup } from '@/routes/message/groups';
 import {
+    index as membersRoute,
+    store as storeMembersRoute,
+} from '@/routes/message/members';
+import {
     claim as claimRoute,
     delivered as deliveredRoute,
     people as peopleRoute,
@@ -181,20 +185,64 @@ export const reassignConversation = (
 
 export type Person = { id: number; name: string };
 
+/** One of the chosen client's inquiries, as a group can be bound to it. */
+export type GroupInquiryOption = {
+    id: number;
+    reference: string;
+    name: string;
+    /** It has a group chat already, and an inquiry has at most one. */
+    hasGroup: boolean;
+};
+
+export type GroupPeople = {
+    /** The staff the reader may pick: sales and technical for marketing. */
+    staff: Person[];
+    clients: Person[];
+    /** Every owner, who is always added. */
+    owners: Person[];
+    /** The chosen client's inquiries; empty until a client is chosen. */
+    inquiries: GroupInquiryOption[];
+};
+
 export const searchPeople = (
     search: string,
-): Promise<{ staff: Person[]; clients: Person[] }> =>
+    clientId: number | null = null,
+): Promise<GroupPeople> =>
     request(
         'GET',
-        peopleRoute.url({ query: search.trim() === '' ? {} : { search } }),
+        peopleRoute.url({
+            query: {
+                ...(search.trim() === '' ? {} : { search }),
+                ...(clientId === null ? {} : { clientId: String(clientId) }),
+            },
+        }),
     );
 
 export const createGroup = (payload: {
     name: string;
     staffIds: number[];
     clientId: number;
+    inquiryId: number;
 }): Promise<{ conversation: ConversationSummary }> =>
     request('POST', storeGroup.url(), payload);
+
+/** Accounting and logistics users not in the group yet, for a sales member to add. */
+export const searchAddableMembers = (
+    conversationId: number,
+    search: string,
+): Promise<{ people: Person[] }> =>
+    request(
+        'GET',
+        membersRoute.url(conversationId, {
+            query: search.trim() === '' ? {} : { search },
+        }),
+    );
+
+export const addGroupMembers = (
+    conversationId: number,
+    userIds: number[],
+): Promise<{ conversation: ConversationSummary }> =>
+    request('POST', storeMembersRoute.url(conversationId), { userIds });
 
 /** A random id for a send, so a retry is recognised as the same send. */
 export const newClientKey = (): string => {

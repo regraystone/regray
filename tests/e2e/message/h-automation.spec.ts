@@ -1,9 +1,9 @@
 import { api, expect, fixtures, test } from './support/fixtures';
 
 /*
- * H. Inquiry and status automation (R8, R9). Groups are not bound to inquiries
- * by the product yet (TODO(inquiry-binding)); E2EMessageSeeder binds a group to
- * INQ-E2E-B1..B3 directly, and leaves INQ-E2E-F1 without one.
+ * H. Inquiry and status automation (R8, R9). E2EMessageSeeder binds a group to
+ * INQ-E2E-B1..B3 directly, rather than through marketing's group form, and
+ * leaves INQ-E2E-F1 without one.
  */
 
 type ThreadMessage = {

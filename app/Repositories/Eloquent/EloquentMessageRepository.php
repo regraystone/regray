@@ -2,7 +2,11 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
+use App\Enums\PaymentStatus;
+use App\Enums\ProcessStatus;
+use App\Enums\SalesStatus;
 use App\Models\Message;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use Carbon\CarbonInterface;
@@ -24,11 +28,11 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         'systemUser:id,name',
         'replyTo:id,conversation_id,sender_id,type,body,deleted_at',
         'replyTo.sender:id,name',
-        'inquiry:id,reference,status',
-        'inquiry.projects:id,inquiry_id,name,sort_order',
-        'inquiry.projects.services:id,name',
-        'inquiry.projects.stones:id,inquiry_project_id,stone_id,sort_order',
-        'inquiry.projects.stones.stone:id,slug,name,thumbnail_path',
+        'inquiry:id,reference,lead_id,name,location,sales_status,payment_status,process_status',
+        'inquiry.lead:id,status',
+        'inquiry.stones:id,inquiry_id,stone_id,sort_order',
+        'inquiry.stones.stone:id,slug,name,thumbnail_path',
+        'inquiry.files:id,inquiry_id,document_type,deleted_at',
         'schedule:id,client_id,booked_by,booked_by_type,inquiry_id,title,arrival_at,status,cancel_reason',
         'schedule.bookedBy:id,name',
         'schedule.inquiry:id,reference',
@@ -106,26 +110,37 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         return $message;
     }
 
-    public function createInquiryCardOnce(int $conversationId, int $inquiryId, string $announcedStatus): ?Message
-    {
-        $inserted = Message::query()->insertOrIgnore([
+    public function createInquiryCardOnce(
+        int $conversationId,
+        int $inquiryId,
+        InquiryStatus $status,
+        ?SalesStatus $salesStatus,
+        ?PaymentStatus $paymentStatus,
+        ?ProcessStatus $processStatus,
+        ?CarbonInterface $postedAt = null,
+    ): ?Message {
+        $snapshot = [
             'conversation_id' => $conversationId,
             'type' => MessageType::InquiryCard->value,
             'inquiry_id' => $inquiryId,
-            'announced_status' => $announcedStatus,
-            'created_at' => Date::now(),
+            'announced_status' => $status->value,
+            'announced_sales_status' => $salesStatus?->value,
+            'announced_payment_status' => $paymentStatus?->value,
+            'announced_process_status' => $processStatus?->value,
+        ];
+
+        $inserted = Message::query()->insertOrIgnore([
+            ...$snapshot,
+            // In the app's zone, which the session reads it in: a query-builder
+            // insert writes the date without its offset.
+            'created_at' => Date::instance($postedAt ?? Date::now())->setTimezone(config('app.timezone')),
         ]);
 
         if ($inserted === 0) {
             return null;
         }
 
-        return Message::query()
-            ->where('conversation_id', $conversationId)
-            ->where('type', MessageType::InquiryCard->value)
-            ->where('inquiry_id', $inquiryId)
-            ->where('announced_status', $announcedStatus)
-            ->first();
+        return Message::query()->where($snapshot)->first();
     }
 
     public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus): ?Message

@@ -1,6 +1,10 @@
 <?php
 
+use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
+use App\Enums\LeadStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\Role;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
@@ -14,25 +18,26 @@ beforeEach(function (): void {
     $this->slugs = Stone::query()->orderBy('id')->limit(2)->pluck('slug')->all();
 });
 
-/** An inquiry with two projects, a status history and a stored file. */
+/** An inquiry with its schedule, a client attachment and staff documents. */
 function detailedInquiry(mixed $test): Inquiry
 {
-    $inquiry = makeInquiry($test->client, [
+    $inquiry = makeInquiry(
+        $test->client,
         ['name' => 'Kitchen', 'stones' => $test->slugs, 'services' => ['natural-stone-supply', 'custom-stone-fabrication']],
-        ['name' => 'Bath', 'stones' => [$test->slugs[1]], 'services' => ['natural-stone-supply']],
-    ], ['reference' => 'INQ-D1']);
+        ['reference' => 'INQ-D1'],
+    );
 
-    $inquiry->statusHistory()->create(['from_status' => null, 'to_status' => InquiryStatus::Pending, 'changed_by' => $test->client->id, 'changed_at' => now()->subDay()]);
-
-    $project = $inquiry->projects()->orderBy('sort_order')->first();
-    $schedule = app(ScheduleService::class)->createForInquiryProject($inquiry, $test->client, 'Kitchen', 'Makati', '2030-01-02', '09:30');
-    $project->update(['landmark' => 'Near the church', 'area_sqm' => 12.5, 'schedule_id' => $schedule->id, 'notes' => 'Ground floor']);
-    $project->files()->create(['disk' => 'local', 'path' => 'inquiries/INQ-D1/1/secret-path.pdf', 'original_name' => 'plan.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048, 'sha256' => str_repeat('a', 64), 'uploaded_by' => $test->client->id]);
+    $inquiry->update(['landmark' => 'Near the church', 'area_sqm' => 12.5, 'notes' => 'Ground floor']);
+    app(ScheduleService::class)->createForInquiry($inquiry, $test->client, '2030-01-02', '09:30');
+    $inquiry->files()->create(['document_type' => DocumentType::ClientAttachment, 'disk' => 'local', 'path' => 'inquiries/INQ-D1/secret-path.pdf', 'original_name' => 'plan.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048, 'sha256' => str_repeat('a', 64), 'uploaded_by' => $test->client->id]);
+    addInquiryFile($inquiry, DocumentType::Quotation, revision: 1);
+    addInquiryFile($inquiry, DocumentType::JobOrder);
+    addInquiryFile($inquiry, DocumentType::Receipt);
 
     return $inquiry;
 }
 
-it('opens the signed-in client\'s own inquiry', function (): void {
+it('opens the signed-in client\'s own inquiry as one flat project with its statuses', function (): void {
     detailedInquiry($this);
 
     $response = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))->assertOk();
@@ -41,20 +46,24 @@ it('opens the signed-in client\'s own inquiry', function (): void {
     expect($response->viewData('page')['component'])->toBe('inquiry-details')
         ->and($inquiry['reference'])->toBe('INQ-D1')
         ->and($inquiry['status'])->toBe('pending')
-        ->and($inquiry['statusHistory'])->toHaveCount(1)
-        ->and($inquiry['statusHistory'][0])->toHaveKeys(['status', 'at'])->not->toHaveKey('changed_by')
-        ->and(array_column($inquiry['projects'], 'name'))->toBe(['Kitchen', 'Bath'])
-        ->and($inquiry['services'])->toHaveCount(2);
+        ->and($inquiry)->not->toHaveKeys(['marketingStatus', 'lead'])
+        // Stages not started are sent as null, never as a placeholder.
+        ->and($inquiry['salesStatus'])->toBeNull()
+        ->and($inquiry['paymentStatus'])->toBeNull()
+        ->and($inquiry['processStatus'])->toBeNull()
+        ->and($inquiry)->not->toHaveKeys(['projects', 'statusHistory'])
+        ->and($inquiry['project']['name'])->toBe('Kitchen')
+        ->and($inquiry['project']['services'])->toHaveCount(2);
 
-    $kitchen = $inquiry['projects'][0];
+    $project = $inquiry['project'];
 
-    expect(array_column($kitchen['stones'], 'id'))->toBe($this->slugs)
-        ->and($kitchen['stones'][0])->toMatchArray([
+    expect(array_column($project['stones'], 'id'))->toBe($this->slugs)
+        ->and($project['stones'][0])->toMatchArray([
             'quantity' => 1,
             'edge' => EdgeProfile::query()->value('name'),
             'finish' => Finish::query()->value('name'),
         ])
-        ->and($kitchen['requirements'])->toMatchArray([
+        ->and($project['requirements'])->toMatchArray([
             'location' => 'Makati',
             'landmark' => 'Near the church',
             'areaSqm' => 12.5,
@@ -62,18 +71,77 @@ it('opens the signed-in client\'s own inquiry', function (): void {
             'neededByTime' => null,
             'notes' => 'Ground floor',
         ])
-        ->and($kitchen['requirements']['attachments'])->toBe([
+        // The client's own attachment only: the quotation is staff's.
+        ->and($project['requirements']['attachments'])->toBe([
             ['id' => 'file-1', 'name' => 'plan.pdf', 'sizeBytes' => 2048, 'mimeType' => 'application/pdf'],
         ]);
 });
 
+it('sends the display status and the role statuses it came from', function (): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-D3', 'status' => InquiryStatus::Production, 'payment_status' => PaymentStatus::Partial]);
+
+    $details = $this->actingAs($this->client)->get(route('quote.show', $inquiry->reference))->viewData('page')['props']['inquiry'];
+
+    expect($details)->toMatchArray([
+        'status' => 'production',
+        'salesStatus' => 'won',
+        'paymentStatus' => 'partial',
+        'processStatus' => 'production',
+    ]);
+});
+
+it('sends the client\'s activity log: sales, payment and logistics changes, oldest first, without the lead or who made it', function (): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-H1', 'lead' => makeLead($this->client, LeadStatus::Won)]);
+    $staff = inquiryClient(Role::Sales);
+    $at = now()->startOfSecond()->subDays(3);
+
+    foreach ([
+        [InquiryStatusTrack::Sales, null, 'negotiation', 1],
+        [InquiryStatusTrack::Sales, 'negotiation', 'site_visited', 2],
+    ] as [$track, $from, $to, $days]) {
+        $inquiry->statusHistory()->create(['track' => $track, 'from_status' => $from, 'to_status' => $to, 'changed_by' => $staff->id, 'changed_at' => $at->copy()->addDays($days)]);
+    }
+
+    $details = $this->actingAs($this->client)->get(route('quote.show', 'INQ-H1'))->viewData('page')['props']['inquiry'];
+
+    expect($details['history'])->toBe([
+        ['track' => 'sales', 'status' => 'negotiation', 'at' => $at->copy()->addDay()->toIso8601String()],
+        ['track' => 'sales', 'status' => 'site_visited', 'at' => $at->copy()->addDays(2)->toIso8601String()],
+    ])->and(json_encode($details['history']))->not->toContain('changed_by')->not->toContain($staff->name)
+        ->and($details)->not->toHaveKey('lead');
+});
+
+it('shows an inquiry cancelled with its lost lead as cancelled in the activity log, with nothing about the lead', function (): void {
+    $lead = makeLead($this->client, LeadStatus::Lost);
+    makeInquiry($this->client, attributes: ['reference' => 'INQ-H2', 'lead' => $lead]);
+
+    $details = $this->actingAs($this->client)->get(route('quote.show', 'INQ-H2'))->viewData('page')['props']['inquiry'];
+
+    expect($details['status'])->toBe('cancelled')
+        ->and($details['history'])->toBe([['track' => 'inquiry', 'status' => 'cancelled', 'at' => $lead->status_changed_at->toIso8601String()]])
+        ->and(json_encode($details))->not->toContain($lead->reference)->not->toContain('"lost"')->not->toContain('marketing');
+});
+
+it('shares quotations and payment receipts with the client, never the job order or where a file is stored', function (): void {
+    detailedInquiry($this);
+
+    $documents = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))->viewData('page')['props']['inquiry']['documents'];
+
+    // Files that came with no status update each stand as their own group.
+    expect(array_merge(...array_map(fn (array $group): array => array_column($group['files'], 'type'), $documents)))->toBe(['quotation', 'receipt'])
+        ->and($documents[0])->toMatchArray(['id' => 'group-1', 'status' => null, 'revision' => 1])
+        ->and($documents[0]['files'][0])->toMatchArray(['id' => 'document-1', 'type' => 'quotation', 'name' => 'quotation.pdf', 'mimeType' => 'application/pdf'])
+        ->and($documents[1]['revision'])->toBeNull()
+        ->and(array_keys($documents[0]))->toBe(['id', 'status', 'revision', 'at', 'files'])
+        ->and(array_keys($documents[0]['files'][0]))->toBe(['id', 'type', 'name', 'sizeBytes', 'mimeType']);
+});
+
 it('shows a visit\'s target deadline with the time from its schedule', function (): void {
-    $inquiry = makeInquiry($this->client, [['name' => 'Survey', 'stones' => [], 'services' => ['stone-relocation-dismantling-reinstallation']]], ['reference' => 'INQ-V1']);
-    $schedule = app(ScheduleService::class)->createForInquiryProject($inquiry, $this->client, 'Survey', 'Taguig', '2030-01-02', '14:15');
-    $inquiry->projects()->sole()->update(['schedule_id' => $schedule->id]);
+    $inquiry = makeInquiry($this->client, ['name' => 'Survey', 'stones' => [], 'services' => ['stone-relocation-dismantling-reinstallation']], ['reference' => 'INQ-V1']);
+    app(ScheduleService::class)->createForInquiry($inquiry, $this->client, '2030-01-02', '14:15');
 
     $requirements = $this->actingAs($this->client)->get(route('quote.show', 'INQ-V1'))
-        ->viewData('page')['props']['inquiry']['projects'][0]['requirements'];
+        ->viewData('page')['props']['inquiry']['project']['requirements'];
 
     expect($requirements['neededBy'])->toBe('2030-01-02')
         ->and($requirements['neededByTime'])->toBe('14:15');
@@ -84,7 +152,7 @@ it('carries nothing a client should not see', function (): void {
 
     $json = json_encode($this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))->viewData('page')['props']['inquiry']);
 
-    foreach (['client_id', 'changed_by', 'handler', 'secret-path', 'inquiries\/INQ', 'sha256', 'uploaded_by', '"disk"', '"path"'] as $forbidden) {
+    foreach (['client_id', 'changed_by', 'handler', 'secret-path', 'inquiries\/INQ', 'sha256', 'uploaded_by', '"disk"', '"path"', 'job_order'] as $forbidden) {
         expect($json)->not->toContain($forbidden);
     }
 });
@@ -100,24 +168,11 @@ it('answers an unknown and a malformed reference with the same 404', function ()
     $this->actingAs($this->client)->get(route('quote.show', 'bad ref!'))->assertNotFound();
 });
 
-it('does not take quote/inquire for a reference', function (): void {
-    $this->actingAs($this->client)->get(route('quote.inquire'))->assertOk()
-        ->assertInertia(fn ($page) => $page->component('inquire')->etc());
-});
-
-it('turns away a role without quotations.view and a guest', function (): void {
+it('opens any inquiry for staff on the inquiry route, and only their own for a client', function (): void {
     detailedInquiry($this);
+    makeInquiry(inquiryClient(), attributes: ['reference' => 'INQ-D2']);
 
-    $this->actingAs(inquiryClient(Role::Sales))->get(route('quote.show', 'INQ-D1'))->assertForbidden();
-    auth()->logout();
-    $this->get(route('quote.show', 'INQ-D1'))->assertRedirect(route('login'));
-});
-
-it('is scoped to the user on the inquiry route as well', function (): void {
-    $admin = inquiryClient(Role::Admin);
-    makeInquiry($admin, attributes: ['reference' => 'INQ-D2']);
-    detailedInquiry($this);
-
-    $this->actingAs($admin)->get(route('inquiry.show', 'INQ-D2'))->assertOk();
-    $this->actingAs($admin)->get(route('inquiry.show', 'INQ-D1'))->assertNotFound();
+    $this->actingAs(inquiryClient(Role::Owner))->get(route('inquiry.show', 'INQ-D1'))->assertOk();
+    $this->actingAs($this->client)->get(route('inquiry.show', 'INQ-D1'))->assertOk();
+    $this->actingAs($this->client)->get(route('inquiry.show', 'INQ-D2'))->assertNotFound();
 });

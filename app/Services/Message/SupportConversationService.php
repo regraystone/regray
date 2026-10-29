@@ -64,16 +64,20 @@ class SupportConversationService
     }
 
     /**
-     * Where an inquiry's cards go: its group chat once it has one, otherwise
-     * its client's Regray Team thread, created if the client has none yet.
-     *
-     * TODO(inquiry-binding): until groups are bound to inquiries, this is
-     * always the Regray Team thread.
+     * Where an inquiry's cards go: its group chat once marketing has made one
+     * for it, otherwise its client's Regray Team thread, created if the client
+     * has none yet. Null for a direct (walk-in) client's inquiry with no group
+     * chat: there is no account to have a thread.
      */
-    public function cardThreadFor(Inquiry $inquiry): Conversation
+    public function cardThreadFor(Inquiry $inquiry): ?Conversation
     {
-        return $this->conversations->groupForInquiry($inquiry->id)
-            ?? $this->ensureFor($inquiry->loadMissing('client')->client);
+        $group = $this->conversations->groupForInquiry($inquiry->id);
+
+        if ($group !== null || $inquiry->client_id === null) {
+            return $group;
+        }
+
+        return $this->ensureFor(User::query()->findOrFail($inquiry->client_id));
     }
 
     /**

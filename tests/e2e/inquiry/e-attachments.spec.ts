@@ -135,14 +135,14 @@ test('23 · attachments are kept on the private disk and a guessed /storage URL 
         exists: boolean;
         visibility: string | null;
     }>(
-        `(function () { $file = App\\Models\\InquiryFile::query()->whereHas('inquiryProject.inquiry', fn ($q) => $q->where('reference', '${reference}'))->firstOrFail(); return ['disk' => $file->disk, 'path' => $file->path, 'exists' => Illuminate\\Support\\Facades\\Storage::disk($file->disk)->exists($file->path), 'visibility' => config('filesystems.disks.'.$file->disk.'.visibility')]; })()`,
+        `(function () { $file = App\\Models\\InquiryFile::query()->whereHas('inquiry', fn ($q) => $q->where('reference', '${reference}'))->firstOrFail(); return ['disk' => $file->disk, 'path' => $file->path, 'exists' => Illuminate\\Support\\Facades\\Storage::disk($file->disk)->exists($file->path), 'visibility' => config('filesystems.disks.'.$file->disk.'.visibility')]; })()`,
     );
 
     expect(stored.disk).toBe(disk);
     expect(stored.disk).not.toBe('public');
     expect(stored.visibility).not.toBe('public');
     expect(stored.exists).toBe(true);
-    expect(stored.path).toMatch(new RegExp(`^inquiries/${reference}/\\d+/`));
+    expect(stored.path).toMatch(new RegExp(`^inquiries/${reference}/[^/]+$`));
 
     const fileName = stored.path.split('/').pop() ?? '';
     for (const guess of [
@@ -185,7 +185,7 @@ test('24 · ten attachments are accepted and the eleventh is refused', async ({
     expect(inquiryReferences(clientAId)[0]).toBe(reference);
     expect(
         php<number>(
-            `App\\Models\\InquiryFile::query()->whereHas('inquiryProject.inquiry', fn ($q) => $q->where('reference', '${reference}'))->count()`,
+            `App\\Models\\InquiryFile::query()->whereHas('inquiry', fn ($q) => $q->where('reference', '${reference}'))->count()`,
         ),
     ).toBe(10);
 });

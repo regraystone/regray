@@ -5,6 +5,35 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * One inquiry is one project: what the client asked for and where, the lead it
+ * belongs to, and the three role statuses it moves through. A role's status
+ * exists only once its stage has started; until then it is NULL.
+ *
+ * - `client_id`: the client's account. NULL for a direct (walk-in) client,
+ *   who has none; `client_record_id` is the client either way (`clients`).
+ * - `lead_id`: marketing's lead for the client (`leads`), which holds the
+ *   marketing status. NULL until the client's Regray Team thread is claimed,
+ *   which links it.
+ * - `sales_status`: from the lead being won, starting at negotiation. Negotiation,
+ *   site_visited and on_hold while sales talks with the client; quoted once
+ *   the quotation is sent, and revision for each revised one; won once the
+ *   client has approved it; rejected when the client turns it down or
+ *   cancels.
+ * - `payment_status` and `process_status`: both from the client's approval
+ *   (won). Accounting's is set by hand as payments come in, and `refunded`
+ *   waits on a refund flow still to be designed; logistics starts with the
+ *   job order.
+ *
+ * The status shown for the inquiry is calculated from them, never stored
+ * (App\Services\InquiryStatusCalculator). Each CHECK holds one column to its
+ * own values, and passes a NULL; how the statuses move together (payment and
+ * process starting together, for one) is the app's rule, not the database's.
+ *
+ * `quote_revision` counts the quotations issued and `quoted_total` is the
+ * latest one's total. When the project is wanted is not stored here: it is the
+ * `arrival_at` of the inquiry's schedule.
+ */
 return new class extends Migration
 {
     public function up(): void
@@ -14,22 +43,42 @@ return new class extends Migration
         Schema::create('inquiries', function (Blueprint $table) {
             $table->id();
             $table->string('reference', 30)->unique();
-            $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
-            $table->string('status', 20);
-            $table->timestampTz('status_changed_at');
+            $table->foreignId('client_id')->nullable()->constrained('users')->restrictOnDelete();
+            $table->foreignId('client_record_id')->nullable()->constrained('clients')->restrictOnDelete();
+            $table->foreignId('lead_id')->nullable()->constrained()->restrictOnDelete();
+            $table->string('name', 100);
+            $table->string('location', 255);
+            $table->string('landmark', 150)->nullable();
+            $table->decimal('area_sqm', 10, 2)->nullable();
+            $table->string('notes', 1000)->nullable();
+            $table->string('sales_status', 20)->nullable();
+            $table->timestampTz('sales_status_changed_at')->nullable();
+            $table->string('payment_status', 20)->nullable();
+            $table->timestampTz('payment_status_changed_at')->nullable();
+            $table->string('process_status', 20)->nullable();
+            $table->timestampTz('process_status_changed_at')->nullable();
+            $table->decimal('quoted_total', 12, 2)->nullable();
+            $table->smallInteger('quote_revision')->nullable();
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
             $table->index('client_id');
-            $table->index(['status', 'created_at']);
+            $table->index('client_record_id');
+            $table->index('lead_id');
+            $table->index('sales_status');
+            $table->index('payment_status');
+            $table->index('process_status');
         });
 
-        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_status CHECK (status IN ('pending','quoted','paid','completed','cancelled'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_sales_status CHECK (sales_status IN ('negotiation','site_visited','on_hold','quoted','revision','won','rejected'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_payment_status CHECK (payment_status IN ('awaiting','partial','fully_paid','refunded'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_process_status CHECK (process_status IN ('order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','on_hold','delayed'))");
+        DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quoted_total CHECK (quoted_total > 0)');
+        DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quote_revision CHECK (quote_revision >= 1)');
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE inquiries DROP CONSTRAINT IF EXISTS chk_inquiries_status');
         Schema::dropIfExists('inquiries');
         DB::statement('DROP SEQUENCE IF EXISTS inquiry_reference_seq');
     }

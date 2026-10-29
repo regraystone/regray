@@ -2,9 +2,6 @@
 
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
-use App\Models\InquiryFile;
-use App\Models\InquiryProject;
-use App\Models\InquiryProjectStone;
 use App\Models\ProjectCategory;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +12,7 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('creates the whole row graph', function (): void {
+it('creates the whole row graph, one inquiry per project', function (): void {
     $applications = ProjectCategory::query()->orderBy('id')->limit(2)->pluck('slug')->all();
     $plan = UploadedFile::fake()->create('plan.pdf', 50, 'application/pdf');
 
@@ -30,41 +27,32 @@ it('creates the whole row graph', function (): void {
         ]])
         ->assertSessionHasNoErrors();
 
-    $inquiry = Inquiry::query()->with(['projects.services', 'projects.categories', 'projects.stones', 'projects.files', 'projects.schedule', 'statusHistory'])->sole();
+    [$first, $visit] = Inquiry::query()->with(['services', 'categories', 'stones', 'files', 'schedule', 'statusHistory'])->orderBy('id')->get()->all();
 
-    expect($inquiry->reference)->toStartWith('INQ-')
-        ->and($inquiry->client_id)->toBe($this->client->id)
-        ->and($inquiry->status)->toBe(InquiryStatus::Pending)
-        ->and($inquiry->statusHistory)->toHaveCount(1)
-        ->and($inquiry->projects)->toHaveCount(2);
-
-    [$first, $visit] = $inquiry->projects->all();
+    foreach ([$first, $visit] as $inquiry) {
+        expect($inquiry->reference)->toStartWith('INQ-')
+            ->and($inquiry->client_id)->toBe($this->client->id)
+            ->and($inquiry->status)->toBe(InquiryStatus::Pending)
+            // No role status has started, so there is no history yet.
+            ->and($inquiry->statusHistory)->toHaveCount(0);
+    }
 
     expect($first->name)->toBe('Kitchen counters')
-        ->and($first->sort_order)->toBe(0)
+        ->and($first->location)->toBe('Makati')
+        ->and($first->landmark)->toBe('Near the church')
+        ->and((float) $first->area_sqm)->toBe(12.5)
+        ->and($first->notes)->toBe('Ground floor.')
         ->and($first->services->pluck('slug')->all())->toEqualCanonicalizing(['natural-stone-supply', 'custom-stone-fabrication'])
         ->and($first->categories->pluck('slug')->all())->toBe(array_reverse($applications))
         ->and($first->stones)->toHaveCount(1)
         ->and($first->stones->first()->quantity)->toBe(4)
         ->and($first->files)->toHaveCount(1)
-        ->and($first->files->first()->path)->toStartWith("inquiries/{$inquiry->reference}/{$first->id}/")
-        ->and($visit->sort_order)->toBe(1)
+        ->and($first->files->first()->path)->toStartWith("inquiries/{$first->reference}/")
         ->and($visit->stones)->toBeEmpty()
+        ->and($visit->files)->toBeEmpty()
         ->and($visit->schedule->arrival_at->setTimezone('Asia/Manila')->format('H:i'))->toBe('12:00');
 
     Storage::disk(config('inquiry.disk'))->assertExists($first->files->first()->path);
-});
-
-it('writes a standalone-only project with no stones', function (): void {
-    $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryVisitInput()]])
-        ->assertSessionHasNoErrors();
-
-    $project = InquiryProject::query()->sole();
-
-    expect($project->stones()->count())->toBe(0)
-        ->and($project->categories()->count())->toBe(0)
-        ->and($project->services()->pluck('slug')->all())->toBe(['stone-relocation-dismantling-reinstallation']);
 });
 
 it('keeps stones and applications picked as extras on a standalone project', function (): void {
@@ -77,21 +65,10 @@ it('keeps stones and applications picked as extras on a standalone project', fun
         ])]])
         ->assertSessionHasNoErrors();
 
-    $project = InquiryProject::query()->sole();
+    $inquiry = Inquiry::query()->sole();
 
-    expect($project->stones()->count())->toBe(1)
-        ->and($project->categories()->count())->toBe(1);
-});
-
-it('returns 422-style errors for a regular service with no stones and writes nothing', function (): void {
-    $this->actingAs($this->client)
-        ->postJson(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => []])]])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('projects.0.stones');
-
-    expect(Inquiry::query()->count())->toBe(0)
-        ->and(InquiryProjectStone::query()->count())->toBe(0)
-        ->and(InquiryFile::query()->count())->toBe(0);
+    expect($inquiry->stones()->count())->toBe(1)
+        ->and($inquiry->categories()->count())->toBe(1);
 });
 
 it('numbers inquiries from the sequence', function (): void {

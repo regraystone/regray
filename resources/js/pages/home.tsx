@@ -526,7 +526,7 @@ const Home = () => {
     ]);
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
             <Hero />
             <section
                 id="products"

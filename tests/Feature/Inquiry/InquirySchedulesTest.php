@@ -16,7 +16,7 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('books one pending schedule per project, at the visit time or 10:00 otherwise', function (): void {
+it('opens one inquiry per project sent, each with one pending schedule, at the visit time or 10:00 otherwise', function (): void {
     $this->actingAs($this->client)
         ->post(route('quote.inquire.store'), ['projects' => [
             inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04', 'neededByTime' => '15:45']),
@@ -24,33 +24,36 @@ it('books one pending schedule per project, at the visit time or 10:00 otherwise
         ]])
         ->assertSessionHasNoErrors();
 
-    $inquiry = Inquiry::query()->with('projects.schedule')->sole();
-    [$kitchen, $survey] = $inquiry->projects->all();
+    [$kitchen, $survey] = Inquiry::query()->with('schedule')->orderBy('id')->get()->all();
 
-    expect(Schedule::query()->count())->toBe(2)
+    expect(Inquiry::query()->count())->toBe(2)
+        ->and(Schedule::query()->count())->toBe(2)
+        ->and($kitchen->name)->toBe('Kitchen')
+        ->and($survey->name)->toBe('Survey')
+        ->and($kitchen->reference)->not->toBe($survey->reference)
         ->and($kitchen->schedule)->toMatchArray([
             'client_id' => $this->client->id,
             'booked_by' => $this->client->id,
             'booked_by_type' => BookedByType::Client->value,
-            'inquiry_id' => $inquiry->id,
+            'inquiry_id' => $kitchen->id,
             'status' => ScheduleStatus::Pending->value,
             'title' => 'Kitchen',
-            'notes' => "Inquiry {$inquiry->reference} · Kitchen · Makati",
+            'notes' => "Inquiry {$kitchen->reference} · Kitchen · Makati",
         ])
         ->and($kitchen->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-03-04 10:00', 'Asia/Manila')))->toBeTrue()
+        ->and($survey->schedule->inquiry_id)->toBe($survey->id)
         ->and($survey->schedule->title)->toBe('Survey')
-        ->and($survey->schedule->notes)->toBe("Inquiry {$inquiry->reference} · Survey · Taguig")
+        ->and($survey->schedule->notes)->toBe("Inquiry {$survey->reference} · Survey · Taguig")
         ->and($survey->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-03-05 14:00', 'Asia/Manila')))->toBeTrue();
 });
 
-it('cancels the inquiry\'s open schedules when the inquiry is cancelled', function (): void {
+it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leaves others alone', function (): void {
     $this->actingAs($this->client)
         ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(), inquiryProjectInput()]])
         ->assertSessionHasNoErrors();
 
-    $inquiry = Inquiry::query()->sole();
-    [$open, $completed] = Schedule::query()->orderBy('id')->get()->all();
-    $completed->forceFill(['status' => ScheduleStatus::Completed])->save();
+    [$inquiry, $other] = Inquiry::query()->orderBy('id')->get()->all();
+    [$open, $untouched] = Schedule::query()->orderBy('id')->get()->all();
 
     $this->actingAs($this->client)->patch(route('quote.cancel', $inquiry->reference))->assertRedirect();
 
@@ -60,7 +63,22 @@ it('cancels the inquiry\'s open schedules when the inquiry is cancelled', functi
             'cancel_reason' => 'Inquiry cancelled',
         ])
         ->and($open->fresh()->cancelled_at)->not->toBeNull()
-        ->and($completed->fresh()->status)->toBe(ScheduleStatus::Completed);
+        ->and($other->fresh()->status)->toBe(InquiryStatus::Pending)
+        ->and($untouched->fresh()->status)->toBe(ScheduleStatus::Pending);
+});
+
+it('leaves a completed schedule alone when the inquiry is cancelled', function (): void {
+    $this->actingAs($this->client)
+        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->assertSessionHasNoErrors();
+
+    $inquiry = Inquiry::query()->sole();
+    $completed = Schedule::query()->sole();
+    $completed->forceFill(['status' => ScheduleStatus::Completed])->save();
+
+    $this->actingAs($this->client)->patch(route('quote.cancel', $inquiry->reference))->assertRedirect();
+
+    expect($completed->fresh()->status)->toBe(ScheduleStatus::Completed);
 });
 
 it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the Schedule page', function (): void {
@@ -73,19 +91,19 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
         ]])
         ->assertSessionHasNoErrors();
 
-    $inquiry = Inquiry::query()->with('projects.schedule')->sole();
-    $schedule = $inquiry->projects->sole()->schedule;
+    $inquiry = Inquiry::query()->with('schedule')->sole();
+    $schedule = $inquiry->schedule;
 
     $this->actingAs($this->client)->getJson(route('message.thread', $thread))
         ->assertOk()
         ->assertJsonPath('messages.0.type', MessageType::InquiryCard->value)
         ->assertJsonPath('messages.0.inquiryCard.reference', $inquiry->reference)
-        ->assertJsonPath('messages.0.inquiryCard.projectCount', 1);
+        ->assertJsonPath('messages.0.inquiryCard.name', 'Kitchen');
 
     $expected = [
         'id' => $schedule->id,
         'title' => 'Kitchen',
-        'arrivalAt' => CarbonImmutable::parse('2026-10-20 10:00', 'Asia/Manila')->utc()->toIso8601String(),
+        'arrivalAt' => CarbonImmutable::parse('2026-10-20 10:00', 'Asia/Manila')->toIso8601String(),
         'status' => ScheduleStatus::Pending->value,
         'notes' => "Inquiry {$inquiry->reference} · Kitchen · Makati",
         'inquiryReference' => $inquiry->reference,

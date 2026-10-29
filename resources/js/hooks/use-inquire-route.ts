@@ -1,7 +1,6 @@
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { inquire as inquiryInquire } from '@/routes/inquiry';
-import { store as inquiryInquireStore } from '@/routes/inquiry/inquire';
 import { inquire as quoteInquire } from '@/routes/quote';
 import { store as quoteInquireStore } from '@/routes/quote/inquire';
 
@@ -30,20 +29,19 @@ export function useInquireRoute(): typeof quoteInquire | null {
 }
 
 /**
- * Where the stepper posts, for this user, or null if they may not open it.
+ * Where a client's stepper posts their own inquiry, or null for anyone else.
  *
- * The twin of `useInquireRoute`: the same permission picks the same side, so a
- * form opened under `/quote/inquire` is sent to `/quote/inquire`. The two POST
- * routes carry the same guards as their GET pages.
+ * The twin of `useInquireRoute` for the client's side: a form opened under
+ * `/quote/inquire` is sent to `/quote/inquire`. Staff never send one for
+ * themselves: their stepper posts under the lead they picked
+ * (`leads.inquiries.store`), so they get null here.
  */
 export function useInquireStoreUrl(): string | null {
     const { can } = usePermissions();
 
-    if (!can(permissions.inquiriesCreate)) {
+    if (!can(permissions.inquiriesCreate) || !can(permissions.quotationsView)) {
         return null;
     }
 
-    return can(permissions.quotationsView)
-        ? quoteInquireStore.url()
-        : inquiryInquireStore.url();
+    return quoteInquireStore.url();
 }

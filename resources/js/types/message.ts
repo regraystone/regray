@@ -3,6 +3,13 @@
  * app/Http/Resources/Message). Keys are camelCase, like every other resource.
  */
 
+import type {
+    InquiryStatus,
+    PaymentStatus,
+    ProcessStatus,
+    SalesStatus,
+} from '@/lib/inquiry-statuses';
+
 export type ConversationType = 'direct' | 'group' | 'support';
 
 /** A conversation as a list row and as a thread header. */
@@ -23,23 +30,28 @@ export type ConversationSummary = {
     supportClient: { id: number; name: string } | null;
     canClaim: boolean;
     memberCount: number | null;
+    /** Whether the reader may add accounting or logistics: a sales member of an inquiry's group chat. */
+    canAddMembers: boolean;
 };
 
-export type InquiryStatus =
-    | 'draft'
-    | 'pending'
-    | 'quoted'
-    | 'paid'
-    | 'completed'
-    | 'cancelled';
+export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
 
+/**
+ * An inquiry as the `inquiry_card` message announced it: the project it is,
+ * and the snapshot the card was posted for. `status` is the inquiry's display
+ * status now, which can have moved on since.
+ */
 export type InquiryCard = {
     reference: string;
-    projectCount: number;
-    serviceCount: number;
+    name: string;
+    location: string;
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
     stoneCount: number;
     announcedStatus: InquiryStatus;
+    /** Null for a stage that had not started when the card was posted. */
+    announcedSalesStatus: SalesStatus | null;
+    announcedPaymentStatus: PaymentStatus | null;
+    announcedProcessStatus: ProcessStatus | null;
     status: InquiryStatus;
     occurredAt: string;
 };
