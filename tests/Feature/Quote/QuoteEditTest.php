@@ -91,7 +91,7 @@ describe('the edit page', function (): void {
             ->assertSessionHas(SessionKey::FLASH_DATA.'.toast.type', 'error')
             ->assertSessionHas(SessionKey::FLASH_DATA.'.toast.message', $reason);
     })->with([
-        'quoted' => [InquiryStatus::Quoted, InquiryActions::UPDATE_LOCKED_WHEN_QUOTED],
+        'won' => [InquiryStatus::Won, InquiryActions::UPDATE_LOCKED_WHEN_QUOTED],
         'production' => [InquiryStatus::Production, InquiryActions::UPDATE_LOCKED_WHEN_QUOTED],
         'closed' => [InquiryStatus::Closed, InquiryActions::UPDATE_NOT_AVAILABLE],
         'cancelled' => [InquiryStatus::Cancelled, InquiryActions::UPDATE_LOCKED_WHEN_CANCELLED],
@@ -241,7 +241,7 @@ describe('saving the edit', function (): void {
     it('refuses the save when the client approved the quotation after the page was opened', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))->assertOk();
-        showInquiryAs($inquiry, InquiryStatus::Quoted);
+        showInquiryAs($inquiry, InquiryStatus::Won);
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed'])]])

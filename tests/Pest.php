@@ -160,10 +160,11 @@ function roleStatusesShowing(InquiryStatus $status): array
     [$sales, $payment, $process, $jobOrder] = match ($status) {
         InquiryStatus::Pending => [null, null, null, false],
         InquiryStatus::Cancelled => [SalesStatus::Rejected, null, null, false],
-        InquiryStatus::Closed => [SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::Completed, true],
+        InquiryStatus::Closed => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::Completed, true],
         InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [SalesStatus::from($status->value), null, null, false],
-        InquiryStatus::Quoted => [SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::OrderReceived, false],
-        default => [SalesStatus::Quoted, PaymentStatus::Awaiting, ProcessStatus::from($status->value), true],
+        InquiryStatus::Quoted, InquiryStatus::Revision => [SalesStatus::from($status->value), null, null, false],
+        InquiryStatus::Won => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::OrderReceived, false],
+        default => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::from($status->value), true],
     };
 
     return ['sales_status' => $sales, 'payment_status' => $payment, 'process_status' => $process, 'job_order' => $jobOrder];
@@ -301,8 +302,10 @@ dataset('inquiry button table', [
     'negotiation' => ['negotiation', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
     'site_visited' => ['site_visited', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
     'on_hold' => ['on_hold', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
-    'quoted' => ['quoted', ['view' => [true], 'update' => [false, 'Locked once quoted. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
-    'production' => ['production', ['view' => [true], 'update' => [false, 'Locked once quoted. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
+    'quoted' => ['quoted', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'revision' => ['revision', ['view' => [true], 'update' => [true], 'cancel' => [true], 'invoice' => null]],
+    'won' => ['won', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
+    'production' => ['production', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
     'closed' => ['closed', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
     'cancelled' => ['cancelled', ['view' => [true], 'update' => [false, 'This inquiry was cancelled.'], 'cancel' => null, 'invoice' => null]],
 ]);

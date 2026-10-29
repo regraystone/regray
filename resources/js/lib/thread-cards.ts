@@ -12,6 +12,8 @@ export type CardInquiryStatus =
     | 'site_visited'
     | 'on_hold'
     | 'quoted'
+    | 'revision'
+    | 'won'
     | 'order_received'
     | 'measure'
     | 'sourcing'
@@ -42,7 +44,9 @@ export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
     negotiation: 'In negotiation',
     site_visited: 'Site visited',
     on_hold: 'Inquiry on hold',
-    quoted: 'Quotation approved',
+    quoted: 'Quotation sent',
+    revision: 'Quotation revised',
+    won: 'Quotation approved',
     order_received: 'Job order received',
     measure: 'Measuring',
     sourcing: 'Sourcing stone',

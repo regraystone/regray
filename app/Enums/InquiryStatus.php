@@ -21,6 +21,8 @@ enum InquiryStatus: string
     case SiteVisited = 'site_visited';
     case OnHold = 'on_hold';
     case Quoted = 'quoted';
+    case Revision = 'revision';
+    case Won = 'won';
     case OrderReceived = 'order_received';
     case Measure = 'measure';
     case Sourcing = 'sourcing';

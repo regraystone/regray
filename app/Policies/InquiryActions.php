@@ -12,13 +12,13 @@ use App\Models\Inquiry;
  * answer, so the page and the server cannot disagree about what is allowed.
  *
  * Read from the display status, and from whether the client has approved the
- * quotation (sales quoted), since an on-hold inquiry can be either side of it.
+ * quotation (sales won), since an on-hold inquiry can be either side of it.
  *
  * | Inquiry                                 | View details | Update    | Cancel       | Get invoice  |
  * |-----------------------------------------|--------------|-----------|--------------|--------------|
  * | not yet approved (pending, negotiation, | clickable    | clickable | clickable    | not rendered |
- * | site_visited, sales on_hold)            |              |           |              |              |
- * | approved (quoted, any logistics stage)  | clickable    | disabled  | disabled     | clickable    |
+ * | site_visited, sales on_hold, quoted)    |              |           |              |              |
+ * | approved (won, any logistics stage)     | clickable    | disabled  | disabled     | clickable    |
  * | closed                                  | clickable    | not shown | not rendered | clickable    |
  * | cancelled                               | clickable    | disabled  | not rendered | not rendered |
  *
@@ -27,7 +27,7 @@ use App\Models\Inquiry;
  */
 class InquiryActions
 {
-    public const UPDATE_LOCKED_WHEN_QUOTED = 'Locked once quoted. Message the team to request changes.';
+    public const UPDATE_LOCKED_WHEN_QUOTED = 'Locked once you approved the quotation. Message the team to request changes.';
 
     public const UPDATE_LOCKED_WHEN_CANCELLED = 'This inquiry was cancelled.';
 
@@ -104,6 +104,6 @@ class InquiryActions
     /** Whether the client has approved the quotation. */
     private function isApproved(Inquiry $inquiry): bool
     {
-        return $inquiry->sales_status === SalesStatus::Quoted;
+        return $inquiry->sales_status === SalesStatus::Won;
     }
 }

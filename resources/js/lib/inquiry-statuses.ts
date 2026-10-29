@@ -23,6 +23,8 @@ export type InquiryStatus =
     | 'site_visited'
     | 'on_hold'
     | 'quoted'
+    | 'revision'
+    | 'won'
     | 'order_received'
     | 'measure'
     | 'sourcing'
@@ -38,9 +40,12 @@ export type SalesStatus =
     | 'site_visited'
     | 'on_hold'
     | 'quoted'
+    | 'revision'
+    | 'won'
     | 'rejected';
 
-export type PaymentStatus = 'awaiting' | 'partial' | 'fully_paid';
+/** `refunded` waits on a refund flow still to be designed; nothing sets it yet. */
+export type PaymentStatus = 'awaiting' | 'partial' | 'fully_paid' | 'refunded';
 
 export type ProcessStatus =
     | 'order_received'
@@ -73,6 +78,8 @@ export const INQUIRY_STATUS_LABELS: Record<InquiryStatus, string> = {
     site_visited: 'Site visited',
     on_hold: 'On hold',
     quoted: 'Quoted',
+    revision: 'Revision',
+    won: 'Won',
     order_received: 'Order received',
     measure: 'Measure',
     sourcing: 'Sourcing',
@@ -89,6 +96,8 @@ export const SALES_STATUS_LABELS: Record<SalesStatus, string> = {
     site_visited: 'Site visited',
     on_hold: 'On hold',
     quoted: 'Quoted',
+    revision: 'Revision',
+    won: 'Won',
     rejected: 'Rejected',
 };
 
@@ -96,6 +105,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
     awaiting: 'Awaiting',
     partial: 'Partially paid',
     fully_paid: 'Fully paid',
+    refunded: 'Refunded',
 };
 
 export const PROCESS_STATUS_LABELS: Record<ProcessStatus, string> = {
@@ -184,6 +194,7 @@ const STOPPED = new Set([
     'lost',
     'on_hold',
     'delayed',
+    'refunded',
 ]);
 
 /** The values that end a road for good, which the badge strikes through. */
@@ -225,6 +236,8 @@ const TONES: Record<string, StatusTone> = {
     negotiation: 'blue',
     site_visited: 'indigo',
     quoted: 'violet',
+    revision: 'purple',
+    won: 'green',
     on_hold: 'amber',
     rejected: 'red',
     cancelled: 'red',
@@ -242,6 +255,7 @@ const TONES: Record<string, StatusTone> = {
     awaiting: 'amber',
     partial: 'yellow',
     fully_paid: 'green',
+    refunded: 'orange',
 };
 
 export const statusTone = (status: string): StatusTone =>
@@ -274,13 +288,16 @@ const ACTIVITY_LABELS: {
         negotiation: 'In discussion',
         site_visited: 'Site visited',
         on_hold: 'On hold',
-        quoted: 'Quote approved',
+        quoted: 'Quotation sent',
+        revision: 'Quotation revised',
+        won: 'Quote approved',
         rejected: 'Cancelled',
     },
     payment: {
         awaiting: 'Awaiting payment',
         partial: 'Partially paid',
         fully_paid: 'Fully paid',
+        refunded: 'Refunded',
     },
     process: {
         order_received: 'Order received',
@@ -334,9 +351,12 @@ export const documentGroupLabel = (
 ): string => {
     switch (status) {
         case 'quoted':
+        case 'revision':
             return revision === null
                 ? 'Quotation'
                 : `Quotation · Rev ${revision}`;
+        case 'won':
+            return 'Job order';
         case 'awaiting':
             return 'Billing statement';
         case 'partial':

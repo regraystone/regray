@@ -347,10 +347,11 @@ class E2EMessageSeeder extends Seeder
         [$sales, $payment, $process] = match ($status) {
             InquiryStatus::Pending => [null, null, null],
             InquiryStatus::Cancelled => ['rejected', null, null],
-            InquiryStatus::Closed => ['quoted', 'fully_paid', 'completed'],
+            InquiryStatus::Closed => ['won', 'fully_paid', 'completed'],
             InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [$status->value, null, null],
-            InquiryStatus::Quoted => ['quoted', 'awaiting', 'order_received'],
-            default => ['quoted', 'awaiting', $status->value],
+            InquiryStatus::Quoted, InquiryStatus::Revision => [$status->value, null, null],
+            InquiryStatus::Won => ['won', 'awaiting', 'order_received'],
+            default => ['won', 'awaiting', $status->value],
         };
 
         return [

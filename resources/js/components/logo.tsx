@@ -2,14 +2,16 @@ import { Link } from '@inertiajs/react';
 import BetaBadge from '@/components/beta-badge';
 import { dashboard } from '@/routes';
 
+/**
+ * The wordmark: "Regray Studio", all of it bold. `compact` (the collapsed
+ * sidebar) has no room for it, so it shows an R on a black square instead.
+ */
 const Logo = ({
     className = '',
     compact = false,
-    markClassName = '',
 }: {
     className?: string;
     compact?: boolean;
-    markClassName?: string;
 }) => (
     <Link
         href={dashboard()}
@@ -18,18 +20,16 @@ const Logo = ({
         } ${className}`}
         aria-label="Regray Studio home"
     >
-        <img
-            src="/images/regray-logo.svg"
-            alt=""
-            aria-hidden
-            className={`size-7 shrink-0 object-contain ${markClassName}`}
-        />
-        {!compact && (
-            <span className="text-xl font-extrabold whitespace-nowrap">
-                Regray{' '}
-                <span className="font-normal text-secondary-foreground">
-                    Studio
-                </span>
+        {compact ? (
+            <span
+                aria-hidden
+                className="grid size-8 place-items-center rounded-md bg-primary text-base font-extrabold text-primary-foreground"
+            >
+                R
+            </span>
+        ) : (
+            <span className="text-2xl font-extrabold whitespace-nowrap lg:text-xl">
+                Regray Studio
             </span>
         )}
         <BetaBadge compact={compact} />

@@ -47,8 +47,9 @@ it('files every display status under one Quote list tab', function (): void {
         ->and(InquiryStatus::Closed->group())->toBe(InquiryStatusGroup::Closed)
         ->and(InquiryStatus::Cancelled->group())->toBe(InquiryStatusGroup::Cancelled)
         ->and(InquiryStatus::Quoted->group())->toBe(InquiryStatusGroup::InProgress)
+        ->and(InquiryStatus::Won->group())->toBe(InquiryStatusGroup::InProgress)
         ->and(InquiryStatus::Delayed->group())->toBe(InquiryStatusGroup::InProgress)
-        ->and($grouped->all())->toBe(['pending' => 1, 'cancelled' => 1, 'closed' => 1, 'in_progress' => 13]);
+        ->and($grouped->all())->toBe(['pending' => 1, 'cancelled' => 1, 'closed' => 1, 'in_progress' => 15]);
 });
 
 it('agrees with the SQL scope on every combination of the lead and the role statuses, NULL included', function (): void {
@@ -99,7 +100,7 @@ it('agrees with the SQL scope on every combination of the lead and the role stat
     $fromSql = Inquiry::query()->withDisplayStatus()->pluck('display_status', 'reference')->all();
     $fromModel = Inquiry::query()->withLeadStatus()->withJobOrderFlag()->get()->mapWithKeys(fn (Inquiry $inquiry): array => [$inquiry->reference => $inquiry->status->value])->all();
 
-    expect(count($expected))->toBe(4 * 6 * 12 * 2)
+    expect(count($expected))->toBe(4 * 8 * 12 * 2)
         ->and($fromSql)->toEqual($expected)
         ->and($fromModel)->toEqual($expected);
 
@@ -126,6 +127,6 @@ it('does not count a removed job order file', function (): void {
 
     $inquiry->files()->where('document_type', DocumentType::JobOrder)->sole()->delete();
 
-    expect($inquiry->fresh()->status)->toBe(InquiryStatus::Quoted)
-        ->and(Inquiry::query()->withDisplayStatus()->whereKey($inquiry->id)->value('display_status'))->toBe('quoted');
+    expect($inquiry->fresh()->status)->toBe(InquiryStatus::Won)
+        ->and(Inquiry::query()->withDisplayStatus()->whereKey($inquiry->id)->value('display_status'))->toBe('won');
 });

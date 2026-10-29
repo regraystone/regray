@@ -17,11 +17,13 @@ use Illuminate\Support\Facades\Schema;
  *   which links it.
  * - `sales_status`: from the lead being won, starting at negotiation. Negotiation,
  *   site_visited and on_hold while sales talks with the client; quoted once
- *   the client has approved the quotation; rejected when the client turns it
- *   down or cancels.
- * - `payment_status` and `process_status`: both from the client's approval,
- *   at awaiting and received. Accounting's is set by hand as payments come in;
- *   logistics' moves past received only once the job order is in.
+ *   the quotation is sent, and revision for each revised one; won once the
+ *   client has approved it; rejected when the client turns it down or
+ *   cancels.
+ * - `payment_status` and `process_status`: both from the client's approval
+ *   (won). Accounting's is set by hand as payments come in, and `refunded`
+ *   waits on a refund flow still to be designed; logistics starts with the
+ *   job order.
  *
  * The status shown for the inquiry is calculated from them, never stored
  * (App\Services\InquiryStatusCalculator). Each CHECK holds one column to its
@@ -68,8 +70,8 @@ return new class extends Migration
             $table->index('process_status');
         });
 
-        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_sales_status CHECK (sales_status IN ('negotiation','site_visited','on_hold','quoted','rejected'))");
-        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_payment_status CHECK (payment_status IN ('awaiting','partial','fully_paid'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_sales_status CHECK (sales_status IN ('negotiation','site_visited','on_hold','quoted','revision','won','rejected'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_payment_status CHECK (payment_status IN ('awaiting','partial','fully_paid','refunded'))");
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_process_status CHECK (process_status IN ('order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','on_hold','delayed'))");
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quoted_total CHECK (quoted_total > 0)');
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quote_revision CHECK (quote_revision >= 1)');

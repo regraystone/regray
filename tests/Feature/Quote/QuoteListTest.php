@@ -57,7 +57,8 @@ describe('a card', function (): void {
         'negotiation' => [InquiryStatus::Negotiation, null],
         'sales on hold' => [InquiryStatus::OnHold, null],
         'cancelled' => [InquiryStatus::Cancelled, null],
-        'quoted' => [InquiryStatus::Quoted, 'awaiting'],
+        'quoted' => [InquiryStatus::Quoted, null],
+        'won' => [InquiryStatus::Won, 'awaiting'],
         'closed' => [InquiryStatus::Closed, 'awaiting'],
     ]);
 

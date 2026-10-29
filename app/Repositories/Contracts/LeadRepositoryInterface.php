@@ -34,12 +34,13 @@ interface LeadRepositoryInterface
      * One page of the Leads page, newest first, with each lead's client and
      * their profile, marketing user, inquiries and their group chats, and
      * history. Every lead for the super-admin; otherwise the marketing user's
-     * own. `$escapedSearch` matches the reference and the client's name,
-     * email and phone.
+     * own, and only those at `$status` when one is given. `$escapedSearch`
+     * matches the reference, the client's name, email and phone, and the
+     * reference of any of the lead's inquiries.
      *
      * @return LengthAwarePaginator<int, Lead>
      */
-    public function paginateFor(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator;
+    public function paginateFor(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page, ?LeadStatus $status = null): LengthAwarePaginator;
 
     /**
      * Leads at one of these statuses, newest first, with their client. Only
@@ -49,13 +50,6 @@ interface LeadRepositoryInterface
      * @return Collection<int, Lead>
      */
     public function withStatuses(array $statuses, ?User $marketingUser): Collection;
-
-    /**
-     * One page of the Leads page filtered by a specific status, newest first.
-     *
-     * @return LengthAwarePaginator<int, Lead>
-     */
-    public function filterByStatus(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page, LeadStatus $status): LengthAwarePaginator;
 
     public function findByReference(string $reference): ?Lead;
 }

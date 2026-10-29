@@ -108,6 +108,10 @@ function DataTable<T>({
                 ...(next.search.trim() === ''
                     ? {}
                     : { search: next.search.trim() }),
+                // A search or a page change keeps the status filter.
+                ...(statusFilter === undefined || statusFilter === 'all'
+                    ? {}
+                    : { status: statusFilter }),
                 page: next.page,
             },
             {

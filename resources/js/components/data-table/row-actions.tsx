@@ -22,6 +22,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { splitRowActions } from '@/lib/data-table';
 
 /**
  * Every row action a table can offer. The server sends which ones a row has
@@ -62,8 +63,8 @@ const ORDER: RowActionKey[] = [
 ];
 
 /**
- * A row's actions: shows the first action (view) inline, and converts to a
- * dropdown menu (three dots) when there are additional actions.
+ * A row's actions: one or two as icon buttons; three or more as the first
+ * (view) beside a dropdown menu (three dots) with the rest (splitRowActions).
  */
 const RowActions = ({
     actions,
@@ -83,35 +84,32 @@ const RowActions = ({
         return null;
     }
 
-    // Show first action inline, rest in dropdown
-    const inlineAction = availableActions[0];
-    const dropdownActions = availableActions.slice(1);
+    const { inline, menu: dropdownActions } = splitRowActions(availableActions);
 
     return (
         <div className="flex items-center justify-end gap-0.5">
-            {inlineAction &&
-                (() => {
-                    const { icon: Icon, label } = ACTIONS[inlineAction];
+            {inline.map((key) => {
+                const { icon: Icon, label } = ACTIONS[key];
 
-                    return (
-                        <Tooltip key={inlineAction}>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-9 w-9"
-                                    aria-label={`${label} · ${subject}`}
-                                    data-row-action={inlineAction}
-                                    onClick={handlers[inlineAction]}
-                                >
-                                    <Icon aria-hidden className="size-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{label}</TooltipContent>
-                        </Tooltip>
-                    );
-                })()}
+                return (
+                    <Tooltip key={key}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                aria-label={`${label} · ${subject}`}
+                                data-row-action={key}
+                                onClick={handlers[key]}
+                            >
+                                <Icon aria-hidden className="size-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{label}</TooltipContent>
+                    </Tooltip>
+                );
+            })}
 
             {dropdownActions.length > 0 && (
                 <DropdownMenu>

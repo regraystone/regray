@@ -10,7 +10,6 @@ use App\Enums\PaymentStatus;
 use App\Enums\Permission;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
-use App\Enums\SalesStatus;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\InquiryCatalogResource;
@@ -66,37 +65,18 @@ class ViewController extends Controller
         ]);
     }
 
-    /** @return list<array{value: string, label: string}> */
+    /**
+     * The Inquiry list's status filter: accounting by its payment status,
+     * logistics by its process status, everyone else by the inquiry's status.
+     *
+     * @return list<array{value: string, label: string}>
+     */
     private function statusOptionsForUser(User $user): array
     {
         $role = $user->primaryRole();
         $options = [['value' => 'all', 'label' => 'All statuses']];
 
-        if ($role === Role::Marketing) {
-            foreach (LeadStatus::cases() as $status) {
-                $options[] = [
-                    'value' => $status->value,
-                    'label' => match ($status) {
-                        LeadStatus::Idle => 'Idle',
-                        LeadStatus::Won => 'Won',
-                        LeadStatus::Lost => 'Lost',
-                    },
-                ];
-            }
-        } elseif ($role === Role::Sales) {
-            foreach (SalesStatus::cases() as $status) {
-                $options[] = [
-                    'value' => $status->value,
-                    'label' => match ($status) {
-                        SalesStatus::Negotiation => 'Negotiation',
-                        SalesStatus::SiteVisited => 'Site visited',
-                        SalesStatus::OnHold => 'On hold',
-                        SalesStatus::Quoted => 'Quoted',
-                        SalesStatus::Rejected => 'Rejected',
-                    },
-                ];
-            }
-        } elseif ($role === Role::Accounting) {
+        if ($role === Role::Accounting) {
             foreach (PaymentStatus::cases() as $status) {
                 $options[] = [
                     'value' => $status->value,
@@ -104,10 +84,11 @@ class ViewController extends Controller
                         PaymentStatus::Awaiting => 'Awaiting',
                         PaymentStatus::Partial => 'Partially paid',
                         PaymentStatus::FullyPaid => 'Fully paid',
+                        PaymentStatus::Refunded => 'Refunded',
                     },
                 ];
             }
-        } elseif ($role === Role::Logistics || $role === Role::Technical) {
+        } elseif ($role === Role::Logistics) {
             foreach (ProcessStatus::cases() as $status) {
                 $options[] = [
                     'value' => $status->value,
@@ -127,7 +108,14 @@ class ViewController extends Controller
                 ];
             }
         } else {
+            // Pending is only on the list for those who see pending inquiries.
+            $seesPending = $user->hasAnyRole([Role::Admin->value, Role::Owner->value]);
+
             foreach (InquiryStatus::cases() as $status) {
+                if ($status === InquiryStatus::Pending && ! $seesPending) {
+                    continue;
+                }
+
                 $options[] = [
                     'value' => $status->value,
                     'label' => match ($status) {
@@ -138,6 +126,8 @@ class ViewController extends Controller
                         InquiryStatus::SiteVisited => 'Site visited',
                         InquiryStatus::OnHold => 'On hold',
                         InquiryStatus::Quoted => 'Quoted',
+                        InquiryStatus::Revision => 'Revision',
+                        InquiryStatus::Won => 'Won',
                         InquiryStatus::OrderReceived => 'Order received',
                         InquiryStatus::Measure => 'Measure',
                         InquiryStatus::Sourcing => 'Sourcing',
@@ -191,22 +181,12 @@ class ViewController extends Controller
         $user = $request->user();
         $holder = $user->hasRole(Role::superAdmin()->value) ? null : $user;
 
-        $query = $leads->paginateFor($holder, $request->escapedSearch(), $request->perPage(), $request->page());
-
-        // Apply status filter if provided
-        $statusFilter = $request->query('status');
-        if ($statusFilter && $statusFilter !== 'all') {
-            try {
-                $status = LeadStatus::from($statusFilter);
-                $query = $leads->filterByStatus($holder, $request->escapedSearch(), $request->perPage(), $request->page(), $status);
-            } catch (\ValueError) {
-                // Invalid status, ignore filter
-            }
-        }
+        // An unknown status is no filter, like any other bad value on a list.
+        $status = LeadStatus::tryFrom((string) $request->query('status'));
 
         return Inertia::render('leads', [
-            'leads' => self::page($query, LeadResource::class, $request),
-            'filters' => array_merge($request->filters(), ['status' => $statusFilter ?? 'all']),
+            'leads' => self::page($leads->paginateFor($holder, $request->escapedSearch(), $request->perPage(), $request->page(), $status), LeadResource::class, $request),
+            'filters' => array_merge($request->filters(), ['status' => $status->value ?? 'all']),
             'canCreateGroup' => $user->can(Permission::ConversationsCreate->value),
         ]);
     }

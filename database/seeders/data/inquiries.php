@@ -155,7 +155,8 @@ return [
             'shows' => 'closed',
             'events' => [
                 ['at' => '2026-08-30T02:00:00Z', 'by' => 'sofia', 'sales' => 'site_visited', 'note' => 'Site visit done.'],
-                ['at' => '2026-09-01T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '412800.00', 'job_order' => 'JO-2034', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-01T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '412800.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-01T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2034', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-01T05:30:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-01T06:30:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '206400.00', 'reference' => 'BPI-0901-7720', 'note' => 'Payment received.'],
                 ['at' => '2026-09-01T08:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -197,7 +198,8 @@ return [
             // installation step.
             'shows' => 'closed',
             'events' => [
-                ['at' => '2026-08-31T01:30:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '289000.00', 'job_order' => 'JO-2033', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-08-31T01:30:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '289000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-08-31T01:31:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2033', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-08-31T04:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-08-31T05:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '144500.00', 'reference' => 'BPI-0831-7651', 'note' => 'Payment received.'],
                 ['at' => '2026-08-31T07:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -238,7 +240,8 @@ return [
             // one cracked at the saw.
             'shows' => 'on_hold',
             'events' => [
-                ['at' => '2026-09-13T04:20:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '268400.00', 'job_order' => 'JO-2036', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-13T04:20:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '268400.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-13T04:21:00Z', 'by' => 'maria', 'sales' => 'won', 'job_order' => 'JO-2036', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-14T06:40:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-14T07:40:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '134200.00', 'reference' => 'GCASH-0914-2208', 'note' => 'Payment received.'],
                 ['at' => '2026-09-15T02:00:00Z', 'by' => 'kenji', 'process' => 'measure'],
@@ -268,9 +271,13 @@ return [
                 'notes' => null,
                 'attachments' => [],
             ],
-            // The client asked for changes; sales is still working on them.
-            'shows' => 'negotiation',
-            'events' => [],
+            // Quoted, then revised when the client asked for changes; the
+            // revised quotation waits on the client's approval.
+            'shows' => 'revision',
+            'events' => [
+                ['at' => '2026-10-20T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '216000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-10-24T03:00:00Z', 'by' => 'maria', 'sales' => 'revision', 'quote' => '198500.00', 'note' => 'Sent the revised quotation, with the changes the client asked for.'],
+            ],
         ],
         [
             'reference' => 'INQ-1046',
@@ -299,7 +306,8 @@ return [
             'shows' => 'production',
             'events' => [
                 ['at' => '2026-09-21T03:00:00Z', 'by' => 'sofia', 'sales' => 'site_visited', 'note' => 'Site visit done.'],
-                ['at' => '2026-09-23T01:15:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '96500.00', 'job_order' => 'JO-2037', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-23T01:15:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '96500.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-23T01:16:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2037', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-23T04:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-23T05:00:00Z', 'by' => 'accounting', 'payment_status' => 'fully_paid', 'payment' => '96500.00', 'reference' => 'BDO-0923-6015', 'note' => 'Paid in full.'],
                 ['at' => '2026-09-24T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -331,7 +339,8 @@ return [
             // The onyx shipment is late at the port.
             'shows' => 'delayed',
             'events' => [
-                ['at' => '2026-09-24T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '174000.00', 'job_order' => 'JO-2038', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-24T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '174000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-24T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2038', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-25T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-25T03:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '87000.00', 'reference' => 'BDO-0925-6102', 'note' => 'Payment received.'],
                 ['at' => '2026-09-26T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -394,7 +403,8 @@ return [
             // Quoted, approved, paid in two parts and installed.
             'shows' => 'closed',
             'events' => [
-                ['at' => '2026-09-30T05:30:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '312000.00', 'job_order' => 'JO-2039', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-30T05:30:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '312000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-30T05:31:00Z', 'by' => 'maria', 'sales' => 'won', 'job_order' => 'JO-2039', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-10-01T01:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-10-01T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '156000.00', 'reference' => 'BDO-1001-4471', 'note' => 'Payment received.'],
                 ['at' => '2026-10-02T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -512,13 +522,14 @@ return [
                 'attachments' => [],
             ],
             // Quoted twice (the client changed a stone after the first) and
-            // approved; the job order is not in yet, and accounting has sent
-            // the billing statement for the deposit.
-            'shows' => 'quoted',
+            // approved with the job order, and accounting has sent the billing
+            // statement for the deposit.
+            'shows' => 'order_received',
             'events' => [
-                ['at' => '2026-10-17T03:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '124500.00', 'note' => 'The client approved the first quotation in the group chat.'],
+                ['at' => '2026-10-17T03:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '124500.00', 'note' => 'Sent the quotation to the client.'],
                 ['at' => '2026-10-18T02:00:00Z', 'by' => 'sofia', 'sales' => 'negotiation', 'note' => 'The client asked to change a stone, so the quotation is being revised.'],
-                ['at' => '2026-10-20T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '128900.00', 'note' => 'The client approved the revised quotation in the group chat.'],
+                ['at' => '2026-10-20T02:00:00Z', 'by' => 'sofia', 'sales' => 'revision', 'quote' => '128900.00', 'note' => 'Sent the revised quotation to the client.'],
+                ['at' => '2026-10-20T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2046', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-10-20T05:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
             ],
         ],
@@ -572,7 +583,8 @@ return [
             // The job order is in; logistics has it, the deposit is not.
             'shows' => 'order_received',
             'events' => [
-                ['at' => '2026-10-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '84300.00', 'job_order' => 'JO-2045', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-10-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '84300.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-10-15T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2045', 'note' => 'The client approved the quotation in the group chat.'],
             ],
         ],
         [
@@ -598,7 +610,8 @@ return [
             ],
             'shows' => 'measure',
             'events' => [
-                ['at' => '2026-10-09T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '142000.00', 'job_order' => 'JO-2043', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-10-09T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '142000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-10-09T02:01:00Z', 'by' => 'maria', 'sales' => 'won', 'job_order' => 'JO-2043', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-10-11T01:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-10-11T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '71000.00', 'reference' => 'BPI-1011-3301', 'note' => 'Payment received.'],
                 ['at' => '2026-10-13T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -627,8 +640,8 @@ return [
             ],
             'shows' => 'sourcing',
             'events' => [
-                ['at' => '2026-10-01T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '98500.00', 'note' => 'The client approved the quotation in the group chat.'],
-                ['at' => '2026-10-02T02:00:00Z', 'by' => 'maria', 'job_order' => 'JO-2042', 'note' => 'Job order in for the counters.'],
+                ['at' => '2026-10-01T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '98500.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-10-01T02:01:00Z', 'by' => 'maria', 'sales' => 'won', 'job_order' => 'JO-2042', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-10-02T05:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-10-02T06:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '49250.00', 'reference' => 'GCASH-1002-4410', 'note' => 'Payment received.'],
                 ['at' => '2026-10-05T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -658,7 +671,8 @@ return [
             ],
             'shows' => 'quality_check',
             'events' => [
-                ['at' => '2026-09-23T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '156000.00', 'job_order' => 'JO-2040', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-23T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '156000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-23T02:01:00Z', 'by' => 'maria', 'sales' => 'won', 'job_order' => 'JO-2040', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-24T01:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-24T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '78000.00', 'reference' => 'BDO-0924-5521', 'note' => 'Payment received.'],
                 ['at' => '2026-09-25T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -691,7 +705,8 @@ return [
             // Paid in full; cut, checked and waiting to go out.
             'shows' => 'ready',
             'events' => [
-                ['at' => '2026-09-21T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '112400.00', 'job_order' => 'JO-2041', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-21T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '112400.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-21T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2041', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-22T01:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-22T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'fully_paid', 'payment' => '112400.00', 'reference' => 'BPI-0922-7810', 'note' => 'Paid in full.'],
                 ['at' => '2026-09-23T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -724,7 +739,8 @@ return [
             ],
             'shows' => 'dispatched',
             'events' => [
-                ['at' => '2026-09-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '46800.00', 'job_order' => 'JO-2035', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '46800.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-15T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2035', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-16T01:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-16T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '23400.00', 'reference' => 'BDO-0916-6020', 'note' => 'Payment received.'],
                 ['at' => '2026-09-17T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -761,7 +777,8 @@ return [
             'shows' => 'installation',
             'events' => [
                 ['at' => '2026-09-08T03:00:00Z', 'by' => 'sofia', 'sales' => 'site_visited', 'note' => 'Site visit done.'],
-                ['at' => '2026-09-12T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '134500.00', 'job_order' => 'JO-2032', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-09-12T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '134500.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-09-12T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2032', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-09-13T01:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
                 ['at' => '2026-09-13T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '67250.00', 'reference' => 'GCASH-0913-1180', 'note' => 'Payment received.'],
                 ['at' => '2026-09-14T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
@@ -794,8 +811,11 @@ return [
                 'attachments' => [],
             ],
             // A walk-in with no account: no lead, sales from the start.
-            'shows' => 'negotiation',
-            'events' => [],
+            // Quoted; the quotation waits on the client's approval.
+            'shows' => 'quoted',
+            'events' => [
+                ['at' => '2026-10-23T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '58200.00', 'note' => 'Sent the quotation to the client.'],
+            ],
         ],
     ],
 ];

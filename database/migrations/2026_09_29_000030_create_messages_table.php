@@ -62,7 +62,7 @@ return new class extends Migration
                     AND {$noSnapshot})
                 OR (type = 'inquiry_card' AND body IS NULL AND inquiry_id IS NOT NULL AND schedule_id IS NULL AND system_event IS NULL AND system_user_id IS NULL
                     AND announced_status IS NOT NULL
-                    AND announced_status IN ('pending','cancelled','closed','negotiation','site_visited','on_hold','quoted','order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','delayed'))
+                    AND announced_status IN ('pending','cancelled','closed','negotiation','site_visited','on_hold','quoted','revision','won','order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','delayed'))
                 OR (type = 'schedule_card' AND body IS NULL AND schedule_id IS NOT NULL AND announced_status IS NOT NULL AND inquiry_id IS NULL AND system_event IS NULL AND system_user_id IS NULL
                     AND {$noSnapshot})
                 OR (type = 'system' AND body IS NULL AND system_event IS NOT NULL AND inquiry_id IS NULL AND schedule_id IS NULL AND announced_status IS NULL
@@ -70,8 +70,8 @@ return new class extends Migration
             )
         ");
         DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_system_event CHECK (system_event IS NULL OR system_event IN ('assigned','released','reassigned'))");
-        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_sales_status CHECK (announced_sales_status IN ('negotiation','site_visited','on_hold','quoted','rejected'))");
-        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_payment_status CHECK (announced_payment_status IN ('awaiting','partial','fully_paid'))");
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_sales_status CHECK (announced_sales_status IN ('negotiation','site_visited','on_hold','quoted','revision','won','rejected'))");
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_payment_status CHECK (announced_payment_status IN ('awaiting','partial','fully_paid','refunded'))");
         DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_announced_process_status CHECK (announced_process_status IN ('order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','on_hold','delayed'))");
         DB::statement("
             CREATE UNIQUE INDEX idx_messages_inquiry_card_once ON messages (

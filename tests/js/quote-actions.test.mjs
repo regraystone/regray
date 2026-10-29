@@ -14,7 +14,7 @@ import {
 const hidden = { visible: false, enabled: false };
 const on = { visible: true, enabled: true };
 const QUOTED_REASON =
-    'Locked once quoted. Message the team to request changes.';
+    'Locked once you approved the quotation. Message the team to request changes.';
 const CANCELLED_REASON = 'This inquiry was cancelled.';
 
 const fromServer = {

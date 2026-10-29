@@ -1,5 +1,5 @@
 import { Link as InertiaLink, router, usePage } from '@inertiajs/react';
-import { MessageCirclePlus, Plus } from 'lucide-react';
+import { FilePlus, MessageCirclePlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import NewGroupDialog, {
     type GroupPreset,
@@ -24,6 +24,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { TableMeta } from '@/lib/data-table';
 import { formatDate } from '@/lib/format-date';
 import {
@@ -175,7 +180,7 @@ const Leads = () => {
                 columns={columns}
                 rowKey={(row) => row.reference}
                 only={['leads', 'filters']}
-                searchPlaceholder="Search leads"
+                searchPlaceholder="Search by name, email or inquiry no."
                 emptyTitle="No leads found"
                 emptyDescription="A lead is created when you take a client's Regray Team conversation."
                 statusFilter={statusFilter}
@@ -195,6 +200,7 @@ const Leads = () => {
                 <DialogContent
                     className="max-h-[90svh] overflow-y-auto sm:max-w-2xl"
                     data-testid="lead-details"
+                    showCloseButton={false}
                 >
                     {viewing !== null ? (
                         <div className="space-y-6">
@@ -255,24 +261,36 @@ const Leads = () => {
                                                     · {inquiry.name}
                                                 </span>
                                                 {!inquiry.hasGroup && (
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => {
-                                                            setGroupPreset({
-                                                                client: viewing.client,
-                                                                inquiry,
-                                                            });
-                                                            setViewing(null);
-                                                        }}
-                                                    >
-                                                        <MessageCirclePlus
-                                                            aria-hidden
-                                                            className="size-4"
-                                                        />
-                                                        Group chat
-                                                    </Button>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                type="button"
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-9 w-9"
+                                                                aria-label={`Create a group chat for ${inquiry.reference}`}
+                                                                onClick={() => {
+                                                                    setGroupPreset(
+                                                                        {
+                                                                            client: viewing.client,
+                                                                            inquiry,
+                                                                        },
+                                                                    );
+                                                                    setViewing(
+                                                                        null,
+                                                                    );
+                                                                }}
+                                                            >
+                                                                <MessageCirclePlus
+                                                                    aria-hidden
+                                                                    className="size-4"
+                                                                />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            Create group chat
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 )}
                                             </li>
                                         ))}
@@ -318,11 +336,7 @@ const Leads = () => {
 
                             <div className="flex gap-2">
                                 {viewing.canCreateInquiry && (
-                                    <Button
-                                        asChild
-                                        variant="outline"
-                                        className="flex-1"
-                                    >
+                                    <Button asChild className="flex-1">
                                         <InertiaLink
                                             href={inquiryInquire.url({
                                                 query: {
@@ -330,16 +344,17 @@ const Leads = () => {
                                                 },
                                             })}
                                         >
-                                            <Plus
+                                            <FilePlus
                                                 className="size-4"
                                                 aria-hidden
                                             />
-                                            Create inquiry
+                                            Inquiry
                                         </InertiaLink>
                                     </Button>
                                 )}
                                 <Button
-                                    variant="ghost"
+                                    type="button"
+                                    variant="outline"
                                     onClick={() => setViewing(null)}
                                     className="flex-1"
                                 >
@@ -454,7 +469,7 @@ const EditLeadDialog = ({
             open
             onOpenChange={(open) => !saving && open === false && onClose()}
         >
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md" showCloseButton={false}>
                 <DialogHeader>
                     <DialogTitle>Edit Lead Details</DialogTitle>
                     <DialogDescription>

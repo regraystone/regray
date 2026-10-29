@@ -61,3 +61,14 @@ export const pageNumbers = (
         index > 0 && page - shown[index - 1] > 1 ? [null, page] : [page],
     );
 };
+
+/**
+ * How a row's actions are drawn: up to two as icon buttons, side by side; three
+ * or more as the first (view) beside a menu holding the rest.
+ */
+export const splitRowActions = <T>(
+    actions: readonly T[],
+): { inline: T[]; menu: T[] } =>
+    actions.length <= 2
+        ? { inline: [...actions], menu: [] }
+        : { inline: actions.slice(0, 1), menu: actions.slice(1) };

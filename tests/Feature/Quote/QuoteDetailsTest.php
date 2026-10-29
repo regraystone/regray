@@ -84,7 +84,7 @@ it('sends the display status and the role statuses it came from', function (): v
 
     expect($details)->toMatchArray([
         'status' => 'production',
-        'salesStatus' => 'quoted',
+        'salesStatus' => 'won',
         'paymentStatus' => 'partial',
         'processStatus' => 'production',
     ]);

@@ -43,6 +43,8 @@ type InquiryRow = {
     contact: string | null;
     status: InquiryStatus;
     salesStatus: SalesStatus | null;
+    /** A quotation was ever sent, which opens sales' revision and won. */
+    hasBeenQuoted: boolean;
     paymentStatus: PaymentStatus | null;
     processStatus: ProcessStatus | null;
     /** The actions this reader has on this row, decided by the server. */
@@ -107,20 +109,17 @@ const Inquiry = () => {
             key: 'date',
             header: 'Date',
             cell: (row) => formatDate(row.createdAt),
-            className: 'whitespace-nowrap',
         },
         {
             key: 'reference',
             header: 'Inquiry No.',
             cell: (row) => <span className="font-bold">{row.reference}</span>,
-            className: 'whitespace-nowrap',
         },
         { key: 'client', header: 'Client', cell: (row) => row.client },
         {
             key: 'contact',
             header: 'Contact',
             cell: (row) => row.contact ?? '—',
-            className: 'whitespace-nowrap',
         },
         {
             key: 'status',
@@ -211,7 +210,11 @@ const Inquiry = () => {
                             />
                         )
                     }
-                    targets={allowedTargets(track, current).map((value) => ({
+                    targets={allowedTargets(
+                        track,
+                        current,
+                        editing.row.hasBeenQuoted,
+                    ).map((value) => ({
                         value,
                         label: statusLabel(track, value as never),
                     }))}

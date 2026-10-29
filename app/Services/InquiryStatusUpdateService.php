@@ -78,7 +78,7 @@ class InquiryStatusUpdateService
 
         $target = $track->status($to);
 
-        if ($target === SalesStatus::Quoted) {
+        if ($track === InquiryStatusTrack::Sales && InquiryStatusRules::isQuote($to)) {
             $this->inquiryRepository->recordQuote($inquiry, ($inquiry->quote_revision ?? 0) + 1, (string) $amount);
         }
 
@@ -96,7 +96,7 @@ class InquiryStatusUpdateService
             }
         }
 
-        if ($target === SalesStatus::Quoted && ($files[DocumentType::JobOrder->value] ?? []) !== [] && $inquiry->process_status === null) {
+        if ($target === SalesStatus::Won && ($files[DocumentType::JobOrder->value] ?? []) !== [] && $inquiry->process_status === null) {
             $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Process, ProcessStatus::OrderReceived, $by, trim($note));
         }
 
@@ -104,9 +104,9 @@ class InquiryStatusUpdateService
     }
 
     /**
-     * Sales uploads the job order after quoting without one: it starts
+     * Sales uploads the job order after winning without one: it starts
      * logistics at order_received, and the file is that update's group. Only
-     * once, on a quoted inquiry whose logistics has not started.
+     * once, on a won inquiry whose logistics has not started.
      *
      * @param  list<UploadedFile>  $files
      *
@@ -120,7 +120,7 @@ class InquiryStatusUpdateService
 
         if (! InquiryStatusRules::canUploadJobOrder($inquiry)) {
             throw ValidationException::withMessages(['files.job_order' => $inquiry->process_status === null
-                ? 'The job order comes once the inquiry is quoted.'
+                ? 'The job order comes once the client has approved the quotation.'
                 : 'The job order is already in.']);
         }
 
@@ -140,13 +140,13 @@ class InquiryStatusUpdateService
     {
         $current = $inquiry->{$track->column()}?->value;
 
-        if ($to === $current) {
+        if ($to === $current && ! ($track === InquiryStatusTrack::Sales && $to === SalesStatus::Revision->value)) {
             throw ValidationException::withMessages(['to' => 'Choose a status other than the current one.']);
         }
 
-        if (! InquiryStatusRules::canMove($inquiry, $track) || ! in_array($to, InquiryStatusRules::allowedTargets($track, $current), true)) {
-            throw ValidationException::withMessages(['to' => $track === InquiryStatusTrack::Payment && $inquiry->sales_status !== SalesStatus::Quoted
-                ? 'Payment starts once the inquiry is quoted.'
+        if (! InquiryStatusRules::canMove($inquiry, $track) || ! in_array($to, InquiryStatusRules::allowedTargets($track, $current, $inquiry->quote_revision !== null), true)) {
+            throw ValidationException::withMessages(['to' => $track === InquiryStatusTrack::Payment && $inquiry->sales_status !== SalesStatus::Won
+                ? 'Payment starts once the client has approved the quotation.'
                 : 'This inquiry cannot move to that status.']);
         }
     }

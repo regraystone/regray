@@ -11,7 +11,8 @@ import { INQUIRY_STATUS_LABELS } from '../../resources/js/lib/inquiry-statuses.t
 
 describe('inquiry card', () => {
     it('announces the display status it was posted for', () => {
-        assert.equal(inquiryHeadline('quoted'), 'Quotation approved');
+        assert.equal(inquiryHeadline('quoted'), 'Quotation sent');
+        assert.equal(inquiryHeadline('won'), 'Quotation approved');
         assert.equal(inquiryHeadline('production'), 'In production');
         assert.equal(inquiryHeadline('closed'), 'Inquiry closed');
         assert.equal(inquiryHeadline('cancelled'), 'Inquiry cancelled');

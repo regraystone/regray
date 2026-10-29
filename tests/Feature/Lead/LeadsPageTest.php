@@ -147,3 +147,19 @@ it('opens no profile for a blank phone, and lets no one else edit the lead', fun
 
     expect($this->client->refresh()->profile)->toBeNull();
 });
+
+it('finds a lead by its client\'s name or email, or by one of its inquiry numbers, within the status filter', function (): void {
+    $idle = makeLead($this->client, marketing: $this->marketing);
+    makeInquiry($this->client, attributes: ['reference' => 'INQ-S77', 'lead' => $idle]);
+    $other = inquiryClient();
+    $won = makeLead($other, LeadStatus::Won, $this->marketing);
+    $found = fn (array $query) => collect($this->actingAs($this->marketing)->get(route('leads.index', $query))->viewData('page')['props']['leads']['data'])->pluck('reference')->all();
+
+    expect($found(['search' => $this->client->name]))->toBe([$idle->reference])
+        ->and($found(['search' => strtoupper($other->email)]))->toBe([$won->reference])
+        ->and($found(['search' => 'inq-s77']))->toBe([$idle->reference])
+        ->and($found(['search' => 'INQ-S77', 'status' => 'won']))->toBe([])
+        ->and($found(['search' => $other->name, 'status' => 'won']))->toBe([$won->reference])
+        // An unknown status is no filter.
+        ->and($found(['search' => 'INQ-S77', 'status' => 'nope']))->toBe([$idle->reference]);
+});

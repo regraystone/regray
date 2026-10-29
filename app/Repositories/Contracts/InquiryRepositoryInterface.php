@@ -166,6 +166,11 @@ interface InquiryRepositoryInterface
      * matches the reference, the project name, the client's name and their
      * contacts.
      *
+     * A pending inquiry (sales not started) is marketing's, seen from its lead
+     * on the Leads page, so only the admin and the owner find it here.
+     * Accounting and logistics find only a won inquiry (the client approved
+     * the quotation): their work starts there.
+     *
      * @return LengthAwarePaginator<int, Inquiry>
      */
     public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator;

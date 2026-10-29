@@ -106,6 +106,10 @@ describe('activityLabel', () => {
         );
         assert.equal(
             activityLabel({ track: 'sales', status: 'quoted' }),
+            'Quotation sent',
+        );
+        assert.equal(
+            activityLabel({ track: 'sales', status: 'won' }),
             'Quote approved',
         );
         assert.equal(

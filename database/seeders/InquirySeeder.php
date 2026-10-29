@@ -417,7 +417,7 @@ class InquirySeeder extends Seeder
             }
 
             $state['last_at'] = $at;
-            $approved = $state['sales'] === SalesStatus::Quoted;
+            $approved = $state['sales'] === SalesStatus::Won;
 
             if ($state['cancelled_at'] !== null) {
                 $fail('nothing happens to a cancelled inquiry.');
@@ -437,7 +437,7 @@ class InquirySeeder extends Seeder
             } elseif (isset($event['sales'])) {
                 $to = SalesStatus::from($event['sales']);
 
-                if (! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Sales, $state['sales']?->value), true)) {
+                if (! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Sales, $state['sales']?->value, isset($state['quote_revision'])), true)) {
                     $fail("sales does not move from {$state['sales']?->value} to {$to->value}.");
                 }
 
@@ -448,26 +448,27 @@ class InquirySeeder extends Seeder
                     $state['cancelled_at'] = $at;
                 }
 
-                // Quoting is a new revision with its total; a job order with it
-                // starts logistics at order_received.
-                if ($to === SalesStatus::Quoted) {
+                // Quoting, first or revised, is a new revision with its total.
+                if (InquiryStatusRules::isQuote($to->value)) {
                     if (! isset($event['quote'])) {
                         $fail('quoting carries the quoted total.');
                     }
 
                     $state['quote_revision'] = ($state['quote_revision'] ?? 0) + 1;
                     $state['quoted_total'] = $event['quote'];
+                }
 
-                    if (isset($event['job_order']) && $state['process'] === null) {
-                        $hasJobOrder = true;
-                        $state['process'] = ProcessStatus::OrderReceived;
-                        $state['changed']['process'] = $at;
-                    }
+                // The client's approval; a job order with it starts logistics
+                // at order_received.
+                if ($to === SalesStatus::Won && isset($event['job_order']) && $state['process'] === null) {
+                    $hasJobOrder = true;
+                    $state['process'] = ProcessStatus::OrderReceived;
+                    $state['changed']['process'] = $at;
                 }
             } elseif (isset($event['job_order'])) {
-                // The job order after the quote, by sales: logistics starts.
-                if ($state['sales'] !== SalesStatus::Quoted || $state['process'] !== null) {
-                    $fail('the job order comes once, after the quote.');
+                // The job order after the win, by sales: logistics starts.
+                if ($state['sales'] !== SalesStatus::Won || $state['process'] !== null) {
+                    $fail('the job order comes once, after the win.');
                 }
 
                 $hasJobOrder = true;
@@ -476,8 +477,8 @@ class InquirySeeder extends Seeder
             } elseif (isset($event['payment_status'])) {
                 $to = PaymentStatus::from($event['payment_status']);
 
-                if ($state['sales'] !== SalesStatus::Quoted || ! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Payment, $state['payment']?->value), true)) {
-                    $fail("payment does not move from {$state['payment']?->value} to {$to->value}, or the inquiry is not quoted.");
+                if ($state['sales'] !== SalesStatus::Won || ! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Payment, $state['payment']?->value), true)) {
+                    $fail("payment does not move from {$state['payment']?->value} to {$to->value}, or the inquiry is not won.");
                 }
 
                 if ($to !== PaymentStatus::Awaiting) {
@@ -638,7 +639,7 @@ class InquirySeeder extends Seeder
             if (isset($event['sales'])) {
                 $history = $move(InquiryStatusTrack::Sales, $event['sales'], $by, $at, $note);
 
-                if ($event['sales'] === SalesStatus::Quoted->value) {
+                if (InquiryStatusRules::isQuote($event['sales'])) {
                     $revision++;
 
                     $this->seedFile($fileUploads, $inquiry, $by, DocumentType::Quotation, [
@@ -646,13 +647,13 @@ class InquirySeeder extends Seeder
                         'size_bytes' => 180224 + $revision * 4096,
                         'mime_type' => 'application/pdf',
                     ], $at, $revision, $history);
+                }
 
-                    if (isset($event['job_order'])) {
-                        $this->seedJobOrder($fileUploads, $inquiry, $by, $event['job_order'], $at, $history);
+                if ($event['sales'] === SalesStatus::Won->value && isset($event['job_order'])) {
+                    $this->seedJobOrder($fileUploads, $inquiry, $by, $event['job_order'], $at, $history);
 
-                        if ($current['process'] === null) {
-                            $move(InquiryStatusTrack::Process, ProcessStatus::OrderReceived->value, $by, $at, $note);
-                        }
+                    if ($current['process'] === null) {
+                        $move(InquiryStatusTrack::Process, ProcessStatus::OrderReceived->value, $by, $at, $note);
                     }
                 }
             } elseif (isset($event['job_order'])) {

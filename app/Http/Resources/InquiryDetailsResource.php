@@ -107,10 +107,11 @@ class InquiryDetailsResource extends JsonResource
 
     /**
      * The documents the team has shared with the client, one group per status
-     * update, oldest first: each quotation (with its revision), the billing
-     * statement, and each payment's receipts and invoice. A group is headed by
-     * the update's status and date. The job order is internal and is never
-     * sent, to anyone, and neither are paths or disks.
+     * update, oldest first: the latest quotation (with its revision; an older
+     * one is superseded), the billing statement, and each payment's receipts
+     * and invoice. A group is headed by the update's status and date. The job
+     * order is internal and is never sent, to anyone, and neither are paths or
+     * disks.
      *
      * @return list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>
      */
@@ -118,9 +119,11 @@ class InquiryDetailsResource extends JsonResource
     {
         $updates = $this->statusHistory->keyBy('id');
         $position = 0;
+        $latestQuote = $this->files->where('document_type', DocumentType::Quotation)->max('revision');
 
         return array_values($this->files
-            ->filter(fn (InquiryFile $file): bool => $file->document_type->isSharedWithClient())
+            ->filter(fn (InquiryFile $file): bool => $file->document_type->isSharedWithClient()
+                && ($file->document_type !== DocumentType::Quotation || $file->revision === $latestQuote))
             ->sortBy(fn (InquiryFile $file): string => $file->created_at->format('U.u').'-'.str_pad((string) $file->id, 12, '0', STR_PAD_LEFT))
             ->groupBy(fn (InquiryFile $file): string => $file->status_history_id === null ? 'file-'.$file->id : 'update-'.$file->status_history_id)
             ->values()

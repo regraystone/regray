@@ -6,6 +6,7 @@ import {
     DEFAULT_PAGE_SIZE,
     pageNumbers,
     rangeText,
+    splitRowActions,
 } from '../../resources/js/lib/data-table.ts';
 import { formatDate } from '../../resources/js/lib/format-date.ts';
 import {
@@ -27,10 +28,12 @@ describe('status options', () => {
         assert.ok(
             !allowedTargets('sales', 'negotiation').includes('negotiation'),
         );
-        assert.deepEqual(allowedTargets('sales', 'quoted'), [
+        assert.deepEqual(allowedTargets('sales', 'quoted', true), [
             'negotiation',
             'site_visited',
             'on_hold',
+            'revision',
+            'won',
             'rejected',
         ]);
         assert.ok(
@@ -38,8 +41,28 @@ describe('status options', () => {
         );
     });
 
+    it('offer revision and won only once a quotation has been sent', () => {
+        for (const current of ['negotiation', 'site_visited', 'on_hold']) {
+            assert.ok(!allowedTargets('sales', current).includes('revision'));
+            assert.ok(!allowedTargets('sales', current).includes('won'));
+            assert.ok(
+                allowedTargets('sales', current, true).includes('revision'),
+            );
+            assert.ok(allowedTargets('sales', current, true).includes('won'));
+        }
+    });
+
+    it('offer a revision after a revision, and nothing after won', () => {
+        assert.ok(
+            allowedTargets('sales', 'revision', true).includes('revision'),
+        );
+        assert.ok(!allowedTargets('sales', 'quoted', true).includes('quoted'));
+        assert.deepEqual(allowedTargets('sales', 'won', true), []);
+    });
+
     it('offer nothing from a final status, and payment only forward', () => {
         assert.deepEqual(allowedTargets('sales', 'rejected'), []);
+        assert.deepEqual(allowedTargets('sales', 'won'), []);
         assert.deepEqual(allowedTargets('process', 'completed'), []);
         assert.deepEqual(allowedTargets('payment', null), ['awaiting']);
         assert.deepEqual(allowedTargets('payment', 'awaiting'), [
@@ -48,6 +71,9 @@ describe('status options', () => {
         ]);
         assert.deepEqual(allowedTargets('payment', 'partial'), ['fully_paid']);
         assert.deepEqual(allowedTargets('payment', 'fully_paid'), []);
+        // Refunded waits on its own flow, and nothing moves on from it.
+        assert.deepEqual(allowedTargets('payment', 'refunded'), []);
+        assert.ok(!allowedTargets('payment', 'partial').includes('refunded'));
     });
 });
 
@@ -60,8 +86,12 @@ describe('required file groups', () => {
 
     it("ask for each target's files, and none where none are needed", () => {
         assert.deepEqual(slots('sales', 'quoted'), [
-            ['Quotation', ['quotation', 'job_order']],
+            ['Quotation', ['quotation']],
         ]);
+        assert.deepEqual(slots('sales', 'revision'), [
+            ['Quotation', ['quotation']],
+        ]);
+        assert.deepEqual(slots('sales', 'won'), [['Job order', ['job_order']]]);
         assert.deepEqual(slots('payment', 'awaiting'), [
             ['Billing statement', ['billing_statement']],
         ]);
@@ -76,15 +106,16 @@ describe('required file groups', () => {
     });
 
     it('keep the job order from the client and ask for the right amount', () => {
-        const [quotation, jobOrder] = requiredFileGroups('sales', 'quoted')[0]
-            .slots;
+        const [quotation] = requiredFileGroups('sales', 'quoted')[0].slots;
+        const [jobOrder] = requiredFileGroups('sales', 'won')[0].slots;
 
         assert.equal(quotation.clientVisible, true);
         assert.equal(jobOrder.clientVisible, false);
-        // The job order may come later, on its own.
         assert.equal(quotation.required, true);
-        assert.equal(jobOrder.required, false);
+        assert.equal(jobOrder.required, true);
         assert.equal(extraField('sales', 'quoted'), 'quotedTotal');
+        assert.equal(extraField('sales', 'revision'), 'quotedTotal');
+        assert.equal(extraField('sales', 'won'), null);
         assert.equal(extraField('payment', 'partial'), 'amountReceived');
         assert.equal(extraField('payment', 'awaiting'), null);
     });
@@ -133,5 +164,22 @@ describe('pagination', () => {
         assert.deepEqual(pageNumbers(1, 3), [1, 2, 3]);
         assert.deepEqual(pageNumbers(5, 10), [1, null, 4, 5, 6, null, 10]);
         assert.deepEqual(pageNumbers(1, 10), [1, 2, null, 10]);
+    });
+});
+
+describe('row actions', () => {
+    it('draws up to two as buttons, and three or more as view beside a menu', () => {
+        assert.deepEqual(splitRowActions(['view']), {
+            inline: ['view'],
+            menu: [],
+        });
+        assert.deepEqual(splitRowActions(['view', 'edit']), {
+            inline: ['view', 'edit'],
+            menu: [],
+        });
+        assert.deepEqual(splitRowActions(['view', 'edit', 'won', 'lost']), {
+            inline: ['view'],
+            menu: ['edit', 'won', 'lost'],
+        });
     });
 });

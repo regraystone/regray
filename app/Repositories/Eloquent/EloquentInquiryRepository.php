@@ -260,24 +260,20 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator
     {
         $role = $user?->primaryRole();
+        $seesPending = $user?->hasAnyRole([Role::Admin->value, Role::Owner->value]) ?? false;
 
         return Inquiry::query()
+            ->when(! $seesPending, fn (Builder $query) => $query->whereNot(fn (Builder $query) => $query->whereDisplayStatus(InquiryStatus::Pending)))
+            ->when(in_array($role, [Role::Accounting, Role::Logistics], true), fn (Builder $query) => $query->where('sales_status', SalesStatus::Won))
             ->when($statusFilter !== null && $statusFilter !== 'all', function (Builder $query) use ($role, $statusFilter): void {
-                if ($role === Role::Marketing) {
-                    $query->whereHas('lead', fn (Builder $lead) => $lead->where('status', $statusFilter));
-                } elseif ($role === Role::Sales) {
-                    $query->where('sales_status', $statusFilter);
-                } elseif ($role === Role::Accounting) {
+                // Accounting and logistics filter by their own status; everyone
+                // else by the inquiry's. An unknown value is no filter.
+                if ($role === Role::Accounting) {
                     $query->where('payment_status', $statusFilter);
-                } elseif ($role === Role::Logistics || $role === Role::Technical) {
+                } elseif ($role === Role::Logistics) {
                     $query->where('process_status', $statusFilter);
-                } else {
-                    try {
-                        $status = InquiryStatus::from($statusFilter);
-                        $query->whereDisplayStatus($status);
-                    } catch (\ValueError) {
-                        // Invalid status
-                    }
+                } elseif (($status = InquiryStatus::tryFrom($statusFilter)) !== null) {
+                    $query->whereDisplayStatus($status);
                 }
             })
             ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {

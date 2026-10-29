@@ -22,7 +22,6 @@ import {
     PanelLeftOpen,
     Users,
     Wrench,
-    X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -426,7 +425,17 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
 
+        // No close button: the overlay, a link, or Escape closes the drawer.
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setDrawerOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', closeOnEscape);
+
         return () => {
+            document.removeEventListener('keydown', closeOnEscape);
             document.body.style.overflow = previousOverflow;
         };
     }, [drawerOpen]);
@@ -742,16 +751,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     drawerOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
-                <div className="flex h-16 items-center justify-between border-b border-border px-6">
+                <div className="flex h-16 items-center border-b border-border px-6">
                     <Logo />
-                    <button
-                        type="button"
-                        onClick={() => setDrawerOpen(false)}
-                        className="grid size-9 place-items-center rounded-md transition-opacity hover:opacity-85"
-                        aria-label="Close navigation"
-                    >
-                        <X className="size-4" />
-                    </button>
                 </div>
                 <SidebarNav
                     collapsed={false}

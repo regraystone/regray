@@ -147,7 +147,7 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
 })->with([
     // Inquiries: each role status takes only its own values.
     'sales: a display value' => ['chk_inquiries_sales_status', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['sales_status' => 'cancelled'])],
-    'payment: an unknown value' => ['chk_inquiries_payment_status', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['payment_status' => 'refunded'])],
+    'payment: an unknown value' => ['chk_inquiries_payment_status', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['payment_status' => 'overpaid'])],
     'process: the old received' => ['chk_inquiries_process_status', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['process_status' => 'received'])],
     'quoted total of 0' => ['chk_inquiries_quoted_total', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['quoted_total' => 0])],
     'quote revision of 0' => ['chk_inquiries_quote_revision', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['quote_revision' => 0])],
@@ -172,7 +172,7 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     // Status history.
     'history: an unknown track' => ['chk_inquiry_status_history_track', fn () => schemaHistory(schemaInquiry(), 'accounting', null, 'awaiting')],
     'history: the old marketing track' => ['chk_inquiry_status_history_track', fn () => schemaHistory(schemaInquiry(), 'marketing', null, 'negotiation')],
-    'history: to a lead value' => ['chk_inquiry_status_history_to_status', fn () => schemaHistory(schemaInquiry(), 'sales', null, 'won')],
+    'history: to a lead value' => ['chk_inquiry_status_history_to_status', fn () => schemaHistory(schemaInquiry(), 'sales', null, 'idle')],
     'history: from an unknown value' => ['chk_inquiry_status_history_from_status', fn () => schemaHistory(schemaInquiry(), 'sales', 'draft', 'negotiation')],
     'history: no track' => ['not-null', fn () => schemaHistory(schemaInquiry(), null, null, 'negotiation')],
 
@@ -213,10 +213,10 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     'card: no display status' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_status' => null])],
     'card: no inquiry' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'inquiry_id' => null])],
     'card: with words' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'body' => 'Hello'])],
-    'card: a lead value as display status' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_status' => 'won'])],
+    'card: a lead value as display status' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_status' => 'idle'])],
     'card: completed as display status' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_status' => 'completed'])],
-    'card: an unknown sales value' => ['chk_messages_announced_sales_status', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_sales_status' => 'won'])],
-    'card: an unknown payment value' => ['chk_messages_announced_payment_status', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_payment_status' => 'refunded'])],
+    'card: an unknown sales value' => ['chk_messages_announced_sales_status', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_sales_status' => 'draft'])],
+    'card: an unknown payment value' => ['chk_messages_announced_payment_status', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_payment_status' => 'overpaid'])],
     'card: an unknown process value' => ['chk_messages_announced_process_status', fn () => DB::table('messages')->insert([...schemaCard(), 'announced_process_status' => 'fabrication'])],
     'card: the same snapshot twice' => ['idx_messages_inquiry_card_once', function () {
         $card = schemaCard();

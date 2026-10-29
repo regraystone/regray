@@ -8,7 +8,15 @@
 export type StatusTrack = 'sales' | 'payment' | 'process';
 
 export const TRACK_TARGETS: Record<StatusTrack, readonly string[]> = {
-    sales: ['negotiation', 'site_visited', 'on_hold', 'quoted', 'rejected'],
+    sales: [
+        'negotiation',
+        'site_visited',
+        'on_hold',
+        'quoted',
+        'revision',
+        'won',
+        'rejected',
+    ],
     payment: ['awaiting', 'partial', 'fully_paid'],
     process: [
         'order_received',
@@ -27,8 +35,8 @@ export const TRACK_TARGETS: Record<StatusTrack, readonly string[]> = {
 
 /** Values a track never moves on from. */
 const FINAL: Record<StatusTrack, readonly string[]> = {
-    sales: ['rejected'],
-    payment: ['fully_paid'],
+    sales: ['rejected', 'won'],
+    payment: ['fully_paid', 'refunded'],
     process: ['completed'],
 };
 
@@ -38,17 +46,22 @@ const PAYMENT_NEXT: Record<string, readonly string[]> = {
     awaiting: ['partial', 'fully_paid'],
     partial: ['fully_paid'],
     fully_paid: [],
+    // Reached only by the refund flow still to come, and final.
+    refunded: [],
 };
 
 /**
- * Where a track may move from `current`: never to where it already is, and
- * nowhere from a final value. Payment goes forward only, starting at awaiting.
- * Sales and logistics are started by the flow, not by hand (a won lead starts
- * sales, quoting starts logistics), so nothing is offered while they are null.
+ * Where a track may move from `current`: never to where it already is (but for
+ * a revision after a revision), and nowhere from a final value. Payment goes
+ * forward only, starting at awaiting. Sales and logistics are started by the
+ * flow, not by hand (a won lead starts sales, the job order starts logistics),
+ * so nothing is offered while they are null. Sales' revision and won wait for
+ * a quotation to have been sent (`hasBeenQuoted`).
  */
 export const allowedTargets = (
     track: StatusTrack,
     current: string | null,
+    hasBeenQuoted = false,
 ): string[] => {
     if (current !== null && FINAL[track].includes(current)) {
         return [];
@@ -62,7 +75,16 @@ export const allowedTargets = (
         return [];
     }
 
-    return TRACK_TARGETS[track].filter((target) => target !== current);
+    if (track !== 'sales') {
+        return TRACK_TARGETS[track].filter((target) => target !== current);
+    }
+
+    return TRACK_TARGETS.sales.filter(
+        (target) =>
+            (target !== current || target === 'revision') &&
+            // A revision revises, and the client approves, a quotation they have been sent.
+            (hasBeenQuoted || (target !== 'revision' && target !== 'won')),
+    );
 };
 
 export type DocumentSlot = {
@@ -75,7 +97,7 @@ export type DocumentSlot = {
     label: string;
     /** More than one file allowed (receipts). */
     multiple: boolean;
-    /** Whether the move needs it: the job order may come later. */
+    /** Whether the move needs it. */
     required: boolean;
     /** Whether the client sees it on their inquiry. */
     clientVisible: boolean;
@@ -104,7 +126,7 @@ const RECEIPTS: FileGroup = {
 };
 
 /**
- * The job order on its own, when sales uploads it after the quote: it starts
+ * The job order on its own, when sales uploads it after the win: it starts
  * logistics at order_received.
  */
 export const JOB_ORDER_GROUP: FileGroup = {
@@ -125,7 +147,7 @@ export const requiredFileGroups = (
     track: StatusTrack,
     to: string,
 ): FileGroup[] => {
-    if (track === 'sales' && to === 'quoted') {
+    if (track === 'sales' && (to === 'quoted' || to === 'revision')) {
         return [
             {
                 label: 'Quotation',
@@ -137,11 +159,21 @@ export const requiredFileGroups = (
                         required: true,
                         clientVisible: true,
                     },
+                ],
+            },
+        ];
+    }
+
+    if (track === 'sales' && to === 'won') {
+        return [
+            {
+                label: 'Job order',
+                slots: [
                     {
                         type: 'job_order',
-                        label: 'Job order (internal, optional)',
+                        label: 'Job order (internal)',
                         multiple: false,
-                        required: false,
+                        required: true,
                         clientVisible: false,
                     },
                 ],
@@ -180,7 +212,7 @@ export const extraField = (
     track: StatusTrack,
     to: string,
 ): ExtraField | null => {
-    if (track === 'sales' && to === 'quoted') {
+    if (track === 'sales' && (to === 'quoted' || to === 'revision')) {
         return 'quotedTotal';
     }
 

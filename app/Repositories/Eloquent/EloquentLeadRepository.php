@@ -61,9 +61,10 @@ class EloquentLeadRepository implements LeadRepositoryInterface
         $lead->forceFill(['marketing_user_id' => $marketingUser->id])->save();
     }
 
-    public function paginateFor(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator
+    public function paginateFor(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page, ?LeadStatus $status = null): LengthAwarePaginator
     {
         return $this->visibleTo($marketingUser)
+            ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
             ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
                 $pattern = "%{$escapedSearch}%";
 
@@ -72,7 +73,8 @@ class EloquentLeadRepository implements LeadRepositoryInterface
                     ->orWhereHas('client', fn (Builder $client) => $client
                         ->where('name', 'ILIKE', $pattern)
                         ->orWhere('email', 'ILIKE', $pattern)
-                        ->orWhereHas('profile', fn (Builder $profile) => $profile->where('phone', 'ILIKE', $pattern))));
+                        ->orWhereHas('profile', fn (Builder $profile) => $profile->where('phone', 'ILIKE', $pattern)))
+                    ->orWhereHas('inquiries', fn (Builder $inquiry) => $inquiry->where('reference', 'ILIKE', $pattern)));
             })
             ->with([
                 'client:id,name,email',
@@ -95,33 +97,6 @@ class EloquentLeadRepository implements LeadRepositoryInterface
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->get();
-    }
-
-    public function filterByStatus(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page, LeadStatus $status): LengthAwarePaginator
-    {
-        return $this->visibleTo($marketingUser)
-            ->where('status', $status)
-            ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
-                $pattern = "%{$escapedSearch}%";
-
-                $query->where(fn (Builder $query) => $query
-                    ->where('reference', 'ILIKE', $pattern)
-                    ->orWhereHas('client', fn (Builder $client) => $client
-                        ->where('name', 'ILIKE', $pattern)
-                        ->orWhere('email', 'ILIKE', $pattern)
-                        ->orWhereHas('profile', fn (Builder $profile) => $profile->where('phone', 'ILIKE', $pattern))));
-            })
-            ->with([
-                'client:id,name,email',
-                'client.profile:user_id,phone',
-                'marketingUser:id,name',
-                'inquiries' => fn ($inquiries) => $inquiries->select(['id', 'lead_id', 'reference', 'name'])->orderBy('id'),
-                'inquiries.conversation:id,inquiry_id,type',
-                'history',
-            ])
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->paginate($perPage, page: $page);
     }
 
     public function findByReference(string $reference): ?Lead

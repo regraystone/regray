@@ -39,6 +39,9 @@ it('cancels a started sales stage as rejected, the sales history says so, and th
     'negotiation' => [InquiryStatus::Negotiation],
     'site visited' => [InquiryStatus::SiteVisited],
     'sales on hold' => [InquiryStatus::OnHold],
+    // A quotation sent but not approved: cancelling declines it.
+    'quoted' => [InquiryStatus::Quoted],
+    'revision' => [InquiryStatus::Revision],
 ]);
 
 it('refuses the client once they have approved the quotation: only sales can cancel then, by rejecting', function (InquiryStatus $status): void {
@@ -50,10 +53,10 @@ it('refuses the client once they have approved the quotation: only sales can can
         ->assertJsonValidationErrors(['status' => InquiryActions::CANCEL_LOCKED_WHEN_QUOTED]);
 
     expect($inquiry->refresh()->status)->toBe($status)
-        ->and($inquiry->sales_status)->toBe(SalesStatus::Quoted)
+        ->and($inquiry->sales_status)->toBe(SalesStatus::Won)
         ->and(InquiryStatusHistory::query()->count())->toBe(0);
 })->with([
-    'quoted' => [InquiryStatus::Quoted],
+    'won' => [InquiryStatus::Won],
     'production' => [InquiryStatus::Production],
     'delayed' => [InquiryStatus::Delayed],
 ]);

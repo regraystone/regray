@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Gate;
 class InquiryRowResource extends JsonResource
 {
     /**
-     * @return array{reference: string, createdAt: string, client: string, contact: string|null, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, actions: list<string>}
+     * @return array{reference: string, createdAt: string, client: string, contact: string|null, status: string, salesStatus: string|null, hasBeenQuoted: bool, paymentStatus: string|null, processStatus: string|null, actions: list<string>}
      */
     public function toArray(Request $request): array
     {
@@ -39,6 +39,8 @@ class InquiryRowResource extends JsonResource
             'contact' => ClientService::phone($this->clientRecord, $this->client),
             'status' => $this->status->value,
             'salesStatus' => $this->sales_status?->value,
+            // Whether a quotation was ever sent, which opens sales' revision and won.
+            'hasBeenQuoted' => $this->quote_revision !== null,
             'paymentStatus' => $this->payment_status?->value,
             'processStatus' => $this->process_status?->value,
             'actions' => $this->actionsFor($viewer),
