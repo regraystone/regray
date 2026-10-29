@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Schedule\ListSchedulesAction;
+use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\Permission;
+use App\Enums\ProcessStatus;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\InquiryCatalogResource;
@@ -51,10 +55,103 @@ class ViewController extends Controller
      */
     public function inquiry(DataTableRequest $request, InquiryRepositoryInterface $inquiries): Response
     {
+        /** @var User $user */
+        $user = $request->user();
+        $statusFilter = $request->query('status');
+
         return Inertia::render('inquiry', [
-            'inquiries' => self::page($inquiries->paginateForStaff($request->escapedSearch(), $request->perPage(), $request->page()), InquiryRowResource::class, $request),
-            'filters' => $request->filters(),
+            'inquiries' => self::page($inquiries->paginateForStaff($request->escapedSearch(), $user, $statusFilter, $request->perPage(), $request->page()), InquiryRowResource::class, $request),
+            'filters' => array_merge($request->filters(), ['status' => $statusFilter ?? 'all']),
+            'statusOptions' => $this->statusOptionsForUser($user),
         ]);
+    }
+
+    private function statusOptionsForUser(User $user): array
+    {
+        $role = $user->primaryRole();
+        $options = [['value' => 'all', 'label' => 'All statuses']];
+
+        if ($role === Role::Marketing) {
+            foreach (LeadStatus::cases() as $status) {
+                $options[] = [
+                    'value' => $status->value,
+                    'label' => match ($status) {
+                        LeadStatus::Idle => 'Idle',
+                        LeadStatus::Won => 'Won',
+                        LeadStatus::Lost => 'Lost',
+                    },
+                ];
+            }
+        } elseif ($role === Role::Sales) {
+            foreach (SalesStatus::cases() as $status) {
+                $options[] = [
+                    'value' => $status->value,
+                    'label' => match ($status) {
+                        SalesStatus::Negotiation => 'Negotiation',
+                        SalesStatus::SiteVisited => 'Site visited',
+                        SalesStatus::OnHold => 'On hold',
+                        SalesStatus::Quoted => 'Quoted',
+                        SalesStatus::Rejected => 'Rejected',
+                    },
+                ];
+            }
+        } elseif ($role === Role::Accounting) {
+            foreach (PaymentStatus::cases() as $status) {
+                $options[] = [
+                    'value' => $status->value,
+                    'label' => match ($status) {
+                        PaymentStatus::Awaiting => 'Awaiting',
+                        PaymentStatus::Partial => 'Partially paid',
+                        PaymentStatus::FullyPaid => 'Fully paid',
+                    },
+                ];
+            }
+        } elseif ($role === Role::Logistics || $role === Role::Technical) {
+            foreach (ProcessStatus::cases() as $status) {
+                $options[] = [
+                    'value' => $status->value,
+                    'label' => match ($status) {
+                        ProcessStatus::OrderReceived => 'Order received',
+                        ProcessStatus::Measure => 'Measure',
+                        ProcessStatus::Sourcing => 'Sourcing',
+                        ProcessStatus::Production => 'Production',
+                        ProcessStatus::QualityCheck => 'Quality check',
+                        ProcessStatus::Ready => 'Ready',
+                        ProcessStatus::Dispatched => 'Dispatched',
+                        ProcessStatus::Installation => 'Installation',
+                        ProcessStatus::Completed => 'Completed',
+                        ProcessStatus::OnHold => 'On hold',
+                        ProcessStatus::Delayed => 'Delayed',
+                    },
+                ];
+            }
+        } else {
+            foreach (InquiryStatus::cases() as $status) {
+                $options[] = [
+                    'value' => $status->value,
+                    'label' => match ($status) {
+                        InquiryStatus::Pending => 'Pending',
+                        InquiryStatus::Cancelled => 'Cancelled',
+                        InquiryStatus::Closed => 'Closed',
+                        InquiryStatus::Negotiation => 'Negotiation',
+                        InquiryStatus::SiteVisited => 'Site visited',
+                        InquiryStatus::OnHold => 'On hold',
+                        InquiryStatus::Quoted => 'Quoted',
+                        InquiryStatus::OrderReceived => 'Order received',
+                        InquiryStatus::Measure => 'Measure',
+                        InquiryStatus::Sourcing => 'Sourcing',
+                        InquiryStatus::Production => 'Production',
+                        InquiryStatus::QualityCheck => 'Quality check',
+                        InquiryStatus::Ready => 'Ready',
+                        InquiryStatus::Dispatched => 'Dispatched',
+                        InquiryStatus::Installation => 'Installation',
+                        InquiryStatus::Delayed => 'Delayed',
+                    },
+                ];
+            }
+        }
+
+        return $options;
     }
 
     /**
@@ -85,7 +182,7 @@ class ViewController extends Controller
 
     /**
      * The Leads page: the marketing user's own leads, newest first, a page at a
-     * time (every lead for the super-admin).
+     * time (every lead for the super-admin). Supports status filtering.
      */
     public function leads(DataTableRequest $request, LeadRepositoryInterface $leads): Response
     {
@@ -93,9 +190,22 @@ class ViewController extends Controller
         $user = $request->user();
         $holder = $user->hasRole(Role::superAdmin()->value) ? null : $user;
 
+        $query = $leads->paginateFor($holder, $request->escapedSearch(), $request->perPage(), $request->page());
+
+        // Apply status filter if provided
+        $statusFilter = $request->query('status');
+        if ($statusFilter && $statusFilter !== 'all') {
+            try {
+                $status = LeadStatus::from($statusFilter);
+                $query = $leads->filterByStatus($holder, $request->escapedSearch(), $request->perPage(), $request->page(), $status);
+            } catch (\ValueError) {
+                // Invalid status, ignore filter
+            }
+        }
+
         return Inertia::render('leads', [
-            'leads' => self::page($leads->paginateFor($holder, $request->escapedSearch(), $request->perPage(), $request->page()), LeadResource::class, $request),
-            'filters' => $request->filters(),
+            'leads' => self::page($query, LeadResource::class, $request),
+            'filters' => array_merge($request->filters(), ['status' => $statusFilter ?? 'all']),
             'canCreateGroup' => $user->can(Permission::ConversationsCreate->value),
         ]);
     }

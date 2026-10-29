@@ -31,18 +31,18 @@ it('opens for marketing with its own leads, newest first, each with its phone, e
     $rows = collect($props['leads']['data'])->keyBy('reference');
 
     expect($props['leads']['meta'])->toMatchArray(['currentPage' => 1, 'perPage' => 10, 'total' => 2])
-        ->and($props['filters'])->toBe(['search' => '', 'page' => 1, 'perPage' => 10])
+        ->and($props['filters'])->toBe(['search' => '', 'page' => 1, 'perPage' => 10, 'status' => 'all'])
         ->and($rows->keys()->sort()->values()->all())->toBe(collect([$idle->reference, $won->reference])->sort()->values()->all())
         ->and($rows[$idle->reference])->toMatchArray([
             'client' => ['id' => $this->client->id, 'name' => $this->client->name],
             'contact' => '+63 917 000 0001',
             'email' => $this->client->email,
-            'actions' => ['view', 'won', 'lost'],
+            'actions' => ['view', 'edit', 'won', 'lost'],
             'canCreateInquiry' => true,
         ])
         ->and($rows[$idle->reference]['inquiries'][0]['reference'])->toBe('INQ-P1')
         // Won and Lost only while the lead is idle.
-        ->and($rows[$won->reference]['actions'])->toBe(['view']);
+        ->and($rows[$won->reference]['actions'])->toBe(['view', 'edit']);
 
     $searched = $this->actingAs($this->marketing)->get(route('leads.index', ['search' => $this->client->name, 'perPage' => 25]))->viewData('page')['props'];
 

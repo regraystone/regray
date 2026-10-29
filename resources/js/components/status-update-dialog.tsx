@@ -176,11 +176,11 @@ const StatusUpdateDialog = ({
             onOpenChange={(next) => !saving && onOpenChange(next)}
         >
             <DialogContent
-                className="max-h-[90svh] overflow-y-auto sm:max-w-2xl"
+                className="max-h-[90svh] overflow-y-auto sm:max-w-4xl"
                 data-testid="status-update-dialog"
             >
                 <DialogHeader>
-                    <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
+                    <DialogTitle className="text-2xl font-bold tracking-[-0.03em]">
                         Update Status
                     </DialogTitle>
                     <DialogDescription className="sr-only">
@@ -189,125 +189,167 @@ const StatusUpdateDialog = ({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-1.5">
-                    <p className="text-sm font-bold">Current Status</p>
-                    <div>
-                        {current ?? (
-                            <span className="text-sm text-secondary-foreground">
-                                Not started
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="space-y-1.5">
-                    <p className="text-sm font-bold" id="status-move-to">
-                        Move to
-                    </p>
-                    {targets.length === 0 ? (
-                        <p className="text-sm text-secondary-foreground">
-                            This status cannot move any further.
+                <div className="grid gap-6">
+                    {/* Current Status Section */}
+                    <div className="space-y-3">
+                        <p className="text-sm font-bold tracking-[0.05em] text-secondary-foreground uppercase">
+                            Current Status
                         </p>
-                    ) : (
-                        <RadioGroup
-                            value={to ?? ''}
-                            onValueChange={setTo}
-                            aria-labelledby="status-move-to"
+                        <div className="flex min-h-9 items-center">
+                            {current ?? (
+                                <span className="text-sm text-secondary-foreground">
+                                    Not started
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Move To Section in Grid Cols 4 with Borders */}
+                    <div className="space-y-3">
+                        <p
+                            className="text-sm font-bold tracking-[0.05em] text-secondary-foreground uppercase"
+                            id="status-move-to"
                         >
-                            {targets.map((target) => (
-                                <label
-                                    key={target.value}
-                                    className="flex cursor-pointer items-center gap-2 text-sm"
-                                >
-                                    <RadioGroupItem value={target.value} />
-                                    {target.label}
-                                </label>
-                            ))}
-                        </RadioGroup>
-                    )}
-                    {error('to')}
-                </div>
-
-                <div className="space-y-1.5">
-                    <Label htmlFor="status-note">Note</Label>
-                    <Textarea
-                        id="status-note"
-                        value={note}
-                        onChange={(event) => setNote(event.target.value)}
-                        maxLength={NOTE_MAX_LENGTH}
-                        rows={3}
-                        className="rounded-none"
-                    />
-                    <p className="text-xs text-secondary-foreground">
-                        Add a note explaining this change.
-                    </p>
-                    {error('note')}
-                </div>
-
-                {groups.map((group) => (
-                    <section
-                        key={group.label}
-                        className="space-y-3"
-                        aria-label={group.label}
-                    >
-                        <h3 className="text-sm font-bold">{group.label}</h3>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            {group.slots.map((slot) => (
-                                <div key={slot.type} className="space-y-1.5">
-                                    <p className="text-xs font-bold">
-                                        {slot.label}
-                                        {slot.required ? (
-                                            <span
-                                                className="text-destructive"
-                                                aria-label="required"
-                                            >
-                                                {' '}
-                                                *
+                            Move to
+                        </p>
+                        {targets.length === 0 ? (
+                            <p className="text-sm text-secondary-foreground">
+                                This status cannot move any further.
+                            </p>
+                        ) : (
+                            <RadioGroup
+                                value={to ?? ''}
+                                onValueChange={setTo}
+                                aria-labelledby="status-move-to"
+                            >
+                                <div className="grid grid-cols-4 gap-3">
+                                    {targets.map((target) => (
+                                        <label
+                                            key={target.value}
+                                            className="flex cursor-pointer items-center gap-2 rounded border-2 border-sidebar-border p-3 transition-all hover:border-foreground hover:bg-muted/50"
+                                        >
+                                            <RadioGroupItem
+                                                value={target.value}
+                                            />
+                                            <span className="text-xs font-medium">
+                                                {target.label}
                                             </span>
-                                        ) : null}
-                                        {slot.multiple ? (
-                                            <span className="font-normal text-secondary-foreground">
-                                                {' '}
-                                                · one or more
-                                            </span>
-                                        ) : null}
-                                    </p>
-                                    <FileUpload
-                                        files={files[slot.type] ?? []}
-                                        maxFiles={slot.multiple ? undefined : 1}
-                                        onFilesChange={(next) =>
-                                            setFiles((currentFiles) => ({
-                                                ...currentFiles,
-                                                [slot.type]: next,
-                                            }))
-                                        }
-                                    />
-                                    {fileError(slot.type)}
+                                        </label>
+                                    ))}
                                 </div>
+                            </RadioGroup>
+                        )}
+                        {error('to')}
+                    </div>
+
+                    {/* Note Section */}
+                    <div className="space-y-3 border-t border-sidebar-border pt-6">
+                        <Label
+                            htmlFor="status-note"
+                            className="text-sm font-bold tracking-[0.05em] uppercase"
+                        >
+                            Note
+                        </Label>
+                        <Textarea
+                            id="status-note"
+                            value={note}
+                            onChange={(event) => setNote(event.target.value)}
+                            maxLength={NOTE_MAX_LENGTH}
+                            rows={4}
+                            className="resize-none rounded-none"
+                            placeholder="Explain why you're making this status change..."
+                        />
+                        <p className="text-xs text-secondary-foreground">
+                            {note.length} / {NOTE_MAX_LENGTH} characters
+                        </p>
+                        {error('note')}
+                    </div>
+
+                    {/* File Groups Section - Column layout, no group titles */}
+                    {groups.length > 0 && (
+                        <div className="space-y-4 border-t border-sidebar-border pt-6">
+                            {groups.map((group) => (
+                                <section
+                                    key={group.label}
+                                    className="space-y-3"
+                                    aria-label={group.label}
+                                >
+                                    <div className="grid gap-4">
+                                        {group.slots.map((slot) => (
+                                            <div
+                                                key={slot.type}
+                                                className="space-y-2"
+                                            >
+                                                <p className="text-xs font-bold tracking-[0.05em] uppercase">
+                                                    {slot.label}
+                                                    {slot.required ? (
+                                                        <span
+                                                            className="ml-1 text-destructive"
+                                                            aria-label="required"
+                                                        >
+                                                            *
+                                                        </span>
+                                                    ) : null}
+                                                    {slot.multiple ? (
+                                                        <span className="ml-1 font-normal text-secondary-foreground">
+                                                            · one or more
+                                                        </span>
+                                                    ) : null}
+                                                </p>
+                                                <FileUpload
+                                                    files={
+                                                        files[slot.type] ?? []
+                                                    }
+                                                    maxFiles={
+                                                        slot.multiple
+                                                            ? undefined
+                                                            : 1
+                                                    }
+                                                    onFilesChange={(next) =>
+                                                        setFiles(
+                                                            (currentFiles) => ({
+                                                                ...currentFiles,
+                                                                [slot.type]:
+                                                                    next,
+                                                            }),
+                                                        )
+                                                    }
+                                                />
+                                                {fileError(slot.type)}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
                             ))}
                         </div>
-                    </section>
-                ))}
+                    )}
 
-                {extra !== null ? (
-                    <div className="space-y-1.5">
-                        <Label htmlFor="status-amount">
-                            {EXTRA_LABELS[extra]}
-                        </Label>
-                        <Input
-                            id="status-amount"
-                            inputMode="decimal"
-                            value={amount}
-                            onChange={(event) => setAmount(event.target.value)}
-                            className="rounded-none"
-                        />
-                        {error(extra)}
-                    </div>
-                ) : null}
+                    {extra !== null ? (
+                        <div className="space-y-3 border-t border-sidebar-border pt-6">
+                            <Label
+                                htmlFor="status-amount"
+                                className="text-sm font-bold tracking-[0.05em] uppercase"
+                            >
+                                {EXTRA_LABELS[extra]}
+                            </Label>
+                            <Input
+                                id="status-amount"
+                                inputMode="decimal"
+                                value={amount}
+                                onChange={(event) =>
+                                    setAmount(event.target.value)
+                                }
+                                className="rounded-none"
+                                placeholder="0.00"
+                            />
+                            {error(extra)}
+                        </div>
+                    ) : null}
 
-                {error('status')}
+                    {error('status')}
+                </div>
 
-                <DialogFooter>
+                <DialogFooter className="mt-6 border-t border-sidebar-border pt-6">
                     <Button
                         type="button"
                         variant="outline"
@@ -324,7 +366,7 @@ const StatusUpdateDialog = ({
                         {saving ? (
                             <Spinner className="motion-reduce:animate-none" />
                         ) : null}
-                        Confirm
+                        Confirm Update
                     </Button>
                 </DialogFooter>
             </DialogContent>

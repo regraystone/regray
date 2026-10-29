@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import DataTable, {
     type DataTableColumn,
+    type DataTableFilterOption,
     type DataTableFilters,
 } from '@/components/data-table/data-table';
 import RowActions from '@/components/data-table/row-actions';
@@ -51,6 +52,7 @@ type InquiryRow = {
 type InquiryPageProps = {
     inquiries: { data: InquiryRow[]; meta: TableMeta };
     filters: DataTableFilters;
+    statusOptions: DataTableFilterOption[];
 };
 
 const currentOf = (row: InquiryRow, track: StatusTrack): string | null =>
@@ -76,6 +78,29 @@ const Inquiry = () => {
     /** The quoted inquiry whose job order sales is uploading, which starts logistics. */
     const [uploadingJobOrder, setUploadingJobOrder] =
         useState<InquiryRow | null>(null);
+    const [statusFilter, setStatusFilter] = useState(
+        props.filters.status || 'all',
+    );
+
+    const handleStatusFilterChange = (value: string) => {
+        setStatusFilter(value);
+        router.get(
+            window.location.pathname,
+            {
+                ...(props.filters.search.trim() !== '' && {
+                    search: props.filters.search,
+                }),
+                ...(value !== 'all' && { status: value }),
+                page: 1,
+            },
+            {
+                only: ['inquiries', 'filters'],
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
+        );
+    };
 
     const columns: DataTableColumn<InquiryRow>[] = [
         {
@@ -102,7 +127,7 @@ const Inquiry = () => {
             header: 'Status',
             // The payment status beside the inquiry status, once it has started.
             cell: (row) => (
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-row items-center gap-1.5 whitespace-nowrap">
                     <StatusBadge group="inquiry" status={row.status} />
                     <StatusBadge group="payment" status={row.paymentStatus} />
                 </div>
@@ -149,7 +174,7 @@ const Inquiry = () => {
                     inquire ? (
                         <Button type="button" onClick={onInquireClick}>
                             <Plus aria-hidden />
-                            Add
+                            Add inquiry
                         </Button>
                     ) : undefined
                 }
@@ -165,6 +190,9 @@ const Inquiry = () => {
                 searchPlaceholder="Search inquiries"
                 emptyTitle="No inquiries found"
                 emptyDescription="No inquiry matches this search."
+                statusFilter={statusFilter}
+                statusOptions={props.statusOptions}
+                onStatusFilterChange={handleStatusFilterChange}
             />
 
             {editing !== null && track !== null ? (

@@ -30,9 +30,8 @@ import {
 } from '@/components/ui/table';
 import {
     clampPage,
-    clampPageSize,
+    DEFAULT_PAGE_SIZE,
     pageNumbers,
-    PAGE_SIZE_OPTIONS,
     rangeText,
     type TableMeta,
 } from '@/lib/data-table';
@@ -46,21 +45,25 @@ export type DataTableColumn<T> = {
     className?: string;
 };
 
+export type DataTableFilterOption = {
+    value: string;
+    label: string;
+};
+
 /** The query a server list reads: what the toolbar and the pager hold. */
 export type DataTableFilters = {
     search: string;
-    perPage: number;
     page: number;
 };
 
 /**
- * A server-side table: search on the left of the toolbar, the page size on
- * the right, the rows, and the pager below them.
+ * A server-side table: search on the left of the toolbar, optional status filter
+ * on the right, rows, and pager below.
  *
- * Search (debounced), page and page size go in the query string, and the page
- * is reloaded partially (`only`), so only the list and its filters are read
- * again. Skeleton rows stand in while a reload runs; an empty list shows the
- * page's EmptyState. The columns are the page's; the Actions column comes last.
+ * Search (debounced) and page go in the query string, and the page is reloaded
+ * partially (`only`), so only the list and its filters are read again. Skeleton
+ * rows stand in while a reload runs; an empty list shows the page's EmptyState.
+ * Uses a fixed page size (DEFAULT_PAGE_SIZE).
  */
 function DataTable<T>({
     rows,
@@ -72,6 +75,9 @@ function DataTable<T>({
     searchPlaceholder = 'Search',
     emptyTitle,
     emptyDescription,
+    statusFilter,
+    statusOptions,
+    onStatusFilterChange,
 }: {
     rows: T[];
     meta: TableMeta;
@@ -83,6 +89,9 @@ function DataTable<T>({
     searchPlaceholder?: string;
     emptyTitle: string;
     emptyDescription: string;
+    statusFilter?: string;
+    statusOptions?: DataTableFilterOption[];
+    onStatusFilterChange?: (value: string) => void;
 }) {
     const [search, setSearch] = useState(filters.search);
     const [isLoading, setIsLoading] = useState(false);
@@ -97,7 +106,6 @@ function DataTable<T>({
                 ...(next.search.trim() === ''
                     ? {}
                     : { search: next.search.trim() }),
-                perPage: clampPageSize(next.perPage),
                 page: next.page,
             },
             {
@@ -122,7 +130,6 @@ function DataTable<T>({
         }, SEARCH_DEBOUNCE_MS);
 
         return () => window.clearTimeout(timer);
-        // The reload reads the latest filters itself; only the typing restarts the timer.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
@@ -146,40 +153,35 @@ function DataTable<T>({
                         className="rounded-none pl-9"
                     />
                 </div>
-                <div className="flex items-center gap-2 text-sm text-secondary-foreground">
-                    <span>Rows per page</span>
-                    <Select
-                        value={String(clampPageSize(filters.perPage))}
-                        onValueChange={(value) =>
-                            reload({ perPage: Number(value), page: 1 })
-                        }
-                    >
-                        <SelectTrigger
-                            className="w-20 rounded-none"
-                            aria-label="Rows per page"
+                {statusOptions && statusOptions.length > 0 && (
+                    <div className="flex items-center gap-2">
+                        <Select
+                            value={statusFilter || 'all'}
+                            onValueChange={onStatusFilterChange}
                         >
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {PAGE_SIZE_OPTIONS.map((size) => (
-                                <SelectItem
-                                    key={size}
-                                    value={String(size)}
-                                    className="rounded-none"
-                                >
-                                    {size}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+                            <SelectTrigger className="w-40 rounded-none">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {statusOptions.map((option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
             </div>
 
             {!isLoading && rows.length === 0 ? (
                 <EmptyState title={emptyTitle} description={emptyDescription} />
             ) : (
-                <div className="rounded-md border border-sidebar-border">
-                    <Table aria-busy={isLoading}>
+                <div className="overflow-x-auto border border-sidebar-border">
+                    <Table aria-busy={isLoading} className="w-full table-fixed">
                         <TableHeader>
                             <TableRow className="hover:bg-transparent">
                                 {columns.map((column) => (
@@ -200,7 +202,7 @@ function DataTable<T>({
                                               1,
                                               Math.min(
                                                   rows.length ||
-                                                      filters.perPage,
+                                                      DEFAULT_PAGE_SIZE,
                                                   10,
                                               ),
                                           ),
@@ -238,7 +240,7 @@ function DataTable<T>({
                 </div>
             )}
 
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
                 <p
                     className="text-sm text-secondary-foreground"
                     aria-live="polite"

@@ -50,5 +50,12 @@ interface LeadRepositoryInterface
      */
     public function withStatuses(array $statuses, ?User $marketingUser): Collection;
 
+    /**
+     * One page of the Leads page filtered by a specific status, newest first.
+     *
+     * @return LengthAwarePaginator<int, Lead>
+     */
+    public function filterByStatus(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page, LeadStatus $status): LengthAwarePaginator;
+
     public function findByReference(string $reference): ?Lead;
 }

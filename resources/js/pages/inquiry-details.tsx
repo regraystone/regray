@@ -702,7 +702,7 @@ const InquiryDetails = () => {
                         </h1>
 
                         <div
-                            className="flex flex-wrap items-center gap-1.5"
+                            className="flex flex-row flex-nowrap items-center gap-1.5 whitespace-nowrap"
                             data-testid="inquiry-statuses"
                         >
                             {startedStatuses([

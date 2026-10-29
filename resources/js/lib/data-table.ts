@@ -3,11 +3,8 @@
  * The server applies the same page sizes (App\Http\Requests\DataTableRequest).
  */
 
-export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
-
-export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
-
-export const DEFAULT_PAGE_SIZE: PageSize = 10;
+/** Fixed page size: removed rows-per-page selector. */
+export const DEFAULT_PAGE_SIZE = 20 as const;
 
 /** The pagination block a server list sends beside its rows. */
 export type TableMeta = {
@@ -18,15 +15,6 @@ export type TableMeta = {
     /** The first row's position, 1-based; null when there are no rows. */
     from: number | null;
     to: number | null;
-};
-
-/** A page size the table offers, or the default for anything else. */
-export const clampPageSize = (value: unknown): PageSize => {
-    const size = Number(value);
-
-    return (PAGE_SIZE_OPTIONS as readonly number[]).includes(size)
-        ? (size as PageSize)
-        : DEFAULT_PAGE_SIZE;
 };
 
 /** A page between 1 and the last one. */
@@ -47,17 +35,23 @@ export const rangeText = (meta: TableMeta): string =>
         : `Showing ${meta.from}–${meta.to} of ${meta.total}`;
 
 /**
- * The page numbers to draw: the first and last always, the current one with
- * a neighbour on each side, and a gap (`null`) wherever pages are skipped.
+ * The page numbers to draw: first page, current page with one neighbor on each
+ * side, last page, with gaps (`null`) wherever pages are skipped. Adaptive based
+ * on current page position.
  */
 export const pageNumbers = (
     current: number,
     last: number,
 ): Array<number | null> => {
+    if (last <= 1) {
+        return [];
+    }
+
     if (last <= 7) {
         return Array.from({ length: last }, (_, index) => index + 1);
     }
 
+    // For larger ranges, show: first, current±1, last, with gaps
     const pages = new Set([1, last, current - 1, current, current + 1]);
     const shown = [...pages]
         .filter((page) => page >= 1 && page <= last)

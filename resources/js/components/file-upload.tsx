@@ -327,14 +327,14 @@ const FileUpload = ({
                 className="rounded-md border border-sidebar-border bg-background p-3"
             >
                 <div className="flex items-center gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-md border border-sidebar-border bg-background text-secondary-foreground">
+                    <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border bg-background text-secondary-foreground">
                         {isPdf || !preview ? (
                             <FileText className="size-5" aria-hidden />
                         ) : (
                             <img
                                 src={preview}
                                 alt=""
-                                className="size-full object-cover"
+                                className="h-10 w-10 object-cover"
                             />
                         )}
                     </span>

@@ -165,6 +165,7 @@ test('guards every route with exactly these permissions', function () {
         'inquiries.job-order' => $p(Permission::InquiriesView),
         'leads.index' => $p(Permission::LeadsView),
         'leads.status' => $p(Permission::LeadsUpdate),
+        'leads.update' => $p(Permission::LeadsUpdate),
         'schedule.index' => $p(Permission::ScheduleView),
         'schedule.book' => $p(Permission::ScheduleView, Permission::ScheduleCreate),
         'schedule.book.store' => $p(Permission::ScheduleCreate),

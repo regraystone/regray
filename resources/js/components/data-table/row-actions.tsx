@@ -3,6 +3,7 @@ import {
     Check,
     Eye,
     FileUp,
+    MoreVertical,
     Pencil,
     Truck,
     Wallet,
@@ -10,6 +11,12 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Tooltip,
     TooltipContent,
@@ -55,9 +62,8 @@ const ORDER: RowActionKey[] = [
 ];
 
 /**
- * A row's actions: one icon button per task, each with its name as a tooltip
- * and an accessible label. No menus. A key the page has no handler for is not
- * drawn.
+ * A row's actions: shows the first action (view) inline, and converts to a
+ * dropdown menu (three dots) when there are additional actions.
  */
 const RowActions = ({
     actions,
@@ -68,33 +74,86 @@ const RowActions = ({
     handlers: Partial<Record<RowActionKey, () => void>>;
     /** What the row is, for the labels: "View INQ-1049". */
     subject: string;
-}) => (
-    <div className="flex items-center justify-end gap-1">
-        {ORDER.filter(
-            (key) => actions.includes(key) && handlers[key] !== undefined,
-        ).map((key) => {
-            const { icon: Icon, label } = ACTIONS[key];
+}) => {
+    const availableActions = ORDER.filter(
+        (key) => actions.includes(key) && handlers[key] !== undefined,
+    );
 
-            return (
-                <Tooltip key={key}>
-                    <TooltipTrigger asChild>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            aria-label={`${label} · ${subject}`}
-                            data-row-action={key}
-                            onClick={handlers[key]}
-                        >
-                            <Icon aria-hidden />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{label}</TooltipContent>
-                </Tooltip>
-            );
-        })}
-    </div>
-);
+    if (availableActions.length === 0) {
+        return null;
+    }
+
+    // Show first action inline, rest in dropdown
+    const inlineAction = availableActions[0];
+    const dropdownActions = availableActions.slice(1);
+
+    return (
+        <div className="flex items-center justify-end gap-0.5">
+            {inlineAction &&
+                (() => {
+                    const { icon: Icon, label } = ACTIONS[inlineAction];
+
+                    return (
+                        <Tooltip key={inlineAction}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    aria-label={`${label} · ${subject}`}
+                                    data-row-action={inlineAction}
+                                    onClick={handlers[inlineAction]}
+                                >
+                                    <Icon aria-hidden className="size-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{label}</TooltipContent>
+                        </Tooltip>
+                    );
+                })()}
+
+            {dropdownActions.length > 0 && (
+                <DropdownMenu>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    aria-label={`More actions for ${subject}`}
+                                >
+                                    <MoreVertical
+                                        aria-hidden
+                                        className="size-4"
+                                    />
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>More</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end">
+                        {dropdownActions.map((key) => {
+                            const { icon: Icon, label } = ACTIONS[key];
+
+                            return (
+                                <DropdownMenuItem
+                                    key={key}
+                                    onClick={handlers[key]}
+                                    data-row-action={key}
+                                >
+                                    <Icon className="mr-2 size-4" aria-hidden />
+                                    {label}
+                                </DropdownMenuItem>
+                            );
+                        })}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+        </div>
+    );
+};
 
 export default RowActions;

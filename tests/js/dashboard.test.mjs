@@ -3,10 +3,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     clampPage,
-    clampPageSize,
     DEFAULT_PAGE_SIZE,
     pageNumbers,
-    PAGE_SIZE_OPTIONS,
     rangeText,
 } from '../../resources/js/lib/data-table.ts';
 import { formatDate } from '../../resources/js/lib/format-date.ts';
@@ -93,12 +91,8 @@ describe('required file groups', () => {
 });
 
 describe('page sizes', () => {
-    it('offer 10, 25, 50 and 100, with 10 by default, and fall back to it for anything else', () => {
-        assert.deepEqual([...PAGE_SIZE_OPTIONS], [10, 25, 50, 100]);
-        assert.equal(DEFAULT_PAGE_SIZE, 10);
-        assert.equal(clampPageSize('25'), 25);
-        assert.equal(clampPageSize(30), 10);
-        assert.equal(clampPageSize(undefined), 10);
+    it('use one fixed page size of 20', () => {
+        assert.equal(DEFAULT_PAGE_SIZE, 20);
     });
 
     it('keep the page between the first and the last', () => {

@@ -63,6 +63,10 @@ class LeadResource extends JsonResource
     {
         $actions = Gate::forUser($viewer)->allows('view', $this->resource) ? ['view'] : [];
 
+        if (Gate::forUser($viewer)->allows('update', $this->resource)) {
+            $actions[] = 'edit';
+        }
+
         if ($this->status === LeadStatus::Idle && Gate::forUser($viewer)->allows('update', $this->resource)) {
             array_push($actions, 'won', 'lost');
         }

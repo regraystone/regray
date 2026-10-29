@@ -168,5 +168,5 @@ interface InquiryRepositoryInterface
      *
      * @return LengthAwarePaginator<int, Inquiry>
      */
-    public function paginateForStaff(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator;
+    public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator;
 }

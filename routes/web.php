@@ -174,6 +174,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('leads/{reference}/status', [LeadController::class, 'updateStatus'])
         ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
         ->name('leads.status');
+    Route::post('leads/{reference}/update', [LeadController::class, 'update'])
+        ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
+        ->name('leads.update');
 
     /*
      * Update Status, from the Inquiry list: one endpoint for the three tracks.

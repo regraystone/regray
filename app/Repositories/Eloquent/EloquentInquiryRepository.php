@@ -4,9 +4,11 @@ namespace App\Repositories\Eloquent;
 
 use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
+use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
+use App\Enums\Role;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
@@ -255,9 +257,29 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->first();
     }
 
-    public function paginateForStaff(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator
+    public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator
     {
+        $role = $user?->primaryRole();
+
         return Inquiry::query()
+            ->when($statusFilter !== null && $statusFilter !== 'all', function (Builder $query) use ($role, $statusFilter): void {
+                if ($role === Role::Marketing) {
+                    $query->whereHas('lead', fn (Builder $lead) => $lead->where('status', $statusFilter));
+                } elseif ($role === Role::Sales) {
+                    $query->where('sales_status', $statusFilter);
+                } elseif ($role === Role::Accounting) {
+                    $query->where('payment_status', $statusFilter);
+                } elseif ($role === Role::Logistics || $role === Role::Technical) {
+                    $query->where('process_status', $statusFilter);
+                } else {
+                    try {
+                        $status = InquiryStatus::from($statusFilter);
+                        $query->whereDisplayStatus($status);
+                    } catch (\ValueError) {
+                        // Invalid status
+                    }
+                }
+            })
             ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
                 $pattern = "%{$escapedSearch}%";
 
