@@ -410,7 +410,7 @@ const Leads = () => {
     );
 };
 
-/** Edit lead modal with form for correcting the client name and phone. */
+/** Edit lead modal: the client's phone, beside their name and email, read-only. */
 const EditLeadDialog = ({
     lead,
     onClose,
@@ -420,13 +420,11 @@ const EditLeadDialog = ({
     onClose: () => void;
     onSuccess: () => void;
 }) => {
-    const [name, setName] = useState(lead.client.name);
     const [phone, setPhone] = useState(lead.contact || '');
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        setName(lead.client.name);
         setPhone(lead.contact || '');
         setErrors({});
     }, [lead]);
@@ -437,7 +435,7 @@ const EditLeadDialog = ({
 
         router.post(
             `/leads/${lead.reference}/update`,
-            { name, phone },
+            { phone },
             {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -451,8 +449,6 @@ const EditLeadDialog = ({
         );
     };
 
-    const isValid = name.trim().length > 0;
-
     return (
         <Dialog
             open
@@ -462,7 +458,8 @@ const EditLeadDialog = ({
                 <DialogHeader>
                     <DialogTitle>Edit Lead Details</DialogTitle>
                     <DialogDescription>
-                        Update contact information for {lead.reference}
+                        Update the phone number for {lead.reference}. The name
+                        and email are the client's own to change.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -471,17 +468,11 @@ const EditLeadDialog = ({
                         <Label htmlFor="edit-name">Name</Label>
                         <Input
                             id="edit-name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Client name"
-                            disabled={saving}
+                            value={lead.client.name}
+                            readOnly
+                            disabled
                             className="rounded-none"
                         />
-                        {errors.name && (
-                            <p className="text-xs text-destructive">
-                                {errors.name}
-                            </p>
-                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -500,6 +491,19 @@ const EditLeadDialog = ({
                                 {errors.phone}
                             </p>
                         )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-email">Email</Label>
+                        <Input
+                            id="edit-email"
+                            type="email"
+                            value={lead.email ?? ''}
+                            placeholder="—"
+                            readOnly
+                            disabled
+                            className="rounded-none"
+                        />
                     </div>
 
                     {errors.general && (
@@ -521,7 +525,7 @@ const EditLeadDialog = ({
                     <Button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={!isValid || saving}
+                        disabled={saving}
                     >
                         {saving ? (
                             <Spinner className="motion-reduce:animate-none" />

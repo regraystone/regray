@@ -43,8 +43,8 @@ class LeadController extends Controller
     }
 
     /**
-     * Correct the lead's client from Edit on the Leads page: their name and
-     * phone. Only its marketing user may (LeadPolicy).
+     * Correct the lead's client's phone from Edit on the Leads page. Only its
+     * marketing user may (LeadPolicy).
      */
     public function update(UpdateLeadRequest $request, string $reference): RedirectResponse
     {
@@ -52,7 +52,7 @@ class LeadController extends Controller
 
         Gate::authorize('update', $lead);
 
-        $this->leadService->updateClient($lead, $request->string('name')->trim()->value(), $request->string('phone')->trim()->value());
+        $this->leadService->updateClientPhone($lead, $request->string('phone')->trim()->value());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => "Lead {$lead->reference} updated."]);
 

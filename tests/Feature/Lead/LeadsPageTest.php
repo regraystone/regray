@@ -116,9 +116,9 @@ describe('opening an inquiry for a lead', function (): void {
     });
 });
 
-it('lets the lead\'s marketing user correct the client\'s name and phone, and never their email', function (): void {
+it('lets the lead\'s marketing user correct the client\'s phone, and never their name or email', function (): void {
     $lead = makeLead($this->client, marketing: $this->marketing);
-    $email = $this->client->email;
+    ['name' => $name, 'email' => $email] = $this->client->only('name', 'email');
 
     $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['name' => 'Maria Santos', 'phone' => '+63 917 000 0002', 'email' => 'taken@example.com'])
         ->assertRedirect()
@@ -126,11 +126,11 @@ it('lets the lead\'s marketing user correct the client\'s name and phone, and ne
 
     $this->client->refresh();
 
-    expect($this->client->name)->toBe('Maria Santos')
-        ->and($this->client->profile->phone)->toBe('+63 917 000 0002')
+    expect($this->client->profile->phone)->toBe('+63 917 000 0002')
+        ->and($this->client->name)->toBe($name)
         ->and($this->client->email)->toBe($email);
 
-    $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['name' => 'Maria Santos', 'phone' => '']);
+    $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['phone' => '']);
 
     expect($this->client->profile->refresh()->phone)->toBe('');
 });
@@ -138,12 +138,12 @@ it('lets the lead\'s marketing user correct the client\'s name and phone, and ne
 it('opens no profile for a blank phone, and lets no one else edit the lead', function (): void {
     $lead = makeLead($this->client, marketing: $this->marketing);
 
-    $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['name' => 'Maria Santos', 'phone' => '']);
+    $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['phone' => '']);
 
     expect($this->client->refresh()->profile)->toBeNull();
 
-    $this->actingAs(messagingStaff(Role::Marketing, 'Other'))->postJson(route('leads.update', $lead->reference), ['name' => 'Someone Else'])->assertForbidden();
-    $this->actingAs($this->marketing)->postJson(route('leads.update', $lead->reference), ['name' => ''])->assertJsonValidationErrors('name');
+    $this->actingAs(messagingStaff(Role::Marketing, 'Other'))->postJson(route('leads.update', $lead->reference), ['phone' => '+63 917 000 0002'])->assertForbidden();
+    $this->actingAs($this->marketing)->postJson(route('leads.update', $lead->reference), ['phone' => str_repeat('9', 31)])->assertJsonValidationErrors('phone');
 
-    expect($this->client->refresh()->name)->toBe('Maria Santos');
+    expect($this->client->refresh()->profile)->toBeNull();
 });

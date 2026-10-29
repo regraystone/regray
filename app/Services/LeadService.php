@@ -124,22 +124,19 @@ class LeadService
     }
 
     /**
-     * Correct the lead's client: their account name and their profile phone.
-     * A blank phone clears a stored one, and opens no profile where none is.
-     * The email is the client's login, so it is theirs to change, not a lead's.
+     * Correct the lead's client's profile phone. A blank phone clears a stored
+     * one, and opens no profile where none is. Their name and email are their
+     * account's, theirs to change, not a lead's.
      */
-    public function updateClient(Lead $lead, string $name, string $phone): void
+    public function updateClientPhone(Lead $lead, string $phone): void
     {
-        DB::transaction(function () use ($lead, $name, $phone): void {
-            $client = $lead->client;
-            $client->update(['name' => $name]);
+        $client = $lead->client;
 
-            if ($client->profile !== null) {
-                $client->profile->update(['phone' => $phone]);
-            } elseif ($phone !== '') {
-                $client->profile()->create(['phone' => $phone, 'address' => '']);
-            }
-        });
+        if ($client->profile !== null) {
+            $client->profile->update(['phone' => $phone]);
+        } elseif ($phone !== '') {
+            $client->profile()->create(['phone' => $phone, 'address' => '']);
+        }
     }
 
     public function nextReference(): string
