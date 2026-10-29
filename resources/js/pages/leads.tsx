@@ -415,7 +415,7 @@ const Leads = () => {
     );
 };
 
-/** Edit lead modal with form for updating phone, email, and name. */
+/** Edit lead modal with form for correcting the client name and phone. */
 const EditLeadDialog = ({
     lead,
     onClose,
@@ -427,14 +427,12 @@ const EditLeadDialog = ({
 }) => {
     const [name, setName] = useState(lead.client.name);
     const [phone, setPhone] = useState(lead.contact || '');
-    const [email, setEmail] = useState(lead.email || '');
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         setName(lead.client.name);
         setPhone(lead.contact || '');
-        setEmail(lead.email || '');
         setErrors({});
     }, [lead]);
 
@@ -444,7 +442,7 @@ const EditLeadDialog = ({
 
         router.post(
             `/leads/${lead.reference}/update`,
-            { name, phone, email },
+            { name, phone },
             {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -505,24 +503,6 @@ const EditLeadDialog = ({
                         {errors.phone && (
                             <p className="text-xs text-destructive">
                                 {errors.phone}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-email">Email</Label>
-                        <Input
-                            id="edit-email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Email address"
-                            disabled={saving}
-                            className="rounded-none"
-                        />
-                        {errors.email && (
-                            <p className="text-xs text-destructive">
-                                {errors.email}
                             </p>
                         )}
                     </div>

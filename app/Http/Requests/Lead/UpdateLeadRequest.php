@@ -11,12 +11,12 @@ class UpdateLeadRequest extends FormRequest
         return true;
     }
 
+    /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
         ];
     }
 }

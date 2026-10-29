@@ -66,6 +66,7 @@ class ViewController extends Controller
         ]);
     }
 
+    /** @return list<array{value: string, label: string}> */
     private function statusOptionsForUser(User $user): array
     {
         $role = $user->primaryRole();

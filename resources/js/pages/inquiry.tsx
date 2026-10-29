@@ -51,7 +51,7 @@ type InquiryRow = {
 
 type InquiryPageProps = {
     inquiries: { data: InquiryRow[]; meta: TableMeta };
-    filters: DataTableFilters;
+    filters: DataTableFilters & { status?: string };
     statusOptions: DataTableFilterOption[];
 };
 

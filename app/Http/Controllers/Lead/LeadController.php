@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Lead;
 
-use App\Enums\ContactKind;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Lead\UpdateLeadRequest;
 use App\Http\Requests\Lead\UpdateLeadStatusRequest;
@@ -44,8 +43,8 @@ class LeadController extends Controller
     }
 
     /**
-     * Update lead contact details: name, phone, email.
-     * Only the marketing user who owns the lead may update it.
+     * Correct the lead's client from Edit on the Leads page: their name and
+     * phone. Only its marketing user may (LeadPolicy).
      */
     public function update(UpdateLeadRequest $request, string $reference): RedirectResponse
     {
@@ -53,55 +52,7 @@ class LeadController extends Controller
 
         Gate::authorize('update', $lead);
 
-        $client = $lead->client;
-
-        // Update client name
-        if ($request->filled('name')) {
-            $client->update(['full_name' => $request->input('name')]);
-        }
-
-        // Update or create phone contact
-        if ($request->filled('phone')) {
-            $phone = $request->input('phone');
-            $normalized = ContactKind::Phone->normalise($phone);
-
-            $client->contacts()
-                ->where('kind', ContactKind::Phone)
-                ->delete();
-
-            if ($normalized !== '') {
-                $client->contacts()->create([
-                    'kind' => ContactKind::Phone,
-                    'value' => $normalized,
-                ]);
-            }
-        } elseif ($request->input('phone') === '') {
-            // Empty phone means delete it
-            $client->contacts()
-                ->where('kind', ContactKind::Phone)
-                ->delete();
-        }
-
-        // Update or create email contact
-        if ($request->filled('email')) {
-            $email = $request->input('email');
-
-            $client->contacts()
-                ->where('kind', ContactKind::Email)
-                ->delete();
-
-            if ($email !== '') {
-                $client->contacts()->create([
-                    'kind' => ContactKind::Email,
-                    'value' => $email,
-                ]);
-            }
-        } elseif ($request->input('email') === '') {
-            // Empty email means delete it
-            $client->contacts()
-                ->where('kind', ContactKind::Email)
-                ->delete();
-        }
+        $this->leadService->updateClient($lead, $request->string('name')->trim()->value(), $request->string('phone')->trim()->value());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => "Lead {$lead->reference} updated."]);
 

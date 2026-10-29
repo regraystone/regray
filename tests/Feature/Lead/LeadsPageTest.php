@@ -115,3 +115,35 @@ describe('opening an inquiry for a lead', function (): void {
         expect(Inquiry::query()->exists())->toBeFalse();
     });
 });
+
+it('lets the lead\'s marketing user correct the client\'s name and phone, and never their email', function (): void {
+    $lead = makeLead($this->client, marketing: $this->marketing);
+    $email = $this->client->email;
+
+    $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['name' => 'Maria Santos', 'phone' => '+63 917 000 0002', 'email' => 'taken@example.com'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->client->refresh();
+
+    expect($this->client->name)->toBe('Maria Santos')
+        ->and($this->client->profile->phone)->toBe('+63 917 000 0002')
+        ->and($this->client->email)->toBe($email);
+
+    $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['name' => 'Maria Santos', 'phone' => '']);
+
+    expect($this->client->profile->refresh()->phone)->toBe('');
+});
+
+it('opens no profile for a blank phone, and lets no one else edit the lead', function (): void {
+    $lead = makeLead($this->client, marketing: $this->marketing);
+
+    $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['name' => 'Maria Santos', 'phone' => '']);
+
+    expect($this->client->refresh()->profile)->toBeNull();
+
+    $this->actingAs(messagingStaff(Role::Marketing, 'Other'))->postJson(route('leads.update', $lead->reference), ['name' => 'Someone Else'])->assertForbidden();
+    $this->actingAs($this->marketing)->postJson(route('leads.update', $lead->reference), ['name' => ''])->assertJsonValidationErrors('name');
+
+    expect($this->client->refresh()->name)->toBe('Maria Santos');
+});
