@@ -79,14 +79,14 @@ const StaffInquireStart = ({
         );
     }
 
+    // Back from a branch leaves for the list, as closing the question does:
+    // the question is already answered, so asking it again would trap the reader.
+    const leave = () => router.visit(inquiryIndex.url());
+
     return kind === 'platform' ? (
-        <PlatformStart
-            leads={leads}
-            onBack={() => onKind(null)}
-            onTarget={onTarget}
-        />
+        <PlatformStart leads={leads} onBack={leave} onTarget={onTarget} />
     ) : (
-        <DirectStart onBack={() => onKind(null)} onTarget={onTarget} />
+        <DirectStart onBack={leave} onTarget={onTarget} />
     );
 };
 

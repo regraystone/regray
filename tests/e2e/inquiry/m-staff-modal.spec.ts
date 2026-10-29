@@ -12,7 +12,7 @@ test('47 · staff are asked Platform or Direct when they press Inquire; Platform
     const { page } = await actors.open('marketing');
 
     await page.goto('/inquiry');
-    await page.getByRole('button', { name: 'Inquire' }).click();
+    await page.getByRole('button', { name: 'Add inquiry' }).click();
 
     const dialog = page.getByTestId('staff-inquire-dialog');
     await expect(dialog.locator('[data-staff-inquire-kind]')).toHaveCount(2);
@@ -81,4 +81,23 @@ test('49 · the Direct branch offers the client already on file instead of a sec
     await expect(page.getByTestId('inquire-target')).toContainText(
         'Direct (walk-in)',
     );
+});
+
+test('50 · Back from the Platform or Direct screen returns to the Inquiry list, without asking again', async ({
+    actors,
+}) => {
+    const { page } = await actors.open('marketing');
+
+    for (const kind of ['platform', 'direct']) {
+        await page.goto('/inquiry');
+        await page.getByRole('button', { name: 'Add inquiry' }).click();
+        await page
+            .getByTestId('staff-inquire-dialog')
+            .locator(`[data-staff-inquire-kind="${kind}"]`)
+            .click();
+        await page.getByRole('button', { name: 'Back', exact: true }).click();
+
+        await expect(page).toHaveURL(/\/inquiry$/);
+        await expect(page.getByTestId('staff-inquire-dialog')).toHaveCount(0);
+    }
 });
