@@ -166,7 +166,7 @@ const Inquiry = () => {
             : currentOf(editing.row, track);
 
     return (
-        <div className="mx-auto w-full max-w-6xl min-w-0">
+        <div className="w-full min-w-0">
             <PageHeading
                 title="Inquiry"
                 description="Every inquiry, where it stands, and what you can do with it"

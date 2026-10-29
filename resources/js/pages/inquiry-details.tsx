@@ -679,7 +679,7 @@ const InquiryDetails = () => {
     };
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
             <Button asChild variant="outline" className="mb-6 w-full sm:w-auto">
                 <Link href={backHref}>
                     <ArrowLeft aria-hidden />

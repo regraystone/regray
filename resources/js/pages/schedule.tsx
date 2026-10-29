@@ -229,7 +229,7 @@ const Schedule = () => {
         toast.info(`Cancelling ${item.title} is not available yet.`);
 
     return (
-        <div className="mx-auto w-full max-w-6xl min-w-0">
+        <div className="w-full min-w-0">
             <PageHeading
                 title="Schedule"
                 description="Your appointments"

@@ -277,11 +277,7 @@ const InquireSkeleton = () => {
     const { services } = useInquiryCatalog();
 
     return (
-        <div
-            role="status"
-            aria-busy="true"
-            className="mx-auto w-full max-w-6xl"
-        >
+        <div role="status" aria-busy="true" className="w-full">
             {/* Everything below is empty boxes; this is the only thing to hear. */}
             <span className="sr-only">Loading the inquiry</span>
 
@@ -1524,7 +1520,7 @@ const InquireFlow = ({
 
     return (
         <FormProvider {...methods}>
-            <div className="mx-auto w-full max-w-6xl">
+            <div className="w-full">
                 <PageHeading
                     title={
                         edit === null ? 'Inquire' : `Update ${edit.reference}`

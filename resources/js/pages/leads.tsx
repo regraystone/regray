@@ -162,7 +162,7 @@ const Leads = () => {
     ];
 
     return (
-        <div className="mx-auto w-full max-w-7xl min-w-0">
+        <div className="w-full min-w-0">
             <PageHeading
                 title="Leads"
                 description="Your clients, and where each one stands"

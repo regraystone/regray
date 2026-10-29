@@ -187,7 +187,7 @@ const InquiryCardSkeletons = () => (
 
 /** The page before its first response: the heading, the controls and the cards. */
 const QuoteSkeleton = () => (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="w-full">
         <div className="mb-4 flex flex-col gap-3 border-b border-sidebar-border pb-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
                 <Skeleton className="h-8 w-40" />
@@ -695,7 +695,7 @@ const Quote = () => {
 
     return (
         <>
-            <div className="mx-auto w-full max-w-6xl">
+            <div className="w-full">
                 <PageHeading
                     title="Quote"
                     description="Your inquiries and their progress"

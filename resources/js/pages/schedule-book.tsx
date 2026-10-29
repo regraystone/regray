@@ -256,7 +256,7 @@ const Page = ({
     }
 
     return (
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
             <Head title="Book an appointment" />
             <PageHeading
                 title="Book an appointment"
