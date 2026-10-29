@@ -117,19 +117,16 @@ const Leads = () => {
             key: 'date',
             header: 'Date',
             cell: (row) => formatDate(row.createdAt),
-            className: 'w-[12%]',
         },
         {
             key: 'client',
             header: 'Client',
             cell: (row) => row.client.name,
-            className: 'w-[18%]',
         },
         {
             key: 'contact',
             header: 'Contact',
             cell: (row) => row.contact ?? '—',
-            className: 'w-[18%]',
         },
         {
             key: 'email',
@@ -139,18 +136,16 @@ const Leads = () => {
                     {row.email ?? '—'}
                 </span>
             ),
-            className: 'w-[34%]',
         },
         {
             key: 'status',
             header: 'Status',
             cell: (row) => <LeadStatusBadge status={row.status} />,
-            className: 'w-[9%]',
         },
         {
             key: 'actions',
             header: 'Actions',
-            className: 'w-[9%] text-right',
+            className: 'text-right',
             cell: (row) => (
                 <RowActions
                     actions={row.actions}

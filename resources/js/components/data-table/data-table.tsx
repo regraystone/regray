@@ -64,6 +64,8 @@ export type DataTableFilters = {
  * partially (`only`), so only the list and its filters are read again. Skeleton
  * rows stand in while a reload runs; an empty list shows the page's EmptyState.
  * Uses a fixed page size (DEFAULT_PAGE_SIZE).
+ * Every column is at least as wide as its widest value: where the screen is
+ * narrower than that, the table scrolls sideways instead of squeezing them.
  */
 function DataTable<T>({
     rows,
@@ -181,7 +183,7 @@ function DataTable<T>({
                 <EmptyState title={emptyTitle} description={emptyDescription} />
             ) : (
                 <div className="overflow-x-auto border border-sidebar-border">
-                    <Table aria-busy={isLoading} className="w-full table-fixed">
+                    <Table aria-busy={isLoading} className="w-full min-w-max">
                         <TableHeader>
                             <TableRow className="hover:bg-transparent">
                                 {columns.map((column) => (
