@@ -54,6 +54,7 @@ export type Filters = {
     thickness: string | null;
     projectCategory: string | null;
     collection?: 'stones' | 'projects';
+    perPage: number;
 };
 
 export type HomePageProps = {

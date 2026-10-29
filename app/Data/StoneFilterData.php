@@ -2,6 +2,7 @@
 
 namespace App\Data;
 
+use App\Enums\HomeGridPageSize;
 use App\Http\Requests\Home\StoneIndexRequest;
 
 final readonly class StoneFilterData
@@ -12,6 +13,7 @@ final readonly class StoneFilterData
         public ?string $size,
         public ?string $thickness,
         public int $page,
+        public int $perPage,
     ) {}
 
     public static function fromRequest(StoneIndexRequest $request): self
@@ -22,6 +24,7 @@ final readonly class StoneFilterData
             size: $request->validated('size'),
             thickness: $request->validated('thickness'),
             page: (int) ($request->validated('page') ?? 1),
+            perPage: (int) ($request->validated('per_page') ?? HomeGridPageSize::DEFAULT->value),
         );
     }
 }

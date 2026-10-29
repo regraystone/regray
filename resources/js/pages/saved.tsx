@@ -12,10 +12,10 @@ import type { StoneCardData } from '@/types/stone';
 
 /**
  * Width of each stone slide in the carousel must track the saved grid's columns
- * and gaps: grid is grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3.
+ * and gaps: grid is grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5.
  */
 const STONE_SLIDE_WIDTH =
-    'w-[calc((100%_-_1rem)/2)] md:w-[calc((100%_-_1.25rem)/2)] lg:w-[calc((100%_-_2.5rem)/3)]';
+    'w-[calc((100%_-_1rem)/2)] md:w-[calc((100%_-_3.75rem)/4)] xl:w-[calc((100%_-_5rem)/5)]';
 
 type SavedPageProps = {
     savedStones: { data: StoneCardData[] };
@@ -178,7 +178,7 @@ const Saved = ({ savedStones, recommendedStones }: SavedPageProps) => {
             </section>
 
             <section className="mt-8">
-                <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5">
                     {savedStonesList.map((stone) => (
                         <StoneCard
                             key={stone.slug}

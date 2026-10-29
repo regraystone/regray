@@ -110,7 +110,7 @@ const StoneCard = ({
                 className="size-3 shrink-0 fill-white text-white"
                 aria-hidden
             />
-            <span className="hidden sm:inline">Highly Recommended</span>
+            <span className="hidden xl:inline">Highly Recommended</span>
         </span>
     ) : null;
 

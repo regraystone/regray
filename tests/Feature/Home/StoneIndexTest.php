@@ -28,13 +28,14 @@ test('no parameters returns the first page of active individual stones', functio
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('home')
-            ->has('stones.data', 12)
+            ->has('stones.data', 20)
             ->where('stones.meta.total', 75)
             ->has('filters', fn (Assert $filters) => $filters
                 ->where('search', null)
                 ->where('category', null)
                 ->where('size', null)
                 ->where('thickness', null)
+                ->where('perPage', 20)
                 ->where('collection', 'stones')
             )
             ->has('filterOptions.categories')
@@ -120,6 +121,9 @@ test('drops an unknown or malformed parameter and keeps the valid ones', functio
         ['page' => 'abc'],
         ['page' => 0],
         ['page' => [1]],
+        ['per_page' => 12],
+        ['per_page' => 'abc'],
+        ['per_page' => [25]],
     ] as $invalid) {
         $this->actingAs($user)->get(route('home.index', [...$invalid, ...$kept]))->assertRedirect(route('home.index', $kept));
     }
@@ -138,23 +142,35 @@ test('pagination with stable ordering', function (): void {
         ->assertOk()
         ->viewData('page')['props']['stones']['data'];
 
-    expect(count($page1))->toBe(12);
+    expect(count($page1))->toBe(20);
 
     $page2 = $this->actingAs($user)
         ->get(route('home.index', ['page' => 2]))
         ->assertOk()
         ->viewData('page')['props']['stones']['data'];
 
-    expect(count($page2))->toBe(12);
+    expect(count($page2))->toBe(20);
 
     $allSlugs = array_merge(
         array_column($page1, 'slug'),
         array_column($page2, 'slug')
     );
 
-    expect($allSlugs)->toHaveCount(24);
+    expect($allSlugs)->toHaveCount(40);
     expect($allSlugs)->toBe(array_unique($allSlugs));
 });
+
+test('loads the page size the screen asks for', function (int $perPage): void {
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)
+        ->get(route('home.index', ['per_page' => $perPage, 'page' => 2]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('stones.data', $perPage)
+            ->where('filters.perPage', $perPage)
+        );
+})->with([10, 20, 25]);
 
 test('filters reflect the URL exactly after refresh', function (): void {
     $user = User::factory()->role(Role::Client)->create();

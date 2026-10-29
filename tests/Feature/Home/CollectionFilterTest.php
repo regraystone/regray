@@ -89,10 +89,11 @@ test('a project category matches projects through their many to many relationshi
     $this->seed([ProjectCategorySeeder::class, ProjectSeeder::class]);
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'projects', 'project_category' => 'countertops-backsplash']))
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'projects', 'project_category' => 'countertops-backsplash', 'per_page' => 10]))
         ->assertInertia(fn (Assert $page) => $page
             ->has('projects.data', 1)
             ->where('projects.data.0.slug', 'ginza-one')
+            ->where('filters.perPage', 10)
         );
 });
 

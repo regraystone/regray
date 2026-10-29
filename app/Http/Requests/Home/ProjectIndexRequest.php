@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Home;
 
+use App\Enums\HomeGridPageSize;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -19,7 +20,7 @@ class ProjectIndexRequest extends FormRequest
     {
         $input = $this->query->all();
 
-        foreach (['search', 'project_category', 'page'] as $key) {
+        foreach (['search', 'project_category', 'page', 'per_page'] as $key) {
             if (array_key_exists($key, $input) && $input[$key] === '') {
                 unset($input[$key]);
             }
@@ -30,8 +31,10 @@ class ProjectIndexRequest extends FormRequest
             $input['search'] = $trimmed === '' ? null : $trimmed;
         }
 
-        if (isset($input['page']) && is_scalar($input['page'])) {
-            $input['page'] = (string) $input['page'];
+        foreach (['page', 'per_page'] as $key) {
+            if (isset($input[$key]) && is_scalar($input[$key])) {
+                $input[$key] = (string) $input[$key];
+            }
         }
 
         $this->replace($input);
@@ -45,6 +48,7 @@ class ProjectIndexRequest extends FormRequest
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
             'project_category' => ['sometimes', 'nullable', 'string', Rule::exists('project_categories', 'slug')->where('is_active', true)],
             'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'nullable', 'integer', Rule::enum(HomeGridPageSize::class)],
         ];
     }
 

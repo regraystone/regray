@@ -15,6 +15,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useGridPageSize } from '@/hooks/use-grid-page-size';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { usePermissions } from '@/hooks/use-permissions';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
@@ -132,6 +133,7 @@ const ScrollFooter = ({
     listKey,
     showHeart,
     mode,
+    perPage,
 }: {
     loading: boolean;
     loadingPrevious: boolean;
@@ -141,6 +143,7 @@ const ScrollFooter = ({
     listKey: string;
     showHeart: boolean;
     mode: 'stones' | 'projects';
+    perPage: number;
 }) => {
     const sentinelRef = useRef<HTMLDivElement>(null);
     const notifiedRef = useRef(false);
@@ -179,7 +182,7 @@ const ScrollFooter = ({
             !sentinel ||
             hasMore ||
             loadingPrevious ||
-            itemCount <= 12 ||
+            itemCount <= perPage ||
             !hasPaginatedRef.current ||
             notifiedRef.current
         ) {
@@ -221,22 +224,23 @@ const ScrollFooter = ({
         itemCount,
         listKey,
         mode,
+        perPage,
     ]);
 
     if (isUpdating || loading) {
         return (
             <div
                 aria-hidden="true"
-                className="mt-4 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3"
+                className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5"
             >
-                {Array.from({ length: 6 }, (_, index) => (
+                {Array.from({ length: 5 }, (_, index) => (
                     <div
                         key={index}
                         className={
                             index >= 4
-                                ? 'hidden md:block'
+                                ? 'hidden xl:block'
                                 : index >= 2
-                                  ? 'hidden lg:block'
+                                  ? 'hidden md:block'
                                   : undefined
                         }
                     >
@@ -249,7 +253,7 @@ const ScrollFooter = ({
         );
     }
 
-    return !hasMore && !loadingPrevious && itemCount > 12 ? (
+    return !hasMore && !loadingPrevious && itemCount > perPage ? (
         <div ref={sentinelRef} aria-hidden="true" className="h-px" />
     ) : null;
 };
@@ -259,6 +263,7 @@ const Home = () => {
     const permissions = usePermissions();
     const pageProps = usePage<HomePageProps>().props;
     const canViewProjects = permissions.can('home-projects.view');
+    const gridPageSize = useGridPageSize();
 
     const [searchInput, setSearchInput] = useState(
         pageProps.filters.search ?? '',
@@ -299,7 +304,9 @@ const Home = () => {
         collection: 'stones' | 'projects',
     ) => {
         const trimmedSearch = search.trim();
-        const query: Record<string, string> = {};
+        const query: Record<string, string> = {
+            per_page: String(gridPageSize ?? pageProps.filters.perPage),
+        };
 
         if (trimmedSearch !== '') {
             query.search = trimmedSearch;
@@ -496,6 +503,31 @@ const Home = () => {
         }
     }, [pageProps.filters]);
 
+    /**
+     * Pages must all be the same size for the infinite scroll to line up, so a
+     * page size that is not this screen's (the server's default on the first
+     * visit, or the old screen's after a resize or rotation) reloads the list
+     * from its first page at the right size, keeping the current filters.
+     */
+    useEffect(() => {
+        if (
+            gridPageSize === null ||
+            gridPageSize === pageProps.filters.perPage
+        ) {
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('page');
+        url.searchParams.set('per_page', String(gridPageSize));
+
+        router.get(`${url.pathname}${url.search}`, undefined, {
+            preserveState: false,
+            preserveScroll: true,
+            replace: true,
+        });
+    }, [gridPageSize, pageProps.filters.perPage]);
+
     useEffect(() => {
         return () => {
             if (debounceTimerRef.current !== null) {
@@ -523,6 +555,7 @@ const Home = () => {
         pageProps.filters.size,
         pageProps.filters.thickness,
         pageProps.filters.projectCategory,
+        pageProps.filters.perPage,
     ]);
 
     return (
@@ -750,10 +783,19 @@ const Home = () => {
                     {isUpdating || !hasDataForMode ? (
                         <div
                             aria-hidden="true"
-                            className="mt-4 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3"
+                            className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5"
                         >
-                            {Array.from({ length: 6 }, (_, index) => (
-                                <div key={index}>
+                            {Array.from({ length: 10 }, (_, index) => (
+                                <div
+                                    key={index}
+                                    className={
+                                        index >= 8
+                                            ? 'hidden xl:block'
+                                            : index >= 4
+                                              ? 'hidden md:block'
+                                              : undefined
+                                    }
+                                >
                                     <CardSkeleton
                                         showHeart={isStonesMode && canSave}
                                     />
@@ -789,16 +831,17 @@ const Home = () => {
                                             listKey={listKey}
                                             showHeart={canSave}
                                             mode="stones"
+                                            perPage={pageProps.filters.perPage}
                                         />
                                     )}
                                 >
-                                    <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5">
                                         {stones.map((stone, index) => (
                                             <StoneCard
                                                 key={stone.slug}
                                                 stone={stone}
                                                 aspect="aspect-[4/3]"
-                                                priority={index < 3}
+                                                priority={index < 5}
                                                 href={homeShow.url({
                                                     slug: stone.slug,
                                                 })}
@@ -833,15 +876,16 @@ const Home = () => {
                                             listKey={listKey}
                                             showHeart={false}
                                             mode="projects"
+                                            perPage={pageProps.filters.perPage}
                                         />
                                     )}
                                 >
-                                    <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5">
                                         {projects.map((project, index) => (
                                             <ProjectCard
                                                 key={project.slug}
                                                 project={project}
-                                                priority={index < 3}
+                                                priority={index < 5}
                                             />
                                         ))}
                                     </div>

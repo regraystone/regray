@@ -1764,7 +1764,7 @@ const InquireFlow = ({
                                         }
                                     />
                                 ) : (
-                                    <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3">
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5">
                                         {visibleStones.map((stone) => (
                                             <StoneCard
                                                 key={stone.slug}
