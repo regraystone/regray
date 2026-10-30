@@ -480,7 +480,7 @@ class InquirySeeder extends Seeder
             } elseif (isset($event['payment_status'])) {
                 $to = PaymentStatus::from($event['payment_status']);
 
-                if (! in_array($state['sales'], [SalesStatus::Won, SalesStatus::ForRefund], true) || ! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Payment, $state['payment']?->value, false, $state['sales']?->value), true)) {
+                if (! in_array($state['sales'], [SalesStatus::Won, SalesStatus::ForRefund], true) || ! in_array($to->value, InquiryStatusRules::allowedTargets(InquiryStatusTrack::Payment, $state['payment']?->value, false, $state['sales']->value), true)) {
                     $fail("payment does not move from {$state['payment']?->value} to {$to->value}, or the inquiry is not won.");
                 }
 
