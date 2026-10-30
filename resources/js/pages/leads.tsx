@@ -10,7 +10,10 @@ import DataTable, {
     type DataTableFilterOption,
 } from '@/components/data-table/data-table';
 import RowActions from '@/components/data-table/row-actions';
-import { LeadStatusBadge } from '@/components/lead-status-badge';
+import {
+    LeadStatusBadge,
+    LeadTallyBadges,
+} from '@/components/lead-status-badge';
 import PageHeading from '@/components/page-heading';
 import StatusUpdateDialog from '@/components/status-update-dialog';
 import { Button } from '@/components/ui/button';
@@ -35,22 +38,28 @@ import {
     leadStatusLabel,
     LEAD_STATUSES,
     type LeadStatus,
+    type LeadTally,
 } from '@/lib/lead-statuses';
 import { inquire as inquiryInquire } from '@/routes/inquiry';
-import { status as leadStatusRoute } from '@/routes/leads';
+import { status as leadInquiryStatusRoute } from '@/routes/leads/inquiries';
 import { index as messageIndex } from '@/routes/message';
 
 type LeadInquiry = {
     id: number;
     reference: string;
     name: string;
+    /** Marketing's decision on it; idle while it waits for one. */
+    marketingStatus: LeadStatus;
     hasGroup: boolean;
+    /** Whether this reader may mark it won or lost now. */
+    canDecide: boolean;
 };
 
 /** One lead as a row of the Leads page, as `LeadResource` sends it. */
 type LeadRow = {
     reference: string;
-    status: LeadStatus;
+    /** The tally of marketing's decisions on its inquiries. */
+    tally: LeadTally;
     createdAt: string;
     client: { id: number; name: string };
     /** The client's phone number. */
@@ -58,7 +67,13 @@ type LeadRow = {
     email: string | null;
     marketingUser: string;
     inquiries: LeadInquiry[];
-    history: Array<{ status: LeadStatus; note: string | null; at: string }>;
+    /** The lead opened (no inquiry), then each decision, naming its inquiry. */
+    history: Array<{
+        status: LeadStatus;
+        inquiry: string | null;
+        note: string | null;
+        at: string;
+    }>;
     /** The actions this reader has on this row, decided by the server. */
     actions: string[];
     canCreateInquiry: boolean;
@@ -71,10 +86,11 @@ type LeadsPageProps = {
 };
 
 /**
- * The Leads page: marketing's own clients, newest first. View opens the lead
- * (its status, history and inquiries, with a way to open an inquiry or a
- * group chat for one); Won and Lost, each with a required note, only while
- * the lead is idle.
+ * The Leads page: marketing's own clients, newest first, each with the tally
+ * of its inquiries' decisions. View opens the lead: its log, and its
+ * inquiries, each with marketing's decision, Won and Lost (each with a
+ * required note) on one still waiting, and a way to open a group chat for it
+ * or a new inquiry for the client.
  */
 const Leads = () => {
     const { props } = usePage<LeadsPageProps>();
@@ -82,6 +98,7 @@ const Leads = () => {
     const [editing, setEditing] = useState<LeadRow | null>(null);
     const [deciding, setDeciding] = useState<{
         lead: LeadRow;
+        inquiry: LeadInquiry;
         to: 'won' | 'lost';
     } | null>(null);
     const [groupPreset, setGroupPreset] = useState<GroupPreset | null>(null);
@@ -145,7 +162,7 @@ const Leads = () => {
         {
             key: 'status',
             header: 'Status',
-            cell: (row) => <LeadStatusBadge status={row.status} />,
+            cell: (row) => <LeadTallyBadges tally={row.tally} />,
         },
         {
             key: 'actions',
@@ -158,8 +175,6 @@ const Leads = () => {
                     handlers={{
                         view: () => setViewing(row),
                         edit: () => setEditing(row),
-                        won: () => setDeciding({ lead: row, to: 'won' }),
-                        lost: () => setDeciding({ lead: row, to: 'lost' }),
                     }}
                 />
             ),
@@ -209,7 +224,7 @@ const Leads = () => {
                                     <h2 className="text-2xl font-bold tracking-[-0.03em]">
                                         {viewing.reference}
                                     </h2>
-                                    <LeadStatusBadge status={viewing.status} />
+                                    <LeadTallyBadges tally={viewing.tally} />
                                 </div>
                                 <p className="text-sm text-secondary-foreground">
                                     {viewing.client.name}
@@ -254,44 +269,94 @@ const Leads = () => {
                                                 key={inquiry.id}
                                                 className="flex flex-wrap items-center justify-between gap-2 rounded border border-sidebar-border bg-muted/30 p-3 text-sm"
                                             >
-                                                <span>
-                                                    <span className="font-bold">
-                                                        {inquiry.reference}
-                                                    </span>{' '}
-                                                    · {inquiry.name}
+                                                <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                                    <span>
+                                                        <span className="font-bold">
+                                                            {inquiry.reference}
+                                                        </span>{' '}
+                                                        · {inquiry.name}
+                                                    </span>
+                                                    <LeadStatusBadge
+                                                        status={
+                                                            inquiry.marketingStatus
+                                                        }
+                                                    />
                                                 </span>
-                                                {!inquiry.hasGroup && (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                type="button"
-                                                                size="icon"
-                                                                variant="ghost"
-                                                                className="h-9 w-9"
-                                                                aria-label={`Create a group chat for ${inquiry.reference}`}
-                                                                onClick={() => {
-                                                                    setGroupPreset(
-                                                                        {
-                                                                            client: viewing.client,
-                                                                            inquiry,
-                                                                        },
-                                                                    );
-                                                                    setViewing(
-                                                                        null,
-                                                                    );
-                                                                }}
+                                                <span className="flex items-center gap-1">
+                                                    {inquiry.canDecide ? (
+                                                        <>
+                                                            {(
+                                                                [
+                                                                    'won',
+                                                                    'lost',
+                                                                ] as const
+                                                            ).map((to) => (
+                                                                <Button
+                                                                    key={to}
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant={
+                                                                        to ===
+                                                                        'won'
+                                                                            ? 'default'
+                                                                            : 'outline'
+                                                                    }
+                                                                    onClick={() => {
+                                                                        setDeciding(
+                                                                            {
+                                                                                lead: viewing,
+                                                                                inquiry,
+                                                                                to,
+                                                                            },
+                                                                        );
+                                                                        setViewing(
+                                                                            null,
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    {leadStatusLabel(
+                                                                        to,
+                                                                    )}
+                                                                </Button>
+                                                            ))}
+                                                        </>
+                                                    ) : null}
+                                                    {!inquiry.hasGroup && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                asChild
                                                             >
-                                                                <MessageCirclePlus
-                                                                    aria-hidden
-                                                                    className="size-4"
-                                                                />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            Create group chat
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                )}
+                                                                <Button
+                                                                    type="button"
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    className="h-9 w-9"
+                                                                    aria-label={`Create a group chat for ${inquiry.reference}`}
+                                                                    onClick={() => {
+                                                                        setGroupPreset(
+                                                                            {
+                                                                                client: viewing.client,
+                                                                                inquiry,
+                                                                            },
+                                                                        );
+                                                                        setViewing(
+                                                                            null,
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    <MessageCirclePlus
+                                                                        aria-hidden
+                                                                        className="size-4"
+                                                                    />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                Create group
+                                                                chat
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    )}
+                                                </span>
                                             </li>
                                         ))}
                                     </ul>
@@ -313,9 +378,10 @@ const Leads = () => {
                                                 >
                                                     <div className="mb-1 flex items-center gap-2">
                                                         <span className="font-bold">
-                                                            {leadStatusLabel(
-                                                                entry.status,
-                                                            )}
+                                                            {entry.inquiry ===
+                                                            null
+                                                                ? 'Lead opened'
+                                                                : `${entry.inquiry} ${leadStatusLabel(entry.status).toLowerCase()}`}
                                                         </span>
                                                         <span className="text-xs text-secondary-foreground">
                                                             {formatDate(
@@ -387,7 +453,11 @@ const Leads = () => {
                             setDeciding(null);
                         }
                     }}
-                    current={<LeadStatusBadge status={deciding.lead.status} />}
+                    current={
+                        <LeadStatusBadge
+                            status={deciding.inquiry.marketingStatus}
+                        />
+                    }
                     targets={[
                         {
                             value: deciding.to,
@@ -397,7 +467,10 @@ const Leads = () => {
                     initialTarget={deciding.to}
                     fileGroups={() => []}
                     extraFieldFor={() => null}
-                    submitUrl={leadStatusRoute.url(deciding.lead.reference)}
+                    submitUrl={leadInquiryStatusRoute.url({
+                        reference: deciding.lead.reference,
+                        inquiry: deciding.inquiry.reference,
+                    })}
                 />
             ) : null}
 

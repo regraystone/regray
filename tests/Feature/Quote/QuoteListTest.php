@@ -152,7 +152,7 @@ describe('status and sort', function (): void {
         makeInquiry($this->client, attributes: ['reference' => 'INQ-F4', 'status' => InquiryStatus::Delayed]);
         makeInquiry($this->client, attributes: ['reference' => 'INQ-F5', 'status' => InquiryStatus::Closed]);
         makeInquiry($this->client, attributes: ['reference' => 'INQ-F6', 'status' => InquiryStatus::Cancelled]);
-        makeInquiry($this->client, attributes: ['reference' => 'INQ-F7', 'lead' => makeLead($this->client, LeadStatus::Lost)]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-F7', 'lead' => makeLead($this->client), 'marketing_status' => LeadStatus::Lost]);
 
         $response = $this->actingAs($this->client)->get(route('quote.index', ['status' => $tab]));
 

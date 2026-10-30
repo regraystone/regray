@@ -4,24 +4,28 @@ namespace App\Services;
 
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
 
 /**
- * The status an inquiry is shown at, from its lead's status and its role
- * statuses. Pure: the same four answers always give the same status. A NULL
- * role status is a stage that has not started, and is never shown; a NULL lead
- * is an inquiry not linked to a lead yet.
+ * The status an inquiry is shown at, from marketing's decision on it and its
+ * role statuses. Pure: the same four answers always give the same status. A
+ * NULL role status is a stage that has not started, and is never shown; a NULL
+ * marketing status is an inquiry still waiting for marketing.
  *
  * The first rule that matches wins:
- * 1. cancelled when its lead was lost or sales was rejected;
- * 2. closed when logistics has completed;
- * 3. the logistics status once sales has uploaded the job order (and
- *    logistics has started, which approval guarantees);
- * 4. the sales status once sales has started;
- * 5. pending otherwise.
+ * 1. cancelled when marketing lost it or sales was rejected;
+ * 2. refunded when accounting has refunded all of it;
+ * 3. for_refund while sales has asked for a refund and it is not all back;
+ * 4. closed when logistics has completed;
+ * 5. the logistics status once sales has uploaded the job order (and
+ *    logistics has started, which the first payment does);
+ * 6. the sales status once sales has started;
+ * 7. pending otherwise.
  *
- * Accounting's status is not part of it: it has a badge of its own.
+ * Accounting's status counts only once fully refunded: otherwise it has a
+ * badge of its own.
  *
  * SQL is the same rules as a CASE expression, for filtering and sorting in
  * the database (the Inquiry display-status scopes). The two are tested to agree.
@@ -29,13 +33,22 @@ use App\Enums\SalesStatus;
 class InquiryStatusCalculator
 {
     public static function calculate(
-        ?LeadStatus $lead,
+        ?LeadStatus $marketing,
         ?SalesStatus $sales,
         ?ProcessStatus $process,
         bool $hasJobOrder,
+        ?PaymentStatus $payment = null,
     ): InquiryStatus {
-        if ($lead === LeadStatus::Lost || $sales === SalesStatus::Rejected) {
+        if ($marketing === LeadStatus::Lost || $sales === SalesStatus::Rejected) {
             return InquiryStatus::Cancelled;
+        }
+
+        if ($payment === PaymentStatus::Refunded) {
+            return InquiryStatus::Refunded;
+        }
+
+        if ($sales === SalesStatus::ForRefund) {
+            return InquiryStatus::ForRefund;
         }
 
         if ($process === ProcessStatus::Completed) {
@@ -58,7 +71,7 @@ class InquiryStatusCalculator
      * gives the display status's value. NULL is a stage that has not started:
      * a comparison with it is never true, so it falls through to the next rule.
      * A soft-deleted job order file does not count, as it does not for the
-     * model's `files` relation. An inquiry with no lead has no lost lead.
+     * model's `files` relation.
      *
      * One literal string, with nothing interpolated, so it is safe to put into
      * raw SQL as it is. `job_order` is DocumentType::JobOrder's value and `lost`
@@ -68,11 +81,9 @@ class InquiryStatusCalculator
      */
     public const SQL = <<<'SQL'
         CASE
-            WHEN inquiries.sales_status = 'rejected' OR EXISTS (
-                SELECT 1 FROM leads
-                WHERE leads.id = inquiries.lead_id
-                    AND leads.status = 'lost'
-            ) THEN 'cancelled'
+            WHEN inquiries.sales_status = 'rejected' OR inquiries.marketing_status = 'lost' THEN 'cancelled'
+            WHEN inquiries.payment_status = 'refunded' THEN 'refunded'
+            WHEN inquiries.sales_status = 'for_refund' THEN 'for_refund'
             WHEN inquiries.process_status = 'completed' THEN 'closed'
             WHEN inquiries.process_status IS NOT NULL AND EXISTS (
                 SELECT 1 FROM inquiry_files

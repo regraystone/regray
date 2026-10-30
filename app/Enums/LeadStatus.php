@@ -3,21 +3,16 @@
 namespace App\Enums;
 
 /**
- * A lead's status: idle until marketing has engaged the client (won) or dropped
- * them (lost). Won and lost are final. Never an inquiry status: a lost lead
- * shows its inquiries as cancelled, and a won lead starts their sales.
+ * Marketing's decision on an inquiry (`inquiries.marketing_status`): won
+ * starts its sales, lost shows it cancelled, and both are final. Idle is an
+ * inquiry still waiting for one, which is stored as NULL. A lead shows the
+ * tally of its inquiries' decisions, and its log opens at idle.
  */
 enum LeadStatus: string
 {
     case Idle = 'idle';
     case Won = 'won';
     case Lost = 'lost';
-
-    /** Whether the client's new inquiries still link to this lead. */
-    public function isOpen(): bool
-    {
-        return $this !== self::Lost;
-    }
 
     /** @return list<string> */
     public static function values(): array

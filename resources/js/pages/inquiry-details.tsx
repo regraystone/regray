@@ -295,7 +295,10 @@ const PaymentRecordsCard = ({ payments }: { payments: PaymentRecord[] }) => (
                         <dl className="space-y-1">
                             {[
                                 {
-                                    label: 'Current balance',
+                                    label:
+                                        record.kind === 'refund'
+                                            ? 'Held before'
+                                            : 'Current balance',
                                     value: record.currentBalance,
                                 },
                                 {
@@ -306,7 +309,10 @@ const PaymentRecordsCard = ({ payments }: { payments: PaymentRecord[] }) => (
                                     value: record.amount,
                                 },
                                 {
-                                    label: 'Remaining balance',
+                                    label:
+                                        record.kind === 'refund'
+                                            ? 'Still held'
+                                            : 'Remaining balance',
                                     value: record.remainingBalance,
                                 },
                             ].map((figure) => (

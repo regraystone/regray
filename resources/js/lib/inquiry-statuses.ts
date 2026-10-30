@@ -14,7 +14,7 @@
  * null, and nothing is shown for it: never a placeholder such as "pending".
  */
 
-/** The stage an inquiry has reached: one sales or logistics value, or pending, closed or cancelled. */
+/** The stage an inquiry has reached: one sales or logistics value, or pending, closed, cancelled, for refund or refunded. */
 export type InquiryStatus =
     | 'pending'
     | 'cancelled'
@@ -33,7 +33,9 @@ export type InquiryStatus =
     | 'ready'
     | 'dispatched'
     | 'installation'
-    | 'delayed';
+    | 'delayed'
+    | 'for_refund'
+    | 'refunded';
 
 export type SalesStatus =
     | 'negotiation'
@@ -42,10 +44,16 @@ export type SalesStatus =
     | 'quoted'
     | 'revision'
     | 'won'
-    | 'rejected';
+    | 'rejected'
+    | 'for_refund';
 
-/** `refunded` waits on a refund flow still to be designed; nothing sets it yet. */
-export type PaymentStatus = 'awaiting' | 'partial' | 'fully_paid' | 'refunded';
+/** Payments in, then, once sales asks for a refund, refunds out. */
+export type PaymentStatus =
+    | 'awaiting'
+    | 'partial'
+    | 'fully_paid'
+    | 'partially_refunded'
+    | 'refunded';
 
 export type ProcessStatus =
     | 'order_received'
@@ -89,6 +97,8 @@ export const INQUIRY_STATUS_LABELS: Record<InquiryStatus, string> = {
     dispatched: 'Dispatched',
     installation: 'Installation',
     delayed: 'Delayed',
+    for_refund: 'For refund',
+    refunded: 'Refunded',
 };
 
 export const SALES_STATUS_LABELS: Record<SalesStatus, string> = {
@@ -99,12 +109,14 @@ export const SALES_STATUS_LABELS: Record<SalesStatus, string> = {
     revision: 'Revision',
     won: 'Won',
     rejected: 'Rejected',
+    for_refund: 'For refund',
 };
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
     awaiting: 'Awaiting',
     partial: 'Partially paid',
     fully_paid: 'Fully paid',
+    partially_refunded: 'Partially refunded',
     refunded: 'Refunded',
 };
 
@@ -194,6 +206,8 @@ const STOPPED = new Set([
     'lost',
     'on_hold',
     'delayed',
+    'for_refund',
+    'partially_refunded',
     'refunded',
 ]);
 
@@ -255,7 +269,9 @@ const TONES: Record<string, StatusTone> = {
     awaiting: 'amber',
     partial: 'yellow',
     fully_paid: 'green',
-    refunded: 'orange',
+    for_refund: 'orange',
+    partially_refunded: 'orange',
+    refunded: 'slate',
 };
 
 export const statusTone = (status: string): StatusTone =>
@@ -292,11 +308,13 @@ const ACTIVITY_LABELS: {
         revision: 'Quotation revised',
         won: 'Quote approved',
         rejected: 'Cancelled',
+        for_refund: 'Refund requested',
     },
     payment: {
         awaiting: 'Awaiting payment',
         partial: 'Partially paid',
         fully_paid: 'Fully paid',
+        partially_refunded: 'Partially refunded',
         refunded: 'Refunded',
     },
     process: {
@@ -331,7 +349,9 @@ export type SharedDocumentType =
     | 'job_order'
     | 'billing_statement'
     | 'receipt'
-    | 'invoice';
+    | 'invoice'
+    | 'refund_request'
+    | 'refund_settlement';
 
 /** One file of a shared group. */
 export const DOCUMENT_TYPE_LABELS: Record<SharedDocumentType, string> = {
@@ -340,13 +360,16 @@ export const DOCUMENT_TYPE_LABELS: Record<SharedDocumentType, string> = {
     billing_statement: 'Billing statement',
     receipt: 'Receipt',
     invoice: 'Invoice',
+    refund_request: 'Refund request form',
+    refund_settlement: 'Refund settled',
 };
 
 /**
  * What a group of shared files is called: the status update it came with.
  * "Quotation · Rev 2", "Job order", "Billing statement", "Partial payment",
- * "Full payment". The job order comes with the win, or on its own with
- * logistics' order received. Files that came with no update are "Documents".
+ * "Full payment", "Refund request", "Refund settled". The job order comes with
+ * the win, or on its own (with logistics' order received when a payment is
+ * already in). Files that came with no update are "Documents".
  */
 export const documentGroupLabel = (
     status: string | null,
@@ -367,6 +390,11 @@ export const documentGroupLabel = (
             return 'Partial payment';
         case 'fully_paid':
             return 'Full payment';
+        case 'for_refund':
+            return 'Refund request';
+        case 'partially_refunded':
+        case 'refunded':
+            return 'Refund settled';
         default:
             return 'Documents';
     }

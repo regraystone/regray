@@ -4,13 +4,14 @@ namespace App\Enums;
 
 /**
  * The status shown for an inquiry everywhere, to the client and to staff: the
- * stage it has reached. Calculated from the inquiry's lead and its three role
- * statuses by App\Services\InquiryStatusCalculator, never stored.
+ * stage it has reached. Calculated from marketing's decision and the three
+ * role statuses by App\Services\InquiryStatusCalculator, never stored.
  *
  * The stage values are the role values they come from: a sales status while
- * sales has it, a logistics status once the job order is in. `pending` is
- * before sales has started, `closed` is logistics completed, and `cancelled`
- * is the lead lost or sales rejected.
+ * sales has it, a logistics status once logistics has started. `pending` is
+ * before sales has started, `closed` is logistics completed, `cancelled` is
+ * marketing lost or sales rejected, `for_refund` is sales asking for a refund
+ * until accounting has refunded it all, and `refunded` is that done.
  */
 enum InquiryStatus: string
 {
@@ -32,6 +33,8 @@ enum InquiryStatus: string
     case Dispatched = 'dispatched';
     case Installation = 'installation';
     case Delayed = 'delayed';
+    case ForRefund = 'for_refund';
+    case Refunded = 'refunded';
 
     /** The tab on the Quote list this status is filtered under. */
     public function group(): InquiryStatusGroup
@@ -39,7 +42,7 @@ enum InquiryStatus: string
         return match ($this) {
             self::Pending => InquiryStatusGroup::Pending,
             self::Closed => InquiryStatusGroup::Closed,
-            self::Cancelled => InquiryStatusGroup::Cancelled,
+            self::Cancelled, self::Refunded => InquiryStatusGroup::Cancelled,
             default => InquiryStatusGroup::InProgress,
         };
     }

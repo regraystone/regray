@@ -60,7 +60,8 @@ class InquiryEditController extends Controller
 
     /**
      * Staff edit an inquiry's project from the Inquiry list: the same page in
-     * edit mode, for any inquiry that is still open, with no files.
+     * edit mode, for an inquiry that is still open and not yet approved by the
+     * client (the admin may edit an approved one), with no files.
      */
     public function staffEdit(Request $request, string $reference): Response|RedirectResponse
     {
@@ -68,6 +69,12 @@ class InquiryEditController extends Controller
 
         if (! InquiryStatusRules::isOpen($inquiry)) {
             Inertia::flash('toast', ['type' => 'error', 'message' => 'This inquiry is closed or cancelled, so it can no longer be changed.']);
+
+            return to_route('inquiry.index');
+        }
+
+        if (! InquiryStatusRules::isEditableBy($inquiry, $request->user())) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
 
             return to_route('inquiry.index');
         }

@@ -37,9 +37,11 @@ use RuntimeException;
  * 6. the move goes through InquiryStatusService::transition(), with the note,
  *    and so posts the card.
  *
- * Quoting is a new quotation revision with its total. The job order may come
- * with it or later (attachJobOrder()); either way it starts logistics at
- * order_received. A payment is a `payment_transactions` row.
+ * Quoting is a new quotation revision with its total. The job order comes
+ * with the win (or later, attachJobOrder()). Logistics starts at
+ * order_received once the inquiry has both its job order and a payment in
+ * (partial or fully paid), so a project never reaches logistics, or closes,
+ * before anyone has paid. A payment is a `payment_transactions` row.
  *
  * Has to run inside a transaction: the caller removes the written files if it
  * fails (`$written`).
@@ -90,6 +92,10 @@ class InquiryStatusUpdateService
             $this->inquiryRepository->addPayment($inquiry, (string) $amount, $by->id, Date::now());
         }
 
+        if ($target === PaymentStatus::PartiallyRefunded || $target === PaymentStatus::Refunded) {
+            $this->inquiryRepository->addRefund($inquiry, (string) $amount, $by->id, Date::now());
+        }
+
         $history = $this->inquiryStatusService->transition($inquiry, $track, $target, $by, trim($note));
 
         foreach (InquiryStatusRules::requiredFiles($track, $to) as $group) {
@@ -100,7 +106,7 @@ class InquiryStatusUpdateService
             }
         }
 
-        if ($target === SalesStatus::Won && ($files[DocumentType::JobOrder->value] ?? []) !== [] && $inquiry->process_status === null) {
+        if (($target === PaymentStatus::Partial || $target === PaymentStatus::FullyPaid) && $this->readyForLogistics($inquiry)) {
             $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Process, ProcessStatus::OrderReceived, $by, trim($note));
         }
 
@@ -108,9 +114,10 @@ class InquiryStatusUpdateService
     }
 
     /**
-     * Sales uploads the job order after winning without one: it starts
-     * logistics at order_received, and the file is that update's group. Only
-     * once, on a won inquiry whose logistics has not started.
+     * Sales uploads the job order after winning without one, once. When a
+     * payment is already in, it starts logistics at order_received and the file
+     * is that update's group; otherwise the file stands on its own and the
+     * first payment starts logistics.
      *
      * @param  list<UploadedFile>  $files
      *
@@ -123,7 +130,7 @@ class InquiryStatusUpdateService
             ?? throw (new ModelNotFoundException)->setModel(Inquiry::class, [$reference]);
 
         if (! InquiryStatusRules::canUploadJobOrder($inquiry)) {
-            throw ValidationException::withMessages(['files.job_order' => $inquiry->process_status === null
+            throw ValidationException::withMessages(['files.job_order' => $inquiry->sales_status !== SalesStatus::Won
                 ? 'The job order comes once the client has approved the quotation.'
                 : 'The job order is already in.']);
         }
@@ -134,10 +141,18 @@ class InquiryStatusUpdateService
             throw ValidationException::withMessages(['files.job_order' => 'Add one job order.']);
         }
 
-        $history = $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Process, ProcessStatus::OrderReceived, $by, trim($note));
+        $history = in_array($inquiry->payment_status, [PaymentStatus::Partial, PaymentStatus::FullyPaid], true)
+            ? $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Process, ProcessStatus::OrderReceived, $by, trim($note))
+            : null;
         $this->storeFile($inquiry, $by, DocumentType::JobOrder, $files[0], $history, $written);
 
         return $inquiry;
+    }
+
+    /** Whether a payment may start logistics: the job order is in and logistics has not started. */
+    private function readyForLogistics(Inquiry $inquiry): bool
+    {
+        return $inquiry->process_status === null && $inquiry->hasJobOrder();
     }
 
     private function assertMove(Inquiry $inquiry, InquiryStatusTrack $track, string $to): void
@@ -148,8 +163,8 @@ class InquiryStatusUpdateService
             throw ValidationException::withMessages(['to' => 'Choose a status other than the current one.']);
         }
 
-        if (! InquiryStatusRules::canMove($inquiry, $track) || ! in_array($to, InquiryStatusRules::allowedTargets($track, $current, $inquiry->quote_revision !== null), true)) {
-            throw ValidationException::withMessages(['to' => $track === InquiryStatusTrack::Payment && $inquiry->sales_status !== SalesStatus::Won
+        if (! InquiryStatusRules::canMove($inquiry, $track) || ! in_array($to, InquiryStatusRules::targetsFor($inquiry, $track), true)) {
+            throw ValidationException::withMessages(['to' => $track === InquiryStatusTrack::Payment && ! InquiryStatusRules::isApproved($inquiry)
                 ? 'Payment starts once the client has approved the quotation.'
                 : 'This inquiry cannot move to that status.']);
         }
@@ -218,8 +233,27 @@ class InquiryStatusUpdateService
             throw ValidationException::withMessages([$field => match ($field) {
                 InquiryStatusRules::QUOTED_TOTAL => 'Enter the quoted total, above 0.',
                 InquiryStatusRules::CONTRACT_TOTAL => 'Enter the total contract amount, above 0.',
+                InquiryStatusRules::AMOUNT_REFUNDED => 'Enter the amount refunded, above 0.',
                 default => 'Enter the amount received, above 0.',
             }]);
+        }
+
+        if ($field === InquiryStatusRules::AMOUNT_REFUNDED) {
+            // What the client has paid, net of what has already gone back.
+            $held = $this->inquiryRepository->paidCentavos($inquiry);
+            $peso = fn (int $value): string => '₱'.number_format($value / 100, 2);
+
+            if ($held <= 0) {
+                throw ValidationException::withMessages([$field => 'Nothing has been paid, so there is nothing to refund.']);
+            }
+
+            if ($to === PaymentStatus::Refunded->value && $centavos !== $held) {
+                throw ValidationException::withMessages([$field => "A full refund has to return the {$peso($held)} still held; this would refund {$peso($centavos)}."]);
+            }
+
+            if ($to === PaymentStatus::PartiallyRefunded->value && $centavos >= $held) {
+                throw ValidationException::withMessages([$field => "A partial refund has to be less than the {$peso($held)} still held; this would refund {$peso($centavos)}."]);
+            }
         }
 
         if ($field === InquiryStatusRules::AMOUNT_RECEIVED) {
@@ -246,7 +280,7 @@ class InquiryStatusUpdateService
      * stored name is generated; the uploader's own name is kept only as
      * `original_name`.
      */
-    private function storeFile(Inquiry $inquiry, User $by, DocumentType $type, UploadedFile $file, InquiryStatusHistory $history, WrittenFiles $written): void
+    private function storeFile(Inquiry $inquiry, User $by, DocumentType $type, UploadedFile $file, ?InquiryStatusHistory $history, WrittenFiles $written): void
     {
         $this->fileUploads->authorize($by, $type, $inquiry);
 
@@ -263,7 +297,7 @@ class InquiryStatusUpdateService
 
         $this->inquiryRepository->addFile($inquiry, [
             'document_type' => $type,
-            'status_history_id' => $history->id,
+            'status_history_id' => $history?->id,
             'revision' => $type === DocumentType::Quotation ? $inquiry->quote_revision : null,
             'disk' => $disk,
             'path' => $path,

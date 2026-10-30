@@ -171,9 +171,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('leads', [ViewController::class, 'leads'])
         ->middleware(Permission::LeadsView->middleware())
         ->name('leads.index');
-    Route::post('leads/{reference}/status', [LeadController::class, 'updateStatus'])
+    Route::post('leads/{reference}/inquiries/{inquiry}/status', [LeadController::class, 'decideInquiry'])
         ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
-        ->name('leads.status');
+        ->name('leads.inquiries.status');
     Route::post('leads/{reference}/update', [LeadController::class, 'update'])
         ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
         ->name('leads.update');

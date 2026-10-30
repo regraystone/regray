@@ -12,7 +12,10 @@ use Illuminate\Support\Facades\Schema;
  * - `quotation`: a quotation sales issued, with the `revision` it was;
  * - `job_order`: the job order sales uploads with the quotation;
  * - `billing_statement`: the statement accounting sends when payment starts;
- * - `receipt` and `invoice`: what accounting uploads when a payment comes in.
+ * - `receipt` and `invoice`: what accounting uploads when a payment comes in;
+ * - `refund_request`: the client's refund request form sales uploads when
+ *   moving to for refund;
+ * - `refund_settlement`: what accounting uploads with each refund.
  *
  * `status_history_id` is the status update a file came with: each update's
  * files are one group (the quotation and job order of one quoted update, the
@@ -45,7 +48,7 @@ return new class extends Migration
             $table->index('status_history_id');
         });
 
-        DB::statement("ALTER TABLE inquiry_files ADD CONSTRAINT chk_inquiry_files_document_type CHECK (document_type IN ('client_attachment','quotation','job_order','billing_statement','receipt','invoice'))");
+        DB::statement("ALTER TABLE inquiry_files ADD CONSTRAINT chk_inquiry_files_document_type CHECK (document_type IN ('client_attachment','quotation','job_order','billing_statement','receipt','invoice','refund_request','refund_settlement'))");
         DB::statement('ALTER TABLE inquiry_files ADD CONSTRAINT chk_inquiry_files_revision CHECK (revision >= 1)');
     }
 

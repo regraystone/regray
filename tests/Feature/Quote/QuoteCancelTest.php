@@ -15,8 +15,8 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('cancels a started sales stage as rejected, the sales history says so, and the won lead stays won', function (InquiryStatus $from): void {
-    $lead = makeLead($this->client, LeadStatus::Won);
+it('cancels a started sales stage as rejected, the sales history says so, and marketing\'s won stays won', function (InquiryStatus $from): void {
+    $lead = makeLead($this->client);
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C1', 'status' => $from, 'lead' => $lead]);
 
     $this->actingAs($this->client)
@@ -34,7 +34,7 @@ it('cancels a started sales stage as rejected, the sales history says so, and th
         ->and($history->from_status)->toBe(roleStatusesShowing($from)['sales_status']->value)
         ->and($history->to_status)->toBe(SalesStatus::Rejected->value)
         ->and($history->changed_by)->toBe($this->client->id)
-        ->and($lead->refresh()->status)->toBe(LeadStatus::Won);
+        ->and($inquiry->marketing_status)->toBe(LeadStatus::Won);
 })->with([
     'negotiation' => [InquiryStatus::Negotiation],
     'site visited' => [InquiryStatus::SiteVisited],
@@ -61,22 +61,24 @@ it('refuses the client once they have approved the quotation: only sales can can
     'delayed' => [InquiryStatus::Delayed],
 ]);
 
-it('cancels an inquiry whose sales stage has not started by marking its lead lost, leaving sales unset', function (): void {
+it('cancels an inquiry waiting for marketing by deciding that one lost, leaving sales unset and the client\'s other inquiries waiting', function (): void {
     $lead = makeLead($this->client);
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C7', 'lead' => $lead]);
+    $other = makeInquiry($this->client, attributes: ['reference' => 'INQ-C9', 'lead' => $lead]);
 
     $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-C7'))->assertRedirect();
 
     $inquiry->refresh();
-    $leadHistory = $lead->history()->get()->last();
+    $decision = $lead->history()->get()->last();
 
     expect($inquiry->status)->toBe(InquiryStatus::Cancelled)
-        ->and($lead->refresh()->status)->toBe(LeadStatus::Lost)
+        ->and($inquiry->marketing_status)->toBe(LeadStatus::Lost)
         ->and($inquiry->sales_status)->toBeNull()
         ->and(InquiryStatusHistory::query()->count())->toBe(0)
-        ->and($leadHistory->from_status)->toBe(LeadStatus::Idle)
-        ->and($leadHistory->to_status)->toBe(LeadStatus::Lost)
-        ->and($leadHistory->changed_by)->toBe($this->client->id);
+        ->and([$decision->inquiry_id, $decision->from_status, $decision->to_status, $decision->changed_by])
+        ->toBe([$inquiry->id, null, LeadStatus::Lost, $this->client->id])
+        ->and($other->refresh()->marketing_status)->toBeNull()
+        ->and($other->status)->toBe(InquiryStatus::Pending);
 });
 
 it('cancels an inquiry with no lead yet by rejecting sales from nothing', function (): void {

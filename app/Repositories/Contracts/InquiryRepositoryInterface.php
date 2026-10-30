@@ -5,6 +5,7 @@ namespace App\Repositories\Contracts;
 use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
@@ -66,6 +67,9 @@ interface InquiryRepositoryInterface
     /** A payment received, as accounting recorded it. */
     public function addPayment(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $receivedAt): PaymentTransaction;
 
+    /** Money returned to the client, as a `refund` transaction. */
+    public function addRefund(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $refundedAt): PaymentTransaction;
+
     /** What has been paid so far, refunds taken off, in centavos. */
     public function paidCentavos(Inquiry $inquiry): int;
 
@@ -74,6 +78,9 @@ interface InquiryRepositoryInterface
 
     /** The total contract amount accounting bills when payment moves to awaiting. */
     public function recordContractTotal(Inquiry $inquiry, string $contractTotal): void;
+
+    /** Marketing's decision on the inquiry, won or lost, and when it was made. */
+    public function recordMarketingStatus(Inquiry $inquiry, LeadStatus $status, CarbonInterface $changedAt): void;
 
     /**
      * One page of this client's inquiries. The scope is the `$client` argument
@@ -109,13 +116,6 @@ interface InquiryRepositoryInterface
     public function findForClientByReferenceForUpdate(User $client, string $reference): ?Inquiry;
 
     /** Set one role status and when it changed. */
-    /**
-     * The lead's inquiries, oldest first, locked until the transaction ends.
-     *
-     * @return Collection<int, Inquiry>
-     */
-    public function lockForLead(Lead $lead): Collection;
-
     /** Link every one of the lead's client's inquiries that has no lead yet to it. Returns how many. */
     public function linkUnlinkedToLead(Lead $lead): int;
 

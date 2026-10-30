@@ -39,6 +39,7 @@ class UpdateInquiryStatusRequest extends FormRequest
             InquiryStatusRules::QUOTED_TOTAL => ['nullable', 'numeric', 'gt:0', 'max:9999999999.99'],
             InquiryStatusRules::AMOUNT_RECEIVED => ['nullable', 'numeric', 'gt:0', 'max:9999999999.99'],
             InquiryStatusRules::CONTRACT_TOTAL => ['nullable', 'numeric', 'gt:0', 'max:9999999999.99'],
+            InquiryStatusRules::AMOUNT_REFUNDED => ['nullable', 'numeric', 'gt:0', 'max:9999999999.99'],
         ];
     }
 
@@ -82,7 +83,7 @@ class UpdateInquiryStatusRequest extends FormRequest
         return $files;
     }
 
-    /** The amount the target carries: the quoted total, the contract total or the amount received. */
+    /** The amount the target carries: the quoted total, the contract total, the amount received or the amount refunded. */
     public function amount(): ?string
     {
         $field = InquiryStatusRules::extraField($this->track(), $this->to());

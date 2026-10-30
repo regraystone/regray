@@ -8,6 +8,7 @@ use App\Enums\ClientKind;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
+use App\Enums\Role;
 use App\Enums\SalesStatus;
 use App\Events\InquiryStatusChanged;
 use App\Models\Client;
@@ -52,12 +53,13 @@ class InquiryService
      * client who sends three projects opens three inquiries.
      *
      * The client sends their own (`$by` is null). Staff open one for the client
-     * of `$lead` (`$by` is the staff member); the lead is checked to still be
-     * open here, under its row lock, and who may use which lead is the
+     * of `$lead` (`$by` is the staff member); the lead is checked to be the
+     * client's here, under its row lock, and who may use which lead is the
      * caller's question (LeadPolicy). A client's own inquiry links to their
-     * open lead, or to none yet (LeadService::leadForNewInquiry()). Either
-     * way the inquiry is filed under the account's client record, made the
-     * first time it is needed (ClientService::findOrCreateForUser()).
+     * lead, or to none yet (LeadService::leadForNewInquiry()). Either way the
+     * inquiry is filed under the account's client record, made the first time
+     * it is needed (ClientService::findOrCreateForUser()), and waits for
+     * marketing's decision, unless sales opened it.
      *
      * Every file that reaches the disk is recorded on `$written` the moment it
      * lands, so the caller can remove them if anything after this point fails.
@@ -65,15 +67,15 @@ class InquiryService
      * @param  array{projects: list<ProjectInput>}  $input
      * @return list<Inquiry> In the order the projects were sent.
      *
-     * @throws ValidationException When `$lead` has been lost meanwhile.
+     * @throws ValidationException When `$lead` is not the client's.
      */
     public function create(User $client, array $input, WrittenFiles $written, ?Lead $lead = null, ?User $by = null): array
     {
         if ($lead !== null) {
             $lead = $this->leadService->leads->lockForUpdate($lead->id);
 
-            if (! $lead->status->isOpen() || $lead->client_id !== $client->id) {
-                throw ValidationException::withMessages(['lead' => 'This lead is closed. Choose another lead.']);
+            if ($lead->client_id !== $client->id) {
+                throw ValidationException::withMessages(['lead' => 'This lead is not this client\'s. Choose another lead.']);
             }
         }
 
@@ -197,6 +199,10 @@ class InquiryService
             throw ValidationException::withMessages(['status' => 'This inquiry is closed or cancelled, so it can no longer be changed.']);
         }
 
+        if (! InquiryStatusRules::isEditableBy($inquiry, $staff)) {
+            throw ValidationException::withMessages(['status' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
+        }
+
         if (count($input['projects']) !== 1 || $input['projects'][0]['id'] !== $inquiry->id) {
             throw ValidationException::withMessages([
                 'projects' => 'This inquiry has changed. Reload the page and try again.',
@@ -233,8 +239,9 @@ class InquiryService
      * One inquiry for one project, for `$record` (and its account `$client`,
      * which a direct client has none of), linked to `$lead`. No role status
      * has started: sales, payment and logistics stay NULL until their stages
-     * do. On a lead that is already won, or for a direct client, sales starts
-     * at once, at negotiation. Its visit is booked first: the deadline given is
+     * do, and an inquiry on a lead waits for marketing to decide it. For a
+     * direct client sales starts at once, at negotiation; one sales opens on a
+     * lead is decided won as it is sent, which starts sales the same way. Its visit is booked first: the deadline given is
      * that schedule's arrival.
      * All of it is written in the caller's transaction, so a failed inquiry
      * leaves no schedule.
@@ -281,9 +288,10 @@ class InquiryService
 
         event(new InquiryStatusChanged($inquiry, null, null, null, $actor->id));
 
-        if ($client === null || $lead?->status === LeadStatus::Won) {
-            $inquiry->setRelation('lead', $lead);
+        if ($client === null) {
             $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $actor);
+        } elseif ($lead !== null && $by?->hasRole(Role::Sales->value)) {
+            $this->inquiryStatusService->decide($inquiry, LeadStatus::Won, $by, 'Opened by sales.');
         }
 
         return $inquiry;

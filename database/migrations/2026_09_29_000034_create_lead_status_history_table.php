@@ -6,9 +6,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Every status a lead has been at, in order. Its first entry is idle, from
- * nothing, when the lead was created. Won and lost carry the note marketing
- * gave for them. Append only.
+ * The lead's log, in order. Its first entry is idle, from nothing, when the
+ * lead was created, with no inquiry. Each decision after names its inquiry
+ * (`inquiry_id`): won or lost, from nothing, with the note marketing gave, or
+ * lost by the client's own cancel. Append only.
  */
 return new class extends Migration
 {
@@ -17,6 +18,7 @@ return new class extends Migration
         Schema::create('lead_status_history', function (Blueprint $table) {
             $table->id();
             $table->foreignId('lead_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('inquiry_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('from_status', 20)->nullable();
             $table->string('to_status', 20);
             $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete();

@@ -78,10 +78,10 @@ class InquiryDetailsResource extends JsonResource
      * The client's activity log: every change to sales, payment and logistics,
      * oldest first, a stage starting included. Who made a change is not sent.
      *
-     * The lead is the team's own business and is left out, except that the
-     * client has to see their inquiry being cancelled: an inquiry cancelled by
-     * its lead being lost (sales not rejected) ends with an `inquiry`
-     * `cancelled` entry at the time the lead was lost.
+     * Marketing's decision is the team's own business and is left out, except
+     * that the client has to see their inquiry being cancelled: an inquiry
+     * marketing lost (or the client cancelled before sales started) ends with
+     * an `inquiry` `cancelled` entry at the time it was lost.
      *
      * @return list<array{track: string, status: string, at: string}>
      */
@@ -96,11 +96,11 @@ class InquiryDetailsResource extends JsonResource
             ->values()
             ->all();
 
-        if ($this->status === InquiryStatus::Cancelled && $this->sales_status !== SalesStatus::Rejected && $this->lead?->status === LeadStatus::Lost) {
+        if ($this->sales_status !== SalesStatus::Rejected && $this->marketing_status === LeadStatus::Lost) {
             $entries[] = [
                 'track' => 'inquiry',
                 'status' => InquiryStatus::Cancelled->value,
-                'at' => $this->lead->status_changed_at->toIso8601String(),
+                'at' => $this->marketing_status_changed_at->toIso8601String(),
             ];
         }
 
@@ -111,7 +111,9 @@ class InquiryDetailsResource extends JsonResource
      * The payment records, oldest first: the total contract amount billed when
      * payment moved to awaiting, then each payment (or refund) as accounting
      * received it: its own amount, the balance owed before it and the balance
-     * remaining after it. Nothing before payment has started.
+     * remaining after it. A refund reads instead against what the studio held
+     * of the client's money before it and still holds after it. Nothing before
+     * payment has started.
      *
      * An inquiry billed before the contract total was asked for has no contract
      * entry, and its balance is counted against the quoted total.
@@ -139,11 +141,29 @@ class InquiryDetailsResource extends JsonResource
         }
 
         $balance = $total;
+        $held = 0;
 
         foreach ($this->paymentTransactions as $transaction) {
             $amount = (int) round((float) $transaction->amount * 100);
+
+            // A refund reads against what the studio still holds of the client's
+            // money; a payment against the balance still owed.
+            if ($transaction->kind === 'refund') {
+                $records[] = [
+                    'kind' => 'refund',
+                    'amount' => $money($amount),
+                    'currentBalance' => $money($held),
+                    'remainingBalance' => $money($held - $amount),
+                    'at' => $transaction->received_at->toIso8601String(),
+                ];
+                $held -= $amount;
+
+                continue;
+            }
+
             $before = $balance;
-            $balance = $balance === null ? null : $balance + ($transaction->kind === 'refund' ? $amount : -$amount);
+            $balance = $balance === null ? null : $balance - $amount;
+            $held += $amount;
 
             $records[] = [
                 'kind' => $transaction->kind,

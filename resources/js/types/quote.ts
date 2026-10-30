@@ -61,9 +61,9 @@ export type QuoteInquiryDetails = {
         id: string;
         kind: 'contract' | 'payment' | 'refund';
         amount: string;
-        /** What was owed before this payment; null on the contract entry. */
+        /** What was owed before this payment (for a refund, what was held); null on the contract entry. */
         currentBalance: string | null;
-        /** What is owed after it; null on the contract entry. */
+        /** What is owed after it (for a refund, what is still held); null on the contract entry. */
         remainingBalance: string | null;
         at: string;
     }>;

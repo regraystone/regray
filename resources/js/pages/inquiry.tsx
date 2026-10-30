@@ -24,6 +24,7 @@ import {
 } from '@/lib/inquiry-statuses';
 import {
     allowedTargets,
+    canRequestRefund,
     extraField,
     JOB_ORDER_GROUP,
     requiredFileGroups,
@@ -84,7 +85,7 @@ const Inquiry = () => {
         row: InquiryRow;
         track: StatusTrack;
     } | null>(null);
-    /** The quoted inquiry whose job order sales is uploading, which starts logistics. */
+    /** The won inquiry whose job order sales is uploading on its own. */
     const [uploadingJobOrder, setUploadingJobOrder] =
         useState<InquiryRow | null>(null);
     const [statusFilter, setStatusFilter] = useState(
@@ -232,6 +233,11 @@ const Inquiry = () => {
                         track,
                         current,
                         editing.row.hasBeenQuoted,
+                        editing.row.salesStatus,
+                        canRequestRefund(
+                            editing.row.paymentStatus,
+                            editing.row.processStatus,
+                        ),
                     ).map((value) => ({
                         value,
                         label: statusLabel(track, value as never),

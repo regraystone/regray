@@ -1,5 +1,5 @@
 import type { InquiryEditProject, InquiryMode } from '@/lib/inquiry-flow';
-import type { LeadStatus } from '@/lib/lead-statuses';
+import type { LeadTally } from '@/lib/lead-statuses';
 import type { StoneCardData } from '@/types/stone';
 
 /** A service the Inquire page offers. `id` is its slug. */
@@ -59,9 +59,8 @@ export type InquirePageProps = {
      */
     editor?: 'client' | 'staff';
     /**
-     * Staff only: the leads they may open an inquiry for (sales won leads,
-     * marketing its own idle or won leads). Null for a client, who sends their
-     * own.
+     * Staff only: the leads they may open an inquiry for (sales those with a
+     * won inquiry, marketing its own). Null for a client, who sends their own.
      */
     leads?: InquiryLeadOption[] | null;
     /** The lead the URL names, when it is one of `leads`. */
@@ -85,7 +84,8 @@ export type StaffInquireTarget = {
 /** A lead staff may open an inquiry for, as `LeadOptionResource` sends it. */
 export type InquiryLeadOption = {
     reference: string;
-    status: LeadStatus;
+    /** The tally of marketing's decisions on its inquiries. */
+    tally: LeadTally;
     /** The client's account id. */
     clientId: number;
     /** The client's name. */

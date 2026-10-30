@@ -6,6 +6,7 @@ use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
@@ -19,6 +20,7 @@ use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
+use App\Services\InquiryStatusRules;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -101,6 +103,18 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         ]);
     }
 
+    public function addRefund(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $refundedAt): PaymentTransaction
+    {
+        return PaymentTransaction::query()->create([
+            'inquiry_id' => $inquiry->id,
+            'kind' => 'refund',
+            'amount' => $amount,
+            'recorded_by' => $recordedBy,
+            'received_at' => $refundedAt,
+            'created_at' => $refundedAt,
+        ]);
+    }
+
     public function paidCentavos(Inquiry $inquiry): int
     {
         $row = DB::selectOne(
@@ -119,6 +133,11 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     public function recordContractTotal(Inquiry $inquiry, string $contractTotal): void
     {
         $inquiry->forceFill(['contract_total' => $contractTotal])->save();
+    }
+
+    public function recordMarketingStatus(Inquiry $inquiry, LeadStatus $status, CarbonInterface $changedAt): void
+    {
+        $inquiry->forceFill(['marketing_status' => $status, 'marketing_status_changed_at' => $changedAt])->save();
     }
 
     public function updateDetails(Inquiry $inquiry, array $attributes): void
@@ -170,7 +189,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                         ->orWhereHas('stones.stone', fn (Builder $stone) => $stone->where('name', 'ILIKE', $pattern));
                 });
             })
-            ->withLeadStatus()
             ->withJobOrderFlag()
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
@@ -220,15 +238,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->first();
     }
 
-    public function lockForLead(Lead $lead): Collection
-    {
-        return Inquiry::query()
-            ->whereBelongsTo($lead)
-            ->orderBy('id')
-            ->lockForUpdate()
-            ->get();
-    }
-
     public function linkUnlinkedToLead(Lead $lead): int
     {
         return Inquiry::query()
@@ -270,11 +279,13 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator
     {
         $role = $user?->primaryRole();
-        $seesPending = $user?->hasAnyRole([Role::Admin->value, Role::Owner->value]) ?? false;
+        $seesPending = InquiryStatusRules::seesPending($user);
 
         return Inquiry::query()
             ->when(! $seesPending, fn (Builder $query) => $query->whereNot(fn (Builder $query) => $query->whereDisplayStatus(InquiryStatus::Pending)))
-            ->when(in_array($role, [Role::Accounting, Role::Logistics], true), fn (Builder $query) => $query->where('sales_status', SalesStatus::Won))
+            ->when($role === Role::Accounting, fn (Builder $query) => $query->whereIn('sales_status', [SalesStatus::Won, SalesStatus::ForRefund]))
+            // Logistics receives an inquiry once its first payment has started logistics.
+            ->when($role === Role::Logistics, fn (Builder $query) => $query->whereNotNull('process_status'))
             ->when($statusFilter !== null && $statusFilter !== 'all', function (Builder $query) use ($role, $statusFilter): void {
                 // Accounting and logistics filter by their own status; everyone
                 // else by the inquiry's. An unknown value is no filter.
@@ -305,7 +316,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'client.profile:user_id,phone',
                 'schedule:id,inquiry_id,arrival_at',
             ])
-            ->withLeadStatus()
             ->withJobOrderFlag()
             ->orderByDesc('created_at')
             ->orderByDesc('id')
@@ -332,7 +342,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'files' => fn ($files) => $files->orderBy('id'),
                 'statusHistory',
                 'paymentTransactions',
-                'lead:id,reference,status,status_changed_at',
+                'lead:id,reference',
             ]);
     }
 }

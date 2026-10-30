@@ -27,10 +27,11 @@ use InvalidArgumentException;
  * The event posts an inquiry card (PostInquiryStatusCard): into the inquiry's
  * group chat when it has one, otherwise into the client's Regray Team thread.
  *
- * Marketing's status is the lead's (LeadService). Staff move the sales,
- * payment and logistics tracks by hand through InquiryStatusUpdateService; the
- * client's cancel, a lead being won and an inquiry opened from a won lead or
- * for a direct client move them here too.
+ * Marketing's decision on an inquiry goes through decide(): won starts its
+ * sales, lost shows it cancelled. Staff move the sales, payment and logistics
+ * tracks by hand through InquiryStatusUpdateService; the client's cancel,
+ * marketing's decisions and an inquiry opened by sales or for a direct client
+ * move them here too.
  */
 class InquiryStatusService
 {
@@ -38,17 +39,16 @@ class InquiryStatusService
         public readonly InquiryRepositoryInterface $inquiryRepository,
         public readonly InquiryActions $inquiryActions,
         public readonly ScheduleService $scheduleService,
-        public readonly LeadService $leadService,
         public readonly LeadRepositoryInterface $leads,
     ) {}
 
     /**
      * Cancel the client's own inquiry, before they have approved the quotation.
      * Once sales has started, sales becomes rejected. Before it has, the
-     * inquiry's lead becomes lost, which shows every inquiry on that lead as
-     * cancelled (ApplyLeadStatusCascade). An inquiry with no lead yet has no
-     * lead to lose, so its sales becomes rejected straight away. After approval
-     * the client cannot cancel; only sales can, by rejecting.
+     * inquiry is decided lost, by the client: that inquiry alone, so the
+     * client's other inquiries on the lead carry on. An inquiry with no lead
+     * yet has nobody to decide it, so its sales becomes rejected straight away.
+     * After approval the client cannot cancel; only sales can, by rejecting.
      *
      * Has to run inside a transaction: the row is locked until it ends, so two
      * cancels at once cannot both read an open inquiry and both write a history
@@ -78,10 +78,52 @@ class InquiryStatusService
             return $inquiry;
         }
 
-        $this->leadService->transition($this->leads->lockForUpdate($inquiry->lead_id), LeadStatus::Lost, $client);
-        $inquiry->unsetRelation('lead');
+        $this->decide($inquiry, LeadStatus::Lost, $client, 'Cancelled by the client.');
 
         return $inquiry;
+    }
+
+    /**
+     * Marketing's decision on one of a lead's inquiries, with the note saying
+     * why. Won starts its sales at negotiation, with that track's history row
+     * and card. Lost shows it cancelled: its open visits are cancelled and its
+     * card posted. Each decision is a row of the lead's log naming the
+     * inquiry; the lead's own status is the tally of these.
+     *
+     * Only an inquiry still waiting for marketing may be decided: it is on a
+     * lead, undecided, and its sales has not started. Expects the inquiry to be
+     * locked already, by whoever decided the change is allowed.
+     *
+     * @throws ValidationException When the inquiry is not waiting for a decision, or `$to` is idle.
+     */
+    public function decide(Inquiry $inquiry, LeadStatus $to, ?User $by, ?string $note = null): void
+    {
+        if ($to === LeadStatus::Idle) {
+            throw ValidationException::withMessages(['to' => 'An inquiry can only be marked won or lost.']);
+        }
+
+        if ($inquiry->marketing_status !== null) {
+            throw ValidationException::withMessages(['to' => "{$inquiry->reference} is already {$inquiry->marketing_status->value}."]);
+        }
+
+        if ($inquiry->lead_id === null || $inquiry->sales_status !== null) {
+            throw ValidationException::withMessages(['to' => "{$inquiry->reference} is not waiting for marketing."]);
+        }
+
+        $now = Date::now();
+
+        $this->inquiryRepository->recordMarketingStatus($inquiry, $to, $now);
+        $this->leads->createHistory($this->leads->lockForUpdate($inquiry->lead_id), null, $to, $by?->id, $now, $note, $inquiry->id);
+
+        if ($to === LeadStatus::Won) {
+            $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $by);
+
+            return;
+        }
+
+        $this->scheduleService->cancelForInquiry($inquiry, $now);
+
+        event(new InquiryStatusChanged($inquiry, null, null, null, $by?->id));
     }
 
     /**

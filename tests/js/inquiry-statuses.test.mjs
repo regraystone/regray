@@ -10,9 +10,10 @@ import {
     statusTreatment,
 } from '../../resources/js/lib/inquiry-statuses.ts';
 import {
-    isLeadOpenForDecision,
     LEAD_STATUSES,
     leadStatusLabel,
+    leadTallyLabel,
+    leadTallyParts,
 } from '../../resources/js/lib/lead-statuses.ts';
 
 describe('statusTreatment', () => {
@@ -138,6 +139,12 @@ describe('documentGroupLabel', () => {
         assert.equal(documentGroupLabel('awaiting', null), 'Billing statement');
         assert.equal(documentGroupLabel('partial', null), 'Partial payment');
         assert.equal(documentGroupLabel('fully_paid', null), 'Full payment');
+        assert.equal(documentGroupLabel('for_refund', null), 'Refund request');
+        assert.equal(
+            documentGroupLabel('partially_refunded', null),
+            'Refund settled',
+        );
+        assert.equal(documentGroupLabel('refunded', null), 'Refund settled');
         assert.equal(documentGroupLabel(null, null), 'Documents');
     });
 
@@ -161,10 +168,21 @@ describe('lead statuses', () => {
         assert.equal(statusTreatment('lost'), 'secondary');
     });
 
-    it('lets marketing decide an idle lead only', () => {
-        assert.equal(isLeadOpenForDecision('idle'), true);
-        assert.equal(isLeadOpenForDecision('won'), false);
-        assert.equal(isLeadOpenForDecision('lost'), false);
+    it('shows a lead with one inquiry (or none) as that one status', () => {
+        assert.equal(leadTallyLabel({ won: 0, lost: 1, idle: 0 }), 'Lost');
+        assert.equal(leadTallyLabel({ won: 1, lost: 0, idle: 0 }), 'Won');
+        assert.equal(leadTallyLabel({ won: 0, lost: 0, idle: 0 }), 'Idle');
+    });
+
+    it('tallies several inquiries, won first, leaving out the decisions at zero', () => {
+        assert.equal(
+            leadTallyLabel({ won: 2, lost: 1, idle: 1 }),
+            'Won 2 · Lost 1 · Idle 1',
+        );
+        assert.deepEqual(leadTallyParts({ won: 0, lost: 1, idle: 1 }), [
+            { status: 'lost', count: 1 },
+            { status: 'idle', count: 1 },
+        ]);
     });
 });
 

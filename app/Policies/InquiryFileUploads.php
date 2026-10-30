@@ -20,6 +20,8 @@ use Illuminate\Auth\Access\AuthorizationException;
  * | billing_statement | whoever moves payment (`inquiries.status.payment`) |
  * | receipt           | whoever moves payment                         |
  * | invoice           | whoever moves payment                         |
+ * | refund_request    | whoever moves sales                           |
+ * | refund_settlement | whoever moves payment                         |
  *
  * The client is whoever the inquiry belongs to, so an inquiry sent from the
  * Inquire page carries its sender's attachments whatever their role. The staff
@@ -33,8 +35,8 @@ class InquiryFileUploads
     {
         return match ($type) {
             DocumentType::ClientAttachment => $inquiry->client_id === $user->id,
-            DocumentType::Quotation, DocumentType::JobOrder => $user->can(Permission::InquiriesStatusSales->value),
-            DocumentType::BillingStatement, DocumentType::Receipt, DocumentType::Invoice => $user->can(Permission::InquiriesStatusPayment->value),
+            DocumentType::Quotation, DocumentType::JobOrder, DocumentType::RefundRequest => $user->can(Permission::InquiriesStatusSales->value),
+            DocumentType::BillingStatement, DocumentType::Receipt, DocumentType::Invoice, DocumentType::RefundSettlement => $user->can(Permission::InquiriesStatusPayment->value),
         };
     }
 
@@ -51,6 +53,8 @@ class InquiryFileUploads
                 DocumentType::BillingStatement => 'Only accounting can upload a billing statement.',
                 DocumentType::Receipt => 'Only accounting can upload a receipt.',
                 DocumentType::Invoice => 'Only accounting can upload an invoice.',
+                DocumentType::RefundRequest => 'Only sales can upload a refund request form.',
+                DocumentType::RefundSettlement => 'Only accounting can upload a refund settled file.',
             });
         }
     }

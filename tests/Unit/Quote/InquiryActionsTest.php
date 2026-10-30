@@ -11,6 +11,7 @@ function inquiryShowing(InquiryStatus $status): Inquiry
 
     return (new Inquiry)->forceFill([
         'sales_status' => $statuses['sales_status'],
+        'payment_status' => $statuses['payment_status'],
         'process_status' => $statuses['process_status'],
         'has_job_order' => $statuses['job_order'],
     ]);

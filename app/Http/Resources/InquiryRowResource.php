@@ -82,7 +82,7 @@ class InquiryRowResource extends JsonResource
             $actions[] = 'view';
         }
 
-        if (Gate::forUser($viewer)->allows('update', $inquiry) && InquiryStatusRules::isOpen($inquiry)) {
+        if (Gate::forUser($viewer)->allows('update', $inquiry) && InquiryStatusRules::isEditableBy($inquiry, $viewer)) {
             $actions[] = 'edit';
         }
 

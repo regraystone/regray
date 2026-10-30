@@ -22,7 +22,9 @@ export type CardInquiryStatus =
     | 'ready'
     | 'dispatched'
     | 'installation'
-    | 'delayed';
+    | 'delayed'
+    | 'for_refund'
+    | 'refunded';
 
 export type CardScheduleStatus =
     | 'pending'
@@ -56,6 +58,8 @@ export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
     dispatched: 'Dispatched',
     installation: 'Installing',
     delayed: 'Inquiry delayed',
+    for_refund: 'Refund requested',
+    refunded: 'Refunded',
 };
 
 export const inquiryHeadline = (status: CardInquiryStatus): string =>

@@ -6,9 +6,12 @@ namespace App\Enums;
  * Sales' status. Negotiation, site visits and holds while sales talks with the
  * client. Quoted once the first quotation has been sent, revision for each
  * revised one after it (each a new quotation revision), and won once the
- * client has approved it: won is final, and starts accounting's payment and,
- * with the job order, logistics. Revision and won need a quotation sent first.
- * Rejected when the client turns it down or cancels.
+ * client has approved it, with the job order: won starts accounting's payment,
+ * and moves only to for refund. Revision and won need a quotation sent first.
+ * Rejected when the client turns it down or cancels before approving. For
+ * refund is the client asking for their money back after approving, with the
+ * refund request form; accounting then refunds it. Rejected and for refund are
+ * final.
  */
 enum SalesStatus: string
 {
@@ -19,4 +22,5 @@ enum SalesStatus: string
     case Revision = 'revision';
     case Won = 'won';
     case Rejected = 'rejected';
+    case ForRefund = 'for_refund';
 }

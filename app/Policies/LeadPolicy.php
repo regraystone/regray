@@ -16,7 +16,10 @@ use App\Models\User;
  */
 class LeadPolicy
 {
-    /** Mark it won or lost: the marketing user who holds it, with `leads.update`. */
+    /**
+     * Decide its inquiries won or lost, and correct its client's phone: the
+     * marketing user who holds it, with `leads.update`.
+     */
     public function update(User $user, Lead $lead): bool
     {
         return $user->can(Permission::LeadsUpdate->value) && $lead->marketing_user_id === $user->id;
@@ -29,17 +32,16 @@ class LeadPolicy
     }
 
     /**
-     * Open an inquiry for the lead's client. Marketing may use its own idle or
-     * won leads; sales may use a won lead only.
+     * Open an inquiry for the lead's client. Marketing may use its own leads;
+     * sales only a lead with an inquiry marketing has won, the client already
+     * being a customer.
      */
     public function createInquiry(User $user, Lead $lead): bool
     {
-        if ($user->hasRole(Role::Sales->value) && $lead->status === LeadStatus::Won) {
-            return true;
+        if ($user->hasRole(Role::Sales->value)) {
+            return $lead->inquiries()->where('marketing_status', LeadStatus::Won)->exists();
         }
 
-        return $user->hasRole(Role::Marketing->value)
-            && $lead->marketing_user_id === $user->id
-            && $lead->status->isOpen();
+        return $user->hasRole(Role::Marketing->value) && $lead->marketing_user_id === $user->id;
     }
 }
