@@ -72,6 +72,9 @@ interface InquiryRepositoryInterface
     /** The quote revision and quoted total of a new quotation. */
     public function recordQuote(Inquiry $inquiry, int $revision, string $quotedTotal): void;
 
+    /** The total contract amount accounting bills when payment moves to awaiting. */
+    public function recordContractTotal(Inquiry $inquiry, string $contractTotal): void;
+
     /**
      * One page of this client's inquiries. The scope is the `$client` argument
      * and nothing else: it is never read from the filters.

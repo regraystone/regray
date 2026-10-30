@@ -9,6 +9,7 @@ import {
     splitRowActions,
 } from '../../resources/js/lib/data-table.ts';
 import { formatDate } from '../../resources/js/lib/format-date.ts';
+import { formatPeso } from '../../resources/js/lib/format-money.ts';
 import {
     allowedTargets,
     extraField,
@@ -20,6 +21,13 @@ describe('formatDate', () => {
         assert.equal(formatDate('2020-06-22T03:00:00Z'), 'June 22, 2020');
         // 20:00 UTC is already the next day in Manila.
         assert.equal(formatDate('2020-06-22T20:00:00Z'), 'June 23, 2020');
+    });
+});
+
+describe('formatPeso', () => {
+    it('writes an amount as pesos with two decimals', () => {
+        assert.equal(formatPeso('1250.5'), '₱1,250.50');
+        assert.equal(formatPeso(0), '₱0.00');
     });
 });
 
@@ -117,7 +125,7 @@ describe('required file groups', () => {
         assert.equal(extraField('sales', 'revision'), 'quotedTotal');
         assert.equal(extraField('sales', 'won'), null);
         assert.equal(extraField('payment', 'partial'), 'amountReceived');
-        assert.equal(extraField('payment', 'awaiting'), null);
+        assert.equal(extraField('payment', 'awaiting'), 'contractTotal');
     });
 });
 

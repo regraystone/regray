@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * - `client_attachment`: what the client sent with the inquiry;
  * - `quotation`: a quotation sales issued, with the `revision` it was;
- * - `job_order`: the job order sales uploads with the quotation (internal);
+ * - `job_order`: the job order sales uploads with the quotation;
  * - `billing_statement`: the statement accounting sends when payment starts;
  * - `receipt` and `invoice`: what accounting uploads when a payment comes in.
  *

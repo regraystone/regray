@@ -43,8 +43,10 @@ use Illuminate\Support\Facades\DB;
  * @property Carbon|null $payment_status_changed_at
  * @property ProcessStatus|null $process_status Null until the client approves the quotation.
  * @property Carbon|null $process_status_changed_at
+ * @property Carbon|null $completed_at When logistics moved to completed; null until then.
  * @property string|null $quoted_total
  * @property int|null $quote_revision
+ * @property string|null $contract_total The total contract amount billed at awaiting; null until then.
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read InquiryStatus $status The status shown for the inquiry, calculated from its lead and role statuses.
@@ -55,8 +57,8 @@ use Illuminate\Support\Facades\DB;
 #[Fillable([
     'reference', 'client_id', 'client_record_id', 'lead_id', 'name', 'location', 'landmark', 'area_sqm', 'notes',
     'sales_status', 'sales_status_changed_at',
-    'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at',
-    'quoted_total', 'quote_revision',
+    'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
+    'quoted_total', 'quote_revision', 'contract_total',
 ])]
 class Inquiry extends Model
 {
@@ -70,7 +72,9 @@ class Inquiry extends Model
             'payment_status_changed_at' => 'datetime',
             'process_status' => ProcessStatus::class,
             'process_status_changed_at' => 'datetime',
+            'completed_at' => 'datetime',
             'quoted_total' => 'decimal:2',
+            'contract_total' => 'decimal:2',
         ];
     }
 

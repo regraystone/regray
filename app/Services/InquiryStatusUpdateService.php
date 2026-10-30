@@ -82,6 +82,10 @@ class InquiryStatusUpdateService
             $this->inquiryRepository->recordQuote($inquiry, ($inquiry->quote_revision ?? 0) + 1, (string) $amount);
         }
 
+        if ($target === PaymentStatus::Awaiting) {
+            $this->inquiryRepository->recordContractTotal($inquiry, (string) $amount);
+        }
+
         if ($target === PaymentStatus::Partial || $target === PaymentStatus::FullyPaid) {
             $this->inquiryRepository->addPayment($inquiry, (string) $amount, $by->id, Date::now());
         }
@@ -211,18 +215,21 @@ class InquiryStatusUpdateService
         $centavos = $amount === null ? 0 : (int) round((float) $amount * 100);
 
         if ($centavos <= 0) {
-            throw ValidationException::withMessages([$field => $field === InquiryStatusRules::QUOTED_TOTAL
-                ? 'Enter the quoted total, above 0.'
-                : 'Enter the amount received, above 0.']);
+            throw ValidationException::withMessages([$field => match ($field) {
+                InquiryStatusRules::QUOTED_TOTAL => 'Enter the quoted total, above 0.',
+                InquiryStatusRules::CONTRACT_TOTAL => 'Enter the total contract amount, above 0.',
+                default => 'Enter the amount received, above 0.',
+            }]);
         }
 
         if ($field === InquiryStatusRules::AMOUNT_RECEIVED) {
-            $total = (int) round((float) $inquiry->quoted_total * 100);
+            // An inquiry billed before the contract total was asked for is counted against its quote.
+            $total = (int) round((float) ($inquiry->contract_total ?? $inquiry->quoted_total) * 100);
             $paid = $this->inquiryRepository->paidCentavos($inquiry) + $centavos;
             $peso = fn (int $value): string => '₱'.number_format($value / 100, 2);
 
             if ($to === PaymentStatus::FullyPaid->value && $paid !== $total) {
-                throw ValidationException::withMessages([$field => "Full payment has to bring the payments to the quoted total of {$peso($total)}; this would make {$peso($paid)}."]);
+                throw ValidationException::withMessages([$field => "Full payment has to bring the payments to the contract total of {$peso($total)}; this would make {$peso($paid)}."]);
             }
 
             if ($to === PaymentStatus::Partial->value && $paid >= $total) {

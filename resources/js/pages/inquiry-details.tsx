@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import { formatSize } from '@/components/file-upload';
 import { formatDate } from '@/lib/format-date';
+import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
-import { LeadStatusBadge } from '@/components/lead-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type {
@@ -22,7 +22,7 @@ import {
     activityLabel,
     documentGroupLabel,
     DOCUMENT_TYPE_LABELS,
-    INQUIRY_SENT_LABEL,
+    INQUIRY_SUBMITTED_LABEL,
     startedStatuses,
 } from '@/lib/inquiry-statuses';
 import { index as inquiryIndex } from '@/routes/inquiry';
@@ -136,6 +136,13 @@ const SummaryRow = ({ label, value }: { label: string; value?: string }) => (
 
 type HistoryEntry = QuoteInquiryDetails['history'][number];
 type SharedDocument = QuoteInquiryDetails['documents'][number];
+type PaymentRecord = QuoteInquiryDetails['payments'][number];
+
+const PAYMENT_RECORD_LABELS: Record<PaymentRecord['kind'], string> = {
+    contract: 'Contract total',
+    payment: 'Payment',
+    refund: 'Refund',
+};
 
 /**
  * One line of the aside: what happened on the left, when on the right. The
@@ -169,7 +176,7 @@ const DatedRow = ({
 
 /**
  * The client's activity log: what has happened to their inquiry, newest first,
- * ending on it being sent, in the client's own words ("Quote approved",
+ * ending on it being submitted, in the client's own words ("Quote approved",
  * "Partially paid"). Only sales, payment and logistics, and a cancel: the
  * server never sends anything about the lead, nor who made a change.
  */
@@ -186,7 +193,7 @@ const ActivityLogCard = ({
             label: activityLabel(entry),
             at: entry.at,
         })),
-        { key: 'sent', label: INQUIRY_SENT_LABEL, at: createdAt },
+        { key: 'submitted', label: INQUIRY_SUBMITTED_LABEL, at: createdAt },
     ];
 
     return (
@@ -240,8 +247,96 @@ const ActivityLogCard = ({
 };
 
 /**
- * The documents the team has shared with the client: each quotation, with its
- * revision, and each payment receipt, newest first. The job order is internal
+ * The payment records, newest first like the activity log: each payment with
+ * the balance owed before it, what it paid and the balance remaining, listed
+ * one under another, down to the total contract amount billed when payment
+ * started. Not shown before then.
+ */
+const PaymentRecordsCard = ({ payments }: { payments: PaymentRecord[] }) => (
+    <section
+        aria-labelledby="inquiry-payment-records-title"
+        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
+        data-testid="inquiry-payment-records"
+    >
+        <h2 className="flex items-center gap-3 px-4 py-3 sm:px-5">
+            <span
+                id="inquiry-payment-records-title"
+                className="block min-w-0 flex-1 truncate text-sm font-bold tracking-[0.08em] uppercase"
+            >
+                Payment Records
+            </span>
+            <CountBadge count={payments.length} />
+        </h2>
+
+        <ul className="divide-y divide-dashed divide-sidebar-border border-t border-sidebar-border px-4 sm:px-5">
+            {[...payments].reverse().map((record, index) => (
+                <li key={record.id} className="space-y-3 py-3">
+                    <div className="flex items-baseline justify-between gap-4">
+                        <p
+                            className={`min-w-0 text-sm font-bold break-words ${
+                                index === 0
+                                    ? 'text-foreground'
+                                    : 'text-secondary-foreground'
+                            }`}
+                        >
+                            {PAYMENT_RECORD_LABELS[record.kind]}
+                            {record.kind === 'contract'
+                                ? ` ${formatPeso(record.amount)}`
+                                : null}
+                        </p>
+                        <time
+                            dateTime={record.at}
+                            className="shrink-0 text-right text-xs whitespace-nowrap text-secondary-foreground"
+                        >
+                            {dateTimeFormatter.format(new Date(record.at))}
+                        </time>
+                    </div>
+                    {record.kind === 'contract' ? null : (
+                        <dl className="space-y-1">
+                            {[
+                                {
+                                    label: 'Current balance',
+                                    value: record.currentBalance,
+                                },
+                                {
+                                    label:
+                                        record.kind === 'refund'
+                                            ? 'Refunded'
+                                            : 'Paid',
+                                    value: record.amount,
+                                },
+                                {
+                                    label: 'Remaining balance',
+                                    value: record.remainingBalance,
+                                },
+                            ].map((figure) => (
+                                <div
+                                    key={figure.label}
+                                    className="flex items-baseline justify-between gap-4"
+                                >
+                                    <dt className="text-xs text-secondary-foreground">
+                                        {figure.label}
+                                    </dt>
+                                    <dd className="text-right text-xs font-bold whitespace-nowrap">
+                                        {figure.value === null
+                                            ? '—'
+                                            : formatPeso(figure.value)}
+                                    </dd>
+                                </div>
+                            ))}
+                        </dl>
+                    )}
+                </li>
+            ))}
+        </ul>
+    </section>
+);
+
+/**
+ * The documents the team has shared with the client: the quotation, with its
+ * revision (sales and the admin see every revision, everyone else only the
+ * latest), and each
+ * payment receipt, newest first. The job order is internal
  * and never reaches the page. Name, size and date only: there is no download
  * endpoint yet, so nothing here pretends to open a file.
  */
@@ -718,16 +813,28 @@ const InquiryDetails = () => {
                                     status={entry.status}
                                 />
                             ))}
-                            {/* Staff only: the server never sends a client the lead. */}
-                            {inquiry.lead ? (
-                                <LeadStatusBadge status={inquiry.lead.status} />
-                            ) : null}
                         </div>
                     </div>
-                    <p className="text-sm text-secondary-foreground">
-                        Submitted{' '}
-                        {dateTimeFormatter.format(new Date(inquiry.createdAt))}
-                    </p>
+                    {/*
+                     * When it was submitted, and beside it, once accounting has
+                     * sent the billing statement, the total contract amount.
+                     */}
+                    <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1 text-sm text-secondary-foreground">
+                        <p>
+                            Submitted{' '}
+                            {dateTimeFormatter.format(
+                                new Date(inquiry.createdAt),
+                            )}
+                        </p>
+                        {inquiry.contractTotal !== null ? (
+                            <p>
+                                Total amount -{' '}
+                                <span className="font-bold text-foreground">
+                                    {formatPeso(inquiry.contractTotal)}
+                                </span>
+                            </p>
+                        ) : null}
+                    </div>
                 </div>
 
                 {/*
@@ -769,6 +876,9 @@ const InquiryDetails = () => {
                         history={inquiry.history}
                         createdAt={inquiry.createdAt}
                     />
+                    {inquiry.payments.length > 0 ? (
+                        <PaymentRecordsCard payments={inquiry.payments} />
+                    ) : null}
                     <DocumentsCard documents={inquiry.documents} />
                 </aside>
 

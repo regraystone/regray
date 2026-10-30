@@ -26,8 +26,9 @@ use App\Models\Inquiry;
  *   order_received. A won inquiry from before it was required, which has
  *   none, can still take it on its own, once.
  * - **Payment:** starts NULL, and only once the inquiry is won. Forward
- *   only: awaiting (with the billing statement), then partial or fully paid
- *   (each with receipts, an invoice and the amount received). `fully_paid` is
+ *   only: awaiting (with the billing statement and the total contract
+ *   amount), then partial or fully paid (each with receipts, an invoice and
+ *   the amount received, counted against the contract total). `fully_paid` is
  *   final.
  * - **Logistics:** any value but the current one, once it has started (the
  *   job order starts it at order_received). `completed` is final. No files.
@@ -39,6 +40,8 @@ final class InquiryStatusRules
     public const QUOTED_TOTAL = 'quotedTotal';
 
     public const AMOUNT_RECEIVED = 'amountReceived';
+
+    public const CONTRACT_TOTAL = 'contractTotal';
 
     /** @var array<string, list<string>> */
     private const PAYMENT_NEXT = [
@@ -158,6 +161,7 @@ final class InquiryStatusRules
     {
         return match (true) {
             $track === InquiryStatusTrack::Sales && self::isQuote($to) => self::QUOTED_TOTAL,
+            $track === InquiryStatusTrack::Payment && $to === PaymentStatus::Awaiting->value => self::CONTRACT_TOTAL,
             $track === InquiryStatusTrack::Payment && in_array($to, [PaymentStatus::Partial->value, PaymentStatus::FullyPaid->value], true) => self::AMOUNT_RECEIVED,
             default => null,
         };

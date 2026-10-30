@@ -134,7 +134,7 @@ export const JOB_ORDER_GROUP: FileGroup = {
     slots: [
         {
             type: 'job_order',
-            label: 'Job order (internal)',
+            label: 'Job order',
             multiple: false,
             required: true,
             clientVisible: false,
@@ -171,7 +171,7 @@ export const requiredFileGroups = (
                 slots: [
                     {
                         type: 'job_order',
-                        label: 'Job order (internal)',
+                        label: 'Job order',
                         multiple: false,
                         required: true,
                         clientVisible: false,
@@ -205,7 +205,7 @@ export const requiredFileGroups = (
     return [];
 };
 
-export type ExtraField = 'quotedTotal' | 'amountReceived';
+export type ExtraField = 'quotedTotal' | 'contractTotal' | 'amountReceived';
 
 /** The amount a move has to carry, if any. */
 export const extraField = (
@@ -214,6 +214,10 @@ export const extraField = (
 ): ExtraField | null => {
     if (track === 'sales' && (to === 'quoted' || to === 'revision')) {
         return 'quotedTotal';
+    }
+
+    if (track === 'payment' && to === 'awaiting') {
+        return 'contractTotal';
     }
 
     if (track === 'payment' && (to === 'partial' || to === 'fully_paid')) {

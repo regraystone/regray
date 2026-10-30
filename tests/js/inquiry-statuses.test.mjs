@@ -140,6 +140,11 @@ describe('documentGroupLabel', () => {
         assert.equal(documentGroupLabel('fully_paid', null), 'Full payment');
         assert.equal(documentGroupLabel(null, null), 'Documents');
     });
+
+    it('names the job order, with the win or on its own', () => {
+        assert.equal(documentGroupLabel('won', null), 'Job order');
+        assert.equal(documentGroupLabel('order_received', null), 'Job order');
+    });
 });
 
 describe('lead statuses', () => {

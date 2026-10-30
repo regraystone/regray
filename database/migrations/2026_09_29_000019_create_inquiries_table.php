@@ -31,8 +31,12 @@ use Illuminate\Support\Facades\Schema;
  * process starting together, for one) is the app's rule, not the database's.
  *
  * `quote_revision` counts the quotations issued and `quoted_total` is the
- * latest one's total. When the project is wanted is not stored here: it is the
- * `arrival_at` of the inquiry's schedule.
+ * latest one's total. `contract_total` is the total contract amount accounting
+ * bills when payment moves to awaiting, NULL until then; payments are counted
+ * against it. When the project is wanted is not stored here: it is the
+ * `arrival_at` of the inquiry's schedule. `completed_at` is when logistics
+ * moved to `completed` (final), set once and NULL until then; the Inquiry
+ * list's Due column reads it against the deadline.
  */
 return new class extends Migration
 {
@@ -57,8 +61,10 @@ return new class extends Migration
             $table->timestampTz('payment_status_changed_at')->nullable();
             $table->string('process_status', 20)->nullable();
             $table->timestampTz('process_status_changed_at')->nullable();
+            $table->timestampTz('completed_at')->nullable();
             $table->decimal('quoted_total', 12, 2)->nullable();
             $table->smallInteger('quote_revision')->nullable();
+            $table->decimal('contract_total', 12, 2)->nullable();
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
@@ -75,6 +81,7 @@ return new class extends Migration
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_process_status CHECK (process_status IN ('order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','on_hold','delayed'))");
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quoted_total CHECK (quoted_total > 0)');
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quote_revision CHECK (quote_revision >= 1)');
+        DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_contract_total CHECK (contract_total > 0)');
     }
 
     public function down(): void

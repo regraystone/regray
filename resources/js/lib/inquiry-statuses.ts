@@ -320,14 +320,15 @@ export const activityLabel = ({ track, status }: ActivityEntry): string =>
     status;
 
 /** What the client calls the first entry of every log. */
-export const INQUIRY_SENT_LABEL = 'Inquiry sent';
+export const INQUIRY_SUBMITTED_LABEL = 'Submitted';
 
 /**
- * The documents the team shares with a client. The job order is internal and
- * is never sent.
+ * The documents the team shares on an inquiry. The job order is internal: it is
+ * sent to staff only, never to the client.
  */
 export type SharedDocumentType =
     | 'quotation'
+    | 'job_order'
     | 'billing_statement'
     | 'receipt'
     | 'invoice';
@@ -335,6 +336,7 @@ export type SharedDocumentType =
 /** One file of a shared group. */
 export const DOCUMENT_TYPE_LABELS: Record<SharedDocumentType, string> = {
     quotation: 'Quotation',
+    job_order: 'Job order',
     billing_statement: 'Billing statement',
     receipt: 'Receipt',
     invoice: 'Invoice',
@@ -342,8 +344,9 @@ export const DOCUMENT_TYPE_LABELS: Record<SharedDocumentType, string> = {
 
 /**
  * What a group of shared files is called: the status update it came with.
- * "Quotation · Rev 2", "Billing statement", "Partial payment", "Full payment".
- * Files that came with no update are "Documents".
+ * "Quotation · Rev 2", "Job order", "Billing statement", "Partial payment",
+ * "Full payment". The job order comes with the win, or on its own with
+ * logistics' order received. Files that came with no update are "Documents".
  */
 export const documentGroupLabel = (
     status: string | null,
@@ -356,6 +359,7 @@ export const documentGroupLabel = (
                 ? 'Quotation'
                 : `Quotation · Rev ${revision}`;
         case 'won':
+        case 'order_received':
             return 'Job order';
         case 'awaiting':
             return 'Billing statement';

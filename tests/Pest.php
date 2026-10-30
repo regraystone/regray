@@ -204,7 +204,7 @@ function makeLead(User $client, LeadStatus $status = LeadStatus::Idle, ?User $ma
  * and no role status has started.
  *
  * @param  array{name?: string, stones?: list<string>, services?: list<string>}  $project
- * @param  array{reference?: string, created_at?: mixed, lead?: Lead, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, job_order?: bool}  $attributes
+ * @param  array{reference?: string, created_at?: mixed, lead?: Lead, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, completed_at?: mixed, job_order?: bool}  $attributes
  */
 function makeInquiry(User $client, array $project = [], array $attributes = []): Inquiry
 {
@@ -229,6 +229,7 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
         'payment_status_changed_at' => isset($statuses['payment_status']) ? now() : null,
         'process_status' => $statuses['process_status'] ?? null,
         'process_status_changed_at' => isset($statuses['process_status']) ? now() : null,
+        'completed_at' => $attributes['completed_at'] ?? (($statuses['process_status'] ?? null) === ProcessStatus::Completed ? now() : null),
         ...(isset($attributes['created_at']) ? ['created_at' => $attributes['created_at']] : []),
     ])->save();
 

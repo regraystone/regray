@@ -4,7 +4,10 @@ namespace App\Http\Resources;
 
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\Permission;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
@@ -17,14 +20,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * An inquiry as its client sees it: the one project it is, the status it is
- * shown at, its three role statuses, the history of how they moved, and the
- * documents the team has shared with the client. Names, quantities and dates:
+ * shown at, its three role statuses, the history of how they moved, its
+ * payment records, and the documents the team has shared with the client. Names, quantities and dates:
  * no database ids, nothing about who changed a status or who handles the
  * inquiry, and no file paths or disks.
  *
- * Nothing about its lead reaches a client: a lost lead shows only as the
- * inquiry being cancelled. Staff reading it are also sent `lead`, its
- * reference and status.
+ * Nothing about its lead is sent: a lost lead shows only as the inquiry being
+ * cancelled. Whoever sends quotations (sales, and the super-admin) is sent
+ * every quotation revision rather than the latest.
  *
  * @mixin Inquiry
  */
@@ -46,7 +49,7 @@ class InquiryDetailsResource extends JsonResource
     }
 
     /**
-     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, history: list<array{track: string, status: string, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null, lead?: array{reference: string, status: string}|null}
+     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null}
      */
     public function toArray(Request $request): array
     {
@@ -61,14 +64,13 @@ class InquiryDetailsResource extends JsonResource
             'paymentStatus' => $this->payment_status?->value,
             'processStatus' => $this->process_status?->value,
             'createdAt' => $this->created_at->toIso8601String(),
+            // The total contract amount, once accounting has billed it.
+            'contractTotal' => $this->contract_total,
             'history' => $this->history(),
-            'documents' => $this->documents(),
+            'payments' => $this->payments(),
+            'documents' => $this->documents($viewer),
             'project' => $this->project(),
             'conversation' => $this->conversationLink,
-            ...($viewer->isClient() ? [] : ['lead' => $this->lead === null ? null : [
-                'reference' => $this->lead->reference,
-                'status' => $this->lead->status->value,
-            ]]),
         ];
     }
 
@@ -106,24 +108,83 @@ class InquiryDetailsResource extends JsonResource
     }
 
     /**
+     * The payment records, oldest first: the total contract amount billed when
+     * payment moved to awaiting, then each payment (or refund) as accounting
+     * received it: its own amount, the balance owed before it and the balance
+     * remaining after it. Nothing before payment has started.
+     *
+     * An inquiry billed before the contract total was asked for has no contract
+     * entry, and its balance is counted against the quoted total.
+     *
+     * @return list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>
+     */
+    private function payments(): array
+    {
+        $records = [];
+        $money = fn (int $centavos): string => number_format($centavos / 100, 2, '.', '');
+        $totalSource = $this->contract_total ?? $this->quoted_total;
+        $total = $totalSource === null ? null : (int) round((float) $totalSource * 100);
+        $billedAt = $this->statusHistory
+            ->first(fn (InquiryStatusHistory $change): bool => $change->track === InquiryStatusTrack::Payment && $change->to_status === PaymentStatus::Awaiting->value)
+            ?->changed_at;
+
+        if ($this->contract_total !== null && $billedAt !== null) {
+            $records[] = [
+                'kind' => 'contract',
+                'amount' => $money($total),
+                'currentBalance' => null,
+                'remainingBalance' => null,
+                'at' => $billedAt->toIso8601String(),
+            ];
+        }
+
+        $balance = $total;
+
+        foreach ($this->paymentTransactions as $transaction) {
+            $amount = (int) round((float) $transaction->amount * 100);
+            $before = $balance;
+            $balance = $balance === null ? null : $balance + ($transaction->kind === 'refund' ? $amount : -$amount);
+
+            $records[] = [
+                'kind' => $transaction->kind,
+                'amount' => $money($amount),
+                'currentBalance' => $before === null ? null : $money($before),
+                'remainingBalance' => $balance === null ? null : $money($balance),
+                'at' => $transaction->received_at->toIso8601String(),
+            ];
+        }
+
+        return array_map(
+            // Keys for the page's list, not database ids.
+            fn (array $record, int $index): array => ['id' => 'payment-'.($index + 1), ...$record],
+            $records,
+            array_keys($records),
+        );
+    }
+
+    /**
      * The documents the team has shared with the client, one group per status
-     * update, oldest first: the latest quotation (with its revision; an older
-     * one is superseded), the billing statement, and each payment's receipts
-     * and invoice. A group is headed by the update's status and date. The job
-     * order is internal and is never sent, to anyone, and neither are paths or
-     * disks.
+     * update, oldest first: the quotation with its revision, the billing
+     * statement, and each payment's receipts and invoice. Staff are also sent
+     * the job order, which is internal and never sent to the client. Only the latest
+     * quotation is sent, as an older revision is superseded, except to whoever
+     * may move the sales status and so sends the quotations: they are sent every
+     * revision, to see how the quote moved. A group is headed by the
+     * update's status and date. Paths and disks are never sent.
      *
      * @return list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>
      */
-    private function documents(): array
+    private function documents(User $viewer): array
     {
         $updates = $this->statusHistory->keyBy('id');
         $position = 0;
         $latestQuote = $this->files->where('document_type', DocumentType::Quotation)->max('revision');
+        $seesEveryRevision = $viewer->can(Permission::InquiriesStatusSales->value);
 
         return array_values($this->files
-            ->filter(fn (InquiryFile $file): bool => $file->document_type->isSharedWithClient()
-                && ($file->document_type !== DocumentType::Quotation || $file->revision === $latestQuote))
+            ->filter(fn (InquiryFile $file): bool => ($file->document_type->isSharedWithClient()
+                    || ($file->document_type === DocumentType::JobOrder && ! $viewer->isClient()))
+                && ($file->document_type !== DocumentType::Quotation || $seesEveryRevision || $file->revision === $latestQuote))
             ->sortBy(fn (InquiryFile $file): string => $file->created_at->format('U.u').'-'.str_pad((string) $file->id, 12, '0', STR_PAD_LEFT))
             ->groupBy(fn (InquiryFile $file): string => $file->status_history_id === null ? 'file-'.$file->id : 'update-'.$file->status_history_id)
             ->values()

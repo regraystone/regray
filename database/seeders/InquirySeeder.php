@@ -331,7 +331,7 @@ class InquirySeeder extends Seeder
      *
      * @param  array<string, mixed>  $inquiryData
      * @param  array<string, mixed>|null  $lead
-     * @return array{final: array{lead: ?LeadStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}, snapshots: list<array{at: string, status: InquiryStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}>}
+     * @return array{final: array{lead: ?LeadStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, contract_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}, snapshots: list<array{at: string, status: InquiryStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}>}
      */
     private function replay(array $inquiryData, ?array $lead, ?string $openedBy = null): array
     {
@@ -357,6 +357,7 @@ class InquirySeeder extends Seeder
             'process' => null,
             'quote_revision' => null,
             'quoted_total' => null,
+            'contract_total' => null,
             'changed' => ['sales' => null, 'payment' => null, 'process' => null],
             'sales_start' => null,
             'cancelled_at' => null,
@@ -481,9 +482,12 @@ class InquirySeeder extends Seeder
                     $fail("payment does not move from {$state['payment']?->value} to {$to->value}, or the inquiry is not won.");
                 }
 
-                if ($to !== PaymentStatus::Awaiting) {
+                if ($to === PaymentStatus::Awaiting) {
+                    // Accounting bills the quoted total as the contract.
+                    $state['contract_total'] = $state['quoted_total'];
+                } else {
                     $paidCentavos += $this->centavos($event['payment'] ?? '0');
-                    $total = $this->centavos($state['quoted_total']);
+                    $total = $this->centavos($state['contract_total']);
 
                     if (($to === PaymentStatus::FullyPaid) !== ($paidCentavos === $total) || $paidCentavos > $total || ! isset($event['payment'])) {
                         $fail("payments of {$paidCentavos} centavos against {$total} are not {$to->value}.");
@@ -534,7 +538,7 @@ class InquirySeeder extends Seeder
      * its stones, services, applications and the client's attachments.
      *
      * @param  array<string, mixed>  $inquiryData
-     * @param  array{lead: ?LeadStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}  $final
+     * @param  array{lead: ?LeadStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, contract_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}  $final
      */
     private function seedInquiry(InquiryFileUploads $fileUploads, array $inquiryData, ?User $client, Client $record, ?Lead $lead, array $final): Inquiry
     {
@@ -557,7 +561,9 @@ class InquirySeeder extends Seeder
             'payment_status_changed_at' => $this->time($final['changed']['payment']),
             'process_status' => $final['process'],
             'process_status_changed_at' => $this->time($final['changed']['process']),
+            'completed_at' => $final['process'] === ProcessStatus::Completed ? $this->time($final['changed']['process']) : null,
             'quoted_total' => $final['quoted_total'],
+            'contract_total' => $final['contract_total'],
             'quote_revision' => $final['quote_revision'],
             'created_at' => $createdAt,
             'updated_at' => Carbon::parse($final['last_at']),

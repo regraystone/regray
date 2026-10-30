@@ -116,6 +116,11 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         $inquiry->forceFill(['quote_revision' => $revision, 'quoted_total' => $quotedTotal])->save();
     }
 
+    public function recordContractTotal(Inquiry $inquiry, string $contractTotal): void
+    {
+        $inquiry->forceFill(['contract_total' => $contractTotal])->save();
+    }
+
     public function updateDetails(Inquiry $inquiry, array $attributes): void
     {
         $inquiry->forceFill($attributes)->save();
@@ -240,7 +245,12 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     ): void {
         $column = $track->column();
 
-        $inquiry->forceFill([$column => $status, "{$column}_changed_at" => $changedAt])->save();
+        $inquiry->forceFill([
+            $column => $status,
+            "{$column}_changed_at" => $changedAt,
+            // Completed is final, so this is set once.
+            ...($status === ProcessStatus::Completed ? ['completed_at' => $changedAt] : []),
+        ])->save();
     }
 
     public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry
@@ -293,6 +303,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'clientRecord.contacts:id,client_id,kind,value',
                 'client:id,name,email',
                 'client.profile:user_id,phone',
+                'schedule:id,inquiry_id,arrival_at',
             ])
             ->withLeadStatus()
             ->withJobOrderFlag()
@@ -320,6 +331,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'stones.finish',
                 'files' => fn ($files) => $files->orderBy('id'),
                 'statusHistory',
+                'paymentTransactions',
                 'lead:id,reference,status,status_changed_at',
             ]);
     }
