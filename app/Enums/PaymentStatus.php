@@ -9,7 +9,8 @@ namespace App\Enums;
  * Once sales has moved the inquiry to for refund, accounting refunds it:
  * partially refunded while part of what was paid is still held, then refunded
  * once all of it has gone back, each with the refund settled file and the
- * amount. Refunded is final.
+ * amount. Refunded is final, and moves sales to rejected, which cancels the
+ * inquiry.
  */
 enum PaymentStatus: string
 {

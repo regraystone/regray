@@ -12,6 +12,7 @@ use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
+use App\Services\InquiryStatusUpdateService;
 use App\Services\ScheduleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -534,15 +535,31 @@ describe('refunds', function (): void {
 
         ($this->refund)('partially_refunded', '200.00')->assertRedirect();
 
+        // A partial refund leaves sales at for refund.
         expect($this->inquiry->refresh()->payment_status)->toBe(PaymentStatus::PartiallyRefunded)
+            ->and($this->inquiry->sales_status)->toBe(SalesStatus::ForRefund)
             ->and($this->inquiry->status)->toBe(InquiryStatus::ForRefund);
 
         ($this->refund)('refunded', '400.00')->assertRedirect();
 
+        // The full refund rejects sales on its own, which cancels the inquiry.
+        $salesMove = $this->inquiry->statusHistory()->where('track', InquiryStatusTrack::Sales)->reorder()->latest('id')->firstOrFail();
+
         expect($this->inquiry->refresh()->payment_status)->toBe(PaymentStatus::Refunded)
-            ->and($this->inquiry->status)->toBe(InquiryStatus::Refunded)
+            ->and($this->inquiry->sales_status)->toBe(SalesStatus::Rejected)
+            ->and($this->inquiry->status)->toBe(InquiryStatus::Cancelled)
+            ->and($salesMove->only(['from_status', 'to_status', 'changed_by', 'note']))->toBe([
+                'from_status' => SalesStatus::ForRefund->value,
+                'to_status' => SalesStatus::Rejected->value,
+                'changed_by' => $this->accounting->id,
+                'note' => InquiryStatusUpdateService::REFUNDED_NOTE,
+            ])
             ->and($this->inquiry->paymentTransactions()->where('kind', 'refund')->pluck('amount')->all())->toEqual(['200.00', '400.00'])
             ->and($this->inquiry->files()->where('document_type', DocumentType::RefundSettlement)->count())->toBe(2);
+
+        // Accounting still has it on its list, as refunded.
+        $listed = collect($this->actingAs($this->accounting)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->firstWhere('reference', 'INQ-RF1');
+        expect($listed)->toMatchArray(['status' => 'cancelled', 'paymentStatus' => 'refunded']);
 
         // Refunded is final.
         ($this->refund)('refunded', '1.00')->assertJsonValidationErrors('to');

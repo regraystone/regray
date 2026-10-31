@@ -41,13 +41,18 @@ use RuntimeException;
  * with the win (or later, attachJobOrder()). Logistics starts at
  * order_received once the inquiry has both its job order and a payment in
  * (partial or fully paid), so a project never reaches logistics, or closes,
- * before anyone has paid. A payment is a `payment_transactions` row.
+ * before anyone has paid. A payment is a `payment_transactions` row. A full
+ * refund cancels the inquiry: sales moves on its own from for refund to
+ * rejected, by the same user.
  *
  * Has to run inside a transaction: the caller removes the written files if it
  * fails (`$written`).
  */
 class InquiryStatusUpdateService
 {
+    /** The note on the sales move a full refund makes. */
+    public const REFUNDED_NOTE = 'Cancelled automatically: the refund was settled in full.';
+
     public function __construct(
         public readonly InquiryRepositoryInterface $inquiryRepository,
         public readonly InquiryStatusService $inquiryStatusService,
@@ -108,6 +113,12 @@ class InquiryStatusUpdateService
 
         if (($target === PaymentStatus::Partial || $target === PaymentStatus::FullyPaid) && $this->readyForLogistics($inquiry)) {
             $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Process, ProcessStatus::OrderReceived, $by, trim($note));
+        }
+
+        // Once all of it has gone back, the inquiry is over: sales is rejected,
+        // which cancels it, and accounting's badge reads refunded.
+        if ($target === PaymentStatus::Refunded) {
+            $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Rejected, $by, self::REFUNDED_NOTE);
         }
 
         return $inquiry;

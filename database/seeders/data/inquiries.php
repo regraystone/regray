@@ -907,8 +907,9 @@ return [
                 'notes' => null,
                 'attachments' => [],
             ],
-            // Part-paid, refund requested, and refunded in two parts.
-            'shows' => 'refunded',
+            // Part-paid, refund requested, and refunded in two parts, which
+            // cancelled it.
+            'shows' => 'cancelled',
             'events' => [
                 ['at' => '2026-10-04T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '60000.00', 'note' => 'Sent the quotation to the client.'],
                 ['at' => '2026-10-04T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2049', 'note' => 'The client approved the quotation in the group chat.'],

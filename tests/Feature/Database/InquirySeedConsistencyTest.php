@@ -41,8 +41,7 @@ use Illuminate\Support\Facades\DB;
 function expectedDisplayStatus(Inquiry $inquiry): InquiryStatus
 {
     return match (true) {
-        $inquiry->marketing_status === LeadStatus::Lost, $inquiry->sales_status === SalesStatus::Rejected => InquiryStatus::Cancelled,
-        $inquiry->payment_status === PaymentStatus::Refunded => InquiryStatus::Refunded,
+        $inquiry->marketing_status === LeadStatus::Lost, $inquiry->sales_status === SalesStatus::Rejected, $inquiry->payment_status === PaymentStatus::Refunded => InquiryStatus::Cancelled,
         $inquiry->sales_status === SalesStatus::ForRefund => InquiryStatus::ForRefund,
         $inquiry->process_status === ProcessStatus::Completed => InquiryStatus::Closed,
         $inquiry->process_status !== null && $inquiry->files->contains('document_type', DocumentType::JobOrder) => InquiryStatus::from($inquiry->process_status->value),
@@ -130,8 +129,10 @@ describe('the seeded inquiries', function (): void {
             expect($has(fn (Inquiry $inquiry): bool => $inquiry->payment_status === $payment))->toBeTrue($payment->value);
         }
 
-        // A refund requested on an inquiry not refunded at all yet.
-        expect($has(fn (Inquiry $inquiry): bool => $inquiry->sales_status === SalesStatus::ForRefund && $inquiry->paymentTransactions->where('kind', 'refund')->isEmpty()))->toBeTrue();
+        // A refund requested on an inquiry not refunded at all yet, and one
+        // refunded in full, which rejected sales and so cancelled it.
+        expect($has(fn (Inquiry $inquiry): bool => $inquiry->sales_status === SalesStatus::ForRefund && $inquiry->paymentTransactions->where('kind', 'refund')->isEmpty()))->toBeTrue()
+            ->and($this->inquiries->every(fn (Inquiry $inquiry): bool => $inquiry->payment_status !== PaymentStatus::Refunded || ($inquiry->sales_status === SalesStatus::Rejected && $inquiry->status === InquiryStatus::Cancelled)))->toBeTrue();
     });
 
     it('carry payments and refunds that add up to the payment status and never pass the quoted total', function (): void {
@@ -143,8 +144,8 @@ describe('the seeded inquiries', function (): void {
 
             expect($paid)->toBeLessThanOrEqual($total, $inquiry->reference)
                 ->and($refunded)->toBeLessThanOrEqual($paid, $inquiry->reference)
-                // Only an inquiry for refund gives money back.
-                ->and($refunded === 0 || $inquiry->sales_status === SalesStatus::ForRefund)->toBeTrue($inquiry->reference);
+                // Only an inquiry for refund gives money back (rejected, once it is all back).
+                ->and($refunded === 0 || $inquiry->sales_status === SalesStatus::ForRefund || $inquiry->payment_status === PaymentStatus::Refunded)->toBeTrue($inquiry->reference);
 
             match ($inquiry->payment_status) {
                 null, PaymentStatus::Awaiting => expect($paid)->toBe(0, $inquiry->reference),
@@ -233,15 +234,17 @@ describe('the seeded inquiries', function (): void {
             $quotes = $inquiry->statusHistory->filter(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Sales && in_array($row->to_status, [SalesStatus::Quoted->value, SalesStatus::Revision->value], true));
             $payments = $inquiry->statusHistory->filter(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Payment && in_array($row->to_status, [PaymentStatus::Partial->value, PaymentStatus::FullyPaid->value], true));
             $refunds = $inquiry->statusHistory->filter(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Payment && in_array($row->to_status, [PaymentStatus::PartiallyRefunded->value, PaymentStatus::Refunded->value], true));
+            // Asked for a refund at some point: for refund now, or rejected by the full refund.
+            $askedForRefund = $inquiry->sales_status === SalesStatus::ForRefund || $inquiry->payment_status === PaymentStatus::Refunded;
 
             // Each quote, first or revised, is a new revision with its quotation.
             expect($quotes->count())->toBe($inquiry->quote_revision ?? 0, $label)
                 ->and($files(DocumentType::Quotation)->pluck('revision')->all())->toBe($inquiry->quote_revision === null ? [] : range(1, $inquiry->quote_revision), $label)
                 ->and($groupOf(DocumentType::Quotation))->toBe($quotes->map(fn (InquiryStatusHistory $row): string => 'sales:'.$row->to_status)->values()->all(), $label)
                 // The job order, once, with the win or on its own.
-                ->and($files(DocumentType::JobOrder)->count())->toBe(in_array($inquiry->sales_status, [SalesStatus::Won, SalesStatus::ForRefund], true) ? 1 : 0, $label)
+                ->and($files(DocumentType::JobOrder)->count())->toBe($inquiry->sales_status === SalesStatus::Won || $askedForRefund ? 1 : 0, $label)
                 // The refund request with for refund; a settled file with each refund.
-                ->and($groupOf(DocumentType::RefundRequest))->toBe($inquiry->sales_status === SalesStatus::ForRefund ? ['sales:for_refund'] : [], $label)
+                ->and($groupOf(DocumentType::RefundRequest))->toBe($askedForRefund ? ['sales:for_refund'] : [], $label)
                 ->and($groupOf(DocumentType::RefundSettlement))->toBe($refunds->map(fn (InquiryStatusHistory $row): string => 'payment:'.$row->to_status)->values()->all(), $label)
                 ->and(array_diff($groupOf(DocumentType::JobOrder), ['sales:won', 'process:order_received']))->toBe([], $label)
                 // Payment starts with one billing statement; each payment has a receipt and an invoice.

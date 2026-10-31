@@ -302,7 +302,10 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
 
         return Inquiry::query()
             ->when(! $seesPending, fn (Builder $query) => $query->whereNot(fn (Builder $query) => $query->whereDisplayStatus(InquiryStatus::Pending)))
-            ->when($role === Role::Accounting, fn (Builder $query) => $query->whereIn('sales_status', [SalesStatus::Won, SalesStatus::ForRefund]))
+            // Accounting has the approved ones, and keeps those it refunded in full, which that cancelled.
+            ->when($role === Role::Accounting, fn (Builder $query) => $query->where(fn (Builder $query) => $query
+                ->whereIn('sales_status', [SalesStatus::Won, SalesStatus::ForRefund])
+                ->orWhere('payment_status', PaymentStatus::Refunded)))
             // Logistics receives an inquiry once its first payment has started logistics.
             ->when($role === Role::Logistics, fn (Builder $query) => $query->whereNotNull('process_status'))
             ->when($statusFilter !== null && $statusFilter !== 'all', function (Builder $query) use ($role, $statusFilter): void {

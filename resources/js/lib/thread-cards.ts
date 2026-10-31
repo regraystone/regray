@@ -3,7 +3,10 @@
  * imports, for tests/js.
  */
 
-/** The display statuses an inquiry card can announce. */
+/**
+ * The display statuses an inquiry card can announce. `refunded` is only on
+ * cards posted before a full refund cancelled the inquiry.
+ */
 export type CardInquiryStatus =
     | 'pending'
     | 'cancelled'

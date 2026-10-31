@@ -205,9 +205,8 @@ function roleStatusesShowing(InquiryStatus $status): array
         InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [SalesStatus::from($status->value), null, null, false],
         InquiryStatus::Quoted, InquiryStatus::Revision => [SalesStatus::from($status->value), null, null, false],
         InquiryStatus::Won => [SalesStatus::Won, PaymentStatus::Awaiting, null, true],
-        // The client asked for their money back after a deposit; refunded once all of it went back.
+        // The client asked for their money back after a deposit.
         InquiryStatus::ForRefund => [SalesStatus::ForRefund, PaymentStatus::Partial, ProcessStatus::OrderReceived, true],
-        InquiryStatus::Refunded => [SalesStatus::ForRefund, PaymentStatus::Refunded, ProcessStatus::OrderReceived, true],
         default => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::from($status->value), true],
     };
 
@@ -356,7 +355,6 @@ dataset('inquiry button table', [
     'cancelled' => ['cancelled', ['view' => [true], 'update' => [false, 'This inquiry was cancelled.'], 'cancel' => null, 'invoice' => null]],
     // Approved before the refund was asked for: locked like any approved inquiry.
     'for_refund' => ['for_refund', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
-    'refunded' => ['refunded', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => null, 'invoice' => [true]]],
 ]);
 
 /**

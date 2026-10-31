@@ -37,8 +37,9 @@ it('takes the first rule that matches, NULL being a stage not started', function
     'logistics completed wins over everything but a cancel' => [LeadStatus::Idle, null, ProcessStatus::Completed, false, InquiryStatus::Closed],
     'for refund wins over logistics' => [LeadStatus::Won, SalesStatus::ForRefund, ProcessStatus::Production, true, InquiryStatus::ForRefund, PaymentStatus::FullyPaid],
     'for refund while partly refunded' => [LeadStatus::Won, SalesStatus::ForRefund, null, true, InquiryStatus::ForRefund, PaymentStatus::PartiallyRefunded],
-    'refunded once all of it went back' => [LeadStatus::Won, SalesStatus::ForRefund, ProcessStatus::OrderReceived, true, InquiryStatus::Refunded, PaymentStatus::Refunded],
-    'refunded wins over logistics completed' => [LeadStatus::Won, SalesStatus::ForRefund, ProcessStatus::Completed, true, InquiryStatus::Refunded, PaymentStatus::Refunded],
+    'cancelled once all of it went back and sales was rejected' => [LeadStatus::Won, SalesStatus::Rejected, ProcessStatus::OrderReceived, true, InquiryStatus::Cancelled, PaymentStatus::Refunded],
+    'cancelled once all of it went back, sales still for refund' => [LeadStatus::Won, SalesStatus::ForRefund, ProcessStatus::OrderReceived, true, InquiryStatus::Cancelled, PaymentStatus::Refunded],
+    'a full refund wins over logistics completed' => [LeadStatus::Won, SalesStatus::ForRefund, ProcessStatus::Completed, true, InquiryStatus::Cancelled, PaymentStatus::Refunded],
 ]);
 
 it('shows every logistics value but completed as itself once the job order is in', function (ProcessStatus $process): void {
@@ -55,8 +56,7 @@ it('files every display status under one Quote list tab', function (): void {
         ->and(InquiryStatus::Won->group())->toBe(InquiryStatusGroup::InProgress)
         ->and(InquiryStatus::Delayed->group())->toBe(InquiryStatusGroup::InProgress)
         ->and(InquiryStatus::ForRefund->group())->toBe(InquiryStatusGroup::InProgress)
-        ->and(InquiryStatus::Refunded->group())->toBe(InquiryStatusGroup::Cancelled)
-        ->and($grouped->all())->toBe(['pending' => 1, 'cancelled' => 2, 'closed' => 1, 'in_progress' => 16]);
+        ->and($grouped->all())->toBe(['pending' => 1, 'cancelled' => 1, 'closed' => 1, 'in_progress' => 16]);
 });
 
 it('agrees with the SQL scope on every combination of marketing\'s decision and the role statuses, NULL included', function (): void {

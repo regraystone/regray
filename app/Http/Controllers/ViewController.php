@@ -140,7 +140,6 @@ class ViewController extends Controller
                         InquiryStatus::Installation => 'Installation',
                         InquiryStatus::Delayed => 'Delayed',
                         InquiryStatus::ForRefund => 'For refund',
-                        InquiryStatus::Refunded => 'Refunded',
                     },
                 ];
             }

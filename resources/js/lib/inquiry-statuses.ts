@@ -14,7 +14,11 @@
  * null, and nothing is shown for it: never a placeholder such as "pending".
  */
 
-/** The stage an inquiry has reached: one sales or logistics value, or pending, closed, cancelled, for refund or refunded. */
+/**
+ * The stage an inquiry has reached: one sales or logistics value, or pending,
+ * closed, cancelled or for refund. A full refund cancels it; the payment badge
+ * beside it then reads refunded.
+ */
 export type InquiryStatus =
     | 'pending'
     | 'cancelled'
@@ -34,8 +38,7 @@ export type InquiryStatus =
     | 'dispatched'
     | 'installation'
     | 'delayed'
-    | 'for_refund'
-    | 'refunded';
+    | 'for_refund';
 
 export type SalesStatus =
     | 'negotiation'
@@ -98,7 +101,6 @@ export const INQUIRY_STATUS_LABELS: Record<InquiryStatus, string> = {
     installation: 'Installation',
     delayed: 'Delayed',
     for_refund: 'For refund',
-    refunded: 'Refunded',
 };
 
 export const SALES_STATUS_LABELS: Record<SalesStatus, string> = {

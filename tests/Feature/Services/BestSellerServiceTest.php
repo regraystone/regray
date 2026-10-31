@@ -58,7 +58,6 @@ test('an inquiry that is not completed does not count', function (InquiryStatus 
     'in installation' => InquiryStatus::Installation,
     'cancelled' => InquiryStatus::Cancelled,
     'for refund' => InquiryStatus::ForRefund,
-    'refunded' => InquiryStatus::Refunded,
 ]);
 
 test('a stone listed twice in one completed inquiry counts once', function (): void {

@@ -10,8 +10,9 @@ namespace App\Enums;
  * The stage values are the role values they come from: a sales status while
  * sales has it, a logistics status once logistics has started. `pending` is
  * before sales has started, `closed` is logistics completed, `cancelled` is
- * marketing lost or sales rejected, `for_refund` is sales asking for a refund
- * until accounting has refunded it all, and `refunded` is that done.
+ * marketing lost, sales rejected or accounting refunded all of it, and
+ * `for_refund` is sales asking for a refund until accounting has refunded it
+ * all.
  */
 enum InquiryStatus: string
 {
@@ -34,7 +35,6 @@ enum InquiryStatus: string
     case Installation = 'installation';
     case Delayed = 'delayed';
     case ForRefund = 'for_refund';
-    case Refunded = 'refunded';
 
     /** The tab on the Quote list this status is filtered under. */
     public function group(): InquiryStatusGroup
@@ -42,7 +42,7 @@ enum InquiryStatus: string
         return match ($this) {
             self::Pending => InquiryStatusGroup::Pending,
             self::Closed => InquiryStatusGroup::Closed,
-            self::Cancelled, self::Refunded => InquiryStatusGroup::Cancelled,
+            self::Cancelled => InquiryStatusGroup::Cancelled,
             default => InquiryStatusGroup::InProgress,
         };
     }

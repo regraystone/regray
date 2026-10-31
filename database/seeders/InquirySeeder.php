@@ -36,6 +36,7 @@ use App\Repositories\Contracts\MessageRepositoryInterface;
 use App\Services\ClientService;
 use App\Services\InquiryStatusCalculator;
 use App\Services\InquiryStatusRules;
+use App\Services\InquiryStatusUpdateService;
 use App\Services\Message\GroupConversationService;
 use App\Services\Message\SupportConversationService;
 use App\Services\ScheduleService;
@@ -507,6 +508,13 @@ class InquirySeeder extends Seeder
                 $state['payment'] = $to;
                 $state['changed']['payment'] = $at;
 
+                // A full refund rejects sales, which cancels the inquiry.
+                if ($to === PaymentStatus::Refunded) {
+                    $state['sales'] = SalesStatus::Rejected;
+                    $state['changed']['sales'] = $at;
+                    $state['cancelled_at'] = $at;
+                }
+
                 // The first payment on an inquiry with its job order starts logistics.
                 if (in_array($to, [PaymentStatus::Partial, PaymentStatus::FullyPaid], true) && $hasJobOrder && $state['process'] === null) {
                     $state['process'] = ProcessStatus::OrderReceived;
@@ -640,6 +648,8 @@ class InquirySeeder extends Seeder
      *   logistics at order_received, from nothing.
      * - Payment starts at awaiting with the billing statement; each payment
      *   after is a `payment_transactions` row with a receipt and an invoice.
+     * - A full refund rejects sales right after, by the same user, as the
+     *   Update Status dialog does.
      *
      * @param  array<string, mixed>  $inquiryData
      * @param  array{sales_start: ?array{at: string, by: string}}  $final
@@ -733,6 +743,10 @@ class InquirySeeder extends Seeder
                         'size_bytes' => 81920,
                         'mime_type' => 'application/pdf',
                     ], $at, null, $history);
+
+                    if ($event['payment_status'] === PaymentStatus::Refunded->value) {
+                        $move(InquiryStatusTrack::Sales, SalesStatus::Rejected->value, $by, $at, InquiryStatusUpdateService::REFUNDED_NOTE);
+                    }
                 } elseif ($event['payment_status'] === PaymentStatus::Awaiting->value) {
                     $this->seedFile($fileUploads, $inquiry, $by, DocumentType::BillingStatement, [
                         'name' => "{$inquiry->reference}-billing-statement.pdf",

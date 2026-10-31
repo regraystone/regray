@@ -72,7 +72,7 @@ class InquiryActions
     public function cancel(Inquiry $inquiry): InquiryActionState
     {
         return match (true) {
-            in_array($inquiry->status, [InquiryStatus::Closed, InquiryStatus::Cancelled, InquiryStatus::Refunded], true) => InquiryActionState::hidden(),
+            in_array($inquiry->status, [InquiryStatus::Closed, InquiryStatus::Cancelled], true) => InquiryActionState::hidden(),
             $this->isApproved($inquiry) => InquiryActionState::disabled(self::CANCEL_LOCKED_WHEN_QUOTED),
             default => InquiryActionState::enabled(),
         };

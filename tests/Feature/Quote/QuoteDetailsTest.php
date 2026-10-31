@@ -181,8 +181,8 @@ it('opens any inquiry for staff on the inquiry route, and only their own for a c
 });
 
 it('shows the client their refund: the request form, the settled file, and the refund in the payment records', function (): void {
-    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-RF9', 'status' => InquiryStatus::Refunded]);
-    $inquiry->forceFill(['contract_total' => '1000.00'])->save();
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-RF9', 'status' => InquiryStatus::Cancelled]);
+    $inquiry->forceFill(['contract_total' => '1000.00', 'payment_status' => PaymentStatus::Refunded])->save();
     $payments = app(InquiryRepositoryInterface::class);
     $payments->addPayment($inquiry, '600.00', null, now()->subDays(3));
     $payments->addRefund($inquiry, '600.00', null, now()->subDay());
@@ -193,7 +193,9 @@ it('shows the client their refund: the request form, the settled file, and the r
     $types = array_merge(...array_map(fn (array $group): array => array_column($group['files'], 'type'), $details['documents']));
     $refund = collect($details['payments'])->firstWhere('kind', 'refund');
 
-    expect($details['status'])->toBe('refunded')
+    // Refunded in full is cancelled, with accounting's badge reading refunded.
+    expect($details['status'])->toBe('cancelled')
+        ->and($details['paymentStatus'])->toBe('refunded')
         ->and($types)->toContain('refund_request', 'refund_settlement')
         // A refund reads against what was held: 600 before, nothing after.
         ->and($refund)->toMatchArray(['amount' => '600.00', 'currentBalance' => '600.00', 'remainingBalance' => '0.00']);

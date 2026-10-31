@@ -10,8 +10,8 @@ namespace App\Enums;
  * and moves only to for refund. Revision and won need a quotation sent first.
  * Rejected when the client turns it down or cancels before approving. For
  * refund is the client asking for their money back after approving, with the
- * refund request form; accounting then refunds it. Rejected and for refund are
- * final.
+ * refund request form; accounting then refunds it, and the full refund moves
+ * it to rejected on its own. Rejected is final, and for refund is by hand.
  */
 enum SalesStatus: string
 {

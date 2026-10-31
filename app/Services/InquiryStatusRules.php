@@ -26,7 +26,8 @@ use App\Models\User;
  *   for an inquiry not yet won; once won, the only move is `for_refund`, with
  *   the refund request form, and only while there is money to give back and
  *   the project is not done: a partial or full payment is in, and logistics
- *   has not completed. `rejected` and `for_refund` are final.
+ *   has not completed. `rejected` and `for_refund` are final by hand; the
+ *   full refund moves `for_refund` to `rejected` on its own.
  * - **Job order:** sales uploads it with the win. A won inquiry from before
  *   it was required, which has none, can still take it on its own, once.
  * - **Payment:** starts NULL, and only once the inquiry is won. Forward
@@ -36,7 +37,8 @@ use App\Models\User;
  *   final. Once sales is `for_refund`, payment moves only to refunds, from
  *   any state: `partially_refunded` while part of what was paid is still
  *   held, then `refunded` once all of it has gone back, each with the refund
- *   settled file and the amount refunded. `refunded` is final.
+ *   settled file and the amount refunded. `refunded` is final, and cancels
+ *   the inquiry (InquiryStatusUpdateService).
  * - **Logistics:** any value but the current one, once it has started: the
  *   first payment (partial or fully paid) on an inquiry with its job order
  *   starts it at order_received. `completed` is final, and nothing moves once
@@ -227,11 +229,11 @@ final class InquiryStatusRules
 
     /**
      * Whether staff may still change the inquiry's project (Edit): until it
-     * is closed, cancelled or refunded.
+     * is closed or cancelled.
      */
     public static function isOpen(Inquiry $inquiry): bool
     {
-        return ! in_array($inquiry->status, [InquiryStatus::Closed, InquiryStatus::Cancelled, InquiryStatus::Refunded], true);
+        return ! in_array($inquiry->status, [InquiryStatus::Closed, InquiryStatus::Cancelled], true);
     }
 
     /**
