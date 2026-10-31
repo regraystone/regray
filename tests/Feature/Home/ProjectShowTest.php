@@ -60,7 +60,7 @@ test('a client reads the published database profile with ordered public fields',
                         ['slug' => 'countertops-backsplash', 'name' => 'Countertops & Backsplash'],
                     ])
                     ->has('stones', 22)
-                    ->where('stones.0', ['slug' => 'arctic-pink', 'name' => 'Arctic Pink', 'thumbnail' => '/storage/stones/patagonia.jpg', 'recommended' => true, 'category' => ['slug' => 'patagonia-quartzite', 'name' => 'Patagonia Quartzite']])
+                    ->where('stones.0', ['slug' => 'arctic-pink', 'name' => 'Arctic Pink', 'thumbnail' => '/storage/stones/patagonia.jpg', 'bestSeller' => false, 'category' => ['slug' => 'patagonia-quartzite', 'name' => 'Patagonia Quartzite']])
                     ->where('gallery', [
                         ['src' => '/storage/projects/first.jpg'],
                         ['src' => '/storage/projects/middle.jpg'],

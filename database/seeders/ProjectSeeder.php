@@ -42,6 +42,12 @@ class ProjectSeeder extends Seeder
                 $category = ProjectCategory::where('slug', $categorySlug)->firstOrFail();
                 $project->categories()->syncWithoutDetaching($category->id);
             }
+
+            // A stone suits the project types of the projects it is used in.
+            $stoneIds = $project->stones()->pluck('stones.id')->all();
+            $project->categories()->get()->each(
+                fn (ProjectCategory $category) => $category->stones()->syncWithoutDetaching($stoneIds),
+            );
         }
     }
 }

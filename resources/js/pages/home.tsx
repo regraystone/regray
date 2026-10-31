@@ -324,15 +324,23 @@ const Home = () => {
     const [selectedCategory, setSelectedCategory] = useState(
         pageProps.filters.category ?? '',
     );
+    const [selectedProjectType, setSelectedProjectType] = useState(
+        pageProps.filters.projectCategory ?? '',
+    );
     const [isUpdating, setIsUpdating] = useState(false);
 
     const debounceTimerRef = useRef<number | null>(null);
     const lastAppliedRef = useRef({
         search: pageProps.filters.search,
         category: pageProps.filters.category,
+        projectCategory: pageProps.filters.projectCategory,
     });
 
-    const applyFilters = (search: string, category: string) => {
+    const applyFilters = (
+        search: string,
+        category: string,
+        projectType: string,
+    ) => {
         const trimmedSearch = search.trim();
         const query: Record<string, string> = {
             per_page: String(gridPageSize ?? pageProps.filters.perPage),
@@ -346,9 +354,14 @@ const Home = () => {
             query.category = category;
         }
 
+        if (projectType !== '') {
+            query.project_category = projectType;
+        }
+
         lastAppliedRef.current = {
             search: trimmedSearch || null,
             category: category || null,
+            projectCategory: projectType || null,
         };
 
         setIsUpdating(true);
@@ -371,7 +384,7 @@ const Home = () => {
         debounceTimerRef.current = window.setTimeout(() => {
             const trimmed = value.trim();
             if (trimmed !== (lastAppliedRef.current.search ?? '')) {
-                applyFilters(trimmed, selectedCategory);
+                applyFilters(trimmed, selectedCategory, selectedProjectType);
             }
         }, 300);
     };
@@ -382,7 +395,7 @@ const Home = () => {
             debounceTimerRef.current = null;
         }
         setSearchInput('');
-        applyFilters('', selectedCategory);
+        applyFilters('', selectedCategory, selectedProjectType);
     };
 
     const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -391,30 +404,41 @@ const Home = () => {
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
             }
-            applyFilters(searchInput, selectedCategory);
+            applyFilters(searchInput, selectedCategory, selectedProjectType);
         }
     };
 
     const handleCategoryChange = (value: string) => {
         value = value === 'all' ? '' : value;
         setSelectedCategory(value);
-        applyFilters(searchInput, value);
+        applyFilters(searchInput, value, selectedProjectType);
+    };
+
+    const handleProjectTypeChange = (value: string) => {
+        value = value === 'all' ? '' : value;
+        setSelectedProjectType(value);
+        applyFilters(searchInput, selectedCategory, value);
     };
 
     useEffect(() => {
         const currentUrl = new URL(window.location.href);
         const urlSearch = currentUrl.searchParams.get('search') ?? '';
         const urlCategory = currentUrl.searchParams.get('category') ?? '';
+        const urlProjectType =
+            currentUrl.searchParams.get('project_category') ?? '';
 
         if (
             urlSearch !== (lastAppliedRef.current.search ?? '') ||
-            urlCategory !== (lastAppliedRef.current.category ?? '')
+            urlCategory !== (lastAppliedRef.current.category ?? '') ||
+            urlProjectType !== (lastAppliedRef.current.projectCategory ?? '')
         ) {
             setSearchInput(urlSearch);
             setSelectedCategory(urlCategory);
+            setSelectedProjectType(urlProjectType);
             lastAppliedRef.current = {
                 search: urlSearch || null,
                 category: urlCategory || null,
+                projectCategory: urlProjectType || null,
             };
         }
     }, [pageProps.filters]);
@@ -458,6 +482,7 @@ const Home = () => {
     const listKey = JSON.stringify([
         pageProps.filters.search,
         pageProps.filters.category,
+        pageProps.filters.projectCategory,
         pageProps.filters.perPage,
     ]);
 
@@ -507,35 +532,72 @@ const Home = () => {
                             ) : null}
                         </div>
 
-                        <div className="w-full sm:w-44">
-                            <Select
-                                value={selectedCategory || 'all'}
-                                onValueChange={handleCategoryChange}
-                            >
-                                <SelectTrigger
-                                    className="w-full rounded-none"
-                                    aria-label="Stone category"
+                        <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row">
+                            <div className="w-full sm:w-44">
+                                <Select
+                                    value={selectedCategory || 'all'}
+                                    onValueChange={handleCategoryChange}
                                 >
-                                    <SelectValue placeholder="All Natural Stones" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem
-                                        value="all"
-                                        className="rounded-none"
+                                    <SelectTrigger
+                                        className="w-full rounded-none"
+                                        aria-label="Stone category"
                                     >
-                                        All Natural Stones
-                                    </SelectItem>
-                                    {filterOptions.categories?.map((cat) => (
+                                        <SelectValue placeholder="All Natural Stones" />
+                                    </SelectTrigger>
+                                    <SelectContent>
                                         <SelectItem
-                                            key={cat.value}
-                                            value={cat.value}
+                                            value="all"
                                             className="rounded-none"
                                         >
-                                            {cat.label}
+                                            All Natural Stones
                                         </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        {filterOptions.categories?.map(
+                                            (cat) => (
+                                                <SelectItem
+                                                    key={cat.value}
+                                                    value={cat.value}
+                                                    className="rounded-none"
+                                                >
+                                                    {cat.label}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="w-full sm:w-52">
+                                <Select
+                                    value={selectedProjectType || 'all'}
+                                    onValueChange={handleProjectTypeChange}
+                                >
+                                    <SelectTrigger
+                                        className="w-full rounded-none"
+                                        aria-label="Project type"
+                                    >
+                                        <SelectValue placeholder="All Project Types" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            value="all"
+                                            className="rounded-none"
+                                        >
+                                            All Project Types
+                                        </SelectItem>
+                                        {filterOptions.projectCategories?.map(
+                                            (type) => (
+                                                <SelectItem
+                                                    key={type.value}
+                                                    value={type.value}
+                                                    className="rounded-none"
+                                                >
+                                                    {type.label}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
                 </div>

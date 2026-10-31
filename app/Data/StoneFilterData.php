@@ -14,6 +14,7 @@ final readonly class StoneFilterData
         public ?string $thickness,
         public int $page,
         public int $perPage,
+        public ?string $projectCategory = null,
     ) {}
 
     public static function fromRequest(StoneIndexRequest $request): self
@@ -25,6 +26,7 @@ final readonly class StoneFilterData
             thickness: $request->validated('thickness'),
             page: (int) ($request->validated('page') ?? 1),
             perPage: (int) ($request->validated('per_page') ?? HomeGridPageSize::DEFAULT->value),
+            projectCategory: $request->validated('project_category'),
         );
     }
 }

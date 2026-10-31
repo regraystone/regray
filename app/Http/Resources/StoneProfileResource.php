@@ -18,7 +18,7 @@ class StoneProfileResource extends JsonResource
      * Expose the profile rather than model or pivot metadata. Shared facts belong to its category;
      * thickness stays a number so the page, not the database, owns the unit wording.
      *
-     * @return array{slug: string, name: string, thumbnail: string, recommended: bool, category: array{slug: string, name: string}, description: string, specifications: array{stoneType: string, origin: string, size: string, thicknessMm: int}, finishes: array<int, string>, applications: array<int, string>, care: array<int, string>, gallery: array<int, array{src: string, name: string}>, projects: array<int, array{slug: string, name: string, thumbnail: string}>}
+     * @return array{slug: string, name: string, thumbnail: string, bestSeller: bool, category: array{slug: string, name: string}, description: string, specifications: array{stoneType: string, origin: string, size: string, thicknessMm: int}, finishes: array<int, string>, applications: array<int, string>, care: array<int, string>, gallery: array<int, array{src: string, name: string}>, projects: array<int, array{slug: string, name: string, thumbnail: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -26,7 +26,7 @@ class StoneProfileResource extends JsonResource
             'slug' => $this->slug,
             'name' => $this->name,
             'thumbnail' => ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
-            'recommended' => $this->recommended,
+            'bestSeller' => $this->is_best_seller,
             'category' => ['slug' => $this->category->slug, 'name' => $this->category->name],
             'description' => $this->category->description,
             'specifications' => [

@@ -104,13 +104,13 @@ const StoneCard = ({
         </a>
     ) : null;
 
-    const recommended = stone.recommended ? (
+    const bestSeller = stone.bestSeller ? (
         <span className="absolute top-0 left-0 flex items-center gap-1 rounded-none bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
             <Star
                 className="size-3 shrink-0 fill-white text-white"
                 aria-hidden
             />
-            <span className="hidden xl:inline">Highly Recommended</span>
+            Best Seller
         </span>
     ) : null;
 
@@ -155,7 +155,7 @@ const StoneCard = ({
                             loading={priority ? 'eager' : 'lazy'}
                             className="absolute inset-0 size-full object-cover"
                         />
-                        {recommended}
+                        {bestSeller}
                         {selected ? (
                             <span
                                 aria-hidden
@@ -166,9 +166,9 @@ const StoneCard = ({
                         ) : null}
                         {/*
                          * Bottom-left, where nothing else sits: the
-                         * recommendation is top-left, the tick top-right, and
+                         * best-seller tag is top-left, the tick top-right, and
                          * this is the one tag that can appear on a card that is
-                         * also recommended.
+                         * also a best seller.
                          */}
                         {note ? (
                             <span className="absolute bottom-0 left-0 rounded-none bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
@@ -210,9 +210,9 @@ const StoneCard = ({
      * page that may open neither hands over a card that simply shows the
      * stone. Same answer the project card already gives.
      *
-     * Nothing sits on the picture: the name, the category and the
-     * recommendation are text under it. The name wraps onto a second line and
-     * is cut with an ellipsis after that; the title shows it whole on hover.
+     * Only the best-seller tag sits on the picture, top left; the name and the
+     * category are text under it. The name wraps onto a second line and is
+     * cut with an ellipsis after that; the title shows it whole on hover.
      */
     const content = (
         <article className="stone-card overflow-visible">
@@ -225,11 +225,12 @@ const StoneCard = ({
                     loading={priority ? 'eager' : 'lazy'}
                     className="absolute inset-0 size-full object-cover"
                 />
+                {bestSeller}
             </div>
             <div className="flex items-start justify-between gap-2 pt-3">
                 <span className="min-w-0 flex-1">
                     <span
-                        className="line-clamp-2 text-lg leading-snug font-medium break-words text-foreground"
+                        className="line-clamp-2 text-base leading-snug font-medium break-words text-foreground"
                         title={stone.name}
                     >
                         {stone.name}
@@ -237,15 +238,6 @@ const StoneCard = ({
                     <span className="mt-0.5 block text-sm break-words text-secondary-foreground">
                         {stone.category.name}
                     </span>
-                    {stone.recommended ? (
-                        <span className="mt-1 flex items-center gap-1 text-xs text-secondary-foreground">
-                            <Star
-                                className="size-3 shrink-0 fill-current"
-                                aria-hidden
-                            />
-                            Highly Recommended
-                        </span>
-                    ) : null}
                 </span>
                 {heart || view ? (
                     // Pulled up and out so the 20px icons line up with the

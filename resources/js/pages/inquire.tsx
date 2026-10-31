@@ -226,7 +226,7 @@ const sendInquiryRequest = (
 
 const SKELETON_MS = 700;
 
-type StoneFilter = 'latest' | 'recommended' | 'saved';
+type StoneFilter = 'latest' | 'bestSellers' | 'saved';
 
 /**
  * The strip above steps 1 and 2 saying which project is being built and how to
@@ -700,8 +700,8 @@ const InquireFlow = ({
 
     const visibleStones = useMemo(() => {
         const base = ((): InquiryStoneOption[] => {
-            if (filter === 'recommended') {
-                return stones.filter((stone) => stone.recommended);
+            if (filter === 'bestSellers') {
+                return stones.filter((stone) => stone.bestSeller);
             }
 
             if (filter === 'saved') {
@@ -1441,7 +1441,7 @@ const InquireFlow = ({
 
     const stoneTabs: Array<{ value: StoneFilter; label: string }> = [
         { value: 'latest', label: 'Latest' },
-        { value: 'recommended', label: 'Recommended' },
+        { value: 'bestSellers', label: 'Best Sellers' },
         { value: 'saved', label: 'Saved' },
     ];
 
@@ -1772,8 +1772,8 @@ const InquireFlow = ({
                                                     slug: stone.slug,
                                                     name: stone.name,
                                                     thumbnail: stone.thumbnail,
-                                                    recommended:
-                                                        stone.recommended,
+                                                    bestSeller:
+                                                        stone.bestSeller,
                                                     category: stone.category,
                                                 }}
                                                 aspect="aspect-[4/3]"

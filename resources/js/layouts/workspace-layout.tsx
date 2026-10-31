@@ -247,7 +247,7 @@ const navLinkClass = ({
     isActive: boolean;
     collapsed: boolean;
 }) =>
-    `relative flex shrink-0 flex-row items-center overflow-hidden rounded-r-md py-2.5 text-sm transition-opacity hover:opacity-85 ${
+    `relative flex shrink-0 flex-row items-center overflow-hidden py-2.5 text-sm transition-opacity hover:opacity-85 ${
         collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-7'
     } ${
         isActive

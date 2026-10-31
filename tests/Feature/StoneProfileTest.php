@@ -39,7 +39,6 @@ test('a client reads the full database stone profile through either door', funct
         'size' => '60x120',
         'thickness_mm' => 75,
         'thumbnail_path' => 'stones/hero.jpg',
-        'recommended' => false,
     ]);
     $stone->images()->create(['path' => 'stones/second.jpg', 'sort_order' => 1]);
     $images = $stone->images()->orderBy('sort_order')->get();
@@ -104,7 +103,7 @@ test('a client reads the full database stone profile through either door', funct
                 ->where('slug', 'cosmic-black')
                 ->where('name', 'Database Granite')
                 ->where('thumbnail', '/storage/stones/hero.jpg')
-                ->where('recommended', false)
+                ->where('bestSeller', false)
                 ->where('category', ['slug' => 'granite', 'name' => 'Granite'])
                 ->where('description', 'Database description')
                 ->where('specifications', ['stoneType' => 'Granite', 'origin' => 'Database origin', 'size' => '60x120', 'thicknessMm' => 75])

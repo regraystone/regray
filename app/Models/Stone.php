@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Services\BestSellerService;
 use Database\Factories\StoneFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,20 +24,21 @@ use Illuminate\Support\Carbon;
  * @property string $thumbnail_path
  * @property string $size
  * @property int $thickness_mm
- * @property bool $recommended
  * @property bool $is_active
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon|null $deleted_at
+ * @property-read bool $is_best_seller
  * @property-read Collection<int, StoneImage> $images
  * @property-read StoneCategory $category
  * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, StoneCategory> $categories
  * @property-read Collection<int, StoneSize> $sizes
  * @property-read Collection<int, StoneThickness> $thicknesses
+ * @property-read Collection<int, ProjectCategory> $projectCategories
  */
-#[Fillable(['stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'recommended', 'is_active', 'sort_order'])]
+#[Fillable(['stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'is_active', 'sort_order'])]
 class Stone extends Model
 {
     /** @use HasFactory<StoneFactory> */
@@ -46,7 +49,6 @@ class Stone extends Model
     protected function casts(): array
     {
         return [
-            'recommended' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -63,6 +65,17 @@ class Stone extends Model
     protected function active(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /**
+     * Whether the stone is one of the best sellers, from how often it is in
+     * completed inquiries. Asked of the request's one ranking, never stored.
+     *
+     * @return Attribute<bool, never>
+     */
+    protected function isBestSeller(): Attribute
+    {
+        return Attribute::get(fn (): bool => app(BestSellerService::class)->isBestSeller($this->id));
     }
 
     /** @return HasMany<StoneImage, $this> */
@@ -119,5 +132,15 @@ class Stone extends Model
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'project_stone');
+    }
+
+    /**
+     * The project types the stone suits, which the home filters stones by.
+     *
+     * @return BelongsToMany<ProjectCategory, $this>
+     */
+    public function projectCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(ProjectCategory::class, 'project_category_stone');
     }
 }

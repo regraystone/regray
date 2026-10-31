@@ -21,7 +21,7 @@ class SavedStoneRepository implements SavedStoneRepositoryInterface
             ->with('category:id,slug,name')
             ->join('saved_stones', 'saved_stones.stone_id', '=', 'stones.id')
             ->where('saved_stones.user_id', $user->id)
-            ->select(['stones.id', 'stones.stone_category_id', 'stones.slug', 'stones.name', 'stones.thumbnail_path', 'stones.recommended'])
+            ->select(['stones.id', 'stones.stone_category_id', 'stones.slug', 'stones.name', 'stones.thumbnail_path'])
             ->orderByDesc('saved_stones.created_at')
             ->orderBy('stones.sort_order')
             ->orderBy('stones.name')

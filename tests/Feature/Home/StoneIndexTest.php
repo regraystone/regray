@@ -1,12 +1,16 @@
 <?php
 
+use App\Enums\InquiryStatus;
 use App\Enums\Role;
+use App\Models\ProjectCategory;
 use App\Models\Stone;
 use App\Models\StoneCategory;
 use App\Models\User;
+use Database\Seeders\EdgeProfileSeeder;
 use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\ServiceSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -35,10 +39,12 @@ test('no parameters returns the first page of active individual stones', functio
                 ->where('category', null)
                 ->where('size', null)
                 ->where('thickness', null)
+                ->where('projectCategory', null)
                 ->where('perPage', 20)
                 ->where('collection', 'stones')
             )
             ->has('filterOptions.categories')
+            ->has('filterOptions.projectCategories', 9)
             ->has('filterOptions.sizes', 4)
             ->has('filterOptions.thicknesses', 3)
             ->where('stones.data.0.category', ['slug' => 'cobblestone', 'name' => 'Cobblestone'])
@@ -113,6 +119,9 @@ test('drops an unknown or malformed parameter and keeps the valid ones', functio
         ['category' => 'unknown'],
         ['category' => 'wall-accents'],
         ['category' => ['granite']],
+        ['project_category' => 'unknown'],
+        ['project_category' => 'granite'],
+        ['project_category' => ['wall-accents']],
         ['size' => 'unknown'],
         ['size' => '60X60'],
         ['size' => ['80x80']],
@@ -229,4 +238,57 @@ test('filter options include empty categories and all sizes but omit inactive ca
             ['value' => '31-plus', 'label' => '31 mm and up'],
         ])
     );
+});
+
+test('filters stones by project type', function (): void {
+    $type = ProjectCategory::create(['slug' => 'test-type', 'name' => 'Test Type', 'image_path' => 'categories/test.jpg', 'is_active' => true, 'sort_order' => 99]);
+    $type->stones()->attach(Stone::query()->whereIn('slug', ['cosmic-black', 'arctic-pink'])->pluck('id'));
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)->get(route('home.index', ['project_category' => 'test-type']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.projectCategory', 'test-type')
+            ->where('stones.meta.total', 2)
+            ->where('stones.data', fn ($stones) => $stones->pluck('slug')->sort()->values()->all() === ['arctic-pink', 'cosmic-black'])
+        );
+});
+
+test('the project type and the natural stone filters combine', function (): void {
+    $type = ProjectCategory::create(['slug' => 'test-type', 'name' => 'Test Type', 'image_path' => 'categories/test.jpg', 'is_active' => true, 'sort_order' => 99]);
+    $type->stones()->attach(Stone::query()->whereIn('slug', ['cosmic-black', 'arctic-pink'])->pluck('id'));
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)->get(route('home.index', ['project_category' => 'test-type', 'category' => 'granite']))
+        ->assertInertia(fn (Assert $page) => $page->has('stones.data', 1)->where('stones.data.0.slug', 'cosmic-black'));
+});
+
+test('an inactive project type is dropped from the URL', function (): void {
+    ProjectCategory::query()->where('slug', 'lavatories')->update(['is_active' => false]);
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)->get(route('home.index', ['project_category' => 'lavatories', 'category' => 'marble']))
+        ->assertRedirect(route('home.index', ['category' => 'marble']));
+});
+
+test('seeded stones suit the project types of the projects they are used in', function (): void {
+    // Belo Medical Group is a commercial space with wall accents, built in marble.
+    $marble = Stone::query()->whereHas('category', fn ($category) => $category->where('slug', 'marble'))->firstOrFail();
+
+    expect($marble->projectCategories()->pluck('slug')->all())
+        ->toContain('commercial-spaces', 'wall-accents');
+});
+
+test('a stone in a completed inquiry is a best seller on its card', function (): void {
+    $this->seed([ServiceSeeder::class, EdgeProfileSeeder::class]);
+    [$sold, $unsold] = Stone::query()->orderBy('sort_order')->orderBy('id')->limit(2)->pluck('slug')->all();
+    makeInquiry(User::factory()->role(Role::Client)->create(), ['stones' => [$sold]], ['status' => InquiryStatus::Closed]);
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)->get(route('home.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stones.data.0.slug', $sold)
+            ->where('stones.data.0.bestSeller', true)
+            ->where('stones.data.1.slug', $unsold)
+            ->where('stones.data.1.bestSeller', false)
+        );
 });

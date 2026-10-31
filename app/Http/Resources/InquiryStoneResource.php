@@ -12,7 +12,7 @@ class InquiryStoneResource extends JsonResource
     /**
      * A stone card plus the facts the Inquire page searches over.
      *
-     * @return array{slug: string, name: string, thumbnail: string, recommended: bool, category: array{slug: string, name: string}, description: string, specifications: array{stoneType: string, origin: string, size: string, thicknessMm: int}}
+     * @return array{slug: string, name: string, thumbnail: string, bestSeller: bool, category: array{slug: string, name: string}, description: string, specifications: array{stoneType: string, origin: string, size: string, thicknessMm: int}}
      */
     public function toArray(Request $request): array
     {

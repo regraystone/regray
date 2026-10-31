@@ -63,7 +63,6 @@ class StoneSeeder extends Seeder
                 'thumbnail_path' => $imageData['path'],
                 'size' => $sizes[$idx % count($sizes)],
                 'thickness_mm' => $defaults[$categorySlug]['thickness_mm'],
-                'recommended' => $defaults[$categorySlug]['recommended'],
                 'is_active' => true,
                 'sort_order' => $idx,
             ]);

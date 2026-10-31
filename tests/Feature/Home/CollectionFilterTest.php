@@ -97,7 +97,7 @@ test('a project category matches projects through their many to many relationshi
         );
 });
 
-test('project mode and project options are not exposed without their permission', function (): void {
+test('project mode is not exposed without its permission, though project types still filter stones', function (): void {
     $role = RoleModel::create(['name' => 'stone-filter-reader', 'guard_name' => RolePermissionSeeder::GUARD]);
     $role->givePermissionTo(Permission::HomeView->value);
     $user = User::factory()->role($role->name)->create();
@@ -106,7 +106,7 @@ test('project mode and project options are not exposed without their permission'
         ->assertInertia(fn (Assert $page) => $page
             ->has('stones.data', 0)
             ->missing('projects')
-            ->missing('filterOptions.projectCategories')
+            ->has('filterOptions.projectCategories')
             ->where('filters.collection', 'stones')
         );
 });

@@ -9,7 +9,7 @@ export type ProjectProfileStone = {
     slug: string;
     name: string;
     thumbnail: string;
-    recommended: boolean;
+    bestSeller: boolean;
     category: { slug: string; name: string };
 };
 
