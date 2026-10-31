@@ -3,7 +3,10 @@
  * imports, for tests/js.
  */
 
-/** The display statuses an inquiry card can announce. */
+/**
+ * The display statuses an inquiry card can announce. `refunded` is only on
+ * cards posted before a full refund cancelled the inquiry.
+ */
 export type CardInquiryStatus =
     | 'pending'
     | 'cancelled'
@@ -22,7 +25,9 @@ export type CardInquiryStatus =
     | 'ready'
     | 'dispatched'
     | 'installation'
-    | 'delayed';
+    | 'delayed'
+    | 'for_refund'
+    | 'refunded';
 
 export type CardScheduleStatus =
     | 'pending'
@@ -56,6 +61,8 @@ export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
     dispatched: 'Dispatched',
     installation: 'Installing',
     delayed: 'Inquiry delayed',
+    for_refund: 'Refund requested',
+    refunded: 'Refunded',
 };
 
 export const inquiryHeadline = (status: CardInquiryStatus): string =>

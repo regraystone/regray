@@ -32,6 +32,7 @@ use App\Repositories\Eloquent\ProjectRepository;
 use App\Repositories\Eloquent\SavedStoneRepository;
 use App\Repositories\Eloquent\StoneRepository;
 use App\Repositories\Eloquent\UserRepository;
+use App\Services\BestSellerService;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -89,6 +90,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MessageRepositoryInterface::class, EloquentMessageRepository::class);
         $this->app->bind(ScheduleRepositoryInterface::class, EloquentScheduleRepository::class);
         $this->app->bind(AuditLogRepositoryInterface::class, EloquentAuditLogRepository::class);
+
+        // One best-seller ranking per request, however many stones ask.
+        $this->app->scoped(BestSellerService::class);
     }
 
     /**

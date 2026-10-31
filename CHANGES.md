@@ -14,7 +14,7 @@ Logistics' first status is renamed **`order_received`** (was `received`), everyw
 
 ### The flow (ERD section 4)
 
-- **Sales** moves to any value but its current one once started; `rejected` is final. **Quoted** is the client's verbal approval in the group chat and needs the quotation (client-visible) and the quoted total; the job order (internal) is optional there. Each quote is a new `quote_revision`. Quoting no longer starts payment.
+- **Sales** moves to any value but its current one once started; `rejected` is final. **Quoted** is the client's verbal approval in the group chat and needs the quotation (client-visible) and the quoted total; the job order is optional there. Each quote is a new `quote_revision`. Quoting no longer starts payment.
 - **Job order:** with the quote, or later from its own row action (`POST inquiries/{reference}/job-order`, sales, once). It starts logistics at `order_received`; until then the inquiry shows `quoted`.
 - **Payment** starts NULL and only once quoted, forward only: `awaiting` with the billing statement, then `partial` or `fully_paid` with receipts, an invoice and the amount received (a `payment_transactions` row). A partial payment must leave a balance; `fully_paid` must bring the payments to exactly the quoted total.
 - **Logistics** moves to any value but its current one once the job order has started it; `completed` is final. No files.

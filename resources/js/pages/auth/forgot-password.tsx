@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import TextLink from '@/components/text-link';
+import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
@@ -17,8 +18,11 @@ export default function ForgotPassword({ status }: { status?: string }) {
                 </div>
             )}
 
-            <div className="space-y-6">
-                <Form {...email.form()} className="space-y-5">
+            <div className="space-y-6 max-md:space-y-(--auth-block-gap)">
+                <Form
+                    {...email.form()}
+                    className="space-y-5 max-md:space-y-(--auth-field-gap)"
+                >
                     {({ processing, errors }) => (
                         <>
                             <Field
@@ -34,7 +38,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
                             <Button
                                 type="submit"
-                                className="mt-6 w-full"
+                                className="mt-1 w-full max-md:mt-(--auth-block-gap)"
                                 disabled={processing}
                                 data-test="email-password-reset-link-button"
                             >
@@ -54,7 +58,10 @@ export default function ForgotPassword({ status }: { status?: string }) {
     );
 }
 
-ForgotPassword.layout = {
-    title: 'Forgot password',
-    description: 'Enter your email to receive a password reset link',
-};
+ForgotPassword.layout = [
+    AuthSheetLayout,
+    {
+        title: 'Forgot password',
+        description: 'Enter your email to receive a password reset link',
+    },
+];

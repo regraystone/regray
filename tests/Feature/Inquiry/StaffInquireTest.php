@@ -3,7 +3,6 @@
 use App\Enums\ClientKind;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\LeadStatus;
 use App\Enums\MessageType;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
@@ -58,12 +57,12 @@ describe('platform', function (): void {
 
     it('files the inquiry under the account\'s platform record, made once, and links it to the lead', function (): void {
         $client = inquiryClient();
-        $lead = makeLead($client, LeadStatus::Won, $this->marketing);
+        $lead = makeLead($client, $this->marketing);
 
         expect(Client::query()->exists())->toBeFalse();
 
         foreach (['Kitchen', 'Bath'] as $name) {
-            $this->actingAs($this->sales)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput(['name' => $name])]])->assertRedirect();
+            $this->actingAs($this->marketing)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput(['name' => $name])]])->assertRedirect();
         }
 
         $record = Client::query()->sole();

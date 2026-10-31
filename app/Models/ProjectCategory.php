@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Collection<int, Project> $projects
+ * @property-read Collection<int, Stone> $stones
  */
 #[Fillable(['slug', 'name', 'image_path', 'is_active', 'sort_order'])]
 class ProjectCategory extends Model
@@ -37,5 +38,15 @@ class ProjectCategory extends Model
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'category_project');
+    }
+
+    /**
+     * The stones suited to this project type.
+     *
+     * @return BelongsToMany<Stone, $this>
+     */
+    public function stones(): BelongsToMany
+    {
+        return $this->belongsToMany(Stone::class, 'project_category_stone');
     }
 }

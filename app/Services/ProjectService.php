@@ -11,8 +11,6 @@ use Illuminate\Support\Collection;
 
 class ProjectService
 {
-    public const PER_PAGE = 12;
-
     public function __construct(
         public readonly ProjectRepositoryInterface $projectRepository,
     ) {}
@@ -41,17 +39,18 @@ class ProjectService
     }
 
     /**
-     * @return array{projects: LengthAwarePaginator<int, Project>, filters: array{search: string|null, projectCategory: string|null}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>}}
+     * @return array{projects: LengthAwarePaginator<int, Project>, filters: array{search: string|null, projectCategory: string|null, perPage: int}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>}}
      */
     public function listPublishedProjects(ProjectFilterData $filters): array
     {
         $cleaned = $this->cleanFilters($filters);
 
         return [
-            'projects' => $this->projectRepository->paginatePublished($cleaned, self::PER_PAGE),
+            'projects' => $this->projectRepository->paginatePublished($cleaned, $cleaned->perPage),
             'filters' => [
                 'search' => $cleaned->search,
                 'projectCategory' => $cleaned->projectCategory,
+                'perPage' => $cleaned->perPage,
             ],
             'filterOptions' => $this->projectRepository->filterOptions(),
         ];
@@ -66,6 +65,6 @@ class ProjectService
             $search = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
         }
 
-        return new ProjectFilterData($search, $filters->projectCategory, $filters->page);
+        return new ProjectFilterData($search, $filters->projectCategory, $filters->page, $filters->perPage);
     }
 }

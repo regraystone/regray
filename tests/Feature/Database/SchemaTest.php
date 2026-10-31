@@ -29,15 +29,13 @@ function schemaInquiry(): int
     ]);
 }
 
-/** A lead, its status left to its default unless one is given. */
-function schemaLead(?int $clientId = null, ?string $status = null, ?string $reference = null): int
+/** A lead for a client of its own unless one is given. A lead has no status. */
+function schemaLead(?int $clientId = null, ?string $reference = null): int
 {
     return DB::table('leads')->insertGetId([
         'reference' => $reference ?? 'LEAD-S'.random_int(100000, 999999),
         'client_id' => $clientId ?? User::factory()->create()->id,
         'marketing_user_id' => User::factory()->create()->id,
-        ...($status === null ? [] : ['status' => $status]),
-        'status_changed_at' => now(),
         'created_at' => now(),
         'updated_at' => now(),
     ]);
@@ -151,15 +149,17 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     'process: the old received' => ['chk_inquiries_process_status', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['process_status' => 'received'])],
     'quoted total of 0' => ['chk_inquiries_quoted_total', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['quoted_total' => 0])],
     'quote revision of 0' => ['chk_inquiries_quote_revision', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['quote_revision' => 0])],
+    // Waiting for marketing is NULL, not idle.
+    'marketing: idle stored' => ['chk_inquiries_marketing_status', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['marketing_status' => 'idle'])],
+    'marketing: an inquiry value' => ['chk_inquiries_marketing_status', fn () => DB::table('inquiries')->where('id', schemaInquiry())->update(['marketing_status' => 'negotiation'])],
 
     // Leads and their history.
-    'lead: an inquiry value' => ['chk_leads_status', fn () => DB::table('leads')->where('id', schemaLead())->update(['status' => 'negotiation'])],
     'lead: a reference twice' => ['leads_reference_unique', fn () => schemaLead(reference: DB::table('leads')->where('id', schemaLead())->value('reference'))],
     'lead: no marketing user' => ['not-null', fn () => DB::table('leads')->where('id', schemaLead())->update(['marketing_user_id' => null])],
-    'lead: a second open lead' => ['idx_leads_client_open', function () {
+    'lead: a second lead for the client' => ['leads_client_id_unique', function () {
         $clientId = User::factory()->create()->id;
         schemaLead($clientId);
-        schemaLead($clientId, 'won');
+        schemaLead($clientId);
     }],
     'lead history: to an inquiry value' => ['chk_lead_status_history_to_status', fn () => DB::table('lead_status_history')->insert(['lead_id' => schemaLead(), 'to_status' => 'pending', 'changed_at' => now()])],
     'lead history: from an inquiry value' => ['chk_lead_status_history_from_status', fn () => DB::table('lead_status_history')->insert(['lead_id' => schemaLead(), 'from_status' => 'negotiation', 'to_status' => 'won', 'changed_at' => now()])],
@@ -298,9 +298,12 @@ test('starts an inquiry with no lead and no stage, and takes every role value or
         DB::table('inquiries')->where('id', $id)->update(['process_status' => $process]);
     }
 
-    DB::table('inquiries')->where('id', $id)->update(['sales_status' => null, 'payment_status' => null, 'process_status' => null]);
-    $this->assertDatabaseHas('inquiries', ['id' => $id, 'sales_status' => null]);
-    expect(DB::table('leads')->where('id', schemaLead())->value('status'))->toBe('idle');
+    foreach (['won', 'lost'] as $marketing) {
+        DB::table('inquiries')->where('id', $id)->update(['marketing_status' => $marketing]);
+    }
+
+    DB::table('inquiries')->where('id', $id)->update(['marketing_status' => null, 'sales_status' => null, 'payment_status' => null, 'process_status' => null]);
+    $this->assertDatabaseHas('inquiries', ['id' => $id, 'marketing_status' => null, 'sales_status' => null]);
 });
 
 test('leaves the rules between rows and statuses to the app', function () {
@@ -323,12 +326,13 @@ test('leaves the rules between rows and statuses to the app', function () {
     $this->assertDatabaseHas('inquiries', ['id' => $id, 'sales_status' => 'quoted', 'payment_status' => null, 'process_status' => 'dispatched']);
 });
 
-test('allows as many lost leads, bookings, unbound groups and new snapshots as needed', function () {
+test('allows as many inquiries on a lead, bookings, unbound groups and new snapshots as needed', function () {
     $clientId = User::factory()->create()->id;
-    $first = schemaLead($clientId);
-    DB::table('leads')->where('id', $first)->update(['status' => 'lost']);
-    schemaLead($clientId, 'lost');
-    schemaLead($clientId, 'won');
+    $leadId = schemaLead($clientId);
+
+    foreach (['won', 'lost', null] as $marketing) {
+        DB::table('inquiries')->where('id', schemaInquiry())->update(['lead_id' => $leadId, 'marketing_status' => $marketing]);
+    }
 
     schemaSchedule($clientId, null);
     schemaSchedule($clientId, null);
@@ -346,7 +350,7 @@ test('allows as many lost leads, bookings, unbound groups and new snapshots as n
     DB::table('client_contacts')->insert([...$contact, 'kind' => 'phone']);
     DB::table('client_contacts')->insert([...$contact, 'kind' => 'viber']);
 
-    expect(DB::table('leads')->where('client_id', $clientId)->count())->toBe(3)
+    expect(DB::table('inquiries')->where('lead_id', $leadId)->count())->toBe(3)
         ->and(DB::table('schedules')->whereNull('inquiry_id')->count())->toBe(2)
         ->and(DB::table('messages')->where('type', 'inquiry_card')->count())->toBe(2)
         ->and(DB::table('client_contacts')->count())->toBe(2);

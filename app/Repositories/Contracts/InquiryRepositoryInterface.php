@@ -5,6 +5,7 @@ namespace App\Repositories\Contracts;
 use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
@@ -44,8 +45,11 @@ interface InquiryRepositoryInterface
         ?string $note = null,
     ): InquiryStatusHistory;
 
-    /** @param  list<int>  $serviceIds */
-    public function attachServices(Inquiry $inquiry, array $serviceIds): void;
+    /**
+     * @param  list<int>  $serviceIds
+     * @param  array<int, int>  $optionIds  The kind of work picked, by service id; a service without one gets none.
+     */
+    public function attachServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void;
 
     /** @param  list<int>  $applicationIds  Stored in the order given. */
     public function attachApplications(Inquiry $inquiry, array $applicationIds): void;
@@ -66,11 +70,20 @@ interface InquiryRepositoryInterface
     /** A payment received, as accounting recorded it. */
     public function addPayment(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $receivedAt): PaymentTransaction;
 
+    /** Money returned to the client, as a `refund` transaction. */
+    public function addRefund(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $refundedAt): PaymentTransaction;
+
     /** What has been paid so far, refunds taken off, in centavos. */
     public function paidCentavos(Inquiry $inquiry): int;
 
     /** The quote revision and quoted total of a new quotation. */
     public function recordQuote(Inquiry $inquiry, int $revision, string $quotedTotal): void;
+
+    /** The total contract amount accounting bills when payment moves to awaiting. */
+    public function recordContractTotal(Inquiry $inquiry, string $contractTotal): void;
+
+    /** Marketing's decision on the inquiry, won or lost, and when it was made. */
+    public function recordMarketingStatus(Inquiry $inquiry, LeadStatus $status, CarbonInterface $changedAt): void;
 
     /**
      * One page of this client's inquiries. The scope is the `$client` argument
@@ -92,7 +105,8 @@ interface InquiryRepositoryInterface
 
     /**
      * The services of each inquiry, in one query. Each service carries the
-     * `inquiry_id` it belongs to.
+     * `inquiry_id` it belongs to and the `option_name` of the kind of work
+     * picked under it, null when none was.
      *
      * @param  list<int>  $inquiryIds
      * @return Collection<int, Service>
@@ -106,13 +120,6 @@ interface InquiryRepositoryInterface
     public function findForClientByReferenceForUpdate(User $client, string $reference): ?Inquiry;
 
     /** Set one role status and when it changed. */
-    /**
-     * The lead's inquiries, oldest first, locked until the transaction ends.
-     *
-     * @return Collection<int, Inquiry>
-     */
-    public function lockForLead(Lead $lead): Collection;
-
     /** Link every one of the lead's client's inquiries that has no lead yet to it. Returns how many. */
     public function linkUnlinkedToLead(Lead $lead): int;
 
@@ -128,8 +135,11 @@ interface InquiryRepositoryInterface
      */
     public function updateDetails(Inquiry $inquiry, array $attributes): void;
 
-    /** @param  list<int>  $serviceIds */
-    public function syncServices(Inquiry $inquiry, array $serviceIds): void;
+    /**
+     * @param  list<int>  $serviceIds
+     * @param  array<int, int>  $optionIds  The kind of work picked, by service id; a service without one gets none.
+     */
+    public function syncServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void;
 
     /** @param  list<int>  $applicationIds  Stored in the order given. */
     public function syncApplications(Inquiry $inquiry, array $applicationIds): void;

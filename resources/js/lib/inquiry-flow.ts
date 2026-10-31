@@ -161,6 +161,8 @@ export const seedStoneRows = (
 
 /** The draft, as far as committing it goes. */
 export type CommitDraft = FlowDraft & {
+    /** The kind of work picked under each service, by service id. */
+    serviceOptions: Record<string, string>;
     name: string;
     stones: StoneRow[];
     location: string;
@@ -204,11 +206,14 @@ export const buildCommittedProject = <T extends CommitDraft>(
 ) => {
     const standalone = context.standaloneService;
 
+    const serviceIds =
+        standalone === undefined ? [...draft.serviceIds] : [standalone.id];
+
     return {
         id: context.id,
         name: standalone === undefined ? draft.name : standalone.name,
-        serviceIds:
-            standalone === undefined ? [...draft.serviceIds] : [standalone.id],
+        serviceIds,
+        serviceOptions: pickServiceOptions(draft.serviceOptions, serviceIds),
         applications: [...draft.applicationIds],
         stones: draft.stones.map((row) => ({ ...row })),
         location: draft.location,
@@ -238,10 +243,22 @@ export const draftForNextInQueue = <T extends CommitDraft>(
 ): T => ({
     ...blank,
     standaloneServiceIds: remaining,
+    serviceOptions: pickServiceOptions(draft.serviceOptions, remaining),
     stoneIds: [...draft.stoneIds],
     stones: draft.stones.map((row) => ({ ...row })),
     applicationIds: [...draft.applicationIds],
 });
+
+/** The kinds of work picked for just these services. */
+export const pickServiceOptions = (
+    options: Record<string, string>,
+    serviceIds: string[],
+): Record<string, string> =>
+    Object.fromEntries(
+        serviceIds.flatMap((id) =>
+            options[id] === undefined ? [] : [[id, options[id]]],
+        ),
+    );
 
 /** A project is a standalone one when every service it is for stands alone. */
 export const isStandaloneProject = (
@@ -267,6 +284,7 @@ export type RequestProject = {
     id?: string;
     name: string;
     serviceIds: string[];
+    serviceOptions: Record<string, string>;
     applications: string[];
     stones: StoneRow[];
     location: string;
@@ -307,6 +325,15 @@ export const buildInquiryFormData = (
 
         project.serviceIds.forEach((id, k) =>
             body.append(`${field('serviceIds')}[${k}]`, id),
+        );
+
+        // The kind of work under each service, keyed by its slug. Sent even
+        // when blank, so the server names the service that is missing one.
+        project.serviceIds.forEach((id) =>
+            body.append(
+                `${field('serviceOptions')}[${id}]`,
+                project.serviceOptions[id] ?? '',
+            ),
         );
 
         project.applications.forEach((id, k) =>
@@ -455,6 +482,11 @@ export type InquiryEditProject = {
     id: number;
     name: string;
     serviceSlugs: string[];
+    /**
+     * The kind of work under each service, by service slug. A service sent
+     * before the choice existed is missing, and an empty map arrives as [].
+     */
+    serviceOptionSlugs: Record<string, string> | [];
     applicationSlugs: string[];
     stones: StoneRow[];
     location: string;
@@ -479,6 +511,7 @@ export type EditFormProject = {
     id: string;
     name: string;
     serviceIds: string[];
+    serviceOptions: Record<string, string>;
     applications: string[];
     stones: StoneRow[];
     location: string;
@@ -511,6 +544,9 @@ export const toEditFormProjects = (
         id: String(project.id),
         name: project.name,
         serviceIds: [...project.serviceSlugs],
+        serviceOptions: Array.isArray(project.serviceOptionSlugs)
+            ? {}
+            : { ...project.serviceOptionSlugs },
         applications: [...project.applicationSlugs],
         stones: project.stones.map((row) => ({ ...row })),
         location: project.location,

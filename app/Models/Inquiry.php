@@ -32,31 +32,36 @@ use Illuminate\Support\Facades\DB;
  * @property int|null $client_id The client's account; null for a direct (walk-in) client.
  * @property int|null $client_record_id The client's record (`clients`), with or without an account.
  * @property int|null $lead_id Null until the client's Regray Team thread is claimed.
+ * @property LeadStatus|null $marketing_status Marketing's decision, won or lost; null while it waits for one.
+ * @property Carbon|null $marketing_status_changed_at
  * @property string $name
  * @property string $location
  * @property string|null $landmark
  * @property string|null $area_sqm
  * @property string|null $notes
- * @property SalesStatus|null $sales_status Null until the inquiry's lead is won.
+ * @property SalesStatus|null $sales_status Null until marketing wins the inquiry.
  * @property Carbon|null $sales_status_changed_at
  * @property PaymentStatus|null $payment_status Null until the client approves the quotation.
  * @property Carbon|null $payment_status_changed_at
  * @property ProcessStatus|null $process_status Null until the client approves the quotation.
  * @property Carbon|null $process_status_changed_at
+ * @property Carbon|null $completed_at When logistics moved to completed; null until then.
  * @property string|null $quoted_total
  * @property int|null $quote_revision
+ * @property string|null $contract_total The total contract amount billed at awaiting; null until then.
  * @property Carbon $created_at
  * @property Carbon $updated_at
- * @property-read InquiryStatus $status The status shown for the inquiry, calculated from its lead and role statuses.
+ * @property-read InquiryStatus $status The status shown for the inquiry, calculated from marketing's decision and the role statuses.
  *
  * When the project is wanted is not stored here: it is the `arrival_at` of
  * the inquiry's schedule.
  */
 #[Fillable([
-    'reference', 'client_id', 'client_record_id', 'lead_id', 'name', 'location', 'landmark', 'area_sqm', 'notes',
+    'reference', 'client_id', 'client_record_id', 'lead_id', 'marketing_status', 'marketing_status_changed_at',
+    'name', 'location', 'landmark', 'area_sqm', 'notes',
     'sales_status', 'sales_status_changed_at',
-    'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at',
-    'quoted_total', 'quote_revision',
+    'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
+    'quoted_total', 'quote_revision', 'contract_total',
 ])]
 class Inquiry extends Model
 {
@@ -69,8 +74,12 @@ class Inquiry extends Model
             'payment_status' => PaymentStatus::class,
             'payment_status_changed_at' => 'datetime',
             'process_status' => ProcessStatus::class,
+            'marketing_status' => LeadStatus::class,
+            'marketing_status_changed_at' => 'datetime',
             'process_status_changed_at' => 'datetime',
+            'completed_at' => 'datetime',
             'quoted_total' => 'decimal:2',
+            'contract_total' => 'decimal:2',
         ];
     }
 
@@ -83,33 +92,12 @@ class Inquiry extends Model
     protected function status(): Attribute
     {
         return Attribute::get(fn (): InquiryStatus => InquiryStatusCalculator::calculate(
-            $this->leadStatus(),
+            $this->marketing_status,
             $this->sales_status,
             $this->process_status,
             $this->hasJobOrder(),
+            $this->payment_status,
         ))->withoutObjectCaching();
-    }
-
-    /**
-     * Its lead's status, or null while it has no lead. Read from a
-     * `lead_status` column when the query selected one (withLeadStatus), from
-     * the loaded lead, or else from the database.
-     */
-    public function leadStatus(): ?LeadStatus
-    {
-        if ($this->lead_id === null) {
-            return null;
-        }
-
-        if (array_key_exists('lead_status', $this->attributes)) {
-            return LeadStatus::tryFrom((string) $this->attributes['lead_status']);
-        }
-
-        if ($this->relationLoaded('lead')) {
-            return $this->lead?->status;
-        }
-
-        return Lead::query()->whereKey($this->lead_id)->first(['id', 'status'])?->status;
     }
 
     /**
@@ -139,21 +127,6 @@ class Inquiry extends Model
     protected function withJobOrderFlag(Builder $query): void
     {
         $query->withExists(['files as has_job_order' => fn (Builder $files) => $files->where('document_type', DocumentType::JobOrder)]);
-    }
-
-    /**
-     * Select each inquiry's lead status, as `lead_status`, so a list reads its status without a query per row.
-     *
-     * @param  Builder<static>  $query
-     */
-    #[Scope]
-    protected function withLeadStatus(Builder $query): void
-    {
-        if ($query->getQuery()->columns === null) {
-            $query->select($this->qualifyColumn('*'));
-        }
-
-        $query->addSelect(['lead_status' => Lead::query()->select('status')->whereColumn('leads.id', 'inquiries.lead_id')]);
     }
 
     /**
@@ -229,7 +202,20 @@ class Inquiry extends Model
     /** @return BelongsToMany<Service, $this> */
     public function services(): BelongsToMany
     {
-        return $this->belongsToMany(Service::class, 'inquiry_services');
+        return $this->belongsToMany(Service::class, 'inquiry_services')
+            ->withPivot('service_option_id');
+    }
+
+    /**
+     * The kind of work picked under each of the project's services, one per
+     * service (an option's `service_id` says which). A service picked before
+     * the choice existed has none.
+     *
+     * @return BelongsToMany<ServiceOption, $this>
+     */
+    public function serviceOptions(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceOption::class, 'inquiry_services', 'inquiry_id', 'service_option_id');
     }
 
     /** @return BelongsToMany<ProjectCategory, $this> */

@@ -52,9 +52,10 @@ it('sends the Inquire page its options', function (): void {
         ->get(route('quote.inquire'))
         ->assertInertia(fn ($page) => $page
             ->component('inquire')
-            ->has('services', 7, fn ($service) => $service->hasAll(['id', 'name', 'features', 'image', 'standalone', 'group']))
+            ->has('services', 7, fn ($service) => $service->hasAll(['id', 'name', 'features', 'options', 'image', 'standalone', 'group']))
+            ->where('services.0.options.0', ['id' => 'supply-only', 'name' => 'Stone supply only'])
             ->where('services.5.standalone', true)
-            ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'recommended', 'category', 'description', 'specifications']))
+            ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'bestSeller', 'category', 'description', 'specifications']))
             ->has('applications.0', fn ($application) => $application->hasAll(['id', 'name', 'image']))
             ->has('edgeProfiles', 8)
             ->has('finishes.0', fn ($finish) => $finish->hasAll(['id', 'name', 'isAdvisory']))

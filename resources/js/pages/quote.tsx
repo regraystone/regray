@@ -1,19 +1,10 @@
 import { InfiniteScroll, Link, router, usePage } from '@inertiajs/react';
-import { Download, Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -23,31 +14,16 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Spinner } from '@/components/ui/spinner';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
-import { buildCardActions, type CardButton } from '@/lib/quote-actions';
 import {
     buildQuoteQuery,
     QUOTE_DEFAULT_FILTERS,
-    QUOTE_STATUS_TABS,
     tally,
     type QuoteFilters,
     type QuoteSort,
-    type QuoteStatusFilter,
 } from '@/lib/quote-filters';
 import { SKELETON_CARD_COUNT, skeletonState } from '@/lib/quote-skeleton';
-import { rateLimitFrom } from '@/lib/rate-limit';
-import {
-    cancel as quoteCancel,
-    edit as quoteEdit,
-    index as quoteIndex,
-    show as quoteShow,
-} from '@/routes/quote';
+import { index as quoteIndex, show as quoteShow } from '@/routes/quote';
 import type { QuoteInquiry, QuotePageProps } from '@/types/quote';
 
 const SEARCH_DEBOUNCE_MS = 200;
@@ -83,51 +59,9 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 /**
- * A disabled action that still has to explain itself.
- *
- * The button cannot take focus, so the wrapper does: without it a keyboard user
- * would meet a dead control with no way of finding out why it is dead. The
- * server's reason is the tooltip and also text a screen reader is pointed at, so
- * it is not only available to someone with a pointer. Every locked button on the
- * page goes through here rather than repeating the wrapper, so the focus ring and
- * the tooltip behave identically everywhere.
- */
-const LockedAction = ({
-    id,
-    label,
-    reason,
-    variant,
-    className,
-}: {
-    id: string;
-    label: string;
-    reason: string;
-    variant: CardButton['variant'];
-    className: string;
-}) => (
-    <Tooltip>
-        <TooltipTrigger asChild>
-            <span
-                tabIndex={0}
-                aria-describedby={id}
-                className={`${className} focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
-            >
-                <Button variant={variant} disabled className="w-full">
-                    {label}
-                </Button>
-                <span id={id} className="sr-only">
-                    {reason}
-                </span>
-            </span>
-        </TooltipTrigger>
-        <TooltipContent>{reason}</TooltipContent>
-    </Tooltip>
-);
-
-/**
  * A placeholder shaped like `InquiryCard`: the same border, radius and padding,
  * the same rows in the same order — status and date, the reference, thumbnails
- * beside the stone names and service tags, and a column of four buttons — so
+ * beside the stone names and service tags, and the View details button — so
  * nothing moves when the real cards arrive.
  */
 const InquiryCardSkeleton = () => (
@@ -161,12 +95,7 @@ const InquiryCardSkeleton = () => (
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-52 lg:shrink-0 lg:flex-col">
-                {Array.from({ length: 4 }, (_, index) => (
-                    <Skeleton
-                        key={index}
-                        className="h-11 w-full rounded-md sm:w-auto sm:min-w-28 lg:w-full"
-                    />
-                ))}
+                <Skeleton className="h-11 w-full rounded-md sm:w-auto sm:min-w-28 lg:w-full" />
             </div>
         </div>
     </article>
@@ -201,28 +130,13 @@ const QuoteSkeleton = () => (
                 <Skeleton className="h-9 w-full sm:max-w-xs" />
                 <Skeleton className="h-9 w-full sm:w-44" />
             </div>
-            <div className="hidden gap-5 sm:flex">
-                {Array.from({ length: 6 }, (_, index) => (
-                    <Skeleton key={index} className="h-4 w-16" />
-                ))}
-            </div>
         </div>
 
         <InquiryCardSkeletons />
     </div>
 );
 
-const InquiryCard = ({
-    inquiry,
-    generating,
-    onGetInvoice,
-    onCancel,
-}: {
-    inquiry: QuoteInquiry;
-    generating: boolean;
-    onGetInvoice: (inquiry: QuoteInquiry) => void;
-    onCancel: (inquiry: QuoteInquiry) => void;
-}) => {
+const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
     /*
      * The server sends each inquiry's stones once each, in the order the client
      * first picked them: an inquiry can hold several projects and one stone can be
@@ -261,11 +175,7 @@ const InquiryCard = ({
     );
     const hasHiddenServices = hiddenServiceCount > 0;
 
-    const buttons = buildCardActions(inquiry.actions);
     const detailsHref = quoteShow.url({ reference: inquiry.reference });
-    // Update opens the Inquire page at Review with this inquiry's projects.
-    const editHref = quoteEdit.url({ reference: inquiry.reference });
-    const actionClassName = 'w-full sm:w-auto lg:w-full';
 
     return (
         <article className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5">
@@ -368,6 +278,9 @@ const InquiryCard = ({
                                         className={SERVICE_TAG_CLASS}
                                     >
                                         {service.name}
+                                        {service.option
+                                            ? ` · ${service.option}`
+                                            : null}
                                     </span>
                                 ))}
 
@@ -390,82 +303,9 @@ const InquiryCard = ({
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-52 lg:shrink-0 lg:flex-col">
-                    {/*
-                     * The buttons are the server's to decide: it sends which exist
-                     * and which can be pressed, and this only draws them in order.
-                     * Cancel carries no destructive colour: it reads as an ordinary
-                     * outline action and the dialog is what makes the consequence
-                     * clear before anything is committed.
-                     */}
-                    {buttons.map((button) => {
-                        if (!button.enabled) {
-                            return (
-                                <LockedAction
-                                    key={button.key}
-                                    id={`${button.key}-${inquiry.reference}-reason`}
-                                    label={button.label}
-                                    reason={button.reason ?? 'Not available.'}
-                                    variant={button.variant}
-                                    className={actionClassName}
-                                />
-                            );
-                        }
-
-                        if (button.key === 'view' || button.key === 'update') {
-                            return (
-                                <Button
-                                    key={button.key}
-                                    asChild
-                                    variant={button.variant}
-                                    className={actionClassName}
-                                >
-                                    <Link
-                                        href={
-                                            button.key === 'update'
-                                                ? editHref
-                                                : detailsHref
-                                        }
-                                    >
-                                        {button.label}
-                                    </Link>
-                                </Button>
-                            );
-                        }
-
-                        if (button.key === 'cancel') {
-                            return (
-                                <Button
-                                    key={button.key}
-                                    type="button"
-                                    variant={button.variant}
-                                    onClick={() => onCancel(inquiry)}
-                                    aria-label={`Cancel inquiry ${inquiry.reference}`}
-                                    className={actionClassName}
-                                >
-                                    <X aria-hidden />
-                                    {button.label}
-                                </Button>
-                            );
-                        }
-
-                        return (
-                            <Button
-                                key={button.key}
-                                type="button"
-                                variant={button.variant}
-                                disabled={generating}
-                                onClick={() => onGetInvoice(inquiry)}
-                                className={actionClassName}
-                            >
-                                {generating ? (
-                                    <Spinner className="motion-reduce:animate-none" />
-                                ) : (
-                                    <Download aria-hidden />
-                                )}
-                                {button.label}
-                            </Button>
-                        );
-                    })}
+                    <Button asChild className="w-full sm:w-auto lg:w-full">
+                        <Link href={detailsHref}>View details</Link>
+                    </Button>
                 </div>
             </div>
         </article>
@@ -483,33 +323,18 @@ const Quote = () => {
     const items = inquiries?.data ?? [];
 
     const [search, setSearch] = useState(filters.search);
-    const [status, setStatus] = useState<QuoteStatusFilter>(filters.status);
     const [sort, setSort] = useState<QuoteSort>(filters.sort);
     const [isUpdating, setIsUpdating] = useState(false);
     const [showFloatingInquire, setShowFloatingInquire] = useState(false);
-    const [generatingId, setGeneratingId] = useState<string | null>(null);
-    const [cancelTarget, setCancelTarget] = useState<QuoteInquiry | null>(null);
-    const [cancellingReference, setCancellingReference] = useState<
-        string | null
-    >(null);
-    /*
-     * The dialog's wording is snapshotted when it opens rather than read off
-     * `cancelTarget`, which is cleared the moment the dialog closes. The words
-     * therefore never change on the way out, even for the frame in between.
-     */
-    const [cancelLabel, setCancelLabel] = useState({
-        reference: '',
-        title: '',
-    });
     const inquireRef = useRef<HTMLSpanElement | null>(null);
     const debounceRef = useRef<number | null>(null);
 
     /*
-     * What the search timer reads when it fires: the status and sort as they are
-     * then, not as they were when the key was pressed.
+     * What the search timer reads when it fires: the sort as it is then, not as
+     * it was when the key was pressed.
      */
-    const latestRef = useRef<QuoteFilters>({ search, status, sort });
-    latestRef.current = { search, status, sort };
+    const latestRef = useRef<QuoteFilters>({ search, sort });
+    latestRef.current = { search, sort };
 
     // Mirror the heading action into a floating button once it scrolls away.
     useEffect(() => {
@@ -573,103 +398,13 @@ const Quote = () => {
         }, SEARCH_DEBOUNCE_MS);
     };
 
-    const handleStatusChange = (value: QuoteStatusFilter) => {
-        setStatus(value);
-        applyFilters({ ...latestRef.current, status: value });
-    };
-
     const handleSortChange = (value: QuoteSort) => {
         setSort(value);
         applyFilters({ ...latestRef.current, sort: value });
     };
 
-    const handleGetInvoice = async (inquiry: QuoteInquiry) => {
-        setGeneratingId(inquiry.reference);
-
-        try {
-            // TODO: wire to the quote.invoice route once the PDF endpoint exists.
-            await new Promise((resolve) => window.setTimeout(resolve, 900));
-            toast.info('Invoice generation is not available yet.');
-        } finally {
-            setGeneratingId(null);
-        }
-    };
-
-    const openCancelPrompt = (inquiry: QuoteInquiry) => {
-        setCancelLabel({
-            reference: inquiry.reference,
-            title: inquiry.title,
-        });
-        setCancelTarget(inquiry);
-    };
-
-    const handleCancel = (inquiry: QuoteInquiry) => {
-        // The dialog disables its own button, but a second click can still land
-        // from a fast double press or a stale render.
-        if (cancellingReference !== null) {
-            return;
-        }
-
-        setCancellingReference(inquiry.reference);
-
-        let settled = false;
-        let failureMessage: string | null = null;
-
-        router.patch(
-            quoteCancel.url({ reference: inquiry.reference }),
-            {},
-            {
-                preserveScroll: true,
-                preserveState: true,
-                only: ['inquiries'],
-                // The refreshed page replaces the loaded ones: merged in, the
-                // cancelled card would sit beside its own stale copy.
-                reset: ['inquiries'],
-                onSuccess: () => {
-                    settled = true;
-                    setCancelTarget(null);
-                },
-                onError: (errors) => {
-                    // The server refused: the inquiry is no longer open. Its own
-                    // sentence is the explanation, and the list behind the dialog
-                    // is stale, so the dialog goes and the list is read again.
-                    settled = true;
-                    setCancelTarget(null);
-                    toast.error(
-                        errors.status ??
-                            'Only pending or quoted inquiries can be cancelled.',
-                    );
-                    router.reload({
-                        only: ['inquiries'],
-                        reset: ['inquiries'],
-                    });
-                },
-                // A 429 says how long to wait; any other error page is the
-                // generic toast below. Either way, not Inertia's raw dialog.
-                onHttpException: (response) => {
-                    failureMessage = rateLimitFrom(response)?.message ?? null;
-
-                    return false;
-                },
-                onFinish: () => {
-                    setCancellingReference(null);
-
-                    if (!settled) {
-                        // Nothing changed, so the dialog stays open and the user
-                        // can simply press the button again.
-                        toast.error(
-                            failureMessage ??
-                                "We couldn't cancel this inquiry. Please try again.",
-                        );
-                    }
-                },
-            },
-        );
-    };
-
     const clearFilters = () => {
         setSearch('');
-        setStatus('all');
         setSort('newest');
         applyFilters(QUOTE_DEFAULT_FILTERS);
     };
@@ -685,9 +420,8 @@ const Quote = () => {
         mode: 'initial',
     });
 
-    const isFiltered = filters.search !== '' || filters.status !== 'all';
+    const isFiltered = filters.search !== '';
     const mayAddInquiry = inquire !== null;
-    const isCancelling = cancellingReference !== null;
 
     if (initialSkeleton.cards) {
         return <QuoteSkeleton />;
@@ -741,35 +475,6 @@ const Quote = () => {
                         </div>
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <div className="sm:hidden">
-                                <Select
-                                    value={status}
-                                    onValueChange={(value) =>
-                                        handleStatusChange(
-                                            value as QuoteStatusFilter,
-                                        )
-                                    }
-                                >
-                                    <SelectTrigger
-                                        className="w-full rounded-none"
-                                        aria-label="Filter by status"
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {QUOTE_STATUS_TABS.map((tab) => (
-                                            <SelectItem
-                                                key={tab.value}
-                                                value={tab.value}
-                                                className="rounded-none"
-                                            >
-                                                {tab.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
                             <div className="w-full sm:w-44">
                                 <Select
                                     value={sort}
@@ -801,43 +506,6 @@ const Quote = () => {
                             </div>
                         </div>
                     </div>
-
-                    <div
-                        className="hidden items-center gap-5 overflow-x-auto py-1 text-sm sm:flex"
-                        role="tablist"
-                        aria-label="Filter by status"
-                    >
-                        {QUOTE_STATUS_TABS.map((tab) => {
-                            const isActive = status === tab.value;
-
-                            return (
-                                <button
-                                    key={tab.value}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={isActive}
-                                    onClick={() =>
-                                        handleStatusChange(tab.value)
-                                    }
-                                    className={`flex shrink-0 items-center gap-1.5 rounded-md whitespace-nowrap transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
-                                        isActive
-                                            ? 'font-bold text-foreground'
-                                            : 'text-secondary-foreground'
-                                    }`}
-                                >
-                                    <span
-                                        className={
-                                            isActive
-                                                ? 'underline decoration-foreground underline-offset-4'
-                                                : ''
-                                        }
-                                    >
-                                        {tab.label}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
                 </div>
 
                 {items.length === 0 ? (
@@ -846,7 +514,7 @@ const Quote = () => {
                     ) : isFiltered ? (
                         <EmptyState
                             title="No inquiries found"
-                            description="No inquiry matches this search or status filter."
+                            description="No inquiry matches this search."
                             action={
                                 <Button
                                     type="button"
@@ -899,69 +567,12 @@ const Quote = () => {
                                 <InquiryCard
                                     key={inquiry.reference}
                                     inquiry={inquiry}
-                                    generating={
-                                        generatingId === inquiry.reference
-                                    }
-                                    onGetInvoice={handleGetInvoice}
-                                    onCancel={openCancelPrompt}
                                 />
                             ))}
                         </div>
                     </InfiniteScroll>
                 )}
             </div>
-
-            <Dialog
-                open={cancelTarget !== null}
-                onOpenChange={(open) => {
-                    // Closing is refused while the request is in flight, which
-                    // covers Escape, an outside click and the close button alike.
-                    // Dismissing it then would leave the user unable to tell
-                    // whether the cancel had gone through.
-                    if (!open && !isCancelling) {
-                        setCancelTarget(null);
-                    }
-                }}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
-                            Cancel inquiry {cancelLabel.reference}?
-                        </DialogTitle>
-                        <DialogDescription>
-                            This will cancel {cancelLabel.title}. A cancelled
-                            inquiry can&apos;t be reopened. To continue,
-                            you&apos;d need to start a new inquiry.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={isCancelling}
-                            onClick={() => setCancelTarget(null)}
-                        >
-                            Keep inquiry
-                        </Button>
-                        <Button
-                            type="button"
-                            disabled={isCancelling}
-                            onClick={() => {
-                                if (cancelTarget) {
-                                    handleCancel(cancelTarget);
-                                }
-                            }}
-                        >
-                            {isCancelling ? (
-                                <Spinner className="motion-reduce:animate-none" />
-                            ) : (
-                                <X aria-hidden />
-                            )}
-                            Cancel inquiry
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {draftPrompt}
 

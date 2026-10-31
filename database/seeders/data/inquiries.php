@@ -54,10 +54,9 @@ return [
         ['reference' => 'LEAD-0004', 'client_id' => 'cl-ivan', 'marketing' => 'marketing', 'created_at' => '2026-09-11T09:00:00Z', 'won_at' => '2026-09-12T02:10:00Z'],
         ['reference' => 'LEAD-0005', 'client_id' => 'cl-nadine', 'marketing' => 'marketing', 'created_at' => '2026-09-15T05:30:00Z', 'won_at' => '2026-09-16T01:05:00Z'],
         ['reference' => 'LEAD-0006', 'client_id' => 'cl-rafael', 'marketing' => 'marketing', 'created_at' => '2026-09-27T04:00:00Z', 'won_at' => '2026-09-28T06:15:00Z'],
-        // Lucas went elsewhere, then came back with a new inquiry, which
-        // opened a new lead for the marketing user holding his thread.
+        // Lucas went elsewhere, so marketing lost his first inquiry; he came
+        // back later with a new one, which waits on the same lead.
         ['reference' => 'LEAD-0007', 'client_id' => 'lucas', 'marketing' => 'marketing', 'created_at' => '2026-10-01T03:30:00Z', 'lost_at' => '2026-10-03T02:00:00Z'],
-        ['reference' => 'LEAD-0008', 'client_id' => 'lucas', 'marketing' => 'marketing', 'created_at' => '2026-10-26T02:00:00Z', 'opened_by_inquiry' => true],
     ],
     'direct_clients' => [
         [
@@ -421,7 +420,7 @@ return [
         [
             'reference' => 'INQ-1050',
             'client_id' => 'lucas',
-            'lead' => 'LEAD-0008',
+            'lead' => 'LEAD-0007',
             'created_at' => '2026-10-26T02:00:00Z',
             'handlers' => [],
             'project' => [
@@ -439,8 +438,8 @@ return [
                 'notes' => 'The island has a waterfall end on the side facing the dining room.',
                 'attachments' => [],
             ],
-            // Sent after the client's first lead was lost, so it opened a new
-            // idle lead; marketing has not reached the client again yet.
+            // Sent after marketing lost the client's first inquiry: it waits on
+            // the same lead, and marketing has not decided it yet.
             'shows' => 'pending',
             'events' => [],
         ],
@@ -522,8 +521,8 @@ return [
                 'attachments' => [],
             ],
             // Quoted twice (the client changed a stone after the first) and
-            // approved with the job order, and accounting has sent the billing
-            // statement for the deposit.
+            // approved with the job order; the deposit is in, so logistics has
+            // received it.
             'shows' => 'order_received',
             'events' => [
                 ['at' => '2026-10-17T03:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '124500.00', 'note' => 'Sent the quotation to the client.'],
@@ -531,6 +530,7 @@ return [
                 ['at' => '2026-10-20T02:00:00Z', 'by' => 'sofia', 'sales' => 'revision', 'quote' => '128900.00', 'note' => 'Sent the revised quotation to the client.'],
                 ['at' => '2026-10-20T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2046', 'note' => 'The client approved the quotation in the group chat.'],
                 ['at' => '2026-10-20T05:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
+                ['at' => '2026-10-22T03:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '64450.00', 'reference' => 'BPI-1022-8114', 'note' => 'Deposit received.'],
             ],
         ],
         [
@@ -580,11 +580,13 @@ return [
                 'notes' => null,
                 'attachments' => [],
             ],
-            // The job order is in; logistics has it, the deposit is not.
-            'shows' => 'order_received',
+            // Approved with the job order and billed, but nothing paid yet, so
+            // logistics has not received it: it shows won.
+            'shows' => 'won',
             'events' => [
                 ['at' => '2026-10-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '84300.00', 'note' => 'Sent the quotation to the client.'],
                 ['at' => '2026-10-15T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2045', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-10-15T06:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
             ],
         ],
         [
@@ -815,6 +817,107 @@ return [
             'shows' => 'quoted',
             'events' => [
                 ['at' => '2026-10-23T02:00:00Z', 'by' => 'maria', 'sales' => 'quoted', 'quote' => '58200.00', 'note' => 'Sent the quotation to the client.'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1063',
+            'client_id' => 'cl-elena',
+            'lead' => 'LEAD-0003',
+            'created_at' => '2026-10-01T02:00:00Z',
+            'handlers' => ['sofia'],
+            'project' => [
+                'name' => 'Elena — Kitchen Island Top',
+                'categories' => ['countertops-backsplash'],
+                'services' => ['Natural Stone Supply'],
+                'stones' => [
+                    ['stone_slug' => 'granite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                ],
+                'location' => 'Makati',
+                'landmark' => null,
+                'area_sqm' => 5.0,
+                'deadline_date' => '2026-12-15',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // Approved and part-paid, then the client asked for their money
+            // back: sales requested the refund, and accounting has not
+            // refunded anything yet.
+            'shows' => 'for_refund',
+            'events' => [
+                ['at' => '2026-10-02T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '96000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-10-02T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2047', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-10-03T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
+                ['at' => '2026-10-04T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '48000.00', 'reference' => 'BPI-1004-8120', 'note' => 'Deposit received.'],
+                ['at' => '2026-10-20T02:00:00Z', 'by' => 'sofia', 'sales' => 'for_refund', 'note' => 'The client cancelled the project and asked for the deposit back.'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1064',
+            'client_id' => 'cl-ivan',
+            'lead' => 'LEAD-0004',
+            'created_at' => '2026-10-02T02:00:00Z',
+            'handlers' => ['sofia'],
+            'project' => [
+                'name' => 'Ivan — Bar Counter',
+                'categories' => ['countertops-backsplash'],
+                'services' => ['Natural Stone Supply'],
+                'stones' => [
+                    ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                ],
+                'location' => 'Taguig',
+                'landmark' => null,
+                'area_sqm' => 5.0,
+                'deadline_date' => '2026-12-15',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // Paid in full, then a refund requested; accounting has refunded
+            // part of it so far.
+            'shows' => 'for_refund',
+            'events' => [
+                ['at' => '2026-10-03T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '80000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-10-03T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2048', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-10-04T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent.'],
+                ['at' => '2026-10-05T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'fully_paid', 'payment' => '80000.00', 'reference' => 'BPI-1005-8201', 'note' => 'Payment received in full.'],
+                ['at' => '2026-10-07T02:00:00Z', 'by' => 'tomas', 'process' => 'measure'],
+                ['at' => '2026-10-22T02:00:00Z', 'by' => 'sofia', 'sales' => 'for_refund', 'note' => 'The client moved abroad and cancelled; refund requested.'],
+                ['at' => '2026-10-25T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partially_refunded', 'refund' => '30000.00', 'reference' => 'BPI-1025-RF01', 'note' => 'First part of the refund sent.'],
+            ],
+        ],
+        [
+            'reference' => 'INQ-1065',
+            'client_id' => 'cl-nadine',
+            'lead' => 'LEAD-0005',
+            'created_at' => '2026-10-03T02:00:00Z',
+            'handlers' => ['sofia'],
+            'project' => [
+                'name' => 'Nadine — Vanity Top',
+                'categories' => ['countertops-backsplash'],
+                'services' => ['Natural Stone Supply'],
+                'stones' => [
+                    ['stone_slug' => 'granite', 'quantity' => 1, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
+                ],
+                'location' => 'Pasig',
+                'landmark' => null,
+                'area_sqm' => 5.0,
+                'deadline_date' => '2026-12-15',
+                'deadline_time' => '10:00',
+                'notes' => null,
+                'attachments' => [],
+            ],
+            // Part-paid, refund requested, and refunded in two parts, which
+            // cancelled it.
+            'shows' => 'cancelled',
+            'events' => [
+                ['at' => '2026-10-04T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '60000.00', 'note' => 'Sent the quotation to the client.'],
+                ['at' => '2026-10-04T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2049', 'note' => 'The client approved the quotation in the group chat.'],
+                ['at' => '2026-10-05T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'awaiting', 'note' => 'Billing statement sent for the deposit.'],
+                ['at' => '2026-10-06T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partial', 'payment' => '30000.00', 'reference' => 'GCASH-1006-2290', 'note' => 'Deposit received.'],
+                ['at' => '2026-10-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'for_refund', 'note' => 'The client found the stone elsewhere and cancelled.'],
+                ['at' => '2026-10-17T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'partially_refunded', 'refund' => '10000.00', 'reference' => 'GCASH-1017-RF01', 'note' => 'First part of the refund sent.'],
+                ['at' => '2026-10-20T02:00:00Z', 'by' => 'accounting', 'payment_status' => 'refunded', 'refund' => '20000.00', 'reference' => 'GCASH-1020-RF02', 'note' => 'Refund settled in full.'],
             ],
         ],
     ],

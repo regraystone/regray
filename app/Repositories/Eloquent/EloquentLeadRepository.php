@@ -25,10 +25,11 @@ class EloquentLeadRepository implements LeadRepositoryInterface
         return Lead::query()->create($attributes);
     }
 
-    public function createHistory(Lead $lead, ?LeadStatus $from, LeadStatus $to, ?int $changedBy, CarbonInterface $changedAt, ?string $note = null): LeadStatusHistory
+    public function createHistory(Lead $lead, ?LeadStatus $from, LeadStatus $to, ?int $changedBy, CarbonInterface $changedAt, ?string $note = null, ?int $inquiryId = null): LeadStatusHistory
     {
         return LeadStatusHistory::query()->create([
             'lead_id' => $lead->id,
+            'inquiry_id' => $inquiryId,
             'from_status' => $from,
             'to_status' => $to,
             'changed_by' => $changedBy,
@@ -37,11 +38,10 @@ class EloquentLeadRepository implements LeadRepositoryInterface
         ]);
     }
 
-    public function openForUpdate(User $client): ?Lead
+    public function forClientForUpdate(User $client): ?Lead
     {
         return Lead::query()
             ->whereBelongsTo($client, 'client')
-            ->whereIn('status', [LeadStatus::Idle->value, LeadStatus::Won->value])
             ->lockForUpdate()
             ->first();
     }
@@ -49,11 +49,6 @@ class EloquentLeadRepository implements LeadRepositoryInterface
     public function lockForUpdate(int $id): Lead
     {
         return Lead::query()->whereKey($id)->lockForUpdate()->firstOrFail();
-    }
-
-    public function updateStatus(Lead $lead, LeadStatus $status, CarbonInterface $changedAt): void
-    {
-        $lead->forceFill(['status' => $status, 'status_changed_at' => $changedAt])->save();
     }
 
     public function moveTo(Lead $lead, User $marketingUser): void
@@ -64,7 +59,9 @@ class EloquentLeadRepository implements LeadRepositoryInterface
     public function paginateFor(?User $marketingUser, ?string $escapedSearch, int $perPage, int $page, ?LeadStatus $status = null): LengthAwarePaginator
     {
         return $this->visibleTo($marketingUser)
-            ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
+            ->when($status !== null, fn (Builder $query) => $query->whereHas('inquiries', fn (Builder $inquiry) => $status === LeadStatus::Idle
+                ? $inquiry->whereNull('marketing_status')
+                : $inquiry->where('marketing_status', $status)))
             ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
                 $pattern = "%{$escapedSearch}%";
 
@@ -80,20 +77,20 @@ class EloquentLeadRepository implements LeadRepositoryInterface
                 'client:id,name,email',
                 'client.profile:user_id,phone',
                 'marketingUser:id,name',
-                'inquiries' => fn ($inquiries) => $inquiries->select(['id', 'lead_id', 'reference', 'name'])->orderBy('id'),
+                'inquiries' => fn ($inquiries) => $inquiries->select(['id', 'lead_id', 'reference', 'name', 'marketing_status', 'sales_status'])->orderBy('id'),
                 'inquiries.conversation:id,inquiry_id,type',
-                'history',
+                'history.inquiry:id,reference',
             ])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($perPage, page: $page);
     }
 
-    public function withStatuses(array $statuses, ?User $marketingUser): Collection
+    public function pickable(?User $marketingUser, bool $withWonInquiry): Collection
     {
         return $this->visibleTo($marketingUser)
-            ->whereIn('status', array_map(fn (LeadStatus $status): string => $status->value, $statuses))
-            ->with('client:id,name')
+            ->when($withWonInquiry, fn (Builder $query) => $query->whereHas('inquiries', fn (Builder $inquiry) => $inquiry->where('marketing_status', LeadStatus::Won)))
+            ->with(['client:id,name', 'inquiries:id,lead_id,marketing_status'])
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->get();

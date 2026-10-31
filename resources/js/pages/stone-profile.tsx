@@ -180,13 +180,13 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
                     <h1 className="hero-title mt-5 text-on-image">
                         {stone.name}
                     </h1>
-                    {stone.recommended && (
+                    {stone.bestSeller && (
                         <span className="mt-6 inline-flex items-center gap-1 rounded-md bg-black px-2 py-1 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
                             <Star
                                 className="size-3 shrink-0 fill-white text-white"
                                 aria-hidden
                             />
-                            Recommended
+                            Best Seller
                         </span>
                     )}
                 </div>

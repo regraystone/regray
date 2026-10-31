@@ -1,4 +1,4 @@
-import { ArrowLeft, Info, MoreVertical, Phone, UserPlus } from 'lucide-react';
+import { ArrowLeft, MoreVertical, UserPlus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,8 +14,7 @@ import type { ConversationSummary } from '@/types/message';
  * The thread's header: who it is with, what the thread is ("Handled by …" on
  * a Regray Team thread, the member count of a group), the staff actions on a
  * Regray Team thread, and, for a sales member of an inquiry's group chat,
- * adding accounting or logistics. The call and info icons are kept as they
- * were, with no behaviour yet.
+ * adding accounting or logistics.
  */
 const ThreadHeader = ({
     conversation,
@@ -82,24 +81,6 @@ const ThreadHeader = ({
                 ) : null}
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-2">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Start a call"
-                    className="cursor-pointer rounded-md"
-                >
-                    <Phone className="size-5" aria-hidden />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="View conversation info"
-                    className="cursor-pointer rounded-md"
-                >
-                    <Info className="size-5" aria-hidden />
-                </Button>
                 {conversation.canAddMembers ? (
                     <Button
                         type="button"

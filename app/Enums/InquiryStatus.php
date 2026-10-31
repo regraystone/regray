@@ -4,13 +4,15 @@ namespace App\Enums;
 
 /**
  * The status shown for an inquiry everywhere, to the client and to staff: the
- * stage it has reached. Calculated from the inquiry's lead and its three role
- * statuses by App\Services\InquiryStatusCalculator, never stored.
+ * stage it has reached. Calculated from marketing's decision and the three
+ * role statuses by App\Services\InquiryStatusCalculator, never stored.
  *
  * The stage values are the role values they come from: a sales status while
- * sales has it, a logistics status once the job order is in. `pending` is
- * before sales has started, `closed` is logistics completed, and `cancelled`
- * is the lead lost or sales rejected.
+ * sales has it, a logistics status once logistics has started. `pending` is
+ * before sales has started, `closed` is logistics completed, `cancelled` is
+ * marketing lost, sales rejected or accounting refunded all of it, and
+ * `for_refund` is sales asking for a refund until accounting has refunded it
+ * all.
  */
 enum InquiryStatus: string
 {
@@ -32,6 +34,7 @@ enum InquiryStatus: string
     case Dispatched = 'dispatched';
     case Installation = 'installation';
     case Delayed = 'delayed';
+    case ForRefund = 'for_refund';
 
     /** The tab on the Quote list this status is filtered under. */
     public function group(): InquiryStatusGroup

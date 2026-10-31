@@ -14,9 +14,11 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * A lead as a row of the Leads page, and what its View shows: its client and
- * how to reach them, its status and history (with the notes), the inquiries
- * linked to it (each saying whether it has a group chat), and the actions this
- * reader has. Staff only; nothing here ever reaches a client.
+ * how to reach them, the tally of its inquiries' decisions, its log (with the
+ * notes and the inquiry each decision was on), the inquiries linked to it
+ * (each with marketing's decision, whether it has a group chat, and whether
+ * this reader may decide it now), and the actions this reader has. Staff
+ * only; nothing here ever reaches a client.
  *
  * Expects the client and their profile, the marketing user, the inquiries with
  * their group chats, and the history loaded
@@ -27,16 +29,17 @@ use Illuminate\Support\Facades\Gate;
 class LeadResource extends JsonResource
 {
     /**
-     * @return array{reference: string, status: string, createdAt: string, client: array{id: int, name: string}, contact: string|null, email: string|null, marketingUser: string, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool}>, history: list<array{status: string, note: string|null, at: string}>, actions: list<string>, canCreateInquiry: bool}
+     * @return array{reference: string, tally: array{won: int, lost: int, idle: int}, createdAt: string, client: array{id: int, name: string}, contact: string|null, email: string|null, marketingUser: string, inquiries: list<array{id: int, reference: string, name: string, marketingStatus: string, hasGroup: bool, canDecide: bool}>, history: list<array{status: string, inquiry: string|null, note: string|null, at: string}>, actions: list<string>, canCreateInquiry: bool}
      */
     public function toArray(Request $request): array
     {
         /** @var User $viewer */
         $viewer = $request->user();
+        $mayDecide = Gate::forUser($viewer)->allows('update', $this->resource);
 
         return [
             'reference' => $this->reference,
-            'status' => $this->status->value,
+            'tally' => $this->tally(),
             'createdAt' => $this->created_at->toIso8601String(),
             'client' => ['id' => $this->client->id, 'name' => $this->client->name],
             'contact' => ClientService::phone(null, $this->client),
@@ -46,10 +49,14 @@ class LeadResource extends JsonResource
                 'id' => $inquiry->id,
                 'reference' => $inquiry->reference,
                 'name' => $inquiry->name,
+                'marketingStatus' => ($inquiry->marketing_status ?? LeadStatus::Idle)->value,
                 'hasGroup' => $inquiry->conversation !== null,
+                // Waiting for marketing, and this reader holds the lead.
+                'canDecide' => $inquiry->marketing_status === null && $inquiry->sales_status === null && $mayDecide,
             ])->all()),
             'history' => array_values($this->history->map(fn (LeadStatusHistory $entry): array => [
                 'status' => $entry->to_status->value,
+                'inquiry' => $entry->inquiry?->reference,
                 'note' => $entry->note,
                 'at' => $entry->changed_at->toIso8601String(),
             ])->all()),
@@ -65,10 +72,6 @@ class LeadResource extends JsonResource
 
         if (Gate::forUser($viewer)->allows('update', $this->resource)) {
             $actions[] = 'edit';
-        }
-
-        if ($this->status === LeadStatus::Idle && Gate::forUser($viewer)->allows('update', $this->resource)) {
-            array_push($actions, 'won', 'lost');
         }
 
         return $actions;

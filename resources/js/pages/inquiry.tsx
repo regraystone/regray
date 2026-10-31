@@ -7,6 +7,7 @@ import DataTable, {
     type DataTableFilters,
 } from '@/components/data-table/data-table';
 import RowActions from '@/components/data-table/row-actions';
+import { DueBadge, type DueStatus } from '@/components/due-badge';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import PageHeading from '@/components/page-heading';
 import StatusUpdateDialog from '@/components/status-update-dialog';
@@ -23,6 +24,7 @@ import {
 } from '@/lib/inquiry-statuses';
 import {
     allowedTargets,
+    canRequestRefund,
     extraField,
     JOB_ORDER_GROUP,
     requiredFileGroups,
@@ -47,6 +49,12 @@ type InquiryRow = {
     hasBeenQuoted: boolean;
     paymentStatus: PaymentStatus | null;
     processStatus: ProcessStatus | null;
+    /** The date the project is needed by (its schedule), or null without one. */
+    deadline: string | null;
+    /** The date the project was completed, or null until then. */
+    completedAt: string | null;
+    /** How it stands against the deadline, by today or, once completed, by that day; null without one or once cancelled. */
+    due: DueStatus | null;
     /** The actions this reader has on this row, decided by the server. */
     actions: string[];
 };
@@ -77,7 +85,7 @@ const Inquiry = () => {
         row: InquiryRow;
         track: StatusTrack;
     } | null>(null);
-    /** The quoted inquiry whose job order sales is uploading, which starts logistics. */
+    /** The won inquiry whose job order sales is uploading on its own. */
     const [uploadingJobOrder, setUploadingJobOrder] =
         useState<InquiryRow | null>(null);
     const [statusFilter, setStatusFilter] = useState(
@@ -130,6 +138,17 @@ const Inquiry = () => {
                     <StatusBadge group="inquiry" status={row.status} />
                     <StatusBadge group="payment" status={row.paymentStatus} />
                 </div>
+            ),
+        },
+        {
+            key: 'due',
+            header: 'Due',
+            cell: (row) => (
+                <DueBadge
+                    due={row.due}
+                    deadline={row.deadline}
+                    completedAt={row.completedAt}
+                />
             ),
         },
         {
@@ -214,6 +233,11 @@ const Inquiry = () => {
                         track,
                         current,
                         editing.row.hasBeenQuoted,
+                        editing.row.salesStatus,
+                        canRequestRefund(
+                            editing.row.paymentStatus,
+                            editing.row.processStatus,
+                        ),
                     ).map((value) => ({
                         value,
                         label: statusLabel(track, value as never),

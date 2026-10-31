@@ -6,6 +6,7 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\ProjectCategory;
 use App\Models\Service;
+use App\Models\ServiceOption;
 use App\Models\Stone;
 use App\Services\ScheduleService;
 use Closure;
@@ -45,6 +46,11 @@ class StoreInquiryRequest extends FormRequest
                 'required', 'string',
                 Rule::exists('services', 'slug')->where('is_active', true)->whereNull('deleted_at'),
             ],
+
+            // The kind of work picked under each service, by service slug; after()
+            // checks that every picked service has one of its own.
+            'projects.*.serviceOptions' => ['required', 'array'],
+            'projects.*.serviceOptions.*' => ['nullable', 'string', 'max:100'],
 
             'projects.*.applicationIds' => ['nullable', 'array'],
             'projects.*.applicationIds.*' => ['string', Rule::exists('project_categories', 'slug')->where('is_active', true)],
@@ -88,6 +94,8 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.serviceIds.required' => 'Select at least one service.',
             'projects.*.serviceIds.min' => 'Select at least one service.',
             'projects.*.serviceIds.*.exists' => 'That service is no longer available.',
+            'projects.*.serviceOptions.required' => 'Choose what you need for each service.',
+            'projects.*.serviceOptions.array' => 'Choose what you need for each service.',
             'projects.*.applicationIds.*.exists' => 'That application is no longer available.',
             'projects.*.stones.max' => "A project can have up to {$limits['stone_rows']} stone rows.",
             'projects.*.stones.*.stoneId.exists' => 'That stone is no longer available.',
@@ -121,7 +129,8 @@ class StoreInquiryRequest extends FormRequest
      * needs neither: whatever was picked is extra information. It is attended
      * at an hour, so it needs a time too, still ahead.
      *
-     * Services can share a project only when they share a selection group.
+     * Services can share a project only when they share a selection group, and
+     * every service needs one of its own active kinds of work picked.
      *
      * Every project needs a date, because sending the inquiry books it as a
      * schedule. A project without a time is booked for 10:00, when the showroom opens.
@@ -148,19 +157,39 @@ class StoreInquiryRequest extends FormRequest
 
                 $services = Service::query()
                     ->whereIn('slug', array_unique($slugs))
-                    ->get(['slug', 'is_standalone', 'selection_group'])
+                    ->get(['id', 'slug', 'name', 'is_standalone', 'selection_group'])
                     ->keyBy('slug');
+
+                $optionSlugs = ServiceOption::query()
+                    ->whereIn('service_id', $services->pluck('id'))
+                    ->where('is_active', true)
+                    ->get(['service_id', 'slug'])
+                    ->groupBy('service_id')
+                    ->map(fn ($options) => $options->pluck('slug')->all());
 
                 foreach ($projects as $index => $project) {
                     $standaloneOnly = true;
                     $groups = [];
 
                     foreach ($project['serviceIds'] as $slug) {
-                        if (! $services->get($slug)?->is_standalone) {
+                        $service = $services->get($slug);
+
+                        if (! $service?->is_standalone) {
                             $standaloneOnly = false;
                         }
 
-                        $groups[$services->get($slug)->selection_group ?? ''] = true;
+                        $groups[$service->selection_group ?? ''] = true;
+
+                        $picked = $project['serviceOptions'][$slug] ?? null;
+
+                        if ($service !== null && ! in_array($picked, $optionSlugs->get($service->id, []), true)) {
+                            $validator->errors()->add(
+                                "projects.{$index}.serviceOptions.{$slug}",
+                                is_string($picked) && $picked !== ''
+                                    ? "That choice is no longer available for {$service->name}."
+                                    : "Choose what you need for {$service->name}.",
+                            );
+                        }
                     }
 
                     if (count($groups) > 1) {
@@ -278,6 +307,10 @@ class StoreInquiryRequest extends FormRequest
 
         $serviceIds = Service::query()->whereIn('slug', array_unique($serviceSlugs))->pluck('id', 'slug');
         $standaloneBySlug = Service::query()->whereIn('slug', array_unique($serviceSlugs))->pluck('is_standalone', 'slug');
+        $optionIds = ServiceOption::query()
+            ->whereIn('service_id', $serviceIds->values())
+            ->get(['id', 'service_id', 'slug'])
+            ->mapWithKeys(fn (ServiceOption $option): array => ["{$option->service_id}:{$option->slug}" => $option->id]);
         $stoneIds = Stone::query()->whereIn('slug', array_unique($stoneSlugs))->pluck('id', 'slug');
         $edgeProfileIds = EdgeProfile::query()->pluck('id', 'name');
         $finishIds = Finish::query()->pluck('id', 'name');
@@ -297,6 +330,7 @@ class StoreInquiryRequest extends FormRequest
             $row = [
                 'name' => $project['name'],
                 'service_ids' => [],
+                'service_option_ids' => [],
                 'application_ids' => [],
                 'stones' => [],
                 'location' => $project['location'],
@@ -311,7 +345,9 @@ class StoreInquiryRequest extends FormRequest
             ];
 
             foreach ($project['serviceIds'] as $slug) {
-                $row['service_ids'][] = $serviceIds[$slug];
+                $serviceId = $serviceIds[$slug];
+                $row['service_ids'][] = $serviceId;
+                $row['service_option_ids'][$serviceId] = $optionIds["{$serviceId}:{$project['serviceOptions'][$slug]}"];
             }
 
             foreach ($project['applicationIds'] ?? [] as $slug) {

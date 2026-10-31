@@ -11,8 +11,6 @@ use Illuminate\Support\Collection;
 
 class StoneService
 {
-    public const PER_PAGE = 12;
-
     public function __construct(
         public readonly StoneRepositoryInterface $stoneRepository,
     ) {}
@@ -29,19 +27,21 @@ class StoneService
     }
 
     /**
-     * @return array{stones: LengthAwarePaginator<int, Stone>, filters: array{search: string|null, category: string|null, size: string|null, thickness: string|null}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>, sizes: Collection<int, array{value: string, label: string}>, thicknesses: Collection<int, array{value: string, label: string}>}}
+     * @return array{stones: LengthAwarePaginator<int, Stone>, filters: array{search: string|null, category: string|null, size: string|null, thickness: string|null, projectCategory: string|null, perPage: int}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>, sizes: Collection<int, array{value: string, label: string}>, thicknesses: Collection<int, array{value: string, label: string}>}}
      */
     public function listStones(StoneFilterData $filters): array
     {
         $cleaned = $this->cleanFilters($filters);
 
         return [
-            'stones' => $this->stoneRepository->paginate($cleaned, self::PER_PAGE),
+            'stones' => $this->stoneRepository->paginate($cleaned, $cleaned->perPage),
             'filters' => [
                 'search' => $cleaned->search,
                 'category' => $cleaned->category,
                 'size' => $cleaned->size,
                 'thickness' => $cleaned->thickness,
+                'projectCategory' => $cleaned->projectCategory,
+                'perPage' => $cleaned->perPage,
             ],
             'filterOptions' => $this->stoneRepository->filterOptions(),
         ];
@@ -56,6 +56,6 @@ class StoneService
             $search = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
         }
 
-        return new StoneFilterData($search, $filters->category, $filters->size, $filters->thickness, $filters->page);
+        return new StoneFilterData($search, $filters->category, $filters->size, $filters->thickness, $filters->page, $filters->perPage, $filters->projectCategory);
     }
 }

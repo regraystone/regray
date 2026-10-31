@@ -89,14 +89,15 @@ test('a project category matches projects through their many to many relationshi
     $this->seed([ProjectCategorySeeder::class, ProjectSeeder::class]);
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'projects', 'project_category' => 'countertops-backsplash']))
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'projects', 'project_category' => 'countertops-backsplash', 'per_page' => 10]))
         ->assertInertia(fn (Assert $page) => $page
             ->has('projects.data', 1)
             ->where('projects.data.0.slug', 'ginza-one')
+            ->where('filters.perPage', 10)
         );
 });
 
-test('project mode and project options are not exposed without their permission', function (): void {
+test('project mode is not exposed without its permission, though project types still filter stones', function (): void {
     $role = RoleModel::create(['name' => 'stone-filter-reader', 'guard_name' => RolePermissionSeeder::GUARD]);
     $role->givePermissionTo(Permission::HomeView->value);
     $user = User::factory()->role($role->name)->create();
@@ -105,7 +106,7 @@ test('project mode and project options are not exposed without their permission'
         ->assertInertia(fn (Assert $page) => $page
             ->has('stones.data', 0)
             ->missing('projects')
-            ->missing('filterOptions.projectCategories')
+            ->has('filterOptions.projectCategories')
             ->where('filters.collection', 'stones')
         );
 });

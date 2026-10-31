@@ -11,6 +11,8 @@ enum DocumentType: string
     case BillingStatement = 'billing_statement';
     case Receipt = 'receipt';
     case Invoice = 'invoice';
+    case RefundRequest = 'refund_request';
+    case RefundSettlement = 'refund_settlement';
 
     /**
      * Whether the client sees it on their inquiry. The job order is internal;
@@ -18,7 +20,7 @@ enum DocumentType: string
      */
     public function isSharedWithClient(): bool
     {
-        return in_array($this, [self::Quotation, self::BillingStatement, self::Receipt, self::Invoice], true);
+        return in_array($this, [self::Quotation, self::BillingStatement, self::Receipt, self::Invoice, self::RefundRequest, self::RefundSettlement], true);
     }
 
     /** @return list<string> */

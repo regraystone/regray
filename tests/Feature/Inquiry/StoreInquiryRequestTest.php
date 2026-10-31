@@ -3,6 +3,7 @@
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\ServiceOption;
 use App\Models\Stone;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -179,5 +180,46 @@ describe('standalone and regular services', function (): void {
     it('accepts services from the same selection group in one project', function (): void {
         postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication']])])
             ->assertSessionDoesntHaveErrors();
+    });
+});
+
+describe('kinds of work', function (): void {
+    it('saves the kind of work picked under each service', function (): void {
+        postInquiry($this, [inquiryProjectInput([
+            'serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication'],
+            'serviceOptions' => ['natural-stone-supply' => 'supply-installation', 'custom-stone-fabrication' => 'fabrication-supply'],
+        ])])->assertSessionHasNoErrors();
+
+        $inquiry = Inquiry::query()->with('serviceOptions')->sole();
+
+        expect($inquiry->serviceOptions->pluck('slug')->sort()->values()->all())
+            ->toBe(['fabrication-supply', 'supply-installation']);
+    });
+
+    it('refuses a service with no kind of work, naming the service', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceOptions' => ['custom-stone-fabrication' => 'fabrication-only']])])
+            ->assertSessionHasErrors(['projects.0.serviceOptions.natural-stone-supply' => 'Choose what you need for Natural Stone Supply.']);
+
+        expect(Inquiry::query()->count())->toBe(0);
+    });
+
+    it('refuses a project sent without any kinds of work', function (): void {
+        $project = inquiryProjectInput();
+        unset($project['serviceOptions']);
+
+        postInquiry($this, [$project])
+            ->assertSessionHasErrors(['projects.0.serviceOptions' => 'Choose what you need for each service.']);
+    });
+
+    it('refuses a kind of work that belongs to another service', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceOptions' => ['natural-stone-supply' => 'fabrication-only']])])
+            ->assertSessionHasErrors(['projects.0.serviceOptions.natural-stone-supply' => 'That choice is no longer available for Natural Stone Supply.']);
+    });
+
+    it('refuses a kind of work that is no longer offered', function (): void {
+        ServiceOption::query()->where('slug', 'supply-only')->update(['is_active' => false]);
+
+        postInquiry($this, [inquiryProjectInput(['serviceOptions' => ['natural-stone-supply' => 'supply-only']])])
+            ->assertSessionHasErrors(['projects.0.serviceOptions.natural-stone-supply' => 'That choice is no longer available for Natural Stone Supply.']);
     });
 });

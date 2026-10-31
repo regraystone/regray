@@ -3,8 +3,8 @@
 namespace App\Policies;
 
 use App\Enums\InquiryStatus;
-use App\Enums\SalesStatus;
 use App\Models\Inquiry;
+use App\Services\InquiryStatusRules;
 
 /**
  * Which buttons an inquiry shows a client. The one place the table lives: the
@@ -17,7 +17,8 @@ use App\Models\Inquiry;
  * | Inquiry                                 | View details | Update    | Cancel       | Get invoice  |
  * |-----------------------------------------|--------------|-----------|--------------|--------------|
  * | not yet approved (pending, negotiation, | clickable    | clickable | clickable    | not rendered |
- * | site_visited, sales on_hold, quoted)    |              |           |              |              |
+ * | site_visited, sales on_hold, quoted,    |              |           |              |              |
+ * | revision)                               |              |           |              |              |
  * | approved (won, any logistics stage)     | clickable    | disabled  | disabled     | clickable    |
  * | closed                                  | clickable    | not shown | not rendered | clickable    |
  * | cancelled                               | clickable    | disabled  | not rendered | not rendered |
@@ -71,7 +72,7 @@ class InquiryActions
     public function cancel(Inquiry $inquiry): InquiryActionState
     {
         return match (true) {
-            $inquiry->status === InquiryStatus::Closed, $inquiry->status === InquiryStatus::Cancelled => InquiryActionState::hidden(),
+            in_array($inquiry->status, [InquiryStatus::Closed, InquiryStatus::Cancelled], true) => InquiryActionState::hidden(),
             $this->isApproved($inquiry) => InquiryActionState::disabled(self::CANCEL_LOCKED_WHEN_QUOTED),
             default => InquiryActionState::enabled(),
         };
@@ -101,9 +102,9 @@ class InquiryActions
         ];
     }
 
-    /** Whether the client has approved the quotation. */
+    /** Whether the client has approved the quotation: won, or for refund after it. */
     private function isApproved(Inquiry $inquiry): bool
     {
-        return $inquiry->sales_status === SalesStatus::Won;
+        return InquiryStatusRules::isApproved($inquiry);
     }
 }

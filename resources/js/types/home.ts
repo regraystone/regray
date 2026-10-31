@@ -9,7 +9,7 @@ export type ProjectProfileStone = {
     slug: string;
     name: string;
     thumbnail: string;
-    recommended: boolean;
+    bestSeller: boolean;
     category: { slug: string; name: string };
 };
 
@@ -54,6 +54,7 @@ export type Filters = {
     thickness: string | null;
     projectCategory: string | null;
     collection?: 'stones' | 'projects';
+    perPage: number;
 };
 
 export type HomePageProps = {

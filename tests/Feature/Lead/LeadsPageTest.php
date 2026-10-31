@@ -9,8 +9,10 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 
 /*
- * The Leads page is marketing's, and staff open inquiries for a lead's client:
- * marketing from its own idle or won leads, sales from won leads only.
+ * The Leads page is marketing's: each lead with the tally of its inquiries'
+ * decisions, and Won or Lost on each inquiry still waiting. Staff open
+ * inquiries for a lead's client: marketing from its own leads, sales only from
+ * a lead with a won inquiry.
  */
 
 beforeEach(function (): void {
@@ -19,11 +21,14 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('opens for marketing with its own leads, newest first, each with its phone, email and actions', function (): void {
-    $idle = makeLead($this->client, marketing: $this->marketing);
+it('opens for marketing with its own leads, newest first, each with its phone, email, tally, inquiries and actions', function (): void {
+    $idle = makeLead($this->client, $this->marketing);
     makeInquiry($this->client, attributes: ['reference' => 'INQ-P1', 'lead' => $idle]);
     $this->client->profile()->create(['phone' => '+63 917 000 0001', 'address' => 'Makati']);
-    $won = makeLead(inquiryClient(), LeadStatus::Won, $this->marketing);
+    $wonClient = inquiryClient();
+    $won = makeLead($wonClient, $this->marketing);
+    makeInquiry($wonClient, attributes: ['reference' => 'INQ-P2', 'lead' => $won, 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
+    makeInquiry($wonClient, attributes: ['reference' => 'INQ-P3', 'lead' => $won, 'marketing_status' => LeadStatus::Lost]);
     // Someone else's lead is not on this page.
     makeLead(inquiryClient());
 
@@ -34,15 +39,20 @@ it('opens for marketing with its own leads, newest first, each with its phone, e
         ->and($props['filters'])->toBe(['search' => '', 'page' => 1, 'perPage' => 10, 'status' => 'all'])
         ->and($rows->keys()->sort()->values()->all())->toBe(collect([$idle->reference, $won->reference])->sort()->values()->all())
         ->and($rows[$idle->reference])->toMatchArray([
+            'tally' => ['won' => 0, 'lost' => 0, 'idle' => 1],
             'client' => ['id' => $this->client->id, 'name' => $this->client->name],
             'contact' => '+63 917 000 0001',
             'email' => $this->client->email,
-            'actions' => ['view', 'edit', 'won', 'lost'],
+            'actions' => ['view', 'edit'],
             'canCreateInquiry' => true,
         ])
-        ->and($rows[$idle->reference]['inquiries'][0]['reference'])->toBe('INQ-P1')
-        // Won and Lost only while the lead is idle.
-        ->and($rows[$won->reference]['actions'])->toBe(['view', 'edit']);
+        ->and($rows[$idle->reference]['inquiries'][0])->toMatchArray(['reference' => 'INQ-P1', 'marketingStatus' => 'idle', 'canDecide' => true])
+        // Won and Lost only on an inquiry still waiting.
+        ->and($rows[$won->reference]['tally'])->toBe(['won' => 1, 'lost' => 1, 'idle' => 0])
+        ->and(collect($rows[$won->reference]['inquiries'])->map(fn (array $inquiry): array => array_intersect_key($inquiry, array_flip(['reference', 'marketingStatus', 'canDecide'])))->all())->toBe([
+            ['reference' => 'INQ-P2', 'marketingStatus' => 'won', 'canDecide' => false],
+            ['reference' => 'INQ-P3', 'marketingStatus' => 'lost', 'canDecide' => false],
+        ]);
 
     $searched = $this->actingAs($this->marketing)->get(route('leads.index', ['search' => $this->client->name, 'perPage' => 25]))->viewData('page')['props'];
 
@@ -51,7 +61,7 @@ it('opens for marketing with its own leads, newest first, each with its phone, e
 });
 
 it('lets the admin in, with every lead', function (): void {
-    makeLead($this->client, marketing: $this->marketing);
+    makeLead($this->client, $this->marketing);
     makeLead(inquiryClient());
 
     $this->actingAs(User::factory()->role(Role::Admin)->create())->get(route('leads.index'))
@@ -62,49 +72,54 @@ it('lets the admin in, with every lead', function (): void {
 describe('opening an inquiry for a lead', function (): void {
     beforeEach(function (): void {
         $this->sales = messagingStaff(Role::Sales, 'Sales');
-        $this->idle = makeLead($this->client, marketing: $this->marketing);
-        $this->won = makeLead(inquiryClient(), LeadStatus::Won, $this->marketing);
-        $this->lost = makeLead(inquiryClient(), LeadStatus::Lost, $this->marketing);
+        // Nothing decided yet; one inquiry won; one inquiry lost.
+        $this->idle = makeLead($this->client, $this->marketing);
+        $wonClient = inquiryClient();
+        $this->won = makeLead($wonClient, $this->marketing);
+        makeInquiry($wonClient, attributes: ['lead' => $this->won, 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
+        $lostClient = inquiryClient();
+        $this->lost = makeLead($lostClient, $this->marketing);
+        makeInquiry($lostClient, attributes: ['lead' => $this->lost, 'marketing_status' => LeadStatus::Lost]);
     });
 
-    it('offers sales only won leads, and marketing its own idle and won leads', function (): void {
+    it('offers sales only leads with a won inquiry, and marketing all its own leads', function (): void {
         $offered = fn (User $user) => collect($this->actingAs($user)->get(route('inquiry.inquire'))->viewData('page')['props']['leads'])->pluck('reference')->sort()->values()->all();
 
         expect($offered($this->sales))->toBe([$this->won->reference])
-            ->and($offered($this->marketing))->toBe(collect([$this->idle->reference, $this->won->reference])->sort()->values()->all())
+            ->and($offered($this->marketing))->toBe(collect([$this->idle->reference, $this->won->reference, $this->lost->reference])->sort()->values()->all())
             ->and($offered(messagingStaff(Role::Marketing, 'Other')))->toBe([]);
 
         // A client sends their own; they are never given leads.
         expect($this->actingAs($this->client)->get(route('quote.inquire'))->viewData('page')['props']['leads'])->toBeNull();
     });
 
-    it('lets sales open one only from a won lead, starting sales at negotiation', function (): void {
+    it('lets sales open one only from a lead with a won inquiry, deciding it won at once so sales starts at negotiation', function (): void {
         $this->actingAs($this->sales)->post(route('leads.inquiries.store', $this->idle->reference), ['projects' => [inquiryProjectInput()]])->assertForbidden();
         $this->actingAs($this->sales)->post(route('leads.inquiries.store', $this->lost->reference), ['projects' => [inquiryProjectInput()]])->assertForbidden();
 
-        $this->actingAs($this->sales)->post(route('leads.inquiries.store', $this->won->reference), ['projects' => [inquiryProjectInput()]])->assertRedirect();
+        $this->actingAs($this->sales)->post(route('leads.inquiries.store', $this->won->reference), ['projects' => [inquiryProjectInput(['name' => 'Sales-opened'])]])->assertRedirect();
 
-        $inquiry = Inquiry::query()->sole();
+        $inquiry = Inquiry::query()->where('name', 'Sales-opened')->sole();
 
         expect($inquiry->lead_id)->toBe($this->won->id)
             ->and($inquiry->client_id)->toBe($this->won->client_id)
+            ->and($inquiry->marketing_status)->toBe(LeadStatus::Won)
             ->and($inquiry->sales_status)->toBe(SalesStatus::Negotiation)
             ->and($inquiry->status)->toBe(InquiryStatus::Negotiation);
     });
 
-    it('lets marketing open one from its idle or won lead, and not from a lost one or someone else\'s', function (): void {
-        $this->actingAs($this->marketing)->post(route('leads.inquiries.store', $this->lost->reference), ['projects' => [inquiryProjectInput()]])->assertForbidden();
+    it('lets marketing open one from any of its own leads, waiting for its decision, and not from someone else\'s', function (): void {
         $this->actingAs($this->marketing)->post(route('leads.inquiries.store', makeLead(inquiryClient())->reference), ['projects' => [inquiryProjectInput()]])->assertForbidden();
 
-        $this->actingAs($this->marketing)->post(route('leads.inquiries.store', $this->idle->reference), ['projects' => [inquiryProjectInput()]])->assertRedirect();
-        $this->actingAs($this->marketing)->post(route('leads.inquiries.store', $this->won->reference), ['projects' => [inquiryProjectInput(['name' => 'Bath'])]])->assertRedirect();
+        $this->actingAs($this->marketing)->post(route('leads.inquiries.store', $this->idle->reference), ['projects' => [inquiryProjectInput(['name' => 'From idle'])]])->assertRedirect();
+        $this->actingAs($this->marketing)->post(route('leads.inquiries.store', $this->won->reference), ['projects' => [inquiryProjectInput(['name' => 'From won'])]])->assertRedirect();
+        $this->actingAs($this->marketing)->post(route('leads.inquiries.store', $this->lost->reference), ['projects' => [inquiryProjectInput(['name' => 'From lost'])]])->assertRedirect();
 
-        $byLead = Inquiry::query()->get()->keyBy('lead_id');
+        $opened = Inquiry::query()->whereIn('name', ['From idle', 'From won', 'From lost'])->get()->keyBy('name');
 
-        expect($byLead)->toHaveCount(2)
-            ->and($byLead[$this->idle->id]->sales_status)->toBeNull()
-            ->and($byLead[$this->idle->id]->client_id)->toBe($this->client->id)
-            ->and($byLead[$this->won->id]->sales_status)->toBe(SalesStatus::Negotiation);
+        expect($opened)->toHaveCount(3)
+            ->and($opened['From idle']->client_id)->toBe($this->client->id)
+            ->and($opened->every(fn (Inquiry $inquiry): bool => $inquiry->marketing_status === null && $inquiry->sales_status === null))->toBeTrue();
     });
 
     it('takes no attachments from staff: they are the client\'s to upload', function (): void {
@@ -112,12 +127,12 @@ describe('opening an inquiry for a lead', function (): void {
             ->post(route('leads.inquiries.store', $this->idle->reference), ['projects' => [inquiryProjectInput(['attachments' => [UploadedFile::fake()->create('plan.pdf', 5, 'application/pdf')]])]])
             ->assertSessionHasErrors('projects.0.attachments');
 
-        expect(Inquiry::query()->exists())->toBeFalse();
+        expect(Inquiry::query()->where('lead_id', $this->idle->id)->exists())->toBeFalse();
     });
 });
 
 it('lets the lead\'s marketing user correct the client\'s phone, and never their name or email', function (): void {
-    $lead = makeLead($this->client, marketing: $this->marketing);
+    $lead = makeLead($this->client, $this->marketing);
     ['name' => $name, 'email' => $email] = $this->client->only('name', 'email');
 
     $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['name' => 'Maria Santos', 'phone' => '+63 917 000 0002', 'email' => 'taken@example.com'])
@@ -136,7 +151,7 @@ it('lets the lead\'s marketing user correct the client\'s phone, and never their
 });
 
 it('opens no profile for a blank phone, and lets no one else edit the lead', function (): void {
-    $lead = makeLead($this->client, marketing: $this->marketing);
+    $lead = makeLead($this->client, $this->marketing);
 
     $this->actingAs($this->marketing)->post(route('leads.update', $lead->reference), ['phone' => '']);
 
@@ -149,10 +164,11 @@ it('opens no profile for a blank phone, and lets no one else edit the lead', fun
 });
 
 it('finds a lead by its client\'s name or email, or by one of its inquiry numbers, within the status filter', function (): void {
-    $idle = makeLead($this->client, marketing: $this->marketing);
+    $idle = makeLead($this->client, $this->marketing);
     makeInquiry($this->client, attributes: ['reference' => 'INQ-S77', 'lead' => $idle]);
     $other = inquiryClient();
-    $won = makeLead($other, LeadStatus::Won, $this->marketing);
+    $won = makeLead($other, $this->marketing);
+    makeInquiry($other, attributes: ['lead' => $won, 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
     $found = fn (array $query) => collect($this->actingAs($this->marketing)->get(route('leads.index', $query))->viewData('page')['props']['leads']['data'])->pluck('reference')->all();
 
     expect($found(['search' => $this->client->name]))->toBe([$idle->reference])
@@ -160,6 +176,8 @@ it('finds a lead by its client\'s name or email, or by one of its inquiry number
         ->and($found(['search' => 'inq-s77']))->toBe([$idle->reference])
         ->and($found(['search' => 'INQ-S77', 'status' => 'won']))->toBe([])
         ->and($found(['search' => $other->name, 'status' => 'won']))->toBe([$won->reference])
+        // The filter keeps leads with an inquiry at that decision.
+        ->and($found(['status' => 'idle']))->toBe([$idle->reference])
         // An unknown status is no filter.
         ->and($found(['search' => 'INQ-S77', 'status' => 'nope']))->toBe([$idle->reference]);
 });

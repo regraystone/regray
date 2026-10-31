@@ -3,20 +3,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     QUOTE_DEFAULT_FILTERS,
-    QUOTE_STATUS_TABS,
     buildQuoteQuery,
     tally,
 } from '../../resources/js/lib/quote-filters.ts';
-
-describe('QUOTE_STATUS_TABS', () => {
-    it('offers all, pending, in progress, closed and cancelled, in that order', () => {
-        assert.deepEqual(
-            QUOTE_STATUS_TABS.map((tab) => tab.value),
-            ['all', 'pending', 'in_progress', 'closed', 'cancelled'],
-        );
-        assert.equal(QUOTE_STATUS_TABS[2].label, 'In progress');
-    });
-});
 
 describe('buildQuoteQuery', () => {
     it('is empty for the default view, so /quote stays bare', () => {
@@ -37,13 +26,15 @@ describe('buildQuoteQuery', () => {
         );
     });
 
-    it('carries a status other than all', () => {
-        assert.deepEqual(
-            buildQuoteQuery({
-                ...QUOTE_DEFAULT_FILTERS,
-                status: 'in_progress',
-            }),
-            { status: 'in_progress' },
+    it('never carries a status, which the list no longer filters by', () => {
+        assert.equal('status' in QUOTE_DEFAULT_FILTERS, false);
+        assert.equal(
+            'status' in
+                buildQuoteQuery({
+                    ...QUOTE_DEFAULT_FILTERS,
+                    status: 'closed',
+                }),
+            false,
         );
     });
 
@@ -54,14 +45,13 @@ describe('buildQuoteQuery', () => {
         );
     });
 
-    it('carries all three together', () => {
+    it('carries a search and a sort together', () => {
         assert.deepEqual(
             buildQuoteQuery({
                 search: 'INQ-1',
-                status: 'closed',
                 sort: 'oldest',
             }),
-            { search: 'INQ-1', status: 'closed', sort: 'oldest' },
+            { search: 'INQ-1', sort: 'oldest' },
         );
     });
 

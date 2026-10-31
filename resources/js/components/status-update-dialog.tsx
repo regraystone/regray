@@ -28,7 +28,9 @@ export type StatusTarget = { value: string; label: string };
 
 const EXTRA_LABELS: Record<ExtraField, string> = {
     quotedTotal: 'Quoted total (PHP)',
+    contractTotal: 'Total contract amount (PHP)',
     amountReceived: 'Amount received (PHP)',
+    amountRefunded: 'Amount refunded (PHP)',
 };
 
 /**
@@ -42,8 +44,8 @@ const EXTRA_LABELS: Record<ExtraField, string> = {
  *
  * Confirm stays disabled until all of that is valid. The server checks the same
  * things again and has the last word; its errors are shown under the fields.
- * The files and fields go out as `files[{type}][]`, `quotedTotal` and
- * `amountReceived`.
+ * The files and fields go out as `files[{type}][]`, `quotedTotal`,
+ * `contractTotal`, `amountReceived` and `amountRefunded`.
  */
 const StatusUpdateDialog = ({
     open,

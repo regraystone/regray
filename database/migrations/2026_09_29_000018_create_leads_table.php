@@ -6,20 +6,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Marketing's record of one client. A lead is created when a marketing user is
- * given the client's Regray Team thread, and the client's inquiries point to it
- * (`inquiries.lead_id`).
+ * Marketing's record of one client, kept for good. A lead is created when a
+ * marketing user is given the client's Regray Team thread (or the client's
+ * inquiry arrives while someone holds it), and every inquiry of the client
+ * points to it (`inquiries.lead_id`).
  *
- * - `status`: idle until marketing has engaged the client (won) or dropped them
- *   (lost). Won and lost are final; a client who comes back after a lost lead
- *   gets a new lead.
- * - `marketing_user_id`: who holds it. Reassigning the client's thread moves an
- *   idle lead to the new holder.
- * - `idx_leads_client_open`: a client has at most one open (idle or won) lead,
- *   the one their new inquiries link to.
+ * - `client_id`: unique, so a client has one lead.
+ * - `marketing_user_id`: who holds it. It follows the client's thread: a claim
+ *   or a reassignment moves the lead to the new holder.
  *
- * Its status is never an inquiry status: the inquiry's display status reads it
- * (a lost lead shows its inquiries as cancelled), but it is not stored there.
+ * It has no status of its own. Marketing decides each inquiry won or lost
+ * (`inquiries.marketing_status`), and the lead shows the tally of them.
  */
 return new class extends Migration
 {
@@ -30,20 +27,13 @@ return new class extends Migration
         Schema::create('leads', function (Blueprint $table) {
             $table->id();
             $table->string('reference', 30)->unique();
-            $table->foreignId('client_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('client_id')->unique()->constrained('users')->restrictOnDelete();
             $table->foreignId('marketing_user_id')->constrained('users')->restrictOnDelete();
-            $table->string('status', 20)->default('idle');
-            $table->timestampTz('status_changed_at');
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
-            $table->index('status');
             $table->index('marketing_user_id');
-            $table->index('client_id');
         });
-
-        DB::statement("ALTER TABLE leads ADD CONSTRAINT chk_leads_status CHECK (status IN ('idle','won','lost'))");
-        DB::statement("CREATE UNIQUE INDEX idx_leads_client_open ON leads (client_id) WHERE status IN ('idle','won')");
     }
 
     public function down(): void

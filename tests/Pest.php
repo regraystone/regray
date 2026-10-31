@@ -18,6 +18,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\ProjectCategory;
 use App\Models\Service;
+use App\Models\ServiceOption;
 use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
@@ -97,6 +98,45 @@ function inquiryClient(Role $role = Role::Client): User
 }
 
 /**
+ * The first kind of work of each service, by service slug: what a reader who
+ * took the dropdown's first entry for every service would send.
+ *
+ * @param  list<string>  $serviceSlugs
+ * @return array<string, string>
+ */
+function firstServiceOptions(array $serviceSlugs): array
+{
+    $options = [];
+
+    foreach ($serviceSlugs as $slug) {
+        $options[$slug] = ServiceOption::query()
+            ->whereHas('service', fn ($service) => $service->where('slug', $slug))
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->value('slug');
+    }
+
+    return $options;
+}
+
+/**
+ * The project with a kind of work picked for each of its services, unless the
+ * test set `serviceOptions` itself.
+ *
+ * @param  array<string, mixed>  $project
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function withServiceOptions(array $project, array $overrides): array
+{
+    if (array_key_exists('serviceOptions', $overrides)) {
+        return $project;
+    }
+
+    return [...$project, 'serviceOptions' => firstServiceOptions($project['serviceIds'] ?? [])];
+}
+
+/**
  * One valid project in the shape the Inquire page posts, with `$overrides`
  * laid over it. A regular service, so it carries a stone and an application.
  *
@@ -105,7 +145,7 @@ function inquiryClient(Role $role = Role::Client): User
  */
 function inquiryProjectInput(array $overrides = []): array
 {
-    return [
+    return withServiceOptions([
         'name' => 'Kitchen counters',
         'serviceIds' => ['natural-stone-supply'],
         'applicationIds' => [ProjectCategory::query()->orderBy('id')->value('slug')],
@@ -122,7 +162,7 @@ function inquiryProjectInput(array $overrides = []): array
         'neededByTime' => '',
         'notes' => 'Ground floor.',
         ...$overrides,
-    ];
+    ], $overrides);
 }
 
 /**
@@ -133,7 +173,7 @@ function inquiryProjectInput(array $overrides = []): array
  */
 function inquiryVisitInput(array $overrides = []): array
 {
-    return [
+    return withServiceOptions([
         'name' => 'Stone Relocation, Dismantling & Reinstallation',
         'serviceIds' => ['stone-relocation-dismantling-reinstallation'],
         'location' => 'Taguig',
@@ -143,14 +183,15 @@ function inquiryVisitInput(array $overrides = []): array
         'neededByTime' => '12:00',
         'notes' => '',
         ...$overrides,
-    ];
+    ], $overrides);
 }
 
 /**
  * Role statuses that show `$status`, for an inquiry or a card snapshot, NULL
  * for a stage that has not started: sales starts when the lead is won, payment
- * and process when the client approves. Where the job order has to be in for
- * it (a logistics stage, closed), `job_order` is true. On hold is sales' on
+ * when the client approves, and logistics with the first payment. Won comes
+ * with the job order (`job_order` true), billed and waiting for that payment;
+ * a logistics stage and closed have the job order too. On hold is sales' on
  * hold, before the client approved; cancelled is sales rejected.
  *
  * @return array{sales_status: ?SalesStatus, payment_status: ?PaymentStatus, process_status: ?ProcessStatus, job_order: bool}
@@ -163,7 +204,9 @@ function roleStatusesShowing(InquiryStatus $status): array
         InquiryStatus::Closed => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::Completed, true],
         InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [SalesStatus::from($status->value), null, null, false],
         InquiryStatus::Quoted, InquiryStatus::Revision => [SalesStatus::from($status->value), null, null, false],
-        InquiryStatus::Won => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::OrderReceived, false],
+        InquiryStatus::Won => [SalesStatus::Won, PaymentStatus::Awaiting, null, true],
+        // The client asked for their money back after a deposit.
+        InquiryStatus::ForRefund => [SalesStatus::ForRefund, PaymentStatus::Partial, ProcessStatus::OrderReceived, true],
         default => [SalesStatus::Won, PaymentStatus::Awaiting, ProcessStatus::from($status->value), true],
     };
 
@@ -172,21 +215,17 @@ function roleStatusesShowing(InquiryStatus $status): array
 
 /**
  * A lead for `$client`, held by `$marketing` (a new marketing user when not
- * given), with its first history row.
+ * given), with the first row of its log. A lead has no status of its own:
+ * marketing's decisions are its inquiries' (`marketing_status`).
  */
-function makeLead(User $client, LeadStatus $status = LeadStatus::Idle, ?User $marketing = null): Lead
+function makeLead(User $client, ?User $marketing = null): Lead
 {
     $lead = Lead::factory()->create([
         'client_id' => $client->id,
         'marketing_user_id' => ($marketing ?? User::factory()->role(Role::Marketing)->create())->id,
-        'status' => $status,
     ]);
 
     $lead->history()->create(['to_status' => LeadStatus::Idle, 'changed_at' => now()]);
-
-    if ($status !== LeadStatus::Idle) {
-        $lead->history()->create(['from_status' => LeadStatus::Idle, 'to_status' => $status, 'changed_at' => now()]);
-    }
 
     return $lead;
 }
@@ -198,13 +237,14 @@ function makeLead(User $client, LeadStatus $status = LeadStatus::Idle, ?User $ma
  * order given.
  *
  * `$attributes` may set `reference` and `created_at`, `lead` (the lead it is
- * linked to), `status` (a display status, reached through
- * roleStatusesShowing()), any of the three role statuses, and `job_order`
- * (whether sales has uploaded the job order file). Without them it has no lead
- * and no role status has started.
+ * linked to), `marketing_status` (marketing's decision; on a lead it defaults
+ * to won once sales has started, as only a win starts it), `status` (a
+ * display status, reached through roleStatusesShowing()), any of the three
+ * role statuses, and `job_order` (whether sales has uploaded the job order
+ * file). Without them it has no lead and no role status has started.
  *
  * @param  array{name?: string, stones?: list<string>, services?: list<string>}  $project
- * @param  array{reference?: string, created_at?: mixed, lead?: Lead, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, job_order?: bool}  $attributes
+ * @param  array{reference?: string, created_at?: mixed, lead?: Lead, marketing_status?: LeadStatus|null, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, completed_at?: mixed, job_order?: bool}  $attributes
  */
 function makeInquiry(User $client, array $project = [], array $attributes = []): Inquiry
 {
@@ -221,6 +261,10 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
         'reference' => $attributes['reference'] ?? sprintf('INQ-T%04d', $sequence),
         'client_id' => $client->id,
         'lead_id' => $attributes['lead']->id ?? null,
+        'marketing_status' => $marketing = array_key_exists('marketing_status', $attributes)
+            ? $attributes['marketing_status']
+            : (isset($attributes['lead'], $statuses['sales_status']) ? LeadStatus::Won : null),
+        'marketing_status_changed_at' => $marketing === null ? null : now(),
         'name' => $project['name'] ?? 'Project '.$sequence,
         'location' => 'Makati',
         'sales_status' => $statuses['sales_status'] ?? null,
@@ -229,6 +273,7 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
         'payment_status_changed_at' => isset($statuses['payment_status']) ? now() : null,
         'process_status' => $statuses['process_status'] ?? null,
         'process_status_changed_at' => isset($statuses['process_status']) ? now() : null,
+        'completed_at' => $attributes['completed_at'] ?? (($statuses['process_status'] ?? null) === ProcessStatus::Completed ? now() : null),
         ...(isset($attributes['created_at']) ? ['created_at' => $attributes['created_at']] : []),
     ])->save();
 
@@ -308,6 +353,8 @@ dataset('inquiry button table', [
     'production' => ['production', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
     'closed' => ['closed', ['view' => [true], 'update' => null, 'cancel' => null, 'invoice' => [true]]],
     'cancelled' => ['cancelled', ['view' => [true], 'update' => [false, 'This inquiry was cancelled.'], 'cancel' => null, 'invoice' => null]],
+    // Approved before the refund was asked for: locked like any approved inquiry.
+    'for_refund' => ['for_refund', ['view' => [true], 'update' => [false, 'Locked once you approved the quotation. Message the team to request changes.'], 'cancel' => [false, 'You approved the quotation, so only the team can cancel now. Message the team.'], 'invoice' => [true]]],
 ]);
 
 /**

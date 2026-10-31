@@ -22,10 +22,11 @@ describe('inquiry card', () => {
         assert.equal(inquiryHeadline('pending'), 'New Inquiry');
     });
 
+    // Plus refunded, which cards posted before a full refund cancelled the inquiry announce.
     it('has a headline for every display status and nothing else', () => {
         assert.deepEqual(
             Object.keys(INQUIRY_HEADLINES).sort(),
-            Object.keys(INQUIRY_STATUS_LABELS).sort(),
+            [...Object.keys(INQUIRY_STATUS_LABELS), 'refunded'].sort(),
         );
     });
 });

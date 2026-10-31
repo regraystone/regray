@@ -9,10 +9,13 @@ use App\Models\AuditLog;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
+use App\Models\ServiceOption;
 use App\Models\Stone;
+use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Eloquent\EloquentInquiryRepository;
+use App\Services\InquiryStatusRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -75,6 +78,7 @@ describe('the edit page', function (): void {
                 ->where('projects.0.id', $inquiry->id)
                 ->where('projects.0.name', 'Kitchen')
                 ->where('projects.0.serviceSlugs', ['natural-stone-supply'])
+                ->where('projects.0.serviceOptionSlugs', ['natural-stone-supply' => 'supply-only'])
                 ->where('projects.0.stones.0.stoneId', Stone::query()->active()->orderBy('id')->value('slug'))
                 ->where('projects.0.deadlineLocked', false)
                 ->where('projects.0.attachments.0.id', $inquiry->files->sole()->id)
@@ -152,6 +156,21 @@ describe('saving the edit', function (): void {
             ->and($audit->user_id)->toBe($this->client->id)
             ->and($audit->old_values['name'])->toBe('Kitchen')
             ->and($audit->new_values['name'])->toBe('Kitchen and island');
+    });
+
+    it('changes the kind of work picked under a service and records it in the audit row', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+                'serviceOptions' => ['natural-stone-supply' => 'supply-installation'],
+            ])]])
+            ->assertSessionHasNoErrors();
+
+        $installation = ServiceOption::query()->where('slug', 'supply-installation')->value('id');
+
+        expect($inquiry->serviceOptions()->pluck('slug')->all())->toBe(['supply-installation'])
+            ->and(AuditLog::query()->sole()->new_values['service_option_ids'])->toContain($installation);
     });
 
     it('refuses to move a visit that is already confirmed, but saves the rest when it stays put', function (): void {
@@ -248,6 +267,43 @@ describe('saving the edit', function (): void {
             ->assertSessionHasErrors(['status' => InquiryActions::UPDATE_LOCKED_WHEN_QUOTED]);
 
         expect($inquiry->fresh()->name)->toBe('Kitchen');
+    });
+});
+
+describe('staff editing', function (): void {
+    it('lets marketing and sales edit an inquiry the client has not approved yet', function (Role $role): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        showInquiryAs($inquiry, InquiryStatus::Quoted);
+        $staff = User::factory()->role($role)->create();
+
+        $this->actingAs($staff)->get(route('inquiry.edit', $inquiry->reference))->assertOk();
+        $this->actingAs($staff)
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed'])]])
+            ->assertSessionHasNoErrors();
+
+        expect($inquiry->fresh()->name)->toBe('Changed');
+    })->with([Role::Marketing, Role::Sales]);
+
+    it('locks the project for staff once the client approves the quotation, but not for the admin', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        showInquiryAs($inquiry, InquiryStatus::Won);
+        $sales = User::factory()->role(Role::Sales)->create();
+        $admin = User::factory()->role(Role::Admin)->create();
+
+        $this->actingAs($sales)->get(route('inquiry.edit', $inquiry->reference))
+            ->assertRedirect(route('inquiry.index'));
+        $this->actingAs($sales)
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed'])]])
+            ->assertSessionHasErrors(['status' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
+
+        expect($inquiry->fresh()->name)->toBe('Kitchen');
+
+        $this->actingAs($admin)->get(route('inquiry.edit', $inquiry->reference))->assertOk();
+        $this->actingAs($admin)
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Admin fix'])]])
+            ->assertSessionHasNoErrors();
+
+        expect($inquiry->fresh()->name)->toBe('Admin fix');
     });
 });
 

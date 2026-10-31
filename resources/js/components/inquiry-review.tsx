@@ -174,7 +174,17 @@ const ReviewProjectCard = ({
     const services = project.serviceIds.flatMap((id) => {
         const service = catalog.services.find((entry) => entry.id === id);
 
-        return service === undefined ? [] : [service];
+        return service === undefined
+            ? []
+            : [
+                  {
+                      ...service,
+                      // The kind of work picked under it, by name.
+                      kind: service.options.find(
+                          (option) => option.id === project.serviceOptions[id],
+                      )?.name,
+                  },
+              ];
     });
 
     const plural = (count: number, one: string, many: string): string =>
@@ -330,24 +340,31 @@ const ReviewProjectCard = ({
 
                                 {services.length > 0 ? (
                                     <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                                        {services.map(({ id, name, image }) => (
-                                            <li
-                                                key={id}
-                                                className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
-                                            >
-                                                <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                                    {name}
-                                                </p>
-                                                {image ? (
-                                                    <img
-                                                        src={image}
-                                                        alt=""
-                                                        loading="lazy"
-                                                        className="size-12 shrink-0 rounded-md object-cover"
-                                                    />
-                                                ) : null}
-                                            </li>
-                                        ))}
+                                        {services.map(
+                                            ({ id, name, image, kind }) => (
+                                                <li
+                                                    key={id}
+                                                    className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                                                >
+                                                    <p className="min-w-0 flex-1 text-sm font-bold break-words">
+                                                        {name}
+                                                        {kind ? (
+                                                            <span className="mt-0.5 block font-normal text-secondary-foreground">
+                                                                {kind}
+                                                            </span>
+                                                        ) : null}
+                                                    </p>
+                                                    {image ? (
+                                                        <img
+                                                            src={image}
+                                                            alt=""
+                                                            loading="lazy"
+                                                            className="size-12 shrink-0 rounded-md object-cover"
+                                                        />
+                                                    ) : null}
+                                                </li>
+                                            ),
+                                        )}
                                     </ul>
                                 ) : (
                                     <p className="mt-2 text-sm text-secondary-foreground">

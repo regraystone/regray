@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 
 class EloquentConversationRepository implements ConversationRepositoryInterface
 {
@@ -33,6 +34,13 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
         ." AND um.type <> 'system'"
         .' AND (um.sender_id IS NULL OR um.sender_id <> ?)'
         .' AND um.id > COALESCE((SELECT ucm.last_read_message_id FROM conversation_members ucm WHERE ucm.conversation_id = conversations.id AND ucm.user_id = ?), 0)';
+
+    public function unreadTotalFor(User $user, bool $includeSupportPool, bool $includeAllSupport): int
+    {
+        return (int) DB::query()
+            ->fromSub($this->listQuery($user, $includeSupportPool, $includeAllSupport)->toBase(), 'listed')
+            ->sum('unread_count');
+    }
 
     public function paginateForUser(
         User $user,

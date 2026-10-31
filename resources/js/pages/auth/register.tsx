@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
+import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
 import {
     registerDefaults,
     registerFields,
@@ -78,7 +79,7 @@ export default function Register() {
                  */
                 inert={isSubmitting}
                 onSubmit={handleSubmit(onValid)}
-                className="space-y-5"
+                className="space-y-5 max-md:space-y-(--auth-field-gap)"
             >
                 <Field
                     id="name"
@@ -103,27 +104,30 @@ export default function Register() {
                     {...registerField('email')}
                 />
 
-                <PasswordField
-                    id="password"
-                    type="password"
-                    label="Password"
-                    placeholder="Password"
-                    autoComplete="new-password"
-                    tabIndex={3}
-                    error={errors.password?.message}
-                    {...registerField('password')}
-                />
+                {/* Side by side from md up, stacked below. */}
+                <div className="space-y-5 max-md:space-y-(--auth-field-gap) md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+                    <PasswordField
+                        id="password"
+                        type="password"
+                        label="Password"
+                        placeholder="Password"
+                        autoComplete="new-password"
+                        tabIndex={3}
+                        error={errors.password?.message}
+                        {...registerField('password')}
+                    />
 
-                <PasswordField
-                    id="password_confirmation"
-                    type="password"
-                    label="Confirm Password"
-                    placeholder="Confirm password"
-                    autoComplete="new-password"
-                    tabIndex={4}
-                    error={errors.password_confirmation?.message}
-                    {...registerField('password_confirmation')}
-                />
+                    <PasswordField
+                        id="password_confirmation"
+                        type="password"
+                        label="Confirm Password"
+                        placeholder="Confirm password"
+                        autoComplete="new-password"
+                        tabIndex={4}
+                        error={errors.password_confirmation?.message}
+                        {...registerField('password_confirmation')}
+                    />
+                </div>
 
                 {formError.length > 0 ? (
                     <p
@@ -136,7 +140,7 @@ export default function Register() {
 
                 <Button
                     type="submit"
-                    className="mt-6 w-full"
+                    className="mt-1 w-full max-md:mt-(--auth-block-gap)"
                     tabIndex={5}
                     disabled={isSubmitting}
                     data-test="register-user-button"
@@ -146,7 +150,7 @@ export default function Register() {
                 </Button>
             </form>
 
-            <p className="mt-8 text-center text-sm">
+            <p className="mt-8 text-center text-sm max-md:mt-(--auth-block-gap)">
                 Already have an account?{' '}
                 <Link
                     href={login()}
@@ -160,6 +164,9 @@ export default function Register() {
     );
 }
 
-Register.layout = {
-    title: 'Sign Up',
-};
+Register.layout = [
+    AuthSheetLayout,
+    {
+        title: 'Sign Up',
+    },
+];

@@ -34,6 +34,12 @@ interface ConversationRepositoryInterface
     ): LengthAwarePaginator;
 
     /**
+     * The unread messages across every conversation the user's list holds:
+     * the sum of the rows' `unread_count`, over the same conversations.
+     */
+    public function unreadTotalFor(User $user, bool $includeSupportPool, bool $includeAllSupport): int;
+
+    /**
      * The same row a page would hold, for one conversation.
      */
     public function findSummaryForUser(User $user, int $conversationId): ?Conversation;

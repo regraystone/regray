@@ -41,7 +41,8 @@ use Illuminate\Support\Facades\DB;
 function expectedDisplayStatus(Inquiry $inquiry): InquiryStatus
 {
     return match (true) {
-        $inquiry->lead?->status === LeadStatus::Lost, $inquiry->sales_status === SalesStatus::Rejected => InquiryStatus::Cancelled,
+        $inquiry->marketing_status === LeadStatus::Lost, $inquiry->sales_status === SalesStatus::Rejected, $inquiry->payment_status === PaymentStatus::Refunded => InquiryStatus::Cancelled,
+        $inquiry->sales_status === SalesStatus::ForRefund => InquiryStatus::ForRefund,
         $inquiry->process_status === ProcessStatus::Completed => InquiryStatus::Closed,
         $inquiry->process_status !== null && $inquiry->files->contains('document_type', DocumentType::JobOrder) => InquiryStatus::from($inquiry->process_status->value),
         $inquiry->sales_status !== null => InquiryStatus::from($inquiry->sales_status->value),
@@ -56,9 +57,8 @@ function movedAt(Inquiry $inquiry, InquiryStatusTrack $track, string $status): ?
 }
 
 /**
- * When sales had to start: when the lead was won, or when the inquiry was sent
- * on a lead already won, or with the inquiry for a direct (walk-in) client.
- * Null while the lead is not won.
+ * When sales had to start: when marketing won the inquiry, or with the inquiry
+ * for a direct (walk-in) client. Null while marketing has not won it.
  */
 function salesStartedAt(Inquiry $inquiry): ?CarbonInterface
 {
@@ -66,11 +66,7 @@ function salesStartedAt(Inquiry $inquiry): ?CarbonInterface
         return $inquiry->created_at;
     }
 
-    if ($inquiry->lead?->status !== LeadStatus::Won) {
-        return null;
-    }
-
-    return $inquiry->lead->status_changed_at->max($inquiry->created_at);
+    return $inquiry->marketing_status === LeadStatus::Won ? $inquiry->marketing_status_changed_at : null;
 }
 
 function centavos(string $amount): int
@@ -101,18 +97,17 @@ describe('the seeded inquiries', function (): void {
         $shown = $this->inquiries->map(fn (Inquiry $inquiry): string => $inquiry->status->value);
         $has = fn (callable $test): bool => $this->inquiries->contains($test);
 
-        // Won carries the job order, so logistics starts with it and a won
-        // inquiry shows its logistics status: won itself is only ever shown
-        // by one from before the job order was required.
-        expect($shown->unique()->sort()->values()->all())->toEqualCanonicalizing(array_values(array_diff(InquiryStatus::values(), [InquiryStatus::Won->value])))
-            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->lead?->status === LeadStatus::Idle && $inquiry->sales_status === null && $inquiry->payment_status === null && $inquiry->process_status === null && $inquiry->status === InquiryStatus::Pending))->toBeTrue()
+        // Won carries the job order and shows until the first payment starts logistics.
+        expect($shown->unique()->sort()->values()->all())->toEqualCanonicalizing(InquiryStatus::values())
+            // Waiting on its lead for marketing's decision.
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->lead !== null && $inquiry->marketing_status === null && $inquiry->sales_status === null && $inquiry->payment_status === null && $inquiry->process_status === null && $inquiry->status === InquiryStatus::Pending))->toBeTrue()
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Negotiation && $inquiry->payment_status === null && $inquiry->process_status === null))->toBeTrue()
-            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->lead?->status === LeadStatus::Lost && $inquiry->sales_status === null && $inquiry->status === InquiryStatus::Cancelled))->toBeTrue()
-            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Negotiation && $inquiry->lead?->status === LeadStatus::Won))->toBeTrue()
-            // Sent on a lead that was already won, so sales started with it.
-            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->lead?->status === LeadStatus::Won && $inquiry->lead->status_changed_at->lessThan($inquiry->created_at)))->toBeTrue()
-            // Sent before its lead was won, and started when it was.
-            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->lead?->status === LeadStatus::Won && $inquiry->lead->status_changed_at->greaterThan($inquiry->created_at)))->toBeTrue()
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->marketing_status === LeadStatus::Lost && $inquiry->sales_status === null && $inquiry->status === InquiryStatus::Cancelled))->toBeTrue()
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Negotiation && $inquiry->marketing_status === LeadStatus::Won))->toBeTrue()
+            // Sent once the client was won, so marketing won it as it arrived.
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->marketing_status === LeadStatus::Won && $inquiry->marketing_status_changed_at->equalTo($inquiry->created_at)))->toBeTrue()
+            // Sent first, and won by marketing later.
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->marketing_status === LeadStatus::Won && $inquiry->marketing_status_changed_at->greaterThan($inquiry->created_at)))->toBeTrue()
             // Quoted more than once: a new revision each time.
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->quote_revision >= 2))->toBeTrue()
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::OnHold && $inquiry->sales_status === SalesStatus::OnHold))->toBeTrue()
@@ -120,30 +115,44 @@ describe('the seeded inquiries', function (): void {
             // A quotation sent and waiting on the client, first or revised.
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Quoted && $inquiry->payment_status === null && $inquiry->process_status === null))->toBeTrue()
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Revision && $inquiry->quote_revision >= 2))->toBeTrue()
-            // Won, with logistics at received and payment not started yet.
-            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->sales_status === SalesStatus::Won && $inquiry->payment_status === null && $inquiry->process_status === ProcessStatus::OrderReceived))->toBeTrue()
-            // Every win carries its job order, and starts logistics with it.
-            ->and($this->inquiries->every(fn (Inquiry $inquiry): bool => $inquiry->sales_status !== SalesStatus::Won || $inquiry->process_status !== null))->toBeTrue()
+            // Won and billed, with logistics waiting for the first payment.
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Won && $inquiry->payment_status === PaymentStatus::Awaiting && $inquiry->process_status === null))->toBeTrue()
+            // Received by logistics at its first payment, and not moved on yet.
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::OrderReceived && $inquiry->payment_status === PaymentStatus::Partial))->toBeTrue()
+            // Logistics only ever starts on an inquiry with its job order and a payment in
+            // (which may have been refunded since).
+            ->and($this->inquiries->every(fn (Inquiry $inquiry): bool => $inquiry->process_status === null || ($inquiry->hasJobOrder() && $inquiry->paymentTransactions->where('kind', 'payment')->isNotEmpty())))->toBeTrue()
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->sales_status === SalesStatus::Rejected && $inquiry->status === InquiryStatus::Cancelled))->toBeTrue()
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Closed && $inquiry->payment_status === PaymentStatus::FullyPaid))->toBeTrue();
 
-        // Refunded waits on a refund flow that is still to be designed.
-        foreach (array_filter(PaymentStatus::cases(), fn (PaymentStatus $payment): bool => $payment !== PaymentStatus::Refunded) as $payment) {
+        foreach (PaymentStatus::cases() as $payment) {
             expect($has(fn (Inquiry $inquiry): bool => $inquiry->payment_status === $payment))->toBeTrue($payment->value);
         }
+
+        // A refund requested on an inquiry not refunded at all yet, and one
+        // refunded in full, which rejected sales and so cancelled it.
+        expect($has(fn (Inquiry $inquiry): bool => $inquiry->sales_status === SalesStatus::ForRefund && $inquiry->paymentTransactions->where('kind', 'refund')->isEmpty()))->toBeTrue()
+            ->and($this->inquiries->every(fn (Inquiry $inquiry): bool => $inquiry->payment_status !== PaymentStatus::Refunded || ($inquiry->sales_status === SalesStatus::Rejected && $inquiry->status === InquiryStatus::Cancelled)))->toBeTrue();
     });
 
-    it('carry payments that add up to the payment status and never pass the quoted total', function (): void {
+    it('carry payments and refunds that add up to the payment status and never pass the quoted total', function (): void {
         foreach ($this->inquiries as $inquiry) {
-            $paid = $inquiry->paymentTransactions->where('kind', 'payment')->sum(fn (PaymentTransaction $transaction): int => centavos($transaction->amount));
+            $sum = fn (string $kind): int => $inquiry->paymentTransactions->where('kind', $kind)->sum(fn (PaymentTransaction $transaction): int => centavos($transaction->amount));
+            $paid = $sum('payment');
+            $refunded = $sum('refund');
             $total = $inquiry->quoted_total === null ? 0 : centavos($inquiry->quoted_total);
 
-            expect($paid)->toBeLessThanOrEqual($total, $inquiry->reference);
+            expect($paid)->toBeLessThanOrEqual($total, $inquiry->reference)
+                ->and($refunded)->toBeLessThanOrEqual($paid, $inquiry->reference)
+                // Only an inquiry for refund gives money back (rejected, once it is all back).
+                ->and($refunded === 0 || $inquiry->sales_status === SalesStatus::ForRefund || $inquiry->payment_status === PaymentStatus::Refunded)->toBeTrue($inquiry->reference);
 
             match ($inquiry->payment_status) {
                 null, PaymentStatus::Awaiting => expect($paid)->toBe(0, $inquiry->reference),
                 PaymentStatus::Partial => expect($paid)->toBeGreaterThan(0)->toBeLessThan($total),
                 PaymentStatus::FullyPaid => expect($paid)->toBe($total, $inquiry->reference),
+                PaymentStatus::PartiallyRefunded => expect($refunded)->toBeGreaterThan(0)->toBeLessThan($paid),
+                PaymentStatus::Refunded => expect($refunded)->toBe($paid, $inquiry->reference),
             };
         }
     });
@@ -180,8 +189,10 @@ describe('the seeded inquiries', function (): void {
             $starts = [
                 InquiryStatusTrack::Sales->value => [SalesStatus::Negotiation->value, salesStartedAt($inquiry)],
                 InquiryStatusTrack::Payment->value => [PaymentStatus::Awaiting->value, movedAt($inquiry, InquiryStatusTrack::Payment, PaymentStatus::Awaiting->value)],
-                // Logistics starts with the job order, with the quote or later.
-                InquiryStatusTrack::Process->value => [ProcessStatus::OrderReceived->value, $inquiry->files->firstWhere('document_type', DocumentType::JobOrder)?->created_at],
+                // Logistics starts with the first payment, the job order being in.
+                InquiryStatusTrack::Process->value => [ProcessStatus::OrderReceived->value, $inquiry->statusHistory
+                    ->first(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Payment && in_array($row->to_status, [PaymentStatus::Partial->value, PaymentStatus::FullyPaid->value], true))
+                    ?->changed_at],
             ];
 
             foreach (InquiryStatusTrack::cases() as $track) {
@@ -221,28 +232,34 @@ describe('the seeded inquiries', function (): void {
             $files = fn (DocumentType $type) => $inquiry->files->filter(fn (InquiryFile $file): bool => $file->document_type === $type)->values();
             $groupOf = fn (DocumentType $type) => $files($type)->map(fn (InquiryFile $file): string => $updates[$file->status_history_id]->track->value.':'.$updates[$file->status_history_id]->to_status)->all();
             $quotes = $inquiry->statusHistory->filter(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Sales && in_array($row->to_status, [SalesStatus::Quoted->value, SalesStatus::Revision->value], true));
-            $payments = $inquiry->statusHistory->filter(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Payment && $row->to_status !== PaymentStatus::Awaiting->value);
+            $payments = $inquiry->statusHistory->filter(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Payment && in_array($row->to_status, [PaymentStatus::Partial->value, PaymentStatus::FullyPaid->value], true));
+            $refunds = $inquiry->statusHistory->filter(fn (InquiryStatusHistory $row): bool => $row->track === InquiryStatusTrack::Payment && in_array($row->to_status, [PaymentStatus::PartiallyRefunded->value, PaymentStatus::Refunded->value], true));
+            // Asked for a refund at some point: for refund now, or rejected by the full refund.
+            $askedForRefund = $inquiry->sales_status === SalesStatus::ForRefund || $inquiry->payment_status === PaymentStatus::Refunded;
 
             // Each quote, first or revised, is a new revision with its quotation.
             expect($quotes->count())->toBe($inquiry->quote_revision ?? 0, $label)
                 ->and($files(DocumentType::Quotation)->pluck('revision')->all())->toBe($inquiry->quote_revision === null ? [] : range(1, $inquiry->quote_revision), $label)
                 ->and($groupOf(DocumentType::Quotation))->toBe($quotes->map(fn (InquiryStatusHistory $row): string => 'sales:'.$row->to_status)->values()->all(), $label)
-                // The job order, once, with the win or on its own; logistics starts with it.
-                ->and($files(DocumentType::JobOrder)->count())->toBe($inquiry->process_status === null ? 0 : 1, $label)
+                // The job order, once, with the win or on its own.
+                ->and($files(DocumentType::JobOrder)->count())->toBe($inquiry->sales_status === SalesStatus::Won || $askedForRefund ? 1 : 0, $label)
+                // The refund request with for refund; a settled file with each refund.
+                ->and($groupOf(DocumentType::RefundRequest))->toBe($askedForRefund ? ['sales:for_refund'] : [], $label)
+                ->and($groupOf(DocumentType::RefundSettlement))->toBe($refunds->map(fn (InquiryStatusHistory $row): string => 'payment:'.$row->to_status)->values()->all(), $label)
                 ->and(array_diff($groupOf(DocumentType::JobOrder), ['sales:won', 'process:order_received']))->toBe([], $label)
                 // Payment starts with one billing statement; each payment has a receipt and an invoice.
                 ->and($groupOf(DocumentType::BillingStatement))->toBe($inquiry->payment_status === null ? [] : ['payment:awaiting'], $label)
                 ->and($files(DocumentType::Receipt)->count())->toBe($payments->count(), $label)
                 ->and($files(DocumentType::Invoice)->count())->toBe($payments->count(), $label)
-                ->and($inquiry->paymentTransactions->count())->toBe($payments->count(), $label);
+                ->and($inquiry->paymentTransactions->count())->toBe($payments->count() + $refunds->count(), $label);
 
             foreach ($inquiry->files as $file) {
                 $uploader = $file->uploadedBy;
 
                 match ($file->document_type) {
                     DocumentType::ClientAttachment => expect($uploader->id)->toBe($inquiry->client_id)->and($file->status_history_id)->toBeNull(),
-                    DocumentType::Quotation, DocumentType::JobOrder => expect($uploader->hasRole(Role::Sales->value))->toBeTrue($label),
-                    DocumentType::BillingStatement, DocumentType::Receipt, DocumentType::Invoice => expect($uploader->hasRole(Role::Accounting->value))->toBeTrue($label),
+                    DocumentType::Quotation, DocumentType::JobOrder, DocumentType::RefundRequest => expect($uploader->hasRole(Role::Sales->value))->toBeTrue($label),
+                    DocumentType::BillingStatement, DocumentType::Receipt, DocumentType::Invoice, DocumentType::RefundSettlement => expect($uploader->hasRole(Role::Accounting->value))->toBeTrue($label),
                 };
 
                 if ($file->document_type !== DocumentType::ClientAttachment) {
@@ -319,27 +336,33 @@ describe('the seeded leads and group chats', function (): void {
         $this->seed(DatabaseSeeder::class);
     });
 
-    it('give each client one open lead at a time, held by whoever holds their Regray Team thread, with its history', function (): void {
+    it('give each client one lead, held by whoever holds their Regray Team thread, logging each inquiry\'s decision', function (): void {
         $leads = Lead::query()->with(['history', 'inquiries'])->orderBy('id')->get();
 
-        expect($leads->pluck('status')->unique()->sort()->values()->all())->toEqualCanonicalizing(LeadStatus::cases());
-
-        foreach ($leads->groupBy('client_id') as $clientLeads) {
-            expect($clientLeads->filter(fn (Lead $lead): bool => $lead->status->isOpen())->count())->toBeLessThanOrEqual(1);
-        }
+        expect($leads->pluck('client_id')->duplicates()->all())->toBe([])
+            // Between them, the demo leads show every decision, and waiting.
+            ->and($leads->contains(fn (Lead $lead): bool => $lead->tally()['won'] > 0))->toBeTrue()
+            ->and($leads->contains(fn (Lead $lead): bool => $lead->tally()['lost'] > 0))->toBeTrue()
+            ->and($leads->contains(fn (Lead $lead): bool => $lead->tally()['idle'] > 0))->toBeTrue();
 
         foreach ($leads as $lead) {
             $thread = Conversation::query()->where('type', ConversationType::Support)->where('support_client_id', $lead->client_id)->sole();
             $history = $lead->history;
+            $decided = $lead->inquiries->whereNotNull('marketing_status');
 
             expect($lead->marketingUser()->sole()->hasRole(Role::Marketing->value))->toBeTrue($lead->reference)
                 ->and($thread->assigned_to)->toBe($lead->marketing_user_id, $lead->reference)
-                ->and($history->first()->from_status)->toBeNull()
-                ->and($history->first()->to_status)->toBe(LeadStatus::Idle)
-                ->and($history->last()->to_status)->toBe($lead->status)
-                ->and($history->last()->changed_at->equalTo($lead->status_changed_at))->toBeTrue($lead->reference)
-                ->and($history->count())->toBe($lead->status === LeadStatus::Idle ? 1 : 2, $lead->reference)
+                ->and($history->first()->only(['from_status', 'to_status', 'inquiry_id']))->toBe(['from_status' => null, 'to_status' => LeadStatus::Idle, 'inquiry_id' => null], $lead->reference)
+                ->and($history->count())->toBe(1 + $decided->count(), $lead->reference)
                 ->and($lead->inquiries)->not->toBeEmpty();
+
+            // One row per decided inquiry, at its decision and when it was made.
+            foreach ($decided as $inquiry) {
+                $row = $history->sole(fn (LeadStatusHistory $row): bool => $row->inquiry_id === $inquiry->id);
+
+                expect($row->to_status)->toBe($inquiry->marketing_status, $inquiry->reference)
+                    ->and($row->changed_at->equalTo($inquiry->marketing_status_changed_at))->toBeTrue($inquiry->reference);
+            }
         }
 
         expect(LeadStatusHistory::query()->count())->toBe($leads->sum(fn (Lead $lead): int => $lead->history->count()));

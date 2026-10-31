@@ -43,6 +43,9 @@ import {
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
+import { getEcho, listenTo, onReconnect } from '@/lib/echo';
+import { onUnreadChanged } from '@/lib/unread-badge';
+import type { Realtime } from '@/types/message';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
 import { index as homeIndex } from '@/routes/home';
@@ -247,8 +250,8 @@ const navLinkClass = ({
     isActive: boolean;
     collapsed: boolean;
 }) =>
-    `relative flex shrink-0 flex-row items-center overflow-hidden rounded-r-md py-2.5 text-sm transition-opacity hover:opacity-85 ${
-        collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-4'
+    `relative flex shrink-0 flex-row items-center overflow-hidden py-2.5 text-sm transition-opacity hover:opacity-85 ${
+        collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-7'
     } ${
         isActive
             ? 'bg-primary font-bold text-primary-foreground'
@@ -259,11 +262,14 @@ const SidebarNav = ({
     collapsed,
     pathname,
     savedCount,
+    unreadCount,
     onNavigate,
 }: {
     collapsed: boolean;
     pathname: string;
     savedCount: number;
+    /** Unread messages across the user's conversations. */
+    unreadCount: number;
     onNavigate?: () => void;
 }) => {
     const { can } = usePermissions();
@@ -278,7 +284,7 @@ const SidebarNav = ({
     return (
         <nav
             className={`flex-1 overflow-y-auto py-5 ${
-                collapsed ? 'space-y-6' : 'space-y-1 px-3'
+                collapsed ? 'space-y-6' : 'space-y-1'
             }`}
         >
             <ul className="space-y-1">
@@ -330,6 +336,22 @@ const SidebarNav = ({
                                                         {savedCount}
                                                     </span>
                                                 )}
+                                            {item.slug === 'message' &&
+                                                unreadCount > 0 &&
+                                                !collapsed && (
+                                                    <span
+                                                        className="ml-auto grid min-w-5 place-items-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[0.65rem] font-bold"
+                                                        data-testid="sidebar-unread-badge"
+                                                    >
+                                                        {unreadCount > 99
+                                                            ? '99+'
+                                                            : unreadCount}
+                                                        <span className="sr-only">
+                                                            {' '}
+                                                            unread
+                                                        </span>
+                                                    </span>
+                                                )}
                                         </Link>
                                     </TooltipTrigger>
                                     {collapsed && (
@@ -364,6 +386,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     // Fortify's confirm-password page is only a gate in front of Security, so
     // the chrome should read as if the user is already on that page.
     const isConfirmPassword = page.component === 'confirm-password';
+    const isMessagePage = page.component === 'message';
     const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
 
     // Get the stone slug from the page props when on a stone profile page
@@ -389,6 +412,70 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const user = page.props.auth.user;
     const { savedIds, toggleSave, canSave } = useSavedStones();
     const savedCount = savedIds.size;
+    const unreadCount = page.props.unreadMessageCount ?? 0;
+    const { can } = usePermissions();
+    const canMessage = can(permissions.messagesView);
+    const isInSupportPool = can(permissions.supportClaim);
+    const realtime = page.props.realtime as Realtime | null | undefined;
+    const userId = user?.id;
+
+    /*
+     * Keep the Message badge current wherever the reader is: the inbox channel
+     * (and, for the support pool, the pool's) says a conversation's row
+     * changed, and this tab says when it has just read messages. Either way
+     * only the count is asked for again, in the background, so it never cuts
+     * a visit short. A burst of events is one reload.
+     *
+     * The channels are not left on the way out: the Message page listens on
+     * the same ones, and leaving here would deafen it too.
+     */
+    useEffect(() => {
+        if (!canMessage || userId === undefined) {
+            return;
+        }
+
+        let timer: number | null = null;
+        const refresh = () => {
+            if (timer !== null) {
+                window.clearTimeout(timer);
+            }
+
+            timer = window.setTimeout(() => {
+                timer = null;
+                router.reload({ only: ['unreadMessageCount'], async: true });
+            }, 400);
+        };
+
+        const stopRead = onUnreadChanged(refresh);
+        const echo = getEcho(realtime ?? undefined);
+        const stopInbox =
+            echo === null
+                ? null
+                : listenTo(echo.private(`user.${userId}`), {
+                      '.conversation.activity': refresh,
+                      '.conversation.added': refresh,
+                  });
+        const stopPool =
+            echo !== null && isInSupportPool
+                ? listenTo(echo.private('support.pool'), {
+                      '.conversation.activity': refresh,
+                      '.support.claimed': refresh,
+                      '.support.released': refresh,
+                  })
+                : null;
+        const stopReconnect = echo === null ? null : onReconnect(echo, refresh);
+
+        return () => {
+            stopRead();
+            stopInbox?.();
+            stopPool?.();
+            stopReconnect?.();
+
+            if (timer !== null) {
+                window.clearTimeout(timer);
+            }
+        };
+    }, [canMessage, isInSupportPool, realtime, userId]);
 
     const isSaved = isStoneProfilePage && stoneSlug && savedIds.has(stoneSlug);
 
@@ -563,6 +650,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     collapsed={collapsed}
                     pathname={activePath}
                     savedCount={savedCount}
+                    unreadCount={unreadCount}
                 />
 
                 {/* Collapse / expand toggle (desktop only) */}
@@ -593,7 +681,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             <div
                 className={`flex min-h-screen flex-col transition-[padding] duration-300 ease-out ${
                     collapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-64'
-                }`}
+                } ${isMessagePage ? 'max-md:min-h-0' : ''}`}
             >
                 <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-sidebar-border bg-background px-4 sm:px-5 lg:h-16 lg:px-8">
                     <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -722,7 +810,17 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     </div>
                 </header>
 
-                <main className="flex-1 px-4 py-6 sm:px-5 sm:py-8 lg:px-8">
+                {/*
+                 * Messages fill the screen under the header on phones, edge to
+                 * edge; from md up they sit in the page like everything else.
+                 */}
+                <main
+                    className={`flex-1 ${
+                        isMessagePage
+                            ? 'md:px-5 md:py-8 lg:px-8'
+                            : 'px-4 py-6 sm:px-5 sm:py-8 lg:px-8'
+                    }`}
+                >
                     <div
                         key={url}
                         className="page-enter motion-reduce:animate-none"
@@ -747,7 +845,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 aria-modal="true"
                 aria-label="Navigation"
                 inert={!drawerOpen}
-                className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-background transition-transform duration-300 lg:hidden ${
+                className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden border-r border-border bg-background transition-transform duration-300 lg:hidden ${
                     drawerOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
@@ -758,6 +856,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     collapsed={false}
                     pathname={activePath}
                     savedCount={savedCount}
+                    unreadCount={unreadCount}
                     onNavigate={() => setDrawerOpen(false)}
                 />
             </aside>
@@ -766,11 +865,9 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 sm:bottom-5">
                     <Button
                         type="button"
-                        variant={isSaved ? 'default' : 'outline'}
+                        variant="outline"
                         size="icon"
-                        className={`h-11 w-11 cursor-pointer shadow-lg active:scale-90 ${
-                            isSaved ? '' : 'bg-background'
-                        }`}
+                        className="h-11 w-11 cursor-pointer bg-background shadow-lg active:scale-90"
                         aria-pressed={isSaved ? 'true' : 'false'}
                         aria-label={
                             isSaved ? 'Remove from saved' : 'Save to collection'
@@ -781,7 +878,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             key={heartAnimation}
                             className={`size-5 ${
                                 isSaved
-                                    ? 'fill-primary-foreground text-primary-foreground'
+                                    ? 'fill-red-500 text-red-500'
                                     : 'text-foreground'
                             } ${heartAnimation}`}
                             aria-hidden

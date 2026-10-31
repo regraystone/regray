@@ -1,8 +1,8 @@
 import {
     FileText,
     Image as ImageIcon,
-    Paperclip,
     Pencil,
+    Plus,
     Reply,
     Send,
     UserCheck,
@@ -16,6 +16,7 @@ import {
     useState,
     type ChangeEvent,
     type KeyboardEvent,
+    type ReactNode,
     type Ref,
 } from 'react';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,79 @@ type ComposerProps = {
     onTyping: () => void;
 };
 
+/** The solid plus at the start of the field that opens the file picker. */
+const AttachButton = ({
+    onClick,
+    disabled,
+}: {
+    onClick: () => void;
+    disabled: boolean;
+}) => (
+    <Button
+        type="button"
+        size="icon"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label="Attach a file"
+        className="size-9 shrink-0 cursor-pointer rounded-md p-0"
+    >
+        <Plus className="size-5" aria-hidden />
+    </Button>
+);
+
+/** Send, or Save while editing. */
+const SendButton = ({
+    onClick,
+    disabled,
+    editing,
+    saving,
+}: {
+    onClick: () => void;
+    disabled: boolean;
+    editing: boolean;
+    saving: boolean;
+}) => (
+    <Button
+        type="button"
+        size="icon"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={editing ? 'Save edit' : 'Send message'}
+        className="size-9 shrink-0 rounded-md p-0"
+    >
+        {saving ? (
+            <Spinner className="motion-reduce:animate-none" />
+        ) : (
+            <Send className="size-4" aria-hidden />
+        )}
+    </Button>
+);
+
+/*
+ * Where send sits on touch: it grows in from nothing when the box is in use
+ * and folds away again, so the box widens back rather than jumping. The fade
+ * and the scale sit on this wrapper rather than the button, whose own disabled
+ * opacity would otherwise win and leave a hidden send showing through.
+ */
+const SendSlot = ({
+    shown,
+    children,
+}: {
+    shown: boolean;
+    children: ReactNode;
+}) => (
+    <span
+        inert={!shown}
+        className={`grid shrink-0 place-items-center overflow-hidden transition-[width,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
+            shown
+                ? 'w-9 scale-100 opacity-100'
+                : 'pointer-events-none w-0 scale-50 opacity-0'
+        }`}
+    >
+        {children}
+    </span>
+);
+
 /**
  * The box at the foot of a thread.
  *
@@ -65,10 +139,17 @@ type ComposerProps = {
  * quoted message and a close button) or an edit ("Editing", where Enter saves
  * and Escape cancels).
  *
- * The paperclip adds photos, PDFs and Word documents (see lib/message-attachments for the
+ * The box and its buttons share one field. The plus at its start adds
+ * photos, PDFs and Word documents (see lib/message-attachments for the
  * limits), and so does dropping files anywhere on the thread (`addFiles`).
  * They show as chips above the box, and a message may be files alone. An edit
- * changes only the words, so the paperclip rests while editing.
+ * changes only the words, so the plus rests while editing.
+ *
+ * Desktop always shows send at the end of the field, disabled until there is
+ * something to send. On touch the end of the field is empty while the box is
+ * idle, and send grows in once it is in use (focused, holding words or files,
+ * or editing). In use does not hang on focus alone, so send is still there
+ * when tapping it takes the focus away from the box.
  *
  * On a Regray Team thread nobody has claimed, a pool member cannot send: the
  * box is replaced by the note and the same "Assign to me" button the card has.
@@ -92,6 +173,7 @@ const Composer = ({
     const [files, setFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [focused, setFocused] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -139,7 +221,7 @@ const Composer = ({
     if (state.mode !== 'enabled') {
         return (
             <div
-                className="flex shrink-0 flex-col items-center gap-2 border-t border-sidebar-border p-3 text-center sm:flex-row sm:justify-between sm:text-left"
+                className="flex shrink-0 flex-col items-center gap-2 border-t border-sidebar-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center sm:flex-row sm:justify-between sm:text-left"
                 data-testid="composer-locked"
             >
                 <p className="text-sm text-secondary-foreground">
@@ -168,6 +250,8 @@ const Composer = ({
         editing !== null
             ? draft.trim() !== '' && !saving
             : draft.trim() !== '' || files.length > 0;
+
+    const inUse = focused || canSubmit || editing !== null || saving;
 
     const submit = async () => {
         const body = draft.trim();
@@ -317,7 +401,7 @@ const Composer = ({
                 </div>
             ) : null}
 
-            <div className="flex items-end gap-2 p-3">
+            <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <input
                     ref={fileInputRef}
                     type="file"
@@ -329,48 +413,49 @@ const Composer = ({
                     aria-hidden
                     data-testid="composer-file-input"
                 />
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    disabled={editing !== null}
-                    onClick={() => fileInputRef.current?.click()}
-                    aria-label="Attach a file"
-                    className="size-11 shrink-0 cursor-pointer rounded-md"
-                >
-                    <Paperclip className="size-4" aria-hidden />
-                </Button>
 
-                <textarea
-                    ref={textareaRef}
-                    value={draft}
-                    rows={1}
-                    onChange={(event) => {
-                        setDraft(event.target.value);
-                        onTyping();
-                    }}
-                    onKeyDown={handleKeyDown}
-                    aria-label={placeholder}
-                    placeholder={placeholder}
-                    enterKeyHint={isTouch ? 'enter' : 'send'}
-                    className="min-h-11 flex-1 resize-none rounded-none border border-input bg-transparent px-3 py-2.5 text-base leading-6 outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
-                    data-testid="composer-input"
-                />
+                <div className="flex items-end gap-2 rounded-md border border-input bg-background p-1 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                    <AttachButton
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={editing !== null}
+                    />
 
-                <Button
-                    type="button"
-                    size="icon"
-                    onClick={() => void submit()}
-                    disabled={!canSubmit}
-                    aria-label={editing ? 'Save edit' : 'Send message'}
-                    className="size-11 shrink-0 rounded-md"
-                >
-                    {saving ? (
-                        <Spinner className="motion-reduce:animate-none" />
+                    <textarea
+                        ref={textareaRef}
+                        value={draft}
+                        rows={1}
+                        onChange={(event) => {
+                            setDraft(event.target.value);
+                            onTyping();
+                        }}
+                        onKeyDown={handleKeyDown}
+                        onFocus={() => setFocused(true)}
+                        onBlur={() => setFocused(false)}
+                        aria-label={placeholder}
+                        placeholder={placeholder}
+                        enterKeyHint={isTouch ? 'enter' : 'send'}
+                        className="min-h-9 min-w-0 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-muted-foreground md:text-sm"
+                        data-testid="composer-input"
+                    />
+
+                    {isTouch ? (
+                        <SendSlot shown={inUse}>
+                            <SendButton
+                                onClick={() => void submit()}
+                                disabled={!canSubmit}
+                                editing={editing !== null}
+                                saving={saving}
+                            />
+                        </SendSlot>
                     ) : (
-                        <Send className="size-4" aria-hidden />
+                        <SendButton
+                            onClick={() => void submit()}
+                            disabled={!canSubmit}
+                            editing={editing !== null}
+                            saving={saving}
+                        />
                     )}
-                </Button>
+                </div>
             </div>
         </div>
     );

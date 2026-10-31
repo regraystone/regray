@@ -83,9 +83,28 @@ export const checkbox = (page: Page, name: string): Locator =>
 export const continueButton = (page: Page): Locator =>
     page.getByRole('button', { name: 'Continue', exact: true });
 
-export const pickService = async (page: Page, name: string): Promise<void> => {
+/**
+ * Tick a service and take the first kind of work in the dropdown it opens
+ * (`kind` to pick another), which step 1 needs before Continue.
+ */
+export const pickService = async (
+    page: Page,
+    name: string,
+    kind?: string,
+): Promise<void> => {
     await checkbox(page, name).click();
     await expect(checkbox(page, name)).toHaveAttribute('aria-checked', 'true');
+
+    const dropdown = checkbox(page, name)
+        .locator('xpath=..')
+        .getByTestId('service-option');
+    await dropdown.click();
+    const option =
+        kind === undefined
+            ? page.getByRole('option').first()
+            : page.getByRole('option', { name: kind, exact: true });
+    await option.click();
+    await expect(dropdown).not.toContainText('Choose one');
 };
 
 export const pickStone = async (page: Page, name: string): Promise<void> => {
@@ -307,6 +326,7 @@ export const projectPayload = (
 ): Record<string, unknown> => ({
     name: 'Bypass project',
     serviceIds: [CATALOG.stoneServiceSlug],
+    serviceOptions: { [CATALOG.stoneServiceSlug]: 'supply-only' },
     applicationIds: [CATALOG.applicationSlug],
     stones: [
         {

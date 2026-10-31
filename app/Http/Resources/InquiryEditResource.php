@@ -26,7 +26,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class InquiryEditResource extends JsonResource
 {
     /**
-     * @return array{id: int, name: string, serviceSlugs: list<string>, applicationSlugs: list<string>, stones: list<array{stoneId: string, quantity: int, edge: string, finish: string}>, location: string, landmark: string|null, areaSqm: float|null, notes: string|null, neededBy: string|null, neededByTime: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
+     * @return array{id: int, name: string, serviceSlugs: list<string>, serviceOptionSlugs: array<string, string>, applicationSlugs: list<string>, stones: list<array{stoneId: string, quantity: int, edge: string, finish: string}>, location: string, landmark: string|null, areaSqm: float|null, notes: string|null, neededBy: string|null, neededByTime: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -39,6 +39,14 @@ class InquiryEditResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'serviceSlugs' => array_values($this->services->map(fn (Service $service): string => $service->slug)->all()),
+            // The kind of work picked under each service, by service slug. A
+            // service sent before the choice existed is left out, to be picked.
+            'serviceOptionSlugs' => $this->services
+                ->mapWithKeys(fn (Service $service): array => [
+                    $service->slug => $this->serviceOptions->firstWhere('service_id', $service->id)?->slug,
+                ])
+                ->filter()
+                ->all(),
             'applicationSlugs' => array_values($this->categories->map(fn (ProjectCategory $category): string => $category->slug)->all()),
             'stones' => array_values($this->stones->map(fn (InquiryStone $row): array => [
                 'stoneId' => $row->stone->slug,

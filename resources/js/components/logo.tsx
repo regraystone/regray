@@ -28,7 +28,7 @@ const Logo = ({
                 R
             </span>
         ) : (
-            <span className="text-2xl font-extrabold whitespace-nowrap lg:text-xl">
+            <span className="text-2xl font-extrabold whitespace-nowrap uppercase lg:text-xl">
                 Regray Studio
             </span>
         )}

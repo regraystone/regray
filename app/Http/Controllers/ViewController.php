@@ -21,6 +21,7 @@ use App\Models\Lead;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -84,6 +85,7 @@ class ViewController extends Controller
                         PaymentStatus::Awaiting => 'Awaiting',
                         PaymentStatus::Partial => 'Partially paid',
                         PaymentStatus::FullyPaid => 'Fully paid',
+                        PaymentStatus::PartiallyRefunded => 'Partially refunded',
                         PaymentStatus::Refunded => 'Refunded',
                     },
                 ];
@@ -109,7 +111,7 @@ class ViewController extends Controller
             }
         } else {
             // Pending is only on the list for those who see pending inquiries.
-            $seesPending = $user->hasAnyRole([Role::Admin->value, Role::Owner->value]);
+            $seesPending = InquiryStatusRules::seesPending($user);
 
             foreach (InquiryStatus::cases() as $status) {
                 if ($status === InquiryStatus::Pending && ! $seesPending) {
@@ -137,6 +139,7 @@ class ViewController extends Controller
                         InquiryStatus::Dispatched => 'Dispatched',
                         InquiryStatus::Installation => 'Installation',
                         InquiryStatus::Delayed => 'Delayed',
+                        InquiryStatus::ForRefund => 'For refund',
                     },
                 ];
             }
@@ -173,7 +176,8 @@ class ViewController extends Controller
 
     /**
      * The Leads page: the marketing user's own leads, newest first, a page at a
-     * time (every lead for the super-admin). Supports status filtering.
+     * time (every lead for the super-admin). The status filter keeps the leads
+     * with an inquiry at that decision.
      */
     public function leads(DataTableRequest $request, LeadRepositoryInterface $leads): Response
     {
@@ -216,18 +220,24 @@ class ViewController extends Controller
         ];
     }
 
-    /** @return Collection<int, Lead> */
+    /**
+     * The leads this staff member may open an inquiry from (LeadPolicy): every
+     * lead for the super-admin, those with a won inquiry for sales, and
+     * marketing's own.
+     *
+     * @return Collection<int, Lead>
+     */
     private function pickableLeads(User $user, LeadRepositoryInterface $leads): Collection
     {
         if ($user->hasRole(Role::superAdmin()->value)) {
-            return $leads->withStatuses([LeadStatus::Idle, LeadStatus::Won], null);
+            return $leads->pickable(null, false);
         }
 
         if ($user->hasRole(Role::Sales->value)) {
-            return $leads->withStatuses([LeadStatus::Won], null);
+            return $leads->pickable(null, true);
         }
 
-        return $leads->withStatuses([LeadStatus::Idle, LeadStatus::Won], $user);
+        return $leads->pickable($user, false);
     }
 
     /**

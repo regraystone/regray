@@ -10,13 +10,14 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $lead_id
+ * @property int|null $inquiry_id The inquiry decided; null for the lead being opened.
  * @property LeadStatus|null $from_status
  * @property LeadStatus $to_status
  * @property int|null $changed_by
  * @property string|null $note Why it was marked won or lost.
  * @property Carbon $changed_at
  */
-#[Fillable(['lead_id', 'from_status', 'to_status', 'changed_by', 'note', 'changed_at'])]
+#[Fillable(['lead_id', 'inquiry_id', 'from_status', 'to_status', 'changed_by', 'note', 'changed_at'])]
 class LeadStatusHistory extends Model
 {
     protected $table = 'lead_status_history';
@@ -47,6 +48,12 @@ class LeadStatusHistory extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    /** @return BelongsTo<Inquiry, $this> */
+    public function inquiry(): BelongsTo
+    {
+        return $this->belongsTo(Inquiry::class);
     }
 
     /** @return BelongsTo<User, $this> */

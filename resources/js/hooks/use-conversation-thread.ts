@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEcho, listenTo, onReconnect } from '@/lib/echo';
 import { ATTACHMENT_SNIPPET } from '@/lib/message-attachments';
+import { announceUnreadChanged } from '@/lib/unread-badge';
 import {
     ApiError,
     claimConversation,
@@ -515,6 +516,7 @@ export function useConversationThread(
         try {
             const { pointers } = await markRead(conversationId, latest.id);
             setState((previous) => ({ ...previous, pointers }));
+            announceUnreadChanged();
         } catch (error) {
             if (error instanceof ApiError && error.status === 403) {
                 loseAccess();

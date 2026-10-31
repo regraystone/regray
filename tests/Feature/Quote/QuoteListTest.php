@@ -3,6 +3,8 @@
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
+use App\Models\Service;
+use App\Models\ServiceOption;
 use App\Models\Stone;
 use Illuminate\Support\Facades\DB;
 
@@ -43,6 +45,21 @@ describe('a card', function (): void {
             ->and($card['title'])->toBe('Kitchen')
             ->and($card)->not->toHaveKey('projectCount')
             ->and($card['actions']['cancel'])->toBe(['visible' => true, 'enabled' => true]);
+    });
+
+    it('names the kind of work picked under each service, and none for a service sent before the choice', function (): void {
+        $inquiry = makeInquiry($this->client, ['services' => ['natural-stone-supply', 'custom-stone-fabrication']]);
+        $inquiry->services()->updateExistingPivot(
+            Service::query()->where('slug', 'natural-stone-supply')->value('id'),
+            ['service_option_id' => ServiceOption::query()->where('slug', 'supply-only')->value('id')],
+        );
+
+        $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
+
+        expect(array_column($card['services'], 'option', 'id'))->toBe([
+            'natural-stone-supply' => 'Stone supply only',
+            'custom-stone-fabrication' => null,
+        ]);
     });
 
     it('carries the payment status only once the client has approved the quotation', function (InquiryStatus $status, ?string $payment): void {
@@ -104,7 +121,7 @@ describe('a card', function (): void {
             ->has('inquiries.data.0', fn ($card) => $card
                 ->hasAll(['reference', 'status', 'paymentStatus', 'createdAt', 'title', 'actions'])
                 ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail']))
-                ->has('services.0', fn ($service) => $service->hasAll(['id', 'name'])))
+                ->has('services.0', fn ($service) => $service->hasAll(['id', 'name', 'option'])))
             ->etc());
 
         $json = json_encode($response->viewData('page')['props']['inquiries']);
@@ -152,7 +169,7 @@ describe('status and sort', function (): void {
         makeInquiry($this->client, attributes: ['reference' => 'INQ-F4', 'status' => InquiryStatus::Delayed]);
         makeInquiry($this->client, attributes: ['reference' => 'INQ-F5', 'status' => InquiryStatus::Closed]);
         makeInquiry($this->client, attributes: ['reference' => 'INQ-F6', 'status' => InquiryStatus::Cancelled]);
-        makeInquiry($this->client, attributes: ['reference' => 'INQ-F7', 'lead' => makeLead($this->client, LeadStatus::Lost)]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-F7', 'lead' => makeLead($this->client), 'marketing_status' => LeadStatus::Lost]);
 
         $response = $this->actingAs($this->client)->get(route('quote.index', ['status' => $tab]));
 

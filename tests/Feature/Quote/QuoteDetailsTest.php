@@ -9,7 +9,10 @@ use App\Enums\Role;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\Service;
+use App\Models\ServiceOption;
 use App\Models\Stone;
+use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Services\ScheduleService;
 
 beforeEach(function (): void {
@@ -91,7 +94,7 @@ it('sends the display status and the role statuses it came from', function (): v
 });
 
 it('sends the client\'s activity log: sales, payment and logistics changes, oldest first, without the lead or who made it', function (): void {
-    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-H1', 'lead' => makeLead($this->client, LeadStatus::Won)]);
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-H1', 'lead' => makeLead($this->client), 'marketing_status' => LeadStatus::Won]);
     $staff = inquiryClient(Role::Sales);
     $at = now()->startOfSecond()->subDays(3);
 
@@ -111,14 +114,14 @@ it('sends the client\'s activity log: sales, payment and logistics changes, olde
         ->and($details)->not->toHaveKey('lead');
 });
 
-it('shows an inquiry cancelled with its lost lead as cancelled in the activity log, with nothing about the lead', function (): void {
-    $lead = makeLead($this->client, LeadStatus::Lost);
-    makeInquiry($this->client, attributes: ['reference' => 'INQ-H2', 'lead' => $lead]);
+it('shows an inquiry marketing lost as cancelled in the activity log, with nothing about the lead', function (): void {
+    $lead = makeLead($this->client);
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-H2', 'lead' => $lead, 'marketing_status' => LeadStatus::Lost]);
 
     $details = $this->actingAs($this->client)->get(route('quote.show', 'INQ-H2'))->viewData('page')['props']['inquiry'];
 
     expect($details['status'])->toBe('cancelled')
-        ->and($details['history'])->toBe([['track' => 'inquiry', 'status' => 'cancelled', 'at' => $lead->status_changed_at->toIso8601String()]])
+        ->and($details['history'])->toBe([['track' => 'inquiry', 'status' => 'cancelled', 'at' => $inquiry->marketing_status_changed_at->toIso8601String()]])
         ->and(json_encode($details))->not->toContain($lead->reference)->not->toContain('"lost"')->not->toContain('marketing');
 });
 
@@ -175,4 +178,41 @@ it('opens any inquiry for staff on the inquiry route, and only their own for a c
     $this->actingAs(inquiryClient(Role::Owner))->get(route('inquiry.show', 'INQ-D1'))->assertOk();
     $this->actingAs($this->client)->get(route('inquiry.show', 'INQ-D1'))->assertOk();
     $this->actingAs($this->client)->get(route('inquiry.show', 'INQ-D2'))->assertNotFound();
+});
+
+it('shows the client their refund: the request form, the settled file, and the refund in the payment records', function (): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-RF9', 'status' => InquiryStatus::Cancelled]);
+    $inquiry->forceFill(['contract_total' => '1000.00', 'payment_status' => PaymentStatus::Refunded])->save();
+    $payments = app(InquiryRepositoryInterface::class);
+    $payments->addPayment($inquiry, '600.00', null, now()->subDays(3));
+    $payments->addRefund($inquiry, '600.00', null, now()->subDay());
+    addInquiryFile($inquiry, DocumentType::RefundRequest);
+    addInquiryFile($inquiry, DocumentType::RefundSettlement);
+
+    $details = $this->actingAs($this->client)->get(route('quote.show', 'INQ-RF9'))->viewData('page')['props']['inquiry'];
+    $types = array_merge(...array_map(fn (array $group): array => array_column($group['files'], 'type'), $details['documents']));
+    $refund = collect($details['payments'])->firstWhere('kind', 'refund');
+
+    // Refunded in full is cancelled, with accounting's badge reading refunded.
+    expect($details['status'])->toBe('cancelled')
+        ->and($details['paymentStatus'])->toBe('refunded')
+        ->and($types)->toContain('refund_request', 'refund_settlement')
+        // A refund reads against what was held: 600 before, nothing after.
+        ->and($refund)->toMatchArray(['amount' => '600.00', 'currentBalance' => '600.00', 'remainingBalance' => '0.00']);
+});
+
+it('shows the kind of work picked under each service, and none for a service sent before the choice', function (): void {
+    $inquiry = detailedInquiry($this);
+    $supply = Service::query()->where('slug', 'natural-stone-supply')->value('id');
+    $inquiry->services()->updateExistingPivot($supply, [
+        'service_option_id' => ServiceOption::query()->where('slug', 'supply-installation')->value('id'),
+    ]);
+
+    $services = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
+        ->viewData('page')['props']['inquiry']['project']['services'];
+
+    expect(array_column($services, 'option', 'name'))->toBe([
+        'Natural Stone Supply' => 'Stone supply with installation',
+        'Custom Stone Fabrication' => null,
+    ]);
 });

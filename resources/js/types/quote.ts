@@ -6,7 +6,6 @@ import type {
     SalesStatus,
     SharedDocumentType,
 } from '@/lib/inquiry-statuses';
-import type { LeadStatus } from '@/lib/lead-statuses';
 import type { QuoteActions } from '@/lib/quote-actions';
 import type { QuoteFilters } from '@/lib/quote-filters';
 
@@ -20,7 +19,8 @@ export type QuoteInquiry = {
     createdAt: string;
     title: string;
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
-    services: Array<{ id: string; name: string }>;
+    /** Each with the kind of work picked under it; null when sent before the choice. */
+    services: Array<{ id: string; name: string; option: string | null }>;
     /** Which buttons the card shows, and which can be pressed. */
     actions: QuoteActions;
 };
@@ -44,12 +44,30 @@ export type QuoteInquiryDetails = {
     paymentStatus: PaymentStatus | null;
     processStatus: ProcessStatus | null;
     createdAt: string;
+    /** The total contract amount, such as "1250.00", once accounting has billed it. */
+    contractTotal: string | null;
     /**
      * The client's activity log, oldest first: every change to sales, payment
      * and logistics, a stage starting included, and `inquiry` `cancelled` when
      * the inquiry was cancelled with its lead. Nothing about the lead itself.
      */
     history: Array<ActivityEntry & { at: string }>;
+    /**
+     * The payment records, oldest first: the total contract amount billed when
+     * payment moved to awaiting, then each payment (or refund): its amount,
+     * the balance owed before it and the balance remaining after it. Empty
+     * until payment has started. Amounts are strings such as "1250.00".
+     */
+    payments: Array<{
+        id: string;
+        kind: 'contract' | 'payment' | 'refund';
+        amount: string;
+        /** What was owed before this payment (for a refund, what was held); null on the contract entry. */
+        currentBalance: string | null;
+        /** What is owed after it (for a refund, what is still held); null on the contract entry. */
+        remainingBalance: string | null;
+        at: string;
+    }>;
     /**
      * The documents the team has shared, one group per status update, oldest
      * first: each quotation, the billing statement, and each payment's
@@ -71,12 +89,11 @@ export type QuoteInquiryDetails = {
     }>;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
-    /** Its lead's reference and status: staff only, never sent to a client. */
-    lead?: { reference: string; status: LeadStatus } | null;
     /** The one project the inquiry is. */
     project: {
         name: string;
-        services: Array<{ name: string; image: string }>;
+        /** Each with the kind of work picked under it; null when sent before the choice. */
+        services: Array<{ name: string; image: string; option: string | null }>;
         applications: string[];
         stones: Array<{
             id: string;

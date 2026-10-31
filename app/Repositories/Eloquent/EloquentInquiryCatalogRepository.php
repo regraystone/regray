@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\Stone;
 use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterface
 {
@@ -16,7 +17,12 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
     {
         return Service::query()
             ->where('is_active', true)
-            ->with('features:id,service_id,body,sort_order')
+            ->with([
+                'features:id,service_id,body,sort_order',
+                'options' => fn (Relation $options) => $options->getQuery()
+                    ->where('is_active', true)
+                    ->select(['id', 'service_id', 'slug', 'name', 'sort_order']),
+            ])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();

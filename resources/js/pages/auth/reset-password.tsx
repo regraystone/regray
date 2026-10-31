@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
+import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
 import { update } from '@/routes/password';
 
 type Props = {
@@ -22,7 +23,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                 resetOnSuccess={['password', 'password_confirmation']}
             >
                 {({ processing, errors }) => (
-                    <div className="grid gap-6">
+                    <div className="grid gap-5 max-md:gap-(--auth-field-gap)">
                         <Field
                             id="email"
                             type="email"
@@ -57,7 +58,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
 
                         <Button
                             type="submit"
-                            className="mt-4 w-full"
+                            className="mt-1 w-full max-md:mt-(--auth-block-gap)"
                             disabled={processing}
                             data-test="reset-password-button"
                         >
@@ -71,7 +72,10 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
     );
 }
 
-ResetPassword.layout = {
-    title: 'Reset password',
-    description: 'Please enter your new password below',
-};
+ResetPassword.layout = [
+    AuthSheetLayout,
+    {
+        title: 'Reset password',
+        description: 'Please enter your new password below',
+    },
+];

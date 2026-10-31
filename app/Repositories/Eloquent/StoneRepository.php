@@ -3,16 +3,19 @@
 namespace App\Repositories\Eloquent;
 
 use App\Data\StoneFilterData;
+use App\Enums\InquiryStatus;
+use App\Models\Inquiry;
+use App\Models\InquiryStone;
 use App\Models\Stone;
 use App\Models\StoneCategory;
 use App\Models\StoneSize;
 use App\Models\StoneThickness;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\DB;
 
 class StoneRepository implements StoneRepositoryInterface
 {
@@ -35,6 +38,9 @@ class StoneRepository implements StoneRepositoryInterface
         if ($filters->category !== null) {
             $query->whereHas('categories', fn (Builder $category) => $category->where('slug', $filters->category)->where('is_active', true));
         }
+        if ($filters->projectCategory !== null) {
+            $query->whereHas('projectCategories', fn (Builder $projectCategory) => $projectCategory->where('slug', $filters->projectCategory)->where('is_active', true));
+        }
         if ($filters->size !== null) {
             $query->whereHas('sizes', fn (Builder $size) => $size->where('name', $filters->size)->where('is_active', true));
         }
@@ -46,18 +52,26 @@ class StoneRepository implements StoneRepositoryInterface
     }
 
     /**
-     * @return Collection<int, Stone>
+     * Ranked with RANK() so stones level on count share a place, and every
+     * stone placed within `$count` is kept.
+     *
+     * @return list<int>
      */
-    public function recommended(): Collection
+    public function bestSellerIds(int $count): array
     {
-        return Stone::query()
-            ->active()
-            ->where('recommended', true)
-            ->with('category:id,slug,name')
-            ->select(['stones.id', 'stones.stone_category_id', 'stones.slug', 'stones.name', 'stones.thumbnail_path', 'stones.recommended'])
-            ->orderBy('stones.sort_order')
-            ->orderBy('stones.name')
-            ->get();
+        $ranked = InquiryStone::query()
+            ->whereIn('inquiry_id', Inquiry::query()->whereDisplayStatus(InquiryStatus::Closed)->select('id'))
+            ->whereIn('stone_id', Stone::query()->active()->select('id'))
+            ->groupBy('stone_id')
+            ->select('stone_id')
+            ->selectRaw('RANK() OVER (ORDER BY COUNT(DISTINCT inquiry_id) DESC) AS position');
+
+        return array_values(DB::query()
+            ->fromSub($ranked, 'ranked')
+            ->where('position', '<=', $count)
+            ->pluck('stone_id')
+            ->map(fn (mixed $stoneId): int => (int) $stoneId)
+            ->all());
     }
 
     public function findActiveSummaryBySlug(string $slug): ?Stone

@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import EmptyState from '@/components/empty-state';
-import { LeadStatusBadge } from '@/components/lead-status-badge';
+import { LeadTallyBadges } from '@/components/lead-status-badge';
 import PageHeading from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,15 +12,15 @@ import type { InquiryLeadOption } from '@/types/inquiry';
  * inquiry is for. Staff send an inquiry for a lead's client, never for
  * themselves.
  *
- * The server sends only the leads this reader may use: sales sees won leads,
- * marketing its own idle and won leads. An inquiry opened on a won lead
- * starts sales at once.
+ * The server sends only the leads this reader may use: sales sees leads with
+ * an inquiry marketing has won, marketing its own leads. An inquiry sales
+ * opens starts sales at once; one marketing opens waits for its decision.
  */
 const InquiryLeadPicker = ({
     leads,
     onPick,
     description = 'Choose the lead this inquiry is for',
-    emptyDescription = 'An inquiry is opened for a client’s lead. Sales can use won leads; marketing its own idle or won leads.',
+    emptyDescription = 'An inquiry is opened for a client’s lead. Sales can use leads with a won inquiry; marketing its own leads.',
     action,
 }: {
     leads: InquiryLeadOption[];
@@ -89,7 +89,7 @@ const InquiryLeadPicker = ({
                                         </span>
                                     </span>
                                     <span className="flex shrink-0 items-center gap-2">
-                                        <LeadStatusBadge status={lead.status} />
+                                        <LeadTallyBadges tally={lead.tally} />
                                         <ArrowRight aria-hidden />
                                     </span>
                                 </Button>

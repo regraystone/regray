@@ -1,5 +1,4 @@
-import { Link } from '@inertiajs/react';
-import { home } from '@/routes';
+import Logo from '@/components/logo';
 import type { AuthLayoutProps } from '@/types';
 
 const heroImage = '/images/regray-hero.jpg';
@@ -21,15 +20,7 @@ export default function AuthSplitLayout({
                     />
                     <div className="absolute inset-0 bg-black/30" />
                     <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-6 lg:p-10">
-                        <Link
-                            href={home()}
-                            className="flex w-fit items-center gap-2 text-white"
-                            aria-label="Regray Studio"
-                        >
-                            <span className="text-base font-extrabold sm:text-lg lg:text-xl">
-                                Regray Studio
-                            </span>
-                        </Link>
+                        <Logo className="w-fit text-white" />
 
                         <div className="hidden sm:block">
                             <p className="text-xs font-bold tracking-[0.16em] text-white/80 uppercase">
@@ -46,15 +37,7 @@ export default function AuthSplitLayout({
 
             <main className="flex min-w-0 flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-12">
                 <div className="w-full max-w-md">
-                    <Link
-                        href={home()}
-                        className="flex items-center justify-center gap-2.5 text-center lg:hidden"
-                        aria-label="Regray Studio"
-                    >
-                        <span className="text-xl font-extrabold md:text-2xl">
-                            Regray Studio
-                        </span>
-                    </Link>
+                    <Logo className="justify-center lg:hidden" />
 
                     <div className="mt-6 sm:mt-8 lg:mt-0">
                         <h1 className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl lg:text-[2.3rem]">

@@ -33,7 +33,7 @@ return new class extends Migration
             $table->index(['inquiry_id', 'track', 'changed_at']);
         });
 
-        $statuses = "'negotiation','site_visited','on_hold','quoted','revision','won','rejected','awaiting','partial','fully_paid','refunded','order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','delayed'";
+        $statuses = "'negotiation','site_visited','on_hold','quoted','revision','won','rejected','for_refund','awaiting','partial','fully_paid','partially_refunded','refunded','order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','completed','delayed'";
 
         DB::statement("ALTER TABLE inquiry_status_history ADD CONSTRAINT chk_inquiry_status_history_track CHECK (track IN ('sales','payment','process'))");
         DB::statement("ALTER TABLE inquiry_status_history ADD CONSTRAINT chk_inquiry_status_history_to_status CHECK (to_status IN ({$statuses}))");

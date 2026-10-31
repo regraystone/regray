@@ -14,7 +14,7 @@ class ListSavedStonesAction
     ) {}
 
     /**
-     * @return array{saved: Collection<int, Stone>, recommended: Collection<int, Stone>}
+     * @return array{saved: Collection<int, Stone>}
      */
     public function execute(User $user): array
     {

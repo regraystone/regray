@@ -15,7 +15,7 @@ class ListProjectsAction
     ) {}
 
     /**
-     * @return array{projects: LengthAwarePaginator<int, Project>, filters: array{search: string|null, projectCategory: string|null}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>}}
+     * @return array{projects: LengthAwarePaginator<int, Project>, filters: array{search: string|null, projectCategory: string|null, perPage: int}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>}}
      */
     public function execute(ProjectFilterData $filters): array
     {

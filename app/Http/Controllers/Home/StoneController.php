@@ -44,13 +44,10 @@ class StoneController extends Controller
 
         $result = $this->listStones->execute($filterData);
 
-        $stoneFilterOptions = $result['filterOptions'];
-
+        // Stones filter by project type too, so every reader gets the types.
         $allFilterOptions = [
-            ...$stoneFilterOptions,
-            ...($request->user()?->can(Permission::HomeProjectsView->value)
-                ? ['projectCategories' => $this->projectRepository->filterOptions()['categories']]
-                : []),
+            ...$result['filterOptions'],
+            'projectCategories' => $this->projectRepository->filterOptions()['categories'],
         ];
 
         return Inertia::render('home', [

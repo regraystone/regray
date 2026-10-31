@@ -17,13 +17,12 @@ class SavedStoneService
     ) {}
 
     /**
-     * @return array{saved: Collection<int, Stone>, recommended: Collection<int, Stone>}
+     * @return array{saved: Collection<int, Stone>}
      */
     public function listFor(User $user): array
     {
         return [
             'saved' => $this->savedStoneRepository->activeStonesFor($user),
-            'recommended' => $this->stoneRepository->recommended(),
         ];
     }
 

@@ -11,6 +11,8 @@ use App\Http\Resources\ScheduleResource;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\User;
+use App\Repositories\Contracts\InquiryRepositoryInterface;
+use App\Services\InquiryStatusUpdateService;
 use App\Services\ScheduleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -33,7 +35,7 @@ function pdf(string $name): UploadedFile
     return UploadedFile::fake()->create($name, 12, 'application/pdf');
 }
 
-/** An inquiry every track can move on: won, with its total, logistics received, payment not started. */
+/** Won with the job order and its total, payment not started (so logistics has not either). */
 function movableInquiry(User $client): Inquiry
 {
     $inquiry = makeInquiry($client, attributes: ['reference' => 'INQ-R1', 'status' => InquiryStatus::Won]);
@@ -43,7 +45,8 @@ function movableInquiry(User $client): Inquiry
 }
 
 it('gives each role its header and row actions on the Inquiry list', function (Role $role, bool $canAdd, array $actions): void {
-    movableInquiry($this->client);
+    // Won, partly paid, so logistics has received it: every track can move.
+    movableInquiry($this->client)->forceFill(['payment_status' => PaymentStatus::Partial, 'payment_status_changed_at' => now(), 'process_status' => ProcessStatus::OrderReceived, 'process_status_changed_at' => now()])->save();
     $user = User::factory()->role($role)->create();
 
     $page = $this->actingAs($user)->get(route('inquiry.index'))->assertOk()->viewData('page')['props'];
@@ -52,14 +55,15 @@ it('gives each role its header and row actions on the Inquiry list', function (R
         ->and($page['inquiries']['data'][0]['actions'])->toBe($actions)
         ->and($page['inquiries']['meta'])->toMatchArray(['currentPage' => 1, 'total' => 1, 'from' => 1, 'to' => 1]);
 })->with([
-    'marketing' => [Role::Marketing, true, ['view', 'edit']],
-    // Won is final, so sales has no status left to move it to.
-    'sales' => [Role::Sales, true, ['view', 'edit']],
+    // Won: the client approved the quotation, so only the admin may still edit it.
+    'marketing' => [Role::Marketing, true, ['view']],
+    // Won moves only to for refund.
+    'sales' => [Role::Sales, true, ['view', 'status.sales']],
     'technical' => [Role::Technical, false, ['view']],
     'accounting' => [Role::Accounting, false, ['view', 'status.payment']],
     'logistics' => [Role::Logistics, false, ['view', 'status.process']],
     'owner' => [Role::Owner, false, ['view']],
-    'admin' => [Role::Admin, true, ['view', 'edit', 'status.payment', 'status.process']],
+    'admin' => [Role::Admin, true, ['view', 'edit', 'status.sales', 'status.payment', 'status.process']],
 ]);
 
 it('lists to each role only its own share of the inquiries', function (Role $role, array $references): void {
@@ -69,18 +73,20 @@ it('lists to each role only its own share of the inquiries', function (Role $rol
     // Quoted once, then back in negotiation: still waiting on the client.
     makeInquiry($this->client, attributes: ['reference' => 'INQ-R1', 'status' => InquiryStatus::Negotiation])->forceFill(['quote_revision' => 1])->save();
     makeInquiry($this->client, attributes: ['reference' => 'INQ-W1', 'status' => InquiryStatus::Won])->forceFill(['quote_revision' => 1])->save();
+    // Partly paid, so logistics has received it.
+    makeInquiry($this->client, attributes: ['reference' => 'INQ-L1', 'status' => InquiryStatus::Measure])->forceFill(['quote_revision' => 1, 'payment_status' => PaymentStatus::Partial])->save();
 
     $page = $this->actingAs(User::factory()->role($role)->create())->get(route('inquiry.index'))->viewData('page')['props'];
 
     expect(collect($page['inquiries']['data'])->pluck('reference')->sort()->values()->all())->toBe($references);
 })->with([
-    'marketing' => [Role::Marketing, ['INQ-N1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
-    'sales' => [Role::Sales, ['INQ-N1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
-    'technical' => [Role::Technical, ['INQ-N1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
-    'accounting, won only' => [Role::Accounting, ['INQ-W1']],
-    'logistics, won only' => [Role::Logistics, ['INQ-W1']],
-    'owner, pending too' => [Role::Owner, ['INQ-N1', 'INQ-P1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
-    'admin, pending too' => [Role::Admin, ['INQ-N1', 'INQ-P1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
+    'marketing, pending too' => [Role::Marketing, ['INQ-L1', 'INQ-N1', 'INQ-P1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
+    'sales, pending too' => [Role::Sales, ['INQ-L1', 'INQ-N1', 'INQ-P1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
+    'technical' => [Role::Technical, ['INQ-L1', 'INQ-N1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
+    'accounting, won only' => [Role::Accounting, ['INQ-L1', 'INQ-W1']],
+    'logistics, once a payment started it' => [Role::Logistics, ['INQ-L1']],
+    'owner, pending too' => [Role::Owner, ['INQ-L1', 'INQ-N1', 'INQ-P1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
+    'admin, pending too' => [Role::Admin, ['INQ-L1', 'INQ-N1', 'INQ-P1', 'INQ-Q1', 'INQ-R1', 'INQ-W1']],
 ]);
 
 it('filters accounting by payment, logistics by process, and everyone else by the inquiry status', function (Role $role, array $options, string $filter, array $references): void {
@@ -99,8 +105,8 @@ it('filters accounting by payment, logistics by process, and everyone else by th
     $display = array_values(array_diff(InquiryStatus::values(), ['pending']));
 
     return [
-        'marketing' => [Role::Marketing, $display, 'quoted', ['INQ-Q1']],
-        'sales' => [Role::Sales, $display, 'won', ['INQ-W1']],
+        'marketing, pending too' => [Role::Marketing, InquiryStatus::values(), 'pending', ['INQ-P1']],
+        'sales, pending too' => [Role::Sales, InquiryStatus::values(), 'won', ['INQ-W1']],
         'technical' => [Role::Technical, $display, 'measure', ['INQ-M1']],
         'owner, pending too' => [Role::Owner, InquiryStatus::values(), 'pending', ['INQ-P1']],
         'admin, pending too' => [Role::Admin, InquiryStatus::values(), 'quoted', ['INQ-Q1']],
@@ -158,7 +164,7 @@ describe('Update Status', function (): void {
         'won before any quote' => ['to', ['to' => 'won', 'quotedTotal' => null, 'files' => []]],
     ]);
 
-    it('revises a sent quotation as a new revision, again if need be, and wins with the job order to start logistics', function (): void {
+    it('revises a sent quotation as a new revision, again if need be, and wins with the job order', function (): void {
         ($this->move)('quoted')->assertRedirect();
         ($this->move)('revision', ['quotedTotal' => '1400.00', 'files' => ['quotation' => [pdf('quote-r2.pdf')]]])->assertRedirect();
         ($this->move)('revision', ['quotedTotal' => '1350.00', 'files' => ['quotation' => [pdf('quote-r3.pdf')]]])->assertRedirect();
@@ -174,9 +180,11 @@ describe('Update Status', function (): void {
 
         $won = $this->inquiry->statusHistory()->where('track', InquiryStatusTrack::Sales)->where('to_status', 'won')->sole();
 
+        // Logistics waits for the first payment.
         expect($this->inquiry->refresh()->sales_status)->toBe(SalesStatus::Won)
             ->and($this->inquiry->quoted_total)->toBe('1350.00')
-            ->and($this->inquiry->process_status)->toBe(ProcessStatus::OrderReceived)
+            ->and($this->inquiry->process_status)->toBeNull()
+            ->and($this->inquiry->status)->toBe(InquiryStatus::Won)
             ->and($this->inquiry->payment_status)->toBeNull()
             ->and($this->inquiry->files()->where('document_type', DocumentType::JobOrder)->value('status_history_id'))->toBe($won->id);
 
@@ -204,11 +212,10 @@ describe('Update Status', function (): void {
 
         $this->actingAs($this->sales)->post(route('inquiries.job-order', 'INQ-S1'), ['note' => 'Job order in.', 'files' => ['job_order' => [pdf('jo.pdf')]]])->assertRedirect();
 
-        $process = $this->inquiry->statusHistory()->where('track', InquiryStatusTrack::Process)->sole();
-
-        expect($this->inquiry->refresh()->process_status)->toBe(ProcessStatus::OrderReceived)
-            ->and($this->inquiry->status)->toBe(InquiryStatus::OrderReceived)
-            ->and($this->inquiry->files()->where('document_type', DocumentType::JobOrder)->value('status_history_id'))->toBe($process->id)
+        // Nothing paid yet, so the job order waits on its own for the first payment.
+        expect($this->inquiry->refresh()->process_status)->toBeNull()
+            ->and($this->inquiry->status)->toBe(InquiryStatus::Won)
+            ->and($this->inquiry->files()->where('document_type', DocumentType::JobOrder)->value('status_history_id'))->toBeNull()
             ->and($row()['actions'])->not->toContain('job_order');
 
         $this->actingAs($this->sales)->postJson(route('inquiries.job-order', 'INQ-S1'), ['note' => 'Again.', 'files' => ['job_order' => [pdf('jo2.pdf')]]])
@@ -230,10 +237,11 @@ describe('Update Status', function (): void {
             ->assertJsonValidationErrors(['to' => 'Payment starts once the client has approved the quotation.']);
     });
 
-    it('refuses a payment that does not add up to the quoted total', function (): void {
+    it('refuses a payment that does not add up to the contract total', function (): void {
         $accounting = User::factory()->role(Role::Accounting)->create();
         $inquiry = movableInquiry($this->client);
-        $inquiry->forceFill(['payment_status' => PaymentStatus::Awaiting, 'payment_status_changed_at' => now()])->save();
+        // Quoted at 1,000, contracted at 1,200: payments count against the contract.
+        $inquiry->forceFill(['payment_status' => PaymentStatus::Awaiting, 'payment_status_changed_at' => now(), 'contract_total' => '1200.00'])->save();
         $payment = fn (string $to, string $amount) => $this->actingAs($accounting)->postJson(route('inquiries.status', 'INQ-R1'), [
             'track' => 'payment',
             'to' => $to,
@@ -242,30 +250,38 @@ describe('Update Status', function (): void {
             'files' => ['receipt' => [pdf('receipt.pdf')], 'invoice' => [pdf('invoice.pdf')]],
         ]);
 
-        $payment('fully_paid', '900.00')->assertUnprocessable()->assertJsonValidationErrors('amountReceived');
-        $payment('partial', '1000.00')->assertUnprocessable()->assertJsonValidationErrors('amountReceived');
+        $payment('fully_paid', '1000.00')->assertUnprocessable()->assertJsonValidationErrors('amountReceived');
+        $payment('partial', '1200.00')->assertUnprocessable()->assertJsonValidationErrors('amountReceived');
 
         $payment('partial', '400.00')->assertRedirect();
-        $payment('fully_paid', '600.00')->assertRedirect();
+        $payment('fully_paid', '800.00')->assertRedirect();
 
         expect($inquiry->refresh()->payment_status)->toBe(PaymentStatus::FullyPaid)
-            ->and($inquiry->paymentTransactions()->sum('amount'))->toEqual(1000);
+            ->and($inquiry->paymentTransactions()->sum('amount'))->toEqual(1200);
     });
 
-    it('starts payment from nothing only with a billing statement', function (): void {
+    it('starts payment from nothing only with a billing statement and the total contract amount', function (): void {
         $accounting = User::factory()->role(Role::Accounting)->create();
         $inquiry = movableInquiry($this->client);
         $awaiting = ['track' => 'payment', 'to' => 'awaiting', 'note' => 'Deposit billed.'];
+        $billing = ['files' => ['billing_statement' => [pdf('billing.pdf')]]];
 
         expect($inquiry->payment_status)->toBeNull();
 
-        $this->actingAs($accounting)->postJson(route('inquiries.status', 'INQ-R1'), $awaiting)
+        $this->actingAs($accounting)->postJson(route('inquiries.status', 'INQ-R1'), [...$awaiting, 'contractTotal' => '1100.00'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('files.billing_statement');
 
-        $this->actingAs($accounting)->post(route('inquiries.status', 'INQ-R1'), [...$awaiting, 'files' => ['billing_statement' => [pdf('billing.pdf')]]])->assertRedirect();
+        $this->actingAs($accounting)->postJson(route('inquiries.status', 'INQ-R1'), [...$awaiting, ...$billing])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['contractTotal' => 'Enter the total contract amount, above 0.']);
+
+        expect($inquiry->refresh()->payment_status)->toBeNull();
+
+        $this->actingAs($accounting)->post(route('inquiries.status', 'INQ-R1'), [...$awaiting, ...$billing, 'contractTotal' => '1100.00'])->assertRedirect();
 
         expect($inquiry->refresh()->payment_status)->toBe(PaymentStatus::Awaiting)
+            ->and($inquiry->contract_total)->toBe('1100.00')
             ->and($inquiry->files()->where('document_type', DocumentType::BillingStatement)->value('status_history_id'))
             ->toBe($inquiry->statusHistory()->where('track', InquiryStatusTrack::Payment)->value('id'));
     });
@@ -277,7 +293,7 @@ describe('Update Status', function (): void {
     });
 });
 
-it('never puts a job order on the details page, but shares the rest of the update', function (): void {
+it('shows the job order on the details page to staff, never to the client', function (): void {
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-J1', 'status' => InquiryStatus::Negotiation]);
 
     $sales = User::factory()->role(Role::Sales)->create();
@@ -299,17 +315,19 @@ it('never puts a job order on the details page, but shares the rest of the updat
     $staff = $this->actingAs(User::factory()->role(Role::Owner)->create())->get(route('inquiry.show', 'INQ-J1'))->viewData('page')['props']['inquiry'];
     $client = $this->actingAs($this->client)->get(route('quote.show', 'INQ-J1'))->viewData('page')['props']['inquiry'];
 
-    foreach ([$staff, $client] as $details) {
-        expect($details['documents'])->toHaveCount(1)
-            ->and($details['documents'][0]['status'])->toBe('quoted')
-            ->and(array_column($details['documents'][0]['files'], 'type'))->toBe(['quotation'])
-            ->and(json_encode($details))->not->toContain('job-order-secret')->not->toContain('job_order');
-    }
+    expect(array_column($staff['documents'], 'status'))->toBe(['quoted', 'won'])
+        ->and(array_column($staff['documents'][1]['files'], 'type'))->toBe(['job_order'])
+        ->and(array_column($staff['documents'][1]['files'], 'name'))->toBe(['job-order-secret.pdf']);
+
+    expect($client['documents'])->toHaveCount(1)
+        ->and($client['documents'][0]['status'])->toBe('quoted')
+        ->and(array_column($client['documents'][0]['files'], 'type'))->toBe(['quotation'])
+        ->and(json_encode($client))->not->toContain('job-order-secret')->not->toContain('job_order');
 
     expect($inquiry->files()->where('document_type', DocumentType::JobOrder)->exists())->toBeTrue();
 });
 
-it('shows only the latest quotation on the details page', function (): void {
+it('shows sales and the admin every quotation revision on the details page and everyone else only the latest', function (): void {
     makeInquiry($this->client, attributes: ['reference' => 'INQ-L1', 'status' => InquiryStatus::Negotiation]);
     $sales = User::factory()->role(Role::Sales)->create();
     $move = fn (string $to, string $total, string $file) => $this->actingAs($sales)->post(route('inquiries.status', 'INQ-L1'), [
@@ -320,13 +338,21 @@ it('shows only the latest quotation on the details page', function (): void {
     $move('revision', '850.00', 'quote-r2.pdf');
     $move('revision', '800.00', 'quote-r3.pdf');
 
-    $staff = $this->actingAs(User::factory()->role(Role::Owner)->create())->get(route('inquiry.show', 'INQ-L1'))->viewData('page')['props']['inquiry'];
-    $client = $this->actingAs($this->client)->get(route('quote.show', 'INQ-L1'))->viewData('page')['props']['inquiry'];
+    $documentsFor = fn (User $viewer, string $route) => $this->actingAs($viewer)->get(route($route, 'INQ-L1'))->viewData('page')['props']['inquiry']['documents'];
 
-    foreach ([$staff, $client] as $details) {
-        expect($details['documents'])->toHaveCount(1)
-            ->and($details['documents'][0]['revision'])->toBe(3)
-            ->and(array_column($details['documents'][0]['files'], 'name'))->toBe(['quote-r3.pdf']);
+    foreach ([$sales, User::factory()->role(Role::Admin)->create()] as $viewer) {
+        $documents = $documentsFor($viewer, 'inquiry.show');
+
+        expect(array_column($documents, 'revision'))->toBe([1, 2, 3])
+            ->and(array_merge(...array_map(fn (array $group): array => array_column($group['files'], 'name'), $documents)))->toBe(['quote-r1.pdf', 'quote-r2.pdf', 'quote-r3.pdf']);
+    }
+
+    foreach ([[User::factory()->role(Role::Owner)->create(), 'inquiry.show'], [$this->client, 'quote.show']] as [$viewer, $route]) {
+        $documents = $documentsFor($viewer, $route);
+
+        expect($documents)->toHaveCount(1)
+            ->and($documents[0]['revision'])->toBe(3)
+            ->and(array_column($documents[0]['files'], 'name'))->toBe(['quote-r3.pdf']);
     }
 });
 
@@ -337,4 +363,236 @@ it('keeps a booking\'s stored instant and shows it in Manila time', function ():
 
     expect(DB::selectOne("SELECT to_char(arrival_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS at FROM schedules WHERE id = ?", [$schedule->id])->at)->toBe('2030-01-02 02:00')
         ->and(ScheduleResource::make($schedule->fresh())->resolve(Request::create('/'))['arrivalAt'])->toBe('2030-01-02T10:00:00+08:00');
+});
+
+it('shows how each inquiry stands against its deadline: an open one by today, a completed one by the day it was completed', function (): void {
+    // Late at night, so a project needed today is still due soon though its time has passed.
+    $this->travelTo(CarbonImmutable::parse('2030-03-10 23:30', ScheduleService::timezone()));
+    $schedules = app(ScheduleService::class);
+    $completedOn = fn (string $date): CarbonImmutable => CarbonImmutable::parse("{$date} 18:00", ScheduleService::timezone());
+
+    foreach (['INQ-DUE-PAST' => '2030-03-09', 'INQ-DUE-TODAY' => '2030-03-10', 'INQ-DUE-WEEK' => '2030-03-17', 'INQ-DUE-LATER' => '2030-03-18'] as $reference => $date) {
+        $schedules->createForInquiry(makeInquiry($this->client, attributes: ['reference' => $reference, 'status' => InquiryStatus::Negotiation]), $this->client, $date, null);
+    }
+
+    // Completed on the deadline's day, though after its time; a day late; and with the deadline still days off.
+    $schedules->createForInquiry(makeInquiry($this->client, attributes: ['reference' => 'INQ-DONE-ON-DAY', 'status' => InquiryStatus::Closed, 'completed_at' => $completedOn('2030-03-05')]), $this->client, '2030-03-05', null);
+    $schedules->createForInquiry(makeInquiry($this->client, attributes: ['reference' => 'INQ-DONE-LATE', 'status' => InquiryStatus::Closed, 'completed_at' => $completedOn('2030-03-06')]), $this->client, '2030-03-05', null);
+    $schedules->createForInquiry(makeInquiry($this->client, attributes: ['reference' => 'INQ-DONE-EARLY', 'status' => InquiryStatus::Closed, 'completed_at' => $completedOn('2030-03-09')]), $this->client, '2030-03-12', null);
+    $schedules->createForInquiry(makeInquiry($this->client, attributes: ['reference' => 'INQ-DUE-CANCELLED', 'status' => InquiryStatus::Cancelled]), $this->client, '2030-03-01', null);
+    makeInquiry($this->client, attributes: ['reference' => 'INQ-DUE-NONE', 'status' => InquiryStatus::Negotiation]);
+
+    $rows = collect($this->actingAs(User::factory()->role(Role::Owner)->create())->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])
+        ->mapWithKeys(fn (array $row): array => [$row['reference'] => [$row['due'], $row['deadline'], $row['completedAt']]])
+        ->all();
+
+    expect($rows)->toMatchArray([
+        'INQ-DUE-PAST' => ['overdue', '2030-03-09', null],
+        'INQ-DUE-TODAY' => ['due_soon', '2030-03-10', null],
+        'INQ-DUE-WEEK' => ['due_soon', '2030-03-17', null],
+        'INQ-DUE-LATER' => ['on_track', '2030-03-18', null],
+        'INQ-DONE-ON-DAY' => ['on_track', '2030-03-05', '2030-03-05'],
+        'INQ-DONE-LATE' => ['overdue', '2030-03-05', '2030-03-06'],
+        'INQ-DONE-EARLY' => ['on_track', '2030-03-12', '2030-03-09'],
+        'INQ-DUE-CANCELLED' => [null, '2030-03-01', null],
+        'INQ-DUE-NONE' => [null, null, null],
+    ]);
+});
+
+it('records when logistics completes the project', function (): void {
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C1', 'status' => InquiryStatus::Installation]);
+    $this->travelTo(CarbonImmutable::parse('2030-04-02 15:00', ScheduleService::timezone()));
+
+    expect($inquiry->completed_at)->toBeNull();
+
+    $this->actingAs(User::factory()->role(Role::Logistics)->create())->post(route('inquiries.status', 'INQ-C1'), [
+        'track' => 'process', 'to' => 'completed', 'note' => 'Installed.',
+    ])->assertRedirect();
+
+    expect($inquiry->refresh()->status)->toBe(InquiryStatus::Closed)
+        ->and($inquiry->completed_at?->equalTo(now()))->toBeTrue();
+});
+
+it('lists the payment records on the details page: the contract total, then each payment with what is paid and the balance', function (): void {
+    movableInquiry($this->client);
+    $accounting = User::factory()->role(Role::Accounting)->create();
+    $move = function (CarbonImmutable $at, array $data) use ($accounting): void {
+        $this->travelTo($at);
+        $this->actingAs($accounting)->post(route('inquiries.status', 'INQ-R1'), ['track' => 'payment', 'note' => 'Recorded.', ...$data])->assertRedirect();
+    };
+    $receipts = ['receipt' => [pdf('receipt.pdf')], 'invoice' => [pdf('invoice.pdf')]];
+
+    $move(CarbonImmutable::parse('2030-05-01 09:00'), ['to' => 'awaiting', 'contractTotal' => '1200.00', 'files' => ['billing_statement' => [pdf('billing.pdf')]]]);
+    $move(CarbonImmutable::parse('2030-05-03 09:00'), ['to' => 'partial', 'amountReceived' => '500.00', 'files' => $receipts]);
+    $move(CarbonImmutable::parse('2030-05-09 09:00'), ['to' => 'fully_paid', 'amountReceived' => '700.00', 'files' => $receipts]);
+
+    $details = $this->actingAs($this->client)->get(route('quote.show', 'INQ-R1'))->viewData('page')['props']['inquiry'];
+    $payments = $details['payments'];
+
+    expect($details['contractTotal'])->toBe('1200.00');
+
+    expect(array_map(fn (array $record): array => array_diff_key($record, ['at' => true]), $payments))->toBe([
+        ['id' => 'payment-1', 'kind' => 'contract', 'amount' => '1200.00', 'currentBalance' => null, 'remainingBalance' => null],
+        ['id' => 'payment-2', 'kind' => 'payment', 'amount' => '500.00', 'currentBalance' => '1200.00', 'remainingBalance' => '700.00'],
+        ['id' => 'payment-3', 'kind' => 'payment', 'amount' => '700.00', 'currentBalance' => '700.00', 'remainingBalance' => '0.00'],
+    ])->and(array_column($payments, 'at'))->toBe([
+        CarbonImmutable::parse('2030-05-01 09:00')->toIso8601String(),
+        CarbonImmutable::parse('2030-05-03 09:00')->toIso8601String(),
+        CarbonImmutable::parse('2030-05-09 09:00')->toIso8601String(),
+    ]);
+});
+
+it('has no payment records before payment has started', function (): void {
+    movableInquiry($this->client);
+
+    $details = $this->actingAs($this->client)->get(route('quote.show', 'INQ-R1'))->viewData('page')['props']['inquiry'];
+
+    expect($details['payments'])->toBe([])
+        ->and($details['contractTotal'])->toBeNull();
+});
+
+it('hands an inquiry to logistics only once it has the job order and a payment', function (): void {
+    $sales = User::factory()->role(Role::Sales)->create();
+    $accounting = User::factory()->role(Role::Accounting)->create();
+    $logistics = User::factory()->role(Role::Logistics)->create();
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-G1', 'status' => InquiryStatus::Negotiation]);
+    $listedFor = fn (User $user): bool => collect($this->actingAs($user)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->contains('reference', 'INQ-G1');
+    $move = fn (User $by, array $data) => $this->actingAs($by)->post(route('inquiries.status', 'INQ-G1'), ['note' => 'Moved.', ...$data])->assertRedirect();
+
+    $move($sales, ['track' => 'sales', 'to' => 'quoted', 'quotedTotal' => '1000.00', 'files' => ['quotation' => [pdf('quote.pdf')]]]);
+    $move($sales, ['track' => 'sales', 'to' => 'won', 'files' => ['job_order' => [pdf('jo.pdf')]]]);
+    $move($accounting, ['track' => 'payment', 'to' => 'awaiting', 'contractTotal' => '1000.00', 'files' => ['billing_statement' => [pdf('billing.pdf')]]]);
+
+    expect($inquiry->refresh()->process_status)->toBeNull()
+        ->and($inquiry->status)->toBe(InquiryStatus::Won)
+        ->and($listedFor($logistics))->toBeFalse();
+
+    $this->actingAs($logistics)->postJson(route('inquiries.status', 'INQ-G1'), ['track' => 'process', 'to' => 'completed', 'note' => 'Done.'])
+        ->assertUnprocessable();
+
+    $move($accounting, ['track' => 'payment', 'to' => 'partial', 'amountReceived' => '400.00', 'files' => ['receipt' => [pdf('receipt.pdf')], 'invoice' => [pdf('invoice.pdf')]]]);
+
+    $received = $inquiry->statusHistory()->where('track', InquiryStatusTrack::Process)->sole();
+
+    expect($inquiry->refresh()->process_status)->toBe(ProcessStatus::OrderReceived)
+        ->and($inquiry->status)->toBe(InquiryStatus::OrderReceived)
+        ->and($received->changed_by)->toBe($accounting->id)
+        ->and($listedFor($logistics))->toBeTrue();
+});
+
+describe('refunds', function (): void {
+    beforeEach(function (): void {
+        $this->sales = User::factory()->role(Role::Sales)->create();
+        $this->accounting = User::factory()->role(Role::Accounting)->create();
+        // Won, billed at 1,000 and paid 600, so logistics has received it.
+        $this->inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-RF1', 'status' => InquiryStatus::OrderReceived]);
+        $this->inquiry->forceFill(['quoted_total' => '1000.00', 'quote_revision' => 1, 'contract_total' => '1000.00', 'payment_status' => PaymentStatus::Partial])->save();
+        app(InquiryRepositoryInterface::class)->addPayment($this->inquiry, '600.00', $this->accounting->id, now());
+        $this->move = fn (User $by, array $data) => $this->actingAs($by)->postJson(route('inquiries.status', 'INQ-RF1'), ['note' => 'Refund.', ...$data]);
+        $this->askRefund = fn () => ($this->move)($this->sales, ['track' => 'sales', 'to' => 'for_refund', 'files' => ['refund_request' => [pdf('refund-request.pdf')]]]);
+        $this->refund = fn (string $to, string $amount) => ($this->move)($this->accounting, ['track' => 'payment', 'to' => $to, 'amountRefunded' => $amount, 'files' => ['refund_settlement' => [pdf('refund-settled.pdf')]]]);
+    });
+
+    it('lets sales move a won inquiry only to for refund, with the refund request form and a note', function (): void {
+        ($this->move)($this->sales, ['track' => 'sales', 'to' => 'rejected'])->assertJsonValidationErrors('to');
+        ($this->move)($this->sales, ['track' => 'sales', 'to' => 'for_refund'])->assertJsonValidationErrors('files.refund_request');
+        ($this->move)($this->sales, ['track' => 'sales', 'to' => 'for_refund', 'note' => '', 'files' => ['refund_request' => [pdf('r.pdf')]]])->assertJsonValidationErrors('note');
+
+        ($this->askRefund)()->assertRedirect();
+
+        $update = $this->inquiry->statusHistory()->where('track', InquiryStatusTrack::Sales)->latest('id')->first();
+
+        expect($this->inquiry->refresh()->sales_status)->toBe(SalesStatus::ForRefund)
+            ->and($this->inquiry->status)->toBe(InquiryStatus::ForRefund)
+            ->and($this->inquiry->files()->where('document_type', DocumentType::RefundRequest)->value('status_history_id'))->toBe($update->id);
+
+        // For refund is final for sales, and logistics stops.
+        ($this->move)($this->sales, ['track' => 'sales', 'to' => 'rejected'])->assertJsonValidationErrors('to');
+        $this->actingAs(User::factory()->role(Role::Logistics)->create())->postJson(route('inquiries.status', 'INQ-RF1'), ['track' => 'process', 'to' => 'measure', 'note' => 'Go.'])
+            ->assertJsonValidationErrors('to');
+    });
+
+    it('never offers a refund before the inquiry is won', function (): void {
+        $quoted = makeInquiry($this->client, attributes: ['reference' => 'INQ-RF2', 'status' => InquiryStatus::Quoted]);
+        $quoted->forceFill(['quote_revision' => 1, 'quoted_total' => '1000.00'])->save();
+
+        $this->actingAs($this->sales)->postJson(route('inquiries.status', 'INQ-RF2'), ['track' => 'sales', 'to' => 'for_refund', 'note' => 'Refund.', 'files' => ['refund_request' => [pdf('r.pdf')]]])
+            ->assertJsonValidationErrors('to');
+    });
+
+    it('lets accounting refund part, then the rest, each with the settled file and an amount that adds up', function (): void {
+        // No refund until sales asks for one.
+        ($this->refund)('partially_refunded', '100.00')->assertJsonValidationErrors('to');
+
+        ($this->askRefund)()->assertRedirect();
+
+        $listed = collect($this->actingAs($this->accounting)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->firstWhere('reference', 'INQ-RF1');
+        expect($listed['actions'])->toContain('status.payment');
+
+        ($this->move)($this->accounting, ['track' => 'payment', 'to' => 'partially_refunded', 'amountRefunded' => '100.00'])->assertJsonValidationErrors('files.refund_settlement');
+        ($this->refund)('partially_refunded', '600.00')->assertJsonValidationErrors(['amountRefunded' => 'A partial refund has to be less than the ₱600.00 still held; this would refund ₱600.00.']);
+        ($this->refund)('refunded', '200.00')->assertJsonValidationErrors(['amountRefunded' => 'A full refund has to return the ₱600.00 still held; this would refund ₱200.00.']);
+
+        ($this->refund)('partially_refunded', '200.00')->assertRedirect();
+
+        // A partial refund leaves sales at for refund.
+        expect($this->inquiry->refresh()->payment_status)->toBe(PaymentStatus::PartiallyRefunded)
+            ->and($this->inquiry->sales_status)->toBe(SalesStatus::ForRefund)
+            ->and($this->inquiry->status)->toBe(InquiryStatus::ForRefund);
+
+        ($this->refund)('refunded', '400.00')->assertRedirect();
+
+        // The full refund rejects sales on its own, which cancels the inquiry.
+        $salesMove = $this->inquiry->statusHistory()->where('track', InquiryStatusTrack::Sales)->reorder()->latest('id')->firstOrFail();
+
+        expect($this->inquiry->refresh()->payment_status)->toBe(PaymentStatus::Refunded)
+            ->and($this->inquiry->sales_status)->toBe(SalesStatus::Rejected)
+            ->and($this->inquiry->status)->toBe(InquiryStatus::Cancelled)
+            ->and($salesMove->only(['from_status', 'to_status', 'changed_by', 'note']))->toBe([
+                'from_status' => SalesStatus::ForRefund->value,
+                'to_status' => SalesStatus::Rejected->value,
+                'changed_by' => $this->accounting->id,
+                'note' => InquiryStatusUpdateService::REFUNDED_NOTE,
+            ])
+            ->and($this->inquiry->paymentTransactions()->where('kind', 'refund')->pluck('amount')->all())->toEqual(['200.00', '400.00'])
+            ->and($this->inquiry->files()->where('document_type', DocumentType::RefundSettlement)->count())->toBe(2);
+
+        // Accounting still has it on its list, as refunded.
+        $listed = collect($this->actingAs($this->accounting)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->firstWhere('reference', 'INQ-RF1');
+        expect($listed)->toMatchArray(['status' => 'cancelled', 'paymentStatus' => 'refunded']);
+
+        // Refunded is final.
+        ($this->refund)('refunded', '1.00')->assertJsonValidationErrors('to');
+    });
+
+    it('offers no refund until a partial or full payment is in', function (): void {
+        $this->inquiry->paymentTransactions()->delete();
+
+        foreach ([null, PaymentStatus::Awaiting] as $payment) {
+            $this->inquiry->forceFill(['payment_status' => $payment, 'process_status' => null])->save();
+
+            ($this->askRefund)()->assertJsonValidationErrors('to');
+
+            $row = collect($this->actingAs($this->sales)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->firstWhere('reference', 'INQ-RF1');
+            expect($row['actions'])->not->toContain('status.sales');
+        }
+
+        expect($this->inquiry->refresh()->sales_status)->toBe(SalesStatus::Won);
+
+        // Should one get there anyway, accounting still has nothing to give back.
+        $this->inquiry->forceFill(['sales_status' => SalesStatus::ForRefund])->save();
+        ($this->refund)('refunded', '100.00')->assertJsonValidationErrors(['amountRefunded' => 'Nothing has been paid, so there is nothing to refund.']);
+    });
+
+    it('offers no refund once logistics has completed the project', function (): void {
+        $this->inquiry->forceFill(['payment_status' => PaymentStatus::FullyPaid, 'process_status' => ProcessStatus::Completed])->save();
+
+        expect($this->inquiry->refresh()->status)->toBe(InquiryStatus::Closed);
+
+        ($this->askRefund)()->assertJsonValidationErrors('to');
+
+        $row = collect($this->actingAs($this->sales)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->firstWhere('reference', 'INQ-RF1');
+        expect($row['actions'])->not->toContain('status.sales')
+            ->and($this->inquiry->refresh()->sales_status)->toBe(SalesStatus::Won);
+    });
 });

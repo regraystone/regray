@@ -12,7 +12,7 @@ import type { StatusGroup, StatusOf } from '@/lib/inquiry-statuses';
 import { cn } from '@/lib/utils';
 
 /** Each tone as a tinted badge: a light fill, its border, and dark text of the same hue. */
-const TONE_CLASSES: Record<StatusTone, string> = {
+export const TONE_CLASSES: Record<StatusTone, string> = {
     slate: 'border-slate-200 bg-slate-100 text-slate-700',
     blue: 'border-blue-200 bg-blue-50 text-blue-700',
     indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',

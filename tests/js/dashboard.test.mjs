@@ -9,8 +9,10 @@ import {
     splitRowActions,
 } from '../../resources/js/lib/data-table.ts';
 import { formatDate } from '../../resources/js/lib/format-date.ts';
+import { formatPeso } from '../../resources/js/lib/format-money.ts';
 import {
     allowedTargets,
+    canRequestRefund,
     extraField,
     requiredFileGroups,
 } from '../../resources/js/lib/status-rules.ts';
@@ -20,6 +22,13 @@ describe('formatDate', () => {
         assert.equal(formatDate('2020-06-22T03:00:00Z'), 'June 22, 2020');
         // 20:00 UTC is already the next day in Manila.
         assert.equal(formatDate('2020-06-22T20:00:00Z'), 'June 23, 2020');
+    });
+});
+
+describe('formatPeso', () => {
+    it('writes an amount as pesos with two decimals', () => {
+        assert.equal(formatPeso('1250.5'), '₱1,250.50');
+        assert.equal(formatPeso(0), '₱0.00');
     });
 });
 
@@ -52,17 +61,22 @@ describe('status options', () => {
         }
     });
 
-    it('offer a revision after a revision, and nothing after won', () => {
+    it('offer a revision after a revision, and only for refund after won', () => {
         assert.ok(
             allowedTargets('sales', 'revision', true).includes('revision'),
         );
         assert.ok(!allowedTargets('sales', 'quoted', true).includes('quoted'));
-        assert.deepEqual(allowedTargets('sales', 'won', true), []);
+        assert.deepEqual(allowedTargets('sales', 'won', true), ['for_refund']);
+        // For refund is only from won, and rejected only before it.
+        assert.ok(
+            !allowedTargets('sales', 'quoted', true).includes('for_refund'),
+        );
+        assert.ok(allowedTargets('sales', 'quoted', true).includes('rejected'));
     });
 
     it('offer nothing from a final status, and payment only forward', () => {
         assert.deepEqual(allowedTargets('sales', 'rejected'), []);
-        assert.deepEqual(allowedTargets('sales', 'won'), []);
+        assert.deepEqual(allowedTargets('sales', 'for_refund'), []);
         assert.deepEqual(allowedTargets('process', 'completed'), []);
         assert.deepEqual(allowedTargets('payment', null), ['awaiting']);
         assert.deepEqual(allowedTargets('payment', 'awaiting'), [
@@ -71,9 +85,35 @@ describe('status options', () => {
         ]);
         assert.deepEqual(allowedTargets('payment', 'partial'), ['fully_paid']);
         assert.deepEqual(allowedTargets('payment', 'fully_paid'), []);
-        // Refunded waits on its own flow, and nothing moves on from it.
-        assert.deepEqual(allowedTargets('payment', 'refunded'), []);
+        // No refund until sales asks for one.
         assert.ok(!allowedTargets('payment', 'partial').includes('refunded'));
+    });
+
+    it('offer for refund only with a payment in and the project not done', () => {
+        assert.deepEqual(allowedTargets('sales', 'won', true, null, false), []);
+        assert.equal(canRequestRefund('partial', 'production'), true);
+        assert.equal(canRequestRefund('fully_paid', null), true);
+        assert.equal(canRequestRefund(null, null), false);
+        assert.equal(canRequestRefund('awaiting', null), false);
+        assert.equal(canRequestRefund('fully_paid', 'completed'), false);
+    });
+
+    it('turn payment to refunds once sales is for refund', () => {
+        const refund = (current) =>
+            allowedTargets('payment', current, true, 'for_refund');
+
+        assert.deepEqual(refund(null), ['partially_refunded', 'refunded']);
+        assert.deepEqual(refund('fully_paid'), [
+            'partially_refunded',
+            'refunded',
+        ]);
+        assert.deepEqual(refund('partially_refunded'), ['refunded']);
+        assert.deepEqual(refund('refunded'), []);
+        assert.equal(
+            extraField('payment', 'partially_refunded'),
+            'amountRefunded',
+        );
+        assert.equal(extraField('payment', 'refunded'), 'amountRefunded');
     });
 });
 
@@ -101,6 +141,15 @@ describe('required file groups', () => {
         assert.deepEqual(slots('payment', 'fully_paid'), [
             ['Collection of receipts', ['receipt', 'invoice']],
         ]);
+        assert.deepEqual(slots('sales', 'for_refund'), [
+            ['Refund request', ['refund_request']],
+        ]);
+        assert.deepEqual(slots('payment', 'partially_refunded'), [
+            ['Refund settled', ['refund_settlement']],
+        ]);
+        assert.deepEqual(slots('payment', 'refunded'), [
+            ['Refund settled', ['refund_settlement']],
+        ]);
         assert.deepEqual(slots('sales', 'negotiation'), []);
         assert.deepEqual(slots('process', 'production'), []);
     });
@@ -117,7 +166,7 @@ describe('required file groups', () => {
         assert.equal(extraField('sales', 'revision'), 'quotedTotal');
         assert.equal(extraField('sales', 'won'), null);
         assert.equal(extraField('payment', 'partial'), 'amountReceived');
-        assert.equal(extraField('payment', 'awaiting'), null);
+        assert.equal(extraField('payment', 'awaiting'), 'contractTotal');
     });
 });
 

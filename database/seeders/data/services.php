@@ -101,4 +101,45 @@ return [
             'Integration of cabinetry with natural stone surfaces',
         ],
     ],
+    // The kinds of work picked under each service, [slug, name].
+    'options' => [
+        'natural-stone-supply' => [
+            ['supply-only', 'Stone supply only'],
+            ['supply-fabrication', 'Stone supply with fabrication'],
+            ['supply-installation', 'Stone supply with installation'],
+        ],
+        'custom-stone-fabrication' => [
+            ['fabrication-only', 'Fabrication only (your own stone)'],
+            ['fabrication-supply', 'Fabrication with stone supply'],
+            ['fabrication-supply-installation', 'Fabrication with stone supply and installation'],
+        ],
+        'natural-stone-installation' => [
+            ['installation-only', 'Installation only (your own stone)'],
+            ['installation-supply', 'Installation with stone supply'],
+            ['full-package', 'Full package: supply, fabrication and installation'],
+        ],
+        'custom-stone-furniture' => [
+            ['furniture-only', 'Furniture only'],
+            ['furniture-delivery-setup', 'Furniture with delivery and setup'],
+            ['furniture-stone-supply', 'Furniture with matching stone supply'],
+            ['stone-top-only', 'Stone top only (your own base)'],
+        ],
+        'design-project-consultation' => [
+            ['consultation-only', 'Consultation only'],
+            ['consultation-site-visit', 'Consultation with site visit and assessment'],
+            ['consultation-full-project', 'Consultation through to supply and installation'],
+        ],
+        'stone-relocation-dismantling-reinstallation' => [
+            ['dismantling-only', 'Dismantling only'],
+            ['dismantling-relocation', 'Dismantling and relocation'],
+            ['dismantling-relocation-reinstallation', 'Dismantling, relocation and reinstallation'],
+            ['reinstallation-only', 'Reinstallation only (stone already removed)'],
+        ],
+        'kitchen-cabinetry-solutions' => [
+            ['cabinetry-only', 'Cabinetry only'],
+            ['cabinetry-countertop-supply', 'Cabinetry with stone countertop supply'],
+            ['cabinetry-countertop-installation', 'Cabinetry with stone countertop supply and installation'],
+            ['full-kitchen-fit-out', 'Full kitchen fit-out'],
+        ],
+    ],
 ];

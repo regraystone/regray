@@ -30,7 +30,6 @@ class StoneFactory extends Factory
             'thumbnail_path' => 'stones/stone.jpg',
             'size' => '60x120',
             'thickness_mm' => 20,
-            'recommended' => false,
             'is_active' => true,
             'sort_order' => 0,
         ];

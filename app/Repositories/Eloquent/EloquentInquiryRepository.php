@@ -6,6 +6,7 @@ use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
@@ -19,6 +20,7 @@ use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
+use App\Services\InquiryStatusRules;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -56,9 +58,27 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         ]);
     }
 
-    public function attachServices(Inquiry $inquiry, array $serviceIds): void
+    public function attachServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void
     {
-        $inquiry->services()->attach($serviceIds);
+        $inquiry->services()->attach($this->servicePivots($serviceIds, $optionIds));
+    }
+
+    /**
+     * Each service id with the kind of work picked under it, as pivot rows.
+     *
+     * @param  list<int>  $serviceIds
+     * @param  array<int, int>  $optionIds
+     * @return array<int, array{service_option_id: int|null}>
+     */
+    private function servicePivots(array $serviceIds, array $optionIds): array
+    {
+        $rows = [];
+
+        foreach ($serviceIds as $serviceId) {
+            $rows[$serviceId] = ['service_option_id' => $optionIds[$serviceId] ?? null];
+        }
+
+        return $rows;
     }
 
     public function attachApplications(Inquiry $inquiry, array $applicationIds): void
@@ -101,6 +121,18 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         ]);
     }
 
+    public function addRefund(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $refundedAt): PaymentTransaction
+    {
+        return PaymentTransaction::query()->create([
+            'inquiry_id' => $inquiry->id,
+            'kind' => 'refund',
+            'amount' => $amount,
+            'recorded_by' => $recordedBy,
+            'received_at' => $refundedAt,
+            'created_at' => $refundedAt,
+        ]);
+    }
+
     public function paidCentavos(Inquiry $inquiry): int
     {
         $row = DB::selectOne(
@@ -116,14 +148,24 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         $inquiry->forceFill(['quote_revision' => $revision, 'quoted_total' => $quotedTotal])->save();
     }
 
+    public function recordContractTotal(Inquiry $inquiry, string $contractTotal): void
+    {
+        $inquiry->forceFill(['contract_total' => $contractTotal])->save();
+    }
+
+    public function recordMarketingStatus(Inquiry $inquiry, LeadStatus $status, CarbonInterface $changedAt): void
+    {
+        $inquiry->forceFill(['marketing_status' => $status, 'marketing_status_changed_at' => $changedAt])->save();
+    }
+
     public function updateDetails(Inquiry $inquiry, array $attributes): void
     {
         $inquiry->forceFill($attributes)->save();
     }
 
-    public function syncServices(Inquiry $inquiry, array $serviceIds): void
+    public function syncServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void
     {
-        $inquiry->services()->sync($serviceIds);
+        $inquiry->services()->sync($this->servicePivots($serviceIds, $optionIds));
     }
 
     public function syncApplications(Inquiry $inquiry, array $applicationIds): void
@@ -165,7 +207,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                         ->orWhereHas('stones.stone', fn (Builder $stone) => $stone->where('name', 'ILIKE', $pattern));
                 });
             })
-            ->withLeadStatus()
             ->withJobOrderFlag()
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
@@ -198,8 +239,9 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
 
         return Service::query()
             ->join('inquiry_services as isv', 'isv.service_id', '=', 'services.id')
+            ->leftJoin('service_options as so', 'so.id', '=', 'isv.service_option_id')
             ->whereIn('isv.inquiry_id', $inquiryIds)
-            ->select(['services.id', 'services.slug', 'services.name', 'isv.inquiry_id'])
+            ->select(['services.id', 'services.slug', 'services.name', 'isv.inquiry_id', 'so.name as option_name'])
             ->orderBy('isv.inquiry_id')
             ->orderBy('services.sort_order')
             ->orderBy('services.id')
@@ -213,15 +255,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->where('reference', $reference)
             ->lockForUpdate()
             ->first();
-    }
-
-    public function lockForLead(Lead $lead): Collection
-    {
-        return Inquiry::query()
-            ->whereBelongsTo($lead)
-            ->orderBy('id')
-            ->lockForUpdate()
-            ->get();
     }
 
     public function linkUnlinkedToLead(Lead $lead): int
@@ -240,7 +273,12 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     ): void {
         $column = $track->column();
 
-        $inquiry->forceFill([$column => $status, "{$column}_changed_at" => $changedAt])->save();
+        $inquiry->forceFill([
+            $column => $status,
+            "{$column}_changed_at" => $changedAt,
+            // Completed is final, so this is set once.
+            ...($status === ProcessStatus::Completed ? ['completed_at' => $changedAt] : []),
+        ])->save();
     }
 
     public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry
@@ -260,11 +298,16 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator
     {
         $role = $user?->primaryRole();
-        $seesPending = $user?->hasAnyRole([Role::Admin->value, Role::Owner->value]) ?? false;
+        $seesPending = InquiryStatusRules::seesPending($user);
 
         return Inquiry::query()
             ->when(! $seesPending, fn (Builder $query) => $query->whereNot(fn (Builder $query) => $query->whereDisplayStatus(InquiryStatus::Pending)))
-            ->when(in_array($role, [Role::Accounting, Role::Logistics], true), fn (Builder $query) => $query->where('sales_status', SalesStatus::Won))
+            // Accounting has the approved ones, and keeps those it refunded in full, which that cancelled.
+            ->when($role === Role::Accounting, fn (Builder $query) => $query->where(fn (Builder $query) => $query
+                ->whereIn('sales_status', [SalesStatus::Won, SalesStatus::ForRefund])
+                ->orWhere('payment_status', PaymentStatus::Refunded)))
+            // Logistics receives an inquiry once its first payment has started logistics.
+            ->when($role === Role::Logistics, fn (Builder $query) => $query->whereNotNull('process_status'))
             ->when($statusFilter !== null && $statusFilter !== 'all', function (Builder $query) use ($role, $statusFilter): void {
                 // Accounting and logistics filter by their own status; everyone
                 // else by the inquiry's. An unknown value is no filter.
@@ -293,8 +336,8 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'clientRecord.contacts:id,client_id,kind,value',
                 'client:id,name,email',
                 'client.profile:user_id,phone',
+                'schedule:id,inquiry_id,arrival_at',
             ])
-            ->withLeadStatus()
             ->withJobOrderFlag()
             ->orderByDesc('created_at')
             ->orderByDesc('id')
@@ -312,6 +355,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         return $query
             ->with([
                 'services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
+                'serviceOptions',
                 'categories',
                 'schedule:id,inquiry_id,arrival_at,status',
                 'stones' => fn ($stones) => $stones->orderBy('sort_order'),
@@ -320,7 +364,8 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'stones.finish',
                 'files' => fn ($files) => $files->orderBy('id'),
                 'statusHistory',
-                'lead:id,reference,status,status_changed_at',
+                'paymentTransactions',
+                'lead:id,reference',
             ]);
     }
 }
