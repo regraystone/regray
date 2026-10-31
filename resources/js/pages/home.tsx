@@ -27,21 +27,43 @@ const END_OF_LIST_TOAST_ID = 'home-end-of-list';
 type Brand = {
     name: string;
     logo: string;
+    /**
+     * The share of the logo image's height its main lettering takes up,
+     * ignoring sub-lines like "Gruppo Lube" and the badge around "Lube". The
+     * tile sizes each logo by it, so the brand names read at one height.
+     */
+    nameShare: number;
     url?: string;
 };
 
-/** The brands, in the order the brand carousel listed them. */
+/**
+ * The brands, in the order the brand carousel listed them. Regray Stone's mark
+ * has no lettering, so it takes Cucine's share and the two square marks match.
+ */
 const brands: Brand[] = [
     {
         name: 'Regray Stone',
         logo: '/images/brands/regray_stone_logo.webp',
+        nameShare: 0.46,
         url: 'https://regraystone.com/',
     },
-    { name: 'Cucine', logo: '/images/brands/cucine_logo.webp' },
-    { name: 'Ascale', logo: '/images/brands/ascale_logo.webp' },
-    { name: 'Faer', logo: '/images/brands/faer_logo.webp' },
-    { name: 'Reform', logo: '/images/brands/reform_logo.webp' },
-    { name: 'Res Italia', logo: '/images/brands/res_logo.webp' },
+    {
+        name: 'Cucine',
+        logo: '/images/brands/cucine_logo.webp',
+        nameShare: 0.46,
+    },
+    { name: 'Ascale', logo: '/images/brands/ascale_logo.webp', nameShare: 1 },
+    { name: 'Faer', logo: '/images/brands/faer_logo.webp', nameShare: 0.51 },
+    {
+        name: 'Reform',
+        logo: '/images/brands/reform_logo.webp',
+        nameShare: 0.7,
+    },
+    {
+        name: 'Res Italia',
+        logo: '/images/brands/res_logo.webp',
+        nameShare: 0.59,
+    },
 ];
 
 const handleDiscoverClick = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -90,6 +112,9 @@ const Hero = () => (
  * brand, so its alt text carries the name. A brand with a site of its own
  * opens it in a new tab; the rest are not links.
  *
+ * Every logo's lettering is `--brand-name-height` tall: the image is that
+ * divided by the share of it the lettering takes up.
+ *
  * `wide` is the wider tile of a staggered row from md up: it drops its own
  * aspect ratio and fills the row, whose height the narrow tile's 2:1 sets.
  */
@@ -99,10 +124,13 @@ const BrandTile = ({ brand, wide }: { brand: Brand; wide: boolean }) => {
             src={brand.logo}
             alt={brand.name}
             loading="lazy"
-            className="h-10 w-auto max-w-[60%] self-start object-contain object-left"
+            style={{
+                height: `calc(var(--brand-name-height) / ${brand.nameShare})`,
+            }}
+            className="w-auto max-w-full self-start object-contain object-left"
         />
     );
-    const tileClass = `flex aspect-[2/1] flex-col justify-end rounded-none bg-muted p-4 sm:p-6 ${
+    const tileClass = `flex aspect-[2/1] flex-col justify-end rounded-none bg-muted p-4 [--brand-name-height:1.125rem] sm:p-6 sm:[--brand-name-height:1.375rem] ${
         wide ? 'md:aspect-auto md:h-full' : ''
     }`;
 

@@ -68,7 +68,7 @@ function useSubmitAboveKeyboard(panel: RefObject<HTMLElement | null>): void {
  * margin, the photo on the left at full height (brand link top left, the
  * tagline bottom left over a dark gradient) and the form filling the right
  * column, vertically centred. The photo takes 60% and the form 40%,
- * though the form never narrows below 22rem: on tablets and smaller laptops the
+ * though the form column never narrows below 26rem (30rem from `lg`): on tablets and smaller laptops the
  * photo gives up the difference so the fields stay usable.
  *
  * Below `md` the page is exactly one screen tall: the form sits in a white
@@ -96,7 +96,7 @@ export default function AuthSheetLayout({
     return (
         <div className="light flex flex-col bg-background text-foreground [--auth-block-gap:clamp(0.5rem,4.5dvh_-_1rem,1.5rem)] [--auth-field-gap:clamp(0.5rem,4dvh_-_0.875rem,1.25rem)] max-md:h-dvh max-md:overflow-y-auto md:min-h-dvh md:p-4 lg:p-5">
             {/* Below md its children are the column's own flex items. */}
-            <div className="max-md:contents md:grid md:w-full md:flex-1 md:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)] md:gap-8 lg:gap-12">
+            <div className="max-md:contents md:grid md:w-full md:flex-1 md:grid-cols-[minmax(0,3fr)_minmax(26rem,2fr)] md:gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(30rem,2fr)] lg:gap-12">
                 <aside className="relative flex min-h-14 flex-1 flex-col justify-end overflow-hidden bg-black/30 md:min-h-[560px] md:rounded-md">
                     <div className="absolute inset-0">
                         <img
@@ -128,7 +128,7 @@ export default function AuthSheetLayout({
 
                 <main
                     ref={panel}
-                    className="flex min-w-0 items-center justify-center max-md:relative max-md:z-10 max-md:-mt-2 max-md:min-h-[50dvh] max-md:flex-none max-md:items-end max-md:rounded-t-md max-md:bg-background max-md:px-5 max-md:pt-[calc(var(--auth-block-gap)+0.25rem)] max-md:pb-[calc(var(--auth-block-gap)+0.5rem+env(safe-area-inset-bottom))] sm:max-md:px-8 md:px-2 lg:px-4 xl:px-8"
+                    className="flex min-w-0 items-center justify-center max-md:relative max-md:z-10 max-md:-mt-2 max-md:min-h-[50dvh] max-md:flex-none max-md:items-end max-md:rounded-t-md max-md:bg-background max-md:px-5 max-md:pt-[calc(var(--auth-block-gap)+0.25rem)] max-md:pb-[calc(var(--auth-block-gap)+0.5rem+env(safe-area-inset-bottom))] sm:max-md:px-8 md:px-12 lg:px-16 xl:px-20 2xl:px-28"
                 >
                     <div className="w-full max-w-md md:max-w-none">
                         <h1 className="text-2xl font-medium tracking-[-0.04em] sm:text-3xl md:font-normal">
