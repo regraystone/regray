@@ -52,14 +52,39 @@ class ConversationService
             $user,
             $filters,
             $this->escapeSearch($filters->search),
-            includeSupportPool: ! $user->isClient() && $user->can(Permission::SupportClaim->value),
-            includeAllSupport: $user->hasRole(Role::superAdmin()->value),
+            includeSupportPool: $this->listsSupportPool($user),
+            includeAllSupport: $this->listsAllSupport($user),
             perPage: self::PER_PAGE,
         );
 
         $this->attachLastMessages($page->getCollection());
 
         return $page;
+    }
+
+    /**
+     * The unread messages across the user's whole list, for the badge on the
+     * Message link. Counted over exactly the conversations list() shows.
+     */
+    public function unreadTotal(User $user): int
+    {
+        return $this->conversations->unreadTotalFor(
+            $user,
+            $this->listsSupportPool($user),
+            $this->listsAllSupport($user),
+        );
+    }
+
+    /** Whether the list holds the unassigned Regray Team threads. */
+    private function listsSupportPool(User $user): bool
+    {
+        return ! $user->isClient() && $user->can(Permission::SupportClaim->value);
+    }
+
+    /** Whether the list holds every Regray Team thread. */
+    private function listsAllSupport(User $user): bool
+    {
+        return $user->hasRole(Role::superAdmin()->value);
     }
 
     /**

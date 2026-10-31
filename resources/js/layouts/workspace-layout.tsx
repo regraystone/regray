@@ -43,6 +43,9 @@ import {
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
+import { getEcho, listenTo, onReconnect } from '@/lib/echo';
+import { onUnreadChanged } from '@/lib/unread-badge';
+import type { Realtime } from '@/types/message';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
 import { index as homeIndex } from '@/routes/home';
@@ -259,11 +262,14 @@ const SidebarNav = ({
     collapsed,
     pathname,
     savedCount,
+    unreadCount,
     onNavigate,
 }: {
     collapsed: boolean;
     pathname: string;
     savedCount: number;
+    /** Unread messages across the user's conversations. */
+    unreadCount: number;
     onNavigate?: () => void;
 }) => {
     const { can } = usePermissions();
@@ -330,6 +336,22 @@ const SidebarNav = ({
                                                         {savedCount}
                                                     </span>
                                                 )}
+                                            {item.slug === 'message' &&
+                                                unreadCount > 0 &&
+                                                !collapsed && (
+                                                    <span
+                                                        className="ml-auto grid min-w-5 place-items-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[0.65rem] font-bold"
+                                                        data-testid="sidebar-unread-badge"
+                                                    >
+                                                        {unreadCount > 99
+                                                            ? '99+'
+                                                            : unreadCount}
+                                                        <span className="sr-only">
+                                                            {' '}
+                                                            unread
+                                                        </span>
+                                                    </span>
+                                                )}
                                         </Link>
                                     </TooltipTrigger>
                                     {collapsed && (
@@ -390,6 +412,70 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const user = page.props.auth.user;
     const { savedIds, toggleSave, canSave } = useSavedStones();
     const savedCount = savedIds.size;
+    const unreadCount = page.props.unreadMessageCount ?? 0;
+    const { can } = usePermissions();
+    const canMessage = can(permissions.messagesView);
+    const isInSupportPool = can(permissions.supportClaim);
+    const realtime = page.props.realtime as Realtime | null | undefined;
+    const userId = user?.id;
+
+    /*
+     * Keep the Message badge current wherever the reader is: the inbox channel
+     * (and, for the support pool, the pool's) says a conversation's row
+     * changed, and this tab says when it has just read messages. Either way
+     * only the count is asked for again, in the background, so it never cuts
+     * a visit short. A burst of events is one reload.
+     *
+     * The channels are not left on the way out: the Message page listens on
+     * the same ones, and leaving here would deafen it too.
+     */
+    useEffect(() => {
+        if (!canMessage || userId === undefined) {
+            return;
+        }
+
+        let timer: number | null = null;
+        const refresh = () => {
+            if (timer !== null) {
+                window.clearTimeout(timer);
+            }
+
+            timer = window.setTimeout(() => {
+                timer = null;
+                router.reload({ only: ['unreadMessageCount'], async: true });
+            }, 400);
+        };
+
+        const stopRead = onUnreadChanged(refresh);
+        const echo = getEcho(realtime ?? undefined);
+        const stopInbox =
+            echo === null
+                ? null
+                : listenTo(echo.private(`user.${userId}`), {
+                      '.conversation.activity': refresh,
+                      '.conversation.added': refresh,
+                  });
+        const stopPool =
+            echo !== null && isInSupportPool
+                ? listenTo(echo.private('support.pool'), {
+                      '.conversation.activity': refresh,
+                      '.support.claimed': refresh,
+                      '.support.released': refresh,
+                  })
+                : null;
+        const stopReconnect = echo === null ? null : onReconnect(echo, refresh);
+
+        return () => {
+            stopRead();
+            stopInbox?.();
+            stopPool?.();
+            stopReconnect?.();
+
+            if (timer !== null) {
+                window.clearTimeout(timer);
+            }
+        };
+    }, [canMessage, isInSupportPool, realtime, userId]);
 
     const isSaved = isStoneProfilePage && stoneSlug && savedIds.has(stoneSlug);
 
@@ -564,6 +650,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     collapsed={collapsed}
                     pathname={activePath}
                     savedCount={savedCount}
+                    unreadCount={unreadCount}
                 />
 
                 {/* Collapse / expand toggle (desktop only) */}
@@ -769,6 +856,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     collapsed={false}
                     pathname={activePath}
                     savedCount={savedCount}
+                    unreadCount={unreadCount}
                     onNavigate={() => setDrawerOpen(false)}
                 />
             </aside>

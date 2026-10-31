@@ -13,6 +13,8 @@ declare module '@inertiajs/core' {
             auth: Auth;
             sidebarOpen: boolean;
             savedStoneSlugs: string[];
+            /** Unread messages across the user's conversations, for the Message link. */
+            unreadMessageCount: number;
             [key: string]: unknown;
         };
     }

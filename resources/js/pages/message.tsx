@@ -12,6 +12,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { conversationListSkeleton } from '@/lib/conversation-skeleton';
 import { getEcho, listenTo, onReconnect } from '@/lib/echo';
+import { onUnreadChanged } from '@/lib/unread-badge';
 import { markDelivered } from '@/lib/message-api';
 import { cn } from '@/lib/utils';
 import { index as messageIndex } from '@/routes/message';
@@ -124,6 +125,10 @@ const Message = () => {
             });
         }, 300);
     }, []);
+
+    // Reading a thread here is not announced to this reader's inbox, so the
+    // row's unread count is asked for again directly, as the sidebar's is.
+    useEffect(() => onUnreadChanged(refreshList), [refreshList]);
 
     const applyFilters = (next: Filters) => {
         const query: Record<string, string> = {};
@@ -244,15 +249,14 @@ const Message = () => {
 
         const stopReconnect = onReconnect(echo, refreshList);
 
+        /*
+         * Only this page's listeners go; the channels stay joined, because the
+         * layout listens on the same two for the Message badge.
+         */
         return () => {
             stopReconnect();
             stopInbox();
-            echo.leave(inbox);
-
-            if (stopPool !== null) {
-                stopPool();
-                echo.leave('support.pool');
-            }
+            stopPool?.();
         };
     }, [realtime, currentUserId, isInPool, refreshList]);
 
