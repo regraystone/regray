@@ -535,6 +535,7 @@ const InquireFlow = ({
     const draftStoneIds = watchDraft('stoneIds');
     const draftServiceIds = watchDraft('serviceIds');
     const draftStandaloneServiceIds = watchDraft('standaloneServiceIds');
+    const draftServiceOptions = watchDraft('serviceOptions');
     const draftApplicationIds = watchDraft('applicationIds');
 
     /*
@@ -783,7 +784,31 @@ const InquireFlow = ({
             shouldValidate: hasDraftContinued.current,
         };
 
-        setDraftValue(field, toggleIn(getDraftValues(field), id), options);
+        const current = getDraftValues(field);
+
+        setDraftValue(field, toggleIn(current, id), options);
+
+        // A service taken off takes the kind of work picked under it too.
+        if (current.includes(id)) {
+            setDraftValue(
+                'serviceOptions',
+                Object.fromEntries(
+                    Object.entries(getDraftValues('serviceOptions')).filter(
+                        ([serviceId]) => serviceId !== id,
+                    ),
+                ),
+                options,
+            );
+        }
+    };
+
+    /** The kind of work picked under one service, from its dropdown. */
+    const setServiceOption = (id: string, option: string) => {
+        // By its own path, so a revalidation clears this service's error.
+        setDraftValue(`serviceOptions.${id}`, option, {
+            shouldDirty: true,
+            shouldValidate: hasDraftContinued.current,
+        });
     };
 
     /**
@@ -862,6 +887,7 @@ const InquireFlow = ({
             stoneIds: project.stones.map((selection) => selection.stoneId),
             serviceIds: isStandalone ? [] : [...project.serviceIds],
             standaloneServiceIds: isStandalone ? [...project.serviceIds] : [],
+            serviceOptions: { ...project.serviceOptions },
             stones: project.stones.map((selection) => ({ ...selection })),
             applicationIds: [...project.applications],
             location: project.location,
@@ -991,8 +1017,19 @@ const InquireFlow = ({
     const continueFromServices = async () => {
         hasDraftContinued.current = true;
 
+        /*
+         * Each service's kind of work by its own path: react-hook-form keeps
+         * an error only where it carries a message, which the
+         * `serviceOptions.<id>` entries do and the map as a whole does not.
+         */
         const valid = await triggerDraft(
-            ['serviceIds', 'standaloneServiceIds'],
+            [
+                'serviceIds',
+                'standaloneServiceIds',
+                ...chosenServiceIds.map(
+                    (id) => `serviceOptions.${id}` as const,
+                ),
+            ],
             { shouldFocus: true },
         );
 
@@ -2122,6 +2159,23 @@ const InquireFlow = ({
                                             onSelect={() =>
                                                 toggleService(service.id)
                                             }
+                                            option={
+                                                draftServiceOptions[
+                                                    service.id
+                                                ] ?? ''
+                                            }
+                                            onOptionChange={(option) =>
+                                                setServiceOption(
+                                                    service.id,
+                                                    option,
+                                                )
+                                            }
+                                            optionError={fieldMessage(
+                                                draftMethods.formState.errors
+                                                    .serviceOptions?.[
+                                                    service.id
+                                                ],
+                                            )}
                                         />
                                     ))}
                                 </div>
@@ -2168,6 +2222,11 @@ const InquireFlow = ({
                                                     setDraftValue(
                                                         'standaloneServiceIds',
                                                         [],
+                                                        options,
+                                                    );
+                                                    setDraftValue(
+                                                        'serviceOptions',
+                                                        {},
                                                         options,
                                                     );
                                                 }}

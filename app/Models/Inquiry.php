@@ -202,7 +202,20 @@ class Inquiry extends Model
     /** @return BelongsToMany<Service, $this> */
     public function services(): BelongsToMany
     {
-        return $this->belongsToMany(Service::class, 'inquiry_services');
+        return $this->belongsToMany(Service::class, 'inquiry_services')
+            ->withPivot('service_option_id');
+    }
+
+    /**
+     * The kind of work picked under each of the project's services, one per
+     * service (an option's `service_id` says which). A service picked before
+     * the choice existed has none.
+     *
+     * @return BelongsToMany<ServiceOption, $this>
+     */
+    public function serviceOptions(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceOption::class, 'inquiry_services', 'inquiry_id', 'service_option_id');
     }
 
     /** @return BelongsToMany<ProjectCategory, $this> */

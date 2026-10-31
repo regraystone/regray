@@ -252,6 +252,8 @@ class InquiryDetailsResource extends JsonResource
             'services' => $this->services->map(fn ($service): array => [
                 'name' => $service->name,
                 'image' => ProjectCardResource::resolveThumbnailUrl($service->image_path),
+                // The kind of work picked under it; null on inquiries sent before the choice existed.
+                'option' => $this->serviceOptions->firstWhere('service_id', $service->id)?->name,
             ])->values()->all(),
             'applications' => $this->categories->map(fn ($category): string => $category->name)->values()->all(),
             'stones' => $this->stones->map(fn (InquiryStone $row): array => [

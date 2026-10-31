@@ -2,11 +2,19 @@ import type { InquiryEditProject, InquiryMode } from '@/lib/inquiry-flow';
 import type { LeadTally } from '@/lib/lead-statuses';
 import type { StoneCardData } from '@/types/stone';
 
+/** A kind of work a client picks under a service. `id` is its slug. */
+export type InquiryServiceKind = {
+    id: string;
+    name: string;
+};
+
 /** A service the Inquire page offers. `id` is its slug. */
 export type InquiryServiceOption = {
     id: string;
     name: string;
     features: string[];
+    /** The kinds of work to pick one of, such as "Stone supply only". */
+    options: InquiryServiceKind[];
     image: string;
     standalone: boolean;
     /** Services share a project only when they share a group. */

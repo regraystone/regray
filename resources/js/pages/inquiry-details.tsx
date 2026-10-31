@@ -54,7 +54,7 @@ type ResolvedStone = {
 
 type ResolvedProject = {
     name: string;
-    services: Array<{ name: string; image?: string }>;
+    services: Array<{ name: string; image?: string; option?: string | null }>;
     stones: ResolvedStone[];
     /** Application names, in the order the client picked them. */
     applications: string[];
@@ -618,19 +618,24 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 
                     {project.services.length > 0 ? (
                         /*
-                         * Name and picture only. The bullets are what the service
-                         * card in the stepper is for, where a client is still
-                         * choosing; here they have already chosen, and the row is a
-                         * record of what they picked.
+                         * Name, the kind of work picked and the picture. The
+                         * bullets are what the service card in the stepper is
+                         * for, where a client is still choosing; here they have
+                         * already chosen, and the row is a record of what they
+                         * picked. An inquiry sent before the choice existed says
+                         * so rather than leaving a gap.
                          */
                         <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                            {project.services.map(({ name, image }) => (
+                            {project.services.map(({ name, image, option }) => (
                                 <li
                                     key={name}
                                     className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
                                 >
                                     <p className="min-w-0 flex-1 text-sm font-bold break-words">
                                         {name}
+                                        <span className="mt-0.5 block font-normal text-secondary-foreground">
+                                            {option ?? 'Not specified'}
+                                        </span>
                                     </p>
                                     {image ? (
                                         <img

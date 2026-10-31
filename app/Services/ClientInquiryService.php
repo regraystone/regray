@@ -57,7 +57,11 @@ class ClientInquiryService
                     'thumbnail_path' => $stone->thumbnail_path,
                 ])->all()),
             services: array_values(($services->get($inquiry->id) ?? collect())
-                ->map(fn (Service $service): array => ['id' => $service->slug, 'name' => $service->name])
+                ->map(fn (Service $service): array => [
+                    'id' => $service->slug,
+                    'name' => $service->name,
+                    'option' => $service->getAttribute('option_name'),
+                ])
                 ->all()),
             actions: $this->inquiryActions->for($inquiry),
         ));

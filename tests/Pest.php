@@ -18,6 +18,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\ProjectCategory;
 use App\Models\Service;
+use App\Models\ServiceOption;
 use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
@@ -97,6 +98,45 @@ function inquiryClient(Role $role = Role::Client): User
 }
 
 /**
+ * The first kind of work of each service, by service slug: what a reader who
+ * took the dropdown's first entry for every service would send.
+ *
+ * @param  list<string>  $serviceSlugs
+ * @return array<string, string>
+ */
+function firstServiceOptions(array $serviceSlugs): array
+{
+    $options = [];
+
+    foreach ($serviceSlugs as $slug) {
+        $options[$slug] = ServiceOption::query()
+            ->whereHas('service', fn ($service) => $service->where('slug', $slug))
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->value('slug');
+    }
+
+    return $options;
+}
+
+/**
+ * The project with a kind of work picked for each of its services, unless the
+ * test set `serviceOptions` itself.
+ *
+ * @param  array<string, mixed>  $project
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function withServiceOptions(array $project, array $overrides): array
+{
+    if (array_key_exists('serviceOptions', $overrides)) {
+        return $project;
+    }
+
+    return [...$project, 'serviceOptions' => firstServiceOptions($project['serviceIds'] ?? [])];
+}
+
+/**
  * One valid project in the shape the Inquire page posts, with `$overrides`
  * laid over it. A regular service, so it carries a stone and an application.
  *
@@ -105,7 +145,7 @@ function inquiryClient(Role $role = Role::Client): User
  */
 function inquiryProjectInput(array $overrides = []): array
 {
-    return [
+    return withServiceOptions([
         'name' => 'Kitchen counters',
         'serviceIds' => ['natural-stone-supply'],
         'applicationIds' => [ProjectCategory::query()->orderBy('id')->value('slug')],
@@ -122,7 +162,7 @@ function inquiryProjectInput(array $overrides = []): array
         'neededByTime' => '',
         'notes' => 'Ground floor.',
         ...$overrides,
-    ];
+    ], $overrides);
 }
 
 /**
@@ -133,7 +173,7 @@ function inquiryProjectInput(array $overrides = []): array
  */
 function inquiryVisitInput(array $overrides = []): array
 {
-    return [
+    return withServiceOptions([
         'name' => 'Stone Relocation, Dismantling & Reinstallation',
         'serviceIds' => ['stone-relocation-dismantling-reinstallation'],
         'location' => 'Taguig',
@@ -143,7 +183,7 @@ function inquiryVisitInput(array $overrides = []): array
         'neededByTime' => '12:00',
         'notes' => '',
         ...$overrides,
-    ];
+    ], $overrides);
 }
 
 /**

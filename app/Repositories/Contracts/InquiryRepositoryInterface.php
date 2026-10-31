@@ -45,8 +45,11 @@ interface InquiryRepositoryInterface
         ?string $note = null,
     ): InquiryStatusHistory;
 
-    /** @param  list<int>  $serviceIds */
-    public function attachServices(Inquiry $inquiry, array $serviceIds): void;
+    /**
+     * @param  list<int>  $serviceIds
+     * @param  array<int, int>  $optionIds  The kind of work picked, by service id; a service without one gets none.
+     */
+    public function attachServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void;
 
     /** @param  list<int>  $applicationIds  Stored in the order given. */
     public function attachApplications(Inquiry $inquiry, array $applicationIds): void;
@@ -102,7 +105,8 @@ interface InquiryRepositoryInterface
 
     /**
      * The services of each inquiry, in one query. Each service carries the
-     * `inquiry_id` it belongs to.
+     * `inquiry_id` it belongs to and the `option_name` of the kind of work
+     * picked under it, null when none was.
      *
      * @param  list<int>  $inquiryIds
      * @return Collection<int, Service>
@@ -131,8 +135,11 @@ interface InquiryRepositoryInterface
      */
     public function updateDetails(Inquiry $inquiry, array $attributes): void;
 
-    /** @param  list<int>  $serviceIds */
-    public function syncServices(Inquiry $inquiry, array $serviceIds): void;
+    /**
+     * @param  list<int>  $serviceIds
+     * @param  array<int, int>  $optionIds  The kind of work picked, by service id; a service without one gets none.
+     */
+    public function syncServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void;
 
     /** @param  list<int>  $applicationIds  Stored in the order given. */
     public function syncApplications(Inquiry $inquiry, array $applicationIds): void;

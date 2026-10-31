@@ -13,6 +13,7 @@ const payload = (overrides = {}) => ({
     id: 42,
     name: 'Kitchen counters',
     serviceSlugs: ['natural-stone-supply'],
+    serviceOptionSlugs: { 'natural-stone-supply': 'supply-only' },
     applicationSlugs: ['countertops-backsplash'],
     stones: [
         { stoneId: 'marble', quantity: 4, edge: 'Half Bevel', finish: 'Honed' },
@@ -44,6 +45,7 @@ describe('toEditFormProjects', () => {
                 id: '42',
                 name: 'Kitchen counters',
                 serviceIds: ['natural-stone-supply'],
+                serviceOptions: { 'natural-stone-supply': 'supply-only' },
                 applications: ['countertops-backsplash'],
                 stones: [
                     {
@@ -71,6 +73,14 @@ describe('toEditFormProjects', () => {
                 ],
             },
         ]);
+    });
+
+    it('reads an inquiry sent before the kinds of work as none picked', () => {
+        const [project] = toEditFormProjects([
+            payload({ serviceOptionSlugs: [] }),
+        ]);
+
+        assert.deepEqual(project.serviceOptions, {});
     });
 
     it('keeps a visit time and turns a missing area into a blank', () => {

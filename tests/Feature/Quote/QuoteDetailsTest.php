@@ -9,6 +9,8 @@ use App\Enums\Role;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\Service;
+use App\Models\ServiceOption;
 use App\Models\Stone;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Services\ScheduleService;
@@ -195,4 +197,20 @@ it('shows the client their refund: the request form, the settled file, and the r
         ->and($types)->toContain('refund_request', 'refund_settlement')
         // A refund reads against what was held: 600 before, nothing after.
         ->and($refund)->toMatchArray(['amount' => '600.00', 'currentBalance' => '600.00', 'remainingBalance' => '0.00']);
+});
+
+it('shows the kind of work picked under each service, and none for a service sent before the choice', function (): void {
+    $inquiry = detailedInquiry($this);
+    $supply = Service::query()->where('slug', 'natural-stone-supply')->value('id');
+    $inquiry->services()->updateExistingPivot($supply, [
+        'service_option_id' => ServiceOption::query()->where('slug', 'supply-installation')->value('id'),
+    ]);
+
+    $services = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
+        ->viewData('page')['props']['inquiry']['project']['services'];
+
+    expect(array_column($services, 'option', 'name'))->toBe([
+        'Natural Stone Supply' => 'Stone supply with installation',
+        'Custom Stone Fabrication' => null,
+    ]);
 });

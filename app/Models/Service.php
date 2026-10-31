@@ -50,4 +50,14 @@ class Service extends Model
     {
         return $this->hasMany(ServiceFeature::class);
     }
+
+    /**
+     * The kinds of work a client can pick under this service, in order.
+     *
+     * @return HasMany<ServiceOption, $this>
+     */
+    public function options(): HasMany
+    {
+        return $this->hasMany(ServiceOption::class)->orderBy('sort_order');
+    }
 }

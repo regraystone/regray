@@ -101,10 +101,18 @@ const storedStoneSchema = z.object({
     finish: z.string(),
 });
 
+/**
+ * The kind of work picked under each service. Drafts saved before the choice
+ * existed have none, and read back as nothing picked yet rather than as a
+ * broken record.
+ */
+const storedServiceOptionsSchema = z.record(z.string(), z.string()).catch({});
+
 const storedProjectSchema = z.object({
     id: z.string(),
     name: z.string(),
     serviceIds: z.array(z.string()),
+    serviceOptions: storedServiceOptionsSchema,
     applications: z.array(z.string()),
     stones: z.array(storedStoneSchema),
     location: z.string(),
@@ -120,6 +128,7 @@ const storedDraftSchema = z.object({
     stoneIds: z.array(z.string()),
     serviceIds: z.array(z.string()),
     standaloneServiceIds: z.array(z.string()),
+    serviceOptions: storedServiceOptionsSchema,
     stones: z.array(storedStoneSchema),
     applicationIds: z.array(z.string()),
     location: z.string(),
@@ -178,6 +187,21 @@ const sanitize = (
 
     const known = (ids: string[], allowed: Set<string>): string[] =>
         ids.filter((id) => allowed.has(id));
+    // A kind of work survives only while its service still offers it.
+    const knownOptions = (
+        options: Record<string, string>,
+    ): Record<string, string> =>
+        Object.fromEntries(
+            Object.entries(options).filter(([serviceId, optionId]) =>
+                catalog.services.some(
+                    (service) =>
+                        service.id === serviceId &&
+                        service.options.some(
+                            (option) => option.id === optionId,
+                        ),
+                ),
+            ),
+        );
     const knownRows = <T extends { stoneId: string }>(rows: T[]): T[] =>
         rows.filter((row) => stoneIds.has(row.stoneId));
 
@@ -186,6 +210,7 @@ const sanitize = (
         projects: record.projects.map((project) => ({
             ...project,
             serviceIds: known(project.serviceIds, serviceIds),
+            serviceOptions: knownOptions(project.serviceOptions),
             applications: known(project.applications, applicationIds),
             stones: knownRows(project.stones),
         })),
@@ -197,6 +222,7 @@ const sanitize = (
                 record.draft.standaloneServiceIds,
                 serviceIds,
             ),
+            serviceOptions: knownOptions(record.draft.serviceOptions),
             applicationIds: known(record.draft.applicationIds, applicationIds),
             stones: knownRows(record.draft.stones),
         },

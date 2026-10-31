@@ -14,6 +14,10 @@ const file = (name, contents = 'x') =>
 const project = (overrides = {}) => ({
     name: 'Kitchen counters',
     serviceIds: ['natural-stone-supply', 'custom-stone-fabrication'],
+    serviceOptions: {
+        'natural-stone-supply': 'supply-installation',
+        'custom-stone-fabrication': 'fabrication-supply',
+    },
     applications: ['3', '7'],
     stones: [
         {
@@ -49,6 +53,10 @@ describe('buildInquiryFormData', () => {
             'projects[0][name]': 'Kitchen counters',
             'projects[0][serviceIds][0]': 'natural-stone-supply',
             'projects[0][serviceIds][1]': 'custom-stone-fabrication',
+            'projects[0][serviceOptions][natural-stone-supply]':
+                'supply-installation',
+            'projects[0][serviceOptions][custom-stone-fabrication]':
+                'fabrication-supply',
             'projects[0][applicationIds][0]': '3',
             'projects[0][applicationIds][1]': '7',
             'projects[0][stones][0][stoneId]': 'marble',
@@ -66,6 +74,17 @@ describe('buildInquiryFormData', () => {
             'projects[0][neededByTime]': '09:30',
             'projects[0][notes]': 'Ground floor.',
         });
+    });
+
+    it('sends a blank kind of work for a service without one, for the server to name it', () => {
+        const body = buildInquiryFormData({
+            projects: [project({ serviceOptions: {} })],
+        });
+
+        assert.equal(
+            body.get('projects[0][serviceOptions][natural-stone-supply]'),
+            '',
+        );
     });
 
     it('sends applications as `applicationIds`, never as categories', () => {

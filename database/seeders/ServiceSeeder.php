@@ -32,6 +32,13 @@ class ServiceSeeder extends Seeder
                     );
                 }
             }
+
+            foreach ($data['options'][$serviceData['slug']] ?? [] as $optionSort => [$slug, $name]) {
+                $service->options()->firstOrCreate(
+                    ['slug' => $slug],
+                    ['name' => $name, 'sort_order' => $optionSort, 'is_active' => true]
+                );
+            }
         }
     }
 }

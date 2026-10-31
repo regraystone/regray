@@ -316,6 +316,41 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
     const edgeNames = new Set(catalog.edgeProfiles.map((edge) => edge.name));
     const finishNames = new Set(catalog.finishes.map((finish) => finish.name));
     const standaloneIds = catalog.standaloneServiceIds;
+    const servicesById = new Map(
+        catalog.services.map((service) => [service.id, service]),
+    );
+
+    /**
+     * Every picked service needs one of its own kinds of work, such as "Stone
+     * supply only". The complaint names the service and sits under its row, at
+     * `serviceOptions.<service id>`, so step 1 can show it there.
+     */
+    const requireServiceOptions = (
+        ids: string[],
+        options: Record<string, string>,
+        ctx: z.RefinementCtx,
+    ): void => {
+        ids.forEach((id) => {
+            const service = servicesById.get(id);
+            const picked = options[id];
+
+            if (
+                service === undefined ||
+                service.options.some((option) => option.id === picked)
+            ) {
+                return;
+            }
+
+            ctx.addIssue({
+                code: 'custom',
+                path: ['serviceOptions', id],
+                message: `Choose what you need for ${service.name}.`,
+            });
+        });
+    };
+
+    /** The kind of work picked under each service, by service id. */
+    const serviceOptionsSchema = z.record(z.string(), z.string());
 
     /**
      * Whether a project's service is one the team attends at an hour.
@@ -562,11 +597,18 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             serviceIds: z
                 .array(serviceIdSchema)
                 .min(1, { error: 'Select at least one service.' }),
+            serviceOptions: serviceOptionsSchema,
             applications: applicationsSchema,
             stones: projectStonesSchema,
             ...projectDetailsShape,
         })
         .superRefine((project, ctx) => {
+            requireServiceOptions(
+                project.serviceIds,
+                project.serviceOptions,
+                ctx,
+            );
+
             /*
              * One service that supplies something is enough to need a stone, so
              * the test is "any", not "all": a reader who wants a site survey
@@ -659,6 +701,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             name: projectNameSchema,
             applicationIds: applicationsSchema,
             standaloneServiceIds: z.array(serviceIdSchema),
+            serviceOptions: serviceOptionsSchema,
             stones: projectStonesSchema,
             ...projectDetailsShape,
         })
@@ -677,6 +720,12 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                     message: 'Select at least one service.',
                 });
             }
+
+            requireServiceOptions(
+                [...draft.serviceIds, ...draft.standaloneServiceIds],
+                draft.serviceOptions,
+                ctx,
+            );
 
             /*
              * Stones and an application are required when a service supplies
@@ -812,6 +861,7 @@ export const draftDefaults = {
     stoneIds: [],
     serviceIds: [],
     standaloneServiceIds: [],
+    serviceOptions: {},
     stones: [],
     applicationIds: [],
     location: '',

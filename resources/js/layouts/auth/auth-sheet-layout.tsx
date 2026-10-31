@@ -64,10 +64,12 @@ function useSubmitAboveKeyboard(panel: RefObject<HTMLElement | null>): void {
 /**
  * Sign In, Sign Up, Forgot and Reset Password, and Email Verification.
  *
- * From `md` up: a white page with a centred pair of columns at most 1100px
- * wide, the photo on the left (brand link top left, the tagline bottom left
- * over a dark gradient) and the form on the right, vertically centred and at
- * most 400px wide.
+ * From `md` up: two columns filling the whole screen inside a small white
+ * margin, the photo on the left at full height (brand link top left, the
+ * tagline bottom left over a dark gradient) and the form filling the right
+ * column, vertically centred. The photo takes 60% and the form 40%,
+ * though the form never narrows below 22rem: on tablets and smaller laptops the
+ * photo gives up the difference so the fields stay usable.
  *
  * Below `md` the page is exactly one screen tall: the form sits in a white
  * sheet anchored to the bottom, at least half the screen tall and taller when
@@ -92,9 +94,9 @@ export default function AuthSheetLayout({
     useSubmitAboveKeyboard(panel);
 
     return (
-        <div className="light flex flex-col bg-background text-foreground [--auth-block-gap:clamp(0.5rem,4.5dvh_-_1rem,1.5rem)] [--auth-field-gap:clamp(0.5rem,4dvh_-_0.875rem,1.25rem)] max-md:h-dvh max-md:overflow-y-auto md:min-h-screen md:items-center md:justify-center md:p-8 lg:p-12">
+        <div className="light flex flex-col bg-background text-foreground [--auth-block-gap:clamp(0.5rem,4.5dvh_-_1rem,1.5rem)] [--auth-field-gap:clamp(0.5rem,4dvh_-_0.875rem,1.25rem)] max-md:h-dvh max-md:overflow-y-auto md:min-h-dvh md:p-4 lg:p-5">
             {/* Below md its children are the column's own flex items. */}
-            <div className="max-md:contents md:grid md:w-full md:max-w-[1100px] md:grid-cols-2 md:gap-10 lg:gap-16">
+            <div className="max-md:contents md:grid md:w-full md:flex-1 md:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)] md:gap-8 lg:gap-12">
                 <aside className="relative flex min-h-14 flex-1 flex-col justify-end overflow-hidden bg-black/30 md:min-h-[560px] md:rounded-md">
                     <div className="absolute inset-0">
                         <img
@@ -126,9 +128,9 @@ export default function AuthSheetLayout({
 
                 <main
                     ref={panel}
-                    className="flex min-w-0 items-center justify-center max-md:relative max-md:z-10 max-md:-mt-2 max-md:min-h-[50dvh] max-md:flex-none max-md:items-end max-md:rounded-t-md max-md:bg-background max-md:px-5 max-md:pt-[calc(var(--auth-block-gap)+0.25rem)] max-md:pb-[calc(var(--auth-block-gap)+0.5rem+env(safe-area-inset-bottom))] sm:max-md:px-8"
+                    className="flex min-w-0 items-center justify-center max-md:relative max-md:z-10 max-md:-mt-2 max-md:min-h-[50dvh] max-md:flex-none max-md:items-end max-md:rounded-t-md max-md:bg-background max-md:px-5 max-md:pt-[calc(var(--auth-block-gap)+0.25rem)] max-md:pb-[calc(var(--auth-block-gap)+0.5rem+env(safe-area-inset-bottom))] sm:max-md:px-8 md:px-2 lg:px-4 xl:px-8"
                 >
-                    <div className="w-full max-w-md md:max-w-[400px]">
+                    <div className="w-full max-w-md md:max-w-none">
                         <h1 className="text-2xl font-medium tracking-[-0.04em] sm:text-3xl md:font-normal">
                             {title}
                         </h1>

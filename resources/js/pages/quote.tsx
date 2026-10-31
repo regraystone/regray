@@ -278,6 +278,9 @@ const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
                                         className={SERVICE_TAG_CLASS}
                                     >
                                         {service.name}
+                                        {service.option
+                                            ? ` · ${service.option}`
+                                            : null}
                                     </span>
                                 ))}
 

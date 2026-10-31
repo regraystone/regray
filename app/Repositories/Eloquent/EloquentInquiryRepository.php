@@ -58,9 +58,27 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         ]);
     }
 
-    public function attachServices(Inquiry $inquiry, array $serviceIds): void
+    public function attachServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void
     {
-        $inquiry->services()->attach($serviceIds);
+        $inquiry->services()->attach($this->servicePivots($serviceIds, $optionIds));
+    }
+
+    /**
+     * Each service id with the kind of work picked under it, as pivot rows.
+     *
+     * @param  list<int>  $serviceIds
+     * @param  array<int, int>  $optionIds
+     * @return array<int, array{service_option_id: int|null}>
+     */
+    private function servicePivots(array $serviceIds, array $optionIds): array
+    {
+        $rows = [];
+
+        foreach ($serviceIds as $serviceId) {
+            $rows[$serviceId] = ['service_option_id' => $optionIds[$serviceId] ?? null];
+        }
+
+        return $rows;
     }
 
     public function attachApplications(Inquiry $inquiry, array $applicationIds): void
@@ -145,9 +163,9 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         $inquiry->forceFill($attributes)->save();
     }
 
-    public function syncServices(Inquiry $inquiry, array $serviceIds): void
+    public function syncServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void
     {
-        $inquiry->services()->sync($serviceIds);
+        $inquiry->services()->sync($this->servicePivots($serviceIds, $optionIds));
     }
 
     public function syncApplications(Inquiry $inquiry, array $applicationIds): void
@@ -221,8 +239,9 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
 
         return Service::query()
             ->join('inquiry_services as isv', 'isv.service_id', '=', 'services.id')
+            ->leftJoin('service_options as so', 'so.id', '=', 'isv.service_option_id')
             ->whereIn('isv.inquiry_id', $inquiryIds)
-            ->select(['services.id', 'services.slug', 'services.name', 'isv.inquiry_id'])
+            ->select(['services.id', 'services.slug', 'services.name', 'isv.inquiry_id', 'so.name as option_name'])
             ->orderBy('isv.inquiry_id')
             ->orderBy('services.sort_order')
             ->orderBy('services.id')
@@ -333,6 +352,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         return $query
             ->with([
                 'services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
+                'serviceOptions',
                 'categories',
                 'schedule:id,inquiry_id,arrival_at,status',
                 'stones' => fn ($stones) => $stones->orderBy('sort_order'),

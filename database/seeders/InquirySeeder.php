@@ -611,8 +611,10 @@ class InquirySeeder extends Seeder
             ]);
         }
 
+        // Each demo service is asked for as its first kind of work.
         foreach ($project['services'] as $serviceName) {
-            $inquiry->services()->attach(Service::where('name', $serviceName)->firstOrFail()->id);
+            $service = Service::where('name', $serviceName)->firstOrFail();
+            $inquiry->services()->attach($service->id, ['service_option_id' => $service->options()->value('id')]);
         }
 
         foreach ($project['categories'] as $categorySort => $categorySlug) {

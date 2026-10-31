@@ -19,7 +19,8 @@ export type QuoteInquiry = {
     createdAt: string;
     title: string;
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
-    services: Array<{ id: string; name: string }>;
+    /** Each with the kind of work picked under it; null when sent before the choice. */
+    services: Array<{ id: string; name: string; option: string | null }>;
     /** Which buttons the card shows, and which can be pressed. */
     actions: QuoteActions;
 };
@@ -91,7 +92,8 @@ export type QuoteInquiryDetails = {
     /** The one project the inquiry is. */
     project: {
         name: string;
-        services: Array<{ name: string; image: string }>;
+        /** Each with the kind of work picked under it; null when sent before the choice. */
+        services: Array<{ name: string; image: string; option: string | null }>;
         applications: string[];
         stones: Array<{
             id: string;

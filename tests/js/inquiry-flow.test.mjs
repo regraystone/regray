@@ -200,6 +200,12 @@ describe('clampRestoredStep', () => {
 describe('committing a draft', () => {
     const filled = (overrides = {}) => ({
         ...draft(),
+        serviceOptions: {
+            'natural-stone-supply': 'supply-only',
+            'site-ocular': 'survey-only',
+            visit: 'visit-only',
+            care: 'care-only',
+        },
         name: 'Kitchen counters',
         stones: [
             {
@@ -236,6 +242,20 @@ describe('committing a draft', () => {
         assert.equal(project.name, 'Kitchen counters');
     });
 
+    it("keeps only the kinds of work of the project's own services", () => {
+        const project = buildCommittedProject(
+            filled({
+                serviceIds: ['natural-stone-supply'],
+                standaloneServiceIds: ['site-ocular'],
+            }),
+            { id: 'p-1' },
+        );
+
+        assert.deepEqual(project.serviceOptions, {
+            'natural-stone-supply': 'supply-only',
+        });
+    });
+
     it('copies stones and applications onto a standalone project as extras', () => {
         const project = buildCommittedProject(
             filled({
@@ -251,6 +271,9 @@ describe('committing a draft', () => {
 
         assert.equal(project.name, 'Site Ocular');
         assert.deepEqual(project.serviceIds, ['site-ocular']);
+        assert.deepEqual(project.serviceOptions, {
+            'site-ocular': 'survey-only',
+        });
         assert.deepEqual(project.applications, ['3']);
         assert.equal(project.stones.length, 1);
         assert.equal(project.stones[0].stoneId, 'marble');
@@ -313,6 +336,7 @@ describe('committing a draft', () => {
         const next = draftForNextInQueue(source, blank, ['care']);
 
         assert.deepEqual(next.standaloneServiceIds, ['care']);
+        assert.deepEqual(next.serviceOptions, { care: 'care-only' });
         assert.deepEqual(next.stoneIds, ['marble']);
         assert.deepEqual(next.applicationIds, ['3']);
         assert.equal(next.stones.length, 1);

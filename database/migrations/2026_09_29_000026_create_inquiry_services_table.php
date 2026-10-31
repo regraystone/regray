@@ -11,6 +11,9 @@ return new class extends Migration
         Schema::create('inquiry_services', function (Blueprint $table) {
             $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
             $table->foreignId('service_id')->constrained()->restrictOnDelete();
+            // The kind of work picked under the service; null on rows made
+            // without one, such as demo data written straight to the table.
+            $table->foreignId('service_option_id')->nullable()->constrained()->restrictOnDelete();
 
             $table->primary(['inquiry_id', 'service_id']);
             $table->index('service_id');

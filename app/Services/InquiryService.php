@@ -29,8 +29,8 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * @phpstan-type ProjectInput array{name: string, service_ids: list<int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_ids: list<int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type ProjectInput array{name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -276,7 +276,7 @@ class InquiryService
             $by,
         );
 
-        $this->inquiryRepository->attachServices($inquiry, $project['service_ids']);
+        $this->inquiryRepository->attachServices($inquiry, $project['service_ids'], $project['service_option_ids'] ?? []);
         $this->inquiryRepository->attachApplications($inquiry, $project['application_ids']);
         $this->inquiryRepository->addStones($inquiry, $project['stones']);
 
@@ -315,7 +315,7 @@ class InquiryService
         ]);
 
         $this->moveVisit($inquiry, $client, $project, $bookedBy);
-        $this->inquiryRepository->syncServices($inquiry, $project['service_ids']);
+        $this->inquiryRepository->syncServices($inquiry, $project['service_ids'], $project['service_option_ids'] ?? []);
         $this->inquiryRepository->syncApplications($inquiry, $project['application_ids']);
         $this->inquiryRepository->replaceStones($inquiry, $project['stones']);
     }
@@ -376,6 +376,7 @@ class InquiryService
             'area_sqm' => $inquiry->area_sqm === null ? null : (float) $inquiry->area_sqm,
             'notes' => $inquiry->notes,
             'service_ids' => $inquiry->services()->pluck('services.id')->all(),
+            'service_option_ids' => $inquiry->services()->pluck('inquiry_services.service_option_id', 'services.id')->all(),
             'application_ids' => $inquiry->categories()->pluck('project_categories.id')->all(),
             'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity'])->toArray(),
             'file_ids' => $inquiry->files()->where('document_type', DocumentType::ClientAttachment)->orderBy('id')->pluck('id')->all(),
