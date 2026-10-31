@@ -23,7 +23,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                 resetOnSuccess={['password', 'password_confirmation']}
             >
                 {({ processing, errors }) => (
-                    <div className="grid gap-6 max-lg:gap-(--auth-field-gap)">
+                    <div className="grid gap-5 max-md:gap-(--auth-field-gap)">
                         <Field
                             id="email"
                             type="email"
@@ -58,7 +58,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
 
                         <Button
                             type="submit"
-                            className="mt-4 w-full max-lg:mt-(--auth-block-gap)"
+                            className="mt-1 w-full max-md:mt-(--auth-block-gap)"
                             disabled={processing}
                             data-test="reset-password-button"
                         >

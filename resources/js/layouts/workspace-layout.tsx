@@ -248,7 +248,7 @@ const navLinkClass = ({
     collapsed: boolean;
 }) =>
     `relative flex shrink-0 flex-row items-center overflow-hidden rounded-r-md py-2.5 text-sm transition-opacity hover:opacity-85 ${
-        collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-4'
+        collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-7'
     } ${
         isActive
             ? 'bg-primary font-bold text-primary-foreground'
@@ -278,7 +278,7 @@ const SidebarNav = ({
     return (
         <nav
             className={`flex-1 overflow-y-auto py-5 ${
-                collapsed ? 'space-y-6' : 'space-y-1 px-3'
+                collapsed ? 'space-y-6' : 'space-y-1'
             }`}
         >
             <ul className="space-y-1">
@@ -364,6 +364,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     // Fortify's confirm-password page is only a gate in front of Security, so
     // the chrome should read as if the user is already on that page.
     const isConfirmPassword = page.component === 'confirm-password';
+    const isMessagePage = page.component === 'message';
     const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
 
     // Get the stone slug from the page props when on a stone profile page
@@ -593,7 +594,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             <div
                 className={`flex min-h-screen flex-col transition-[padding] duration-300 ease-out ${
                     collapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-64'
-                }`}
+                } ${isMessagePage ? 'max-md:min-h-0' : ''}`}
             >
                 <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-sidebar-border bg-background px-4 sm:px-5 lg:h-16 lg:px-8">
                     <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -722,7 +723,17 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     </div>
                 </header>
 
-                <main className="flex-1 px-4 py-6 sm:px-5 sm:py-8 lg:px-8">
+                {/*
+                 * Messages fill the screen under the header on phones, edge to
+                 * edge; from md up they sit in the page like everything else.
+                 */}
+                <main
+                    className={`flex-1 ${
+                        isMessagePage
+                            ? 'md:px-5 md:py-8 lg:px-8'
+                            : 'px-4 py-6 sm:px-5 sm:py-8 lg:px-8'
+                    }`}
+                >
                     <div
                         key={url}
                         className="page-enter motion-reduce:animate-none"
@@ -747,7 +758,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 aria-modal="true"
                 aria-label="Navigation"
                 inert={!drawerOpen}
-                className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-background transition-transform duration-300 lg:hidden ${
+                className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden border-r border-border bg-background transition-transform duration-300 lg:hidden ${
                     drawerOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >

@@ -182,7 +182,7 @@ test('9 · the new inquiry is Pending in the Quote list, and its details show th
     await expect(main).toContainText('Second floor, no lift.');
 });
 
-test('10 · cancelling a pending inquiry from the Quote list turns it Cancelled', async ({
+test('10 · the Quote card offers no Cancel, and a pending inquiry cancelled through its endpoint turns Cancelled', async ({
     actors,
 }) => {
     const { clientAId } = inquiryFixtures();
@@ -199,18 +199,19 @@ test('10 · cancelling a pending inquiry from the Quote list turns it Cancelled'
     const card = page.locator('article').filter({ hasText: reference });
     await expect(card).toContainText('Pending');
 
-    await card
-        .getByRole('button', { name: `Cancel inquiry ${reference}` })
-        .click();
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toContainText(`Cancel inquiry ${reference}?`);
-    await dialog.getByRole('button', { name: 'Cancel inquiry' }).click();
+    // The card's only action is View details: Cancel was taken off it.
+    await expect(card.getByRole('button')).toHaveCount(0);
+    await expect(card.getByRole('link')).toHaveText(['View details']);
 
-    await expect(dialog).toHaveCount(0);
+    const cancelled = await postAsUser(page, `/quote/${reference}/cancel`, {
+        _method: 'PATCH',
+    });
+    expect([302, 303], `cancel answered ${cancelled.status}`).toContain(
+        cancelled.status,
+    );
+
+    await page.reload();
     await expect(card).toContainText('Cancelled');
-    await expect(
-        card.getByRole('button', { name: `Cancel inquiry ${reference}` }),
-    ).toHaveCount(0);
     expect(
         php<string>(
             `App\\Models\\Inquiry::query()->where('reference', '${reference}')->value('status')`,

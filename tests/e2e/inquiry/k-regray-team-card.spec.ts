@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { inquiryFixtures } from '../support/accounts';
-import { expect, php, test } from '../support/fixtures';
+import { expect, php, postAsUser, test } from '../support/fixtures';
 import {
     addVisitProject,
     openInquire,
@@ -88,14 +88,14 @@ test('41 · without a group chat, a status change posts its card into the Regray
     const reference = await sendAndReadReference(page);
 
     await page.goto('/quote');
+    const cancelled = await postAsUser(page, `/quote/${reference}/cancel`, {
+        _method: 'PATCH',
+    });
+    expect([302, 303], `cancel answered ${cancelled.status}`).toContain(
+        cancelled.status,
+    );
+    await page.reload();
     const listed = page.locator('article').filter({ hasText: reference });
-    await listed
-        .getByRole('button', { name: `Cancel inquiry ${reference}` })
-        .click();
-    await page
-        .getByRole('dialog')
-        .getByRole('button', { name: 'Cancel inquiry' })
-        .click();
     await expect(listed).toContainText('Cancelled');
 
     const cards = await cardsFor(

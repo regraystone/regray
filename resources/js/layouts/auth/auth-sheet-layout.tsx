@@ -8,8 +8,8 @@ const heroImage = '/images/regray-hero.jpg';
  * Keeps the submit button in sight while the on-screen keyboard is open: when
  * the visible viewport shrinks around a focused field, or focus moves to
  * another field, the button is scrolled up to just above the keyboard, as long
- * as the focused field still fits on screen with it. Phones only; the desktop
- * split never moves.
+ * as the focused field still fits on screen with it. Phones only; from `md` up
+ * the page never moves.
  */
 function useSubmitAboveKeyboard(panel: RefObject<HTMLElement | null>): void {
     useEffect(() => {
@@ -20,13 +20,13 @@ function useSubmitAboveKeyboard(panel: RefObject<HTMLElement | null>): void {
             return;
         }
 
-        const desktop = window.matchMedia('(min-width: 64rem)');
+        const wide = window.matchMedia('(min-width: 48rem)');
 
         const reveal = () => {
             const field = document.activeElement;
 
             if (
-                desktop.matches ||
+                wide.matches ||
                 !(field instanceof HTMLElement) ||
                 !element.contains(field)
             ) {
@@ -62,18 +62,24 @@ function useSubmitAboveKeyboard(panel: RefObject<HTMLElement | null>): void {
 }
 
 /**
- * AuthSplitLayout on desktop, unchanged from `lg` up. Below `lg` the page is
- * exactly one screen tall: the form sits in a white sheet anchored to the
- * bottom, at least half the screen tall and taller when its content needs it,
- * its rounded top corners laid over the photo, and the photo fills whatever
- * height is left. Spacing in the sheet
- * scales with the screen height so a full form still fits on a short phone;
- * if it cannot (several errors on a very small screen), the page scrolls
- * rather than hiding anything.
+ * Sign In, Sign Up, Forgot and Reset Password, and Email Verification.
+ *
+ * From `md` up: a white page with a centred pair of columns at most 1100px
+ * wide, the photo on the left (brand link top left, the tagline bottom left
+ * over a dark gradient) and the form on the right, vertically centred and at
+ * most 400px wide.
+ *
+ * Below `md` the page is exactly one screen tall: the form sits in a white
+ * sheet anchored to the bottom, at least half the screen tall and taller when
+ * its content needs it, its rounded top corners laid over the photo, and the
+ * photo fills whatever height is left. Spacing in the sheet scales with the
+ * screen height so a full form still fits on a short phone; if it cannot
+ * (several errors on a very small screen), the page scrolls rather than
+ * hiding anything.
  *
  * The pages space their fields with `--auth-field-gap` and everything else
  * (title to form, form to button, button to links) with `--auth-block-gap`,
- * both set here, below `lg` only. They tighten faster than the screen
+ * both set here, below `md` only. They tighten faster than the screen
  * shrinks: about 20px and 22px on an 844px-tall phone, 8px and 9px on 553px.
  */
 export default function AuthSheetLayout({
@@ -86,52 +92,57 @@ export default function AuthSheetLayout({
     useSubmitAboveKeyboard(panel);
 
     return (
-        <div className="light flex min-h-screen flex-col bg-background text-foreground [--auth-block-gap:clamp(0.5rem,4.5dvh_-_1rem,1.5rem)] [--auth-field-gap:clamp(0.5rem,4dvh_-_0.875rem,1.25rem)] max-lg:h-dvh max-lg:min-h-0 max-lg:overflow-y-auto lg:flex-row">
-            <aside className="relative w-full shrink-0 bg-black/30 max-lg:flex max-lg:min-h-14 max-lg:flex-1 max-lg:flex-col max-lg:justify-end max-lg:overflow-hidden lg:h-auto lg:w-[60%]">
-                <div className="absolute inset-0 overflow-hidden">
-                    <img
-                        src={heroImage}
-                        alt=""
-                        aria-hidden="true"
-                        className="size-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/30" />
-                    <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-6 lg:p-10">
-                        <Logo className="w-fit text-white max-lg:hidden" />
+        <div className="light flex flex-col bg-background text-foreground [--auth-block-gap:clamp(0.5rem,4.5dvh_-_1rem,1.5rem)] [--auth-field-gap:clamp(0.5rem,4dvh_-_0.875rem,1.25rem)] max-md:h-dvh max-md:overflow-y-auto md:min-h-screen md:items-center md:justify-center md:p-8 lg:p-12">
+            {/* Below md its children are the column's own flex items. */}
+            <div className="max-md:contents md:grid md:w-full md:max-w-[1100px] md:grid-cols-2 md:gap-10 lg:gap-16">
+                <aside className="relative flex min-h-14 flex-1 flex-col justify-end overflow-hidden bg-black/30 md:min-h-[560px] md:rounded-md">
+                    <div className="absolute inset-0">
+                        <img
+                            src={heroImage}
+                            alt=""
+                            aria-hidden="true"
+                            className="size-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/30 md:bg-transparent md:bg-linear-to-t md:from-black/75 md:via-black/15 md:to-transparent" />
+                        {/* A lighter fade at the top keeps the brand link legible on pale stone. */}
+                        <div className="absolute inset-x-0 top-0 hidden h-32 bg-linear-to-b from-black/35 to-transparent md:block" />
+                        <div className="absolute inset-0 hidden flex-col justify-between p-8 md:flex lg:p-10">
+                            <Logo className="w-fit text-white" />
 
-                        <div className="hidden lg:block">
-                            <p className="text-xs font-bold tracking-[0.16em] text-white/80 uppercase">
-                                Bespoke Stone &amp; Furniture
-                            </p>
-                            <p className="mt-2 max-w-sm text-lg font-bold tracking-[-0.02em] text-white sm:text-xl lg:mt-3 lg:text-2xl">
-                                One account. Every inquiry, from first sketch to
-                                final installation.
-                            </p>
+                            <div>
+                                <p className="text-xs font-bold tracking-[0.16em] text-white/80 uppercase">
+                                    Bespoke Stone &amp; Furniture
+                                </p>
+                                <p className="mt-3 max-w-sm text-xl font-bold tracking-[-0.02em] text-white lg:text-2xl">
+                                    One account. Every inquiry, from first
+                                    sketch to final installation.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <Logo className="mb-[calc(var(--auth-field-gap)+0.5rem)] self-center text-white lg:hidden" />
-            </aside>
+                    <Logo className="mb-[calc(var(--auth-field-gap)+0.5rem)] self-center text-white md:hidden" />
+                </aside>
 
-            <main
-                ref={panel}
-                className="flex min-w-0 flex-1 items-center justify-center px-5 pt-[calc(var(--auth-block-gap)+0.25rem)] pb-[calc(var(--auth-block-gap)+0.5rem+env(safe-area-inset-bottom))] max-lg:relative max-lg:z-10 max-lg:-mt-2 max-lg:min-h-[50dvh] max-lg:flex-none max-lg:items-end max-lg:rounded-t-md max-lg:bg-background sm:px-8 lg:px-8 lg:py-12"
-            >
-                <div className="w-full max-w-md">
-                    <h1 className="text-2xl font-bold tracking-[-0.04em] max-lg:font-medium sm:text-3xl lg:text-[2.3rem]">
-                        {title}
-                    </h1>
-                    {description ? (
-                        <p className="mt-2 text-sm leading-relaxed text-secondary-foreground sm:mt-3 sm:text-base">
-                            {description}
-                        </p>
-                    ) : null}
-                    <div className="mt-(--auth-block-gap) lg:mt-8">
-                        {children}
+                <main
+                    ref={panel}
+                    className="flex min-w-0 items-center justify-center max-md:relative max-md:z-10 max-md:-mt-2 max-md:min-h-[50dvh] max-md:flex-none max-md:items-end max-md:rounded-t-md max-md:bg-background max-md:px-5 max-md:pt-[calc(var(--auth-block-gap)+0.25rem)] max-md:pb-[calc(var(--auth-block-gap)+0.5rem+env(safe-area-inset-bottom))] sm:max-md:px-8"
+                >
+                    <div className="w-full max-w-md md:max-w-[400px]">
+                        <h1 className="text-2xl font-medium tracking-[-0.04em] sm:text-3xl md:font-normal">
+                            {title}
+                        </h1>
+                        {description ? (
+                            <p className="mt-2 text-sm leading-relaxed text-secondary-foreground sm:mt-3 sm:text-base">
+                                {description}
+                            </p>
+                        ) : null}
+                        <div className="mt-(--auth-block-gap) md:mt-8">
+                            {children}
+                        </div>
                     </div>
-                </div>
-            </main>
+                </main>
+            </div>
         </div>
     );
 }

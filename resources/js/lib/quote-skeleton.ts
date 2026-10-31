@@ -6,7 +6,7 @@
 /**
  * Which request is in flight:
  * - `initial`: the page has no data yet.
- * - `filter`: a search, status or sort change asked for the list again.
+ * - `filter`: a search or sort change asked for the list again.
  * - `loadMore`: infinite scroll asked for the next page.
  */
 export type QuoteLoadMode = 'initial' | 'filter' | 'loadMore';

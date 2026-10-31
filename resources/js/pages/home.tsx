@@ -1,6 +1,6 @@
 import { InfiniteScroll, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
-import { MessageCircle, Search, X } from 'lucide-react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { ArrowDown, MessageCircle, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
 import StoneCard from '@/components/stone-card';
@@ -23,6 +23,34 @@ import type { HomePageProps } from '@/types/home';
 
 const hero = '/images/regray-hero.jpg';
 const END_OF_LIST_TOAST_ID = 'home-end-of-list';
+
+type Brand = {
+    name: string;
+    logo: string;
+    url?: string;
+};
+
+/** The brands, in the order the brand carousel listed them. */
+const brands: Brand[] = [
+    {
+        name: 'Regray Stone',
+        logo: '/images/brands/regray_stone_logo.webp',
+        url: 'https://regraystone.com/',
+    },
+    { name: 'Cucine', logo: '/images/brands/cucine_logo.webp' },
+    { name: 'Ascale', logo: '/images/brands/ascale_logo.webp' },
+    { name: 'Faer', logo: '/images/brands/faer_logo.webp' },
+    { name: 'Reform', logo: '/images/brands/reform_logo.webp' },
+    { name: 'Res Italia', logo: '/images/brands/res_logo.webp' },
+];
+
+const handleDiscoverClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    document.getElementById('brands')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+    });
+};
 
 const Hero = () => (
     <section className="relative flex min-h-[280px] items-center overflow-hidden text-on-image sm:min-h-[480px]">
@@ -47,20 +75,101 @@ const Hero = () => (
                 projects from leading studios — saved, compared, and requested
                 in a single workspace.
             </p>
+            <Button asChild className="mt-7 sm:mt-9">
+                <a href="#brands" onClick={handleDiscoverClick}>
+                    Discover Brands <ArrowDown className="size-4" aria-hidden />
+                </a>
+            </Button>
         </div>
     </section>
 );
 
+/*
+ * One tile per brand: the logo in the bottom left corner, on a plain tile
+ * since there are no brand photos. The logo is the only thing that names the
+ * brand, so its alt text carries the name. A brand with a site of its own
+ * opens it in a new tab; the rest are not links.
+ *
+ * `wide` is the wider tile of a staggered row from md up: it drops its own
+ * aspect ratio and fills the row, whose height the narrow tile's 2:1 sets.
+ */
+const BrandTile = ({ brand, wide }: { brand: Brand; wide: boolean }) => {
+    const tile = (
+        <img
+            src={brand.logo}
+            alt={brand.name}
+            loading="lazy"
+            className="h-10 w-auto max-w-[60%] self-start object-contain object-left"
+        />
+    );
+    const tileClass = `flex aspect-[2/1] flex-col justify-end rounded-none bg-muted p-4 sm:p-6 ${
+        wide ? 'md:aspect-auto md:h-full' : ''
+    }`;
+
+    if (brand.url) {
+        return (
+            <a
+                href={brand.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${brand.name} (opens in a new tab)`}
+                className={`${tileClass} transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
+            >
+                {tile}
+            </a>
+        );
+    }
+
+    return <div className={tileClass}>{tile}</div>;
+};
+
+const Brands = () => (
+    <section
+        id="brands"
+        aria-labelledby="brands-heading"
+        className="mt-8 scroll-mt-20 md:mt-12"
+    >
+        <div className="mb-6 border-b border-sidebar-border pb-4">
+            <h2
+                id="brands-heading"
+                className="min-w-0 text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
+            >
+                Our Brands
+            </h2>
+        </div>
+        {/*
+         * One tile per row below md. From md up, two per row, staggered: the
+         * rows alternate wide then narrow and narrow then wide, 11 and 9 of
+         * 20 columns.
+         */}
+        <ul className="grid grid-cols-1 gap-2 md:grid-cols-20">
+            {brands.map((brand, index) => {
+                const startsWide = Math.floor(index / 2) % 2 === 0;
+                const wide = startsWide === (index % 2 === 0);
+
+                return (
+                    <li
+                        key={brand.name}
+                        className={wide ? 'md:col-span-11' : 'md:col-span-9'}
+                    >
+                        <BrandTile brand={brand} wide={wide} />
+                    </li>
+                );
+            })}
+        </ul>
+    </section>
+);
+
 const CardSkeleton = ({ showHeart }: { showHeart: boolean }) => (
-    <div className="overflow-hidden rounded-md border border-sidebar-border bg-background">
+    <div>
         <Skeleton className="aspect-[4/3] w-full rounded-none" />
-        <div className="flex h-[60px] items-center justify-between gap-2 px-3 py-2">
-            <div className="min-w-0 flex-1 space-y-1">
-                <Skeleton className="h-4 w-2/3 rounded-none" />
-                <Skeleton className="h-3 w-1/2 rounded-none" />
+        <div className="flex items-start justify-between gap-2 pt-3">
+            <div className="min-w-0 flex-1 space-y-2 pt-1">
+                <Skeleton className="h-5 w-2/3 rounded-none" />
+                <Skeleton className="h-4 w-1/2 rounded-none" />
             </div>
             {showHeart && (
-                <div className="grid size-11 shrink-0 place-items-center">
+                <div className="-mt-2 -mr-3 grid size-11 shrink-0 place-items-center">
                     <Skeleton className="size-5 rounded-none" />
                 </div>
             )}
@@ -355,6 +464,7 @@ const Home = () => {
     return (
         <div className="w-full">
             <Hero />
+            <Brands />
             <section
                 id="products"
                 aria-labelledby="products-heading"

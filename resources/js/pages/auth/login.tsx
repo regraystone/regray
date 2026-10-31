@@ -79,7 +79,7 @@ export default function Login({ status, canResetPassword }: Props) {
             <Head title="Sign In" />
 
             {status ? (
-                <p className="mb-6 text-center text-[0.9rem] font-medium text-secondary-foreground max-lg:mb-(--auth-block-gap)">
+                <p className="mb-6 text-center text-[0.9rem] font-medium text-secondary-foreground max-md:mb-(--auth-block-gap)">
                     {status}
                 </p>
             ) : null}
@@ -87,7 +87,7 @@ export default function Login({ status, canResetPassword }: Props) {
             <form
                 noValidate
                 onSubmit={handleSubmit(onValid)}
-                className="space-y-5 max-lg:space-y-(--auth-field-gap)"
+                className="space-y-5 max-md:space-y-(--auth-field-gap)"
             >
                 <Field
                     id="email"
@@ -159,7 +159,7 @@ export default function Login({ status, canResetPassword }: Props) {
 
                 <Button
                     type="submit"
-                    className="mt-6 w-full max-lg:mt-(--auth-block-gap)"
+                    className="mt-1 w-full max-md:mt-(--auth-block-gap)"
                     tabIndex={3}
                     disabled={isSubmitting}
                     data-test="login-button"
@@ -169,7 +169,7 @@ export default function Login({ status, canResetPassword }: Props) {
                 </Button>
             </form>
 
-            <p className="mt-8 text-center text-sm max-lg:mt-(--auth-block-gap)">
+            <p className="mt-8 text-center text-sm max-md:mt-(--auth-block-gap)">
                 Don&rsquo;t have an account?{' '}
                 <Link
                     href={signUp()}

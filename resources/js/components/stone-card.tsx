@@ -115,14 +115,15 @@ const StoneCard = ({
     ) : null;
 
     if (selectable) {
-        // Both footer variants are 60px tall: 44px controls with 8px above and
-        // below, or the name and category's 36px with 12px above and below.
-        // Reserve the controls' width plus their 12px right inset.
+        // The footer is at least 60px tall: 44px controls with 8px above and
+        // below, or the name and category's 36px with 12px above and below,
+        // and it grows by a line when a long name wraps to two. Reserve the controls' width
+        // plus their 12px right inset.
         const namePadding = viewHref ? 'pr-[100px]' : 'pr-14';
 
         return (
             <article
-                className={`relative overflow-hidden rounded-md border ${
+                className={`relative overflow-hidden rounded-none border ${
                     selected
                         ? 'border-primary bg-primary ring-2 ring-primary'
                         : 'border-sidebar-border bg-background'
@@ -143,7 +144,7 @@ const StoneCard = ({
                     aria-checked={selected}
                     aria-label={stone.name}
                     onClick={onSelect}
-                    className="block w-full cursor-pointer rounded-md bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="block w-full cursor-pointer rounded-none bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                     <div
                         className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
@@ -158,7 +159,7 @@ const StoneCard = ({
                         {selected ? (
                             <span
                                 aria-hidden
-                                className="absolute top-0 right-0 rounded-tr-[calc(var(--radius)-3px)] bg-primary p-2 text-white"
+                                className="absolute top-0 right-0 rounded-none bg-primary p-2 text-white"
                             >
                                 <Check className="size-3 shrink-0" />
                             </span>
@@ -170,7 +171,7 @@ const StoneCard = ({
                          * also recommended.
                          */}
                         {note ? (
-                            <span className="absolute bottom-0 left-0 rounded-md bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+                            <span className="absolute bottom-0 left-0 rounded-none bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
                                 {note}
                             </span>
                         ) : null}
@@ -179,8 +180,13 @@ const StoneCard = ({
                     <span
                         className={`block min-w-0 py-3 pl-3 text-sm font-bold text-foreground ${namePadding}`}
                     >
-                        <span className="block truncate">{stone.name}</span>
-                        <span className="block truncate text-xs font-normal text-secondary-foreground">
+                        <span
+                            className="line-clamp-2 break-words"
+                            title={stone.name}
+                        >
+                            {stone.name}
+                        </span>
+                        <span className="block text-xs font-normal break-words text-secondary-foreground">
                             {stone.category.name}
                         </span>
                     </span>
@@ -189,8 +195,6 @@ const StoneCard = ({
                 {/*
                  * Out of flow and over the name row, so the image keeps the
                  * full card width instead of sharing it with the controls.
-                 * right-3 and bottom-2 mirror the px-3 and py-2 on the link
-                 * card's footer, so the icons sit at the same height there.
                  */}
                 <div className="absolute right-3 bottom-2 flex items-center">
                     {heart}
@@ -205,11 +209,15 @@ const StoneCard = ({
      * when there is not: a stone profile sits under Home or under Saved, and a
      * page that may open neither hands over a card that simply shows the
      * stone. Same answer the project card already gives.
+     *
+     * Nothing sits on the picture: the name, the category and the
+     * recommendation are text under it. The name wraps onto a second line and
+     * is cut with an ellipsis after that; the title shows it whole on hover.
      */
     const content = (
-        <article className="stone-card overflow-hidden rounded-md border border-sidebar-border bg-background">
+        <article className="stone-card overflow-visible">
             <div
-                className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
+                className={`stone-card-media relative overflow-hidden rounded-none bg-muted ${aspect}`}
             >
                 <img
                     src={stone.thumbnail}
@@ -217,19 +225,37 @@ const StoneCard = ({
                     loading={priority ? 'eager' : 'lazy'}
                     className="absolute inset-0 size-full object-cover"
                 />
-                {recommended}
             </div>
-            <div className="flex min-h-[60px] items-center justify-between gap-2 px-3 py-2">
+            <div className="flex items-start justify-between gap-2 pt-3">
                 <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-foreground">
+                    <span
+                        className="line-clamp-2 text-lg leading-snug font-medium break-words text-foreground"
+                        title={stone.name}
+                    >
                         {stone.name}
                     </span>
-                    <span className="block truncate text-xs text-secondary-foreground">
+                    <span className="mt-0.5 block text-sm break-words text-secondary-foreground">
                         {stone.category.name}
                     </span>
+                    {stone.recommended ? (
+                        <span className="mt-1 flex items-center gap-1 text-xs text-secondary-foreground">
+                            <Star
+                                className="size-3 shrink-0 fill-current"
+                                aria-hidden
+                            />
+                            Highly Recommended
+                        </span>
+                    ) : null}
                 </span>
-                {heart}
-                {view}
+                {heart || view ? (
+                    // Pulled up and out so the 20px icons line up with the
+                    // name's first line and the image's right edge, while the
+                    // 44px tap targets stay whole.
+                    <span className="-mt-2 -mr-3 flex shrink-0 items-center">
+                        {heart}
+                        {view}
+                    </span>
+                ) : null}
             </div>
         </article>
     );

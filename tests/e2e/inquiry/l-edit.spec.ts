@@ -7,9 +7,9 @@ import {
     sendAndReadReference,
 } from '../support/inquiry-flow';
 
-/* L. Editing a sent inquiry from the Quote page. */
+/* L. Editing a sent inquiry through its edit page. */
 
-test("42 · Update opens the inquiry's project at step 1, it is edited through to Review, and Save changes shows it on the details page", async ({
+test("42 · the edit page opens the inquiry's project at step 1, it is edited through to Review, and Save changes shows it on the details page", async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -17,12 +17,15 @@ test("42 · Update opens the inquiry's project at step 1, it is edited through t
     await addStoneProject(page, { name: 'Kitchen counters' });
     const reference = await sendAndReadReference(page);
 
+    // The Quote card no longer links to the edit page, so it is opened directly.
     await page.goto('/quote');
-    await page
-        .locator('article')
-        .filter({ hasText: reference })
-        .getByRole('link', { name: 'Update' })
-        .click();
+    await expect(
+        page
+            .locator('article')
+            .filter({ hasText: reference })
+            .getByRole('link', { name: 'Update' }),
+    ).toHaveCount(0);
+    await page.goto(`/quote/${reference}/edit`);
 
     await expect(page).toHaveURL(new RegExp(`/quote/${reference}/edit$`));
     await expect(

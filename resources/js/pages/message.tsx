@@ -46,7 +46,7 @@ const useIsTouch = (): boolean => {
 
 const MessageSkeleton = () => (
     <div className="w-full">
-        <div className="flex h-[calc(100svh-6.5rem)] min-h-0 flex-col overflow-hidden rounded-md border border-sidebar-border bg-background sm:h-[calc(100svh-7.5rem)] md:min-h-[24rem] md:flex-row lg:h-[calc(100svh-8rem)]">
+        <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden bg-background md:h-[calc(100svh-7.5rem)] md:min-h-[24rem] md:flex-row md:rounded-md md:border md:border-sidebar-border lg:h-[calc(100svh-8rem)]">
             <div className="flex w-full min-w-0 flex-col md:w-80 md:shrink-0 md:border-r md:border-sidebar-border lg:w-96">
                 <div className="shrink-0 border-b border-sidebar-border p-3">
                     <Skeleton className="h-11 w-full rounded-none" />
@@ -277,7 +277,7 @@ const Message = () => {
 
     return (
         <div className="w-full">
-            <div className="flex h-[calc(100svh-6.5rem)] min-h-0 flex-col overflow-hidden rounded-md border border-sidebar-border bg-background sm:h-[calc(100svh-7.5rem)] md:min-h-[24rem] md:flex-row lg:h-[calc(100svh-8rem)]">
+            <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden bg-background md:h-[calc(100svh-7.5rem)] md:min-h-[24rem] md:flex-row md:rounded-md md:border md:border-sidebar-border lg:h-[calc(100svh-8rem)]">
                 <ConversationList
                     conversations={rows}
                     selectedId={selected?.id ?? null}

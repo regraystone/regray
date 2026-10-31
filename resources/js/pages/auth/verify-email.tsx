@@ -10,7 +10,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
         <>
             <Head title="Email verification" />
 
-            <div className="w-full bg-background lg:max-w-[420px] lg:border lg:border-border lg:px-8 lg:py-8">
+            <div className="w-full">
                 {status === 'verification-link-sent' ? (
                     <p className="mb-6 text-center text-[0.9rem] leading-relaxed text-secondary-foreground">
                         A new verification link has been sent to the email
