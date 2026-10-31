@@ -83,7 +83,7 @@ const StoneCard = ({
                 key={heartAnimation}
                 className={`size-5 ${
                     saved
-                        ? 'fill-primary text-primary'
+                        ? 'fill-red-500 text-red-500'
                         : 'text-secondary-foreground'
                 } ${heartAnimation}`}
                 aria-hidden

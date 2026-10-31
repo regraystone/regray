@@ -9,7 +9,6 @@ use App\Models\StoneSize;
 use App\Models\StoneThickness;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection as SupportCollection;
@@ -43,21 +42,6 @@ class StoneRepository implements StoneRepositoryInterface
         }
 
         return $query->orderBy('sort_order')->orderBy('id')->paginate($perPage, ['*'], 'page', $filters->page)->withQueryString();
-    }
-
-    /**
-     * @return Collection<int, Stone>
-     */
-    public function recommended(): Collection
-    {
-        return Stone::query()
-            ->active()
-            ->where('recommended', true)
-            ->with('category:id,slug,name')
-            ->select(['stones.id', 'stones.stone_category_id', 'stones.slug', 'stones.name', 'stones.thumbnail_path', 'stones.recommended'])
-            ->orderBy('stones.sort_order')
-            ->orderBy('stones.name')
-            ->get();
     }
 
     public function findActiveSummaryBySlug(string $slug): ?Stone

@@ -8,6 +8,7 @@ import { Field } from '@/components/ui/field';
 import { PasswordField } from '@/components/ui/password-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
+import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
 import {
     loginDefaults,
     loginFields,
@@ -78,7 +79,7 @@ export default function Login({ status, canResetPassword }: Props) {
             <Head title="Sign In" />
 
             {status ? (
-                <p className="mb-6 text-center text-[0.9rem] font-medium text-secondary-foreground">
+                <p className="mb-6 text-center text-[0.9rem] font-medium text-secondary-foreground max-lg:mb-(--auth-block-gap)">
                     {status}
                 </p>
             ) : null}
@@ -86,7 +87,7 @@ export default function Login({ status, canResetPassword }: Props) {
             <form
                 noValidate
                 onSubmit={handleSubmit(onValid)}
-                className="space-y-5"
+                className="space-y-5 max-lg:space-y-(--auth-field-gap)"
             >
                 <Field
                     id="email"
@@ -108,42 +109,43 @@ export default function Login({ status, canResetPassword }: Props) {
                     autoComplete="current-password"
                     tabIndex={2}
                     error={errors.password?.message}
-                    hint={
-                        canResetPassword ? (
-                            <Link
-                                href={request()}
-                                className="text-[0.8rem] font-semibold text-secondary-foreground transition-opacity hover:opacity-85"
-                                tabIndex={4}
-                            >
-                                Forgot password?
-                            </Link>
-                        ) : undefined
-                    }
                     {...registerField('password')}
                 />
 
-                <div className="flex items-center gap-2">
-                    <Controller
-                        control={control}
-                        name="remember"
-                        render={({ field }) => (
-                            <Checkbox
-                                id="remember"
-                                name="remember"
-                                tabIndex={5}
-                                checked={field.value}
-                                onCheckedChange={(checked) =>
-                                    field.onChange(checked === true)
-                                }
-                            />
-                        )}
-                    />
-                    <label
-                        htmlFor="remember"
-                        className="text-sm text-secondary-foreground"
-                    >
-                        Remember me
-                    </label>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Controller
+                            control={control}
+                            name="remember"
+                            render={({ field }) => (
+                                <Checkbox
+                                    id="remember"
+                                    name="remember"
+                                    tabIndex={5}
+                                    checked={field.value}
+                                    onCheckedChange={(checked) =>
+                                        field.onChange(checked === true)
+                                    }
+                                />
+                            )}
+                        />
+                        <label
+                            htmlFor="remember"
+                            className="text-sm text-secondary-foreground"
+                        >
+                            Remember me
+                        </label>
+                    </div>
+
+                    {canResetPassword ? (
+                        <Link
+                            href={request()}
+                            className="text-[0.8rem] font-semibold text-secondary-foreground transition-opacity hover:opacity-85"
+                            tabIndex={4}
+                        >
+                            Forgot password?
+                        </Link>
+                    ) : null}
                 </div>
 
                 {formError.length > 0 ? (
@@ -157,7 +159,7 @@ export default function Login({ status, canResetPassword }: Props) {
 
                 <Button
                     type="submit"
-                    className="mt-6 w-full"
+                    className="mt-6 w-full max-lg:mt-(--auth-block-gap)"
                     tabIndex={3}
                     disabled={isSubmitting}
                     data-test="login-button"
@@ -167,7 +169,7 @@ export default function Login({ status, canResetPassword }: Props) {
                 </Button>
             </form>
 
-            <p className="mt-8 text-center text-sm">
+            <p className="mt-8 text-center text-sm max-lg:mt-(--auth-block-gap)">
                 Don&rsquo;t have an account?{' '}
                 <Link
                     href={signUp()}
@@ -181,6 +183,9 @@ export default function Login({ status, canResetPassword }: Props) {
     );
 }
 
-Login.layout = {
-    title: 'Sign In',
-};
+Login.layout = [
+    AuthSheetLayout,
+    {
+        title: 'Sign In',
+    },
+];

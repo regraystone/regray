@@ -766,11 +766,9 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 sm:bottom-5">
                     <Button
                         type="button"
-                        variant={isSaved ? 'default' : 'outline'}
+                        variant="outline"
                         size="icon"
-                        className={`h-11 w-11 cursor-pointer shadow-lg active:scale-90 ${
-                            isSaved ? '' : 'bg-background'
-                        }`}
+                        className="h-11 w-11 cursor-pointer bg-background shadow-lg active:scale-90"
                         aria-pressed={isSaved ? 'true' : 'false'}
                         aria-label={
                             isSaved ? 'Remove from saved' : 'Save to collection'
@@ -781,7 +779,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             key={heartAnimation}
                             className={`size-5 ${
                                 isSaved
-                                    ? 'fill-primary-foreground text-primary-foreground'
+                                    ? 'fill-red-500 text-red-500'
                                     : 'text-foreground'
                             } ${heartAnimation}`}
                             aria-hidden

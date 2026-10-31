@@ -27,7 +27,6 @@ class SavedStoneController extends Controller
 
         return Inertia::render('saved', [
             'savedStones' => StoneCardResource::collection($result['saved']),
-            'recommendedStones' => StoneCardResource::collection($result['recommended']),
         ]);
     }
 
