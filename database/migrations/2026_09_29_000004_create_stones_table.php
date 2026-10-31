@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('thumbnail_path', 255);
             $table->string('size', 20);
             $table->smallInteger('thickness_mm');
-            $table->boolean('recommended');
             $table->boolean('is_active');
             $table->smallInteger('sort_order');
             $table->timestampTz('created_at');
