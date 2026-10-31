@@ -33,21 +33,34 @@ class ProjectSeeder extends Seeder
                 );
             }
 
-            foreach ($projectData['stone_slugs'] as $stoneSlug) {
-                $stoneIds = Stone::query()->whereHas('category', fn ($query) => $query->where('slug', $stoneSlug))->pluck('id');
-                $project->stones()->syncWithoutDetaching($stoneIds);
-            }
+            $project->stones()->syncWithoutDetaching(
+                Stone::query()->whereIn('slug', $projectData['stone_slugs'])->pluck('id'),
+            );
 
             foreach ($projectData['category_slugs'] as $categorySlug) {
                 $category = ProjectCategory::where('slug', $categorySlug)->firstOrFail();
                 $project->categories()->syncWithoutDetaching($category->id);
             }
-
-            // A stone suits the project types of the projects it is used in.
-            $stoneIds = $project->stones()->pluck('stones.id')->all();
-            $project->categories()->get()->each(
-                fn (ProjectCategory $category) => $category->stones()->syncWithoutDetaching($stoneIds),
-            );
         }
+
+        $this->attachStoneProjectTypes();
+    }
+
+    /**
+     * Give every stone the project types it suits, from the stone data: its
+     * own list if it has one, else its natural stone's. Synced, so seeding
+     * again puts back exactly these.
+     */
+    private function attachStoneProjectTypes(): void
+    {
+        /** @var array{categories: array<string, list<string>>, stones: array<string, list<string>>} $projectTypes */
+        $projectTypes = (require database_path('seeders/data/stones.php'))['project_types'];
+        $categoryIds = ProjectCategory::query()->pluck('id', 'slug');
+
+        Stone::query()->with('category')->get()->each(function (Stone $stone) use ($projectTypes, $categoryIds): void {
+            $slugs = $projectTypes['stones'][$stone->slug] ?? $projectTypes['categories'][$stone->category->slug] ?? [];
+
+            $stone->projectCategories()->sync($categoryIds->only($slugs)->values()->all());
+        });
     }
 }

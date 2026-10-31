@@ -270,12 +270,26 @@ test('an inactive project type is dropped from the URL', function (): void {
         ->assertRedirect(route('home.index', ['category' => 'marble']));
 });
 
-test('seeded stones suit the project types of the projects they are used in', function (): void {
-    // Belo Medical Group is a commercial space with wall accents, built in marble.
-    $marble = Stone::query()->whereHas('category', fn ($category) => $category->where('slug', 'marble'))->firstOrFail();
+test('seeded stones suit their own project types, else their natural stone\'s', function (): void {
+    $typesOf = fn (string $slug): array => Stone::query()->where('slug', $slug)->firstOrFail()
+        ->projectCategories()->orderBy('slug')->pluck('slug')->all();
 
-    expect($marble->projectCategories()->pluck('slug')->all())
-        ->toContain('commercial-spaces', 'wall-accents');
+    expect($typesOf('burberry-pink'))->toBe(['center-side-tables'])
+        ->and($typesOf('cosmic-black'))->toBe(['countertops-backsplash', 'kitchen-islands'])
+        ->and($typesOf('beige'))->toBe(['exterior-walls', 'lavatories', 'wall-accents']);
+});
+
+test('a project type filter leaves out stones that only suit another type', function (): void {
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)->get(route('home.index', ['project_category' => 'kitchen-islands', 'category' => 'marble']))
+        ->assertInertia(fn (Assert $page) => $page->has('stones.data', 0));
+
+    $this->actingAs($user)->get(route('home.index', ['project_category' => 'dining-tables', 'category' => 'marble']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stones.data', fn ($stones) => collect($stones)->pluck('slug')->contains('verdi-alpi')
+                && ! collect($stones)->pluck('slug')->contains('burberry-pink'))
+        );
 });
 
 test('a stone in a completed inquiry is a best seller on its card', function (): void {

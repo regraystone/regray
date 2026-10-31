@@ -37,7 +37,7 @@ test('a client reads the published database profile with ordered public fields',
     $images[0]->update(['path' => 'projects/last.jpg', 'sort_order' => 20]);
     $images[1]->update(['path' => '/storage/projects/middle.jpg', 'sort_order' => 10]);
     $images[2]->update(['path' => 'projects/first.jpg', 'sort_order' => 5]);
-    Stone::query()->where('slug', 'arctic-pink')->update(['sort_order' => -1, 'thumbnail_path' => 'stones/patagonia.jpg']);
+    Stone::query()->where('slug', 'glacier-white')->update(['sort_order' => -1, 'thumbnail_path' => 'stones/patagonia.jpg']);
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
@@ -59,8 +59,8 @@ test('a client reads the published database profile with ordered public fields',
                         ['slug' => 'commercial-spaces', 'name' => 'Commercial Spaces'],
                         ['slug' => 'countertops-backsplash', 'name' => 'Countertops & Backsplash'],
                     ])
-                    ->has('stones', 22)
-                    ->where('stones.0', ['slug' => 'arctic-pink', 'name' => 'Arctic Pink', 'thumbnail' => '/storage/stones/patagonia.jpg', 'bestSeller' => false, 'category' => ['slug' => 'patagonia-quartzite', 'name' => 'Patagonia Quartzite']])
+                    ->has('stones', 2)
+                    ->where('stones.0', ['slug' => 'glacier-white', 'name' => 'Glacier White', 'thumbnail' => '/storage/stones/patagonia.jpg', 'bestSeller' => false, 'category' => ['slug' => 'patagonia-quartzite', 'name' => 'Patagonia Quartzite']])
                     ->where('gallery', [
                         ['src' => '/storage/projects/first.jpg'],
                         ['src' => '/storage/projects/middle.jpg'],
@@ -71,15 +71,27 @@ test('a client reads the published database profile with ordered public fields',
         );
 });
 
+test('every seeded project uses one or two of its listed stones', function (): void {
+    $data = require database_path('seeders/data/projects.php');
+
+    foreach ($data['projects'] as $projectData) {
+        $stoneSlugs = Project::query()->where('slug', $projectData['slug'])->firstOrFail()
+            ->stones()->pluck('slug')->sort()->values()->all();
+
+        expect($stoneSlugs)->toBe(collect($projectData['stone_slugs'])->sort()->values()->all())
+            ->and(count($stoneSlugs))->toBeBetween(1, 2);
+    }
+});
+
 test('profile stones with the same sort order are ordered by name', function (): void {
-    Stone::query()->whereIn('slug', ['arancia', 'arctic-pink'])->update(['sort_order' => 0]);
+    Stone::query()->whereIn('slug', ['arancia', 'glacier-white'])->update(['sort_order' => 0]);
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)->get(route('home.show', 'ginza-one'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('project.data.stones.0.slug', 'arancia')
-            ->where('project.data.stones.1.slug', 'arctic-pink')
+            ->where('project.data.stones.1.slug', 'glacier-white')
         );
 });
 
@@ -91,8 +103,8 @@ test('inactive stones and categories are omitted from a profile', function (): v
     $this->actingAs($user)->get(route('home.show', 'ginza-one'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('project.data.stones', 21)
-            ->where('project.data.stones.0.slug', 'baltico-blue-iii')
+            ->has('project.data.stones', 1)
+            ->where('project.data.stones.0.slug', 'glacier-white')
             ->where('project.data.categories', [
                 ['slug' => 'commercial-spaces', 'name' => 'Commercial Spaces'],
                 ['slug' => 'countertops-backsplash', 'name' => 'Countertops & Backsplash'],
@@ -101,7 +113,7 @@ test('inactive stones and categories are omitted from a profile', function (): v
 });
 
 test('a project profile does not depend on the state of any stone', function (string $state): void {
-    $stone = Stone::query()->where('slug', 'arctic-pink')->firstOrFail();
+    $stone = Stone::query()->where('slug', 'glacier-white')->firstOrFail();
     if ($state === 'inactive') {
         $stone->update(['is_active' => false]);
     } else {

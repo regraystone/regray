@@ -152,6 +152,43 @@ return [
         ['stone_slug' => 'travertine', 'name' => 'Silver', 'path' => 'stones/9609b19a9fdfe36cd384b8530f21a9b3.png'],
         ['stone_slug' => 'travertine', 'name' => 'White', 'path' => 'stones/f6aae9c7bf39e9d0550e224e90441c97.png'],
     ],
+    /*
+     * The project types (project category slugs) each stone suits, which the
+     * home's project type filter goes by. A stone takes its natural stone's
+     * list unless it has one of its own below, keyed by stone slug.
+     */
+    'project_types' => [
+        'categories' => [
+            'cobblestone' => ['exterior-walls', 'commercial-spaces'],
+            'crazy-cut' => ['exterior-walls', 'wall-accents'],
+            'granite' => ['countertops-backsplash', 'kitchen-islands', 'lavatories', 'commercial-spaces'],
+            'marble' => ['wall-accents', 'commercial-spaces', 'lavatories', 'countertops-backsplash', 'dining-tables', 'center-side-tables'],
+            'monumental' => ['exterior-walls', 'fixtures', 'commercial-spaces'],
+            'onyx' => ['wall-accents', 'commercial-spaces', 'center-side-tables', 'lavatories', 'fixtures'],
+            'patagonia-quartzite' => ['kitchen-islands', 'countertops-backsplash', 'dining-tables', 'center-side-tables', 'wall-accents', 'commercial-spaces'],
+            'quartzite' => ['countertops-backsplash', 'kitchen-islands', 'lavatories', 'wall-accents', 'commercial-spaces'],
+            'travertine' => ['exterior-walls', 'wall-accents', 'lavatories'],
+        ],
+        'stones' => [
+            'cosmic-black' => ['countertops-backsplash', 'kitchen-islands'],
+            'golden-fusion' => ['kitchen-islands'],
+            'burberry-pink' => ['center-side-tables'],
+            'calacatta-viola-i' => ['wall-accents'],
+            'laurent-black' => ['lavatories'],
+            'rosso-levanto' => ['fixtures'],
+            'verdi-alpi' => ['dining-tables'],
+            'gold-vein-limetone' => ['fixtures'],
+            'arancia' => ['wall-accents'],
+            'baltico-blue-iii' => ['center-side-tables'],
+            'prisma-ii' => ['fixtures'],
+            'arctic-pink' => ['dining-tables'],
+            'veymont-green' => ['kitchen-islands'],
+            'avocado-green-iii' => ['lavatories'],
+            'ocean-blue-leather' => ['countertops-backsplash'],
+            'picasso' => ['wall-accents'],
+            'silver' => ['exterior-walls'],
+        ],
+    ],
     'applications' => ['Driveways and garden paths', 'Courtyards', 'Street and plaza paving', 'Landscape edging', 'Patio borders', 'Outdoor dining areas', 'Paving and pathways', 'Feature walls', 'Outdoor patios', 'Pool surrounds', 'Entrance lobbies', 'Kitchen countertops', 'Kitchen islands', 'Bathroom vanities', 'Backsplashes', 'Outdoor kitchens', 'Flooring', 'Luxury countertops', 'Wall cladding', 'Fireplace surrounds', 'Sculptural furniture', 'Facade cladding', 'Statement furniture', 'Backlit feature walls', 'Bar and counter fronts', 'Decorative vanities', 'Coffee tables', 'High-traffic flooring', 'Outdoor surfaces', 'Dining and coffee tables', 'Outdoor bars', 'Bathroom walls and floors', 'Pool decks'],
     'finishes' => ['Flamed', 'Flamed + Brushed', 'Natural', 'Brushed', 'Honed', 'Natural Split', 'Polished', 'Leathered', 'Leather', 'Tumbled'],
     'care' => [
