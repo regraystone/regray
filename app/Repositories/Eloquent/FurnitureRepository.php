@@ -1,0 +1,39 @@
+<?php
+
+namespace App\Repositories\Eloquent;
+
+use App\Data\FurnitureFilterData;
+use App\Models\Furniture;
+use App\Repositories\Contracts\FurnitureRepositoryInterface;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+
+class FurnitureRepository implements FurnitureRepositoryInterface
+{
+    /** @return LengthAwarePaginator<int, Furniture> */
+    public function paginate(FurnitureFilterData $filters, int $perPage): LengthAwarePaginator
+    {
+        $query = Furniture::query()->active()->with('projectCategory:id,slug,name');
+
+        if ($filters->search !== null) {
+            $query->where(function (Builder $query) use ($filters): void {
+                $query->where('name', 'ILIKE', "%{$filters->search}%")
+                    ->orWhereHas('projectCategory', fn (Builder $type) => $type->where('name', 'ILIKE', "%{$filters->search}%"));
+            });
+        }
+        if ($filters->projectCategory !== null) {
+            $query->whereHas('projectCategory', fn (Builder $type) => $type->where('slug', $filters->projectCategory)->where('is_active', true));
+        }
+
+        return $query->orderBy('sort_order')->orderBy('id')->paginate($perPage, ['*'], 'page', $filters->page)->withQueryString();
+    }
+
+    public function findActiveBySlug(string $slug): ?Furniture
+    {
+        return Furniture::query()
+            ->active()
+            ->where('slug', $slug)
+            ->with('projectCategory:id,slug,name')
+            ->first();
+    }
+}

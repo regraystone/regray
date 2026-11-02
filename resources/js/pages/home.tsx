@@ -1,9 +1,9 @@
 import { InfiniteScroll, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { ArrowDown, MessageCircle, Search, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { MessageCircle, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import EmptyState from '@/components/empty-state';
-import StoneCard from '@/components/stone-card';
+import ProductCard from '@/components/product-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,67 +15,66 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGridPageSize } from '@/hooks/use-grid-page-size';
-import { useSavedStones } from '@/hooks/use-saved-stones';
+import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { usePermissions } from '@/hooks/use-permissions';
+import { show as brandsShow } from '@/routes/brands';
+import { show as furnitureShow } from '@/routes/furniture';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
 import { index as messageIndex } from '@/routes/message';
-import type { HomePageProps } from '@/types/home';
+import type {
+    BrandCardData,
+    Filters,
+    HomeCollection,
+    HomePageProps,
+} from '@/types/home';
 
 const hero = '/images/regray-hero.jpg';
 const END_OF_LIST_TOAST_ID = 'home-end-of-list';
 
-type Brand = {
-    name: string;
-    logo: string;
-    /**
-     * The share of the logo image's height its main lettering takes up,
-     * ignoring sub-lines like "Gruppo Lube" and the badge around "Lube". The
-     * tile sizes each logo by it, so the brand names read at one height.
-     */
-    nameShare: number;
-    url?: string;
-};
-
 /**
- * The brands, in the order the brand carousel listed them. Regray Stone's mark
- * has no lettering, so it takes Cucine's share and the two square marks match.
+ * The share of each logo image's height its main lettering takes up, ignoring
+ * sub-lines like "Gruppo Lube" and the badge around "Lube", keyed by brand
+ * slug. The tile sizes each logo by it, so the brand names read at one
+ * height and wide wordmarks like Ascale and Faer stay narrow. Regray Stone's
+ * mark has no lettering, so it takes Cucine's share and the two square marks
+ * match. A brand not listed here gets the default.
  */
-const brands: Brand[] = [
-    {
-        name: 'Regray Stone',
-        logo: '/images/brands/regray_stone_logo.webp',
-        nameShare: 0.46,
-        url: 'https://regraystone.com/',
-    },
-    {
-        name: 'Cucine',
-        logo: '/images/brands/cucine_logo.webp',
-        nameShare: 0.46,
-    },
-    { name: 'Ascale', logo: '/images/brands/ascale_logo.webp', nameShare: 1 },
-    { name: 'Faer', logo: '/images/brands/faer_logo.webp', nameShare: 0.51 },
-    {
-        name: 'Reform',
-        logo: '/images/brands/reform_logo.webp',
-        nameShare: 0.7,
-    },
-    {
-        name: 'Res Italia',
-        logo: '/images/brands/res_logo.webp',
-        nameShare: 0.59,
-    },
-];
-
-const handleDiscoverClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    document.getElementById('brands')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-    });
+const BRAND_NAME_SHARE: Record<string, number> = {
+    'regray-stone': 0.46,
+    cucine: 0.46,
+    ascale: 1,
+    faer: 0.51,
+    reform: 0.7,
+    'res-italia': 0.59,
 };
+const DEFAULT_NAME_SHARE = 0.6;
+
+/** The first select, Natural Stone first as the default. */
+const COLLECTIONS: HomeCollection[] = ['stones', 'furniture'];
+const COLLECTION_LABELS: Record<HomeCollection, string> = {
+    stones: 'Natural Stone',
+    furniture: 'Furniture',
+};
+
+const toCollection = (value: string | null | undefined): HomeCollection =>
+    value === 'furniture' ? 'furniture' : 'stones';
+
+/** The query param the second select sets in each collection. */
+const FILTER_PARAM: Record<HomeCollection, string> = {
+    stones: 'category',
+    furniture: 'project_category',
+};
+
+const filterOf = (filters: Filters, collection: HomeCollection) =>
+    collection === 'furniture' ? filters.projectCategory : filters.category;
+
+/** The hero's height, which every brand tile matches. */
+const HERO_HEIGHT = 'min-h-[320px] sm:min-h-[560px]';
 
 const Hero = () => (
-    <section className="relative flex min-h-[280px] items-center overflow-hidden text-on-image sm:min-h-[480px]">
+    <section
+        className={`relative flex items-center overflow-hidden text-on-image ${HERO_HEIGHT}`}
+    >
         <img
             src={hero}
             alt=""
@@ -97,96 +96,61 @@ const Hero = () => (
                 projects from leading studios — saved, compared, and requested
                 in a single workspace.
             </p>
-            <Button asChild className="mt-7 sm:mt-9">
-                <a href="#brands" onClick={handleDiscoverClick}>
-                    Discover Brands <ArrowDown className="size-4" aria-hidden />
-                </a>
-            </Button>
         </div>
     </section>
 );
 
 /*
- * One tile per brand: the logo in the bottom left corner, on a plain tile
- * since there are no brand photos. The logo is the only thing that names the
- * brand, so its alt text carries the name. A brand with a site of its own
- * opens it in a new tab; the rest are not links.
+ * One full-width tile per brand, as tall as the hero, linking to its
+ * profile: the logo in the bottom left corner on a plain tile, since there
+ * are no brand photos, and the brand's description right beside it
+ * (under it on phones). The logo names the brand, so its alt text carries
+ * the name.
  *
  * Every logo's lettering is `--brand-name-height` tall: the image is that
  * divided by the share of it the lettering takes up.
- *
- * `wide` is the wider tile of a staggered row from md up: it drops its own
- * aspect ratio and fills the row, whose height the narrow tile's 2:1 sets.
  */
-const BrandTile = ({ brand, wide }: { brand: Brand; wide: boolean }) => {
-    const tile = (
-        <img
-            src={brand.logo}
-            alt={brand.name}
-            loading="lazy"
-            style={{
-                height: `calc(var(--brand-name-height) / ${brand.nameShare})`,
-            }}
-            className="w-auto max-w-full self-start object-contain object-left"
-        />
+const BrandTile = ({ brand }: { brand: BrandCardData }) => {
+    const nameShare = BRAND_NAME_SHARE[brand.slug] ?? DEFAULT_NAME_SHARE;
+
+    return (
+        <Link
+            href={brandsShow.url({ brand: brand.slug })}
+            className={`flex flex-col justify-end rounded-none bg-muted p-4 transition-opacity [--brand-name-height:1.125rem] hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-6 sm:[--brand-name-height:1.5rem] lg:[--brand-name-height:2rem] ${HERO_HEIGHT}`}
+        >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+                <img
+                    src={brand.logo}
+                    alt={brand.name}
+                    loading="lazy"
+                    style={{
+                        height: `calc(var(--brand-name-height) / ${nameShare})`,
+                    }}
+                    className="w-auto max-w-full shrink-0 self-start object-contain object-left sm:self-center"
+                />
+                {brand.description ? (
+                    <p className="max-w-md text-sm leading-relaxed text-secondary-foreground sm:max-w-2xl sm:text-base">
+                        {brand.description}
+                    </p>
+                ) : null}
+            </div>
+        </Link>
     );
-    const tileClass = `flex aspect-[2/1] flex-col justify-end rounded-none bg-muted p-4 [--brand-name-height:1.125rem] sm:p-6 sm:[--brand-name-height:1.375rem] ${
-        wide ? 'md:aspect-auto md:h-full' : ''
-    }`;
-
-    if (brand.url) {
-        return (
-            <a
-                href={brand.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${brand.name} (opens in a new tab)`}
-                className={`${tileClass} transition-opacity hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
-            >
-                {tile}
-            </a>
-        );
-    }
-
-    return <div className={tileClass}>{tile}</div>;
 };
 
-const Brands = () => (
-    <section
-        id="brands"
-        aria-labelledby="brands-heading"
-        className="mt-8 scroll-mt-20 md:mt-12"
-    >
-        <div className="mb-6 border-b border-sidebar-border pb-4">
-            <h2
-                id="brands-heading"
-                className="min-w-0 text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
-            >
-                Our Brands
-            </h2>
-        </div>
-        {/*
-         * One tile per row below md. From md up, two per row, staggered: the
-         * rows alternate wide then narrow and narrow then wide, 11 and 9 of
-         * 20 columns.
-         */}
-        <ul className="grid grid-cols-1 gap-2 md:grid-cols-20">
-            {brands.map((brand, index) => {
-                const startsWide = Math.floor(index / 2) % 2 === 0;
-                const wide = startsWide === (index % 2 === 0);
-
-                return (
-                    <li
-                        key={brand.name}
-                        className={wide ? 'md:col-span-11' : 'md:col-span-9'}
-                    >
-                        <BrandTile brand={brand} wide={wide} />
-                    </li>
-                );
-            })}
+const Brands = ({ brands }: { brands: BrandCardData[] }) =>
+    brands.length === 0 ? null : (
+        <ul
+            aria-label="Our brands"
+            className="grid grid-cols-1 gap-12 sm:gap-16"
+        >
+            {brands.map((brand) => (
+                <li key={brand.slug}>
+                    <BrandTile brand={brand} />
+                </li>
+            ))}
         </ul>
-    </section>
-);
+    );
 
 const CardSkeleton = ({ showHeart }: { showHeart: boolean }) => (
     <div>
@@ -223,7 +187,7 @@ const ScrollFooter = ({
     itemCount: number;
     listKey: string;
     showHeart: boolean;
-    mode: 'stones' | 'projects';
+    mode: HomeCollection;
     perPage: number;
 }) => {
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -284,7 +248,7 @@ const ScrollFooter = ({
             const message =
                 mode === 'stones'
                     ? "That's every stone in this collection."
-                    : "That's every project in this collection.";
+                    : "That's every piece of furniture in this collection.";
             toast.info("You've reached the bottom.", {
                 id: END_OF_LIST_TOAST_ID,
                 description: message,
@@ -312,7 +276,7 @@ const ScrollFooter = ({
         return (
             <div
                 aria-hidden="true"
-                className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5"
+                className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5"
             >
                 {Array.from({ length: 5 }, (_, index) => (
                     <div
@@ -325,9 +289,7 @@ const ScrollFooter = ({
                                   : undefined
                         }
                     >
-                        <CardSkeleton
-                            showHeart={showHeart && mode === 'stones'}
-                        />
+                        <CardSkeleton showHeart={showHeart} />
                     </div>
                 ))}
             </div>
@@ -341,6 +303,7 @@ const ScrollFooter = ({
 
 const Home = () => {
     const { savedIds, toggleSave, canSave } = useSavedStones();
+    const savedFurniture = useSavedFurniture();
     const permissions = usePermissions();
     const pageProps = usePage<HomePageProps>().props;
     const canMessage = permissions.can('messages.view');
@@ -349,47 +312,51 @@ const Home = () => {
     const [searchInput, setSearchInput] = useState(
         pageProps.filters.search ?? '',
     );
-    const [selectedCategory, setSelectedCategory] = useState(
-        pageProps.filters.category ?? '',
-    );
-    const [selectedProjectType, setSelectedProjectType] = useState(
-        pageProps.filters.projectCategory ?? '',
+    const initialCollection = toCollection(pageProps.filters.collection);
+    const [selectedCollection, setSelectedCollection] =
+        useState<HomeCollection>(initialCollection);
+    /*
+     * The second select's value: a stone category under Natural Stone, a
+     * project type under Furniture. Empty is its "All" option.
+     */
+    const [selectedFilter, setSelectedFilter] = useState(
+        filterOf(pageProps.filters, initialCollection) ?? '',
     );
     const [isUpdating, setIsUpdating] = useState(false);
 
     const debounceTimerRef = useRef<number | null>(null);
     const lastAppliedRef = useRef({
         search: pageProps.filters.search,
-        category: pageProps.filters.category,
-        projectCategory: pageProps.filters.projectCategory,
+        collection: initialCollection,
+        filter: filterOf(pageProps.filters, initialCollection),
     });
 
     const applyFilters = (
         search: string,
-        category: string,
-        projectType: string,
+        collection: HomeCollection,
+        filter: string,
     ) => {
         const trimmedSearch = search.trim();
         const query: Record<string, string> = {
             per_page: String(gridPageSize ?? pageProps.filters.perPage),
         };
 
+        if (collection === 'furniture') {
+            query.collection = 'furniture';
+        }
+
         if (trimmedSearch !== '') {
             query.search = trimmedSearch;
         }
 
-        if (category !== '') {
-            query.category = category;
-        }
-
-        if (projectType !== '') {
-            query.project_category = projectType;
+        if (filter !== '') {
+            query[FILTER_PARAM[collection]] = filter;
         }
 
         lastAppliedRef.current = {
             search: trimmedSearch || null,
-            category: category || null,
-            projectCategory: projectType || null,
+            collection,
+            filter: filter || null,
         };
 
         setIsUpdating(true);
@@ -412,7 +379,7 @@ const Home = () => {
         debounceTimerRef.current = window.setTimeout(() => {
             const trimmed = value.trim();
             if (trimmed !== (lastAppliedRef.current.search ?? '')) {
-                applyFilters(trimmed, selectedCategory, selectedProjectType);
+                applyFilters(trimmed, selectedCollection, selectedFilter);
             }
         }, 300);
     };
@@ -423,7 +390,7 @@ const Home = () => {
             debounceTimerRef.current = null;
         }
         setSearchInput('');
-        applyFilters('', selectedCategory, selectedProjectType);
+        applyFilters('', selectedCollection, selectedFilter);
     };
 
     const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -432,41 +399,45 @@ const Home = () => {
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
             }
-            applyFilters(searchInput, selectedCategory, selectedProjectType);
+            applyFilters(searchInput, selectedCollection, selectedFilter);
         }
     };
 
-    const handleCategoryChange = (value: string) => {
-        value = value === 'all' ? '' : value;
-        setSelectedCategory(value);
-        applyFilters(searchInput, value, selectedProjectType);
+    // A new collection starts from "All": the old filter means nothing there.
+    const handleCollectionChange = (value: string) => {
+        const collection = toCollection(value);
+        setSelectedCollection(collection);
+        setSelectedFilter('');
+        applyFilters(searchInput, collection, '');
     };
 
-    const handleProjectTypeChange = (value: string) => {
+    const handleFilterChange = (value: string) => {
         value = value === 'all' ? '' : value;
-        setSelectedProjectType(value);
-        applyFilters(searchInput, selectedCategory, value);
+        setSelectedFilter(value);
+        applyFilters(searchInput, selectedCollection, value);
     };
 
     useEffect(() => {
         const currentUrl = new URL(window.location.href);
         const urlSearch = currentUrl.searchParams.get('search') ?? '';
-        const urlCategory = currentUrl.searchParams.get('category') ?? '';
-        const urlProjectType =
-            currentUrl.searchParams.get('project_category') ?? '';
+        const urlCollection = toCollection(
+            currentUrl.searchParams.get('collection'),
+        );
+        const urlFilter =
+            currentUrl.searchParams.get(FILTER_PARAM[urlCollection]) ?? '';
 
         if (
             urlSearch !== (lastAppliedRef.current.search ?? '') ||
-            urlCategory !== (lastAppliedRef.current.category ?? '') ||
-            urlProjectType !== (lastAppliedRef.current.projectCategory ?? '')
+            urlCollection !== lastAppliedRef.current.collection ||
+            urlFilter !== (lastAppliedRef.current.filter ?? '')
         ) {
             setSearchInput(urlSearch);
-            setSelectedCategory(urlCategory);
-            setSelectedProjectType(urlProjectType);
+            setSelectedCollection(urlCollection);
+            setSelectedFilter(urlFilter);
             lastAppliedRef.current = {
                 search: urlSearch || null,
-                category: urlCategory || null,
-                projectCategory: urlProjectType || null,
+                collection: urlCollection,
+                filter: urlFilter || null,
             };
         }
     }, [pageProps.filters]);
@@ -504,128 +475,147 @@ const Home = () => {
         };
     }, []);
 
+    // What the server sent, which lags the selects while a request is out.
+    const collection = toCollection(pageProps.filters.collection);
+    const isFurniture = collection === 'furniture';
+    const list = isFurniture ? pageProps.furniture : pageProps.stones;
     const stones = pageProps.stones?.data ?? [];
-    const resultCount = stones.length;
+    const furniture = pageProps.furniture?.data ?? [];
+    const resultCount = isFurniture ? furniture.length : stones.length;
     const filterOptions = pageProps.filterOptions;
     const listKey = JSON.stringify([
+        collection,
         pageProps.filters.search,
         pageProps.filters.category,
         pageProps.filters.projectCategory,
         pageProps.filters.perPage,
     ]);
+    const choosingFurniture = selectedCollection === 'furniture';
+    const searchLabel = choosingFurniture
+        ? 'Search furniture'
+        : 'Search stones';
+    const filterOptionsShown =
+        (choosingFurniture
+            ? filterOptions.projectTypes
+            : filterOptions.categories) ?? [];
+    const allLabel = choosingFurniture
+        ? 'All Product Types'
+        : 'All Natural Stones';
+    const foundLabel = isFurniture
+        ? resultCount === 1
+            ? '1 piece of furniture found'
+            : `${resultCount} pieces of furniture found`
+        : resultCount === 1
+          ? '1 stone found'
+          : `${resultCount} stones found`;
 
     return (
         <div className="w-full">
             <Hero />
-            <Brands />
             <section
-                id="products"
-                aria-labelledby="products-heading"
+                id="collection"
+                aria-labelledby="collection-heading"
                 className="mt-8 md:mt-12"
             >
                 <div className="mb-6 border-b border-sidebar-border pb-4">
                     <h2
-                        id="products-heading"
+                        id="collection-heading"
                         className="min-w-0 text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
                     >
-                        Our Collections
+                        Our Collection
                     </h2>
+                </div>
 
-                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="relative w-full sm:max-w-xs">
-                            <Search
-                                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
-                                aria-hidden
-                            />
-                            <Input
-                                type="search"
-                                value={searchInput}
-                                onChange={(event) =>
-                                    handleSearchChange(event.target.value)
-                                }
-                                onKeyDown={handleSearchKeyDown}
-                                placeholder="Search stones"
-                                aria-label="Search stones"
-                                className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
-                            />
-                            {searchInput ? (
-                                <button
-                                    type="button"
-                                    onClick={handleSearchClear}
-                                    aria-label="Clear search"
-                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                <Brands brands={pageProps.brands ?? []} />
+
+                <div className="mt-16 mb-6 flex flex-col gap-4 border-b border-sidebar-border pb-4 sm:flex-row sm:items-center sm:justify-between md:mt-24">
+                    <div className="relative w-full sm:max-w-xs">
+                        <Search
+                            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
+                            aria-hidden
+                        />
+                        <Input
+                            type="search"
+                            value={searchInput}
+                            onChange={(event) =>
+                                handleSearchChange(event.target.value)
+                            }
+                            onKeyDown={handleSearchKeyDown}
+                            placeholder={searchLabel}
+                            aria-label={searchLabel}
+                            className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                        />
+                        {searchInput ? (
+                            <button
+                                type="button"
+                                onClick={handleSearchClear}
+                                aria-label="Clear search"
+                                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                            >
+                                <X className="size-4" aria-hidden />
+                            </button>
+                        ) : null}
+                    </div>
+
+                    <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row">
+                        <div className="w-full sm:w-44">
+                            <Select
+                                value={selectedCollection}
+                                onValueChange={handleCollectionChange}
+                            >
+                                <SelectTrigger
+                                    className="w-full rounded-none"
+                                    aria-label="Collection"
                                 >
-                                    <X className="size-4" aria-hidden />
-                                </button>
-                            ) : null}
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {COLLECTIONS.map((value) => (
+                                        <SelectItem
+                                            key={value}
+                                            value={value}
+                                            className="rounded-none"
+                                        >
+                                            {COLLECTION_LABELS[value]}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
-                        <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row">
-                            <div className="w-full sm:w-44">
-                                <Select
-                                    value={selectedCategory || 'all'}
-                                    onValueChange={handleCategoryChange}
+                        <div className="w-full sm:w-52">
+                            <Select
+                                value={selectedFilter || 'all'}
+                                onValueChange={handleFilterChange}
+                            >
+                                <SelectTrigger
+                                    className="w-full rounded-none"
+                                    aria-label={
+                                        choosingFurniture
+                                            ? 'Product type'
+                                            : 'Stone category'
+                                    }
                                 >
-                                    <SelectTrigger
-                                        className="w-full rounded-none"
-                                        aria-label="Stone category"
+                                    <SelectValue placeholder={allLabel} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        value="all"
+                                        className="rounded-none"
                                     >
-                                        <SelectValue placeholder="All Natural Stones" />
-                                    </SelectTrigger>
-                                    <SelectContent>
+                                        {allLabel}
+                                    </SelectItem>
+                                    {filterOptionsShown.map((option) => (
                                         <SelectItem
-                                            value="all"
+                                            key={option.value}
+                                            value={option.value}
                                             className="rounded-none"
                                         >
-                                            All Natural Stones
+                                            {option.label}
                                         </SelectItem>
-                                        {filterOptions.categories?.map(
-                                            (cat) => (
-                                                <SelectItem
-                                                    key={cat.value}
-                                                    value={cat.value}
-                                                    className="rounded-none"
-                                                >
-                                                    {cat.label}
-                                                </SelectItem>
-                                            ),
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="w-full sm:w-52">
-                                <Select
-                                    value={selectedProjectType || 'all'}
-                                    onValueChange={handleProjectTypeChange}
-                                >
-                                    <SelectTrigger
-                                        className="w-full rounded-none"
-                                        aria-label="Project type"
-                                    >
-                                        <SelectValue placeholder="All Project Types" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            value="all"
-                                            className="rounded-none"
-                                        >
-                                            All Project Types
-                                        </SelectItem>
-                                        {filterOptions.projectCategories?.map(
-                                            (type) => (
-                                                <SelectItem
-                                                    key={type.value}
-                                                    value={type.value}
-                                                    className="rounded-none"
-                                                >
-                                                    {type.label}
-                                                </SelectItem>
-                                            ),
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </div>
@@ -640,14 +630,12 @@ const Home = () => {
                         aria-live="polite"
                         aria-atomic="true"
                     >
-                        {resultCount === 1
-                            ? '1 stone found'
-                            : `${resultCount} stones found`}
+                        {foundLabel}
                     </div>
-                    {isUpdating || !pageProps.stones ? (
+                    {isUpdating || !list ? (
                         <div
                             aria-hidden="true"
-                            className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5"
+                            className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5"
                         >
                             {Array.from({ length: 10 }, (_, index) => (
                                 <div
@@ -666,12 +654,16 @@ const Home = () => {
                         </div>
                     ) : resultCount === 0 ? (
                         <EmptyState
-                            title="No stones found"
+                            title={
+                                isFurniture
+                                    ? 'No furniture found'
+                                    : 'No stones found'
+                            }
                             description="The search and filter didn't match any items."
                         />
                     ) : (
                         <InfiniteScroll
-                            data="stones"
+                            data={collection}
                             next={({ loading, loadingPrevious, hasMore }) => (
                                 <ScrollFooter
                                     loading={loading}
@@ -681,29 +673,58 @@ const Home = () => {
                                     itemCount={resultCount}
                                     listKey={listKey}
                                     showHeart={canSave}
-                                    mode="stones"
+                                    mode={collection}
                                     perPage={pageProps.filters.perPage}
                                 />
                             )}
                         >
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5">
-                                {stones.map((stone, index) => (
-                                    <StoneCard
-                                        key={stone.slug}
-                                        stone={stone}
-                                        aspect="aspect-[4/3]"
-                                        priority={index < 5}
-                                        href={homeShow.url({
-                                            slug: stone.slug,
-                                        })}
-                                        saved={savedIds.has(stone.slug)}
-                                        onToggleSave={
-                                            canSave
-                                                ? () => toggleSave(stone.slug)
-                                                : undefined
-                                        }
-                                    />
-                                ))}
+                            <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
+                                {isFurniture
+                                    ? furniture.map((item, index) => (
+                                          <ProductCard
+                                              key={item.slug}
+                                              product={{
+                                                  ...item,
+                                                  category: item.projectType,
+                                              }}
+                                              aspect="aspect-[4/3]"
+                                              priority={index < 5}
+                                              href={furnitureShow.url({
+                                                  furniture: item.slug,
+                                              })}
+                                              saved={savedFurniture.savedIds.has(
+                                                  item.slug,
+                                              )}
+                                              onToggleSave={
+                                                  canSave
+                                                      ? () =>
+                                                            savedFurniture.toggleSave(
+                                                                item.slug,
+                                                            )
+                                                      : undefined
+                                              }
+                                          />
+                                      ))
+                                    : stones.map((stone, index) => (
+                                          <ProductCard
+                                              key={stone.slug}
+                                              product={stone}
+                                              aspect="aspect-[4/3]"
+                                              priority={index < 5}
+                                              href={homeShow.url({
+                                                  slug: stone.slug,
+                                              })}
+                                              saved={savedIds.has(stone.slug)}
+                                              onToggleSave={
+                                                  canSave
+                                                      ? () =>
+                                                            toggleSave(
+                                                                stone.slug,
+                                                            )
+                                                      : undefined
+                                              }
+                                          />
+                                      ))}
                             </div>
                         </InfiniteScroll>
                     )}

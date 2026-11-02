@@ -100,6 +100,13 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withPivot('created_at');
     }
 
+    /** @return BelongsToMany<Furniture, $this> */
+    public function savedFurniture(): BelongsToMany
+    {
+        return $this->belongsToMany(Furniture::class, 'saved_furniture')
+            ->withPivot('created_at');
+    }
+
     /** @return BelongsToMany<Conversation, $this> */
     public function conversations(): BelongsToMany
     {

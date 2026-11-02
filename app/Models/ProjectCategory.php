@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -17,7 +18,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Collection<int, Project> $projects
- * @property-read Collection<int, Stone> $stones
+ * @property-read Collection<int, Furniture> $furniture
  */
 #[Fillable(['slug', 'name', 'image_path', 'is_active', 'sort_order'])]
 class ProjectCategory extends Model
@@ -40,13 +41,9 @@ class ProjectCategory extends Model
         return $this->belongsToMany(Project::class, 'category_project');
     }
 
-    /**
-     * The stones suited to this project type.
-     *
-     * @return BelongsToMany<Stone, $this>
-     */
-    public function stones(): BelongsToMany
+    /** @return HasMany<Furniture, $this> */
+    public function furniture(): HasMany
     {
-        return $this->belongsToMany(Stone::class, 'project_category_stone');
+        return $this->hasMany(Furniture::class);
     }
 }

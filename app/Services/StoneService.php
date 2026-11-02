@@ -7,7 +7,6 @@ use App\Models\Stone;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 
 class StoneService
 {
@@ -27,7 +26,7 @@ class StoneService
     }
 
     /**
-     * @return array{stones: LengthAwarePaginator<int, Stone>, filters: array{search: string|null, category: string|null, size: string|null, thickness: string|null, projectCategory: string|null, perPage: int}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>, sizes: Collection<int, array{value: string, label: string}>, thicknesses: Collection<int, array{value: string, label: string}>}}
+     * @return array{stones: LengthAwarePaginator<int, Stone>, filters: array{search: string|null, category: string|null, size: string|null, thickness: string|null, perPage: int}}
      */
     public function listStones(StoneFilterData $filters): array
     {
@@ -40,10 +39,8 @@ class StoneService
                 'category' => $cleaned->category,
                 'size' => $cleaned->size,
                 'thickness' => $cleaned->thickness,
-                'projectCategory' => $cleaned->projectCategory,
                 'perPage' => $cleaned->perPage,
             ],
-            'filterOptions' => $this->stoneRepository->filterOptions(),
         ];
     }
 
@@ -56,6 +53,6 @@ class StoneService
             $search = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
         }
 
-        return new StoneFilterData($search, $filters->category, $filters->size, $filters->thickness, $filters->page, $filters->perPage, $filters->projectCategory);
+        return new StoneFilterData($search, $filters->category, $filters->size, $filters->thickness, $filters->page, $filters->perPage);
     }
 }

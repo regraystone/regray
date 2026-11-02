@@ -4,6 +4,8 @@ use App\Enums\Permission;
 use App\Enums\Role;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
+use Database\Seeders\BrandSeeder;
+use Database\Seeders\FurnitureSeeder;
 use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
@@ -12,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -38,6 +41,8 @@ function workspacePages(): array
         'home.index' => [],
         'home.show' => ['slug' => 'ginza-one'],
         'home.stone' => ['stone' => 'arctic-pink'],
+        'brands.show' => ['brand' => 'regray-stone'],
+        'furniture.show' => ['furniture' => 'rounded-table'],
         'overview.index' => [],
         'saved.index' => [],
         'saved.show' => ['stone' => 'arctic-pink'],
@@ -137,12 +142,16 @@ test('guards every route with exactly these permissions', function () {
         'home.index' => $p(Permission::HomeView),
         'home.show' => $p(Permission::HomeStoneView, Permission::HomeProjectsView),
         'home.stone' => $p(Permission::HomeStoneView),
+        'brands.show' => $p(Permission::HomeView),
+        'furniture.show' => $p(Permission::HomeView),
         'overview.index' => $p(Permission::OverviewView),
         'saved.index' => $p(Permission::SavedView),
         'saved.show' => $p(Permission::SavedStoneView),
         'saved.project' => $p(Permission::SavedProjectsView),
         'saved.store' => $p(Permission::SavedView, Permission::SavedManage),
         'saved.destroy' => $p(Permission::SavedView, Permission::SavedManage),
+        'saved.furniture.store' => $p(Permission::SavedView, Permission::SavedManage),
+        'saved.furniture.destroy' => $p(Permission::SavedView, Permission::SavedManage),
         'sales.index' => $p(Permission::SalesView),
         'quote.index' => $p(Permission::QuotationsView),
         'quote.cancel' => $p(Permission::QuotationsView),
@@ -217,6 +226,11 @@ test('lets only the two details pages open on either of two permissions', functi
 test('opens to each role exactly the pages its matrix entry grants', function (string $role) {
     if (guardsAllow($role, 'home.show') || guardsAllow($role, 'home.stone')) {
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
+    }
+
+    if (guardsAllow($role, 'brands.show') || guardsAllow($role, 'furniture.show')) {
+        Storage::fake(config('filesystems.public_disk'));
+        $this->seed([ProjectCategorySeeder::class, BrandSeeder::class, FurnitureSeeder::class]);
     }
 
     $user = User::factory()->role($role)->create();

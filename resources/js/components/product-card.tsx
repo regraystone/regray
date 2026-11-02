@@ -1,12 +1,23 @@
 import { Link } from '@inertiajs/react';
-import { Check, ExternalLink, Heart, Star } from 'lucide-react';
+import { Check, ExternalLink, Heart, ImageOff, Star } from 'lucide-react';
 import { useState } from 'react';
-import type { StoneCardData } from '@/types/stone';
 
-type Stone = StoneCardData;
+/**
+ * What a product card shows: a stone or slab, or a piece of furniture. The
+ * `category` is the line under the name (a stone's natural stone, a piece's
+ * project type). A product with no photo yet shows a neutral placeholder.
+ */
+export type ProductCardData = {
+    id?: string;
+    slug: string;
+    name: string;
+    thumbnail: string | null;
+    bestSeller?: boolean;
+    category: { slug: string; name: string };
+};
 
-const StoneCard = ({
-    stone,
+const ProductCard = ({
+    product,
     aspect,
     saved,
     onToggleSave,
@@ -18,7 +29,7 @@ const StoneCard = ({
     note,
     priority = false,
 }: {
-    stone: Stone;
+    product: ProductCardData;
     aspect: string;
     saved: boolean;
     /**
@@ -75,7 +86,9 @@ const StoneCard = ({
             }}
             aria-pressed={saved}
             aria-label={
-                saved ? `Remove ${stone.name} from saved` : `Save ${stone.name}`
+                saved
+                    ? `Remove ${product.name} from saved`
+                    : `Save ${product.name}`
             }
             className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-md transition-opacity hover:opacity-60 active:scale-90"
         >
@@ -97,14 +110,23 @@ const StoneCard = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
-            aria-label={`View ${stone.name} (opens in a new tab)`}
+            aria-label={`View ${product.name} (opens in a new tab)`}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-secondary-foreground transition-opacity hover:opacity-60"
         >
             <ExternalLink className="size-5" aria-hidden />
         </a>
     ) : null;
 
-    const bestSeller = stone.bestSeller ? (
+    const placeholder = (
+        <div
+            className="absolute inset-0 grid place-items-center bg-muted text-secondary-foreground/50"
+            aria-hidden
+        >
+            <ImageOff className="size-8" />
+        </div>
+    );
+
+    const bestSeller = product.bestSeller ? (
         <span className="absolute top-0 left-0 flex items-center gap-1 rounded-none bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
             <Star
                 className="size-3 shrink-0 fill-white text-white"
@@ -142,19 +164,23 @@ const StoneCard = ({
                     type="button"
                     role="checkbox"
                     aria-checked={selected}
-                    aria-label={stone.name}
+                    aria-label={product.name}
                     onClick={onSelect}
                     className="block w-full cursor-pointer rounded-none bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                     <div
                         className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
                     >
-                        <img
-                            src={stone.thumbnail}
-                            alt=""
-                            loading={priority ? 'eager' : 'lazy'}
-                            className="absolute inset-0 size-full object-cover"
-                        />
+                        {product.thumbnail ? (
+                            <img
+                                src={product.thumbnail}
+                                alt=""
+                                loading={priority ? 'eager' : 'lazy'}
+                                className="absolute inset-0 size-full object-cover"
+                            />
+                        ) : (
+                            placeholder
+                        )}
                         {bestSeller}
                         {selected ? (
                             <span
@@ -182,12 +208,12 @@ const StoneCard = ({
                     >
                         <span
                             className="line-clamp-2 break-words"
-                            title={stone.name}
+                            title={product.name}
                         >
-                            {stone.name}
+                            {product.name}
                         </span>
                         <span className="block text-xs font-normal break-words text-secondary-foreground">
-                            {stone.category.name}
+                            {product.category.name}
                         </span>
                     </span>
                 </button>
@@ -208,7 +234,7 @@ const StoneCard = ({
      * The card is a link when there is somewhere to send it and plain content
      * when there is not: a stone profile sits under Home or under Saved, and a
      * page that may open neither hands over a card that simply shows the
-     * stone. Same answer the project card already gives.
+     * product. Same answer the project card already gives.
      *
      * Only the best-seller tag sits on the picture, top left; the name and the
      * category are text under it. The name wraps onto a second line and is
@@ -219,24 +245,28 @@ const StoneCard = ({
             <div
                 className={`stone-card-media relative overflow-hidden rounded-none bg-muted ${aspect}`}
             >
-                <img
-                    src={stone.thumbnail}
-                    alt={stone.name}
-                    loading={priority ? 'eager' : 'lazy'}
-                    className="absolute inset-0 size-full object-cover"
-                />
+                {product.thumbnail ? (
+                    <img
+                        src={product.thumbnail}
+                        alt={product.name}
+                        loading={priority ? 'eager' : 'lazy'}
+                        className="absolute inset-0 size-full object-cover"
+                    />
+                ) : (
+                    placeholder
+                )}
                 {bestSeller}
             </div>
             <div className="flex items-start justify-between gap-2 pt-3">
                 <span className="min-w-0 flex-1">
                     <span
                         className="line-clamp-2 text-base leading-snug font-medium break-words text-foreground"
-                        title={stone.name}
+                        title={product.name}
                     >
-                        {stone.name}
+                        {product.name}
                     </span>
                     <span className="mt-0.5 block text-sm break-words text-secondary-foreground">
-                        {stone.category.name}
+                        {product.category.name}
                     </span>
                 </span>
                 {heart || view ? (
@@ -263,4 +293,4 @@ const StoneCard = ({
     return content;
 };
 
-export default StoneCard;
+export default ProductCard;

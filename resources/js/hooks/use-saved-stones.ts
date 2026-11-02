@@ -19,78 +19,100 @@ type PendingState = {
     inFlight: boolean;
 };
 
-const pendingOverrides = new Map<string, PendingState>();
-const listeners = new Set<() => void>();
-
 /**
- * Store revision bump so `useSyncExternalStore` re-renders consumers whenever
- * an optimistic override changes, independent of the server snapshot.
+ * The optimistic overrides for one kind of saved thing (stones, furniture).
+ * Each kind has its own, so a stone and a piece of furniture that share a
+ * slug never share a heart.
  */
-let revision = 0;
+const createStore = () => {
+    const pendingOverrides = new Map<string, PendingState>();
+    const listeners = new Set<() => void>();
 
-const notify = (): void => {
-    revision += 1;
-    listeners.forEach((listener) => listener());
-};
+    /**
+     * Store revision bump so `useSyncExternalStore` re-renders consumers whenever
+     * an optimistic override changes, independent of the server snapshot.
+     */
+    let revision = 0;
 
-const subscribe = (listener: () => void): (() => void) => {
-    listeners.add(listener);
-    return () => {
-        listeners.delete(listener);
+    const notify = (): void => {
+        revision += 1;
+        listeners.forEach((listener) => listener());
+    };
+
+    return {
+        pendingOverrides,
+        subscribe: (listener: () => void): (() => void) => {
+            listeners.add(listener);
+            return () => {
+                listeners.delete(listener);
+            };
+        },
+        getRevision: (): number => revision,
+        getPending: (slug: string): PendingState | undefined =>
+            pendingOverrides.get(slug),
+        setPending: (slug: string, state: PendingState): void => {
+            pendingOverrides.set(slug, state);
+            notify();
+        },
+        clearPending: (slug: string): void => {
+            const pending = pendingOverrides.get(slug);
+            if (!pending) {
+                return;
+            }
+
+            if (pending.timer != null) {
+                window.clearTimeout(pending.timer);
+            }
+
+            pendingOverrides.delete(slug);
+            notify();
+        },
     };
 };
 
-const getRevision = (): number => revision;
+type SavedStore = ReturnType<typeof createStore>;
 
-const getPending = (slug: string): PendingState | undefined => {
-    return pendingOverrides.get(slug);
+/** What differs between the kinds: where the slugs come from and where a save goes. */
+type SavedKind = {
+    store: SavedStore;
+    /** The shared Inertia prop that lists the saved slugs. */
+    prop: 'savedStoneSlugs' | 'savedFurnitureSlugs';
+    url: (slug: string) => string;
+    errorMessage: string;
 };
 
-const setPending = (slug: string, state: PendingState): void => {
-    pendingOverrides.set(slug, state);
-    notify();
+const stones: SavedKind = {
+    store: createStore(),
+    prop: 'savedStoneSlugs',
+    url: (slug) => `/saved/${slug}`,
+    errorMessage: 'Failed to update saved stones. Please try again.',
 };
 
-const clearPending = (slug: string): void => {
-    const pending = pendingOverrides.get(slug);
-    if (!pending) {
-        return;
-    }
-
-    if (pending.timer != null) {
-        window.clearTimeout(pending.timer);
-    }
-
-    pendingOverrides.delete(slug);
-    notify();
+const furniture: SavedKind = {
+    store: createStore(),
+    prop: 'savedFurnitureSlugs',
+    url: (slug) => `/saved/furniture/${slug}`,
+    errorMessage: 'Failed to update saved furniture. Please try again.',
 };
 
-/**
- * Build the effective saved state for a slug: server state with pending override on top.
- */
-const effectiveSaved = (serverSlugs: string[], slug: string): boolean => {
-    const pending = getPending(slug);
-    if (pending) {
-        return pending.desired;
-    }
-    return serverSlugs.includes(slug);
-};
-
-/**
- * Hook to read saved stone state and toggle saves with a per-slug trailing
- * debounce. Only the final desired state is sent, and never more than one
- * request per slug at a time.
- *
- * @param refresh - Additional Inertia props to reload with each server request.
- * @returns { savedIds: Set<string>, toggleSave: (slug: string) => void, canSave: boolean }
- */
-export function useSavedStones(options?: { refresh?: string[] }): {
+type SavedItems = {
     savedIds: Set<string>;
     toggleSave: (slug: string) => void;
     canSave: boolean;
-} {
-    const page = usePage<{ savedStoneSlugs: string[] }>();
-    const serverSlugs = page.props.savedStoneSlugs ?? EMPTY_SLUGS;
+};
+
+/**
+ * Read one kind's saved state and toggle saves with a per-slug trailing
+ * debounce. Only the final desired state is sent, and never more than one
+ * request per slug at a time.
+ */
+function useSavedItems(
+    kind: SavedKind,
+    options?: { refresh?: string[] },
+): SavedItems {
+    const { store, prop } = kind;
+    const page = usePage<Record<SavedKind['prop'], string[] | undefined>>();
+    const serverSlugs = page.props[prop] ?? EMPTY_SLUGS;
 
     // Keep the latest server state available to the debounced flush, which runs
     // outside of render and therefore cannot call `usePage()` itself.
@@ -101,9 +123,9 @@ export function useSavedStones(options?: { refresh?: string[] }): {
 
     // Re-render when optimistic overrides change so the heart flips instantly.
     const storeRevision = useSyncExternalStore(
-        subscribe,
-        getRevision,
-        getRevision,
+        store.subscribe,
+        store.getRevision,
+        store.getRevision,
     );
 
     const { can } = usePermissions();
@@ -111,7 +133,7 @@ export function useSavedStones(options?: { refresh?: string[] }): {
 
     const savedIds = useMemo(() => {
         const base = new Set(serverSlugs);
-        for (const [slug, pending] of pendingOverrides) {
+        for (const [slug, pending] of store.pendingOverrides) {
             if (pending.desired) {
                 base.add(slug);
             } else {
@@ -119,7 +141,7 @@ export function useSavedStones(options?: { refresh?: string[] }): {
             }
         }
         return base;
-    }, [serverSlugs, storeRevision]);
+    }, [serverSlugs, storeRevision, store]);
 
     const flushPendingRef = useRef<(slug: string) => void>(() => {});
 
@@ -130,7 +152,7 @@ export function useSavedStones(options?: { refresh?: string[] }): {
      */
     const sendRequest = useCallback(
         (slug: string, desired: boolean): void => {
-            const pending = getPending(slug);
+            const pending = store.getPending(slug);
             if (!pending) {
                 return;
             }
@@ -138,7 +160,7 @@ export function useSavedStones(options?: { refresh?: string[] }): {
             pending.inFlight = true;
             pending.timer = null;
 
-            const only = ['savedStoneSlugs', ...(options?.refresh ?? [])];
+            const only = [prop, ...(options?.refresh ?? [])];
 
             const requestOptions = {
                 preserveScroll: true,
@@ -148,13 +170,13 @@ export function useSavedStones(options?: { refresh?: string[] }): {
                 // The ref is updated from the response itself because it has not
                 // re-rendered yet when `onFinish` runs.
                 onSuccess: (response: {
-                    props: { savedStoneSlugs?: string[] };
+                    props: Partial<Record<SavedKind['prop'], string[]>>;
                 }): void => {
                     serverSlugsRef.current =
-                        response.props.savedStoneSlugs ?? EMPTY_SLUGS;
+                        response.props[prop] ?? EMPTY_SLUGS;
                 },
                 onFinish: (): void => {
-                    const after = getPending(slug);
+                    const after = store.getPending(slug);
                     if (!after) {
                         return;
                     }
@@ -169,20 +191,18 @@ export function useSavedStones(options?: { refresh?: string[] }): {
                     flushPendingRef.current(slug);
                 },
                 onError: (): void => {
-                    clearPending(slug);
-                    toast.error(
-                        'Failed to update saved stones. Please try again.',
-                    );
+                    store.clearPending(slug);
+                    toast.error(kind.errorMessage);
                 },
             };
 
             if (desired) {
-                router.put(`/saved/${slug}`, {}, requestOptions);
+                router.put(kind.url(slug), {}, requestOptions);
             } else {
-                router.delete(`/saved/${slug}`, requestOptions);
+                router.delete(kind.url(slug), requestOptions);
             }
         },
-        [options?.refresh],
+        [options?.refresh, kind, store, prop],
     );
 
     /**
@@ -191,7 +211,7 @@ export function useSavedStones(options?: { refresh?: string[] }): {
      */
     const flushPending = useCallback(
         (slug: string): void => {
-            const pending = getPending(slug);
+            const pending = store.getPending(slug);
             if (!pending) {
                 return;
             }
@@ -205,27 +225,18 @@ export function useSavedStones(options?: { refresh?: string[] }): {
             }
 
             if (pending.desired === serverSlugsRef.current.includes(slug)) {
-                clearPending(slug);
+                store.clearPending(slug);
                 return;
             }
 
             sendRequest(slug, pending.desired);
         },
-        [sendRequest],
+        [sendRequest, store],
     );
 
     useEffect(() => {
         flushPendingRef.current = flushPending;
     }, [flushPending]);
-
-    // Clean up old localStorage key on mount
-    useEffect(() => {
-        try {
-            localStorage.removeItem('regray:saved-stones');
-        } catch {
-            // Ignore quota / privacy-mode failures
-        }
-    }, []);
 
     const toggleSave = useCallback(
         (slug: string) => {
@@ -234,10 +245,12 @@ export function useSavedStones(options?: { refresh?: string[] }): {
             }
 
             // Flip the override immediately for instant UI feedback.
-            const nextDesired = !effectiveSaved(serverSlugsRef.current, slug);
+            const existing = store.getPending(slug);
+            const currentlySaved = existing
+                ? existing.desired
+                : serverSlugsRef.current.includes(slug);
 
             // Restart this slug's debounce window instead of stacking timers.
-            const existing = getPending(slug);
             if (existing?.timer != null) {
                 window.clearTimeout(existing.timer);
             }
@@ -246,14 +259,43 @@ export function useSavedStones(options?: { refresh?: string[] }): {
                 flushPendingRef.current(slug);
             }, SAVE_DEBOUNCE_MS);
 
-            setPending(slug, {
-                desired: nextDesired,
+            store.setPending(slug, {
+                desired: !currentlySaved,
                 timer,
                 inFlight: existing?.inFlight ?? false,
             });
         },
-        [canSave],
+        [canSave, store],
     );
 
     return { savedIds, toggleSave, canSave };
+}
+
+/**
+ * Saved stones: which are saved, and a debounced toggle.
+ *
+ * @param refresh - Additional Inertia props to reload with each server request.
+ */
+export function useSavedStones(options?: { refresh?: string[] }): SavedItems {
+    // Clean up the old localStorage key on mount.
+    useEffect(() => {
+        try {
+            localStorage.removeItem('regray:saved-stones');
+        } catch {
+            // Ignore quota / privacy-mode failures
+        }
+    }, []);
+
+    return useSavedItems(stones, options);
+}
+
+/**
+ * Saved furniture, the same as `useSavedStones` for furniture slugs.
+ *
+ * @param refresh - Additional Inertia props to reload with each server request.
+ */
+export function useSavedFurniture(options?: {
+    refresh?: string[];
+}): SavedItems {
+    return useSavedItems(furniture, options);
 }

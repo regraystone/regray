@@ -42,7 +42,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useSavedStones } from '@/hooks/use-saved-stones';
+import { useInquireRoute } from '@/hooks/use-inquire-route';
+import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { getEcho, listenTo, onReconnect } from '@/lib/echo';
 import { onUnreadChanged } from '@/lib/unread-badge';
 import type { Realtime } from '@/types/message';
@@ -396,6 +397,14 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
               ?.slug
         : undefined;
 
+    // A furniture profile has the same floating heart as a stone profile.
+    const isFurnitureProfilePage = page.component === 'furniture-profile';
+    const furnitureSlug = isFurnitureProfilePage
+        ? (page.props.furniture as { data: { slug: string } } | undefined)?.data
+              ?.slug
+        : undefined;
+    const profileSlug = stoneSlug ?? furnitureSlug;
+
     /*
      * The stepper has no sidebar item of its own; it is nested under the list
      * the user reads their inquiries on, so that list is what stays lit.
@@ -403,17 +412,30 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const isInquire =
         url === quoteInquire.url() || url === inquiryInquire.url();
 
+    // A brand's or a furniture piece's page is reached from Home.
+    const isHomeChildPage =
+        page.component === 'brand-profile' ||
+        page.component === 'furniture-profile';
+
     const activePath = isInquire
         ? url.slice(0, url.lastIndexOf('/'))
-        : isStoneProfilePage && prevUrlRef.current
-          ? prevUrlRef.current
-          : effectiveUrl;
+        : isHomeChildPage
+          ? homeIndex.url()
+          : isStoneProfilePage && prevUrlRef.current
+            ? prevUrlRef.current
+            : effectiveUrl;
 
     const user = page.props.auth.user;
-    const { savedIds, toggleSave, canSave } = useSavedStones();
-    const savedCount = savedIds.size;
+    const savedStones = useSavedStones();
+    const savedFurniture = useSavedFurniture();
+    const canSave = savedStones.canSave;
+    // The Saved badge counts both kinds; the heart works on this page's kind.
+    const savedCount = savedStones.savedIds.size + savedFurniture.savedIds.size;
+    const profileSaves = isFurnitureProfilePage ? savedFurniture : savedStones;
     const unreadCount = page.props.unreadMessageCount ?? 0;
     const { can } = usePermissions();
+    // The profile's "Ask a Quote" button, which the heart sits above.
+    const canInquire = useInquireRoute() !== null;
     const canMessage = can(permissions.messagesView);
     const isInSupportPool = can(permissions.supportClaim);
     const realtime = page.props.realtime as Realtime | null | undefined;
@@ -477,20 +499,21 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         };
     }, [canMessage, isInSupportPool, realtime, userId]);
 
-    const isSaved = isStoneProfilePage && stoneSlug && savedIds.has(stoneSlug);
+    const isSaved =
+        profileSlug !== undefined && profileSaves.savedIds.has(profileSlug);
 
     /*
      * The floating heart animates only when a tap flips `isSaved`. The slug is
-     * tracked beside it so arriving on a different stone profile — which also
+     * tracked beside it so arriving on a different profile — which also
      * moves `isSaved` — resets the comparison instead of animating. Comparing
      * during render keeps the class in the same commit as the flip.
      */
     const [previousIsSaved, setPreviousIsSaved] = useState(isSaved);
-    const [savedSlug, setSavedSlug] = useState(stoneSlug);
+    const [savedSlug, setSavedSlug] = useState(profileSlug);
     const [heartAnimation, setHeartAnimation] = useState('');
 
-    if (savedSlug !== stoneSlug) {
-        setSavedSlug(stoneSlug);
+    if (savedSlug !== profileSlug) {
+        setSavedSlug(profileSlug);
         setPreviousIsSaved(isSaved);
         setHeartAnimation('');
     } else if (previousIsSaved !== isSaved) {
@@ -565,6 +588,18 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             });
             crumbs.push({ label: 'Security' });
         }
+    } else if (isHomeChildPage) {
+        const item = (
+            (page.props.brand ?? page.props.furniture) as
+                | { data: { name: string } }
+                | undefined
+        )?.data;
+
+        crumbs.push({ label: 'Home', href: homeIndex.url() });
+
+        if (item) {
+            crumbs.push({ label: item.name });
+        }
     } else if (
         effectiveUrl.split('?')[0] === homeIndex.url() ||
         effectiveUrl.startsWith(`${homeIndex.url()}/`)
@@ -584,12 +619,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 | undefined
         )?.data;
 
-        crumbs.push({
-            label: 'Home',
-            href: homeIndex.url(
-                project ? { query: { collection: 'projects' } } : undefined,
-            ),
-        });
+        crumbs.push({ label: 'Home', href: homeIndex.url() });
 
         if (project) {
             crumbs.push({ label: project.name });
@@ -861,8 +891,12 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 />
             </aside>
 
-            {isStoneProfilePage && canSave && stoneSlug && (
-                <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 sm:bottom-5">
+            {canSave && profileSlug && (
+                <div
+                    className={`fixed right-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 ${
+                        canInquire ? 'bottom-20' : 'bottom-4 sm:bottom-5'
+                    }`}
+                >
                     <Button
                         type="button"
                         variant="outline"
@@ -872,7 +906,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         aria-label={
                             isSaved ? 'Remove from saved' : 'Save to collection'
                         }
-                        onClick={() => toggleSave(stoneSlug)}
+                        onClick={() => profileSaves.toggleSave(profileSlug)}
                     >
                         <Heart
                             key={heartAnimation}

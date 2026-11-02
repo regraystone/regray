@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 import ImageLightbox, { type LightboxImage } from '@/components/image-lightbox';
 import ProfileGallery from '@/components/profile-gallery';
-import StoneCard from '@/components/stone-card';
+import ProductCard from '@/components/product-card';
 import { Button } from '@/components/ui/button';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex, show as homeShow } from '@/routes/home';
@@ -119,11 +119,11 @@ const ProjectProfile = ({
                 <h2 className="text-2xl leading-tight font-light tracking-tight uppercase lg:text-4xl">
                     Materials
                 </h2>
-                <div className="mt-6 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-4">
+                <div className="mt-6 grid grid-cols-2 gap-3.5 md:gap-4.5 lg:grid-cols-4">
                     {project.stones.map((stone) => (
-                        <StoneCard
+                        <ProductCard
                             key={stone.slug}
-                            stone={{
+                            product={{
                                 id: stone.slug,
                                 slug: stone.slug,
                                 name: stone.name,

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Saved;
 
+use App\Actions\Saved\ListSavedFurnitureAction;
 use App\Actions\Saved\ListSavedStonesAction;
 use App\Actions\Saved\SaveStoneAction;
 use App\Actions\Saved\UnsaveStoneAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Saved\SavedIndexRequest;
 use App\Http\Requests\Saved\SavedStoneRequest;
+use App\Http\Resources\FurnitureCardResource;
 use App\Http\Resources\StoneCardResource;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -17,6 +19,7 @@ class SavedStoneController extends Controller
 {
     public function __construct(
         public readonly ListSavedStonesAction $listSavedStones,
+        public readonly ListSavedFurnitureAction $listSavedFurniture,
         public readonly SaveStoneAction $saveStone,
         public readonly UnsaveStoneAction $unsaveStone,
     ) {}
@@ -27,6 +30,7 @@ class SavedStoneController extends Controller
 
         return Inertia::render('saved', [
             'savedStones' => StoneCardResource::collection($result['saved']),
+            'savedFurniture' => FurnitureCardResource::collection($this->listSavedFurniture->execute($request->user())),
         ]);
     }
 

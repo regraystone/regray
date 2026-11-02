@@ -90,13 +90,12 @@ enum Permission: string
     case HomeStoneView = 'home-stone.view';
 
     /**
-     * Published projects in the Home collection at `/home?collection=projects`.
+     * Published project profiles, at `/home/{project}`.
      *
-     * A project can be addressed directly at `/home/{project}` or reached from a
-     * stone profile. It is a `view` permission, so it names a place, but like
-     * `ProfileScheduleView` it has no sidebar entry: the entry for the Home page
-     * belongs to `HomeView`, and holding this one is what lets a reader toggle to
-     * the projects collection and open individual project profiles.
+     * A project is reached from a brand's page. It is a `view` permission, so it
+     * names a place, but like `ProfileScheduleView` it has no sidebar entry: the
+     * entry for the Home page belongs to `HomeView`, and holding this one is
+     * what lets a reader open individual project profiles.
      *
      * It is given to the client, who reads the portfolio, and to the
      * super-admin for consistency with the rest of the matrix even though

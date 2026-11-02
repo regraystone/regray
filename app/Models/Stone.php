@@ -36,7 +36,6 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, StoneCategory> $categories
  * @property-read Collection<int, StoneSize> $sizes
  * @property-read Collection<int, StoneThickness> $thicknesses
- * @property-read Collection<int, ProjectCategory> $projectCategories
  */
 #[Fillable(['stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'is_active', 'sort_order'])]
 class Stone extends Model
@@ -132,15 +131,5 @@ class Stone extends Model
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'project_stone');
-    }
-
-    /**
-     * The project types the stone suits, which the home filters stones by.
-     *
-     * @return BelongsToMany<ProjectCategory, $this>
-     */
-    public function projectCategories(): BelongsToMany
-    {
-        return $this->belongsToMany(ProjectCategory::class, 'project_category_stone');
     }
 }

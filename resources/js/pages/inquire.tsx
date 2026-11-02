@@ -21,7 +21,7 @@ import {
     staffInquireKindFrom,
     type StaffInquireKind,
 } from '@/lib/staff-inquire';
-import StoneCard from '@/components/stone-card';
+import ProductCard from '@/components/product-card';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -1801,11 +1801,11 @@ const InquireFlow = ({
                                         }
                                     />
                                 ) : (
-                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 xl:grid-cols-5">
+                                    <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
                                         {visibleStones.map((stone) => (
-                                            <StoneCard
+                                            <ProductCard
                                                 key={stone.slug}
-                                                stone={{
+                                                product={{
                                                     slug: stone.slug,
                                                     name: stone.name,
                                                     thumbnail: stone.thumbnail,

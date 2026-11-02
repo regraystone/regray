@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Brand\BrandController;
+use App\Http\Controllers\Furniture\FurnitureController;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\Inquiry\InquiryController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
+use App\Http\Controllers\Saved\SavedFurnitureController;
 use App\Http\Controllers\Saved\SavedStoneController;
 use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
 use App\Http\Controllers\Schedule\BookingController;
@@ -73,6 +76,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(Permission::HomeStoneView->middleware())
         ->name('home.stone');
 
+    /*
+     * A brand's profile and a furniture piece's profile, both reached from
+     * Home and guarded like it. The parameters stay plain strings, loaded in
+     * the repository after the permission check, as on the stone routes.
+     */
+    Route::get('brands/{brand}', [BrandController::class, 'show'])
+        ->middleware(Permission::HomeView->middleware())
+        ->name('brands.show');
+    Route::get('furniture/{furniture}', [FurnitureController::class, 'show'])
+        ->middleware(Permission::HomeView->middleware())
+        ->name('furniture.show');
+
     Route::get('overview', [ViewController::class, 'overview'])
         ->middleware(Permission::OverviewView->middleware())
         ->name('overview.index');
@@ -104,6 +119,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'throttle:saved-stone',
         ])
         ->name('saved.destroy');
+    // Saving furniture, guarded and throttled like saving a stone.
+    Route::put('saved/furniture/{furniture}', [SavedFurnitureController::class, 'store'])
+        ->middleware([
+            Permission::SavedView->middleware(),
+            Permission::SavedManage->middleware(),
+            'throttle:saved-stone',
+        ])
+        ->name('saved.furniture.store');
+    Route::delete('saved/furniture/{furniture}', [SavedFurnitureController::class, 'destroy'])
+        ->middleware([
+            Permission::SavedView->middleware(),
+            Permission::SavedManage->middleware(),
+            'throttle:saved-stone',
+        ])
+        ->name('saved.furniture.destroy');
     Route::get('sales', [ViewController::class, 'sales'])
         ->middleware(Permission::SalesView->middleware())
         ->name('sales.index');
