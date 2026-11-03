@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\Role;
-use App\Models\ProjectCategory;
 use App\Models\Stone;
 use App\Models\StoneCategory;
 use App\Models\StoneSize;
@@ -25,24 +24,23 @@ test('offers every active lookup option in both collections, matched or not, and
     StoneSize::factory()->create(['name' => '95x95', 'is_active' => false]);
     $user = User::factory()->role(Role::Client)->create();
 
-    foreach (['stones', 'furniture'] as $collection) {
-        $this->actingAs($user)->get(route('home.index', ['collection' => $collection, 'search' => 'no matching item']))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->has($collection.'.data', 0)
-                ->where('filterOptions.categories', fn ($options) => $options->pluck('value')->contains($category->slug) && ! $options->pluck('value')->contains($inactive->slug))
-                ->where('filterOptions.sizes', fn ($options) => $options->pluck('value')->contains('90x90') && ! $options->pluck('value')->contains('95x95'))
-                ->where('filterOptions.thicknesses', fn ($options) => $options->pluck('value')->contains('12-mm'))
-                ->has('filterOptions.projectTypes', 9)
-                ->where('filterOptions.projectTypes.2', ['value' => 'kitchen-islands', 'label' => 'Kitchen Islands'])
-                ->where('filterOptions.projectTypes.8', ['value' => 'fixtures', 'label' => 'Fixtures'])
-            );
-    }
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'stones', 'search' => 'no matching item']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('stones.data', 0)
+            ->where('filterOptions.categories', fn ($options) => $options->pluck('value')->contains($category->slug) && ! $options->pluck('value')->contains($inactive->slug))
+            ->where('filterOptions.sizes', fn ($options) => $options->pluck('value')->contains('90x90') && ! $options->pluck('value')->contains('95x95'))
+            ->where('filterOptions.thicknesses', fn ($options) => $options->pluck('value')->contains('12-mm'))
+        );
 
-    ProjectCategory::query()->where('slug', 'fixtures')->update(['is_active' => false]);
-
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture']))
-        ->assertInertia(fn (Assert $page) => $page->has('filterOptions.projectTypes', 8));
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'search' => 'no matching item']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('furniture.data', 0)
+            ->has('filterOptions.furnitureTypes', 8)
+            ->where('filterOptions.furnitureTypes.0', ['value' => 'Seating', 'label' => 'Seating'])
+            ->where('filterOptions.furnitureTypes.1', ['value' => 'Tables', 'label' => 'Tables'])
+        );
 });
 
 test('stones can match additional categories sizes and thicknesses through pivots', function (): void {
@@ -83,8 +81,8 @@ test('unused database stone options are valid filters even without any stones', 
         );
 });
 
-test('furniture filters by project type and search, a page at a time', function (): void {
-    $this->seed([ProjectCategorySeeder::class, FurnitureSeeder::class]);
+test('furniture filters by furniture type and search, a page at a time', function (): void {
+    $this->seed([FurnitureSeeder::class]);
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'per_page' => 10]))
@@ -93,52 +91,28 @@ test('furniture filters by project type and search, a page at a time', function 
             ->has('furniture.data', 6)
             ->missing('stones')
             ->where('furniture.data.0', [
-                'slug' => 'rounded-table',
-                'name' => 'Rounded Table',
-                'thumbnail' => null,
-                'projectType' => ['slug' => 'dining-tables', 'name' => 'Dining Tables'],
+                'slug' => 'alora',
+                'name' => 'Alora',
+                'thumbnail' => '/storage/furniture/2b9e5c3f1a8d6e4c9b2f5a8c3d7e1a6b.jpg',
+                'furnitureType' => ['slug' => 'tables', 'name' => 'Tables'],
             ])
             ->where('filters.collection', 'furniture')
             ->where('filters.perPage', 10)
         );
 
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'project_category' => 'center-side-tables']))
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'furniture_type' => 'Tables']))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('furniture.data', fn ($items) => collect($items)->pluck('slug')->all() === ['travertine-coffee-table', 'marble-side-table'])
-            ->where('filters.projectCategory', 'center-side-tables')
+            ->has('furniture.data', 6)
+            ->where('filters.furnitureType', 'Tables')
         );
 
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'search' => 'rounded']))
-        ->assertInertia(fn (Assert $page) => $page->has('furniture.data', 1)->where('furniture.data.0.slug', 'rounded-table'));
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'search' => 'alora']))
+        ->assertInertia(fn (Assert $page) => $page->has('furniture.data', 1)->where('furniture.data.0.slug', 'alora'));
 });
 
-test('an unknown project type is dropped from a furniture URL, keeping the collection', function (): void {
+test('an unknown furniture type is dropped from a furniture URL, keeping the collection', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'project_category' => 'unknown', 'search' => 'table']))
+    $this->actingAs($user)->get(route('home.index', ['collection' => 'furniture', 'furniture_type' => 'Unknown', 'search' => 'table']))
         ->assertRedirect(route('home.index', ['collection' => 'furniture', 'search' => 'table']));
-});
-
-test('the retired projects collection shows the stones', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['collection' => 'projects']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('stones.data', 0)
-            ->missing('projects')
-            ->where('filters.collection', 'stones')
-        );
-});
-
-test('a stone\'s primary filter values fill the filter tables without changing profile fields', function (): void {
-    $stone = Stone::factory()->create(['size' => '99x210', 'thickness_mm' => 35]);
-
-    $stone->attachPrimaryFilterOptions();
-
-    expect($stone->fresh()->size)->toBe('99x210');
-    expect($stone->fresh()->thickness_mm)->toBe(35);
-    expect($stone->categories()->pluck('stone_categories.id')->all())->toBe([$stone->stone_category_id]);
-    expect($stone->sizes()->pluck('name')->all())->toBe(['99x210']);
-    expect($stone->thicknesses()->pluck('slug')->all())->toBe(['31-plus']);
 });

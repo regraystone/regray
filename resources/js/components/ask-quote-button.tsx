@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 
@@ -11,6 +11,20 @@ import { useInquireRoute } from '@/hooks/use-inquire-route';
  */
 export default function AskQuoteButton() {
     const inquireRoute = useInquireRoute();
+    const pageProps = usePage<{ auth: { user: unknown } }>().props;
+    const isSignedIn = pageProps.auth?.user != null;
+
+    if (!isSignedIn) {
+        return (
+            <Button
+                asChild
+                size="lg"
+                className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-40 shadow-lg"
+            >
+                <Link href="/login">Ask a Quote</Link>
+            </Button>
+        );
+    }
 
     if (!inquireRoute) {
         return null;

@@ -18,7 +18,6 @@ export type ProductCardData = {
 
 const ProductCard = ({
     product,
-    aspect,
     saved,
     onToggleSave,
     href,
@@ -30,7 +29,6 @@ const ProductCard = ({
     priority = false,
 }: {
     product: ProductCardData;
-    aspect: string;
     saved: boolean;
     /**
      * Optional callback when the user clicks the save heart.
@@ -90,14 +88,12 @@ const ProductCard = ({
                     ? `Remove ${product.name} from saved`
                     : `Save ${product.name}`
             }
-            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-md transition-opacity hover:opacity-60 active:scale-90"
+            className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-md transition-opacity hover:opacity-60 active:scale-90"
         >
             <Heart
                 key={heartAnimation}
                 className={`size-5 ${
-                    saved
-                        ? 'fill-red-500 text-red-500'
-                        : 'text-secondary-foreground'
+                    saved ? 'fill-red-500 text-red-500' : 'text-white'
                 } ${heartAnimation}`}
                 aria-hidden
             />
@@ -111,7 +107,7 @@ const ProductCard = ({
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
             aria-label={`View ${product.name} (opens in a new tab)`}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-secondary-foreground transition-opacity hover:opacity-60"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-white transition-opacity hover:opacity-60"
         >
             <ExternalLink className="size-5" aria-hidden />
         </a>
@@ -127,7 +123,7 @@ const ProductCard = ({
     );
 
     const bestSeller = product.bestSeller ? (
-        <span className="absolute top-0 left-0 flex items-center gap-1 rounded-none bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+        <span className="absolute top-0 left-0 flex items-center gap-1 rounded-none bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
             <Star
                 className="size-3 shrink-0 fill-white text-white"
                 aria-hidden
@@ -168,9 +164,7 @@ const ProductCard = ({
                     onClick={onSelect}
                     className="block w-full cursor-pointer rounded-none bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
-                    <div
-                        className={`stone-card-media relative overflow-hidden bg-background ${aspect}`}
-                    >
+                    <div className="stone-card-media relative aspect-square w-full overflow-hidden bg-background">
                         {product.thumbnail ? (
                             <img
                                 src={product.thumbnail}
@@ -197,7 +191,7 @@ const ProductCard = ({
                          * also a best seller.
                          */}
                         {note ? (
-                            <span className="absolute bottom-0 left-0 rounded-none bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white">
+                            <span className="absolute bottom-0 left-0 rounded-none bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
                                 {note}
                             </span>
                         ) : null}
@@ -207,7 +201,7 @@ const ProductCard = ({
                         className={`block min-w-0 py-3 pl-3 text-sm font-bold text-foreground ${namePadding}`}
                     >
                         <span
-                            className="line-clamp-2 break-words"
+                            className="line-clamp-2 break-words uppercase"
                             title={product.name}
                         >
                             {product.name}
@@ -241,43 +235,38 @@ const ProductCard = ({
      * cut with an ellipsis after that; the title shows it whole on hover.
      */
     const content = (
-        <article className="stone-card overflow-visible">
-            <div
-                className={`stone-card-media relative overflow-hidden rounded-none bg-muted ${aspect}`}
-            >
+        <article className="stone-card group overflow-visible">
+            <div className="stone-card-media relative aspect-square w-full overflow-hidden rounded-none bg-muted">
                 {product.thumbnail ? (
                     <img
                         src={product.thumbnail}
                         alt={product.name}
                         loading={priority ? 'eager' : 'lazy'}
-                        className="absolute inset-0 size-full object-cover"
+                        className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                 ) : (
                     placeholder
                 )}
                 {bestSeller}
+                {heart || view ? (
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-md bg-black/60 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+                        {heart}
+                        {view}
+                    </div>
+                ) : null}
             </div>
             <div className="flex items-start justify-between gap-2 pt-3">
                 <span className="min-w-0 flex-1">
                     <span
-                        className="line-clamp-2 text-base leading-snug font-medium break-words text-foreground"
+                        className="line-clamp-2 text-base leading-snug font-medium break-words text-foreground uppercase"
                         title={product.name}
                     >
                         {product.name}
                     </span>
-                    <span className="mt-0.5 block text-sm break-words text-secondary-foreground">
+                    <span className="mt-0.5 block text-sm break-words text-secondary-foreground uppercase">
                         {product.category.name}
                     </span>
                 </span>
-                {heart || view ? (
-                    // Pulled up and out so the 20px icons line up with the
-                    // name's first line and the image's right edge, while the
-                    // 44px tap targets stay whole.
-                    <span className="-mt-2 -mr-3 flex shrink-0 items-center">
-                        {heart}
-                        {view}
-                    </span>
-                ) : null}
             </div>
         </article>
     );

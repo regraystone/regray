@@ -3,6 +3,7 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Furniture\FurnitureController;
+use App\Http\Controllers\Guest\LandingController;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
 use App\Http\Controllers\Inquiry\InquiryController;
@@ -25,7 +26,22 @@ use App\Http\Controllers\Schedule\BookingController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login')->name('home');
+/*
+ * Public landing page: guests see the catalogue, signed-in users redirect to their role home.
+ */
+Route::get('/', [LandingController::class, 'index'])->name('home');
+
+/*
+ * Public catalogue routes: guests can browse stones, projects, brands, and furniture.
+ * Reserved single-segment names are excluded via the negative lookahead in the where() constraint.
+ */
+Route::get('/brands/{brand}', [BrandController::class, 'show'])
+    ->middleware('throttle:heavy-reads')
+    ->name('brands.show');
+
+Route::get('/furniture/{furniture}', [FurnitureController::class, 'show'])
+    ->middleware('throttle:heavy-reads')
+    ->name('furniture.show');
 
 /*
  * The sidebar already hides the links a user may not follow, so it only hides
@@ -37,332 +53,355 @@ Route::redirect('/', '/login')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [RedirectController::class, 'dashboard'])->name('dashboard');
 
-    Route::get('home', [StoneController::class, 'index'])
-        ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
-        ->name('home.index');
+    Route::prefix('dashboard')->group(function () {
+        Route::get('home', [StoneController::class, 'index'])
+            ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
+            ->name('home.index');
 
-    /*
-     * Home is the stone feed. Stone profiles and projects are guarded by their own
-     * separate permissions: `home-stone.view` and `home-projects.view` respectively.
-     *
-     * The unified route /home/{slug} resolves in order:
-     * (a) an active stone with that slug → 403 unless user holds home-stone.view,
-     *     otherwise render the stone profile;
-     * (b) else a published project with that slug → 403 unless user holds home-projects.view,
-     *     otherwise render the project profile;
-     * (c) else 404.
-     * This resolves the slug after the coarse permission check so a forbidden reader
-     * cannot probe which slugs exist by examining error types.
-     *
-     * The parameters stay plain strings on purpose: the resource and its related data
-     * are loaded in the repository after permission is settled. SubstituteBindings runs
-     * before `can:`, so binding a model would let a forbidden reader probe which slugs exist.
-     */
-    Route::get('home/{slug}', [HomeStoneProfileController::class, 'showFlat'])
-        ->middleware(Permission::anyOfMiddleware(Permission::HomeStoneView, Permission::HomeProjectsView))
-        ->where('slug', '[a-z0-9]([a-z0-9-]*[a-z0-9])?')
-        ->name('home.show');
+        Route::get('home/brand/{brand}', [BrandController::class, 'show'])
+            ->middleware(Permission::HomeView->middleware())
+            ->name('dashboard.brand.show');
+        Route::redirect('home/brands/{brand}', 'home/brand/{brand}', 301);
 
-    /*
-     * Legacy nested route: kept as a 301 redirect to the flat URL.
-     */
-    Route::get('home/{stone}/{project}', fn (string $stone, string $project) => redirect("/home/{$project}", 301))
-        ->where(['stone' => '[a-z0-9-]+', 'project' => '[a-z0-9-]+']);
+        Route::get('home/furniture/{furniture}', [FurnitureController::class, 'show'])
+            ->middleware(Permission::HomeView->middleware())
+            ->name('dashboard.furniture.show');
 
-    /*
-     * Named route for Wayfinder stone profiles. Redirects to the flat route.
-     */
-    Route::get('home-stone/{stone}', [HomeStoneProfileController::class, 'show'])
-        ->middleware(Permission::HomeStoneView->middleware())
-        ->name('home.stone');
+        /*
+         * Named route for Wayfinder stone profiles.
+         */
+        Route::get('home/stones/{stone}', [HomeStoneProfileController::class, 'show'])
+            ->middleware(Permission::HomeStoneView->middleware())
+            ->name('home.stone');
+        Route::redirect('home-stone/{stone}', 'home/stones/{stone}', 301);
 
-    /*
-     * A brand's profile and a furniture piece's profile, both reached from
-     * Home and guarded like it. The parameters stay plain strings, loaded in
-     * the repository after the permission check, as on the stone routes.
-     */
-    Route::get('brands/{brand}', [BrandController::class, 'show'])
-        ->middleware(Permission::HomeView->middleware())
-        ->name('brands.show');
-    Route::get('furniture/{furniture}', [FurnitureController::class, 'show'])
-        ->middleware(Permission::HomeView->middleware())
-        ->name('furniture.show');
+        /*
+         * Home is the stone feed. Stone profiles and projects are guarded by their own
+         * separate permissions: `home-stone.view` and `home-projects.view` respectively.
+         */
+        Route::get('home/{slug}', [HomeStoneProfileController::class, 'showFlat'])
+            ->middleware(Permission::anyOfMiddleware(Permission::HomeStoneView, Permission::HomeProjectsView))
+            ->where('slug', '[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+            ->name('home.show');
 
-    Route::get('overview', [ViewController::class, 'overview'])
-        ->middleware(Permission::OverviewView->middleware())
-        ->name('overview.index');
-    Route::get('saved', [SavedStoneController::class, 'index'])
-        ->middleware([Permission::SavedView->middleware(), 'throttle:heavy-reads'])
-        ->name('saved.index');
-    /*
-     * Saved is a separate door to the same stone profile and keeps its own guard,
-     * not an alternative with Home's. The repository loads the plain-string slug
-     * after permission; model binding would settle existence before `can:`.
-     */
-    Route::get('saved/{stone}', [SavedStoneProfileController::class, 'show'])
-        ->middleware(Permission::SavedStoneView->middleware())
-        ->name('saved.show');
-    Route::get('saved/{stone}/{project}', [SavedProjectController::class, 'show'])
-        ->middleware(Permission::SavedProjectsView->middleware())
-        ->name('saved.project');
-    Route::put('saved/{stone}', [SavedStoneController::class, 'store'])
-        ->middleware([
-            Permission::SavedView->middleware(),
-            Permission::SavedManage->middleware(),
-            'throttle:saved-stone',
-        ])
-        ->name('saved.store');
-    Route::delete('saved/{stone}', [SavedStoneController::class, 'destroy'])
-        ->middleware([
-            Permission::SavedView->middleware(),
-            Permission::SavedManage->middleware(),
-            'throttle:saved-stone',
-        ])
-        ->name('saved.destroy');
-    // Saving furniture, guarded and throttled like saving a stone.
-    Route::put('saved/furniture/{furniture}', [SavedFurnitureController::class, 'store'])
-        ->middleware([
-            Permission::SavedView->middleware(),
-            Permission::SavedManage->middleware(),
-            'throttle:saved-stone',
-        ])
-        ->name('saved.furniture.store');
-    Route::delete('saved/furniture/{furniture}', [SavedFurnitureController::class, 'destroy'])
-        ->middleware([
-            Permission::SavedView->middleware(),
-            Permission::SavedManage->middleware(),
-            'throttle:saved-stone',
-        ])
-        ->name('saved.furniture.destroy');
-    Route::get('sales', [ViewController::class, 'sales'])
-        ->middleware(Permission::SalesView->middleware())
-        ->name('sales.index');
-    Route::get('quote', [QuoteController::class, 'index'])
-        ->middleware(Permission::QuotationsView->middleware())
-        ->name('quote.index');
-    Route::patch('quote/{reference}/cancel', [QuoteController::class, 'cancel'])
-        ->middleware([Permission::QuotationsView->middleware(), 'throttle:inquiry-edit'])
-        ->name('quote.cancel');
-    Route::get('inquiry', [ViewController::class, 'inquiry'])
-        ->middleware(Permission::InquiriesView->middleware())
-        ->name('inquiry.index');
+        /*
+         * Legacy nested route: kept as a 301 redirect to the flat URL.
+         */
+        Route::get('home/{stone}/{project}', fn (string $stone, string $project) => redirect("/dashboard/home/{$project}", 301))
+            ->where(['stone' => '[a-z0-9-]+', 'project' => '[a-z0-9-]+']);
 
-    /*
-     * The inquiry stepper hangs off whichever list the user reads their
-     * inquiries on, so there is one route under each and the URL says which.
-     * Each needs two permissions: the one that guards the list it sits under,
-     * so a client cannot reach the staff stepper and marketing cannot reach the
-     * client one, and an action permission on top. `quotations.view` is Quote
-     * alone and `inquiries.view` is shared by six staff roles, so neither of
-     * them names only the roles that send inquiries; `inquiries.create` is
-     * granted to exactly those (client, marketing and sales) and is what every
-     * entry point checks before it offers the button that leads here. Staff
-     * send theirs for a lead's client, through `leads.inquiries.store` below.
-     */
-    Route::get('quote/inquire', [ViewController::class, 'inquire'])
-        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
-        ->name('quote.inquire');
-    Route::post('quote/inquire', [InquiryController::class, 'store'])
-        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
-        ->name('quote.inquire.store');
-    Route::get('inquiry/inquire', [ViewController::class, 'inquire'])
-        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
-        ->name('inquiry.inquire');
+        Route::get('overview', [ViewController::class, 'overview'])
+            ->middleware(Permission::OverviewView->middleware())
+            ->name('overview.index');
+        Route::get('saved', [SavedStoneController::class, 'index'])
+            ->middleware([Permission::SavedView->middleware(), 'throttle:heavy-reads'])
+            ->name('saved.index');
+        /*
+         * Saved is a separate door to the same stone profile and keeps its own guard,
+         * not an alternative with Home's. The repository loads the plain-string slug
+         * after permission; model binding would settle existence before `can:`.
+         */
+        Route::get('saved/stones/{stone}', [SavedStoneProfileController::class, 'show'])
+            ->middleware(Permission::SavedStoneView->middleware())
+            ->name('saved.show');
+        Route::get('saved/furniture/{furniture}', [FurnitureController::class, 'show'])
+            ->middleware([Permission::SavedView->middleware(), 'throttle:heavy-reads'])
+            ->name('saved.furniture.show');
+        Route::redirect('saved/{stone}', 'saved/stones/{stone}', 301);
+        Route::get('saved/{stone}/{project}', [SavedProjectController::class, 'show'])
+            ->middleware(Permission::SavedProjectsView->middleware())
+            ->name('saved.project');
+        Route::put('saved/{stone}', [SavedStoneController::class, 'store'])
+            ->middleware([
+                Permission::SavedView->middleware(),
+                Permission::SavedManage->middleware(),
+                'throttle:saved-stone',
+            ])
+            ->name('saved.store');
+        Route::delete('saved/{stone}', [SavedStoneController::class, 'destroy'])
+            ->middleware([
+                Permission::SavedView->middleware(),
+                Permission::SavedManage->middleware(),
+                'throttle:saved-stone',
+            ])
+            ->name('saved.destroy');
+        // Saving furniture, guarded and throttled like saving a stone.
+        Route::put('saved/furniture/{furniture}', [SavedFurnitureController::class, 'store'])
+            ->middleware([
+                Permission::SavedView->middleware(),
+                Permission::SavedManage->middleware(),
+                'throttle:saved-stone',
+            ])
+            ->name('saved.furniture.store');
+        Route::delete('saved/furniture/{furniture}', [SavedFurnitureController::class, 'destroy'])
+            ->middleware([
+                Permission::SavedView->middleware(),
+                Permission::SavedManage->middleware(),
+                'throttle:saved-stone',
+            ])
+            ->name('saved.furniture.destroy');
+        Route::get('sales', [ViewController::class, 'sales'])
+            ->middleware(Permission::SalesView->middleware())
+            ->name('sales.index');
+        Route::get('quote', [QuoteController::class, 'index'])
+            ->middleware(Permission::QuotationsView->middleware())
+            ->name('quote.index');
+        Route::patch('quote/{reference}/cancel', [QuoteController::class, 'cancel'])
+            ->middleware([Permission::QuotationsView->middleware(), 'throttle:inquiry-edit'])
+            ->name('quote.cancel');
+        Route::get('inquiry', [ViewController::class, 'inquiry'])
+            ->middleware(Permission::InquiriesView->middleware())
+            ->name('inquiry.index');
 
-    /*
-     * Staff send the stepper's inquiry for a lead's client rather than for
-     * themselves, so the staff stepper posts here, under the lead. Guarded
-     * like the staff stepper (`inquiries.view` keeps clients out, and
-     * `inquiries.create` is the action); LeadPolicy then says whether this
-     * user may use this lead. `{reference}` stays a plain string so the
-     * permissions are checked before anything says whether the lead exists.
-     */
-    Route::post('leads/{reference}/inquiries', [InquiryController::class, 'storeForLead'])
-        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
-        ->name('leads.inquiries.store');
+        /*
+         * The inquiry stepper hangs off whichever list the user reads their
+         * inquiries on, so there is one route under each and the URL says which.
+         * Each needs two permissions: the one that guards the list it sits under,
+         * so a client cannot reach the staff stepper and marketing cannot reach the
+         * client one, and an action permission on top. `quotations.view` is Quote
+         * alone and `inquiries.view` is shared by six staff roles, so neither of
+         * them names only the roles that send inquiries; `inquiries.create` is
+         * granted to exactly those (client, marketing and sales) and is what every
+         * entry point checks before it offers the button that leads here. Staff
+         * send theirs for a lead's client, through `leads.inquiries.store` below.
+         */
+        Route::get('quote/inquire', [ViewController::class, 'inquire'])
+            ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+            ->name('quote.inquire');
+        Route::post('quote/inquire', [InquiryController::class, 'store'])
+            ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
+            ->name('quote.inquire.store');
+        Route::get('inquiry/inquire', [ViewController::class, 'inquire'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware()])
+            ->name('inquiry.inquire');
 
-    /*
-     * The two branches of the staff Inquire flow, guarded like the staff
-     * stepper. Platform: find the client's account, then their lead (above).
-     * Direct (walk-in): take the client down, with the duplicate check, then
-     * send the inquiry for them, with no lead.
-     */
-    Route::get('inquiry/inquire/accounts', [StaffClientController::class, 'accounts'])
-        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:message-people'])
-        ->name('inquiry.inquire.accounts');
-    Route::post('inquiry/direct-clients', [StaffClientController::class, 'storeDirect'])
-        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-edit'])
-        ->name('inquiry.direct-clients.store');
-    Route::post('inquiry/direct-clients/{client}/inquiries', [InquiryController::class, 'storeForDirectClient'])
-        ->whereNumber('client')
-        ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
-        ->name('inquiry.direct-clients.inquiries.store');
+        /*
+         * Staff send the stepper's inquiry for a lead's client rather than for
+         * themselves, so the staff stepper posts here, under the lead. Guarded
+         * like the staff stepper (`inquiries.view` keeps clients out, and
+         * `inquiries.create` is the action); LeadPolicy then says whether this
+         * user may use this lead. `{reference}` stays a plain string so the
+         * permissions are checked before anything says whether the lead exists.
+         */
+        Route::post('leads/{reference}/inquiries', [InquiryController::class, 'storeForLead'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
+            ->name('leads.inquiries.store');
 
-    Route::get('leads', [ViewController::class, 'leads'])
-        ->middleware(Permission::LeadsView->middleware())
-        ->name('leads.index');
-    Route::post('leads/{reference}/inquiries/{inquiry}/status', [LeadController::class, 'decideInquiry'])
-        ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
-        ->name('leads.inquiries.status');
-    Route::post('leads/{reference}/update', [LeadController::class, 'update'])
-        ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
-        ->name('leads.update');
+        /*
+         * The two branches of the staff Inquire flow, guarded like the staff
+         * stepper. Platform: find the client's account, then their lead (above).
+         * Direct (walk-in): take the client down, with the duplicate check, then
+         * send the inquiry for them, with no lead.
+         */
+        Route::get('inquiry/inquire/accounts', [StaffClientController::class, 'accounts'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:message-people'])
+            ->name('inquiry.inquire.accounts');
+        Route::post('inquiry/direct-clients', [StaffClientController::class, 'storeDirect'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiry.direct-clients.store');
+        Route::post('inquiry/direct-clients/{client}/inquiries', [InquiryController::class, 'storeForDirectClient'])
+            ->whereNumber('client')
+            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
+            ->name('inquiry.direct-clients.inquiries.store');
 
-    /*
-     * Update Status, from the Inquiry list: one endpoint for the three tracks.
-     * `inquiries.view` keeps clients out; InquiryPolicy then asks for the
-     * track's own permission (`inquiries.status.sales`, `.payment`,
-     * `.process`), the same one that puts its button on the row.
-     */
-    Route::post('inquiries/{reference}/status', [InquiryStatusController::class, 'store'])
-        ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
-        ->name('inquiries.status');
-    // Sales uploads the job order after the quote, which starts logistics.
-    Route::post('inquiries/{reference}/job-order', [InquiryStatusController::class, 'jobOrder'])
-        ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
-        ->name('inquiries.job-order');
+        Route::get('leads', [ViewController::class, 'leads'])
+            ->middleware(Permission::LeadsView->middleware())
+            ->name('leads.index');
+        Route::post('leads/{reference}/inquiries/{inquiry}/status', [LeadController::class, 'decideInquiry'])
+            ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
+            ->name('leads.inquiries.status');
+        Route::post('leads/{reference}/update', [LeadController::class, 'update'])
+            ->middleware([Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
+            ->name('leads.update');
 
-    /*
-     * The inquiry details page hangs off whichever list the user reads their
-     * inquiries on, so there is one route under each and the URL says which.
-     * Both are guarded by the same answer: a client reads their inquiries on
-     * Quote and staff read them on Inquiry, and holding either list permission
-     * is enough to open an inquiry from it. Neither URL is privileged over the
-     * other, so the guard is `can_any` rather than the permission of the list
-     * each one sits under — see AuthorizeAnyPermission for why that is its own
-     * guard.
-     *
-     * Both routes are kept so the URL keeps saying which list the reader came
-     * from, which is what the page's own back link uses. One route would be the
-     * same authorization with the breadcrumb thrown away.
-     *
-     * TODO: the `where('inquiry', ...)` constraint was removed from both of
-     * these on purpose. A route constraint only disambiguates routes: it is not
-     * input validation and never produces a 404. Keep it off, and add no further
-     * `quote/...` or `inquiry/...` route below these two or `{reference}` takes it.
-     */
-    /*
-     * Editing an inquiry from the Quote page. Client-only like the Quote list,
-     * and guarded like the stepper it opens: `quotations.view` for the list it
-     * hangs off and `inquiries.create` for writing an inquiry. There is no
-     * staff version. Kept above `quote/{reference}` so that route never takes
-     * these.
-     */
-    Route::get('quote/{reference}/edit', [InquiryEditController::class, 'edit'])
-        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
-        ->name('quote.edit');
-    Route::patch('quote/{reference}', [InquiryEditController::class, 'update'])
-        ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-edit'])
-        ->name('quote.update');
+        /*
+         * Update Status, from the Inquiry list: one endpoint for the three tracks.
+         * `inquiries.view` keeps clients out; InquiryPolicy then asks for the
+         * track's own permission (`inquiries.status.sales`, `.payment`,
+         * `.process`), the same one that puts its button on the row.
+         */
+        Route::post('inquiries/{reference}/status', [InquiryStatusController::class, 'store'])
+            ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiries.status');
+        // Sales uploads the job order after the quote, which starts logistics.
+        Route::post('inquiries/{reference}/job-order', [InquiryStatusController::class, 'jobOrder'])
+            ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiries.job-order');
 
-    Route::get('quote/{reference}', [InquiryDetailsController::class, 'show'])
-        ->middleware(Permission::QuotationsView->middleware())
-        ->name('quote.show');
-    /*
-     * Editing an inquiry's project from the Inquiry list (Edit): staff with
-     * `inquiries.edit`, on the Inquire page in edit mode. Kept above
-     * `inquiry/{reference}` so that route never takes these.
-     */
-    Route::get('inquiry/{reference}/edit', [InquiryEditController::class, 'staffEdit'])
-        ->middleware(Permission::InquiriesEdit->middleware())
-        ->name('inquiry.edit');
-    Route::patch('inquiry/{reference}', [InquiryEditController::class, 'staffUpdate'])
-        ->middleware([Permission::InquiriesEdit->middleware(), 'throttle:inquiry-edit'])
-        ->name('inquiry.update');
+        /*
+         * The inquiry details page hangs off whichever list the user reads their
+         * inquiries on, so there is one route under each and the URL says which.
+         * Both are guarded by the same answer: a client reads their inquiries on
+         * Quote and staff read them on Inquiry, and holding either list permission
+         * is enough to open an inquiry from it. Neither URL is privileged over the
+         * other, so the guard is `can_any` rather than the permission of the list
+         * each one sits under — see AuthorizeAnyPermission for why that is its own
+         * guard.
+         *
+         * Both routes are kept so the URL keeps saying which list the reader came
+         * from, which is what the page's own back link uses. One route would be the
+         * same authorization with the breadcrumb thrown away.
+         *
+         * TODO: the `where('inquiry', ...)` constraint was removed from both of
+         * these on purpose. A route constraint only disambiguates routes: it is not
+         * input validation and never produces a 404. Keep it off, and add no further
+         * `quote/...` or `inquiry/...` route below these two or `{reference}` takes it.
+         */
+        /*
+         * Editing an inquiry from the Quote page. Client-only like the Quote list,
+         * and guarded like the stepper it opens: `quotations.view` for the list it
+         * hangs off and `inquiries.create` for writing an inquiry. There is no
+         * staff version. Kept above `quote/{reference}` so that route never takes
+         * these.
+         */
+        Route::get('quote/{reference}/edit', [InquiryEditController::class, 'edit'])
+            ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware()])
+            ->name('quote.edit');
+        Route::patch('quote/{reference}', [InquiryEditController::class, 'update'])
+            ->middleware([Permission::QuotationsView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-edit'])
+            ->name('quote.update');
 
-    Route::get('inquiry/{reference}', [InquiryDetailsController::class, 'show'])
-        ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
-        ->name('inquiry.show');
+        Route::get('quote/{reference}', [InquiryDetailsController::class, 'show'])
+            ->middleware(Permission::QuotationsView->middleware())
+            ->name('quote.show');
+        /*
+         * Editing an inquiry's project from the Inquiry list (Edit): staff with
+         * `inquiries.edit`, on the Inquire page in edit mode. Kept above
+         * `inquiry/{reference}` so that route never takes these.
+         */
+        Route::get('inquiry/{reference}/edit', [InquiryEditController::class, 'staffEdit'])
+            ->middleware(Permission::InquiriesEdit->middleware())
+            ->name('inquiry.edit');
+        Route::patch('inquiry/{reference}', [InquiryEditController::class, 'staffUpdate'])
+            ->middleware([Permission::InquiriesEdit->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiry.update');
 
-    Route::get('schedule', [ViewController::class, 'schedule'])
-        ->middleware(Permission::ScheduleView->middleware())
-        ->name('schedule.index');
-    Route::get('schedule/book', [ViewController::class, 'scheduleBook'])
-        ->middleware([
-            Permission::ScheduleView->middleware(),
-            Permission::ScheduleCreate->middleware(),
-        ])
-        ->name('schedule.book');
-    /*
-     * Both Book an appointment pages post here: the one under Schedule and the
-     * one under Profile.
-     */
-    Route::post('schedule/book', [BookingController::class, 'store'])
-        ->middleware([Permission::ScheduleCreate->middleware(), 'throttle:booking'])
-        ->name('schedule.book.store');
-    /*
-     * The Message page. Everything under it needs `messages.view`; the
-     * conversation routes then ask ConversationPolicy whether this user may
-     * read, write in or hand over that particular thread.
-     */
-    Route::middleware(Permission::MessagesView->middleware())->group(function () {
-        Route::get('message', [MessageController::class, 'index'])->name('message.index');
+        Route::get('inquiry/{reference}', [InquiryDetailsController::class, 'show'])
+            ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
+            ->name('inquiry.show');
 
-        Route::get('message/people', [MessageController::class, 'people'])
-            ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
-            ->name('message.people');
-        Route::post('message/groups', [MessageController::class, 'storeGroup'])
-            ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
-            ->name('message.groups.store');
+        Route::get('schedule', [ViewController::class, 'schedule'])
+            ->middleware(Permission::ScheduleView->middleware())
+            ->name('schedule.index');
+        Route::get('schedule/book', [ViewController::class, 'scheduleBook'])
+            ->middleware([
+                Permission::ScheduleView->middleware(),
+                Permission::ScheduleCreate->middleware(),
+            ])
+            ->name('schedule.book');
+        /*
+         * Both Book an appointment pages post here: the one under Schedule and the
+         * one under Profile.
+         */
+        Route::post('schedule/book', [BookingController::class, 'store'])
+            ->middleware([Permission::ScheduleCreate->middleware(), 'throttle:booking'])
+            ->name('schedule.book.store');
+        /*
+         * The Message page. Everything under it needs `messages.view`; the
+         * conversation routes then ask ConversationPolicy whether this user may
+         * read, write in or hand over that particular thread.
+         */
+        Route::middleware(Permission::MessagesView->middleware())->group(function () {
+            Route::get('message', [MessageController::class, 'index'])->name('message.index');
 
-        Route::patch('message/messages/{message}', [ThreadController::class, 'update'])
-            ->whereNumber('message')
-            ->name('message.messages.update');
-        Route::delete('message/messages/{message}', [ThreadController::class, 'destroy'])
-            ->whereNumber('message')
-            ->name('message.messages.destroy');
-        Route::get('message/attachments/{attachment}', [AttachmentController::class, 'show'])
-            ->whereNumber('attachment')
-            ->middleware('throttle:message-attachments')
-            ->name('message.attachments.show');
+            Route::get('message/people', [MessageController::class, 'people'])
+                ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
+                ->name('message.people');
+            Route::post('message/groups', [MessageController::class, 'storeGroup'])
+                ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
+                ->name('message.groups.store');
 
-        Route::prefix('message/{conversation}')->whereNumber('conversation')->group(function () {
-            Route::get('messages', [ThreadController::class, 'messages'])
-                ->middleware('can:view,conversation')
-                ->name('message.thread');
-            Route::post('messages', [ThreadController::class, 'send'])
-                ->middleware(['can:send,conversation', 'throttle:messages'])
-                ->name('message.send');
-            Route::post('read', [ThreadController::class, 'pointer'])
-                ->middleware(['can:view,conversation', 'throttle:message-receipts'])
-                ->name('message.read');
-            Route::post('delivered', [ThreadController::class, 'pointer'])
-                ->middleware(['can:view,conversation', 'throttle:message-receipts'])
-                ->name('message.delivered');
-            Route::post('claim', [ThreadController::class, 'claim'])
-                ->middleware(['can:claim,conversation', 'throttle:message-assignment'])
-                ->name('message.claim');
-            Route::post('release', [ThreadController::class, 'release'])
-                ->middleware(['can:release,conversation', 'throttle:message-assignment'])
-                ->name('message.release');
-            Route::post('reassign', [ThreadController::class, 'reassign'])
-                ->middleware(['can:reassign,conversation', 'throttle:message-assignment'])
-                ->name('message.reassign');
+            Route::patch('message/messages/{message}', [ThreadController::class, 'update'])
+                ->whereNumber('message')
+                ->name('message.messages.update');
+            Route::delete('message/messages/{message}', [ThreadController::class, 'destroy'])
+                ->whereNumber('message')
+                ->name('message.messages.destroy');
+            Route::get('message/attachments/{attachment}', [AttachmentController::class, 'show'])
+                ->whereNumber('attachment')
+                ->middleware('throttle:message-attachments')
+                ->name('message.attachments.show');
 
-            /*
-             * A sales member of an inquiry's group chat adds accounting and
-             * logistics: who may be added, then adding them.
-             */
-            Route::get('members', [GroupMemberController::class, 'index'])
-                ->middleware(['can:addMembers,conversation', 'throttle:message-people'])
-                ->name('message.members.index');
-            Route::post('members', [GroupMemberController::class, 'store'])
-                ->middleware(['can:addMembers,conversation', 'throttle:group-create'])
-                ->name('message.members.store');
+            Route::prefix('message/{conversation}')->whereNumber('conversation')->group(function () {
+                Route::get('messages', [ThreadController::class, 'messages'])
+                    ->middleware('can:view,conversation')
+                    ->name('message.thread');
+                Route::post('messages', [ThreadController::class, 'send'])
+                    ->middleware(['can:send,conversation', 'throttle:messages'])
+                    ->name('message.send');
+                Route::post('read', [ThreadController::class, 'pointer'])
+                    ->middleware(['can:view,conversation', 'throttle:message-receipts'])
+                    ->name('message.read');
+                Route::post('delivered', [ThreadController::class, 'pointer'])
+                    ->middleware(['can:view,conversation', 'throttle:message-receipts'])
+                    ->name('message.delivered');
+                Route::post('claim', [ThreadController::class, 'claim'])
+                    ->middleware(['can:claim,conversation', 'throttle:message-assignment'])
+                    ->name('message.claim');
+                Route::post('release', [ThreadController::class, 'release'])
+                    ->middleware(['can:release,conversation', 'throttle:message-assignment'])
+                    ->name('message.release');
+                Route::post('reassign', [ThreadController::class, 'reassign'])
+                    ->middleware(['can:reassign,conversation', 'throttle:message-assignment'])
+                    ->name('message.reassign');
+
+                /*
+                 * A sales member of an inquiry's group chat adds accounting and
+                 * logistics: who may be added, then adding them.
+                 */
+                Route::get('members', [GroupMemberController::class, 'index'])
+                    ->middleware(['can:addMembers,conversation', 'throttle:message-people'])
+                    ->name('message.members.index');
+                Route::post('members', [GroupMemberController::class, 'store'])
+                    ->middleware(['can:addMembers,conversation', 'throttle:group-create'])
+                    ->name('message.members.store');
+            });
         });
+        Route::get('stones', [ViewController::class, 'stones'])
+            ->middleware(Permission::StonesView->middleware())
+            ->name('stones.index');
+        Route::get('services', [ViewController::class, 'services'])
+            ->middleware(Permission::ServicesView->middleware())
+            ->name('services.index');
+        Route::get('accounts', [ViewController::class, 'accounts'])
+            ->middleware(Permission::AccountsView->middleware())
+            ->name('accounts.index');
+        Route::get('projects', [ViewController::class, 'projects'])
+            ->middleware(Permission::ProjectsView->middleware())
+            ->name('projects.index');
     });
-    Route::get('stones', [ViewController::class, 'stones'])
-        ->middleware(Permission::StonesView->middleware())
-        ->name('stones.index');
-    Route::get('services', [ViewController::class, 'services'])
-        ->middleware(Permission::ServicesView->middleware())
-        ->name('services.index');
-    Route::get('accounts', [ViewController::class, 'accounts'])
-        ->middleware(Permission::AccountsView->middleware())
-        ->name('accounts.index');
-    Route::get('projects', [ViewController::class, 'projects'])
-        ->middleware(Permission::ProjectsView->middleware())
-        ->name('projects.index');
 });
+
+/*
+ * Public catalogue catch-all: stone or project profiles at /{slug}.
+ * Reserved single-segment names are excluded via negative lookahead.
+ * Must be registered last, after all other routes.
+ */
+Route::get('/{slug}', [HomeStoneProfileController::class, 'showFlat'])
+    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|services|projects|accounts)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+    ->middleware('throttle:heavy-reads')
+    ->name('stone.show');
+
+/*
+ * Legacy 301 redirects for old workspace paths.
+ */
+Route::redirect('/home', '/dashboard/home', 301);
+Route::redirect('/home/{slug}', '/dashboard/home/{slug}', 301);
+Route::redirect('/home-stone/{stone}', '/dashboard/home-stone/{stone}', 301);
+Route::redirect('/overview', '/dashboard/overview', 301);
+Route::redirect('/saved', '/dashboard/saved', 301);
+Route::redirect('/saved/{stone}', '/dashboard/saved/{stone}', 301);
+Route::redirect('/saved/{stone}/{project}', '/dashboard/saved/{stone}/{project}', 301);
+Route::redirect('/sales', '/dashboard/sales', 301);
+Route::redirect('/quote', '/dashboard/quote', 301);
+Route::redirect('/inquiry', '/dashboard/inquiry', 301);
+Route::redirect('/leads', '/dashboard/leads', 301);
+Route::redirect('/schedule', '/dashboard/schedule', 301);
+Route::redirect('/message', '/dashboard/message', 301);
+Route::redirect('/stones', '/dashboard/stones', 301);
+Route::redirect('/services', '/dashboard/services', 301);
+Route::redirect('/projects', '/dashboard/projects', 301);
+Route::redirect('/accounts', '/dashboard/accounts', 301);
+Route::redirect('/profile', '/dashboard/profile', 301);
 
 require __DIR__.'/settings.php';

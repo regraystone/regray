@@ -64,8 +64,10 @@ class StoneIndexRequest extends FormRequest
 
         $query = http_build_query($valid);
 
+        // Guests redirect to the landing page, signed-in users to home.index
+        $route = $this->user() ? 'home.index' : 'home';
         throw new HttpResponseException(
-            redirect()->route('home.index', $query === '' ? [] : $valid)
+            redirect()->route($route, $query === '' ? [] : $valid)
         );
     }
 }

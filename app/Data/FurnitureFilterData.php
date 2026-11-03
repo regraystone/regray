@@ -9,7 +9,7 @@ final readonly class FurnitureFilterData
 {
     public function __construct(
         public ?string $search,
-        public ?string $projectCategory,
+        public ?string $furnitureType,
         public int $page,
         public int $perPage,
     ) {}
@@ -18,7 +18,7 @@ final readonly class FurnitureFilterData
     {
         return new self(
             search: $request->validated('search'),
-            projectCategory: $request->validated('project_category'),
+            furnitureType: $request->validated('furniture_type'),
             page: (int) ($request->validated('page') ?? 1),
             perPage: (int) ($request->validated('per_page') ?? HomeGridPageSize::DEFAULT->value),
         );

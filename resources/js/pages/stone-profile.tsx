@@ -39,9 +39,15 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
 
     // Both stone doors return to their own feed, including on a direct visit.
     const goBack = () => {
-        router.visit(
-            url.startsWith('/saved/') ? savedIndex.url() : homeIndex.url(),
-        );
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            router.visit(
+                url.startsWith('/dashboard/saved/') || url.startsWith('/saved/')
+                    ? savedIndex.url()
+                    : homeIndex.url(),
+            );
+        }
     };
 
     return (
@@ -69,7 +75,7 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
                     <span className="hidden sm:inline">Back</span>
                 </Button>
                 <div className="relative z-10 mx-auto w-full max-w-4xl px-5 py-16 text-center sm:py-24">
-                    <h1 className="hero-title mt-5 text-on-image">
+                    <h1 className="hero-title mt-5 text-on-image uppercase">
                         {stone.name}
                     </h1>
                     {stone.bestSeller && (

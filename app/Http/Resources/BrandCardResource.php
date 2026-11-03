@@ -14,7 +14,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class BrandCardResource extends JsonResource
 {
     /**
-     * @return array{slug: string, name: string, description: string|null, logo: string}
+     * @return array{slug: string, name: string, description: string|null, logo: string, thumbnail: string|null}
      */
     public function toArray(Request $request): array
     {
@@ -23,6 +23,7 @@ class BrandCardResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'logo' => ProjectCardResource::resolveThumbnailUrl($this->logo_path),
+            'thumbnail' => $this->thumbnail_path === null ? null : ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
         ];
     }
 }

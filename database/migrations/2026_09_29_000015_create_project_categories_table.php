@@ -25,8 +25,7 @@ return new class extends Migration
         DB::statement('CREATE UNIQUE INDEX idx_project_categories_name_lower ON project_categories (lower(name))');
 
         /*
-         * The furniture on the home page's Furniture collection, each under
-         * one project type. A project type with furniture cannot be deleted.
+         * The furniture on the home page's Furniture collection.
          */
         Schema::create('furniture', function (Blueprint $table) {
             $table->id();
@@ -34,13 +33,13 @@ return new class extends Migration
             $table->string('name', 150);
             $table->text('description')->nullable();
             $table->string('thumbnail_path', 255)->nullable();
-            $table->foreignId('project_category_id')->constrained()->restrictOnDelete();
+            $table->string('furniture_type', 100);
             $table->boolean('is_active')->default(true);
             $table->smallInteger('sort_order')->default(0);
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
-            $table->index('project_category_id');
+            $table->index('furniture_type');
             $table->index(['is_active', 'sort_order']);
         });
 

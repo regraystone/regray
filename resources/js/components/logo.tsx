@@ -9,12 +9,14 @@ import { dashboard } from '@/routes';
 const Logo = ({
     className = '',
     compact = false,
+    href = dashboard(),
 }: {
     className?: string;
     compact?: boolean;
+    href?: string;
 }) => (
     <Link
-        href={dashboard()}
+        href={href}
         className={`relative flex items-center ${
             compact ? 'justify-center' : 'gap-2'
         } ${className}`}

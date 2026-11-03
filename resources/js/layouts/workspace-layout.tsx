@@ -322,7 +322,7 @@ const SidebarNav = ({
                                                 aria-hidden
                                             />
                                             <span
-                                                className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
+                                                className={`overflow-hidden whitespace-nowrap uppercase transition-all duration-300 ${
                                                     collapsed
                                                         ? 'max-w-0 opacity-0'
                                                         : 'max-w-40 opacity-100'
@@ -601,6 +601,23 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             crumbs.push({ label: item.name });
         }
     } else if (
+        effectiveUrl.split('?')[0] === savedIndex.url() ||
+        effectiveUrl.startsWith(`${savedIndex.url()}/`)
+    ) {
+        crumbs.push({ label: 'Saved', href: savedIndex.url() });
+
+        const stone = (
+            page.props.stone as { data: { name: string } } | undefined
+        )?.data;
+        const furniture = (
+            page.props.furniture as { data: { name: string } } | undefined
+        )?.data;
+        const item = stone ?? furniture;
+
+        if (item) {
+            crumbs.push({ label: item.name });
+        }
+    } else if (
         effectiveUrl.split('?')[0] === homeIndex.url() ||
         effectiveUrl.startsWith(`${homeIndex.url()}/`)
     ) {
@@ -740,7 +757,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                         {index > 0 && !isLast && crumb.href ? (
                                             <Link
                                                 href={crumb.href}
-                                                className="shrink-0 text-secondary-foreground transition-opacity hover:opacity-70"
+                                                className="shrink-0 text-secondary-foreground uppercase transition-opacity hover:opacity-70"
                                             >
                                                 {crumb.label}
                                             </Link>
@@ -748,8 +765,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                             <span
                                                 className={
                                                     isLast
-                                                        ? 'truncate font-bold text-foreground'
-                                                        : 'shrink-0 text-secondary-foreground'
+                                                        ? 'truncate font-bold text-foreground uppercase'
+                                                        : 'shrink-0 text-secondary-foreground uppercase'
                                                 }
                                             >
                                                 {crumb.label}
