@@ -140,10 +140,7 @@ const BrandTile = ({ brand }: { brand: BrandCardData }) => {
 
 const Brands = ({ brands }: { brands: BrandCardData[] }) =>
     brands.length === 0 ? null : (
-        <ul
-            aria-label="Our brands"
-            className="grid grid-cols-1 gap-6"
-        >
+        <ul aria-label="Our brands" className="grid grid-cols-1 gap-6">
             {brands.map((brand) => (
                 <li key={brand.slug}>
                     <BrandTile brand={brand} />
