@@ -18,13 +18,14 @@ beforeEach(function (): void {
     $this->seed([RolePermissionSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, BrandSeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
 });
 
-test('the seeder writes each brand logo to the public disk under a random name', function (): void {
+test('the seeder writes each brand logo to the public disk under its stable path', function (): void {
+    $data = require database_path('seeders/data/brands.php');
     $brands = Brand::query()->orderBy('sort_order')->get();
 
     expect($brands->pluck('slug')->all())->toBe(['regray-stone', 'cucine', 'ascale', 'faer', 'reform', 'res-italia']);
 
-    foreach ($brands as $brand) {
-        expect($brand->logo_path)->toMatch('/\Abrands\/[0-9a-f]{32}\.webp\z/');
+    foreach ($brands as $index => $brand) {
+        expect($brand->logo_path)->toBe($data[$index]['logo_path']);
         Storage::disk(config('filesystems.public_disk'))->assertExists($brand->logo_path);
     }
 
