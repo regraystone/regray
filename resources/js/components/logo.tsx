@@ -13,7 +13,7 @@ const Logo = ({
 }: {
     className?: string;
     compact?: boolean;
-    href?: string;
+    href?: any;
 }) => (
     <Link
         href={href}

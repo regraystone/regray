@@ -4,15 +4,11 @@ use App\Enums\InquiryStatus;
 use App\Enums\Role;
 use App\Models\Stone;
 use App\Models\StoneCategory;
-use App\Models\StoneSize;
-use App\Models\StoneThickness;
 use App\Models\User;
 use Database\Seeders\EdgeProfileSeeder;
-use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\StoneSeeder;
-use Database\Seeders\StoneFilterOptionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {

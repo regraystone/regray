@@ -44,7 +44,7 @@ class StoneProfileController extends Controller
         // Try to find an active stone first
         try {
             $stone = $this->stoneService->getActiveStone($slug);
-            
+
             // Guests can always see active stones, signed-in users need permission
             if ($request->user() !== null) {
                 abort_unless($request->user()->can(Permission::HomeStoneView->value), 403);
@@ -60,7 +60,7 @@ class StoneProfileController extends Controller
         // Try to find a published project
         try {
             $project = $this->projectService->findPublished($slug);
-            
+
             // Guests can always see published projects, signed-in users need permission
             if ($request->user() !== null) {
                 abort_unless($request->user()->can(Permission::HomeProjectsView->value), 403);

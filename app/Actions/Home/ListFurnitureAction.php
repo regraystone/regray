@@ -14,7 +14,7 @@ class ListFurnitureAction
     ) {}
 
     /**
-     * @return array{furniture: LengthAwarePaginator<int, Furniture>, filters: array{search: string|null, projectCategory: string|null, perPage: int}}
+     * @return array{furniture: LengthAwarePaginator<int, Furniture>, filters: array{search: string|null, furnitureType: string|null, perPage: int}}
      */
     public function execute(FurnitureFilterData $filters): array
     {
