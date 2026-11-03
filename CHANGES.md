@@ -1,3 +1,38 @@
+# Brands and furniture on Home, brand and furniture pages, and no stone project types
+
+Home now has one heading, "Our Collection", over the brands and the products. The brands come from the database, one full-width tile per row with a tagline, each linking to its own page. The second collection is Furniture, not projects. The stone profile drops Project Highlights and gets an "Ask a Quote" button. Stones no longer have project types. Run `php artisan migrate:fresh --seed`.
+
+## What changed
+
+### Database
+
+- **`brands`** (in the projects migration, above `projects`): slug (unique), name, logo_path, thumbnail_path, tagline (120), description, website_url, is_active, sort_order. **`projects.brand_id`**: nullable FK to `brands`, `SET NULL` on delete.
+- **`furniture`** (in the project categories migration): slug (unique), name, description, thumbnail_path, `project_category_id` (FK, `RESTRICT`), is_active, sort_order.
+- **`saved_furniture`** (same migration): user_id and furniture_id (both FK, `CASCADE`), created_at; primary key on the pair, like `saved_stones`.
+- **`project_category_stone` is gone**: its migration is deleted. Stones no longer filter by project type. `category_project` stays: projects still have types.
+
+### Seeders
+
+- **`BrandSeeder`** (before `ProjectSeeder`): the six brands in their old order. Each logo is copied from `database/seeders/data/brands/` to the public disk (`config('filesystems.public_disk')`) as `brands/<random>.webp`; seeding again keeps a logo that is already there. Descriptions are written from each brand's own site (taglines are ours, to replace with approved copy); websites are set where the brand's own site was confirmed.
+- **`ProjectSeeder`**: a project's `brand_slug` sets its brand; Recidencia Del Hamor and Belo Medical Group are Regray Stone's. Stone project types are no longer attached.
+- **`FurnitureSeeder`** (after `ProjectSeeder`): six sample pieces, Rounded Table among them, with no photos.
+- The logos moved out of `public/images/brands/`, so they are served only from the disk.
+
+### Backend
+
+- **Home** (`Home\StoneController`): `?collection=furniture` lists furniture (`search`, `project_category`, `page`, `per_page`), anything else lists stones. The projects branch and the classes only it used are gone: `ListProjectsAction`, `ProjectFilterData`, `ProjectIndexRequest`, `ProjectService::listPublishedProjects`, `ProjectRepository::paginatePublished` and `::filterOptions`. `filterOptions.projectCategories` is now `filterOptions.projectTypes`, for the furniture select. `brands` (active, by sort order) and `filterOptions` are sent once (`Inertia::once`).
+- **New pages**: `GET brands/{brand}` (`brands.show`, `BrandController`, `BrandProfileResource`) and `GET furniture/{furniture}` (`furniture.show`, `FurnitureController`, `FurnitureProfileResource`), both guarded by `home.view`. An unknown, inactive or malformed slug is a 404.
+- **Saved furniture**: `PUT`/`DELETE saved/furniture/{furniture}` (`saved.furniture.store`/`.destroy`, `SavedFurnitureController`), guarded and throttled like saved stones. `savedFurnitureSlugs` is shared next to `savedStoneSlugs`, and the Saved page also gets `savedFurniture`.
+- **Stone profile**: the payload no longer has `projects`.
+
+### Frontend
+
+- **Home**: the hero's "Discover Brands" button is gone. The brand tiles are as tall as the hero (now taller), link to their pages, and size each logo so the brand names read at one height (through a slug-keyed map); each brand's description sits inside its tile, right beside the logo in the bottom left (under it on phones). Stone and furniture cards are one `ProductCard` (was `StoneCard`), and the second select reads "All Product Types" under Furniture. The selects are Collection (Natural Stone, Furniture) and then the categories or project types for it. Changing the collection resets the second select and reloads.
+- **Brand page** (`brand-profile`): hero, logo, name, tagline, description, a website button, and a "Coming soon" Collection section (the payload still carries the brand's projects). **Furniture page** (`furniture-profile`): a sample layout. Both are kept plain, for a redesign.
+- **Stone profile**: Project Highlights is gone. "Ask a Quote" opens the inquiry stepper, for whoever may send one, and the save heart moves up above it.
+- **Saving furniture**: furniture cards on Home and the furniture page have the same save heart as stones, and the furniture page has the same "Ask a Quote" button (`AskQuoteButton`, shared with the stone page). The Saved page lists furniture in its own section, and the sidebar's Saved count includes it. `useSavedStones` now sits on a generic `useSavedItems`, with `useSavedFurniture` beside it.
+- Product grids use `gap-3.5 md:gap-4.5`.
+
 # Inquiry and Leads tables, Update Status by role, and Manila time
 
 The Inquiry page is now one table for every staff role, with the actions each role has on a row: View, Edit, the status of the track it owns, and Upload job order.

@@ -3,12 +3,6 @@ export type StoneProfileImage = {
     name: string;
 };
 
-export type StoneProfileProject = {
-    slug: string;
-    name: string;
-    thumbnail: string;
-};
-
 export type StoneCardData = {
     id?: string;
     slug: string;
@@ -35,5 +29,4 @@ export type StoneProfile = {
     applications: string[];
     care: string[];
     gallery: StoneProfileImage[];
-    projects: StoneProfileProject[];
 };

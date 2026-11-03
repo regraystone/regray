@@ -6,7 +6,6 @@ use App\Enums\Role;
 use App\Models\Application;
 use App\Models\CareTip;
 use App\Models\Finish;
-use App\Models\Project;
 use App\Models\Stone;
 use App\Models\StoneCategory;
 use App\Models\User;
@@ -68,28 +67,6 @@ test('a client reads the full database stone profile through either door', funct
         $advisoryFinish->id => ['sort_order' => 0],
     ]);
 
-    $ginza = Project::query()->where('slug', 'ginza-one')->firstOrFail();
-    $ginza->update(['thumbnail_path' => 'projects/ginza.jpg']);
-    $stone->projects()->attach($ginza);
-    foreach ([
-        ['slug' => 'zeta-project', 'name' => 'Zeta Project', 'completed_year' => 2026, 'is_published' => true],
-        ['slug' => 'alpha-project', 'name' => 'Alpha Project', 'completed_year' => 2026, 'is_published' => true],
-        ['slug' => 'older-project', 'name' => 'Older Project', 'completed_year' => 2023, 'is_published' => true],
-        ['slug' => 'draft-project', 'name' => 'Draft Project', 'completed_year' => 2027, 'is_published' => false],
-    ] as $attributes) {
-        $stone->projects()->create([
-            ...$attributes,
-            'thumbnail_path' => 'projects/'.$attributes['slug'].'.jpg',
-            'location' => 'Test location',
-            'overview' => 'Test overview',
-        ]);
-    }
-    $deletedProject = $stone->projects()->create([
-        'slug' => 'deleted-project', 'name' => 'Deleted Project', 'completed_year' => 2027,
-        'is_published' => true, 'thumbnail_path' => 'projects/deleted.jpg',
-        'location' => 'Test location', 'overview' => 'Test overview',
-    ]);
-    $deletedProject->delete();
     $user = User::factory()->role(Role::Client)->create();
 
     $response = $this->actingAs($user)->get(route($routeName, ['stone' => 'cosmic-black']));
@@ -114,12 +91,7 @@ test('a client reads the full database stone profile through either door', funct
                     ['src' => '/storage/stones/first.jpg', 'name' => 'First photo'],
                     ['src' => '/storage/stones/last.jpg', 'name' => 'Last photo'],
                 ])
-                ->where('projects', [
-                    ['slug' => 'alpha-project', 'name' => 'Alpha Project', 'thumbnail' => '/storage/projects/alpha-project.jpg'],
-                    ['slug' => 'zeta-project', 'name' => 'Zeta Project', 'thumbnail' => '/storage/projects/zeta-project.jpg'],
-                    ['slug' => 'ginza-one', 'name' => 'Ginza One', 'thumbnail' => '/storage/projects/ginza.jpg'],
-                    ['slug' => 'older-project', 'name' => 'Older Project', 'thumbnail' => '/storage/projects/older-project.jpg'],
-                ])
+                ->missing('projects')
             )
         )
     );

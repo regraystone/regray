@@ -20,7 +20,7 @@ import type { InquiryServiceOption } from '@/types/inquiry';
  * narrow one.
  *
  * The black check badge, the square thumbnail and the round bullet markers all
- * carry over from StoneCard and the stone profile, so the steps still share a
+ * carry over from ProductCard and the stone profile, so the steps still share a
  * visual vocabulary.
  *
  * Once picked, the row opens a "What do you need?" dropdown of the service's

@@ -38,9 +38,6 @@ class StoneRepository implements StoneRepositoryInterface
         if ($filters->category !== null) {
             $query->whereHas('categories', fn (Builder $category) => $category->where('slug', $filters->category)->where('is_active', true));
         }
-        if ($filters->projectCategory !== null) {
-            $query->whereHas('projectCategories', fn (Builder $projectCategory) => $projectCategory->where('slug', $filters->projectCategory)->where('is_active', true));
-        }
         if ($filters->size !== null) {
             $query->whereHas('sizes', fn (Builder $size) => $size->where('name', $filters->size)->where('is_active', true));
         }
@@ -104,11 +101,6 @@ class StoneRepository implements StoneRepositoryInterface
                 ->select(['finishes.id', 'name'])
                 ->where('is_active', true)
                 ->where('is_advisory', false),
-            'projects' => fn (Relation $projects) => $projects->getQuery()
-                ->select(['projects.id', 'slug', 'name', 'thumbnail_path'])
-                ->where('is_published', true)
-                ->orderByDesc('completed_year')
-                ->orderBy('name'),
         ]);
     }
 

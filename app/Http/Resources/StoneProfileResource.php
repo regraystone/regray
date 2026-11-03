@@ -5,7 +5,6 @@ namespace App\Http\Resources;
 use App\Models\Application;
 use App\Models\CareTip;
 use App\Models\Finish;
-use App\Models\Project;
 use App\Models\Stone;
 use App\Models\StoneImage;
 use Illuminate\Http\Request;
@@ -18,7 +17,7 @@ class StoneProfileResource extends JsonResource
      * Expose the profile rather than model or pivot metadata. Shared facts belong to its category;
      * thickness stays a number so the page, not the database, owns the unit wording.
      *
-     * @return array{slug: string, name: string, thumbnail: string, bestSeller: bool, category: array{slug: string, name: string}, description: string, specifications: array{stoneType: string, origin: string, size: string, thicknessMm: int}, finishes: array<int, string>, applications: array<int, string>, care: array<int, string>, gallery: array<int, array{src: string, name: string}>, projects: array<int, array{slug: string, name: string, thumbnail: string}>}
+     * @return array{slug: string, name: string, thumbnail: string, bestSeller: bool, category: array{slug: string, name: string}, description: string, specifications: array{stoneType: string, origin: string, size: string, thicknessMm: int}, finishes: array<int, string>, applications: array<int, string>, care: array<int, string>, gallery: array<int, array{src: string, name: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -41,11 +40,6 @@ class StoneProfileResource extends JsonResource
             'gallery' => $this->images->map(fn (StoneImage $image): array => [
                 'src' => ProjectCardResource::resolveThumbnailUrl($image->path),
                 'name' => $image->alt_text ?? $this->name,
-            ])->all(),
-            'projects' => $this->projects->map(fn (Project $project): array => [
-                'slug' => $project->slug,
-                'name' => $project->name,
-                'thumbnail' => ProjectCardResource::resolveThumbnailUrl($project->thumbnail_path),
             ])->all(),
         ];
     }

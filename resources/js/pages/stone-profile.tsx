@@ -1,17 +1,14 @@
-import { useRef, useState } from 'react';
-import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import Carousel, { type CarouselHandle } from '@/components/carousel';
+import { useState } from 'react';
+import { router, usePage } from '@inertiajs/react';
+import { ArrowLeft, Star } from 'lucide-react';
+import AskQuoteButton from '@/components/ask-quote-button';
 import ImageLightbox, { type LightboxImage } from '@/components/image-lightbox';
 import { FactChip, SpecRow } from '@/components/profile-facts';
 import ProfileGallery from '@/components/profile-gallery';
 import { Button } from '@/components/ui/button';
-import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { index as homeIndex } from '@/routes/home';
 import { index as savedIndex } from '@/routes/saved';
-import type {
-    StoneProfile as StoneProfileData,
-    StoneProfileProject,
-} from '@/types/stone';
+import type { StoneProfile as StoneProfileData } from '@/types/stone';
 
 type StoneProfileProps = {
     stone: { data: StoneProfileData };
@@ -33,111 +30,6 @@ const BulletedList = ({ items }: { items: string[] }) => (
         ))}
     </ul>
 );
-
-type HighlightCard = { name: string; image: string };
-
-const ProjectCard = ({
-    name,
-    image,
-    href,
-}: HighlightCard & { href: string }) => (
-    <Link
-        href={href}
-        className="block size-full cursor-pointer overflow-hidden rounded-md p-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
-    >
-        <figure className="stone-card cursor-pointer overflow-hidden rounded-md border border-sidebar-border bg-background">
-            <div className="stone-card-media relative aspect-[4/3] overflow-hidden bg-background">
-                <img
-                    src={image}
-                    alt={name}
-                    draggable={false}
-                    loading="lazy"
-                    className="absolute inset-0 size-full object-cover"
-                />
-                <div className="image-tint absolute inset-0" aria-hidden />
-                <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center justify-center gap-1.5 rounded-md bg-background py-1 pr-2.5 pl-2">
-                    <span className="min-w-0 truncate text-[0.65rem] font-bold tracking-[0.05em] text-foreground uppercase sm:text-[0.8rem] sm:tracking-[0.06em]">
-                        {name}
-                    </span>
-                </span>
-            </div>
-        </figure>
-    </Link>
-);
-
-const ProjectsCarousel = ({
-    highlights,
-    name,
-}: {
-    highlights: StoneProfileProject[];
-    name: string;
-}) => {
-    const carouselRef = useRef<CarouselHandle>(null);
-    const [atStart, setAtStart] = useState(true);
-    const [atEnd, setAtEnd] = useState(false);
-
-    const handleBoundsChange = (start: boolean, end: boolean) => {
-        setAtStart(start);
-        setAtEnd(end);
-    };
-
-    return (
-        <div>
-            <div className="mb-8 flex items-end justify-between gap-4">
-                <h2
-                    id="projects-heading"
-                    className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
-                >
-                    Project Highlights
-                </h2>
-                <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={atStart}
-                        className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => carouselRef.current?.scrollPrev()}
-                        aria-label="Previous project highlights"
-                    >
-                        <ChevronLeft aria-hidden />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={atEnd}
-                        className="enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => carouselRef.current?.scrollNext()}
-                        aria-label="Next project highlights"
-                    >
-                        <ChevronRight aria-hidden />
-                    </Button>
-                </div>
-            </div>
-            <Carousel
-                ref={carouselRef}
-                ariaLabel={`Project highlights using ${name}`}
-                dragEnabled={false}
-                viewportClassName="gap-4 md:gap-5"
-                onBoundsChange={handleBoundsChange}
-            >
-                {highlights.map((highlight) => (
-                    <div
-                        key={highlight.slug}
-                        className="w-[85%] shrink-0 snap-start sm:w-[48%] lg:w-[32%]"
-                    >
-                        <ProjectCard
-                            name={highlight.name}
-                            image={highlight.thumbnail}
-                            href={homeShow.url({
-                                slug: highlight.slug,
-                            })}
-                        />
-                    </div>
-                ))}
-            </Carousel>
-        </div>
-    );
-};
 
 const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
     const { url } = usePage();
@@ -261,23 +153,12 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
                 </div>
             </section>
 
-            {stone.projects.length > 0 && (
-                <section
-                    id="projects"
-                    aria-labelledby="projects-heading"
-                    className="scroll-mt-24"
-                >
-                    <ProjectsCarousel
-                        highlights={stone.projects}
-                        name={stone.name}
-                    />
-                </section>
-            )}
-
             <ImageLightbox
                 image={lightboxImage}
                 onClose={() => setLightboxImage(null)}
             />
+
+            <AskQuoteButton />
         </div>
     );
 };

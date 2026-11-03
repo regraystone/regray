@@ -25,7 +25,9 @@ class DatabaseSeeder extends Seeder
         $this->call(EdgeProfileSeeder::class);
         $this->call(ProjectCategorySeeder::class);
         $this->call(ServiceSeeder::class);
+        $this->call(BrandSeeder::class);
         $this->call(ProjectSeeder::class);
+        $this->call(FurnitureSeeder::class);
 
         if (app()->isProduction()) {
             return;

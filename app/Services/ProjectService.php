@@ -2,12 +2,9 @@
 
 namespace App\Services;
 
-use App\Data\ProjectFilterData;
 use App\Models\Project;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 
 class ProjectService
 {
@@ -36,35 +33,5 @@ class ProjectService
         }
 
         return $project;
-    }
-
-    /**
-     * @return array{projects: LengthAwarePaginator<int, Project>, filters: array{search: string|null, projectCategory: string|null, perPage: int}, filterOptions: array{categories: Collection<int, array{value: string, label: string}>}}
-     */
-    public function listPublishedProjects(ProjectFilterData $filters): array
-    {
-        $cleaned = $this->cleanFilters($filters);
-
-        return [
-            'projects' => $this->projectRepository->paginatePublished($cleaned, $cleaned->perPage),
-            'filters' => [
-                'search' => $cleaned->search,
-                'projectCategory' => $cleaned->projectCategory,
-                'perPage' => $cleaned->perPage,
-            ],
-            'filterOptions' => $this->projectRepository->filterOptions(),
-        ];
-    }
-
-    public function cleanFilters(ProjectFilterData $filters): ProjectFilterData
-    {
-        $search = $filters->search === null ? null : trim($filters->search);
-        if ($search === '') {
-            $search = null;
-        } elseif ($search !== null) {
-            $search = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
-        }
-
-        return new ProjectFilterData($search, $filters->projectCategory, $filters->page, $filters->perPage);
     }
 }

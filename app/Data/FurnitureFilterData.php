@@ -3,9 +3,9 @@
 namespace App\Data;
 
 use App\Enums\HomeGridPageSize;
-use App\Http\Requests\Home\ProjectIndexRequest;
+use App\Http\Requests\Home\FurnitureIndexRequest;
 
-final readonly class ProjectFilterData
+final readonly class FurnitureFilterData
 {
     public function __construct(
         public ?string $search,
@@ -14,7 +14,7 @@ final readonly class ProjectFilterData
         public int $perPage,
     ) {}
 
-    public static function fromRequest(ProjectIndexRequest $request): self
+    public static function fromRequest(FurnitureIndexRequest $request): self
     {
         return new self(
             search: $request->validated('search'),

@@ -2,7 +2,6 @@
 
 use App\Enums\InquiryStatus;
 use App\Enums\Role;
-use App\Models\ProjectCategory;
 use App\Models\Stone;
 use App\Models\StoneCategory;
 use App\Models\User;
@@ -44,7 +43,7 @@ test('no parameters returns the first page of active individual stones', functio
                 ->where('collection', 'stones')
             )
             ->has('filterOptions.categories')
-            ->has('filterOptions.projectCategories', 9)
+            ->has('filterOptions.projectTypes', 9)
             ->has('filterOptions.sizes', 4)
             ->has('filterOptions.thicknesses', 3)
             ->where('stones.data.0.category', ['slug' => 'cobblestone', 'name' => 'Cobblestone'])
@@ -119,9 +118,6 @@ test('drops an unknown or malformed parameter and keeps the valid ones', functio
         ['category' => 'unknown'],
         ['category' => 'wall-accents'],
         ['category' => ['granite']],
-        ['project_category' => 'unknown'],
-        ['project_category' => 'granite'],
-        ['project_category' => ['wall-accents']],
         ['size' => 'unknown'],
         ['size' => '60X60'],
         ['size' => ['80x80']],
@@ -240,55 +236,14 @@ test('filter options include empty categories and all sizes but omit inactive ca
     );
 });
 
-test('filters stones by project type', function (): void {
-    $type = ProjectCategory::create(['slug' => 'test-type', 'name' => 'Test Type', 'image_path' => 'categories/test.jpg', 'is_active' => true, 'sort_order' => 99]);
-    $type->stones()->attach(Stone::query()->whereIn('slug', ['cosmic-black', 'arctic-pink'])->pluck('id'));
+test('stones no longer filter by project type', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(route('home.index', ['project_category' => 'test-type']))
+    $this->actingAs($user)->get(route('home.index', ['project_category' => 'kitchen-islands']))
+        ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('filters.projectCategory', 'test-type')
-            ->where('stones.meta.total', 2)
-            ->where('stones.data', fn ($stones) => $stones->pluck('slug')->sort()->values()->all() === ['arctic-pink', 'cosmic-black'])
-        );
-});
-
-test('the project type and the natural stone filters combine', function (): void {
-    $type = ProjectCategory::create(['slug' => 'test-type', 'name' => 'Test Type', 'image_path' => 'categories/test.jpg', 'is_active' => true, 'sort_order' => 99]);
-    $type->stones()->attach(Stone::query()->whereIn('slug', ['cosmic-black', 'arctic-pink'])->pluck('id'));
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['project_category' => 'test-type', 'category' => 'granite']))
-        ->assertInertia(fn (Assert $page) => $page->has('stones.data', 1)->where('stones.data.0.slug', 'cosmic-black'));
-});
-
-test('an inactive project type is dropped from the URL', function (): void {
-    ProjectCategory::query()->where('slug', 'lavatories')->update(['is_active' => false]);
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['project_category' => 'lavatories', 'category' => 'marble']))
-        ->assertRedirect(route('home.index', ['category' => 'marble']));
-});
-
-test('seeded stones suit their own project types, else their natural stone\'s', function (): void {
-    $typesOf = fn (string $slug): array => Stone::query()->where('slug', $slug)->firstOrFail()
-        ->projectCategories()->orderBy('slug')->pluck('slug')->all();
-
-    expect($typesOf('burberry-pink'))->toBe(['center-side-tables'])
-        ->and($typesOf('cosmic-black'))->toBe(['countertops-backsplash', 'kitchen-islands'])
-        ->and($typesOf('beige'))->toBe(['exterior-walls', 'lavatories', 'wall-accents']);
-});
-
-test('a project type filter leaves out stones that only suit another type', function (): void {
-    $user = User::factory()->role(Role::Client)->create();
-
-    $this->actingAs($user)->get(route('home.index', ['project_category' => 'kitchen-islands', 'category' => 'marble']))
-        ->assertInertia(fn (Assert $page) => $page->has('stones.data', 0));
-
-    $this->actingAs($user)->get(route('home.index', ['project_category' => 'dining-tables', 'category' => 'marble']))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('stones.data', fn ($stones) => collect($stones)->pluck('slug')->contains('verdi-alpi')
-                && ! collect($stones)->pluck('slug')->contains('burberry-pink'))
+            ->where('filters.projectCategory', null)
+            ->where('stones.meta.total', 75)
         );
 });
 

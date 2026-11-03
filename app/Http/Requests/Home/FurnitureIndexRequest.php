@@ -9,7 +9,11 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
-class ProjectIndexRequest extends FormRequest
+/**
+ * The home page's Furniture collection (`?collection=furniture`): a search and
+ * a project type, paged like the stones.
+ */
+class FurnitureIndexRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -52,6 +56,7 @@ class ProjectIndexRequest extends FormRequest
         ];
     }
 
+    /** A bad value is dropped and the rest kept, `collection` included. */
     protected function failedValidation(Validator $validator): void
     {
         $failed = array_keys($validator->failed());
@@ -60,10 +65,8 @@ class ProjectIndexRequest extends FormRequest
             ->filter(fn ($value) => $value !== null && $value !== '')
             ->all();
 
-        $query = http_build_query($valid);
-
         throw new HttpResponseException(
-            redirect()->route('home.index', $query === '' ? [] : $valid)
+            redirect()->route('home.index', $valid)
         );
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Brand;
 use App\Models\Project;
 use App\Models\ProjectCategory;
 use App\Models\Stone;
@@ -12,11 +13,14 @@ class ProjectSeeder extends Seeder
     public function run(): void
     {
         $data = require database_path('seeders/data/projects.php');
+        // Null when BrandSeeder has not run, as in tests that seed projects alone.
+        $brandIds = Brand::query()->pluck('id', 'slug');
 
         foreach ($data['projects'] as $projectData) {
             $project = Project::query()->firstOrCreate(
                 ['slug' => $projectData['slug']],
                 [
+                    'brand_id' => $brandIds->get($projectData['brand_slug'] ?? ''),
                     'name' => $projectData['name'],
                     'completed_year' => $projectData['completed_year'],
                     'location' => $projectData['location'],
@@ -42,25 +46,5 @@ class ProjectSeeder extends Seeder
                 $project->categories()->syncWithoutDetaching($category->id);
             }
         }
-
-        $this->attachStoneProjectTypes();
-    }
-
-    /**
-     * Give every stone the project types it suits, from the stone data: its
-     * own list if it has one, else its natural stone's. Synced, so seeding
-     * again puts back exactly these.
-     */
-    private function attachStoneProjectTypes(): void
-    {
-        /** @var array{categories: array<string, list<string>>, stones: array<string, list<string>>} $projectTypes */
-        $projectTypes = (require database_path('seeders/data/stones.php'))['project_types'];
-        $categoryIds = ProjectCategory::query()->pluck('id', 'slug');
-
-        Stone::query()->with('category')->get()->each(function (Stone $stone) use ($projectTypes, $categoryIds): void {
-            $slugs = $projectTypes['stones'][$stone->slug] ?? $projectTypes['categories'][$stone->category->slug] ?? [];
-
-            $stone->projectCategories()->sync($categoryIds->only($slugs)->values()->all());
-        });
     }
 }

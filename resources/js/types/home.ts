@@ -35,6 +35,31 @@ export type ProjectCardData = {
     thumbnail: string;
 };
 
+export type BrandCardData = {
+    slug: string;
+    name: string;
+    description: string | null;
+    logo: string;
+};
+
+export type BrandProfile = BrandCardData & {
+    tagline: string | null;
+    websiteUrl: string | null;
+    thumbnail: string | null;
+    projects: ProjectCardData[];
+};
+
+export type FurnitureCardData = {
+    slug: string;
+    name: string;
+    thumbnail: string | null;
+    projectType: { slug: string; name: string };
+};
+
+export type FurnitureProfile = FurnitureCardData & {
+    description: string | null;
+};
+
 export type FilterOption = {
     value: string;
     label: string;
@@ -44,8 +69,12 @@ export type FilterOptions = {
     categories: FilterOption[];
     sizes?: FilterOption[];
     thicknesses?: FilterOption[];
-    projectCategories?: FilterOption[];
+    /** The project types, which the Furniture collection filters by. */
+    projectTypes?: FilterOption[];
 };
+
+/** The home page's collections, as the `collection` query param names them. */
+export type HomeCollection = 'stones' | 'furniture';
 
 export type Filters = {
     search: string | null;
@@ -53,7 +82,7 @@ export type Filters = {
     size: string | null;
     thickness: string | null;
     projectCategory: string | null;
-    collection?: 'stones' | 'projects';
+    collection?: HomeCollection;
     perPage: number;
 };
 
@@ -61,9 +90,10 @@ export type HomePageProps = {
     stones?: {
         data: StoneCardData[];
     };
-    projects?: {
-        data: ProjectCardData[];
+    furniture?: {
+        data: FurnitureCardData[];
     };
+    brands: BrandCardData[];
     filters: Filters;
     filterOptions: FilterOptions;
 };

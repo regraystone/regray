@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Message\ConversationService;
+use App\Services\SavedFurnitureService;
 use App\Services\SavedStoneService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -40,9 +41,9 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        $savedStoneSlugs = $user && Gate::forUser($user)->allows('saved.view')
-            ? app(SavedStoneService::class)->slugsFor($user)
-            : [];
+        $canSeeSaved = $user && Gate::forUser($user)->allows('saved.view');
+        $savedStoneSlugs = $canSeeSaved ? app(SavedStoneService::class)->slugsFor($user) : [];
+        $savedFurnitureSlugs = $canSeeSaved ? app(SavedFurnitureService::class)->slugsFor($user) : [];
 
         return [
             ...parent::share($request),
@@ -54,6 +55,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'savedStoneSlugs' => $savedStoneSlugs,
+            'savedFurnitureSlugs' => $savedFurnitureSlugs,
             // The badge on the Message link. A closure, so a partial reload that
             // asks for nothing else (the layout's live refresh) runs only this.
             'unreadMessageCount' => fn (): int => $user !== null && Gate::forUser($user)->allows('messages.view')
