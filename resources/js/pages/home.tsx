@@ -142,7 +142,7 @@ const Brands = ({ brands }: { brands: BrandCardData[] }) =>
     brands.length === 0 ? null : (
         <ul
             aria-label="Our brands"
-            className="grid grid-cols-1 gap-12 sm:gap-16"
+            className="grid grid-cols-1 gap-6"
         >
             {brands.map((brand) => (
                 <li key={brand.slug}>
