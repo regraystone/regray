@@ -16,10 +16,9 @@ class SavedFurnitureRepository implements SavedFurnitureRepositoryInterface
     {
         return Furniture::query()
             ->active()
-            ->with('projectCategory:id,slug,name')
             ->join('saved_furniture', 'saved_furniture.furniture_id', '=', 'furniture.id')
             ->where('saved_furniture.user_id', $user->id)
-            ->select(['furniture.id', 'furniture.project_category_id', 'furniture.slug', 'furniture.name', 'furniture.thumbnail_path'])
+            ->select(['furniture.id', 'furniture.furniture_type', 'furniture.slug', 'furniture.name', 'furniture.thumbnail_path'])
             ->orderByDesc('saved_furniture.created_at')
             ->orderBy('furniture.sort_order')
             ->orderBy('furniture.name')

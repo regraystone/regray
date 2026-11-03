@@ -19,7 +19,7 @@ import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { usePermissions } from '@/hooks/use-permissions';
 import { show as brandsShow } from '@/routes/brands';
 import { show as furnitureShow } from '@/routes/furniture';
-import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { index as homeIndex } from '@/routes/home';
 import { index as messageIndex } from '@/routes/message';
 import type {
     BrandCardData,
@@ -62,11 +62,11 @@ const toCollection = (value: string | null | undefined): HomeCollection =>
 /** The query param the second select sets in each collection. */
 const FILTER_PARAM: Record<HomeCollection, string> = {
     stones: 'category',
-    furniture: 'project_category',
+    furniture: 'furniture_type',
 };
 
 const filterOf = (filters: Filters, collection: HomeCollection) =>
-    collection === 'furniture' ? filters.projectCategory : filters.category;
+    collection === 'furniture' ? filters.furnitureType : filters.category;
 
 /** The hero's height, which every brand tile matches. */
 const HERO_HEIGHT = 'min-h-[320px] sm:min-h-[560px] lg:min-h-[680px]';
@@ -83,10 +83,10 @@ const Hero = () => (
         />
         <div className="image-tint absolute inset-0" aria-hidden />
         <div className="relative z-10 mx-auto w-full max-w-6xl px-5 py-10 sm:py-20">
-            <p className="eyebrow text-on-image/85">
+            <p className="eyebrow text-on-image/85 uppercase">
                 Stone &amp; furniture, all in one place
             </p>
-            <h1 className="hero-title mt-5 max-w-3xl text-on-image">
+            <h1 className="hero-title mt-5 max-w-3xl text-on-image uppercase">
                 Every brand.
                 <br />
                 <span className="text-on-image/70">One platform.</span>
@@ -138,7 +138,9 @@ const BrandTile = ({ brand }: { brand: BrandCardData }) => {
                     className="w-auto max-w-full shrink-0 self-start object-contain object-left sm:self-center"
                 />
                 {brand.description ? (
-                    <p className={`max-w-md text-sm leading-relaxed sm:max-w-2xl sm:text-base ${brand.thumbnail ? 'text-on-image/90' : 'text-secondary-foreground'}`}>
+                    <p
+                        className={`max-w-md text-sm leading-relaxed sm:max-w-2xl sm:text-base ${brand.thumbnail ? 'text-on-image/90' : 'text-secondary-foreground'}`}
+                    >
                         {brand.description}
                     </p>
                 ) : null}
@@ -282,18 +284,12 @@ const ScrollFooter = ({
         return (
             <div
                 aria-hidden="true"
-                className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5"
+                className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-3 lg:gap-5"
             >
-                {Array.from({ length: 5 }, (_, index) => (
+                {Array.from({ length: 3 }, (_, index) => (
                     <div
                         key={index}
-                        className={
-                            index >= 4
-                                ? 'hidden xl:block'
-                                : index >= 2
-                                  ? 'hidden md:block'
-                                  : undefined
-                        }
+                        className={index >= 2 ? 'hidden md:block' : undefined}
                     >
                         <CardSkeleton showHeart={showHeart} />
                     </div>
@@ -311,7 +307,8 @@ export default function HomeCatalogue() {
     const { savedIds, toggleSave, canSave } = useSavedStones();
     const savedFurniture = useSavedFurniture();
     const permissions = usePermissions();
-    const pageProps = usePage<HomePageProps & { auth: { user: unknown } }>().props;
+    const pageProps = usePage<HomePageProps & { auth: { user: unknown } }>()
+        .props;
     const isSignedIn = pageProps.auth?.user != null;
     const canMessage = permissions.can('messages.view');
     const gridPageSize = useGridPageSize();
@@ -484,7 +481,7 @@ export default function HomeCatalogue() {
         collection,
         pageProps.filters.search,
         pageProps.filters.category,
-        pageProps.filters.projectCategory,
+        pageProps.filters.furnitureType,
         pageProps.filters.perPage,
     ]);
     const choosingFurniture = selectedCollection === 'furniture';
@@ -493,7 +490,7 @@ export default function HomeCatalogue() {
         : 'Search stones';
     const filterOptionsShown =
         (choosingFurniture
-            ? filterOptions.projectTypes
+            ? filterOptions.furnitureTypes
             : filterOptions.categories) ?? [];
     const allLabel = choosingFurniture
         ? 'All Product Types'
@@ -514,22 +511,37 @@ export default function HomeCatalogue() {
         <div className="w-full">
             <Hero />
             <section
+                id="brands"
+                aria-labelledby="brands-heading"
+                className="mt-8 px-4 py-6 sm:px-5 md:mt-12 lg:px-8 lg:py-8"
+            >
+                <div className="mb-6 border-b border-sidebar-border pb-4">
+                    <h2
+                        id="brands-heading"
+                        className="min-w-0 text-2xl font-bold tracking-[-0.04em] uppercase sm:text-3xl"
+                    >
+                        Our Brands
+                    </h2>
+                </div>
+
+                <Brands brands={pageProps.brands ?? []} />
+            </section>
+
+            <section
                 id="collection"
                 aria-labelledby="collection-heading"
-                className="px-4 sm:px-5 lg:px-8 py-6 lg:py-8 mt-8 md:mt-12"
+                className="mt-8 px-4 py-6 sm:px-5 md:mt-12 lg:px-8 lg:py-8"
             >
                 <div className="mb-6 border-b border-sidebar-border pb-4">
                     <h2
                         id="collection-heading"
-                        className="min-w-0 text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
+                        className="min-w-0 text-2xl font-bold tracking-[-0.04em] uppercase sm:text-3xl"
                     >
                         Our Collection
                     </h2>
                 </div>
 
-                <Brands brands={pageProps.brands ?? []} />
-
-                <div className="mt-16 mb-6 flex flex-col gap-4 border-b border-sidebar-border pb-4 sm:flex-row sm:items-center sm:justify-between md:mt-24">
+                <div className="mb-6 flex flex-col gap-4 border-b border-sidebar-border pb-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative w-full sm:max-w-xs">
                         <Search
                             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
@@ -636,17 +648,15 @@ export default function HomeCatalogue() {
                     {isUpdating || !list ? (
                         <div
                             aria-hidden="true"
-                            className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5"
+                            className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-3 lg:gap-5"
                         >
-                            {Array.from({ length: 10 }, (_, index) => (
+                            {Array.from({ length: 3 }, (_, index) => (
                                 <div
                                     key={index}
                                     className={
-                                        index >= 8
-                                            ? 'hidden xl:block'
-                                            : index >= 4
-                                              ? 'hidden md:block'
-                                              : undefined
+                                        index >= 2
+                                            ? 'hidden md:block'
+                                            : undefined
                                     }
                                 >
                                     <CardSkeleton showHeart={canSave} />
@@ -679,14 +689,14 @@ export default function HomeCatalogue() {
                                 />
                             )}
                         >
-                            <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
+                            <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-3 lg:gap-5">
                                 {isFurniture
                                     ? furniture.map((item, index) => (
                                           <ProductCard
                                               key={item.slug}
                                               product={{
                                                   ...item,
-                                                  category: item.projectType,
+                                                  category: item.furnitureType,
                                               }}
                                               aspect="aspect-[4/3]"
                                               priority={index < 5}
@@ -694,7 +704,8 @@ export default function HomeCatalogue() {
                                                   isSignedIn
                                                       ? `/dashboard/home/furniture/${item.slug}`
                                                       : furnitureShow.url({
-                                                            furniture: item.slug,
+                                                            furniture:
+                                                                item.slug,
                                                         })
                                               }
                                               saved={savedFurniture.savedIds.has(

@@ -13,7 +13,6 @@ use App\Http\Requests\Home\StoneIndexRequest;
 use App\Http\Resources\BrandCardResource;
 use App\Http\Resources\FurnitureCardResource;
 use App\Http\Resources\StoneCardResource;
-use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,12 +30,10 @@ class LandingController extends Controller
         public readonly ListFurnitureAction $listFurniture,
         public readonly ListBrandsAction $listBrands,
         public readonly StoneRepositoryInterface $stoneRepository,
-        public readonly ProjectCategoryRepositoryInterface $projectCategoryRepository,
     ) {}
 
     public function index(Request $request): Response | RedirectResponse
     {
-        // Signed-in users are redirected to their role home.
         if ($request->user()) {
             return redirect()->route('dashboard');
         }
@@ -55,7 +52,7 @@ class LandingController extends Controller
         return Inertia::render('landing', [
             ...$this->sharedProps($request),
             'stones' => Inertia::scroll(StoneCardResource::collection($result['stones'])),
-            'filters' => [...$result['filters'], 'projectCategory' => null, 'collection' => 'stones'],
+            'filters' => [...$result['filters'], 'furnitureType' => null, 'collection' => 'stones'],
         ]);
     }
 
@@ -77,10 +74,6 @@ class LandingController extends Controller
     }
 
     /**
-     * The same in both collections, so each is sent once and kept across
-     * filter changes: the second select's options for either collection,
-     * and the brands.
-     *
      * @return array<string, mixed>
      */
     private function sharedProps(Request $request): array
@@ -88,7 +81,10 @@ class LandingController extends Controller
         return [
             'filterOptions' => Inertia::once(fn () => [
                 ...$this->stoneRepository->filterOptions(),
-                'projectTypes' => $this->projectCategoryRepository->activeFilterOptions(),
+                'furnitureTypes' => collect(FurnitureIndexRequest::TYPES)->map(fn (string $type) => [
+                    'value' => $type,
+                    'label' => $type,
+                ])->all(),
             ]),
             'brands' => Inertia::once(fn () => BrandCardResource::collection($this->listBrands->execute())->resolve($request)),
         ];

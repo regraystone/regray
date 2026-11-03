@@ -88,7 +88,7 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                     {showHeadings ? (
                         <SectionHeading>Natural Stone</SectionHeading>
                     ) : null}
-                    <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-3 lg:gap-5">
                         {savedStonesList.map((stone) => (
                             <ProductCard
                                 key={stone.slug}
@@ -100,7 +100,6 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                                     bestSeller: stone.bestSeller,
                                     category: stone.category,
                                 }}
-                                aspect="aspect-[4/3]"
                                 href={savedShow.url({ stone: stone.slug } as {
                                     stone: string;
                                 })}
@@ -121,15 +120,14 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                     {showHeadings ? (
                         <SectionHeading>Furniture</SectionHeading>
                     ) : null}
-                    <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-3 lg:gap-5">
                         {savedFurnitureList.map((item) => (
                             <ProductCard
                                 key={item.slug}
                                 product={{
                                     ...item,
-                                    category: item.projectType,
+                                    category: item.furnitureType,
                                 }}
-                                aspect="aspect-[4/3]"
                                 href={`/dashboard/saved/furniture/${item.slug}`}
                                 saved
                                 onToggleSave={

@@ -7,11 +7,6 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * The home page's brands. Each logo and thumbnail stable path comes from data/brands.php
- * and its source file sits at data/<path>. It is written to the public disk
- * (config('filesystems.public_disk')) under that same path and as a public object.
- */
 class BrandSeeder extends Seeder
 {
     public function run(): void
@@ -27,18 +22,14 @@ class BrandSeeder extends Seeder
             $thumbnailPath = $data['thumbnail_path'] ?? null;
             $thumbnailSource = $data['thumbnail_source'] ?? null;
 
-            $brandRecord = Brand::query()->firstWhere('slug', $data['slug']);
-            $previousLogoPath = $brandRecord?->logo_path;
-            $previousThumbnailPath = $brandRecord?->thumbnail_path;
-
             $logoSourceFullPath = database_path('seeders/data/'.$logoSource);
-            if (! $disk->exists($logoPath) && File::exists($logoSourceFullPath)) {
+            if (File::exists($logoSourceFullPath)) {
                 $disk->put($logoPath, File::get($logoSourceFullPath), ['visibility' => 'public']);
             }
 
             if ($thumbnailPath !== null && $thumbnailSource !== null) {
                 $thumbnailSourceFullPath = database_path('seeders/data/'.$thumbnailSource);
-                if (! $disk->exists($thumbnailPath) && File::exists($thumbnailSourceFullPath)) {
+                if (File::exists($thumbnailSourceFullPath)) {
                     $disk->put($thumbnailPath, File::get($thumbnailSourceFullPath), ['visibility' => 'public']);
                 }
             }
@@ -53,13 +44,6 @@ class BrandSeeder extends Seeder
                 'is_active' => true,
                 'sort_order' => $sort,
             ]);
-
-            if ($previousLogoPath !== null && $previousLogoPath !== $logoPath) {
-                $disk->delete($previousLogoPath);
-            }
-            if ($previousThumbnailPath !== null && $previousThumbnailPath !== $thumbnailPath) {
-                $disk->delete($previousThumbnailPath);
-            }
         }
     }
 }

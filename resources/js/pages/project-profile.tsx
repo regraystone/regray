@@ -119,7 +119,7 @@ const ProjectProfile = ({
                 <h2 className="text-2xl leading-tight font-light tracking-tight uppercase lg:text-4xl">
                     Materials
                 </h2>
-                <div className="mt-6 grid grid-cols-2 gap-3.5 md:gap-4.5 lg:grid-cols-4">
+                <div className="mt-6 grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-3 lg:gap-5">
                     {project.stones.map((stone) => (
                         <ProductCard
                             key={stone.slug}

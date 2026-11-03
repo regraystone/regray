@@ -30,7 +30,9 @@ const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
         <div className="w-full">
             <section
                 className={`relative flex min-h-[280px] items-center overflow-hidden sm:min-h-[400px] ${
-                    brand.thumbnail ? 'text-on-image' : 'bg-muted text-foreground'
+                    brand.thumbnail
+                        ? 'text-on-image'
+                        : 'bg-muted text-foreground'
                 }`}
             >
                 {brand.thumbnail ? (
@@ -41,7 +43,10 @@ const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
                             aria-hidden
                             className="absolute inset-0 size-full object-cover"
                         />
-                        <div className="image-tint absolute inset-0" aria-hidden />
+                        <div
+                            className="image-tint absolute inset-0"
+                            aria-hidden
+                        />
                     </>
                 ) : null}
                 <Button
@@ -66,7 +71,9 @@ const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
                         className="h-12 w-auto max-w-full object-contain sm:h-16"
                     />
                     {brand.tagline ? (
-                        <p className="mt-4 text-base sm:text-lg">{brand.tagline}</p>
+                        <p className="mt-4 text-base sm:text-lg">
+                            {brand.tagline}
+                        </p>
                     ) : null}
                 </div>
             </section>
@@ -96,11 +103,14 @@ const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
                 </section>
             ) : null}
 
-            <section aria-labelledby="brand-collection-heading" className="pb-12">
+            <section
+                aria-labelledby="brand-collection-heading"
+                className="pb-12"
+            >
                 <div className="mb-6 border-b border-sidebar-border pb-4">
                     <h2
                         id="brand-collection-heading"
-                        className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl"
+                        className="text-2xl font-bold tracking-[-0.04em] uppercase sm:text-3xl"
                     >
                         Collection
                     </h2>

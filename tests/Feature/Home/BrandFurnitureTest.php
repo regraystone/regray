@@ -78,19 +78,15 @@ test('an unknown, inactive or malformed brand is not found', function (string $s
         ->assertNotFound();
 })->with(['no-such-brand', 'faer', 'Bad_Slug']);
 
-test('a furniture profile shows its project type', function (): void {
+test('a furniture profile shows its furniture type', function (): void {
     $this->actingAs(User::factory()->role(Role::Client)->create())
-        ->get(route('furniture.show', ['furniture' => 'rounded-table']))
+        ->get(route('furniture.show', ['furniture' => 'alora']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('furniture-profile')
-            ->where('furniture.data', [
-                'slug' => 'rounded-table',
-                'name' => 'Rounded Table',
-                'description' => 'A round dining table with a solid stone top on a single pedestal base, seating four to six.',
-                'thumbnail' => null,
-                'projectType' => ['slug' => 'dining-tables', 'name' => 'Dining Tables'],
-            ])
+            ->where('furniture.data.slug', 'alora')
+            ->where('furniture.data.name', 'Alora')
+            ->where('furniture.data.furnitureType', ['slug' => 'tables', 'name' => 'Tables'])
         );
 
     $this->actingAs(User::factory()->role(Role::Client)->create())

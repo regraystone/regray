@@ -13,16 +13,16 @@ class FurnitureRepository implements FurnitureRepositoryInterface
     /** @return LengthAwarePaginator<int, Furniture> */
     public function paginate(FurnitureFilterData $filters, int $perPage): LengthAwarePaginator
     {
-        $query = Furniture::query()->active()->with('projectCategory:id,slug,name');
+        $query = Furniture::query()->active();
 
         if ($filters->search !== null) {
             $query->where(function (Builder $query) use ($filters): void {
                 $query->where('name', 'ILIKE', "%{$filters->search}%")
-                    ->orWhereHas('projectCategory', fn (Builder $type) => $type->where('name', 'ILIKE', "%{$filters->search}%"));
+                    ->orWhere('furniture_type', 'ILIKE', "%{$filters->search}%");
             });
         }
-        if ($filters->projectCategory !== null) {
-            $query->whereHas('projectCategory', fn (Builder $type) => $type->where('slug', $filters->projectCategory)->where('is_active', true));
+        if ($filters->furnitureType !== null) {
+            $query->where('furniture_type', $filters->furnitureType);
         }
 
         return $query->orderBy('sort_order')->orderBy('id')->paginate($perPage, ['*'], 'page', $filters->page)->withQueryString();
@@ -33,7 +33,6 @@ class FurnitureRepository implements FurnitureRepositoryInterface
         return Furniture::query()
             ->active()
             ->where('slug', $slug)
-            ->with('projectCategory:id,slug,name')
             ->first();
     }
 }

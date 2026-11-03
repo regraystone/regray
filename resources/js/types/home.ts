@@ -54,7 +54,7 @@ export type FurnitureCardData = {
     slug: string;
     name: string;
     thumbnail: string | null;
-    projectType: { slug: string; name: string };
+    furnitureType: { slug: string; name: string };
 };
 
 export type FurnitureProfile = FurnitureCardData & {
@@ -70,8 +70,7 @@ export type FilterOptions = {
     categories: FilterOption[];
     sizes?: FilterOption[];
     thicknesses?: FilterOption[];
-    /** The project types, which the Furniture collection filters by. */
-    projectTypes?: FilterOption[];
+    furnitureTypes?: FilterOption[];
 };
 
 /** The home page's collections, as the `collection` query param names them. */
@@ -82,7 +81,8 @@ export type Filters = {
     category: string | null;
     size: string | null;
     thickness: string | null;
-    projectCategory: string | null;
+    furnitureType: string | null;
+    projectCategory?: string | null;
     collection?: HomeCollection;
     perPage: number;
 };

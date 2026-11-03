@@ -26,7 +26,7 @@ class FurnitureService
     }
 
     /**
-     * @return array{furniture: LengthAwarePaginator<int, Furniture>, filters: array{search: string|null, projectCategory: string|null, perPage: int}}
+     * @return array{furniture: LengthAwarePaginator<int, Furniture>, filters: array{search: string|null, furnitureType: string|null, perPage: int}}
      */
     public function listFurniture(FurnitureFilterData $filters): array
     {
@@ -36,7 +36,7 @@ class FurnitureService
             'furniture' => $this->furnitureRepository->paginate($cleaned, $cleaned->perPage),
             'filters' => [
                 'search' => $cleaned->search,
-                'projectCategory' => $cleaned->projectCategory,
+                'furnitureType' => $cleaned->furnitureType,
                 'perPage' => $cleaned->perPage,
             ],
         ];
@@ -51,6 +51,6 @@ class FurnitureService
             $search = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
         }
 
-        return new FurnitureFilterData($search, $filters->projectCategory, $filters->page, $filters->perPage);
+        return new FurnitureFilterData($search, $filters->furnitureType, $filters->page, $filters->perPage);
     }
 }

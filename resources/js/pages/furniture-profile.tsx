@@ -65,10 +65,10 @@ const FurnitureProfile = ({
             </section>
 
             <section className="mx-auto max-w-4xl py-12 text-center sm:py-16">
-                <p className="eyebrow text-secondary-foreground">
-                    {furniture.projectType.name}
+                <p className="eyebrow text-secondary-foreground uppercase">
+                    {furniture.furnitureType.name}
                 </p>
-                <h1 className="mt-3 text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
+                <h1 className="mt-3 text-3xl font-bold tracking-[-0.04em] uppercase sm:text-4xl">
                     {furniture.name}
                 </h1>
                 {furniture.description ? (

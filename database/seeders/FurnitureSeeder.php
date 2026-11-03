@@ -3,23 +3,33 @@
 namespace Database\Seeders;
 
 use App\Models\Furniture;
-use App\Models\ProjectCategory;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
-/** Sample furniture, under the project types ProjectCategorySeeder made. */
 class FurnitureSeeder extends Seeder
 {
     public function run(): void
     {
-        /** @var list<array{slug: string, name: string, project_type: string, description: string}> $furniture */
-        $furniture = require database_path('seeders/data/furniture.php');
+        $disk = Storage::disk(config('filesystems.public_disk'));
 
-        foreach ($furniture as $sort => $data) {
+        /** @var list<array{slug: string, name: string, furniture_type: string, description: string, thumbnail_source: string, thumbnail_path: string}> $furnitureList */
+        $furnitureList = require database_path('seeders/data/furniture.php');
+
+        foreach ($furnitureList as $sort => $data) {
+            $thumbnailPath = $data['thumbnail_path'];
+            $thumbnailSource = $data['thumbnail_source'];
+
+            $sourceFullPath = database_path('seeders/data/'.$thumbnailSource);
+            if (! $disk->exists($thumbnailPath) && File::exists($sourceFullPath)) {
+                $disk->put($thumbnailPath, File::get($sourceFullPath), ['visibility' => 'public']);
+            }
+
             Furniture::query()->updateOrCreate(['slug' => $data['slug']], [
                 'name' => $data['name'],
                 'description' => $data['description'],
-                'thumbnail_path' => null,
-                'project_category_id' => ProjectCategory::query()->where('slug', $data['project_type'])->firstOrFail()->id,
+                'furniture_type' => $data['furniture_type'],
+                'thumbnail_path' => $thumbnailPath,
                 'is_active' => true,
                 'sort_order' => $sort,
             ]);
