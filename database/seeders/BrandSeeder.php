@@ -24,13 +24,13 @@ class BrandSeeder extends Seeder
 
             $logoSourceFullPath = database_path('seeders/data/'.$logoSource);
             if (File::exists($logoSourceFullPath)) {
-                $disk->put($logoPath, File::get($logoSourceFullPath), ['visibility' => 'public']);
+                $disk->put($logoPath, File::get($logoSourceFullPath));
             }
 
             if ($thumbnailPath !== null && $thumbnailSource !== null) {
                 $thumbnailSourceFullPath = database_path('seeders/data/'.$thumbnailSource);
                 if (File::exists($thumbnailSourceFullPath)) {
-                    $disk->put($thumbnailPath, File::get($thumbnailSourceFullPath), ['visibility' => 'public']);
+                    $disk->put($thumbnailPath, File::get($thumbnailSourceFullPath));
                 }
             }
 
