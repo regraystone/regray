@@ -4,7 +4,6 @@ import ProductCard from '@/components/product-card';
 import { Button } from '@/components/ui/button';
 import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
-import { show as furnitureShow } from '@/routes/furniture';
 import { index as homeIndex } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
 import type { FurnitureCardData } from '@/types/home';
@@ -131,9 +130,7 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                                     category: item.projectType,
                                 }}
                                 aspect="aspect-[4/3]"
-                                href={furnitureShow.url({
-                                    furniture: item.slug,
-                                })}
+                                href={`/dashboard/saved/furniture/${item.slug}`}
                                 saved
                                 onToggleSave={
                                     furnitureSaves.canSave

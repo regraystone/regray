@@ -16,7 +16,7 @@ class BrandRepository implements BrandRepositoryInterface
             ->active()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['id', 'slug', 'name', 'logo_path', 'description']);
+            ->get(['id', 'slug', 'name', 'logo_path', 'thumbnail_path', 'description']);
     }
 
     public function findActiveBySlug(string $slug): ?Brand

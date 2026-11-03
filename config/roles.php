@@ -10,15 +10,15 @@ return [
      * also where a user with no role at all ends up.
      */
     'redirects' => [
-        Role::Client->value => '/home',
-        Role::Admin->value => '/overview',
-        Role::Owner->value => '/overview',
-        Role::Accounting->value => '/overview',
-        Role::Technical->value => '/overview',
-        Role::Marketing->value => '/overview',
-        Role::Logistics->value => '/overview',
-        Role::Sales->value => '/overview',
+        Role::Client->value => '/dashboard/home',
+        Role::Admin->value => '/dashboard/overview',
+        Role::Owner->value => '/dashboard/overview',
+        Role::Accounting->value => '/dashboard/overview',
+        Role::Technical->value => '/dashboard/overview',
+        Role::Marketing->value => '/dashboard/overview',
+        Role::Logistics->value => '/dashboard/overview',
+        Role::Sales->value => '/dashboard/overview',
     ],
 
-    'default' => '/overview',
+    'default' => '/dashboard/overview',
 ];

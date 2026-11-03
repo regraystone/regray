@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import AuthLayout from '@/layouts/auth-layout';
 import WorkspaceLayout from '@/layouts/workspace-layout';
+import SiteLayout from '@/layouts/site-layout';
 import { rateLimitFrom } from '@/lib/rate-limit';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -36,6 +37,14 @@ void createInertiaApp({
             case name === 'forbidden':
             case name === 'not-found':
                 return null;
+            // Pages that work for both guests and signed-in users use SiteLayout
+            // which picks between GuestLayout and WorkspaceLayout based on auth state
+            case name === 'landing':
+            case name === 'stone-profile':
+            case name === 'brand-profile':
+            case name === 'furniture-profile':
+            case name === 'project-profile':
+                return SiteLayout;
             default:
                 return WorkspaceLayout;
         }

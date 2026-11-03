@@ -49,6 +49,7 @@ test('home sends the active brands in order', function (): void {
                 'name' => 'Regray Stone',
                 'description' => $regray->description,
                 'logo' => '/storage/'.$regray->logo_path,
+                'thumbnail' => '/storage/'.$regray->thumbnail_path,
             ])
             ->where('brands', fn ($brands) => ! collect($brands)->pluck('slug')->contains('faer'))
         );
@@ -64,7 +65,7 @@ test('a brand profile lists its published projects and its website', function ()
             ->component('brand-profile')
             ->where('brand.data.slug', 'regray-stone')
             ->where('brand.data.websiteUrl', 'https://regraystone.com/')
-            ->where('brand.data.thumbnail', null)
+            ->where('brand.data.thumbnail', '/storage/brands/9c2e5a1f8b4d7c3e6a9f2c5e8a1d4b7f.png')
             ->where('brand.data.projects', fn ($projects) => collect($projects)->pluck('slug')->all() === ['recidencia-del-hamor'])
         );
 });

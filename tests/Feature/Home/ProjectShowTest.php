@@ -133,24 +133,24 @@ test('stone and project profiles keep independent permission guards', function (
     $this->actingAs($user)->get($allowed)->assertOk();
     $this->actingAs($user)->get($denied)->assertForbidden();
 })->with([
-    [Permission::HomeStoneView, '/home/arctic-pink', '/home/ginza-one'],
-    [Permission::HomeProjectsView, '/home/ginza-one', '/home/arctic-pink'],
+    [Permission::HomeStoneView, '/dashboard/home/arctic-pink', '/dashboard/home/ginza-one'],
+    [Permission::HomeProjectsView, '/dashboard/home/ginza-one', '/dashboard/home/arctic-pink'],
 ]);
 
 test('opens the stone when a stone and a project share a flat URL\'s slug', function (): void {
     Project::query()->where('slug', 'ginza-one')->update(['slug' => 'arctic-pink']);
 
     $this->actingAs(User::factory()->role(Role::Client)->create())
-        ->get('/home/arctic-pink')
+        ->get('/dashboard/home/arctic-pink')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('stone-profile'));
 });
 
 test('moves the old nested stone-and-project URL to the flat project URL for good', function (): void {
     $this->actingAs(User::factory()->role(Role::Client)->create())
-        ->get('/home/arctic-pink/ginza-one')
+        ->get('/dashboard/home/arctic-pink/ginza-one')
         ->assertStatus(301)
-        ->assertRedirect('/home/ginza-one');
+        ->assertRedirect('/dashboard/home/ginza-one');
 });
 
 test('shows the not-found page for an unknown, unpublished or deleted project, on a visit too, and for an unknown path even to a guest', function (): void {

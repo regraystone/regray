@@ -23,11 +23,14 @@ class BrandProfileResource extends JsonResource
             'websiteUrl' => $this->website_url,
             'logo' => ProjectCardResource::resolveThumbnailUrl($this->logo_path),
             'thumbnail' => $this->thumbnail_path === null ? null : ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
-            'projects' => $this->projects->map(fn (Project $project): array => [
-                'slug' => $project->slug,
-                'name' => $project->name,
-                'thumbnail' => ProjectCardResource::resolveThumbnailUrl($project->thumbnail_path),
-            ])->all(),
+            'projects' => $this->projects()
+                ->where('is_published', true)
+                ->get()
+                ->map(fn (Project $project): array => [
+                    'slug' => $project->slug,
+                    'name' => $project->name,
+                    'thumbnail' => ProjectCardResource::resolveThumbnailUrl($project->thumbnail_path),
+                ])->all(),
         ];
     }
 }

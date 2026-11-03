@@ -39,9 +39,13 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
 
     // Both stone doors return to their own feed, including on a direct visit.
     const goBack = () => {
-        router.visit(
-            url.startsWith('/saved/') ? savedIndex.url() : homeIndex.url(),
-        );
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            router.visit(
+                url.startsWith('/dashboard/saved/') || url.startsWith('/saved/') ? savedIndex.url() : homeIndex.url(),
+            );
+        }
     };
 
     return (

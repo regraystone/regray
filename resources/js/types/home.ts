@@ -40,6 +40,7 @@ export type BrandCardData = {
     name: string;
     description: string | null;
     logo: string;
+    thumbnail: string | null;
 };
 
 export type BrandProfile = BrandCardData & {

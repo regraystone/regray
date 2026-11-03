@@ -36,14 +36,19 @@ class StoneProfileController extends Controller
 
     /**
      * Show a resource by slug, resolving to either a stone profile or project profile.
-     * Tries stone first, then project, then 404.
+     * Tries stone first, then project, then 404. Accessible to guests and signed-in users.
+     * For signed-in users, checks permission; for guests, allows access to all active stones and published projects.
      */
     public function showFlat(Request $request, string $slug): Response
     {
         // Try to find an active stone first
         try {
             $stone = $this->stoneService->getActiveStone($slug);
-            abort_unless($request->user()->can(Permission::HomeStoneView->value), 403);
+            
+            // Guests can always see active stones, signed-in users need permission
+            if ($request->user() !== null) {
+                abort_unless($request->user()->can(Permission::HomeStoneView->value), 403);
+            }
 
             return Inertia::render('stone-profile', [
                 'stone' => new StoneProfileResource($stone),
@@ -55,7 +60,11 @@ class StoneProfileController extends Controller
         // Try to find a published project
         try {
             $project = $this->projectService->findPublished($slug);
-            abort_unless($request->user()->can(Permission::HomeProjectsView->value), 403);
+            
+            // Guests can always see published projects, signed-in users need permission
+            if ($request->user() !== null) {
+                abort_unless($request->user()->can(Permission::HomeProjectsView->value), 403);
+            }
 
             return Inertia::render('project-profile', [
                 'project' => new ProjectProfileResource($project),
