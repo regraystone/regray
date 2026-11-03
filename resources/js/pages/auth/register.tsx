@@ -21,13 +21,14 @@ import { store } from '@/routes/register';
 
 export default function Register() {
     /*
-     * A server answer about something the form has no box for has nowhere to go
-     * next to a field. Held here and shown above the button rather than thrown
-     * away.
+     * A server answer about something the form has no box for, such as a
+     * throttle notice, has nowhere to go next to a field. Held here and shown
+     * above the button rather than thrown away.
      */
     const [formError, setFormError] = useState<string[]>([]);
 
     const {
+        watch,
         register: registerField,
         handleSubmit,
         setError,
@@ -41,6 +42,13 @@ export default function Register() {
         reValidateMode: 'onChange',
         defaultValues: registerDefaults,
     });
+
+    const passwordValue = watch('password') || '';
+    const hasLength = passwordValue.length >= 8;
+    const hasNumber = /[0-9]/.test(passwordValue);
+    const hasSpecial = /[._@!#$%^&*()\-_=+[\]{};:'",<>?/\\]/.test(
+        passwordValue,
+    );
 
     const onValid = (values: RegisterFormValues) =>
         new Promise<void>((resolve) => {
@@ -77,15 +85,14 @@ export default function Register() {
                  * Was `disableWhileProcessing` on Inertia's `<Form>`: while the
                  * server is deciding, the fields are not worth typing into.
                  */
-                inert={isSubmitting}
                 onSubmit={handleSubmit(onValid)}
                 className="space-y-5 max-md:space-y-(--auth-field-gap)"
             >
                 <Field
                     id="name"
                     type="text"
-                    label="Full Name"
-                    placeholder="Full name"
+                    label="Name"
+                    placeholder="Jane Doe"
                     autoComplete="name"
                     autoFocus
                     tabIndex={1}
@@ -106,16 +113,47 @@ export default function Register() {
 
                 {/* Side by side from md up, stacked below. */}
                 <div className="space-y-5 max-md:space-y-(--auth-field-gap) md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-                    <PasswordField
-                        id="password"
-                        type="password"
-                        label="Password"
-                        placeholder="Password"
-                        autoComplete="new-password"
-                        tabIndex={3}
-                        error={errors.password?.message}
-                        {...registerField('password')}
-                    />
+                    <div className="space-y-1.5">
+                        <PasswordField
+                            id="password"
+                            type="password"
+                            label="Password"
+                            placeholder="Password"
+                            autoComplete="new-password"
+                            tabIndex={3}
+                            error={errors.password?.message}
+                            {...registerField('password')}
+                        />
+                        <div className="space-y-1 text-xs">
+                            <p
+                                className={
+                                    hasLength
+                                        ? 'font-medium text-green-600 dark:text-green-400'
+                                        : 'font-medium text-red-600 dark:text-red-400'
+                                }
+                            >
+                                • At least 8 characters
+                            </p>
+                            <p
+                                className={
+                                    hasNumber
+                                        ? 'font-medium text-green-600 dark:text-green-400'
+                                        : 'font-medium text-red-600 dark:text-red-400'
+                                }
+                            >
+                                • At least one number
+                            </p>
+                            <p
+                                className={
+                                    hasSpecial
+                                        ? 'font-medium text-green-600 dark:text-green-400'
+                                        : 'font-medium text-red-600 dark:text-red-400'
+                                }
+                            >
+                                • At least one special character (e.g. . _ @)
+                            </p>
+                        </div>
+                    </div>
 
                     <PasswordField
                         id="password_confirmation"
@@ -143,7 +181,7 @@ export default function Register() {
                     className="mt-1 w-full max-md:mt-(--auth-block-gap)"
                     tabIndex={5}
                     disabled={isSubmitting}
-                    data-test="register-user-button"
+                    data-test="register-button"
                 >
                     {isSubmitting && <Spinner />}
                     Sign Up

@@ -4,7 +4,6 @@ use App\Enums\Role;
 use App\Models\Furniture;
 use App\Models\User;
 use Database\Seeders\FurnitureSeeder;
-use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 

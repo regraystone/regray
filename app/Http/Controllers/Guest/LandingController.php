@@ -32,7 +32,7 @@ class LandingController extends Controller
         public readonly StoneRepositoryInterface $stoneRepository,
     ) {}
 
-    public function index(Request $request): Response | RedirectResponse
+    public function index(Request $request): Response|RedirectResponse
     {
         if ($request->user()) {
             return redirect()->route('dashboard');

@@ -18,6 +18,7 @@ export type ProductCardData = {
 
 const ProductCard = ({
     product,
+    aspect: _aspect,
     saved,
     onToggleSave,
     href,
@@ -29,6 +30,7 @@ const ProductCard = ({
     priority = false,
 }: {
     product: ProductCardData;
+    aspect?: string;
     saved: boolean;
     /**
      * Optional callback when the user clicks the save heart.

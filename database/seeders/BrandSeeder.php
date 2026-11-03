@@ -18,7 +18,7 @@ class BrandSeeder extends Seeder
 
         foreach ($brands as $sort => $data) {
             $logoPath = $data['logo_path'];
-            $logoSource = $data['logo_source'] ?? $logoPath;
+            $logoSource = $data['logo_source'];
             $thumbnailPath = $data['thumbnail_path'] ?? null;
             $thumbnailSource = $data['thumbnail_source'] ?? null;
 
