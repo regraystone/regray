@@ -53,7 +53,7 @@ import type {
     Realtime,
 } from '@/types/message';
 
-export const SUPPORT_EMPTY_TEXT = 'Message Regray Team any time.';
+export const SUPPORT_EMPTY_TEXT = 'Message Regray any time.';
 
 type ThreadProps = {
     conversationId: number;

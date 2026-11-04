@@ -52,7 +52,7 @@ it('emails a client about a staff message they have not read after 30 minutes, o
     Notification::assertSentTo($client, UnreadMessagesNotification::class, function (UnreadMessagesNotification $notification) use ($thread): bool {
         return $notification->threads === [[
             'conversationId' => $thread->id,
-            'name' => 'Regray Team',
+            'name' => 'Regray',
             'count' => 1,
             'latestId' => Message::query()->where('body', 'Your quote is ready.')->value('id'),
         ]];
@@ -188,7 +188,7 @@ it('does not email an address that was never verified', function (): void {
 it('puts no message text in the email, only who and how many, with a link to the thread', function (): void {
     $notification = new UnreadMessagesNotification([[
         'conversationId' => 42,
-        'name' => 'Regray Team',
+        'name' => 'Regray',
         'count' => 2,
         'latestId' => 7,
     ]]);
@@ -196,7 +196,7 @@ it('puts no message text in the email, only who and how many, with a link to the
     $mail = $notification->toMail(inquiryClient());
 
     expect($mail->subject)->toBe('You have 2 new messages')
-        ->and($mail->introLines)->toContain('Regray Team: 2 new messages')
+        ->and($mail->introLines)->toContain('Regray: 2 new messages')
         ->and($mail->actionUrl)->toBe(route('inbox.index', ['conversation' => 42]));
 });
 

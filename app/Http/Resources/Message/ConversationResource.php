@@ -23,8 +23,8 @@ use Illuminate\Support\Str;
  * A conversation as a row in the list and as a thread header.
  *
  * The name depends on who is reading. A client's own Regray Team thread is
- * "Regray Team"; staff see the same thread by the client's name, because a pool
- * of identical "Regray Team" rows would be unreadable. A direct conversation is
+ * "Regray"; staff see the same thread by the client's name, because a pool
+ * of identical "Regray" rows would be unreadable. A direct conversation is
  * named after the other person.
  *
  * Expects the columns and relations EloquentConversationRepository::listQuery
@@ -36,7 +36,7 @@ class ConversationResource extends JsonResource
 {
     public const PREVIEW_LENGTH = 80;
 
-    public const EMPTY_SUPPORT_PREVIEW = 'Message Regray Team any time.';
+    public const EMPTY_SUPPORT_PREVIEW = 'Message Regray any time.';
 
     /** @var array<string, string> */
     private const SCHEDULE_HEADLINES = [

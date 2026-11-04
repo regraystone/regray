@@ -211,7 +211,7 @@ class MessageReminderService
 
     /**
      * The conversation as `$user` sees it in their list: a client's own
-     * Regray Team thread is "Regray Team", staff see it under the client's
+     * Regray Team thread is "Regray", staff see it under the client's
      * name, a direct chat is the other person.
      */
     private function nameFor(Conversation $conversation, User $user): string

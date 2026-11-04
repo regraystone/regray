@@ -65,9 +65,7 @@ test('40 · a sent inquiry posts a "New Inquiry" card into the Regray Team threa
         '/dashboard/inbox?conversation=support',
         reference,
     );
-    await expect(client.page.getByTestId('thread-title')).toHaveText(
-        'Regray Team',
-    );
+    await expect(client.page.getByTestId('thread-title')).toHaveText('Regray');
 
     const threadId = php<number>(
         `App\\Models\\Conversation::query()->where('support_client_id', ${clientAId})->value('id')`,

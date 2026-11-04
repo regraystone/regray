@@ -41,7 +41,7 @@ const ThreadHeader = ({
         (conversation.type === 'group' && conversation.memberCount !== null
             ? `${conversation.memberCount} members`
             : conversation.isSupport && conversation.supportClient
-              ? 'Regray Team'
+              ? 'Regray'
               : null);
 
     return (

@@ -2,7 +2,7 @@ import { api, expect, fixtures, shot, test } from './support/fixtures';
 
 /* A. Access and roles (R2, R6, §6) */
 
-test('1 · a client with no inquiry sees "Regray Team" first, empty, with the empty-state text', async ({
+test('1 · a client with no inquiry sees "Regray" first, empty, with the empty-state text', async ({
     sessions,
 }, testInfo) => {
     const { page } = await sessions.open('freshClient');
@@ -10,10 +10,10 @@ test('1 · a client with no inquiry sees "Regray Team" first, empty, with the em
     await page.goto('/dashboard/inbox');
 
     const names = page.getByTestId('conversation-name');
-    await expect(names.first()).toHaveText('Regray Team');
+    await expect(names.first()).toHaveText('Regray');
 
     await page.getByTestId('conversation-row').first().click();
-    await expect(page.getByTestId('thread-title')).toHaveText('Regray Team');
+    await expect(page.getByTestId('thread-title')).toHaveText('Regray');
     await expect(page.getByTestId('thread-empty')).toBeVisible();
     await expect(page.getByTestId('thread-empty')).not.toBeEmpty();
     await expect(page.getByTestId('message-bubble')).toHaveCount(0);

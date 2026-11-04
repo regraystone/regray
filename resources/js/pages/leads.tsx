@@ -197,7 +197,7 @@ const Leads = () => {
                 only={['leads', 'filters']}
                 searchPlaceholder="Search by name, email or inquiry no."
                 emptyTitle="No leads found"
-                emptyDescription="A lead is created when you take a client's Regray Team conversation."
+                emptyDescription="A lead is created when you take a client's Regray conversation."
                 statusFilter={statusFilter}
                 statusOptions={statusOptions}
                 onStatusFilterChange={handleStatusFilterChange}

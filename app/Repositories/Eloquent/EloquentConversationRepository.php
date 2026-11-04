@@ -20,9 +20,9 @@ use Illuminate\Support\Facades\DB;
 
 class EloquentConversationRepository implements ConversationRepositoryInterface
 {
-    public const SUPPORT_NAME = 'Regray Team';
+    public const SUPPORT_NAME = 'Regray';
 
-    public const SUPPORT_AVATAR = '/images/regray-logo.svg';
+    public const SUPPORT_AVATAR = '/images/regray_icon.svg';
 
     /**
      * Messages from others the user has not read. System notices and removed

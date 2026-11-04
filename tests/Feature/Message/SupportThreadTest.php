@@ -56,7 +56,7 @@ it('gives a newly registered client one Regray Team thread', function (): void {
     $client->markEmailAsVerified();
 
     expect(Conversation::query()->where('support_client_id', $client->id)->count())->toBe(1)
-        ->and(listedConversationNames($client))->toBe(['Regray Team']);
+        ->and(listedConversationNames($client))->toBe(['Regray']);
 });
 
 it('creates the Regray Team thread once, however often it is asked for', function (): void {
@@ -135,7 +135,7 @@ it('shows staff each client\'s thread under the client\'s name and initials, and
 
     $clientRow = $rowsFor($rafael)[0];
 
-    expect($clientRow['name'])->toBe('Regray Team')
+    expect($clientRow['name'])->toBe('Regray')
         ->and($clientRow['avatar'])->toBe(EloquentConversationRepository::SUPPORT_AVATAR);
 });
 
@@ -251,7 +251,7 @@ it('refuses to reassign a thread to someone outside the pool with 422', function
 
     $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.reassign', $thread), ['userId' => $sales->id])
         ->assertUnprocessable()
-        ->assertJsonPath('message', 'Sam cannot handle Regray Team conversations.');
+        ->assertJsonPath('message', 'Sam cannot handle Regray conversations.');
 
     expect($thread->refresh()->assigned_to)->toBeNull();
 });
@@ -269,7 +269,7 @@ it('sends the assignment state to staff only, and only for a Regray Team thread'
     $this->actingAs($marketing)->getJson(route('inbox.thread', $group))->assertJsonPath('assignment', null);
 });
 
-it('shows the client "Regray Team" for staff messages while nobody handles the thread', function (): void {
+it('shows the client "Regray" for staff messages while nobody handles the thread', function (): void {
     $client = inquiryClient();
     $thread = supportThreadFor($client);
     $marketing = messagingStaff(Role::Marketing, 'Mara');
@@ -281,7 +281,7 @@ it('shows the client "Regray Team" for staff messages while nobody handles the t
     $this->actingAs($marketing)->postJson(route('inbox.release', $thread))->assertOk();
 
     $this->actingAs($client)->getJson(route('inbox.thread', $thread))
-        ->assertJsonPath('messages.1.sender.name', 'Regray Team')
+        ->assertJsonPath('messages.1.sender.name', 'Regray')
         ->assertJsonPath('conversation.supportClient', null);
 });
 

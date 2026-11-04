@@ -89,9 +89,7 @@ test('18 · both marketing users see the "Assign to me" card; the client never d
 
     const client = await sessions.open({ email: thread.email });
     await client.page.goto('/dashboard/inbox?conversation=support');
-    await expect(client.page.getByTestId('thread-title')).toHaveText(
-        'Regray Team',
-    );
+    await expect(client.page.getByTestId('thread-title')).toHaveText('Regray');
     await expect(client.page.getByTestId('message-bubble')).toHaveCount(1);
     await expect(client.page.getByTestId('assignment-card')).toHaveCount(0);
     await expect(client.page.getByText('Assign to me')).toHaveCount(0);
@@ -142,9 +140,7 @@ test('20 · the client sees "Handled by {A}" and the claim message without a rel
     const thread = fixtures().support.names;
     const client = await sessions.open({ email: thread.email });
     await client.page.goto('/dashboard/inbox?conversation=support');
-    await expect(client.page.getByTestId('thread-title')).toHaveText(
-        'Regray Team',
-    );
+    await expect(client.page.getByTestId('thread-title')).toHaveText('Regray');
     await expect(client.page.getByTestId('system-event')).toHaveCount(0);
 
     const a = await sessions.open('marketingA');
