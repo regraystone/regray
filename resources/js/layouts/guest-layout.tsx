@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
+import { home, login } from '@/routes';
 
 export default function GuestLayout({
     children,
@@ -14,9 +15,9 @@ export default function GuestLayout({
                     className="flex h-16 items-center justify-between px-4 sm:px-5 lg:px-8"
                     aria-label="Primary"
                 >
-                    <Logo href="/" />
+                    <Logo href={home.url()} />
                     <Button asChild size="lg">
-                        <Link href="/login">Login</Link>
+                        <Link href={login.url()}>Login</Link>
                     </Button>
                 </nav>
             </header>

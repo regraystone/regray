@@ -9,6 +9,8 @@ import { router } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from 'sonner';
+import { store as saveStone } from '@/routes/saved';
+import { store as saveFurniture } from '@/routes/saved/furniture';
 
 const SAVE_DEBOUNCE_MS = 350;
 const EMPTY_SLUGS: string[] = [];
@@ -84,14 +86,15 @@ type SavedKind = {
 const stones: SavedKind = {
     store: createStore(),
     prop: 'savedStoneSlugs',
-    url: (slug) => `/saved/${slug}`,
+    // Saving and unsaving share one URL, told apart by PUT and DELETE.
+    url: (slug) => saveStone.url({ stone: slug }),
     errorMessage: 'Failed to update saved stones. Please try again.',
 };
 
 const furniture: SavedKind = {
     store: createStore(),
     prop: 'savedFurnitureSlugs',
-    url: (slug) => `/saved/furniture/${slug}`,
+    url: (slug) => saveFurniture.url({ furniture: slug }),
     errorMessage: 'Failed to update saved furniture. Please try again.',
 };
 

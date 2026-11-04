@@ -2,6 +2,7 @@ import { usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import { book as scheduleBook } from '@/routes/schedule';
+import { show as showProfile } from '@/routes/profile';
 import { book as profileScheduleBook } from '@/routes/profile/schedule';
 
 /**
@@ -9,7 +10,7 @@ import { book as profileScheduleBook } from '@/routes/profile/schedule';
  *
  * Reading the URL rather than the permissions matters because admin holds both
  * doors and should stay on the one they are using. The door they are on is
- * determined by whether the current page is under `/profile`.
+ * determined by whether the current page is under the Profile hub.
  */
 export function useBookRoute() {
     const { can } = usePermissions();
@@ -19,7 +20,7 @@ export function useBookRoute() {
         return null;
     }
 
-    if (url.startsWith('/profile')) {
+    if (url.startsWith(showProfile.url())) {
         return profileScheduleBook;
     }
 

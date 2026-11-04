@@ -14,7 +14,7 @@
 # The brand logos and thumbnails are content, not runtime uploads, so they are
 # committed and served straight from storage/app/public/brands/.
 !brands/
-!brands/*
+!brands/**
 
 # The furniture photographs are content, not runtime uploads, so they are
 # committed and served straight from storage/app/public/furniture/.
