@@ -18,7 +18,7 @@ beforeEach(function (): void {
     $this->seed([RolePermissionSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, BrandSeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
 });
 
-test('the seeder writes each brand logo to the public disk under its stable path', function (): void {
+test('the seeder gives each brand its logo under its stable path', function (): void {
     $data = require database_path('seeders/data/brands.php');
     $brands = Brand::query()->orderBy('sort_order')->get();
 
@@ -26,7 +26,13 @@ test('the seeder writes each brand logo to the public disk under its stable path
 
     foreach ($brands as $index => $brand) {
         expect($brand->logo_path)->toBe($data[$index]['logo_path']);
-        Storage::disk(config('filesystems.public_disk'))->assertExists($brand->logo_path);
+
+        // A logo with a source is copied to the disk; one without is committed in storage.
+        if (isset($data[$index]['logo_source'])) {
+            Storage::disk(config('filesystems.public_disk'))->assertExists($brand->logo_path);
+        } else {
+            expect(storage_path('app/public/'.$brand->logo_path))->toBeFile();
+        }
     }
 
     // Seeding again keeps the logos it already wrote.

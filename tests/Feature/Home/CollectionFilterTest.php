@@ -93,7 +93,7 @@ test('furniture filters by furniture type and search, a page at a time', functio
             ->where('furniture.data.0', [
                 'slug' => 'alora',
                 'name' => 'Alora',
-                'thumbnail' => '/storage/furniture/alora.jpg',
+                'thumbnail' => '/storage/furniture/7d54e2740ed811b994f831e3af754ca8.jpg',
                 'furnitureType' => ['slug' => 'tables', 'name' => 'Tables'],
             ])
             ->where('filters.collection', 'furniture')

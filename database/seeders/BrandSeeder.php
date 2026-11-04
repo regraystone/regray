@@ -13,18 +13,25 @@ class BrandSeeder extends Seeder
     {
         $disk = Storage::disk(config('filesystems.public_disk'));
 
-        /** @var list<array{slug: string, name: string, logo_source: string, logo_path: string, thumbnail_source?: string|null, thumbnail_path?: string|null, website_url: string|null, tagline: string, description: string}> $brands */
+        /** @var list<array{slug: string, name: string, logo_source?: string|null, logo_path: string, thumbnail_source?: string|null, thumbnail_path?: string|null, website_url: string|null, tagline: string, description: string}> $brands */
         $brands = require database_path('seeders/data/brands.php');
 
         foreach ($brands as $sort => $data) {
             $logoPath = $data['logo_path'];
-            $logoSource = $data['logo_source'];
+            $logoSource = $data['logo_source'] ?? null;
             $thumbnailPath = $data['thumbnail_path'] ?? null;
             $thumbnailSource = $data['thumbnail_source'] ?? null;
 
-            $logoSourceFullPath = database_path('seeders/data/'.$logoSource);
-            if (File::exists($logoSourceFullPath)) {
-                $disk->put($logoPath, File::get($logoSourceFullPath));
+            /*
+             * A logo without a source is already on the disk: committed under
+             * storage/app/public/ locally and uploaded by hand on AWS, like the
+             * stone photographs. Only its path is seeded.
+             */
+            if ($logoSource !== null) {
+                $logoSourceFullPath = database_path('seeders/data/'.$logoSource);
+                if (File::exists($logoSourceFullPath)) {
+                    $disk->put($logoPath, File::get($logoSourceFullPath));
+                }
             }
 
             if ($thumbnailPath !== null && $thumbnailSource !== null) {

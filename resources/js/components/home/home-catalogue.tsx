@@ -35,15 +35,16 @@ const END_OF_LIST_TOAST_ID = 'home-end-of-list';
  * The share of each logo image's height its main lettering takes up, ignoring
  * sub-lines like "Gruppo Lube" and the badge around "Lube", keyed by brand
  * slug. The tile sizes each logo by it, so the brand names read at one
- * height and wide wordmarks like Ascale and Faer stay narrow. Regray Stone's
- * mark has no lettering, so it takes Cucine's share and the two square marks
- * match. A brand not listed here gets the default.
+ * height and wide wordmarks like Ascale stay narrow. Regray Stone and Faer are
+ * long wordmarks, so they are set above their true share (0.67 and 0.99) to
+ * keep them about as wide as the others rather than letter for letter. A brand
+ * not listed here gets the default.
  */
 const BRAND_NAME_SHARE: Record<string, number> = {
-    'regray-stone': 0.46,
+    'regray-stone': 0.94,
     cucine: 0.46,
     ascale: 1,
-    faer: 0.51,
+    faer: 1.45,
     reform: 0.7,
     'res-italia': 0.59,
 };

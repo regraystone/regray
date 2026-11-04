@@ -2,15 +2,16 @@
 
 /*
  * The brands on the home page, in their order there. `logo_path` is where the
- * logo lives on the public disk; the matching source file is at
- * data/<logo_path>. BrandSeeder copies it there, so the path never changes.
+ * logo lives on the public disk. A brand with a `logo_source` has its logo
+ * copied there by BrandSeeder from data/<logo_source>; a brand without one has
+ * its logo committed at storage/app/public/<logo_path>, like the stone and
+ * project photographs, and uploaded to the bucket by hand on AWS.
  */
 return [
     [
         'slug' => 'regray-stone',
         'name' => 'Regray Stone',
-        'logo_source' => 'brands/regray_stone_logo.png',
-        'logo_path' => 'brands/2f5c8e1a9b3d6f4c7e0a1d8b5c2e9a3f.png',
+        'logo_path' => 'brands/7eb55a8ed8d09d3237cd348c2a3a929e.png',
         'thumbnail_source' => 'brands/regray_thumbnail.png',
         'thumbnail_path' => 'brands/9c2e5a1f8b4d7c3e6a9f2c5e8a1d4b7f.png',
         'website_url' => 'https://regraystone.com/',
@@ -42,8 +43,7 @@ return [
     [
         'slug' => 'faer',
         'name' => 'Faer Ambienti',
-        'logo_source' => 'brands/faer_logo.png',
-        'logo_path' => 'brands/9f2a6c1e4d8b5f3a7c0e1d9b2f6e8c5a.png',
+        'logo_path' => 'brands/89fd17555451595ef74f24db286ca730.png',
         'thumbnail_source' => 'brands/faer_thumbnail.png',
         'thumbnail_path' => 'brands/8b3a1f5e9c6d2a7f4e0c1b8d5f3e9a6c.png',
         'website_url' => null,
@@ -53,8 +53,7 @@ return [
     [
         'slug' => 'reform',
         'name' => 'Reform',
-        'logo_source' => 'brands/reform_logo.png',
-        'logo_path' => 'brands/3c8e1f5a9b4d7c2e6f0a3b8d1c5e9f6a.png',
+        'logo_path' => 'brands/fa06348dbb0ab7454f4180f30881956c.png',
         'thumbnail_source' => 'brands/reform_thumbnail.png',
         'thumbnail_path' => 'brands/2b7e3a9f1c5d8a6b4e0f2c7d9a1b5e8f.png',
         'website_url' => 'https://www.reformcph.com/',
