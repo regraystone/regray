@@ -3,7 +3,7 @@ import BetaBadge from '@/components/beta-badge';
 import { dashboard } from '@/routes';
 
 /**
- * The wordmark: "Regray Studio", all of it bold. `compact` (the collapsed
+ * The wordmark: "Regray", all of it bold. `compact` (the collapsed
  * sidebar) has no room for it, so it shows an R on a black square instead.
  */
 const Logo = ({
@@ -20,7 +20,7 @@ const Logo = ({
         className={`relative flex items-center ${
             compact ? 'justify-center' : 'gap-2'
         } ${className}`}
-        aria-label="Regray Studio home"
+        aria-label="Regray home"
     >
         {compact ? (
             <span
@@ -31,7 +31,7 @@ const Logo = ({
             </span>
         ) : (
             <span className="text-2xl font-extrabold whitespace-nowrap uppercase lg:text-xl">
-                Regray Studio
+                Regray
             </span>
         )}
         <BetaBadge compact={compact} />
