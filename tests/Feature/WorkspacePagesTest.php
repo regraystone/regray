@@ -31,7 +31,12 @@ beforeEach(function () {
 });
 
 /**
- * Every page the app exposes, with the parameters each route needs.
+ * Every guarded workspace page, with the parameters each route needs.
+ *
+ * The public catalogue (a brand, a piece of furniture, the stone catch-all) is
+ * not here: it never refuses anyone, so there is no 403 or login redirect for
+ * the walk below to check. Its guard, which is none at all, is pinned by the
+ * guard map instead.
  *
  * @return array<string, array<string, string>>
  */
@@ -41,11 +46,12 @@ function workspacePages(): array
         'home.index' => [],
         'home.show' => ['slug' => 'ginza-one'],
         'home.stone' => ['stone' => 'arctic-pink'],
-        'brands.show' => ['brand' => 'regray-stone'],
-        'furniture.show' => ['furniture' => 'rounded-table'],
+        'dashboard.brand.show' => ['brand' => 'regray-stone'],
+        'dashboard.furniture.show' => ['furniture' => 'alora'],
         'overview.index' => [],
         'saved.index' => [],
         'saved.show' => ['stone' => 'arctic-pink'],
+        'saved.furniture.show' => ['furniture' => 'alora'],
         'sales.index' => [],
         'quote.index' => [],
         'inquiry.index' => [],
@@ -142,11 +148,16 @@ test('guards every route with exactly these permissions', function () {
         'home.index' => $p(Permission::HomeView),
         'home.show' => $p(Permission::HomeStoneView, Permission::HomeProjectsView),
         'home.stone' => $p(Permission::HomeStoneView),
-        'brands.show' => $p(Permission::HomeView),
-        'furniture.show' => $p(Permission::HomeView),
+        // The public catalogue answers guests, so it carries no permission.
+        'brands.show' => [],
+        'furniture.show' => [],
+        'stone.show' => [],
+        'dashboard.brand.show' => $p(Permission::HomeView),
+        'dashboard.furniture.show' => $p(Permission::HomeView),
         'overview.index' => $p(Permission::OverviewView),
         'saved.index' => $p(Permission::SavedView),
         'saved.show' => $p(Permission::SavedStoneView),
+        'saved.furniture.show' => $p(Permission::SavedView),
         'saved.project' => $p(Permission::SavedProjectsView),
         'saved.store' => $p(Permission::SavedView, Permission::SavedManage),
         'saved.destroy' => $p(Permission::SavedView, Permission::SavedManage),
@@ -228,7 +239,7 @@ test('opens to each role exactly the pages its matrix entry grants', function (s
         $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
     }
 
-    if (guardsAllow($role, 'brands.show') || guardsAllow($role, 'furniture.show')) {
+    if (guardsAllow($role, 'dashboard.brand.show') || guardsAllow($role, 'dashboard.furniture.show') || guardsAllow($role, 'saved.furniture.show')) {
         Storage::fake(config('filesystems.public_disk'));
         $this->seed([ProjectCategorySeeder::class, BrandSeeder::class, FurnitureSeeder::class]);
     }
@@ -266,7 +277,7 @@ test('sends a guest to log in and an unverified user to verify', function () {
 });
 
 test('lands each role on a page it can open, and the rest on the default', function (string $role) {
-    $landing = $role === Role::Client->value ? '/home' : '/overview';
+    $landing = $role === Role::Client->value ? '/dashboard/home' : '/dashboard/overview';
     $user = User::factory()->role($role)->create();
 
     $this->actingAs($user)->get(route('dashboard'))->assertRedirect($landing);
