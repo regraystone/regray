@@ -76,44 +76,63 @@ const ProductCard = ({
         setHeartAnimation(saved ? 'heart-save' : 'heart-unsave');
     }
 
-    const heart = onToggleSave ? (
-        <button
-            type="button"
-            onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onToggleSave();
-            }}
-            aria-pressed={saved}
-            aria-label={
-                saved
-                    ? `Remove ${product.name} from saved`
-                    : `Save ${product.name}`
-            }
-            className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-md transition-opacity hover:opacity-60 active:scale-90"
-        >
-            <Heart
-                key={heartAnimation}
-                className={`size-5 ${
-                    saved ? 'fill-red-500 text-red-500' : 'text-white'
-                } ${heartAnimation}`}
-                aria-hidden
-            />
-        </button>
-    ) : null;
+    /*
+     * The same heart is drawn twice: over the picture and in the name row.
+     * Only one of them is ever laid out — the picture copy from `lg` up, where
+     * it fades in on hover, and the name-row copy below that, where a touch
+     * screen has no hover to reveal anything with. `display: none` also takes
+     * the hidden copy out of the tab order and the accessibility tree, so the
+     * heart is never announced twice.
+     */
+    const renderHeart = (onPicture: boolean) =>
+        onToggleSave ? (
+            <button
+                type="button"
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onToggleSave();
+                }}
+                aria-pressed={saved}
+                aria-label={
+                    saved
+                        ? `Remove ${product.name} from saved`
+                        : `Save ${product.name}`
+                }
+                className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-md transition-opacity hover:opacity-60 active:scale-90"
+            >
+                <Heart
+                    key={heartAnimation}
+                    className={`size-5 ${
+                        saved
+                            ? 'fill-red-500 text-red-500'
+                            : onPicture
+                              ? 'text-white'
+                              : 'text-secondary-foreground'
+                    } ${heartAnimation}`}
+                    aria-hidden
+                />
+            </button>
+        ) : null;
 
-    const view = viewHref ? (
-        <a
-            href={viewHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(event) => event.stopPropagation()}
-            aria-label={`View ${product.name} (opens in a new tab)`}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-white transition-opacity hover:opacity-60"
-        >
-            <ExternalLink className="size-5" aria-hidden />
-        </a>
-    ) : null;
+    const renderView = (onPicture: boolean) =>
+        viewHref ? (
+            <a
+                href={viewHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`View ${product.name} (opens in a new tab)`}
+                className={`grid h-9 w-9 shrink-0 place-items-center rounded-md transition-opacity hover:opacity-60 ${
+                    onPicture ? 'text-white' : 'text-secondary-foreground'
+                }`}
+            >
+                <ExternalLink className="size-5" aria-hidden />
+            </a>
+        ) : null;
+
+    const heart = renderHeart(true);
+    const view = renderView(true);
 
     const placeholder = (
         <div
@@ -219,8 +238,8 @@ const ProductCard = ({
                  * full card width instead of sharing it with the controls.
                  */}
                 <div className="absolute right-3 bottom-2 flex items-center">
-                    {heart}
-                    {view}
+                    {renderHeart(false)}
+                    {renderView(false)}
                 </div>
             </article>
         );
@@ -251,7 +270,7 @@ const ProductCard = ({
                 )}
                 {bestSeller}
                 {heart || view ? (
-                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-md bg-black/60 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+                    <div className="absolute top-3 right-3 z-10 hidden items-center gap-1 rounded-md bg-black/60 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 lg:flex">
                         {heart}
                         {view}
                     </div>
@@ -265,10 +284,22 @@ const ProductCard = ({
                     >
                         {product.name}
                     </span>
-                    <span className="mt-0.5 block text-sm break-words text-secondary-foreground uppercase">
+                    <span className="mt-0.5 block text-sm break-words text-secondary-foreground">
                         {product.category.name}
                     </span>
                 </span>
+                {/*
+                 * Below `lg` there is no hover to reveal the picture's heart,
+                 * so it sits at the top right of the name row, level with the
+                 * first line. From `lg` up the picture copy takes over and this
+                 * one is not laid out.
+                 */}
+                {onToggleSave || viewHref ? (
+                    <div className="-mt-2 flex shrink-0 items-center lg:hidden">
+                        {renderHeart(false)}
+                        {renderView(false)}
+                    </div>
+                ) : null}
             </div>
         </article>
     );

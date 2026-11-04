@@ -169,7 +169,7 @@ const CardSkeleton = ({ showHeart }: { showHeart: boolean }) => (
                 <Skeleton className="h-4 w-1/2 rounded-none" />
             </div>
             {showHeart && (
-                <div className="-mt-2 -mr-3 grid size-11 shrink-0 place-items-center">
+                <div className="-mt-2 -mr-3 grid size-11 shrink-0 place-items-center lg:hidden">
                     <Skeleton className="size-5 rounded-none" />
                 </div>
             )}
