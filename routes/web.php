@@ -6,14 +6,14 @@ use App\Http\Controllers\Furniture\FurnitureController;
 use App\Http\Controllers\Guest\LandingController;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
+use App\Http\Controllers\Inbox\AttachmentController;
+use App\Http\Controllers\Inbox\GroupMemberController;
+use App\Http\Controllers\Inbox\MessageController;
+use App\Http\Controllers\Inbox\ThreadController;
 use App\Http\Controllers\Inquiry\InquiryController;
 use App\Http\Controllers\Inquiry\InquiryStatusController;
 use App\Http\Controllers\Inquiry\StaffClientController;
 use App\Http\Controllers\Lead\LeadController;
-use App\Http\Controllers\Message\AttachmentController;
-use App\Http\Controllers\Message\GroupMemberController;
-use App\Http\Controllers\Message\MessageController;
-use App\Http\Controllers\Message\ThreadController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\QuoteController;
@@ -297,53 +297,53 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware([Permission::ScheduleCreate->middleware(), 'throttle:booking'])
             ->name('schedule.book.store');
         /*
-         * The Message page. Everything under it needs `messages.view`; the
+         * The Inbox page. Everything under it needs `messages.view`; the
          * conversation routes then ask ConversationPolicy whether this user may
          * read, write in or hand over that particular thread.
          */
         Route::middleware(Permission::MessagesView->middleware())->group(function () {
-            Route::get('message', [MessageController::class, 'index'])->name('message.index');
+            Route::get('inbox', [MessageController::class, 'index'])->name('inbox.index');
 
-            Route::get('message/people', [MessageController::class, 'people'])
+            Route::get('inbox/people', [MessageController::class, 'people'])
                 ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
-                ->name('message.people');
-            Route::post('message/groups', [MessageController::class, 'storeGroup'])
+                ->name('inbox.people');
+            Route::post('inbox/groups', [MessageController::class, 'storeGroup'])
                 ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
-                ->name('message.groups.store');
+                ->name('inbox.groups.store');
 
-            Route::patch('message/messages/{message}', [ThreadController::class, 'update'])
+            Route::patch('inbox/messages/{message}', [ThreadController::class, 'update'])
                 ->whereNumber('message')
-                ->name('message.messages.update');
-            Route::delete('message/messages/{message}', [ThreadController::class, 'destroy'])
+                ->name('inbox.messages.update');
+            Route::delete('inbox/messages/{message}', [ThreadController::class, 'destroy'])
                 ->whereNumber('message')
-                ->name('message.messages.destroy');
-            Route::get('message/attachments/{attachment}', [AttachmentController::class, 'show'])
+                ->name('inbox.messages.destroy');
+            Route::get('inbox/attachments/{attachment}', [AttachmentController::class, 'show'])
                 ->whereNumber('attachment')
                 ->middleware('throttle:message-attachments')
-                ->name('message.attachments.show');
+                ->name('inbox.attachments.show');
 
-            Route::prefix('message/{conversation}')->whereNumber('conversation')->group(function () {
+            Route::prefix('inbox/{conversation}')->whereNumber('conversation')->group(function () {
                 Route::get('messages', [ThreadController::class, 'messages'])
                     ->middleware('can:view,conversation')
-                    ->name('message.thread');
+                    ->name('inbox.thread');
                 Route::post('messages', [ThreadController::class, 'send'])
                     ->middleware(['can:send,conversation', 'throttle:messages'])
-                    ->name('message.send');
+                    ->name('inbox.send');
                 Route::post('read', [ThreadController::class, 'pointer'])
                     ->middleware(['can:view,conversation', 'throttle:message-receipts'])
-                    ->name('message.read');
+                    ->name('inbox.read');
                 Route::post('delivered', [ThreadController::class, 'pointer'])
                     ->middleware(['can:view,conversation', 'throttle:message-receipts'])
-                    ->name('message.delivered');
+                    ->name('inbox.delivered');
                 Route::post('claim', [ThreadController::class, 'claim'])
                     ->middleware(['can:claim,conversation', 'throttle:message-assignment'])
-                    ->name('message.claim');
+                    ->name('inbox.claim');
                 Route::post('release', [ThreadController::class, 'release'])
                     ->middleware(['can:release,conversation', 'throttle:message-assignment'])
-                    ->name('message.release');
+                    ->name('inbox.release');
                 Route::post('reassign', [ThreadController::class, 'reassign'])
                     ->middleware(['can:reassign,conversation', 'throttle:message-assignment'])
-                    ->name('message.reassign');
+                    ->name('inbox.reassign');
 
                 /*
                  * A sales member of an inquiry's group chat adds accounting and
@@ -351,10 +351,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
                  */
                 Route::get('members', [GroupMemberController::class, 'index'])
                     ->middleware(['can:addMembers,conversation', 'throttle:message-people'])
-                    ->name('message.members.index');
+                    ->name('inbox.members.index');
                 Route::post('members', [GroupMemberController::class, 'store'])
                     ->middleware(['can:addMembers,conversation', 'throttle:group-create'])
-                    ->name('message.members.store');
+                    ->name('inbox.members.store');
             });
         });
         Route::get('stones', [ViewController::class, 'stones'])
@@ -397,7 +397,16 @@ Route::redirect('/quote', '/dashboard/quote', 301);
 Route::redirect('/inquiry', '/dashboard/inquiry', 301);
 Route::redirect('/leads', '/dashboard/leads', 301);
 Route::redirect('/schedule', '/dashboard/schedule', 301);
-Route::redirect('/message', '/dashboard/message', 301);
+
+/*
+ * The Message page was renamed Inbox. Old links keep working, including the
+ * /dashboard/message URLs the page itself lived at.
+ */
+Route::redirect('/message', '/dashboard/inbox', 301);
+Route::redirect('/message/{conversation}', '/dashboard/inbox/{conversation}', 301);
+Route::redirect('/dashboard/message', '/dashboard/inbox', 301);
+Route::redirect('/dashboard/message/{conversation}', '/dashboard/inbox/{conversation}', 301);
+
 Route::redirect('/stones', '/dashboard/stones', 301);
 Route::redirect('/services', '/dashboard/services', 301);
 Route::redirect('/projects', '/dashboard/projects', 301);

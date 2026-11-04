@@ -42,7 +42,7 @@ class ClientsWaitingNotification extends Notification implements ShouldQueue
 
         $mail = (new MailMessage)
             ->subject($clients === 1 ? 'A client is waiting for a reply' : "{$clients} clients are waiting for a reply")
-            ->line('Nobody has claimed these Regray Team conversations yet:');
+            ->line('Nobody has claimed these Regray conversations yet:');
 
         foreach ($this->threads as $thread) {
             $mail->line("{$thread['name']}: {$thread['count']} ".($thread['count'] === 1 ? 'message' : 'messages'));
@@ -51,7 +51,7 @@ class ClientsWaitingNotification extends Notification implements ShouldQueue
         return $mail
             ->line('Claim a conversation to answer it.')
             ->action('Open messages', $clients === 1
-                ? route('message.index', ['conversation' => $this->threads[0]['conversationId']])
-                : route('message.index'));
+                ? route('inbox.index', ['conversation' => $this->threads[0]['conversationId']])
+                : route('inbox.index'));
     }
 }

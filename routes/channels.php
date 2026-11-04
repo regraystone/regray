@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
- * The Message page's three private channels. Each is authorized by the same
+ * The Inbox page's three private channels. Each is authorized by the same
  * rule the HTTP endpoints use, so a thread a user may not open over HTTP is one
  * they may not listen to either.
  */

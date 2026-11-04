@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
- * Reading the Message page: the conversation list and a thread's messages.
+ * Reading the Inbox page: the conversation list and a thread's messages.
  */
 class ConversationService
 {

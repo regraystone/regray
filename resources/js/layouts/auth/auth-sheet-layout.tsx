@@ -131,7 +131,13 @@ export default function AuthSheetLayout({
                     className="flex min-w-0 items-center justify-center max-md:relative max-md:z-10 max-md:-mt-2 max-md:min-h-[50dvh] max-md:flex-none max-md:items-end max-md:rounded-t-md max-md:bg-background max-md:px-5 max-md:pt-[calc(var(--auth-block-gap)+0.25rem)] max-md:pb-[calc(var(--auth-block-gap)+0.5rem+env(safe-area-inset-bottom))] sm:max-md:px-8 md:px-12 lg:px-16 xl:px-20 2xl:px-28"
                 >
                     <div className="w-full max-w-md md:max-w-none">
-                        <h1 className="text-2xl font-medium tracking-[-0.04em] sm:text-3xl md:font-normal">
+                        <h1
+                            className={`text-2xl font-medium tracking-[-0.04em] sm:text-3xl md:font-normal ${
+                                title === 'Sign In' || title === 'Sign Up'
+                                    ? 'tracking-[0.08em] uppercase'
+                                    : ''
+                            }`}
+                        >
                             {title}
                         </h1>
                         {description ? (

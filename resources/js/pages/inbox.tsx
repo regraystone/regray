@@ -15,17 +15,17 @@ import { getEcho, listenTo, onReconnect } from '@/lib/echo';
 import { onUnreadChanged } from '@/lib/unread-badge';
 import { markDelivered } from '@/lib/message-api';
 import { cn } from '@/lib/utils';
-import { index as messageIndex } from '@/routes/message';
+import { index as inboxIndex } from '@/routes/inbox';
 import type { Auth } from '@/types';
 import type {
     ConversationSummary,
-    MessagePageProps,
+    InboxPageProps,
     Realtime,
 } from '@/types/message';
 
-type PageProps = MessagePageProps & { auth: Auth; realtime?: Realtime };
+type PageProps = InboxPageProps & { auth: Auth; realtime?: Realtime };
 
-type Filters = MessagePageProps['filters'];
+type Filters = InboxPageProps['filters'];
 
 /** Coarse pointers (fingers) get press-and-hold and Enter-adds-a-line. */
 const useIsTouch = (): boolean => {
@@ -45,7 +45,7 @@ const useIsTouch = (): boolean => {
     return isMobile || coarse;
 };
 
-const MessageSkeleton = () => (
+const InboxSkeleton = () => (
     <div className="w-full">
         <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden bg-background md:h-[calc(100svh-7.5rem)] md:min-h-[24rem] md:flex-row md:rounded-md md:border md:border-sidebar-border lg:h-[calc(100svh-8rem)]">
             <div className="flex w-full min-w-0 flex-col md:w-80 md:shrink-0 md:border-r md:border-sidebar-border lg:w-96">
@@ -76,7 +76,7 @@ const urlWithConversation = (id: number | null): string => {
 };
 
 /**
- * The Message page: the conversation list on the left and the open thread on
+ * The Inbox page: the conversation list on the left and the open thread on
  * the right (one at a time on a phone).
  *
  * The page owns which conversation is open (kept in `?conversation=`) and the
@@ -84,7 +84,7 @@ const urlWithConversation = (id: number | null): string => {
  * the pool channel, which is how a thread somebody else claims disappears from
  * this list.
  */
-const Message = () => {
+const Inbox = () => {
     const { props } = usePage<PageProps>();
     const {
         conversations,
@@ -146,7 +146,7 @@ const Message = () => {
             query.conversation = String(selectedRef.current.id);
         }
 
-        router.get(messageIndex.url({ query }), undefined, {
+        router.get(inboxIndex.url({ query }), undefined, {
             replace: true,
             preserveState: true,
             preserveScroll: true,
@@ -251,7 +251,7 @@ const Message = () => {
 
         /*
          * Only this page's listeners go; the channels stay joined, because the
-         * layout listens on the same two for the Message badge.
+         * layout listens on the same two for the Inbox badge.
          */
         return () => {
             stopReconnect();
@@ -276,7 +276,7 @@ const Message = () => {
     });
 
     if (initial.rows) {
-        return <MessageSkeleton />;
+        return <InboxSkeleton />;
     }
 
     return (
@@ -332,4 +332,4 @@ const Message = () => {
     );
 };
 
-export default Message;
+export default Inbox;

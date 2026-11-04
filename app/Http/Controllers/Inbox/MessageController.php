@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Message;
+namespace App\Http\Controllers\Inbox;
 
 use App\Actions\Message\CreateGroupAction;
 use App\Actions\Message\ListConversationsAction;
@@ -18,7 +18,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The Message page and the two things it does without a thread open: starting
+ * The Inbox page and the two things it does without a thread open: starting
  * a group for one client's inquiry, and finding the people and the inquiry to
  * start it with.
  */
@@ -37,7 +37,7 @@ class MessageController extends Controller
         $filters = $request->filters();
         $result = $this->listConversations->execute($user, $filters, $request->requestedConversation());
 
-        return Inertia::render('message', [
+        return Inertia::render('inbox', [
             'conversations' => Inertia::scroll(fn () => ConversationResource::collection($result['conversations']()))->defer(),
             'filters' => [
                 'search' => $filters->search ?? '',

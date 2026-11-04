@@ -1,4 +1,4 @@
-# Regray Studio: Production ERD (PostgreSQL)
+# Regray: Production ERD (PostgreSQL)
 
 This replaces the first draft. The database today only holds authentication, sessions, roles and permissions (the migrations). Everything else is mock data under `resources/js/data`, so those diagrams are **planned** schema. The repo targets **PostgreSQL** (`DB_CONNECTION=pgsql`), so the design uses `timestamptz`, partial unique indexes and CHECK constraints.
 

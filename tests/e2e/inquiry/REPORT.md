@@ -3,8 +3,8 @@
 ## Environment
 
 - Branch `feat/messaging`. The suite came in 1f179de; the fixes for the findings below came in the commit after it. Windows 11, local Chrome (`E2E_CHROME_PATH`); `playwright install` was not run.
-- The global setup (`tests/e2e/support/global-setup.ts`) refuses to run unless `APP_ENV` is local or testing, refuses a cached config and the dev database `regray-studio`. It then:
-    - resets the dedicated database `regray-studio-e2e` (`migrate:fresh --seed`, then `E2EMessageSeeder` and `E2EInquirySeeder`);
+- The global setup (`tests/e2e/support/global-setup.ts`) refuses to run unless `APP_ENV` is local or testing, refuses a cached config and the dev database `regray`. It then:
+    - resets the dedicated database `regray-e2e` (`migrate:fresh --seed`, then `E2EMessageSeeder` and `E2EInquirySeeder`);
     - starts its own `php artisan serve` (:8001), Reverb (:8081) and a queue worker (`queue:work --name=e2e`), so the queue worker **was running**;
     - signs each role in once and saves its cookies under `tests/e2e/.auth/`.
 - Vite: the running `npm run dev` (`public/hot`, `http://[::1]:5173`).

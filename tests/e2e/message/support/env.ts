@@ -13,7 +13,7 @@ const env = (name: string, fallback: string): string => {
 export const APP_PORT = Number(env('E2E_APP_PORT', '8001'));
 export const REVERB_PORT = Number(env('E2E_REVERB_PORT', '8081'));
 export const BASE_URL = env('E2E_BASE_URL', `http://127.0.0.1:${APP_PORT}`);
-export const DB_DATABASE = env('E2E_DB_DATABASE', 'regray-studio-e2e');
+export const DB_DATABASE = env('E2E_DB_DATABASE', 'regray-e2e');
 export const APP_ENV = env('E2E_APP_ENV', 'local');
 export const CHROME_PATH = env(
     'E2E_CHROME_PATH',

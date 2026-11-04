@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
  *
  * Built for a viewer, because two rules depend on who is reading:
  * - On a Regray Team thread nobody is handling, no staff name reaches the
- *   client: a staff sender is shown as "Regray Team".
+ *   client: a staff sender is shown as "Regray".
  * - A visit card is only filled in for staff and for the client whose visit it
  *   is; anyone else gets the card without its contents.
  *
@@ -30,7 +30,7 @@ class MessageResource extends JsonResource
 {
     public const SNIPPET_LENGTH = 120;
 
-    public const SUPPORT_TEAM_NAME = 'Regray Team';
+    public const SUPPORT_TEAM_NAME = 'Regray';
 
     /** What a reply quotes when the message it answers is files only. */
     public const ATTACHMENT_SNIPPET = 'Attachment';
@@ -86,7 +86,7 @@ class MessageResource extends JsonResource
                     'mimeType' => $attachment->mime_type,
                     'size' => $attachment->size_bytes,
                     'isImage' => str_starts_with($attachment->mime_type, 'image/'),
-                    'url' => route('message.attachments.show', $attachment, absolute: false),
+                    'url' => route('inbox.attachments.show', $attachment, absolute: false),
                 ])
                 ->values()
                 ->all(),

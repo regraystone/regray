@@ -308,7 +308,7 @@ export const openConversation = async (
     page: Page,
     conversationId: number | string,
 ): Promise<void> => {
-    await page.goto(`/message?conversation=${conversationId}`);
+    await page.goto(`/dashboard/inbox?conversation=${conversationId}`);
     await expect(page.getByTestId('thread')).toBeVisible();
 };
 

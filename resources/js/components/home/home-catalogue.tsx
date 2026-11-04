@@ -20,7 +20,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { show as brandsShow } from '@/routes/brands';
 import { show as furnitureShow } from '@/routes/furniture';
 import { index as homeIndex } from '@/routes/home';
-import { index as messageIndex } from '@/routes/message';
+import { index as inboxIndex } from '@/routes/inbox';
 import type {
     BrandCardData,
     Filters,
@@ -35,15 +35,16 @@ const END_OF_LIST_TOAST_ID = 'home-end-of-list';
  * The share of each logo image's height its main lettering takes up, ignoring
  * sub-lines like "Gruppo Lube" and the badge around "Lube", keyed by brand
  * slug. The tile sizes each logo by it, so the brand names read at one
- * height and wide wordmarks like Ascale and Faer stay narrow. Regray Stone's
- * mark has no lettering, so it takes Cucine's share and the two square marks
- * match. A brand not listed here gets the default.
+ * height and wide wordmarks like Ascale stay narrow. Regray Stone and Faer are
+ * long wordmarks, so they are set above their true share (0.67 and 0.99) to
+ * keep them about as wide as the others rather than letter for letter. A brand
+ * not listed here gets the default.
  */
 const BRAND_NAME_SHARE: Record<string, number> = {
-    'regray-stone': 0.46,
+    'regray-stone': 0.94,
     cucine: 0.46,
     ascale: 1,
-    faer: 0.51,
+    faer: 1.45,
     reform: 0.7,
     'res-italia': 0.59,
 };
@@ -122,7 +123,7 @@ const BrandTile = ({ brand }: { brand: BrandCardData }) => {
                         src={brand.thumbnail}
                         alt=""
                         aria-hidden
-                        className="absolute inset-0 size-full object-cover"
+                        className="absolute inset-0 size-full object-cover brightness-90"
                     />
                     <div className="image-tint absolute inset-0" aria-hidden />
                 </>
@@ -137,11 +138,11 @@ const BrandTile = ({ brand }: { brand: BrandCardData }) => {
                     }}
                     className="w-auto max-w-full shrink-0 self-start object-contain object-left sm:self-center"
                 />
-                {brand.description ? (
+                {brand.tagline ? (
                     <p
                         className={`max-w-md text-sm leading-relaxed sm:max-w-2xl sm:text-base ${brand.thumbnail ? 'text-on-image/90' : 'text-secondary-foreground'}`}
                     >
-                        {brand.description}
+                        {brand.tagline}
                     </p>
                 ) : null}
             </div>
@@ -754,7 +755,7 @@ export default function HomeCatalogue() {
                 size="lg"
                 className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-40 shadow-lg"
             >
-                <Link href={canMessage ? messageIndex.url() : '/login'}>
+                <Link href={canMessage ? inboxIndex.url() : '/login'}>
                     <MessageCircle aria-hidden />
                     Message us
                 </Link>

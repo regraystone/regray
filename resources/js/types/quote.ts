@@ -89,6 +89,8 @@ export type QuoteInquiryDetails = {
     }>;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
+    /** Which buttons the page shows, and which can be pressed. */
+    actions: QuoteActions;
     /** The one project the inquiry is. */
     project: {
         name: string;

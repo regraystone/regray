@@ -2,7 +2,7 @@
 #
 # Checks production end to end. Run it on the server:
 #
-#   cd /srv/regray-studio && bash prod-check.sh
+#   cd /srv/regray && bash prod-check.sh
 #   bash prod-check.sh --mail=you@example.com   # also send a test email
 #
 # First the containers (all up, none restarting, running the image the last

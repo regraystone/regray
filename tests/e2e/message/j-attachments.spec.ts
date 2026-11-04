@@ -150,7 +150,7 @@ test('43 · a photo and a PDF reach the other member live, open for them, and st
 
     const sent = a.page.waitForResponse(
         (response) =>
-            /\/message\/\d+\/messages$/.test(response.url()) &&
+            /\/dashboard\/inbox\/\d+\/messages$/.test(response.url()) &&
             response.request().method() === 'POST',
     );
     await a.page.getByRole('button', { name: 'Send message' }).click();
@@ -173,11 +173,11 @@ test('43 · a photo and a PDF reach the other member live, open for them, and st
     const file = bubble.getByTestId('attachment-file');
     await expect(file).toContainText(planName);
     const href = (await file.getAttribute('href')) ?? '';
-    expect(href).toMatch(/^\/message\/attachments\/\d+\?download=1$/);
+    expect(href).toMatch(/^\/dashboard\/inbox\/attachments\/\d+\?download=1$/);
 
     expect((await api(b.page, 'GET', href)).status).toBe(200);
-    sessions.allowConsole(/status of 403 .*\/message\/attachments\//);
-    await outsider.page.goto('/message');
+    sessions.allowConsole(/status of 403 .*\/dashboard\/inbox\/attachments\//);
+    await outsider.page.goto('/dashboard/inbox');
     expect((await api(outsider.page, 'GET', href)).status).toBe(403);
 });
 
@@ -258,7 +258,7 @@ test('45 · every type it takes (JPG, JPEG, PNG, WebP, PDF, DOCX) arrives, photo
         await a.page.getByTestId('composer-input').fill(text);
         const sent = a.page.waitForResponse(
             (response) =>
-                /\/message\/\d+\/messages$/.test(response.url()) &&
+                /\/dashboard\/inbox\/\d+\/messages$/.test(response.url()) &&
                 response.request().method() === 'POST',
         );
         await a.page.getByRole('button', { name: 'Send message' }).click();
@@ -387,7 +387,7 @@ test('46 · files dragged anywhere over the conversation show the drop overlay a
 
     const sent = a.page.waitForResponse(
         (response) =>
-            /\/message\/\d+\/messages$/.test(response.url()) &&
+            /\/dashboard\/inbox\/\d+\/messages$/.test(response.url()) &&
             response.request().method() === 'POST',
     );
     await a.page.getByRole('button', { name: 'Send message' }).click();

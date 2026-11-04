@@ -29,13 +29,13 @@ function listedConversationNames(User $viewer): array
 {
     // The list is deferred: the first visit leaves it out, and the page asks
     // for it in a partial reload, as the browser does.
-    $page = test()->actingAs($viewer)->get(route('message.index'))->assertOk()->viewData('page');
+    $page = test()->actingAs($viewer)->get(route('inbox.index'))->assertOk()->viewData('page');
     expect($page['props'])->not->toHaveKey('conversations');
 
-    $reload = test()->actingAs($viewer)->get(route('message.index'), [
+    $reload = test()->actingAs($viewer)->get(route('inbox.index'), [
         'X-Inertia' => 'true',
         'X-Inertia-Version' => (string) $page['version'],
-        'X-Inertia-Partial-Component' => 'message',
+        'X-Inertia-Partial-Component' => 'inbox',
         'X-Inertia-Partial-Data' => 'conversations',
     ])->assertOk()->json();
 
@@ -56,7 +56,7 @@ it('gives a newly registered client one Regray Team thread', function (): void {
     $client->markEmailAsVerified();
 
     expect(Conversation::query()->where('support_client_id', $client->id)->count())->toBe(1)
-        ->and(listedConversationNames($client))->toBe(['Regray Team']);
+        ->and(listedConversationNames($client))->toBe(['Regray']);
 });
 
 it('creates the Regray Team thread once, however often it is asked for', function (): void {
@@ -83,7 +83,7 @@ it('assigns the thread to the marketing member who claims it and writes a system
     $thread = supportThreadFor(inquiryClient());
     $marketing = messagingStaff(Role::Marketing, 'Mara');
 
-    $this->actingAs($marketing)->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs($marketing)->postJson(route('inbox.claim', $thread))->assertOk();
 
     $thread->refresh();
     $system = Message::query()->where('conversation_id', $thread->id)->sole();
@@ -100,8 +100,8 @@ it('lets only the first of two claims win and tells the second who did with 409'
     $first = messagingStaff(Role::Marketing, 'Mara');
     $admin = messagingStaff(Role::Admin, 'Ada');
 
-    $this->actingAs($first)->postJson(route('message.claim', $thread))->assertOk();
-    $this->actingAs($admin)->postJson(route('message.claim', $thread))
+    $this->actingAs($first)->postJson(route('inbox.claim', $thread))->assertOk();
+    $this->actingAs($admin)->postJson(route('inbox.claim', $thread))
         ->assertConflict()
         ->assertJsonPath('message', 'Mara already took this conversation.');
 
@@ -118,12 +118,12 @@ it('shows staff each client\'s thread under the client\'s name and initials, and
     supportThreadFor($bianca);
 
     $rowsFor = function (User $viewer): array {
-        $page = test()->actingAs($viewer)->get(route('message.index'))->viewData('page');
+        $page = test()->actingAs($viewer)->get(route('inbox.index'))->viewData('page');
 
-        return test()->actingAs($viewer)->get(route('message.index'), [
+        return test()->actingAs($viewer)->get(route('inbox.index'), [
             'X-Inertia' => 'true',
             'X-Inertia-Version' => (string) $page['version'],
-            'X-Inertia-Partial-Component' => 'message',
+            'X-Inertia-Partial-Component' => 'inbox',
             'X-Inertia-Partial-Data' => 'conversations',
         ])->json('props.conversations.data');
     };
@@ -135,7 +135,7 @@ it('shows staff each client\'s thread under the client\'s name and initials, and
 
     $clientRow = $rowsFor($rafael)[0];
 
-    expect($clientRow['name'])->toBe('Regray Team')
+    expect($clientRow['name'])->toBe('Regray')
         ->and($clientRow['avatar'])->toBe(EloquentConversationRepository::SUPPORT_AVATAR);
 });
 
@@ -145,10 +145,10 @@ it('closes a claimed thread to the rest of the pool with 403 and drops it from t
     $thread = supportThreadFor($client);
     $other = messagingStaff(Role::Marketing, 'Mike');
 
-    $this->actingAs($other)->getJson(route('message.thread', $thread))->assertOk();
-    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs($other)->getJson(route('inbox.thread', $thread))->assertOk();
+    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('inbox.claim', $thread))->assertOk();
 
-    $this->actingAs($other)->getJson(route('message.thread', $thread))->assertForbidden();
+    $this->actingAs($other)->getJson(route('inbox.thread', $thread))->assertForbidden();
     expect(listedConversationNames($other))->toBe([])
         ->and(ConversationMember::query()->where('conversation_id', $thread->id)->where('user_id', $other->id)->exists())->toBeFalse();
 });
@@ -156,7 +156,7 @@ it('closes a claimed thread to the rest of the pool with 403 and drops it from t
 it('refuses a staff message on an unassigned thread with 409', function (): void {
     $thread = supportThreadFor(inquiryClient());
 
-    $this->actingAs(messagingStaff(Role::Marketing))->postJson(route('message.send', $thread), sendPayload())
+    $this->actingAs(messagingStaff(Role::Marketing))->postJson(route('inbox.send', $thread), sendPayload())
         ->assertConflict()
         ->assertJsonPath('message', 'Assign this conversation to yourself first.');
 
@@ -166,29 +166,29 @@ it('refuses a staff message on an unassigned thread with 409', function (): void
 it('tells a pool member who lost the claim who is handling the thread, with 409, while reading stays 403', function (): void {
     $thread = supportThreadFor(inquiryClient());
     $other = messagingStaff(Role::Marketing, 'Mike');
-    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('inbox.claim', $thread))->assertOk();
 
-    $this->actingAs($other)->postJson(route('message.send', $thread), sendPayload('Can I help?'))
+    $this->actingAs($other)->postJson(route('inbox.send', $thread), sendPayload('Can I help?'))
         ->assertConflict()
         ->assertJsonPath('message', 'Mara is handling this conversation.');
-    $this->actingAs($other)->getJson(route('message.thread', $thread))->assertForbidden();
+    $this->actingAs($other)->getJson(route('inbox.thread', $thread))->assertForbidden();
 
     expect(Message::query()->where('body', 'Can I help?')->exists())->toBeFalse();
 });
 
 it('still refuses a send from staff outside the pool with 403', function (): void {
     $thread = supportThreadFor(inquiryClient());
-    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('inbox.claim', $thread))->assertOk();
 
-    $this->actingAs(messagingStaff(Role::Sales))->postJson(route('message.send', $thread), sendPayload())
+    $this->actingAs(messagingStaff(Role::Sales))->postJson(route('inbox.send', $thread), sendPayload())
         ->assertForbidden();
 });
 
 it('refuses the admin a message on a thread someone else handles with 409', function (): void {
     $thread = supportThreadFor(inquiryClient());
-    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs(messagingStaff(Role::Marketing, 'Mara'))->postJson(route('inbox.claim', $thread))->assertOk();
 
-    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('message.send', $thread), sendPayload())
+    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.send', $thread), sendPayload())
         ->assertConflict()
         ->assertJsonPath('message', 'Mara is handling this conversation.');
 });
@@ -197,9 +197,9 @@ it('lets the client write whether or not anyone is handling the thread', functio
     $client = inquiryClient();
     $thread = supportThreadFor($client);
 
-    $this->actingAs($client)->postJson(route('message.send', $thread), sendPayload('Before'))->assertCreated();
-    $this->actingAs(messagingStaff(Role::Marketing))->postJson(route('message.claim', $thread))->assertOk();
-    $this->actingAs($client)->postJson(route('message.send', $thread), sendPayload('After'))->assertCreated();
+    $this->actingAs($client)->postJson(route('inbox.send', $thread), sendPayload('Before'))->assertCreated();
+    $this->actingAs(messagingStaff(Role::Marketing))->postJson(route('inbox.claim', $thread))->assertOk();
+    $this->actingAs($client)->postJson(route('inbox.send', $thread), sendPayload('After'))->assertCreated();
 
     expect(Message::query()->where('type', MessageType::Text)->orderBy('id')->pluck('body')->all())->toBe(['Before', 'After']);
 });
@@ -207,9 +207,9 @@ it('lets the client write whether or not anyone is handling the thread', functio
 it('lets the assignee write once they have claimed the thread', function (): void {
     $thread = supportThreadFor(inquiryClient());
     $marketing = messagingStaff(Role::Marketing);
-    $this->actingAs($marketing)->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs($marketing)->postJson(route('inbox.claim', $thread))->assertOk();
 
-    $this->actingAs($marketing)->postJson(route('message.send', $thread), sendPayload('On it'))
+    $this->actingAs($marketing)->postJson(route('inbox.send', $thread), sendPayload('On it'))
         ->assertCreated()
         ->assertJsonPath('message.body', 'On it');
 });
@@ -217,9 +217,9 @@ it('lets the assignee write once they have claimed the thread', function (): voi
 it('hands a released thread back to the pool, keeps the former assignee as a viewer and writes a system row', function (): void {
     $thread = supportThreadFor(inquiryClient());
     $marketing = messagingStaff(Role::Marketing, 'Mara');
-    $this->actingAs($marketing)->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs($marketing)->postJson(route('inbox.claim', $thread))->assertOk();
 
-    $this->actingAs($marketing)->postJson(route('message.release', $thread))->assertOk();
+    $this->actingAs($marketing)->postJson(route('inbox.release', $thread))->assertOk();
 
     $thread->refresh();
     $released = Message::query()->where('system_event', SystemEvent::Released->value)->sole();
@@ -235,9 +235,9 @@ it('lets the admin reassign a thread to another pool member', function (): void 
     $thread = supportThreadFor(inquiryClient());
     $from = messagingStaff(Role::Marketing, 'Mara');
     $to = messagingStaff(Role::Marketing, 'Mike');
-    $this->actingAs($from)->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs($from)->postJson(route('inbox.claim', $thread))->assertOk();
 
-    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('message.reassign', $thread), ['userId' => $to->id])->assertOk();
+    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.reassign', $thread), ['userId' => $to->id])->assertOk();
 
     expect($thread->refresh()->assigned_to)->toBe($to->id)
         ->and(Message::query()->where('system_event', SystemEvent::Reassigned->value)->value('system_user_id'))->toBe($to->id)
@@ -249,9 +249,9 @@ it('refuses to reassign a thread to someone outside the pool with 422', function
     $thread = supportThreadFor(inquiryClient());
     $sales = messagingStaff(Role::Sales, 'Sam');
 
-    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('message.reassign', $thread), ['userId' => $sales->id])
+    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.reassign', $thread), ['userId' => $sales->id])
         ->assertUnprocessable()
-        ->assertJsonPath('message', 'Sam cannot handle Regray Team conversations.');
+        ->assertJsonPath('message', 'Sam cannot handle Regray conversations.');
 
     expect($thread->refresh()->assigned_to)->toBeNull();
 });
@@ -262,26 +262,26 @@ it('sends the assignment state to staff only, and only for a Regray Team thread'
     $marketing = messagingStaff(Role::Marketing);
     $group = groupConversation([$marketing, $client]);
 
-    $this->actingAs($marketing)->getJson(route('message.thread', $thread))
+    $this->actingAs($marketing)->getJson(route('inbox.thread', $thread))
         ->assertJsonPath('assignment.canClaim', true)
         ->assertJsonPath('assignment.assignee', null);
-    $this->actingAs($client)->getJson(route('message.thread', $thread))->assertJsonPath('assignment', null);
-    $this->actingAs($marketing)->getJson(route('message.thread', $group))->assertJsonPath('assignment', null);
+    $this->actingAs($client)->getJson(route('inbox.thread', $thread))->assertJsonPath('assignment', null);
+    $this->actingAs($marketing)->getJson(route('inbox.thread', $group))->assertJsonPath('assignment', null);
 });
 
-it('shows the client "Regray Team" for staff messages while nobody handles the thread', function (): void {
+it('shows the client "Regray" for staff messages while nobody handles the thread', function (): void {
     $client = inquiryClient();
     $thread = supportThreadFor($client);
     $marketing = messagingStaff(Role::Marketing, 'Mara');
-    $this->actingAs($marketing)->postJson(route('message.claim', $thread))->assertOk();
-    $this->actingAs($marketing)->postJson(route('message.send', $thread), sendPayload('On it'))->assertCreated();
+    $this->actingAs($marketing)->postJson(route('inbox.claim', $thread))->assertOk();
+    $this->actingAs($marketing)->postJson(route('inbox.send', $thread), sendPayload('On it'))->assertCreated();
 
-    $this->actingAs($client)->getJson(route('message.thread', $thread))->assertJsonPath('messages.1.sender.name', 'Mara');
+    $this->actingAs($client)->getJson(route('inbox.thread', $thread))->assertJsonPath('messages.1.sender.name', 'Mara');
 
-    $this->actingAs($marketing)->postJson(route('message.release', $thread))->assertOk();
+    $this->actingAs($marketing)->postJson(route('inbox.release', $thread))->assertOk();
 
-    $this->actingAs($client)->getJson(route('message.thread', $thread))
-        ->assertJsonPath('messages.1.sender.name', 'Regray Team')
+    $this->actingAs($client)->getJson(route('inbox.thread', $thread))
+        ->assertJsonPath('messages.1.sender.name', 'Regray')
         ->assertJsonPath('conversation.supportClient', null);
 });
 

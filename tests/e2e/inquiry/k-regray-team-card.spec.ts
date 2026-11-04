@@ -60,10 +60,12 @@ test('40 · a sent inquiry posts a "New Inquiry" card into the Regray Team threa
     await addVisitProject(client.page, { location: 'Pasig' });
     const reference = await sendAndReadReference(client.page);
 
-    await expectCard(client.page, '/message?conversation=support', reference);
-    await expect(client.page.getByTestId('thread-title')).toHaveText(
-        'Regray Team',
+    await expectCard(
+        client.page,
+        '/dashboard/inbox?conversation=support',
+        reference,
     );
+    await expect(client.page.getByTestId('thread-title')).toHaveText('Regray');
 
     const threadId = php<number>(
         `App\\Models\\Conversation::query()->where('support_client_id', ${clientAId})->value('id')`,
@@ -72,7 +74,7 @@ test('40 · a sent inquiry posts a "New Inquiry" card into the Regray Team threa
 
     await expectCard(
         marketing.page,
-        `/message?conversation=${threadId}`,
+        `/dashboard/inbox?conversation=${threadId}`,
         reference,
     );
 });
@@ -100,7 +102,7 @@ test('41 · without a group chat, a status change posts its card into the Regray
 
     const cards = await cardsFor(
         page,
-        '/message?conversation=support',
+        '/dashboard/inbox?conversation=support',
         reference,
         2,
     );

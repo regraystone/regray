@@ -43,7 +43,7 @@ it('names the staff member on a visit staff booked, for staff and for the client
     scheduleCard($group, $client, bookedBy: $staff);
 
     foreach ([$staff, $client] as $viewer) {
-        $this->actingAs($viewer)->getJson(route('message.thread', $group))
+        $this->actingAs($viewer)->getJson(route('inbox.thread', $group))
             ->assertJsonPath('messages.0.scheduleCard.bookedByType', 'staff')
             ->assertJsonPath('messages.0.scheduleCard.bookedByName', 'Sam');
     }
@@ -55,7 +55,7 @@ it('names nobody on a visit the client booked', function (): void {
     $group = groupConversation([$staff, $client]);
     scheduleCard($group, $client, bookedBy: null);
 
-    $this->actingAs($staff)->getJson(route('message.thread', $group))
+    $this->actingAs($staff)->getJson(route('inbox.thread', $group))
         ->assertJsonPath('messages.0.scheduleCard.bookedByType', 'client')
         ->assertJsonPath('messages.0.scheduleCard.bookedByName', null);
 });
@@ -65,7 +65,7 @@ it('sends the cancel reason only on a cancelled card', function (string $announc
     $group = groupConversation([$client]);
     scheduleCard($group, $client, bookedBy: null, announced: $announced);
 
-    $this->actingAs($client)->getJson(route('message.thread', $group))
+    $this->actingAs($client)->getJson(route('inbox.thread', $group))
         ->assertJsonPath('messages.0.scheduleCard.cancelReason', $reason);
 })->with([
     'confirmed' => ['confirmed', null],
@@ -78,7 +78,7 @@ it('leaves the card empty for a client whose visit it is not', function (): void
     $group = groupConversation([$owner, $otherClient]);
     scheduleCard($group, $owner, bookedBy: messagingStaff(Role::Sales));
 
-    $this->actingAs($otherClient)->getJson(route('message.thread', $group))
+    $this->actingAs($otherClient)->getJson(route('inbox.thread', $group))
         ->assertJsonPath('messages.0.type', 'schedule_card')
         ->assertJsonPath('messages.0.scheduleCard', null);
 });
@@ -88,7 +88,7 @@ it('sends a card exactly the fields the thread draws', function (): void {
     $group = groupConversation([$client]);
     scheduleCard($group, $client, bookedBy: null);
 
-    $card = $this->actingAs($client)->getJson(route('message.thread', $group))->json('messages.0.scheduleCard');
+    $card = $this->actingAs($client)->getJson(route('inbox.thread', $group))->json('messages.0.scheduleCard');
 
     expect(array_keys($card))->toBe([
         'id', 'title', 'arrivalAt', 'announcedStatus', 'bookedByType', 'bookedByName', 'inquiryReference', 'cancelReason', 'occurredAt',

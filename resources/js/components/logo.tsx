@@ -2,8 +2,13 @@ import { Link } from '@inertiajs/react';
 import BetaBadge from '@/components/beta-badge';
 import { dashboard } from '@/routes';
 
+/** The "Regray" wordmark: black letters on a transparent background. */
+const WORDMARK_SRC = '/images/regray_logo.svg';
+
 /**
- * The wordmark: "Regray Studio", all of it bold. `compact` (the collapsed
+ * The wordmark, painted in the current text colour: the SVG is used as a mask
+ * over `bg-current`, so a parent's `text-white` (the auth pages) or the
+ * default foreground (the workspace) sets its colour. `compact` (the collapsed
  * sidebar) has no room for it, so it shows an R on a black square instead.
  */
 const Logo = ({
@@ -20,7 +25,7 @@ const Logo = ({
         className={`relative flex items-center ${
             compact ? 'justify-center' : 'gap-2'
         } ${className}`}
-        aria-label="Regray Studio home"
+        aria-label="Regray home"
     >
         {compact ? (
             <span
@@ -30,9 +35,20 @@ const Logo = ({
                 R
             </span>
         ) : (
-            <span className="text-2xl font-extrabold whitespace-nowrap uppercase lg:text-xl">
-                Regray Studio
-            </span>
+            <span
+                aria-hidden
+                className="block aspect-[426/76.5] h-4.5 shrink-0 bg-current lg:h-4"
+                style={{
+                    maskImage: `url(${WORDMARK_SRC})`,
+                    maskSize: 'contain',
+                    maskRepeat: 'no-repeat',
+                    maskPosition: 'center',
+                    WebkitMaskImage: `url(${WORDMARK_SRC})`,
+                    WebkitMaskSize: 'contain',
+                    WebkitMaskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center',
+                }}
+            />
         )}
         <BetaBadge compact={compact} />
     </Link>

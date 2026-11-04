@@ -158,11 +158,11 @@ class SupportConversationService
     public function reassign(User $admin, Conversation $conversation, User $target): Message
     {
         if (! $conversation->isSupport()) {
-            throw new UnprocessableEntityHttpException('Only a Regray Team thread can be reassigned.');
+            throw new UnprocessableEntityHttpException('Only a Regray thread can be reassigned.');
         }
 
         if ($target->isClient() || ! $target->can(Permission::SupportClaim->value)) {
-            throw new UnprocessableEntityHttpException("{$target->name} cannot handle Regray Team conversations.");
+            throw new UnprocessableEntityHttpException("{$target->name} cannot handle Regray conversations.");
         }
 
         $locked = $this->conversations->lockForUpdate($conversation->id);

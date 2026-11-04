@@ -1,5 +1,5 @@
 /*
- * The Message page's data, exactly as the server sends it (see
+ * The Inbox page's data, exactly as the server sends it (see
  * app/Http/Resources/Message). Keys are camelCase, like every other resource.
  */
 
@@ -135,7 +135,7 @@ export type ThreadPayload = {
     assignment: Assignment | null;
 };
 
-export type MessagePageProps = {
+export type InboxPageProps = {
     /** Absent only before the first response has arrived. */
     conversations?: { data: ConversationSummary[] };
     filters: { search: string; filter: 'all' | 'unread' };

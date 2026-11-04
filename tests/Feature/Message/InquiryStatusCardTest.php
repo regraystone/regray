@@ -114,7 +114,7 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
     $reference = Inquiry::query()->where('client_id', $client->id)->value('reference');
 
     foreach ([$client, messagingStaff(Role::Marketing)] as $viewer) {
-        $this->actingAs($viewer)->getJson(route('message.thread', $thread))
+        $this->actingAs($viewer)->getJson(route('inbox.thread', $thread))
             ->assertOk()
             ->assertJsonPath('messages.0.type', MessageType::InquiryCard->value)
             ->assertJsonPath('messages.0.inquiryCard.reference', $reference)
@@ -127,11 +127,11 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
             ->assertJsonPath('messages.0.inquiryCard.announcedPaymentStatus', null);
     }
 
-    $page = $this->actingAs($client)->get(route('message.index'))->viewData('page');
-    $list = $this->actingAs($client)->get(route('message.index'), [
+    $page = $this->actingAs($client)->get(route('inbox.index'))->viewData('page');
+    $list = $this->actingAs($client)->get(route('inbox.index'), [
         'X-Inertia' => 'true',
         'X-Inertia-Version' => (string) $page['version'],
-        'X-Inertia-Partial-Component' => 'message',
+        'X-Inertia-Partial-Component' => 'inbox',
         'X-Inertia-Partial-Data' => 'conversations',
     ])->json('props.conversations.data');
 
@@ -145,7 +145,7 @@ it('sends the snapshot the card was posted for, not the inquiry as it is now, an
     app(MessageRepositoryInterface::class)->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Production, SalesStatus::Quoted, PaymentStatus::Partial, ProcessStatus::Production);
     showInquiryAs($inquiry, InquiryStatus::Closed);
 
-    $card = $this->actingAs($client)->getJson(route('message.thread', $thread))
+    $card = $this->actingAs($client)->getJson(route('inbox.thread', $thread))
         ->assertOk()
         ->json('messages.0.inquiryCard');
 
@@ -162,11 +162,11 @@ it('sends the snapshot the card was posted for, not the inquiry as it is now, an
         'occurredAt' => Message::query()->sole()->created_at->toIso8601String(),
     ]);
 
-    $page = $this->actingAs($client)->get(route('message.index'))->viewData('page');
-    $list = $this->actingAs($client)->get(route('message.index'), [
+    $page = $this->actingAs($client)->get(route('inbox.index'))->viewData('page');
+    $list = $this->actingAs($client)->get(route('inbox.index'), [
         'X-Inertia' => 'true',
         'X-Inertia-Version' => (string) $page['version'],
-        'X-Inertia-Partial-Component' => 'message',
+        'X-Inertia-Partial-Component' => 'inbox',
         'X-Inertia-Partial-Data' => 'conversations',
     ])->json('props.conversations.data');
 

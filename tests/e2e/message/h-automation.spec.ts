@@ -23,7 +23,7 @@ test('39 · "Message the team" shows only for an inquiry with a group chat the v
     await link.click();
     await page.waitForURL(
         (url) =>
-            url.pathname === '/message' &&
+            url.pathname === '/dashboard/inbox' &&
             url.searchParams.get('conversation') ===
                 String(bound.shown.conversationId),
     );
@@ -42,13 +42,13 @@ test('40 · cancelling an inquiry posts one card into its group; repeating it po
     const { bound } = fixtures();
     const { page } = await sessions.open('cardClient');
     sessions.allowConsole(/status of 422/);
-    await page.goto('/message');
+    await page.goto('/dashboard/inbox');
 
     const cards = async (): Promise<ThreadMessage[]> => {
         const thread = await api(
             page,
             'GET',
-            `/message/${bound.cancel.conversationId}/messages?limit=100`,
+            `/dashboard/inbox/${bound.cancel.conversationId}/messages?limit=100`,
         );
 
         return ((thread.json?.messages ?? []) as ThreadMessage[]).filter(

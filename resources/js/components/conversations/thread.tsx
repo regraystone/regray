@@ -53,7 +53,7 @@ import type {
     Realtime,
 } from '@/types/message';
 
-export const SUPPORT_EMPTY_TEXT = 'Message Regray Team any time.';
+export const SUPPORT_EMPTY_TEXT = 'Message Regray any time.';
 
 type ThreadProps = {
     conversationId: number;
@@ -443,7 +443,7 @@ const Thread = ({
                         </p>
                         <p className="text-xs text-secondary-foreground">
                             {canDrop
-                                ? 'Photos (JPG, PNG, WebP), PDF or Word · up to 5 files, 10 MB each'
+                                ? 'Photos (JPG, PNG, WebP), PDF or Word · up to 5 files, 50 MB each'
                                 : dropRefusal}
                         </p>
                     </div>
@@ -471,7 +471,8 @@ const Thread = ({
                 <div
                     ref={scrollRef}
                     onScroll={handleScroll}
-                    className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4 md:p-5"
+                    className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain bg-cover bg-center bg-no-repeat p-4 md:p-5"
+                    style={{ backgroundImage: 'url(/images/convo_bg.png)' }}
                     data-testid="thread-scroll"
                 >
                     {loading === 'olderSpinner' ? (

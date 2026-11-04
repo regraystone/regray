@@ -42,7 +42,7 @@ import {
 } from '@/lib/lead-statuses';
 import { inquire as inquiryInquire } from '@/routes/inquiry';
 import { status as leadInquiryStatusRoute } from '@/routes/leads/inquiries';
-import { index as messageIndex } from '@/routes/message';
+import { index as inboxIndex } from '@/routes/inbox';
 
 type LeadInquiry = {
     id: number;
@@ -197,7 +197,7 @@ const Leads = () => {
                 only={['leads', 'filters']}
                 searchPlaceholder="Search by name, email or inquiry no."
                 emptyTitle="No leads found"
-                emptyDescription="A lead is created when you take a client's Regray Team conversation."
+                emptyDescription="A lead is created when you take a client's Regray conversation."
                 statusFilter={statusFilter}
                 statusOptions={statusOptions}
                 onStatusFilterChange={handleStatusFilterChange}
@@ -485,7 +485,7 @@ const Leads = () => {
                     }}
                     onCreated={(conversation) =>
                         router.visit(
-                            messageIndex.url({
+                            inboxIndex.url({
                                 query: {
                                     conversation: String(conversation.id),
                                 },

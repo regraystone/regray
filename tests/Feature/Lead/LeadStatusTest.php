@@ -35,7 +35,7 @@ it('creates the client\'s lead when marketing claims their thread, and links the
     $first = makeInquiry($this->client, attributes: ['reference' => 'INQ-L1']);
     $second = makeInquiry($this->client, attributes: ['reference' => 'INQ-L2']);
 
-    $this->actingAs($this->marketing)->postJson(route('message.claim', $this->thread))->assertOk();
+    $this->actingAs($this->marketing)->postJson(route('inbox.claim', $this->thread))->assertOk();
 
     $lead = Lead::query()->with('inquiries')->sole();
 
@@ -51,12 +51,12 @@ it('creates the client\'s lead when marketing claims their thread, and links the
 });
 
 it('moves the lead with the thread on every reassignment, whatever its inquiries\' decisions', function (): void {
-    $this->actingAs($this->marketing)->postJson(route('message.claim', $this->thread))->assertOk();
+    $this->actingAs($this->marketing)->postJson(route('inbox.claim', $this->thread))->assertOk();
     $lead = Lead::query()->sole();
     makeInquiry($this->client, attributes: ['lead' => $lead, 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
     $other = messagingStaff(Role::Marketing, 'Other');
 
-    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('message.reassign', $this->thread), ['userId' => $other->id])->assertOk();
+    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.reassign', $this->thread), ['userId' => $other->id])->assertOk();
 
     expect(Lead::query()->sole()->marketing_user_id)->toBe($other->id);
 });
@@ -132,7 +132,7 @@ it('lets only the lead\'s marketing user decide its inquiries, only with a note,
 });
 
 it('keeps the client on one lead: an inquiry sent after another was lost or won waits on it for marketing', function (): void {
-    $this->actingAs($this->marketing)->postJson(route('message.claim', $this->thread))->assertOk();
+    $this->actingAs($this->marketing)->postJson(route('inbox.claim', $this->thread))->assertOk();
     $lead = Lead::query()->sole();
     makeInquiry($this->client, attributes: ['lead' => $lead, 'marketing_status' => LeadStatus::Lost]);
     makeInquiry($this->client, attributes: ['lead' => $lead, 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
@@ -154,7 +154,7 @@ it('leaves a new inquiry unlinked while nobody holds the client\'s thread, and t
     expect(Inquiry::query()->sole()->lead_id)->toBeNull()
         ->and(Lead::query()->exists())->toBeFalse();
 
-    $this->actingAs($this->marketing)->postJson(route('message.claim', $this->thread))->assertOk();
+    $this->actingAs($this->marketing)->postJson(route('inbox.claim', $this->thread))->assertOk();
 
     expect(Inquiry::query()->sole()->lead_id)->toBe(Lead::query()->sole()->id);
 });

@@ -29,7 +29,7 @@ jobs:
     # Only the name differs: host, port, user, password and driver already
     # match .env.example, and phpunit.xml repeats them for local runs.
     env:
-      DB_DATABASE: regray-studio-test
+      DB_DATABASE: regray-test
 
     services:
       # The same major version the project develops against locally, so the
@@ -37,7 +37,7 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: regray-studio-test
+          POSTGRES_DB: regray-test
           POSTGRES_USER: root
           # Trust auth matches the local server, which takes `root` with no
           # password. Nothing here is a real credential.
@@ -45,7 +45,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U root -d regray-studio-test"
+          --health-cmd="pg_isready -U root -d regray-test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3

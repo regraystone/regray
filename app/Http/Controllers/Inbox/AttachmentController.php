@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Message;
+namespace App\Http\Controllers\Inbox;
 
 use App\Http\Controllers\Controller;
 use App\Models\MessageAttachment;

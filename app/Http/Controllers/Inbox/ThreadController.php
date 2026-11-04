@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Message;
+namespace App\Http\Controllers\Inbox;
 
 use App\Actions\Message\AssignSupportConversationAction;
 use App\Actions\Message\ChangeMessageAction;

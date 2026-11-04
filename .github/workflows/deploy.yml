@@ -65,8 +65,8 @@ jobs:
           target: app
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER }}/regray-studio-app:${{ github.sha }}
-            ghcr.io/${{ env.OWNER }}/regray-studio-app:latest
+            ghcr.io/${{ env.OWNER }}/regray-app:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/regray-app:latest
           build-args: |
             VITE_ASSET_URL=${{ vars.VITE_ASSET_URL }}
           cache-from: type=gha,scope=production-app
@@ -80,8 +80,8 @@ jobs:
           target: web
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER }}/regray-studio-web:${{ github.sha }}
-            ghcr.io/${{ env.OWNER }}/regray-studio-web:latest
+            ghcr.io/${{ env.OWNER }}/regray-web:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/regray-web:latest
           build-args: |
             VITE_ASSET_URL=${{ vars.VITE_ASSET_URL }}
           cache-from: type=gha,scope=production-web
@@ -119,7 +119,7 @@ jobs:
         run: |
           scp -i "$HOME/.ssh/deploy_key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            docker-compose.yml scripts/prod-check.sh "${SSH_USER}@${SSH_HOST}:/srv/regray-studio/"
+            docker-compose.yml scripts/prod-check.sh "${SSH_USER}@${SSH_HOST}:/srv/regray/"
 
       - name: Deploy production
         env:
@@ -133,18 +133,18 @@ jobs:
           set -euo pipefail
           OWNER="$1"
           GITHUB_SHA="$2"
-          cd /srv/regray-studio
+          cd /srv/regray
 
           for file in .env .env.production; do
             if [[ ! -f "$file" ]]; then
-              printf 'ERROR: Required server file /srv/regray-studio/%s is missing.\n' "$file" >&2
+              printf 'ERROR: Required server file /srv/regray/%s is missing.\n' "$file" >&2
               exit 1
             fi
           done
 
           sed -i \
-            -e "s|^APP_IMAGE=.*|APP_IMAGE=ghcr.io/${OWNER}/regray-studio-app:${GITHUB_SHA}|" \
-            -e "s|^WEB_IMAGE=.*|WEB_IMAGE=ghcr.io/${OWNER}/regray-studio-web:${GITHUB_SHA}|" \
+            -e "s|^APP_IMAGE=.*|APP_IMAGE=ghcr.io/${OWNER}/regray-app:${GITHUB_SHA}|" \
+            -e "s|^WEB_IMAGE=.*|WEB_IMAGE=ghcr.io/${OWNER}/regray-web:${GITHUB_SHA}|" \
             .env
 
           docker compose pull

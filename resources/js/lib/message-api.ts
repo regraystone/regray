@@ -1,11 +1,11 @@
 import { currentSocketId } from '@/lib/echo';
 import { rateLimitFrom } from '@/lib/rate-limit';
 import { readXsrfToken } from '@/lib/xsrf';
-import { store as storeGroup } from '@/routes/message/groups';
+import { store as storeGroup } from '@/routes/inbox/groups';
 import {
     index as membersRoute,
     store as storeMembersRoute,
-} from '@/routes/message/members';
+} from '@/routes/inbox/members';
 import {
     claim as claimRoute,
     delivered as deliveredRoute,
@@ -15,11 +15,11 @@ import {
     release as releaseRoute,
     send as sendRoute,
     thread as threadRoute,
-} from '@/routes/message';
+} from '@/routes/inbox';
 import {
     destroy as destroyMessage,
     update as updateMessage,
-} from '@/routes/message/messages';
+} from '@/routes/inbox/messages';
 import type {
     Assignment,
     ChatMessage,
@@ -29,7 +29,7 @@ import type {
 } from '@/types/message';
 
 /**
- * The Message page's JSON endpoints. Inertia drives the page itself; these are
+ * The Inbox page's JSON endpoints. Inertia drives the page itself; these are
  * the requests a thread makes while it is open.
  */
 

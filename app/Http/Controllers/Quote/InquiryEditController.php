@@ -113,7 +113,7 @@ class InquiryEditController extends Controller
             $request->userAgent(),
         );
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Inquiry :reference updated', ['reference' => $inquiry->reference])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __("We'll review your changes and get back to you within 1-3 days.")]);
 
         return to_route('quote.show', $inquiry->reference);
     }

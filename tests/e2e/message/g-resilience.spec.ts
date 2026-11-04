@@ -50,7 +50,7 @@ test('37 · with Reverb down, A sends; when Reverb is back, B catches up without
         await a.page.getByTestId('composer-input').fill(text);
         const sent = a.page.waitForResponse(
             (response) =>
-                /\/message\/\d+\/messages$/.test(response.url()) &&
+                /\/dashboard\/inbox\/\d+\/messages$/.test(response.url()) &&
                 response.request().method() === 'POST',
         );
         await a.page.getByRole('button', { name: 'Send message' }).click();
@@ -85,13 +85,13 @@ test('38 · a status change made while the queue worker is stopped posts its car
     test.setTimeout(180_000);
     const { bound } = fixtures();
     const client = await sessions.open('cardClient');
-    await client.page.goto('/message');
+    await client.page.goto('/dashboard/inbox');
 
     const cards = async (): Promise<number> => {
         const thread = await api(
             client.page,
             'GET',
-            `/message/${bound.queue.conversationId}/messages?limit=100`,
+            `/dashboard/inbox/${bound.queue.conversationId}/messages?limit=100`,
         );
 
         return (

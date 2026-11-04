@@ -194,7 +194,7 @@ class AppServiceProvider extends ServiceProvider
      * guest, a minute at a time. The numbers are in config/rate-limits.php,
      * read on every request so the environment can change them.
      *
-     * The Message page's:
+     * The Inbox page's:
      * - `messages`, sending: generous enough for a fast typist, low enough
      *   that a stuck retry loop cannot flood a thread.
      * - `message-receipts`, read and delivered pointers: the page sends one
@@ -214,7 +214,7 @@ class AppServiceProvider extends ServiceProvider
      * - `booking`: Book an appointment.
      * - `saved-stone`: the heart on a stone card. A person taps through a
      *   feed; only a script reaches this.
-     * - `group-create`: New group on the Message page.
+     * - `group-create`: New group on the Inbox page.
      * - `heavy-reads`: the Home and Saved feeds, where every filter change,
      *   search and page of infinite scroll is a request.
      * - `register` and `password-reset`: Fortify's guest forms, per IP.
