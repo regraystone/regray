@@ -155,7 +155,7 @@ enum Permission: string
     case SavedManage = 'saved.manage';
 
     /**
-     * Starting a group chat from the Message page: a name, some staff and one
+     * Starting a group chat from the Inbox page: a name, some staff and one
      * client. An action permission, so it guards the endpoint and the "New
      * group" button rather than a page.
      */

@@ -32,7 +32,7 @@ function runReminders(): void
 function claimedThread(User $client, User $marketing): Conversation
 {
     $thread = supportThreadFor($client);
-    test()->actingAs($marketing)->postJson(route('message.claim', $thread))->assertOk();
+    test()->actingAs($marketing)->postJson(route('inbox.claim', $thread))->assertOk();
 
     return $thread;
 }
@@ -147,7 +147,7 @@ it('stops emailing the pool once the thread is claimed', function (): void {
     $thread = supportThreadFor($client);
     $mara = messagingStaff(Role::Marketing, 'Mara');
     textMessage($thread, $client, 'Hello?');
-    $this->actingAs($mara)->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs($mara)->postJson(route('inbox.claim', $thread))->assertOk();
 
     $this->travel(31)->minutes();
     runReminders();
@@ -197,7 +197,7 @@ it('puts no message text in the email, only who and how many, with a link to the
 
     expect($mail->subject)->toBe('You have 2 new messages')
         ->and($mail->introLines)->toContain('Regray Team: 2 new messages')
-        ->and($mail->actionUrl)->toBe(route('message.index', ['conversation' => 42]));
+        ->and($mail->actionUrl)->toBe(route('inbox.index', ['conversation' => 42]));
 });
 
 it('runs every five minutes on the scheduler', function (): void {

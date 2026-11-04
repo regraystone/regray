@@ -20,7 +20,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { show as brandsShow } from '@/routes/brands';
 import { show as furnitureShow } from '@/routes/furniture';
 import { index as homeIndex } from '@/routes/home';
-import { index as messageIndex } from '@/routes/message';
+import { index as inboxIndex } from '@/routes/inbox';
 import type {
     BrandCardData,
     Filters,
@@ -122,7 +122,7 @@ const BrandTile = ({ brand }: { brand: BrandCardData }) => {
                         src={brand.thumbnail}
                         alt=""
                         aria-hidden
-                        className="absolute inset-0 size-full object-cover"
+                        className="absolute inset-0 size-full object-cover brightness-90"
                     />
                     <div className="image-tint absolute inset-0" aria-hidden />
                 </>
@@ -137,11 +137,11 @@ const BrandTile = ({ brand }: { brand: BrandCardData }) => {
                     }}
                     className="w-auto max-w-full shrink-0 self-start object-contain object-left sm:self-center"
                 />
-                {brand.description ? (
+                {brand.tagline ? (
                     <p
                         className={`max-w-md text-sm leading-relaxed sm:max-w-2xl sm:text-base ${brand.thumbnail ? 'text-on-image/90' : 'text-secondary-foreground'}`}
                     >
-                        {brand.description}
+                        {brand.tagline}
                     </p>
                 ) : null}
             </div>
@@ -754,7 +754,7 @@ export default function HomeCatalogue() {
                 size="lg"
                 className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-40 shadow-lg"
             >
-                <Link href={canMessage ? messageIndex.url() : '/login'}>
+                <Link href={canMessage ? inboxIndex.url() : '/login'}>
                     <MessageCircle aria-hidden />
                     Message us
                 </Link>

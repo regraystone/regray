@@ -47,7 +47,7 @@ test('home sends the active brands in order', function (): void {
             ->where('brands.0', [
                 'slug' => 'regray-stone',
                 'name' => 'Regray Stone',
-                'description' => $regray->description,
+                'tagline' => $regray->tagline,
                 'logo' => '/storage/'.$regray->logo_path,
                 'thumbnail' => '/storage/'.$regray->thumbnail_path,
             ])

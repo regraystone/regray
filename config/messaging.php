@@ -39,7 +39,7 @@ return [
     | the viewer may read the conversation, and on S3 hands out a link that
     | expires after `link_minutes`.
     |
-    | The total stays under PHP's post_max_size (20M in docker/php.ini). The
+    | The total stays under PHP's post_max_size (64M in docker/php.ini). The
     | front end mirrors these in resources/js/lib/message-attachments.ts, so a
     | change here has to be made there too.
     |
@@ -49,8 +49,8 @@ return [
         'disk' => env('MESSAGE_ATTACHMENT_DISK', env('APP_ENV') === 'production' ? 's3-private' : 'local'),
         'link_minutes' => 5,
         'files' => 5,
-        'file_kilobytes' => 10 * 1024,
-        'total_kilobytes' => 19 * 1024,
+        'file_kilobytes' => 50 * 1024,
+        'total_kilobytes' => 50 * 1024,
         'file_extensions' => ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'docx'],
     ],
 

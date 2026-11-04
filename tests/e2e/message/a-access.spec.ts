@@ -7,7 +7,7 @@ test('1 · a client with no inquiry sees "Regray Team" first, empty, with the em
 }, testInfo) => {
     const { page } = await sessions.open('freshClient');
 
-    await page.goto('/message');
+    await page.goto('/dashboard/inbox');
 
     const names = page.getByTestId('conversation-name');
     await expect(names.first()).toHaveText('Regray Team');
@@ -20,24 +20,24 @@ test('1 · a client with no inquiry sees "Regray Team" first, empty, with the em
     await shot(page, '01-fresh-client', testInfo.project.name);
 });
 
-test('2 · marketing sees "New group"; sales does not, and POST /message/groups is 403 for sales', async ({
+test('2 · marketing sees "New group"; sales does not, and POST /dashboard/inbox/groups is 403 for sales', async ({
     sessions,
 }) => {
     const marketing = await sessions.open('marketingA');
-    await marketing.page.goto('/message');
+    await marketing.page.goto('/dashboard/inbox');
     await expect(
         marketing.page.getByRole('button', { name: 'New group' }),
     ).toBeVisible();
 
     const sales = await sessions.open('sales');
     sessions.allowConsole(/status of 403/);
-    await sales.page.goto('/message');
+    await sales.page.goto('/dashboard/inbox');
     await expect(sales.page.getByTestId('conversation-list')).toBeVisible();
     await expect(
         sales.page.getByRole('button', { name: 'New group' }),
     ).toHaveCount(0);
 
-    const response = await api(sales.page, 'POST', '/message/groups', {
+    const response = await api(sales.page, 'POST', '/dashboard/inbox/groups', {
         name: 'Not allowed',
         staffIds: [1],
         clientId: 1,
@@ -51,18 +51,18 @@ test("3 · a client cannot open another client's Regray Team thread (403)", asyn
     const other = fixtures().support.forbidden;
     const { page } = await sessions.open('client');
     sessions.allowConsole(/status of 403/);
-    await page.goto('/message');
+    await page.goto('/dashboard/inbox');
 
     const response = await api(
         page,
         'GET',
-        `/message/${other.conversationId}/messages`,
+        `/dashboard/inbox/${other.conversationId}/messages`,
     );
     expect(response.status).toBe(403);
     expect(response.json?.messages).toBeUndefined();
 
     const navigation = await page.request.get(
-        `/message/${other.conversationId}/messages`,
+        `/dashboard/inbox/${other.conversationId}/messages`,
         {
             headers: { Accept: 'application/json' },
         },
@@ -75,7 +75,7 @@ test('4 · marketing creates a group of two staff and one client; it reaches bot
 }) => {
     const creator = await sessions.open('marketingA');
     const { page } = creator;
-    await page.goto('/message');
+    await page.goto('/dashboard/inbox');
 
     await page.getByRole('button', { name: 'New group' }).click();
     const dialog = page.getByRole('dialog');
@@ -93,7 +93,7 @@ test('4 · marketing creates a group of two staff and one client; it reaches bot
 
     const created = page.waitForResponse(
         (response) =>
-            response.url().endsWith('/message/groups') &&
+            response.url().endsWith('/dashboard/inbox/groups') &&
             response.request().method() === 'POST',
     );
     await dialog.getByRole('button', { name: 'Create group' }).click();
@@ -106,7 +106,7 @@ test('4 · marketing creates a group of two staff and one client; it reaches bot
     ).toHaveCount(1);
 
     const client = await sessions.open('client');
-    await client.page.goto('/message');
+    await client.page.goto('/dashboard/inbox');
     await expect(
         client.page
             .getByTestId('conversation-name')
@@ -117,20 +117,24 @@ test('4 · marketing creates a group of two staff and one client; it reaches bot
     const clientRow = await api(
         page,
         'GET',
-        '/message/people?search=Card%20Client',
+        '/dashboard/inbox/people?search=Card%20Client',
     );
     const clients = (clientRow.json?.clients ?? []) as Array<{
         id: number;
         name: string;
     }>;
-    const salesRow = await api(page, 'GET', '/message/people?search=Sales');
+    const salesRow = await api(
+        page,
+        'GET',
+        '/dashboard/inbox/people?search=Sales',
+    );
     const staff = (salesRow.json?.staff ?? []) as Array<{
         id: number;
         name: string;
     }>;
     expect(clients.length).toBeGreaterThan(0);
 
-    const rejected = await api(page, 'POST', '/message/groups', {
+    const rejected = await api(page, 'POST', '/dashboard/inbox/groups', {
         name: 'Client as staff',
         staffIds: [clients[0].id],
         clientId: clients[0].id,

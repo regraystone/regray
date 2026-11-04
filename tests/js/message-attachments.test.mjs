@@ -37,8 +37,8 @@ describe('addAttachments', () => {
         assert.equal(result.error, ATTACHMENT_ERRORS.type);
     });
 
-    it('leaves out a file over 10 MB', () => {
-        const result = addAttachments([], [file('big.pdf', 10 * MB + 1)]);
+    it('leaves out a file over 50 MB', () => {
+        const result = addAttachments([], [file('big.pdf', 50 * MB + 1)]);
 
         assert.deepEqual(result.files, []);
         assert.equal(result.error, ATTACHMENT_ERRORS.fileSize);
@@ -52,15 +52,15 @@ describe('addAttachments', () => {
         assert.equal(result.error, ATTACHMENT_ERRORS.count);
     });
 
-    it('stops before the files together pass 19 MB', () => {
+    it('stops before the files together pass 50 MB', () => {
         const result = addAttachments(
-            [file('a.pdf', 9 * MB)],
-            [file('b.pdf', 9 * MB), file('c.pdf', 2 * MB), file('d.pdf', MB)],
+            [file('a.pdf', 30 * MB)],
+            [file('b.pdf', 20 * MB), file('c.pdf', MB)],
         );
 
         assert.deepEqual(
             result.files.map((item) => item.name),
-            ['a.pdf', 'b.pdf', 'd.pdf'],
+            ['a.pdf', 'b.pdf'],
         );
         assert.equal(result.error, ATTACHMENT_ERRORS.totalSize);
     });
@@ -68,7 +68,7 @@ describe('addAttachments', () => {
     it('reports the first reason when several files are refused', () => {
         const result = addAttachments(
             [],
-            [file('a.exe'), file('b.pdf', 11 * MB)],
+            [file('a.exe'), file('b.pdf', 51 * MB)],
         );
 
         assert.equal(result.error, ATTACHMENT_ERRORS.type);

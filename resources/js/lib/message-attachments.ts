@@ -9,8 +9,8 @@
 
 export const ATTACHMENT_LIMITS = {
     files: 5,
-    fileBytes: 10 * 1024 * 1024,
-    totalBytes: 19 * 1024 * 1024,
+    fileBytes: 50 * 1024 * 1024,
+    totalBytes: 50 * 1024 * 1024,
     extensions: [
         'jpg',
         'jpeg',
@@ -30,9 +30,9 @@ export const ATTACHMENT_ACCEPT = [
 
 export const ATTACHMENT_ERRORS = {
     type: 'Send photos (JPG, PNG, WebP), PDF or Word (DOCX) files.',
-    fileSize: 'Each file can be up to 10 MB.',
+    fileSize: 'Each file can be up to 50 MB.',
     count: `Send up to ${ATTACHMENT_LIMITS.files} files at a time.`,
-    totalSize: 'Send up to 19 MB of files at a time.',
+    totalSize: 'Send up to 50 MB of files at a time.',
 };
 
 /** What a reply or a preview says about a message of files alone. */

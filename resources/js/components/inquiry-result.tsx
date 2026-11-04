@@ -5,7 +5,7 @@ import Countdown from '@/components/countdown';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { retryLabel } from '@/lib/rate-limit';
-import { index as messageIndex } from '@/routes/message';
+import { index as inboxIndex } from '@/routes/inbox';
 import { ResultBadge } from './result-badge';
 
 type InquiryResultProps = {
@@ -98,7 +98,7 @@ const InquiryResult = ({
               canChat ? (
                   <Button key="chat" asChild>
                       <Link
-                          href={messageIndex.url({
+                          href={inboxIndex.url({
                               query: { conversation: 'support' },
                           })}
                       >

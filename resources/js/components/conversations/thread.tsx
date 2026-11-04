@@ -443,7 +443,7 @@ const Thread = ({
                         </p>
                         <p className="text-xs text-secondary-foreground">
                             {canDrop
-                                ? 'Photos (JPG, PNG, WebP), PDF or Word · up to 5 files, 10 MB each'
+                                ? 'Photos (JPG, PNG, WebP), PDF or Word · up to 5 files, 50 MB each'
                                 : dropRefusal}
                         </p>
                     </div>

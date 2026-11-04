@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Group chats started from the Message page or the Leads page: a name, one
+ * Group chats started from the Inbox page or the Leads page: a name, one
  * client, one of that client's inquiries the group is bound to, and staff. The
  * creator is the group's admin, and every owner is always added.
  *
@@ -219,7 +219,7 @@ class GroupConversationService
 
     /**
      * Who `$creator` may pick as staff: sales and technical for marketing;
-     * otherwise every non-client who may use the Message page. Owners are
+     * otherwise every non-client who may use the Inbox page. Owners are
      * added anyway, so they are never picked.
      *
      * @return Builder<User>

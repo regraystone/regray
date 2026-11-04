@@ -1,9 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { toast } from 'sonner';
 import {
     BarChart3,
     Calendar,
-    ArrowLeftRight,
     ChevronDown,
     CircleUserRound,
     FileText,
@@ -56,7 +54,7 @@ import {
     index as inquiryIndex,
     inquire as inquiryInquire,
 } from '@/routes/inquiry';
-import { index as messageIndex } from '@/routes/message';
+import { index as inboxIndex } from '@/routes/inbox';
 import { index as overviewIndex } from '@/routes/overview';
 import { index as projectsIndex } from '@/routes/projects';
 import { index as stonesIndex } from '@/routes/stones';
@@ -188,9 +186,9 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 permission: permissions.scheduleView,
             },
             {
-                slug: 'message',
-                label: 'Message',
-                href: messageIndex.url(),
+                slug: 'inbox',
+                label: 'Inbox',
+                href: inboxIndex.url(),
                 icon: MessageCircle,
                 permission: permissions.messagesView,
             },
@@ -251,11 +249,11 @@ const navLinkClass = ({
     isActive: boolean;
     collapsed: boolean;
 }) =>
-    `relative flex shrink-0 flex-row items-center overflow-hidden py-2.5 text-sm transition-opacity hover:opacity-85 ${
+    `relative flex shrink-0 flex-row items-center overflow-hidden py-2.5 text-sm ${
         collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-7'
     } ${
         isActive
-            ? 'bg-primary font-bold text-primary-foreground'
+            ? 'border opacity-65 border-slate-200 bg-slate-100 font-bold text-slate-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
             : 'text-secondary-foreground'
     }`;
 
@@ -313,7 +311,7 @@ const SidebarNav = ({
                                         >
                                             {isActive && (
                                                 <span
-                                                    className="absolute inset-y-0 left-0 w-1 bg-primary-foreground"
+                                                    className="absolute inset-y-0 left-0 w-1 bg-primary"
                                                     aria-hidden
                                                 />
                                             )}
@@ -337,7 +335,7 @@ const SidebarNav = ({
                                                         {savedCount}
                                                     </span>
                                                 )}
-                                            {item.slug === 'message' &&
+                                            {item.slug === 'inbox' &&
                                                 unreadCount > 0 &&
                                                 !collapsed && (
                                                     <span
@@ -387,7 +385,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     // Fortify's confirm-password page is only a gate in front of Security, so
     // the chrome should read as if the user is already on that page.
     const isConfirmPassword = page.component === 'confirm-password';
-    const isMessagePage = page.component === 'message';
+    const isInboxPage = page.component === 'inbox';
     const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
 
     // Get the stone slug from the page props when on a stone profile page
@@ -442,13 +440,13 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const userId = user?.id;
 
     /*
-     * Keep the Message badge current wherever the reader is: the inbox channel
+     * Keep the Inbox badge current wherever the reader is: the inbox channel
      * (and, for the support pool, the pool's) says a conversation's row
      * changed, and this tab says when it has just read messages. Either way
      * only the count is asked for again, in the background, so it never cuts
      * a visit short. A burst of events is one reload.
      *
-     * The channels are not left on the way out: the Message page listens on
+     * The channels are not left on the way out: the Inbox page listens on
      * the same ones, and leaving here would deafen it too.
      */
     useEffect(() => {
@@ -728,7 +726,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             <div
                 className={`flex min-h-screen flex-col transition-[padding] duration-300 ease-out ${
                     collapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-64'
-                } ${isMessagePage ? 'max-md:min-h-0' : ''}`}
+                } ${isInboxPage ? 'max-md:min-h-0' : ''}`}
             >
                 <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-sidebar-border bg-background px-4 sm:px-5 lg:h-16 lg:px-8">
                     <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -805,10 +803,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             </DropdownMenuTrigger>
 
                             <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem>
-                                    <HelpCircle className="mr-2" />
-                                    Help
-                                </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
                                     <Link
                                         href={showProfile()}
@@ -819,15 +813,9 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                         Profile
                                     </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onSelect={() => {
-                                        toast.info(
-                                            'Switch account is coming soon.',
-                                        );
-                                    }}
-                                >
-                                    <ArrowLeftRight className="mr-2" />
-                                    Switch account
+                                <DropdownMenuItem>
+                                    <HelpCircle className="mr-2" />
+                                    Help
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem asChild>
@@ -863,7 +851,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                  */}
                 <main
                     className={`flex-1 ${
-                        isMessagePage
+                        isInboxPage
                             ? 'md:px-5 md:py-8 lg:px-8'
                             : 'px-4 py-6 sm:px-5 sm:py-8 lg:px-8'
                     }`}

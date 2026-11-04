@@ -55,7 +55,7 @@ class UnreadMessagesNotification extends Notification implements ShouldQueue
     private function link(): string
     {
         return count($this->threads) === 1
-            ? route('message.index', ['conversation' => $this->threads[0]['conversationId']])
-            : route('message.index');
+            ? route('inbox.index', ['conversation' => $this->threads[0]['conversationId']])
+            : route('inbox.index');
     }
 }

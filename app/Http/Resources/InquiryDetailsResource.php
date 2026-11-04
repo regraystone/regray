@@ -14,6 +14,7 @@ use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
 use App\Models\InquiryStone;
 use App\Models\User;
+use App\Policies\InquiryActions;
 use App\Services\ScheduleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -70,6 +71,7 @@ class InquiryDetailsResource extends JsonResource
             'payments' => $this->payments(),
             'documents' => $this->documents($viewer),
             'project' => $this->project(),
+            'actions' => (new InquiryActions)->for($this->resource),
             'conversation' => $this->conversationLink,
         ];
     }

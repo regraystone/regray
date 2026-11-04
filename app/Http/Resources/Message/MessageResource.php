@@ -86,7 +86,7 @@ class MessageResource extends JsonResource
                     'mimeType' => $attachment->mime_type,
                     'size' => $attachment->size_bytes,
                     'isImage' => str_starts_with($attachment->mime_type, 'image/'),
-                    'url' => route('message.attachments.show', $attachment, absolute: false),
+                    'url' => route('inbox.attachments.show', $attachment, absolute: false),
                 ])
                 ->values()
                 ->all(),

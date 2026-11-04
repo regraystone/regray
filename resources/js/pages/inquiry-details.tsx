@@ -25,9 +25,14 @@ import {
     INQUIRY_SUBMITTED_LABEL,
     startedStatuses,
 } from '@/lib/inquiry-statuses';
+import { buildCardActions } from '@/lib/quote-actions';
 import { index as inquiryIndex } from '@/routes/inquiry';
-import { index as messageIndex } from '@/routes/message';
-import { index as quoteIndex } from '@/routes/quote';
+import { index as inboxIndex } from '@/routes/inbox';
+import {
+    index as quoteIndex,
+    edit as quoteEdit,
+    cancel as quoteCancel,
+} from '@/routes/quote';
 import type { QuoteInquiryDetails } from '@/types/quote';
 
 type InquiryDetailsProps = {
@@ -853,26 +858,100 @@ const InquiryDetails = () => {
                  * question, and only where there is a group chat for this
                  * inquiry that the reader is in.
                  */}
-                {inquiry.conversation ? (
-                    <Button
-                        asChild
-                        variant="default"
-                        className="shrink-0 self-start"
-                    >
-                        <Link
-                            href={messageIndex.url({
-                                query: {
-                                    conversation: String(
-                                        inquiry.conversation.id,
-                                    ),
-                                },
-                            })}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {buildCardActions(inquiry.actions).map((button) => {
+                        if (button.key === 'view') {
+                            return null;
+                        }
+                        if (button.key === 'update') {
+                            return button.enabled ? (
+                                <Button
+                                    asChild
+                                    key={button.key}
+                                    variant={button.variant}
+                                    className="shrink-0 self-start"
+                                >
+                                    <Link
+                                        href={quoteEdit.url({
+                                            reference: inquiry.reference,
+                                        })}
+                                    >
+                                        {button.label}
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <Button
+                                    key={button.key}
+                                    variant={button.variant}
+                                    disabled
+                                    title={button.reason}
+                                    className="shrink-0 self-start"
+                                >
+                                    {button.label}
+                                </Button>
+                            );
+                        }
+                        if (button.key === 'cancel') {
+                            return button.enabled ? (
+                                <Button
+                                    key={button.key}
+                                    variant={button.variant}
+                                    className="shrink-0 self-start"
+                                    onClick={() => {
+                                        if (
+                                            confirm(
+                                                'Are you sure you want to cancel this inquiry?',
+                                            )
+                                        ) {
+                                            router.patch(
+                                                quoteCancel.url({
+                                                    reference:
+                                                        inquiry.reference,
+                                                }),
+                                            );
+                                        }
+                                    }}
+                                >
+                                    {button.label}
+                                </Button>
+                            ) : null;
+                        }
+                        if (button.key === 'invoice') {
+                            return button.enabled ? (
+                                <Button
+                                    asChild
+                                    key={button.key}
+                                    variant={button.variant}
+                                    className="shrink-0 self-start"
+                                >
+                                    <Link href="#">{button.label}</Link>
+                                </Button>
+                            ) : null;
+                        }
+                        return null;
+                    })}
+
+                    {inquiry.conversation ? (
+                        <Button
+                            asChild
+                            variant="default"
+                            className="shrink-0 self-start"
                         >
-                            <MessageCircle aria-hidden />
-                            Message the team
-                        </Link>
-                    </Button>
-                ) : null}
+                            <Link
+                                href={inboxIndex.url({
+                                    query: {
+                                        conversation: String(
+                                            inquiry.conversation.id,
+                                        ),
+                                    },
+                                })}
+                            >
+                                <MessageCircle aria-hidden />
+                                Message the team
+                            </Link>
+                        </Button>
+                    ) : null}
+                </div>
             </div>
 
             {/*

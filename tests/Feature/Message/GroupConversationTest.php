@@ -36,7 +36,7 @@ function groupInput(object $test, array $overrides = []): array
 }
 
 it('lets marketing make a group for a client\'s inquiry with sales and technical, always adds every owner, and makes the creator its admin', function (): void {
-    $this->actingAs($this->marketing)->postJson(route('message.groups.store'), groupInput($this))
+    $this->actingAs($this->marketing)->postJson(route('inbox.groups.store'), groupInput($this))
         ->assertCreated()
         ->assertJsonPath('conversation.name', 'Kitchen project');
 
@@ -57,7 +57,7 @@ it('offers marketing only sales and technical as staff, and every owner as alway
     messagingStaff(Role::Accounting, 'Accounting');
     messagingStaff(Role::Logistics, 'Logistics');
 
-    $people = $this->actingAs($this->marketing)->getJson(route('message.people', ['clientId' => $this->client->id]))->assertOk();
+    $people = $this->actingAs($this->marketing)->getJson(route('inbox.people', ['clientId' => $this->client->id]))->assertOk();
 
     expect(collect($people->json('staff'))->pluck('id')->all())->toEqualCanonicalizing([$this->sales->id, $this->technical->id])
         ->and(collect($people->json('owners'))->pluck('id')->all())->toBe([$this->owner->id])
@@ -66,7 +66,7 @@ it('offers marketing only sales and technical as staff, and every owner as alway
 
 it('refuses marketing any staff outside sales and technical', function (Role $role): void {
     $this->actingAs($this->marketing)
-        ->postJson(route('message.groups.store'), groupInput($this, ['staffIds' => [messagingStaff($role)->id]]))
+        ->postJson(route('inbox.groups.store'), groupInput($this, ['staffIds' => [messagingStaff($role)->id]]))
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['staffIds' => 'Choose staff from sales and technical.']);
 
@@ -82,7 +82,7 @@ it('refuses an inquiry that is not the chosen client\'s', function (): void {
     $other = makeInquiry(inquiryClient(), attributes: ['reference' => 'INQ-G2']);
 
     $this->actingAs($this->marketing)
-        ->postJson(route('message.groups.store'), groupInput($this, ['inquiryId' => $other->id]))
+        ->postJson(route('inbox.groups.store'), groupInput($this, ['inquiryId' => $other->id]))
         ->assertUnprocessable()
         ->assertJsonValidationErrors('inquiryId');
 
@@ -90,10 +90,10 @@ it('refuses an inquiry that is not the chosen client\'s', function (): void {
 });
 
 it('gives an inquiry one group chat at most', function (): void {
-    $this->actingAs($this->marketing)->postJson(route('message.groups.store'), groupInput($this))->assertCreated();
+    $this->actingAs($this->marketing)->postJson(route('inbox.groups.store'), groupInput($this))->assertCreated();
 
     $this->actingAs($this->marketing)
-        ->postJson(route('message.groups.store'), groupInput($this, ['name' => 'Again']))
+        ->postJson(route('inbox.groups.store'), groupInput($this, ['name' => 'Again']))
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['inquiryId' => 'INQ-G1 already has a group chat.']);
 
@@ -102,7 +102,7 @@ it('gives an inquiry one group chat at most', function (): void {
 
 it('refuses a client in the staff list with 422', function (): void {
     $this->actingAs($this->marketing)
-        ->postJson(route('message.groups.store'), groupInput($this, ['staffIds' => [inquiryClient()->id]]))
+        ->postJson(route('inbox.groups.store'), groupInput($this, ['staffIds' => [inquiryClient()->id]]))
         ->assertUnprocessable();
 
     expect(Conversation::query()->where('type', ConversationType::Group)->exists())->toBeFalse();
@@ -116,7 +116,7 @@ describe('adding people later', function (): void {
     });
 
     it('lets a sales member add accounting and logistics', function (): void {
-        $this->actingAs($this->sales)->getJson(route('message.members.index', $this->group))
+        $this->actingAs($this->sales)->getJson(route('inbox.members.index', $this->group))
             ->assertOk()
             ->assertJsonPath('people', [
                 ['id' => $this->accounting->id, 'name' => 'Accounting'],
@@ -124,7 +124,7 @@ describe('adding people later', function (): void {
             ]);
 
         $this->actingAs($this->sales)
-            ->postJson(route('message.members.store', $this->group), ['userIds' => [$this->accounting->id, $this->logistics->id]])
+            ->postJson(route('inbox.members.store', $this->group), ['userIds' => [$this->accounting->id, $this->logistics->id]])
             ->assertOk()
             ->assertJsonPath('conversation.memberCount', 6);
 
@@ -134,7 +134,7 @@ describe('adding people later', function (): void {
 
     it('lets a sales member add nobody but accounting and logistics', function (Role $role): void {
         $this->actingAs($this->sales)
-            ->postJson(route('message.members.store', $this->group), ['userIds' => [messagingStaff($role)->id]])
+            ->postJson(route('inbox.members.store', $this->group), ['userIds' => [messagingStaff($role)->id]])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['userIds' => 'Choose people from accounting and logistics.']);
 
@@ -151,7 +151,7 @@ describe('adding people later', function (): void {
 
         foreach ([$this->marketing, $this->technical, $this->client, $outsider] as $user) {
             $this->actingAs($user)
-                ->postJson(route('message.members.store', $this->group), ['userIds' => [$this->accounting->id]])
+                ->postJson(route('inbox.members.store', $this->group), ['userIds' => [$this->accounting->id]])
                 ->assertForbidden();
         }
 
@@ -159,7 +159,7 @@ describe('adding people later', function (): void {
     });
 
     it('offers the control to a sales member of an inquiry\'s group only', function (): void {
-        $summary = fn ($user) => $this->actingAs($user)->getJson(route('message.thread', $this->group))->json('conversation.canAddMembers');
+        $summary = fn ($user) => $this->actingAs($user)->getJson(route('inbox.thread', $this->group))->json('conversation.canAddMembers');
 
         expect($summary($this->sales))->toBeTrue()
             ->and($summary($this->marketing))->toBeFalse()

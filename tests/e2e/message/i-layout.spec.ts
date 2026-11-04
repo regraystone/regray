@@ -21,7 +21,7 @@ test('41 · no horizontal page scroll on the list or the thread @layout', async 
     const { cards, chat } = fixtures();
     const { page } = await sessions.open('marketingA');
 
-    await page.goto('/message');
+    await page.goto('/dashboard/inbox');
     await expect(page.getByTestId('conversation-row').first()).toBeVisible();
     const list = await horizontalOverflow(page);
     expect(
@@ -59,12 +59,12 @@ test('42 · a tour of the page by every role logs no console errors or uncaught 
 
     for (const actor of ['marketingA', 'sales', 'admin', 'client'] as const) {
         const { page } = await sessions.open(actor);
-        await page.goto('/message');
+        await page.goto('/dashboard/inbox');
         await expect(
             page.getByTestId('conversation-row').first(),
         ).toBeVisible();
         const thread = page.waitForResponse((response) =>
-            /\/message\/\d+\/messages/.test(response.url()),
+            /\/dashboard\/inbox\/\d+\/messages/.test(response.url()),
         );
         await page.getByTestId('conversation-row').first().click();
         await thread;
@@ -79,7 +79,9 @@ test('42 · a tour of the page by every role logs no console errors or uncaught 
         support.release.conversationId,
     ]) {
         const loaded = page.waitForResponse((response) =>
-            response.url().includes(`/message/${conversationId}/messages`),
+            response
+                .url()
+                .includes(`/dashboard/inbox/${conversationId}/messages`),
         );
         await openConversation(page, conversationId);
         await loaded;

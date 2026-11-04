@@ -1,8 +1,8 @@
 import {
     FileText,
     Image as ImageIcon,
+    Paperclip,
     Pencil,
-    Plus,
     Reply,
     Send,
     UserCheck,
@@ -55,7 +55,7 @@ type ComposerProps = {
     onTyping: () => void;
 };
 
-/** The solid plus at the start of the field that opens the file picker. */
+/** The attach file button outside the text field on the left. */
 const AttachButton = ({
     onClick,
     disabled,
@@ -65,13 +65,35 @@ const AttachButton = ({
 }) => (
     <Button
         type="button"
+        variant="ghost"
         size="icon"
         onClick={onClick}
         disabled={disabled}
         aria-label="Attach a file"
-        className="size-9 shrink-0 cursor-pointer rounded-md p-0"
+        className="size-9 shrink-0 cursor-pointer rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
     >
-        <Plus className="size-5" aria-hidden />
+        <Paperclip className="size-4" aria-hidden />
+    </Button>
+);
+
+/** The photo attach button outside the text field on the left. */
+const PhotoAttachButton = ({
+    onClick,
+    disabled,
+}: {
+    onClick: () => void;
+    disabled: boolean;
+}) => (
+    <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label="Attach photos"
+        className="size-9 shrink-0 rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
+    >
+        <ImageIcon className="size-4" aria-hidden />
     </Button>
 );
 
@@ -104,10 +126,8 @@ const SendButton = ({
 );
 
 /*
- * Where send sits on touch: it grows in from nothing when the box is in use
- * and folds away again, so the box widens back rather than jumping. The fade
- * and the scale sit on this wrapper rather than the button, whose own disabled
- * opacity would otherwise win and leave a hidden send showing through.
+ * Where send sits: below md it grows in when in use; at md and above it is
+ * always visible at the end of the row.
  */
 const SendSlot = ({
     shown,
@@ -121,7 +141,7 @@ const SendSlot = ({
         className={`grid shrink-0 place-items-center overflow-hidden transition-[width,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
             shown
                 ? 'w-9 scale-100 opacity-100'
-                : 'pointer-events-none w-0 scale-50 opacity-0'
+                : 'pointer-events-none w-0 scale-50 opacity-0 md:pointer-events-auto md:w-9 md:scale-100 md:opacity-100'
         }`}
     >
         {children}
@@ -130,29 +150,6 @@ const SendSlot = ({
 
 /**
  * The box at the foot of a thread.
- *
- * Desktop: Enter sends and Shift+Enter adds a line. Touch: Enter adds a line
- * and the send button sends. The box grows with what is written, up to about
- * five lines.
- *
- * Above the box sits a bar for whatever the next send is: a reply (with the
- * quoted message and a close button) or an edit ("Editing", where Enter saves
- * and Escape cancels).
- *
- * The box and its buttons share one field. The plus at its start adds
- * photos, PDFs and Word documents (see lib/message-attachments for the
- * limits), and so does dropping files anywhere on the thread (`addFiles`).
- * They show as chips above the box, and a message may be files alone. An edit
- * changes only the words, so the plus rests while editing.
- *
- * Desktop always shows send at the end of the field, disabled until there is
- * something to send. On touch the end of the field is empty while the box is
- * idle, and send grows in once it is in use (focused, holding words or files,
- * or editing). In use does not hang on focus alone, so send is still there
- * when tapping it takes the focus away from the box.
- *
- * On a Regray Team thread nobody has claimed, a pool member cannot send: the
- * box is replaced by the note and the same "Assign to me" button the card has.
  */
 const Composer = ({
     ref,
@@ -176,6 +173,7 @@ const Composer = ({
     const [focused, setFocused] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const photoInputRef = useRef<HTMLInputElement>(null);
 
     // Entering edit mode loads the message; leaving it clears the box.
     useEffect(() => {
@@ -199,8 +197,6 @@ const Composer = ({
             return;
         }
 
-        // scrollHeight leaves out the border, which the box's height includes;
-        // without it the text overflows by a pixel or two and a scrollbar shows.
         const border = textarea.offsetHeight - textarea.clientHeight;
         textarea.style.height = 'auto';
         const needed = textarea.scrollHeight + border;
@@ -281,7 +277,12 @@ const Composer = ({
 
     const pickFiles = (event: ChangeEvent<HTMLInputElement>) => {
         const picked = [...(event.target.files ?? [])];
-        // Cleared so picking the same file again still fires a change.
+        event.target.value = '';
+        attachFiles(picked);
+    };
+
+    const pickPhotos = (event: ChangeEvent<HTMLInputElement>) => {
+        const picked = [...(event.target.files ?? [])];
         event.target.value = '';
         attachFiles(picked);
     };
@@ -401,7 +402,7 @@ const Composer = ({
                 </div>
             ) : null}
 
-            <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-end gap-1.5 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <input
                     ref={fileInputRef}
                     type="file"
@@ -414,12 +415,30 @@ const Composer = ({
                     data-testid="composer-file-input"
                 />
 
-                <div className="flex items-end gap-2 rounded-md border border-input bg-background p-1 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                <input
+                    ref={photoInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={pickPhotos}
+                    className="hidden"
+                    tabIndex={-1}
+                    aria-hidden
+                    data-testid="composer-photo-input"
+                />
+
+                <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
                     <AttachButton
                         onClick={() => fileInputRef.current?.click()}
                         disabled={editing !== null}
                     />
+                    <PhotoAttachButton
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={editing !== null}
+                    />
+                </div>
 
+                <div className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-1.5 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
                     <textarea
                         ref={textareaRef}
                         value={draft}
@@ -434,27 +453,20 @@ const Composer = ({
                         aria-label={placeholder}
                         placeholder={placeholder}
                         enterKeyHint={isTouch ? 'enter' : 'send'}
-                        className="min-h-9 min-w-0 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-muted-foreground md:text-sm"
+                        className="min-h-9 w-full min-w-0 resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-muted-foreground md:text-sm"
                         data-testid="composer-input"
                     />
+                </div>
 
-                    {isTouch ? (
-                        <SendSlot shown={inUse}>
-                            <SendButton
-                                onClick={() => void submit()}
-                                disabled={!canSubmit}
-                                editing={editing !== null}
-                                saving={saving}
-                            />
-                        </SendSlot>
-                    ) : (
+                <div className="shrink-0 pb-0.5">
+                    <SendSlot shown={inUse}>
                         <SendButton
                             onClick={() => void submit()}
                             disabled={!canSubmit}
                             editing={editing !== null}
                             saving={saving}
                         />
-                    )}
+                    </SendSlot>
                 </div>
             </div>
         </div>

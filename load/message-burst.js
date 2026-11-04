@@ -40,11 +40,11 @@ export const options = {
 
 const CLIENT = __ENV.MESSAGE_EMAIL || 'client@example.com';
 
-/** The id of the first thread on the client's Message page: their Regray Team thread. */
+/** The id of the first thread on the client's Inbox page: their Regray Team thread. */
 const firstConversationId = (version) => {
-    const response = http.get(`${BASE_URL}/message`, {
+    const response = http.get(`${BASE_URL}/dashboard/inbox`, {
         headers: inertiaHeaders(version, {
-            component: 'message',
+            component: 'inbox',
             only: ['conversations'],
         }),
         tags: { name: 'message-list' },
@@ -52,7 +52,9 @@ const firstConversationId = (version) => {
     const conversations = response.json('props.conversations.data');
 
     if (!Array.isArray(conversations) || conversations.length === 0) {
-        fail(`No thread to send in (GET /message answered ${response.status})`);
+        fail(
+            `No thread to send in (GET /dashboard/inbox answered ${response.status})`,
+        );
     }
 
     return conversations[0].id;
@@ -73,7 +75,7 @@ export default function (session) {
 
     const response = track(
         http.post(
-            `${BASE_URL}/message/${session.conversationId}/messages`,
+            `${BASE_URL}/dashboard/inbox/${session.conversationId}/messages`,
             JSON.stringify({
                 body: `Load test message ${uuid()}`,
                 replyToId: null,

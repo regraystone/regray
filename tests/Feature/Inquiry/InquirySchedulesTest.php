@@ -94,7 +94,7 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
     $inquiry = Inquiry::query()->with('schedule')->sole();
     $schedule = $inquiry->schedule;
 
-    $this->actingAs($this->client)->getJson(route('message.thread', $thread))
+    $this->actingAs($this->client)->getJson(route('inbox.thread', $thread))
         ->assertOk()
         ->assertJsonPath('messages.0.type', MessageType::InquiryCard->value)
         ->assertJsonPath('messages.0.inquiryCard.reference', $inquiry->reference)

@@ -42,7 +42,7 @@ import {
 } from '@/lib/lead-statuses';
 import { inquire as inquiryInquire } from '@/routes/inquiry';
 import { status as leadInquiryStatusRoute } from '@/routes/leads/inquiries';
-import { index as messageIndex } from '@/routes/message';
+import { index as inboxIndex } from '@/routes/inbox';
 
 type LeadInquiry = {
     id: number;
@@ -485,7 +485,7 @@ const Leads = () => {
                     }}
                     onCreated={(conversation) =>
                         router.visit(
-                            messageIndex.url({
+                            inboxIndex.url({
                                 query: {
                                     conversation: String(conversation.id),
                                 },

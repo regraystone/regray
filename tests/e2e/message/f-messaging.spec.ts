@@ -21,7 +21,7 @@ const unique = (label: string): string =>
 const sendResponse = (page: Page) =>
     page.waitForResponse(
         (response) =>
-            /\/message\/\d+\/messages$/.test(response.url()) &&
+            /\/dashboard\/inbox\/\d+\/messages$/.test(response.url()) &&
             response.request().method() === 'POST',
     );
 
@@ -53,7 +53,7 @@ const postAs = (
     body: string,
     clientKey = crypto.randomUUID(),
 ) =>
-    api(page, 'POST', `/message/${conversationId}/messages`, {
+    api(page, 'POST', `/dashboard/inbox/${conversationId}/messages`, {
         body,
         clientKey,
     });
@@ -133,7 +133,7 @@ test('28 · receipts: A sees "Seen" once B opens the thread; in a direct chat th
 
     // Direct chat: A is online on the list, the client writes to A.
     const recipient = await sessions.open('marketingA');
-    await recipient.page.goto('/message');
+    await recipient.page.goto('/dashboard/inbox');
     await expect(recipient.page.getByTestId('conversation-list')).toBeVisible();
 
     const client = await sessions.open('directClient');
@@ -151,7 +151,7 @@ test('29 · a reply quotes the original, and tapping the quote scrolls back to i
     const { chat } = fixtures();
     const a = await sessions.open('marketingA');
     const b = await sessions.open('marketingB');
-    await b.page.goto('/message');
+    await b.page.goto('/dashboard/inbox');
 
     const original = unique('Original');
     await postAs(b.page, chat.conversationId, original);
@@ -389,7 +389,7 @@ test('35 · optimistic send: Sending, then Sent; offline it fails with Retry, wh
     await openConversation(page, chat.conversationId);
 
     const isSend = (url: URL) =>
-        new RegExp(`/message/${chat.conversationId}/messages$`).test(
+        new RegExp(`/dashboard/inbox/${chat.conversationId}/messages$`).test(
             url.pathname,
         );
 
@@ -430,7 +430,7 @@ test('35 · optimistic send: Sending, then Sent; offline it fails with Retry, wh
     const thread = await api(
         page,
         'GET',
-        `/message/${chat.conversationId}/messages?limit=100`,
+        `/dashboard/inbox/${chat.conversationId}/messages?limit=100`,
     );
     const bodies = (
         (thread.json?.messages ?? []) as Array<{ body: string | null }>
@@ -455,7 +455,7 @@ test('36 · a message arriving while scrolled up does not move the view; the pil
     const { scroll } = fixtures();
     const a = await sessions.open('marketingA');
     const b = await sessions.open('marketingB');
-    await b.page.goto('/message');
+    await b.page.goto('/dashboard/inbox');
     await openConversation(a.page, scroll.conversationId);
 
     const thread = a.page.getByTestId('thread-scroll');

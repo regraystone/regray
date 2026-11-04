@@ -7,7 +7,7 @@ import type { ContactKind } from '@/lib/staff-inquire';
 /**
  * The staff Inquire flow's JSON endpoints: finding a client's account
  * (Platform) and taking a walk-in down (Direct). Refusals come back as the
- * Message page's ApiError, with the server's field errors.
+ * Inbox page's ApiError, with the server's field errors.
  */
 
 export type ClientAccount = { id: number; name: string; email: string };

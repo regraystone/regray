@@ -51,7 +51,7 @@ class ClientsWaitingNotification extends Notification implements ShouldQueue
         return $mail
             ->line('Claim a conversation to answer it.')
             ->action('Open messages', $clients === 1
-                ? route('message.index', ['conversation' => $this->threads[0]['conversationId']])
-                : route('message.index'));
+                ? route('inbox.index', ['conversation' => $this->threads[0]['conversationId']])
+                : route('inbox.index'));
     }
 }

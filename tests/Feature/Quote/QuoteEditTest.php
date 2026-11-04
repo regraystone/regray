@@ -134,7 +134,8 @@ describe('saving the edit', function (): void {
             ])]])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('quote.show', $inquiry->reference))
-            ->assertSessionHas(SessionKey::FLASH_DATA.'.toast.type', 'success');
+            ->assertSessionHas(SessionKey::FLASH_DATA.'.toast.type', 'success')
+            ->assertSessionHas(SessionKey::FLASH_DATA.'.toast.message', "We'll review your changes and get back to you within 1-3 days.");
 
         $inquiry->refresh();
 

@@ -23,7 +23,13 @@ import {
     type QuoteSort,
 } from '@/lib/quote-filters';
 import { SKELETON_CARD_COUNT, skeletonState } from '@/lib/quote-skeleton';
-import { index as quoteIndex, show as quoteShow } from '@/routes/quote';
+import { buildCardActions } from '@/lib/quote-actions';
+import {
+    index as quoteIndex,
+    show as quoteShow,
+    edit as quoteEdit,
+    cancel as quoteCancel,
+} from '@/routes/quote';
 import type { QuoteInquiry, QuotePageProps } from '@/types/quote';
 
 const SEARCH_DEBOUNCE_MS = 200;
@@ -303,9 +309,88 @@ const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-52 lg:shrink-0 lg:flex-col">
-                    <Button asChild className="w-full sm:w-auto lg:w-full">
-                        <Link href={detailsHref}>View details</Link>
-                    </Button>
+                    {buildCardActions(inquiry.actions).map((button) => {
+                        if (button.key === 'view') {
+                            return (
+                                <Button
+                                    asChild
+                                    key={button.key}
+                                    variant={button.variant}
+                                    className="w-full sm:w-auto lg:w-full"
+                                >
+                                    <Link href={detailsHref}>
+                                        {button.label}
+                                    </Link>
+                                </Button>
+                            );
+                        }
+                        if (button.key === 'update') {
+                            return button.enabled ? (
+                                <Button
+                                    asChild
+                                    key={button.key}
+                                    variant={button.variant}
+                                    className="w-full sm:w-auto lg:w-full"
+                                >
+                                    <Link
+                                        href={quoteEdit.url({
+                                            reference: inquiry.reference,
+                                        })}
+                                    >
+                                        {button.label}
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <Button
+                                    key={button.key}
+                                    variant={button.variant}
+                                    disabled
+                                    title={button.reason}
+                                    className="w-full sm:w-auto lg:w-full"
+                                >
+                                    {button.label}
+                                </Button>
+                            );
+                        }
+                        if (button.key === 'cancel') {
+                            return button.enabled ? (
+                                <Button
+                                    key={button.key}
+                                    variant={button.variant}
+                                    className="w-full sm:w-auto lg:w-full"
+                                    onClick={() => {
+                                        if (
+                                            confirm(
+                                                'Are you sure you want to cancel this inquiry?',
+                                            )
+                                        ) {
+                                            router.patch(
+                                                quoteCancel.url({
+                                                    reference:
+                                                        inquiry.reference,
+                                                }),
+                                            );
+                                        }
+                                    }}
+                                >
+                                    {button.label}
+                                </Button>
+                            ) : null;
+                        }
+                        if (button.key === 'invoice') {
+                            return button.enabled ? (
+                                <Button
+                                    asChild
+                                    key={button.key}
+                                    variant={button.variant}
+                                    className="w-full sm:w-auto lg:w-full"
+                                >
+                                    <Link href="#">{button.label}</Link>
+                                </Button>
+                            ) : null;
+                        }
+                        return null;
+                    })}
                 </div>
             </div>
         </article>
@@ -529,16 +614,6 @@ const Quote = () => {
                         <EmptyState
                             title="No inquiries yet"
                             description="Start an inquiry and it will show up here with its progress."
-                            action={
-                                inquire ? (
-                                    <Button
-                                        type="button"
-                                        onClick={onInquireClick}
-                                    >
-                                        Inquire
-                                    </Button>
-                                ) : null
-                            }
                         />
                     )
                 ) : (

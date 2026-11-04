@@ -27,7 +27,7 @@ beforeEach(function (): void {
  */
 function sendFiles(User $sender, Conversation $conversation, array $files, ?string $body = null, array $extra = []): TestResponse
 {
-    return test()->actingAs($sender)->post(route('message.send', $conversation), [
+    return test()->actingAs($sender)->post(route('inbox.send', $conversation), [
         'body' => $body,
         'clientKey' => (string) Str::uuid(),
         'attachments' => $files,
@@ -114,7 +114,7 @@ it('stores a photo and a PDF on the private disk and returns them with the messa
             'mimeType' => 'image/jpeg',
             'size' => $attachments[0]->size_bytes,
             'isImage' => true,
-            'url' => route('message.attachments.show', $attachments[0], absolute: false),
+            'url' => route('inbox.attachments.show', $attachments[0], absolute: false),
         ])
         ->assertJsonPath('message.attachments.1.isImage', false);
 });
@@ -144,11 +144,11 @@ it('sends files without any words, and the list says what was sent', function ()
 
     sendFiles($client, $group, [sitePhoto(), sitePhoto()])->assertCreated()->assertJsonPath('message.body', '');
 
-    $this->actingAs($sales)->getJson(route('message.thread', $group))
+    $this->actingAs($sales)->getJson(route('inbox.thread', $group))
         ->assertJsonPath('conversation.preview', 'Rafael: Sent 2 photos');
 
     sendFiles($sales, $group, [floorPlan()])->assertCreated();
-    $this->actingAs($sales)->getJson(route('message.thread', $group))
+    $this->actingAs($sales)->getJson(route('inbox.thread', $group))
         ->assertJsonPath('conversation.preview', 'You: Sent a file');
 });
 
@@ -173,13 +173,13 @@ it('refuses what it cannot send, with the reason', function (array $payload, str
         fn () => ['attachments' => array_map(fn () => floorPlan(1), range(1, 6))],
         'attachments', 'Send up to 5 files at a time.',
     ],
-    'a file over 10 MB' => [
-        fn () => ['attachments' => [floorPlan(10 * 1024 + 1)]],
-        'attachments.0', 'Each file can be up to 10 MB.',
+    'a file over 50 MB' => [
+        fn () => ['attachments' => [floorPlan(50 * 1024 + 1)]],
+        'attachments.0', 'Each file can be up to 50 MB.',
     ],
-    'more than 19 MB together' => [
-        fn () => ['attachments' => [floorPlan(10 * 1024), floorPlan(10 * 1024)]],
-        'attachments', 'Send up to 19 MB of files at a time.',
+    'more than 50 MB together' => [
+        fn () => ['attachments' => [floorPlan(50 * 1024), floorPlan(1)]],
+        'attachments', 'Send up to 50 MB of files at a time.',
     ],
 ]);
 
@@ -235,7 +235,7 @@ it('stops serving a Regray Team file to the pool once someone else claims the th
     $url = sendFiles($client, $thread, [sitePhoto()])->json('message.attachments.0.url');
 
     $this->actingAs($mike)->get($url)->assertOk();
-    $this->actingAs($mara)->postJson(route('message.claim', $thread))->assertOk();
+    $this->actingAs($mara)->postJson(route('inbox.claim', $thread))->assertOk();
 
     $this->actingAs($mike)->get($url)->assertForbidden();
     $this->actingAs($mara)->get($url)->assertOk();
@@ -249,7 +249,7 @@ it('keeps a removed message\'s files on the disk but no longer serves or lists t
     $group = groupConversation([$sales, $client]);
     $sent = sendFiles($client, $group, [floorPlan()], 'Plan')->json('message');
 
-    $this->actingAs($client)->deleteJson(route('message.messages.destroy', $sent['id']))
+    $this->actingAs($client)->deleteJson(route('inbox.messages.destroy', $sent['id']))
         ->assertOk()
         ->assertJsonPath('message.attachments', []);
 

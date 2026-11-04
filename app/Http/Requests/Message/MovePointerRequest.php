@@ -37,7 +37,7 @@ class MovePointerRequest extends FormRequest
 
     public function isRead(): bool
     {
-        return $this->routeIs('message.read');
+        return $this->routeIs('inbox.read');
     }
 
     private function field(): string

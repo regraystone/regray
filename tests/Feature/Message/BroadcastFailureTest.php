@@ -30,7 +30,7 @@ it('saves a message and answers 201 when the broadcast fails', function (): void
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->postJson(route('message.send', $thread), ['body' => 'Still here', 'clientKey' => fake()->uuid()])
+        ->postJson(route('inbox.send', $thread), ['body' => 'Still here', 'clientKey' => fake()->uuid()])
         ->assertCreated();
 
     expect(Message::query()->where('conversation_id', $thread->id)->where('body', 'Still here')->exists())->toBeTrue();
@@ -42,6 +42,6 @@ it('moves the read pointer and answers 200 when the broadcast fails', function (
     $message = textMessage($thread, $client);
 
     $this->actingAs($client)
-        ->postJson(route('message.read', $thread), ['lastReadMessageId' => $message->id])
+        ->postJson(route('inbox.read', $thread), ['lastReadMessageId' => $message->id])
         ->assertSuccessful();
 });

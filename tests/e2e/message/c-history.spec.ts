@@ -7,7 +7,7 @@ const PAGE = 30;
 const TOTAL = 100;
 
 const isOlderPageRequest = (url: string): boolean =>
-    /\/message\/\d+\/messages\?.*before=/.test(url);
+    /\/dashboard\/inbox\/\d+\/messages\?.*before=/.test(url);
 
 const scrollThreadToTop = (page: Page) =>
     page

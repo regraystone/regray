@@ -17,10 +17,10 @@ const A_NAME = 'Marketing';
 
 /** Narrow a staff list to one client's thread, so it is on the first page. */
 const searchList = async (page: Page, name: string): Promise<void> => {
-    await page.goto('/message');
+    await page.goto('/dashboard/inbox');
     const searched = page.waitForResponse(
         (response) =>
-            response.url().includes('/message') &&
+            response.url().includes('/dashboard/inbox') &&
             new URL(response.url()).searchParams.get('search') === name,
     );
     await page.getByLabel('Search conversations').fill(name);
@@ -40,7 +40,7 @@ const rowNamed = (page: Page, name: string) =>
  * 403 is expected; a second one on the same endpoint is the old loop (BUG-4).
  */
 const LOST_ACCESS_403 =
-    /status of 403 \(Forbidden\) \[[^\]]*\/message\/\d+\/(read|messages)/;
+    /status of 403 \(Forbidden\) \[[^\]]*\/dashboard\/inbox\/\d+\/(read|messages)/;
 
 const countLostAccess = (page: Page): (() => Record<string, number>) => {
     const counts: Record<string, number> = {};
@@ -48,7 +48,7 @@ const countLostAccess = (page: Page): (() => Record<string, number>) => {
     page.on('response', (response) => {
         if (
             response.status() === 403 &&
-            /\/message\/\d+\/(read|messages)/.test(response.url())
+            /\/dashboard\/inbox\/\d+\/(read|messages)/.test(response.url())
         ) {
             const path = new URL(response.url()).pathname;
             counts[path] = (counts[path] ?? 0) + 1;
@@ -67,7 +67,7 @@ const expectAtMostOneEach = (counts: Record<string, number>): void => {
 const claimResponse = (page: Page) =>
     page.waitForResponse(
         (response) =>
-            /\/message\/\d+\/claim$/.test(response.url()) &&
+            /\/dashboard\/inbox\/\d+\/claim$/.test(response.url()) &&
             response.request().method() === 'POST',
     );
 
@@ -88,7 +88,7 @@ test('18 · both marketing users see the "Assign to me" card; the client never d
     }
 
     const client = await sessions.open({ email: thread.email });
-    await client.page.goto('/message?conversation=support');
+    await client.page.goto('/dashboard/inbox?conversation=support');
     await expect(client.page.getByTestId('thread-title')).toHaveText(
         'Regray Team',
     );
@@ -99,7 +99,7 @@ test('18 · both marketing users see the "Assign to me" card; the client never d
     const payload = await api(
         client.page,
         'GET',
-        `/message/${thread.conversationId}/messages`,
+        `/dashboard/inbox/${thread.conversationId}/messages`,
     );
     expect(payload.status).toBe(200);
     expect(payload.json?.assignment).toBeNull();
@@ -141,7 +141,7 @@ test('20 · the client sees "Handled by {A}" and the claim message without a rel
 }) => {
     const thread = fixtures().support.names;
     const client = await sessions.open({ email: thread.email });
-    await client.page.goto('/message?conversation=support');
+    await client.page.goto('/dashboard/inbox?conversation=support');
     await expect(client.page.getByTestId('thread-title')).toHaveText(
         'Regray Team',
     );
@@ -169,7 +169,7 @@ test("21 · no staff name shows before the claim; after it, A's messages carry A
 }) => {
     const thread = fixtures().support.forbidden;
     const client = await sessions.open({ email: thread.email });
-    await client.page.goto('/message?conversation=support');
+    await client.page.goto('/dashboard/inbox?conversation=support');
     await expect(client.page.getByTestId('message-bubble')).toHaveCount(1);
     await expect(client.page.getByTestId('sender-name')).toHaveCount(0);
 
@@ -195,12 +195,12 @@ test('22 · after A claims, B gets 409 "{A} is handling this conversation" on se
     const thread = fixtures().support.claim;
     const b = await sessions.open('marketingB');
     sessions.allowConsole(/status of (403|409)/);
-    await b.page.goto('/message');
+    await b.page.goto('/dashboard/inbox');
 
     const send = await api(
         b.page,
         'POST',
-        `/message/${thread.conversationId}/messages`,
+        `/dashboard/inbox/${thread.conversationId}/messages`,
         {
             body: 'Can I help?',
             clientKey: crypto.randomUUID(),
@@ -209,7 +209,7 @@ test('22 · after A claims, B gets 409 "{A} is handling this conversation" on se
     const read = await api(
         b.page,
         'GET',
-        `/message/${thread.conversationId}/messages`,
+        `/dashboard/inbox/${thread.conversationId}/messages`,
     );
 
     expect(read.status).toBe(403);
@@ -325,7 +325,7 @@ test('25 · the admin reassigns to B: B gets the thread and A loses access', asy
     const read = await api(
         a.page,
         'GET',
-        `/message/${thread.conversationId}/messages`,
+        `/dashboard/inbox/${thread.conversationId}/messages`,
     );
     expect(read.status).toBe(403);
 });

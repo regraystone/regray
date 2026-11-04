@@ -38,13 +38,13 @@ export type ProjectCardData = {
 export type BrandCardData = {
     slug: string;
     name: string;
-    description: string | null;
+    tagline: string | null;
     logo: string;
     thumbnail: string | null;
 };
 
 export type BrandProfile = BrandCardData & {
-    tagline: string | null;
+    description: string | null;
     websiteUrl: string | null;
     thumbnail: string | null;
     projects: ProjectCardData[];
