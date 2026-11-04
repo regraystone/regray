@@ -253,7 +253,7 @@ const navLinkClass = ({
         collapsed ? 'justify-center gap-0 px-0' : 'gap-3 px-7'
     } ${
         isActive
-            ? 'border opacity-65 border-slate-200 bg-slate-100 font-bold text-slate-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
+            ? 'border opacity-35 border-slate-200 bg-slate-100 font-bold text-slate-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
             : 'text-secondary-foreground'
     }`;
 
