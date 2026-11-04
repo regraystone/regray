@@ -29,7 +29,10 @@ import { ResultBadge } from '@/components/result-badge';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as scheduleIndex } from '@/routes/schedule';
 import { store as bookingStore } from '@/routes/schedule/book';
-import { schedule as profileSchedule } from '@/routes/profile';
+import {
+    schedule as profileSchedule,
+    show as showProfile,
+} from '@/routes/profile';
 import { usePermissions } from '@/hooks/use-permissions';
 import { formatFullDate, dayKey } from '@/lib/date';
 import { bookingSchema } from '@/lib/booking-schema';
@@ -138,7 +141,7 @@ const Page = ({
 }) => {
     const { url } = usePage();
     const { can } = usePermissions();
-    const isProfile = url.startsWith('/profile');
+    const isProfile = url.startsWith(showProfile.url());
     const scheduleHref = isProfile
         ? profileSchedule.url()
         : scheduleIndex.url();

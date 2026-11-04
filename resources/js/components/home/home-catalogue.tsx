@@ -17,10 +17,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useGridPageSize } from '@/hooks/use-grid-page-size';
 import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { usePermissions } from '@/hooks/use-permissions';
+import { login } from '@/routes';
 import { show as brandsShow } from '@/routes/brands';
+import { show as dashboardBrandShow } from '@/routes/dashboard/brand';
+import { show as dashboardFurnitureShow } from '@/routes/dashboard/furniture';
 import { show as furnitureShow } from '@/routes/furniture';
-import { index as homeIndex } from '@/routes/home';
+import { index as homeIndex, stone as homeStone } from '@/routes/home';
 import { index as inboxIndex } from '@/routes/inbox';
+import { show as stoneShow } from '@/routes/stone';
 import type {
     BrandCardData,
     Filters,
@@ -110,7 +114,7 @@ const BrandTile = ({ brand }: { brand: BrandCardData }) => {
         <Link
             href={
                 isSignedIn
-                    ? `/dashboard/home/brand/${brand.slug}`
+                    ? dashboardBrandShow.url({ brand: brand.slug })
                     : brandsShow.url({ brand: brand.slug })
             }
             className={`relative flex flex-col justify-end overflow-hidden rounded-none p-4 transition-opacity [--brand-name-height:1.125rem] hover:opacity-85 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-6 sm:[--brand-name-height:1.5rem] lg:[--brand-name-height:2rem] ${HERO_HEIGHT} ${
@@ -505,7 +509,7 @@ export default function HomeCatalogue() {
           : `${resultCount} stones found`;
 
     const handleGuestSave = () => {
-        router.visit('/login');
+        router.visit(login.url());
     };
 
     return (
@@ -703,7 +707,12 @@ export default function HomeCatalogue() {
                                               priority={index < 5}
                                               href={
                                                   isSignedIn
-                                                      ? `/dashboard/home/furniture/${item.slug}`
+                                                      ? dashboardFurnitureShow.url(
+                                                            {
+                                                                furniture:
+                                                                    item.slug,
+                                                            },
+                                                        )
                                                       : furnitureShow.url({
                                                             furniture:
                                                                 item.slug,
@@ -730,8 +739,12 @@ export default function HomeCatalogue() {
                                               priority={index < 5}
                                               href={
                                                   isSignedIn
-                                                      ? `/dashboard/home/stones/${stone.slug}`
-                                                      : `/${stone.slug}`
+                                                      ? homeStone.url({
+                                                            stone: stone.slug,
+                                                        })
+                                                      : stoneShow.url({
+                                                            slug: stone.slug,
+                                                        })
                                               }
                                               saved={savedIds.has(stone.slug)}
                                               onToggleSave={
@@ -755,7 +768,7 @@ export default function HomeCatalogue() {
                 size="lg"
                 className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-40 shadow-lg"
             >
-                <Link href={canMessage ? inboxIndex.url() : '/login'}>
+                <Link href={canMessage ? inboxIndex.url() : login.url()}>
                     <MessageCircle aria-hidden />
                     Message us
                 </Link>

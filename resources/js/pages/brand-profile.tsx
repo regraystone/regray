@@ -2,6 +2,7 @@ import { router, usePage } from '@inertiajs/react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import EmptyState from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
+import { home } from '@/routes';
 import { index as homeIndex } from '@/routes/home';
 import type { BrandProfile as BrandProfileData } from '@/types/home';
 
@@ -22,7 +23,7 @@ const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
         if (window.history.length > 1) {
             window.history.back();
         } else {
-            router.visit(isSignedIn ? homeIndex.url() : '/');
+            router.visit(isSignedIn ? homeIndex.url() : home.url());
         }
     };
 

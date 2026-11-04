@@ -22,7 +22,7 @@ class StoneSeeder extends Seeder
         $sortOrder = 0;
 
         foreach ($data['categories'] as $stoneData) {
-            $category = StoneCategory::query()->firstOrCreate(
+            $category = StoneCategory::query()->updateOrCreate(
                 ['slug' => $stoneData['slug']],
                 [
                     'name' => $stoneData['name'],
@@ -57,7 +57,7 @@ class StoneSeeder extends Seeder
             $usedSlugs[$slug] = true;
             $usedNames[Str::lower($name)] = true;
 
-            $stone = Stone::query()->firstOrCreate(['slug' => $slug], [
+            $stone = Stone::query()->updateOrCreate(['slug' => $slug], [
                 'stone_category_id' => $category->id,
                 'name' => $name,
                 'thumbnail_path' => $imageData['path'],
@@ -67,7 +67,7 @@ class StoneSeeder extends Seeder
                 'sort_order' => $idx,
             ]);
             $stone->attachPrimaryFilterOptions();
-            $stone->images()->firstOrCreate(
+            $stone->images()->updateOrCreate(
                 ['sort_order' => 0],
                 [
                     'path' => $imageData['path'],

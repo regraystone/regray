@@ -4,7 +4,14 @@ on:
   push:
     branches:
       - main
+  # Run by hand: without a SHA it tests, builds and deploys the chosen branch;
+  # with one it skips both and rolls production back to that commit's images.
   workflow_dispatch:
+    inputs:
+      image_sha:
+        description: Roll back to the images of this full commit SHA (leave empty for a normal deploy)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -14,18 +21,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tests:
+    if: ${{ !inputs.image_sha }}
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: tests
+    if: ${{ !inputs.image_sha }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
-    outputs:
-      owner: ${{ steps.image-owner.outputs.owner }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -39,26 +50,24 @@ jobs:
           fi
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set lowercase image owner
-        id: image-owner
         env:
           REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           OWNER=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
           printf 'OWNER=%s\n' "$OWNER" >> "$GITHUB_ENV"
-          printf 'owner=%s\n' "$OWNER" >> "$GITHUB_OUTPUT"
 
       - name: Build and push app image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           platforms: linux/amd64
@@ -73,7 +82,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=production-app
 
       - name: Build and push web image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           platforms: linux/amd64
@@ -89,6 +98,9 @@ jobs:
 
   deploy:
     needs: build
+    # A rollback skips the build, which would otherwise skip this job too. A
+    # normal deploy still runs only after the tests and the build have passed.
+    if: ${{ !cancelled() && (needs.build.result == 'success' || (inputs.image_sha && needs.build.result == 'skipped')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -97,7 +109,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -125,14 +137,21 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
-          OWNER: ${{ needs.build.outputs.owner }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          IMAGE_SHA: ${{ inputs.image_sha || github.sha }}
         run: |
+          OWNER=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          if [[ ! "$IMAGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::image_sha must be a full 40-character commit SHA."
+            exit 1
+          fi
+
           ssh -i "$HOME/.ssh/deploy_key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            "${SSH_USER}@${SSH_HOST}" "bash -s -- '$OWNER' '$GITHUB_SHA'" <<'SCRIPT'
+            "${SSH_USER}@${SSH_HOST}" "bash -s -- '$OWNER' '$IMAGE_SHA'" <<'SCRIPT'
           set -euo pipefail
           OWNER="$1"
-          GITHUB_SHA="$2"
+          IMAGE_SHA="$2"
           cd /srv/regray
 
           for file in .env .env.production; do
@@ -143,8 +162,8 @@ jobs:
           done
 
           sed -i \
-            -e "s|^APP_IMAGE=.*|APP_IMAGE=ghcr.io/${OWNER}/regray-app:${GITHUB_SHA}|" \
-            -e "s|^WEB_IMAGE=.*|WEB_IMAGE=ghcr.io/${OWNER}/regray-web:${GITHUB_SHA}|" \
+            -e "s|^APP_IMAGE=.*|APP_IMAGE=ghcr.io/${OWNER}/regray-app:${IMAGE_SHA}|" \
+            -e "s|^WEB_IMAGE=.*|WEB_IMAGE=ghcr.io/${OWNER}/regray-web:${IMAGE_SHA}|" \
             .env
 
           docker compose pull
@@ -155,6 +174,13 @@ jobs:
           docker compose run --rm -T app php artisan migrate --force </dev/null
           docker compose up -d --no-build --remove-orphans --wait --wait-timeout 180
           docker compose ps
+
+          # Healthy containers only prove PHP-FPM answers. This asks the public
+          # site, through Caddy and Laravel, before calling the deploy good.
+          APP_URL=$(grep -E '^APP_URL=' .env.production | cut -d= -f2- | tr -d '"')
+          curl --fail --silent --show-error --output /dev/null \
+            --retry 10 --retry-delay 3 --retry-all-errors "${APP_URL}/up"
+
           docker image prune -f
-          printf 'Deployed SHA: %s\n' "$GITHUB_SHA"
+          printf 'Deployed SHA: %s\n' "$IMAGE_SHA"
           SCRIPT

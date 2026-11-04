@@ -6,6 +6,7 @@ import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex } from '@/routes/home';
 import { show as savedShow } from '@/routes/saved';
+import { show as savedFurnitureShow } from '@/routes/saved/furniture';
 import type { FurnitureCardData } from '@/types/home';
 import type { StoneCardData } from '@/types/stone';
 
@@ -128,7 +129,9 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                                     ...item,
                                     category: item.furnitureType,
                                 }}
-                                href={`/dashboard/saved/furniture/${item.slug}`}
+                                href={savedFurnitureShow.url({
+                                    furniture: item.slug,
+                                })}
                                 saved
                                 onToggleSave={
                                     furnitureSaves.canSave

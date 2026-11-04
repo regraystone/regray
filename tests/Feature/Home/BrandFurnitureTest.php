@@ -25,17 +25,13 @@ test('the seeder gives each brand its logo under its stable path', function (): 
     expect($brands->pluck('slug')->all())->toBe(['regray-stone', 'cucine', 'ascale', 'faer', 'reform', 'res-italia']);
 
     foreach ($brands as $index => $brand) {
-        expect($brand->logo_path)->toBe($data[$index]['logo_path']);
-
-        // A logo with a source is copied to the disk; one without is committed in storage.
-        if (isset($data[$index]['logo_source'])) {
-            Storage::disk(config('filesystems.public_disk'))->assertExists($brand->logo_path);
-        } else {
-            expect(storage_path('app/public/'.$brand->logo_path))->toBeFile();
-        }
+        expect($brand->logo_path)->toBe($data[$index]['logo_path'])
+            ->and($brand->thumbnail_path)->toBe($data[$index]['thumbnail_path'])
+            ->and(storage_path('app/public/'.$brand->logo_path))->toBeFile()
+            ->and(storage_path('app/public/'.$brand->thumbnail_path))->toBeFile();
     }
 
-    // Seeding again keeps the logos it already wrote.
+    // Seeding again keeps the same paths.
     $paths = $brands->pluck('logo_path')->all();
     $this->seed(BrandSeeder::class);
     expect(Brand::query()->orderBy('sort_order')->pluck('logo_path')->all())->toBe($paths);

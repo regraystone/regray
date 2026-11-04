@@ -43,7 +43,7 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
             window.history.back();
         } else {
             router.visit(
-                url.startsWith('/dashboard/saved/') || url.startsWith('/saved/')
+                url.startsWith(`${savedIndex.url()}/`)
                     ? savedIndex.url()
                     : homeIndex.url(),
             );

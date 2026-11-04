@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
+import { login } from '@/routes';
 
 /**
  * Straight to the inquiry stepper from a product's profile (a stone or a
@@ -21,7 +22,7 @@ export default function AskQuoteButton() {
                 size="lg"
                 className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-40 shadow-lg"
             >
-                <Link href="/login">Ask a Quote</Link>
+                <Link href={login.url()}>Ask a Quote</Link>
             </Button>
         );
     }

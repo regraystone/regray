@@ -63,6 +63,7 @@ import {
     edit as editAccountSecurity,
     show as showProfile,
 } from '@/routes/profile';
+import { book as profileScheduleBook } from '@/routes/profile/schedule';
 import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
 import { index as savedIndex } from '@/routes/saved';
@@ -231,7 +232,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 href: showProfile.url(),
                 icon: CircleUserRound,
                 permission: permissions.profileView,
-                matchPrefix: '/profile',
+                matchPrefix: showProfile.url(),
             },
         ],
     },
@@ -559,9 +560,9 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         { label: 'Regray' },
     ];
 
-    if (effectiveUrl.startsWith('/profile')) {
+    if (effectiveUrl.startsWith(showProfile.url())) {
         /*
-         * Everything under /profile hangs off the Profile hub, so the trail is
+         * Everything under the Profile hub hangs off the Profile hub, so the trail is
          * built by hand rather than by segment: the segments would read
          * "account security security" and say nothing about where the page is.
          *
@@ -576,7 +577,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             crumbs.push({ label: 'Account & Security' });
         } else if (effectiveUrl === profileSchedule.url()) {
             crumbs.push({ label: 'Schedule' });
-        } else if (effectiveUrl === '/profile/schedule/book') {
+        } else if (effectiveUrl === profileScheduleBook.url()) {
             crumbs.push({ label: 'Schedule', href: profileSchedule.url() });
             crumbs.push({ label: 'Book' });
         } else if (effectiveUrl.startsWith(editSecurity.url())) {
