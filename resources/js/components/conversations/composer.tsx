@@ -1,5 +1,5 @@
 import {
-    FileText,
+    Camera,
     Image as ImageIcon,
     Paperclip,
     Pencil,
@@ -26,7 +26,6 @@ import {
     ATTACHMENT_ACCEPT,
     ATTACHMENT_SNIPPET,
     addAttachments,
-    formatFileSize,
 } from '@/lib/message-attachments';
 import type { ChatMessage } from '@/types/message';
 
@@ -55,7 +54,48 @@ type ComposerProps = {
     onTyping: () => void;
 };
 
-/** The attach file button outside the text field on the left. */
+/** Camera button on the left inside a container slot (boxed like send). */
+const CameraButton = ({
+    onClick,
+    disabled,
+}: {
+    onClick: () => void;
+    disabled: boolean;
+}) => (
+    <Button
+        type="button"
+        size="icon"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label="Take a photo"
+        className="size-10 shrink-0 cursor-pointer rounded-md p-0"
+    >
+        <Camera className="size-5" aria-hidden />
+    </Button>
+);
+
+/** Photo upload button on the right. */
+const PhotoButton = ({
+    onClick,
+    disabled,
+}: {
+    onClick: () => void;
+    disabled: boolean;
+}) => (
+    <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label="Attach photos"
+        className="size-10 shrink-0 rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
+    >
+        <ImageIcon className="size-5" aria-hidden />
+    </Button>
+);
+
+/** File upload button on the right. */
 const AttachButton = ({
     onClick,
     disabled,
@@ -70,30 +110,9 @@ const AttachButton = ({
         onClick={onClick}
         disabled={disabled}
         aria-label="Attach a file"
-        className="size-9 shrink-0 cursor-pointer rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
+        className="size-10 shrink-0 cursor-pointer rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
     >
-        <Paperclip className="size-4" aria-hidden />
-    </Button>
-);
-
-/** The photo attach button outside the text field on the left. */
-const PhotoAttachButton = ({
-    onClick,
-    disabled,
-}: {
-    onClick: () => void;
-    disabled: boolean;
-}) => (
-    <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={onClick}
-        disabled={disabled}
-        aria-label="Attach photos"
-        className="size-9 shrink-0 rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
-    >
-        <ImageIcon className="size-4" aria-hidden />
+        <Paperclip className="size-5" aria-hidden />
     </Button>
 );
 
@@ -115,20 +134,57 @@ const SendButton = ({
         onClick={onClick}
         disabled={disabled}
         aria-label={editing ? 'Save edit' : 'Send message'}
-        className="size-9 shrink-0 rounded-md p-0"
+        className="size-10 shrink-0 rounded-md p-0"
     >
         {saving ? (
             <Spinner className="motion-reduce:animate-none" />
         ) : (
-            <Send className="size-4" aria-hidden />
+            <Send className="size-5" aria-hidden />
         )}
     </Button>
 );
 
-/*
- * Where send sits: below md it grows in when in use; at md and above it is
- * always visible at the end of the row.
- */
+/** Camera slot container on the left. */
+const CameraSlot = ({
+    shown,
+    children,
+}: {
+    shown: boolean;
+    children: ReactNode;
+}) => (
+    <span
+        inert={!shown}
+        className={`grid shrink-0 place-items-center overflow-hidden transition-[width,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
+            shown
+                ? 'w-10 scale-100 opacity-100'
+                : 'pointer-events-none w-0 scale-50 opacity-0'
+        }`}
+    >
+        {children}
+    </span>
+);
+
+/** Right attachment icons slot (photos, files) that shows when idle and hides when active. */
+const RightIconsSlot = ({
+    visible,
+    children,
+}: {
+    visible: boolean;
+    children: ReactNode;
+}) => (
+    <span
+        inert={!visible}
+        className={`flex shrink-0 items-center overflow-hidden transition-[width,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
+            visible
+                ? 'w-auto scale-100 opacity-100'
+                : 'pointer-events-none w-0 scale-50 opacity-0'
+        }`}
+    >
+        {children}
+    </span>
+);
+
+/** Send slot container on the right. */
 const SendSlot = ({
     shown,
     children,
@@ -140,8 +196,8 @@ const SendSlot = ({
         inert={!shown}
         className={`grid shrink-0 place-items-center overflow-hidden transition-[width,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
             shown
-                ? 'w-9 scale-100 opacity-100'
-                : 'pointer-events-none w-0 scale-50 opacity-0 md:pointer-events-auto md:w-9 md:scale-100 md:opacity-100'
+                ? 'w-10 scale-100 opacity-100'
+                : 'pointer-events-none w-0 scale-50 opacity-0'
         }`}
     >
         {children}
@@ -167,13 +223,13 @@ const Composer = ({
     onTyping,
 }: ComposerProps) => {
     const [draft, setDraft] = useState('');
-    const [files, setFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [focused, setFocused] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Entering edit mode loads the message; leaving it clears the box.
     useEffect(() => {
@@ -204,15 +260,27 @@ const Composer = ({
         textarea.style.overflowY = needed > MAX_HEIGHT_PX ? 'auto' : 'hidden';
     }, [draft]);
 
-    /** Stage files to send, with the same checks as the paperclip. */
-    const attachFiles = (picked: File[]) => {
-        const result = addAttachments(files, picked);
-        setFiles(result.files);
-        setFileError(result.error);
-        textareaRef.current?.focus();
+    /** Immediately send picked files (camera, photos, files). */
+    const handleImmediateUpload = (picked: File[]) => {
+        if (picked.length === 0) {
+            return;
+        }
+        const result = addAttachments([], picked);
+        if (result.error !== null) {
+            setFileError(result.error);
+            textareaRef.current?.focus();
+            return;
+        }
+        if (result.files.length > 0) {
+            onSend('', result.files);
+            setFileError(null);
+            textareaRef.current?.focus();
+        }
     };
 
-    useImperativeHandle(ref, () => ({ addFiles: attachFiles }));
+    useImperativeHandle(ref, () => ({
+        addFiles: (files: File[]) => handleImmediateUpload(files),
+    }));
 
     if (state.mode !== 'enabled') {
         return (
@@ -243,11 +311,9 @@ const Composer = ({
     }
 
     const canSubmit =
-        editing !== null
-            ? draft.trim() !== '' && !saving
-            : draft.trim() !== '' || files.length > 0;
+        editing !== null ? draft.trim() !== '' && !saving : draft.trim() !== '';
 
-    const inUse = focused || canSubmit || editing !== null || saving;
+    const inUse = focused || draft.trim() !== '' || editing !== null || saving;
 
     const submit = async () => {
         const body = draft.trim();
@@ -269,27 +335,26 @@ const Composer = ({
             return;
         }
 
-        onSend(body, files);
+        onSend(body, []);
         setDraft('');
-        setFiles([]);
-        setFileError(null);
     };
 
-    const pickFiles = (event: ChangeEvent<HTMLInputElement>) => {
+    const pickCamera = (event: ChangeEvent<HTMLInputElement>) => {
         const picked = [...(event.target.files ?? [])];
         event.target.value = '';
-        attachFiles(picked);
+        handleImmediateUpload(picked);
     };
 
     const pickPhotos = (event: ChangeEvent<HTMLInputElement>) => {
         const picked = [...(event.target.files ?? [])];
         event.target.value = '';
-        attachFiles(picked);
+        handleImmediateUpload(picked);
     };
 
-    const unpickFile = (index: number) => {
-        setFiles((current) => current.filter((_, at) => at !== index));
-        setFileError(null);
+    const pickFiles = (event: ChangeEvent<HTMLInputElement>) => {
+        const picked = [...(event.target.files ?? [])];
+        event.target.value = '';
+        handleImmediateUpload(picked);
     };
 
     const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -350,69 +415,32 @@ const Composer = ({
                 </div>
             ) : null}
 
-            {editing === null && (files.length > 0 || fileError !== null) ? (
+            {fileError !== null ? (
                 <div
-                    className="flex flex-wrap items-center gap-2 border-b border-sidebar-border px-3 py-2"
+                    className="flex items-center border-b border-sidebar-border px-3 py-2"
                     data-testid="composer-files"
                 >
-                    {files.map((file, index) => (
-                        <span
-                            key={`${file.name}-${file.size}-${index}`}
-                            className="flex max-w-full min-w-0 items-center gap-1.5 rounded-md bg-secondary py-1 pr-1 pl-2 text-xs"
-                            data-testid="composer-file"
-                        >
-                            {file.type.startsWith('image/') ? (
-                                <ImageIcon
-                                    className="size-3.5 shrink-0"
-                                    aria-hidden
-                                />
-                            ) : (
-                                <FileText
-                                    className="size-3.5 shrink-0"
-                                    aria-hidden
-                                />
-                            )}
-                            <span className="min-w-0 truncate">
-                                {file.name}
-                            </span>
-                            <span className="shrink-0 text-secondary-foreground">
-                                {formatFileSize(file.size)}
-                            </span>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-6 shrink-0 rounded-md"
-                                onClick={() => unpickFile(index)}
-                                aria-label={`Remove ${file.name}`}
-                            >
-                                <X className="size-3" aria-hidden />
-                            </Button>
-                        </span>
-                    ))}
-                    {fileError !== null ? (
-                        <p
-                            role="alert"
-                            className="w-full text-xs text-destructive"
-                            data-testid="composer-file-error"
-                        >
-                            {fileError}
-                        </p>
-                    ) : null}
+                    <p
+                        role="alert"
+                        className="w-full text-xs text-destructive"
+                        data-testid="composer-file-error"
+                    >
+                        {fileError}
+                    </p>
                 </div>
             ) : null}
 
             <div className="flex items-end gap-1.5 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <input
-                    ref={fileInputRef}
+                    ref={cameraInputRef}
                     type="file"
-                    multiple
-                    accept={ATTACHMENT_ACCEPT}
-                    onChange={pickFiles}
+                    accept="image/*"
+                    capture="environment"
+                    onChange={pickCamera}
                     className="hidden"
                     tabIndex={-1}
                     aria-hidden
-                    data-testid="composer-file-input"
+                    data-testid="composer-camera-input"
                 />
 
                 <input
@@ -427,18 +455,28 @@ const Composer = ({
                     data-testid="composer-photo-input"
                 />
 
-                <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
-                    <AttachButton
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={editing !== null}
-                    />
-                    <PhotoAttachButton
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={editing !== null}
-                    />
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept={ATTACHMENT_ACCEPT}
+                    onChange={pickFiles}
+                    className="hidden"
+                    tabIndex={-1}
+                    aria-hidden
+                    data-testid="composer-file-input"
+                />
+
+                <div className="shrink-0 pb-0.5">
+                    <CameraSlot shown={!inUse && editing === null}>
+                        <CameraButton
+                            onClick={() => cameraInputRef.current?.click()}
+                            disabled={editing !== null}
+                        />
+                    </CameraSlot>
                 </div>
 
-                <div className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-1.5 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                <div className="flex min-h-10 min-w-0 flex-1 items-end rounded-md border border-input bg-background px-3 py-1.5 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
                     <textarea
                         ref={textareaRef}
                         value={draft}
@@ -453,12 +491,24 @@ const Composer = ({
                         aria-label={placeholder}
                         placeholder={placeholder}
                         enterKeyHint={isTouch ? 'enter' : 'send'}
-                        className="min-h-9 w-full min-w-0 resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-muted-foreground md:text-sm"
+                        className="min-h-[1.5rem] w-full min-w-0 resize-none bg-transparent py-0 text-base leading-6 outline-none placeholder:text-muted-foreground md:text-sm"
                         data-testid="composer-input"
                     />
                 </div>
 
-                <div className="shrink-0 pb-0.5">
+                <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
+                    <RightIconsSlot visible={!inUse}>
+                        <div className="flex items-center gap-0.5">
+                            <PhotoButton
+                                onClick={() => photoInputRef.current?.click()}
+                                disabled={editing !== null}
+                            />
+                            <AttachButton
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={editing !== null}
+                            />
+                        </div>
+                    </RightIconsSlot>
                     <SendSlot shown={inUse}>
                         <SendButton
                             onClick={() => void submit()}
