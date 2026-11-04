@@ -34,7 +34,7 @@ export default async function globalSetup(): Promise<void> {
         );
     }
 
-    if (DB_DATABASE === 'regray-studio' || /prod/i.test(DB_DATABASE)) {
+    if (DB_DATABASE === 'regray' || /prod/i.test(DB_DATABASE)) {
         throw new Error(
             `Refusing to run against the database "${DB_DATABASE}".`,
         );

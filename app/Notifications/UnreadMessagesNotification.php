@@ -42,7 +42,7 @@ class UnreadMessagesNotification extends Notification implements ShouldQueue
 
         $mail = (new MailMessage)
             ->subject($total === 1 ? 'You have a new message' : "You have {$total} new messages")
-            ->line('These are waiting for you on Regray Studio:');
+            ->line('These are waiting for you on Regray:');
 
         foreach ($this->threads as $thread) {
             $mail->line("{$thread['name']}: {$thread['count']} new ".($thread['count'] === 1 ? 'message' : 'messages'));

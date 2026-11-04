@@ -4,8 +4,8 @@
 
 - Branch `feat/messaging`, after commit 7a9888f.
 - Windows 11 with local Chrome (`E2E_CHROME_PATH`). `playwright install` was not run.
-- `globalSetup` refuses to run unless `APP_ENV` is local or testing. It also refuses a cached config, and refuses the dev DB `regray-studio`.
-- `globalSetup` resets the dedicated DB `regray-studio-e2e` (`migrate:fresh --seed` + `E2EMessageSeeder`). It then starts its own `php artisan serve` (:8001), Reverb (:8081) and queue worker.
+- `globalSetup` refuses to run unless `APP_ENV` is local or testing. It also refuses a cached config, and refuses the dev DB `regray`.
+- `globalSetup` resets the dedicated DB `regray-e2e` (`migrate:fresh --seed` + `E2EMessageSeeder`). It then starts its own `php artisan serve` (:8001), Reverb (:8081) and queue worker.
 - Accounts:
     - From the existing seeders: `marketing@`, `sales@`, `admin@` and `client@example.com`.
     - From `E2EMessageSeeder`: marketing B, the list tester, and the fresh, card, direct and support clients.
