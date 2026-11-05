@@ -2,8 +2,12 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Data\BrandProductFilterData;
 use App\Models\Brand;
+use App\Models\Furniture;
+use App\Models\Stone;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 interface BrandRepositoryInterface
 {
@@ -14,6 +18,14 @@ interface BrandRepositoryInterface
      */
     public function active(): Collection;
 
-    /** An active brand with its published projects, newest first. */
-    public function findActiveBySlug(string $slug): ?Brand;
+    /**
+     * One page of the brand's active products: its stones, its furniture, or
+     * both in one list ordered by name.
+     *
+     * @return LengthAwarePaginator<int, Stone|Furniture>
+     */
+    public function paginateProducts(Brand $brand, BrandProductFilterData $filters): LengthAwarePaginator;
+
+    /** Whether the brand has any active product, whatever the filters say. */
+    public function hasActiveProducts(Brand $brand): bool;
 }

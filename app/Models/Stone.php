@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
+ * @property int $brand_id
  * @property int $stone_category_id
  * @property string $slug
  * @property string $name
@@ -31,13 +32,14 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read bool $is_best_seller
  * @property-read Collection<int, StoneImage> $images
+ * @property-read Brand $brand
  * @property-read StoneCategory $category
  * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, StoneCategory> $categories
  * @property-read Collection<int, StoneSize> $sizes
  * @property-read Collection<int, StoneThickness> $thicknesses
  */
-#[Fillable(['stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'is_active', 'sort_order'])]
 class Stone extends Model
 {
     /** @use HasFactory<StoneFactory> */
@@ -67,20 +69,26 @@ class Stone extends Model
     }
 
     /**
-     * Whether the stone is one of the best sellers, from how often it is in
-     * completed inquiries. Asked of the request's one ranking, never stored.
+     * Whether the stone's category is a best seller. Asked of the request's one
+     * ranking, never stored.
      *
      * @return Attribute<bool, never>
      */
     protected function isBestSeller(): Attribute
     {
-        return Attribute::get(fn (): bool => app(BestSellerService::class)->isBestSeller($this->id));
+        return Attribute::get(fn (): bool => app(BestSellerService::class)->isBestSeller($this->stone_category_id));
     }
 
     /** @return HasMany<StoneImage, $this> */
     public function images(): HasMany
     {
         return $this->hasMany(StoneImage::class);
+    }
+
+    /** @return BelongsTo<Brand, $this> */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     /** @return BelongsTo<StoneCategory, $this> */

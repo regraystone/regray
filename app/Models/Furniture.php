@@ -2,16 +2,20 @@
 
 namespace App\Models;
 
+use Database\Factories\FurnitureFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
- * A furniture piece in the home page's Furniture collection.
+ * A furniture piece in its brand's collection.
  *
  * @property int $id
+ * @property int $brand_id
  * @property string $slug
  * @property string $name
  * @property string|null $description
@@ -21,10 +25,26 @@ use Illuminate\Support\Carbon;
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property-read Brand $brand
  */
-#[Fillable(['slug', 'name', 'description', 'thumbnail_path', 'furniture_type', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'slug', 'name', 'description', 'thumbnail_path', 'furniture_type', 'is_active', 'sort_order'])]
 class Furniture extends Model
 {
+    /** @use HasFactory<FurnitureFactory> */
+    use HasFactory;
+
+    /** The furniture types a piece can have, in the order the filter lists them. */
+    public const TYPES = [
+        'Seating',
+        'Tables',
+        'Storage',
+        'Cabinets',
+        'Beds',
+        'Desks',
+        'Shelving',
+        'Decorative Furniture',
+    ];
+
     protected $table = 'furniture';
 
     protected function casts(): array
@@ -47,6 +67,12 @@ class Furniture extends Model
     protected function active(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /** @return BelongsTo<Brand, $this> */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     /** @return BelongsToMany<User, $this> */

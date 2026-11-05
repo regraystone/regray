@@ -11,6 +11,7 @@ return new class extends Migration
     {
         Schema::create('stones', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('brand_id')->constrained()->restrictOnDelete();
             $table->foreignId('stone_category_id')->constrained()->restrictOnDelete();
             $table->string('slug', 100);
             $table->string('name', 150);
@@ -24,6 +25,7 @@ return new class extends Migration
             $table->softDeletesTz();
 
             $table->index(['is_active', 'sort_order']);
+            $table->index('brand_id');
             $table->index('stone_category_id');
             $table->index('size');
             $table->index('thickness_mm');

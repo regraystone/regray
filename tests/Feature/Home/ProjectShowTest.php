@@ -60,7 +60,7 @@ test('a client reads the published database profile with ordered public fields',
                         ['slug' => 'countertops-backsplash', 'name' => 'Countertops & Backsplash'],
                     ])
                     ->has('stones', 2)
-                    ->where('stones.0', ['slug' => 'glacier-white', 'name' => 'Glacier White', 'thumbnail' => '/storage/stones/patagonia.jpg', 'bestSeller' => false, 'category' => ['slug' => 'patagonia-quartzite', 'name' => 'Patagonia Quartzite']])
+                    ->where('stones.0', ['slug' => 'glacier-white', 'name' => 'Glacier White', 'thumbnail' => '/storage/stones/patagonia.jpg', 'category' => ['slug' => 'patagonia-quartzite', 'name' => 'Patagonia Quartzite']])
                     ->where('gallery', [
                         ['src' => '/storage/projects/first.jpg'],
                         ['src' => '/storage/projects/middle.jpg'],
@@ -133,17 +133,17 @@ test('stone and project profiles keep independent permission guards', function (
     $this->actingAs($user)->get($allowed)->assertOk();
     $this->actingAs($user)->get($denied)->assertForbidden();
 })->with([
-    [Permission::HomeStoneView, '/dashboard/home/arctic-pink', '/dashboard/home/ginza-one'],
-    [Permission::HomeProjectsView, '/dashboard/home/ginza-one', '/dashboard/home/arctic-pink'],
+    [Permission::HomeStoneView, '/dashboard/brands/regray-stone/stones/arctic-pink', '/dashboard/home/ginza-one'],
+    [Permission::HomeProjectsView, '/dashboard/home/ginza-one', '/dashboard/brands/regray-stone/stones/arctic-pink'],
 ]);
 
-test('opens the stone when a stone and a project share a flat URL\'s slug', function (): void {
+test('moves a flat URL to the stone when a stone and a project share its slug', function (): void {
     Project::query()->where('slug', 'ginza-one')->update(['slug' => 'arctic-pink']);
 
     $this->actingAs(User::factory()->role(Role::Client)->create())
         ->get('/dashboard/home/arctic-pink')
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('stone-profile'));
+        ->assertStatus(301)
+        ->assertRedirect('/dashboard/brands/regray-stone/stones/arctic-pink');
 });
 
 test('moves the old nested stone-and-project URL to the flat project URL for good', function (): void {

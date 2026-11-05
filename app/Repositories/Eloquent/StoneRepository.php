@@ -2,7 +2,6 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Data\StoneFilterData;
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStone;
@@ -13,7 +12,6 @@ use App\Models\StoneThickness;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 
@@ -24,50 +22,27 @@ class StoneRepository implements StoneRepositoryInterface
         return $this->profileQuery()->where('slug', $slug)->first();
     }
 
-    /** @return LengthAwarePaginator<int, Stone> */
-    public function paginate(StoneFilterData $filters, int $perPage): LengthAwarePaginator
-    {
-        $query = Stone::query()->active()->with('category:id,slug,name');
-
-        if ($filters->search !== null) {
-            $query->where(function (Builder $query) use ($filters): void {
-                $query->where('name', 'ILIKE', "%{$filters->search}%")
-                    ->orWhereHas('categories', fn (Builder $category) => $category->where('name', 'ILIKE', "%{$filters->search}%"));
-            });
-        }
-        if ($filters->category !== null) {
-            $query->whereHas('categories', fn (Builder $category) => $category->where('slug', $filters->category)->where('is_active', true));
-        }
-        if ($filters->size !== null) {
-            $query->whereHas('sizes', fn (Builder $size) => $size->where('name', $filters->size)->where('is_active', true));
-        }
-        if ($filters->thickness !== null) {
-            $query->whereHas('thicknesses', fn (Builder $thickness) => $thickness->where('slug', $filters->thickness)->where('is_active', true));
-        }
-
-        return $query->orderBy('sort_order')->orderBy('id')->paginate($perPage, ['*'], 'page', $filters->page)->withQueryString();
-    }
-
     /**
-     * Ranked with RANK() so stones level on count share a place, and every
-     * stone placed within `$count` is kept.
+     * Ranked with RANK() so categories level on count share a place, and every
+     * category placed within `$count` is kept.
      *
      * @return list<int>
      */
-    public function bestSellerIds(int $count): array
+    public function bestSellerCategoryIds(int $count): array
     {
         $ranked = InquiryStone::query()
-            ->whereIn('inquiry_id', Inquiry::query()->whereDisplayStatus(InquiryStatus::Closed)->select('id'))
-            ->whereIn('stone_id', Stone::query()->active()->select('id'))
-            ->groupBy('stone_id')
-            ->select('stone_id')
-            ->selectRaw('RANK() OVER (ORDER BY COUNT(DISTINCT inquiry_id) DESC) AS position');
+            ->joinSub(Stone::query()->active()->select(['id', 'stone_category_id']), 'active_stones', 'active_stones.id', '=', 'inquiry_stones.stone_id')
+            ->whereIn('inquiry_stones.inquiry_id', Inquiry::query()->whereDisplayStatus(InquiryStatus::Closed)->select('id'))
+            ->whereIn('active_stones.stone_category_id', StoneCategory::query()->active()->select('id'))
+            ->groupBy('active_stones.stone_category_id')
+            ->select('active_stones.stone_category_id')
+            ->selectRaw('RANK() OVER (ORDER BY COUNT(DISTINCT inquiry_stones.inquiry_id) DESC) AS position');
 
         return array_values(DB::query()
             ->fromSub($ranked, 'ranked')
             ->where('position', '<=', $count)
-            ->pluck('stone_id')
-            ->map(fn (mixed $stoneId): int => (int) $stoneId)
+            ->pluck('stone_category_id')
+            ->map(fn (mixed $categoryId): int => (int) $categoryId)
             ->all());
     }
 
@@ -89,6 +64,7 @@ class StoneRepository implements StoneRepositoryInterface
     private function profileQuery(): Builder
     {
         return Stone::query()->active()->with([
+            'brand:id,slug,name',
             'images' => fn (Relation $images) => $images->getQuery()
                 ->select(['id', 'stone_id', 'alt_text', 'path'])
                 ->orderBy('sort_order'),
@@ -105,7 +81,7 @@ class StoneRepository implements StoneRepositoryInterface
     }
 
     /**
-     * @return array{categories: SupportCollection<int, array{value: string, label: string}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
+     * @return array{categories: SupportCollection<int, array{value: string, label: string, bestSeller: bool}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
      */
     public function filterOptions(): array
     {
@@ -113,10 +89,11 @@ class StoneRepository implements StoneRepositoryInterface
             ->active()
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['slug', 'name'])
+            ->get(['id', 'slug', 'name'])
             ->map(fn (StoneCategory $stone): array => [
                 'value' => $stone->slug,
                 'label' => $stone->name,
+                'bestSeller' => $stone->is_best_seller,
             ]);
 
         $sizes = StoneSize::query()->where('is_active', true)->pluck('name')

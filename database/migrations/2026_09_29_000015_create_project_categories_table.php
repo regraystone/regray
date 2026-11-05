@@ -25,10 +25,11 @@ return new class extends Migration
         DB::statement('CREATE UNIQUE INDEX idx_project_categories_name_lower ON project_categories (lower(name))');
 
         /*
-         * The furniture on the home page's Furniture collection.
+         * The furniture in each brand's collection.
          */
         Schema::create('furniture', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('brand_id')->constrained()->restrictOnDelete();
             $table->string('slug', 100)->unique();
             $table->string('name', 150);
             $table->text('description')->nullable();
@@ -39,6 +40,7 @@ return new class extends Migration
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
+            $table->index('brand_id');
             $table->index('furniture_type');
             $table->index(['is_active', 'sort_order']);
         });

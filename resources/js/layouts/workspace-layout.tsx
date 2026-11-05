@@ -1,3 +1,4 @@
+import { catalogueCrumbs, type Crumb } from '@/lib/catalogue-breadcrumbs';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart3,
@@ -47,6 +48,7 @@ import { onUnreadChanged } from '@/lib/unread-badge';
 import type { Realtime } from '@/types/message';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
+import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
 import { index as homeIndex } from '@/routes/home';
 import { index as leadsIndex } from '@/routes/leads';
 import { logout } from '@/routes';
@@ -411,10 +413,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const isInquire =
         url === quoteInquire.url() || url === inquiryInquire.url();
 
-    // A brand's or a furniture piece's page is reached from Home.
-    const isHomeChildPage =
-        page.component === 'brand-profile' ||
-        page.component === 'furniture-profile';
+    // A brand and its products are reached from Home.
+    const isHomeChildPage = url.startsWith('/dashboard/brands/');
 
     const activePath = isInquire
         ? url.slice(0, url.lastIndexOf('/'))
@@ -556,9 +556,16 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const getInitials = useInitials();
     const initials = user ? getInitials(user.name) || 'R' : 'R';
 
-    const crumbs: Array<{ label: string; href?: string }> = [
-        { label: 'Regray' },
-    ];
+    const catalogueTrail = isHomeChildPage
+        ? catalogueCrumbs({
+              component: page.component,
+              props: page.props,
+              homeHref: homeIndex.url(),
+              brandHref: (brand) => dashboardBrandShow.url({ brand }),
+          })
+        : null;
+
+    const crumbs: Crumb[] = catalogueTrail ?? [{ label: 'Regray' }];
 
     if (effectiveUrl.startsWith(showProfile.url())) {
         /*
@@ -587,18 +594,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             });
             crumbs.push({ label: 'Security' });
         }
-    } else if (isHomeChildPage) {
-        const item = (
-            (page.props.brand ?? page.props.furniture) as
-                | { data: { name: string } }
-                | undefined
-        )?.data;
-
-        crumbs.push({ label: 'Home', href: homeIndex.url() });
-
-        if (item) {
-            crumbs.push({ label: item.name });
-        }
+    } else if (catalogueTrail) {
+        // The trail above is the whole of it.
     } else if (
         effectiveUrl.split('?')[0] === savedIndex.url() ||
         effectiveUrl.startsWith(`${savedIndex.url()}/`)

@@ -2,8 +2,8 @@ import { router, usePage } from '@inertiajs/react';
 import { Armchair, ArrowLeft } from 'lucide-react';
 import AskQuoteButton from '@/components/ask-quote-button';
 import { Button } from '@/components/ui/button';
-import { home } from '@/routes';
-import { index as homeIndex } from '@/routes/home';
+import { show as brandsShow } from '@/routes/brands';
+import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
 import type { FurnitureProfile as FurnitureProfileData } from '@/types/home';
 
 type FurnitureProfileProps = {
@@ -26,9 +26,9 @@ const FurnitureProfile = ({
             window.history.back();
         } else {
             router.visit(
-                isSignedIn
-                    ? homeIndex.url({ query: { collection: 'furniture' } })
-                    : home.url({ query: { collection: 'furniture' } }),
+                (isSignedIn ? dashboardBrandShow : brandsShow).url({
+                    brand: furniture.brand.slug,
+                }),
             );
         }
     };

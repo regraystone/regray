@@ -2,10 +2,18 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Data\BrandProductFilterData;
+use App\Http\Requests\Brand\BrandCollectionRequest;
 use App\Models\Brand;
+use App\Models\Furniture;
+use App\Models\Stone;
 use App\Repositories\Contracts\BrandRepositoryInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use stdClass;
 
 class BrandRepository implements BrandRepositoryInterface
 {
@@ -19,18 +27,110 @@ class BrandRepository implements BrandRepositoryInterface
             ->get(['id', 'slug', 'name', 'tagline', 'website_url', 'logo_path', 'thumbnail_path', 'description']);
     }
 
-    public function findActiveBySlug(string $slug): ?Brand
+    /**
+     * Stones and furniture live in two tables, so the page of ids is taken from
+     * a union of the two and the models are loaded after. Every collection goes
+     * through it so there is one search and one pagination. All Categories
+     * orders by name so the two kinds interleave; a single kind keeps its
+     * merchandised order.
+     *
+     * @return LengthAwarePaginator<int, Stone|Furniture>
+     */
+    public function paginateProducts(Brand $brand, BrandProductFilterData $filters): LengthAwarePaginator
     {
-        return Brand::query()
+        $rows = match ($filters->collection) {
+            BrandCollectionRequest::COLLECTION_STONES => $this->stoneRows($brand, $filters),
+            BrandCollectionRequest::COLLECTION_FURNITURE => $this->furnitureRows($brand, $filters),
+            default => $this->stoneRows($brand, $filters)->unionAll($this->furnitureRows($brand, $filters)),
+        };
+
+        $query = DB::query()->fromSub($rows, 'products');
+
+        if ($filters->collection === BrandCollectionRequest::COLLECTION_ALL) {
+            $query->orderByRaw('lower(name)')->orderBy('kind');
+        } else {
+            $query->orderBy('sort_order');
+        }
+
+        /** @var LengthAwarePaginator<int, stdClass> $page */
+        $page = $query->orderBy('id')
+            ->paginate($filters->perPage, ['id', 'kind'], 'page', $filters->page)
+            ->withQueryString();
+
+        return $this->withModels($brand, $page);
+    }
+
+    public function hasActiveProducts(Brand $brand): bool
+    {
+        return $brand->stones()->active()->exists() || $brand->furniture()->active()->exists();
+    }
+
+    private function stoneRows(Brand $brand, BrandProductFilterData $filters): QueryBuilder
+    {
+        $query = Stone::query()
             ->active()
-            ->where('slug', $slug)
-            ->with([
-                'projects' => fn (Relation $projects) => $projects->getQuery()
-                    ->select(['id', 'brand_id', 'slug', 'name', 'thumbnail_path'])
-                    ->where('is_published', true)
-                    ->orderByDesc('completed_year')
-                    ->orderBy('name'),
-            ])
-            ->first();
+            ->where('brand_id', $brand->id)
+            ->select(['id', 'name', 'sort_order'])
+            ->selectRaw("'stone' AS kind");
+
+        if ($filters->search !== null) {
+            $query->where(function (Builder $query) use ($filters): void {
+                $query->where('name', 'ILIKE', "%{$filters->search}%")
+                    ->orWhereHas('categories', fn (Builder $category) => $category->where('name', 'ILIKE', "%{$filters->search}%"));
+            });
+        }
+        if ($filters->category !== null) {
+            $query->whereHas('categories', fn (Builder $category) => $category->where('slug', $filters->category)->where('is_active', true));
+        }
+        if ($filters->size !== null) {
+            $query->whereHas('sizes', fn (Builder $size) => $size->where('name', $filters->size)->where('is_active', true));
+        }
+        if ($filters->thickness !== null) {
+            $query->whereHas('thicknesses', fn (Builder $thickness) => $thickness->where('slug', $filters->thickness)->where('is_active', true));
+        }
+
+        return $query->toBase();
+    }
+
+    private function furnitureRows(Brand $brand, BrandProductFilterData $filters): QueryBuilder
+    {
+        $query = Furniture::query()
+            ->active()
+            ->where('brand_id', $brand->id)
+            ->select(['id', 'name', 'sort_order'])
+            ->selectRaw("'furniture' AS kind");
+
+        if ($filters->search !== null) {
+            $query->where(function (Builder $query) use ($filters): void {
+                $query->where('name', 'ILIKE', "%{$filters->search}%")
+                    ->orWhere('furniture_type', 'ILIKE', "%{$filters->search}%");
+            });
+        }
+        if ($filters->furnitureType !== null) {
+            $query->where('furniture_type', $filters->furnitureType);
+        }
+
+        return $query->toBase();
+    }
+
+    /**
+     * @param  LengthAwarePaginator<int, stdClass>  $page
+     * @return LengthAwarePaginator<int, Stone|Furniture>
+     */
+    private function withModels(Brand $brand, LengthAwarePaginator $page): LengthAwarePaginator
+    {
+        $rows = $page->getCollection();
+        $idsOf = fn (string $kind): array => $rows->where('kind', $kind)->pluck('id')->all();
+
+        $stones = Stone::query()->with('category:id,slug,name')->findMany($idsOf('stone'))->keyBy('id');
+        $furniture = Furniture::query()->findMany($idsOf('furniture'))->keyBy('id');
+
+        /** @var LengthAwarePaginator<int, Stone|Furniture> $page */
+        $page->setCollection($rows->map(
+            fn (stdClass $row): Stone|Furniture => ($row->kind === 'stone' ? $stones[$row->id] : $furniture[$row->id])
+                ->setRelation('brand', $brand)
+        ));
+
+        return $page;
     }
 }

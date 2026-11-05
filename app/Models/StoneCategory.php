@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Services\BestSellerService;
 use Database\Factories\StoneCategoryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string $description
  * @property string $origin
  * @property bool $is_active
+ * @property-read bool $is_best_seller
  * @property int $sort_order
  * @property Carbon|null $deleted_at
  * @property-read Collection<int, Stone> $stones
@@ -38,6 +41,17 @@ class StoneCategory extends Model
     protected function casts(): array
     {
         return ['is_active' => 'boolean'];
+    }
+
+    /**
+     * Whether the category is a best seller. Asked of the request's one
+     * ranking, never stored.
+     *
+     * @return Attribute<bool, never>
+     */
+    protected function isBestSeller(): Attribute
+    {
+        return Attribute::get(fn (): bool => app(BestSellerService::class)->isBestSeller($this->id));
     }
 
     /** @param Builder<static> $query */
