@@ -5,7 +5,6 @@ import {
     Pencil,
     Reply,
     Send,
-    UserCheck,
     X,
 } from 'lucide-react';
 import {
@@ -45,12 +44,10 @@ type ComposerProps = {
     isTouch: boolean;
     replyTo: ChatMessage | null;
     editing: ChatMessage | null;
-    claiming: boolean;
     onSend: (body: string, files: File[]) => void;
     onSaveEdit: (body: string) => Promise<void>;
     onCancelReply: () => void;
     onCancelEdit: () => void;
-    onClaim: () => void;
     onTyping: () => void;
 };
 
@@ -205,7 +202,9 @@ const SendSlot = ({
 );
 
 /**
- * The box at the foot of a thread.
+ * The box at the foot of a thread. When the viewer may not write here, the same
+ * box shows with everything disabled and the reason as its placeholder, so
+ * nothing can be typed, uploaded or sent.
  */
 const Composer = ({
     ref,
@@ -214,12 +213,10 @@ const Composer = ({
     isTouch,
     replyTo,
     editing,
-    claiming,
     onSend,
     onSaveEdit,
     onCancelReply,
     onCancelEdit,
-    onClaim,
     onTyping,
 }: ComposerProps) => {
     const [draft, setDraft] = useState('');
@@ -230,6 +227,7 @@ const Composer = ({
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const isLocked = state.mode !== 'enabled';
 
     // Entering edit mode loads the message; leaving it clears the box.
     useEffect(() => {
@@ -262,7 +260,7 @@ const Composer = ({
 
     /** Immediately send picked files (camera, photos, files). */
     const handleImmediateUpload = (picked: File[]) => {
-        if (picked.length === 0) {
+        if (isLocked || picked.length === 0) {
             return;
         }
         const result = addAttachments([], picked);
@@ -282,36 +280,11 @@ const Composer = ({
         addFiles: (files: File[]) => handleImmediateUpload(files),
     }));
 
-    if (state.mode !== 'enabled') {
-        return (
-            <div
-                className="flex shrink-0 flex-col items-center gap-2 border-t border-sidebar-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center sm:flex-row sm:justify-between sm:text-left"
-                data-testid="composer-locked"
-            >
-                <p className="text-sm text-secondary-foreground">
-                    {state.note}
-                </p>
-                {state.mode === 'claim' ? (
-                    <Button
-                        type="button"
-                        size="sm"
-                        onClick={onClaim}
-                        disabled={claiming}
-                    >
-                        {claiming ? (
-                            <Spinner className="motion-reduce:animate-none" />
-                        ) : (
-                            <UserCheck aria-hidden />
-                        )}
-                        Assign to me
-                    </Button>
-                ) : null}
-            </div>
-        );
-    }
-
     const canSubmit =
-        editing !== null ? draft.trim() !== '' && !saving : draft.trim() !== '';
+        !isLocked &&
+        (editing !== null
+            ? draft.trim() !== '' && !saving
+            : draft.trim() !== '');
 
     const inUse = focused || draft.trim() !== '' || editing !== null || saving;
 
@@ -377,7 +350,10 @@ const Composer = ({
     };
 
     return (
-        <div className="shrink-0 border-t border-sidebar-border">
+        <div
+            className="shrink-0 border-t border-sidebar-border"
+            data-testid={isLocked ? 'composer-locked' : undefined}
+        >
             {replyTo !== null || editing !== null ? (
                 <div
                     className="flex items-center gap-2 border-b border-sidebar-border bg-secondary px-3 py-2 text-xs"
@@ -471,12 +447,16 @@ const Composer = ({
                     <CameraSlot shown={!inUse && editing === null}>
                         <CameraButton
                             onClick={() => cameraInputRef.current?.click()}
-                            disabled={editing !== null}
+                            disabled={isLocked || editing !== null}
                         />
                     </CameraSlot>
                 </div>
 
-                <div className="flex min-h-10 min-w-0 flex-1 items-end rounded-md border border-input bg-background px-3 py-1.5 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                <div
+                    className={`flex min-h-10 min-w-0 flex-1 items-end rounded-md border border-input px-3 py-1.5 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 ${
+                        isLocked ? 'bg-muted' : 'bg-background'
+                    }`}
+                >
                     <textarea
                         ref={textareaRef}
                         value={draft}
@@ -488,10 +468,15 @@ const Composer = ({
                         onKeyDown={handleKeyDown}
                         onFocus={() => setFocused(true)}
                         onBlur={() => setFocused(false)}
-                        aria-label={placeholder}
-                        placeholder={placeholder}
+                        disabled={isLocked}
+                        aria-label={
+                            state.mode === 'enabled' ? placeholder : state.note
+                        }
+                        placeholder={
+                            state.mode === 'enabled' ? placeholder : state.note
+                        }
                         enterKeyHint={isTouch ? 'enter' : 'send'}
-                        className="min-h-[1.5rem] w-full min-w-0 resize-none bg-transparent py-0 text-base leading-6 outline-none placeholder:text-muted-foreground md:text-sm"
+                        className="min-h-[1.5rem] w-full min-w-0 resize-none bg-transparent py-0 text-base leading-6 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
                         data-testid="composer-input"
                     />
                 </div>
@@ -501,11 +486,11 @@ const Composer = ({
                         <div className="flex items-center gap-0.5">
                             <PhotoButton
                                 onClick={() => photoInputRef.current?.click()}
-                                disabled={editing !== null}
+                                disabled={isLocked || editing !== null}
                             />
                             <AttachButton
                                 onClick={() => fileInputRef.current?.click()}
-                                disabled={editing !== null}
+                                disabled={isLocked || editing !== null}
                             />
                         </div>
                     </RightIconsSlot>

@@ -37,7 +37,7 @@ describe('assignmentView', () => {
         assert.equal(view.subtitle, null);
     });
 
-    it('shows the pool the card and a composer that asks them to claim first', () => {
+    it('shows the pool the card and a disabled composer that says to claim first', () => {
         const view = assignmentView({
             isSupport: true,
             isClient: false,
@@ -47,7 +47,7 @@ describe('assignmentView', () => {
 
         assert.equal(view.showCard, true);
         assert.deepEqual(view.composer, {
-            mode: 'claim',
+            mode: 'locked',
             note: ASSIGN_TO_REPLY,
         });
         assert.equal(view.showStaffNames, false);

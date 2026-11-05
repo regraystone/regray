@@ -117,7 +117,7 @@ test('19 · A claims: A can write, and B loses the card and the row without a re
     await expect(b.page.getByTestId('assignment-card')).toBeVisible();
 
     await openConversation(a.page, thread.conversationId);
-    await expect(a.page.getByTestId('composer-input')).toHaveCount(0);
+    await expect(a.page.getByTestId('composer-input')).toBeDisabled();
     const claimed = claimResponse(a.page);
     await a.page
         .getByTestId('assignment-card')
@@ -250,7 +250,7 @@ test('23 · two simultaneous claims: exactly one wins and the other is told it w
     await expect(
         loser.page.getByText(`${winnerName} already took this conversation.`),
     ).toBeVisible();
-    await expect(loser.page.getByTestId('composer-input')).toHaveCount(0);
+    await expect(loser.page.getByTestId('composer-input')).toBeDisabled();
     lostAccess.forEach((counts) => expectAtMostOneEach(counts()));
 });
 

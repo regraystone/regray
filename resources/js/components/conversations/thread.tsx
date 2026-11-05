@@ -461,6 +461,13 @@ const Thread = ({
                 onAddMembers={() => setAddMembersOpen(true)}
             />
 
+            {view.showCard && state.error === null ? (
+                <AssignmentCard
+                    onClaim={() => void claim()}
+                    claiming={claiming}
+                />
+            ) : null}
+
             {state.error !== null ? (
                 <p className="m-auto px-4 text-center text-sm font-semibold text-secondary-foreground">
                     {state.error}
@@ -484,13 +491,6 @@ const Thread = ({
                         </div>
                     ) : null}
 
-                    {view.showCard ? (
-                        <AssignmentCard
-                            onClaim={() => void claim()}
-                            claiming={claiming}
-                        />
-                    ) : null}
-
                     {state.messages.length === 0 &&
                     state.pending.length === 0 ? (
                         <p
@@ -499,7 +499,9 @@ const Thread = ({
                         >
                             {conversation.isOwnSupport
                                 ? SUPPORT_EMPTY_TEXT
-                                : 'No messages yet — say hello'}
+                                : view.composer.mode === 'enabled'
+                                  ? 'No messages yet — say hello'
+                                  : 'No messages yet'}
                         </p>
                     ) : null}
 
@@ -634,7 +636,6 @@ const Thread = ({
                     isTouch={isTouch}
                     replyTo={replyTo}
                     editing={editing}
-                    claiming={claiming}
                     onSend={(body, files) => {
                         stickToBottomRef.current = true;
                         thread.send(body, replyTo, files);
@@ -659,7 +660,6 @@ const Thread = ({
                     }}
                     onCancelReply={() => setReplyTo(null)}
                     onCancelEdit={() => setEditing(null)}
-                    onClaim={() => void claim()}
                     onTyping={() => thread.signalTyping(currentUserName)}
                 />
             ) : null}
