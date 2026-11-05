@@ -472,7 +472,7 @@ const Thread = ({
                     ref={scrollRef}
                     onScroll={handleScroll}
                     className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain bg-cover bg-center bg-no-repeat p-4 md:p-5"
-                    style={{ backgroundImage: 'url(/images/convo_bg.png)' }}
+                    style={{ backgroundImage: 'url(/images/convo_bg.jpg)' }}
                     data-testid="thread-scroll"
                 >
                     {loading === 'olderSpinner' ? (
