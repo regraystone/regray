@@ -15,7 +15,7 @@ class ShowThreadAction
     ) {}
 
     /**
-     * @return array{conversation: Conversation, messages: Collection<int, Message>, hasMore: bool, pointers: list<array{userId: int, name: string, lastReadMessageId: int|null, lastDeliveredMessageId: int|null}>, assignment: array<string, mixed>|null}
+     * @return array{conversation: Conversation, messages: Collection<int, Message>, hasMore: bool, pointers: list<array{userId: int, name: string, lastReadMessageId: int|null, lastDeliveredMessageId: int|null}>, assignment: array<string, mixed>|null, canRequestQuote: bool}
      */
     public function execute(User $user, Conversation $conversation, ?int $before, ?int $after, ?int $limit): array
     {

@@ -11,6 +11,7 @@ use App\Models\Message;
 use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
+use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -34,6 +35,7 @@ class ConversationService
         public readonly ConversationMemberRepositoryInterface $members,
         public readonly MessageRepositoryInterface $messages,
         public readonly SupportConversationService $support,
+        public readonly InquiryRepositoryInterface $inquiries,
     ) {}
 
     /**
@@ -121,7 +123,7 @@ class ConversationService
      * row the first time, so their reading is remembered; it goes again when
      * somebody claims the thread.
      *
-     * @return array{messages: Collection<int, Message>, hasMore: bool, pointers: list<array{userId: int, name: string, lastReadMessageId: int|null, lastDeliveredMessageId: int|null}>, assignment: array<string, mixed>|null}
+     * @return array{messages: Collection<int, Message>, hasMore: bool, pointers: list<array{userId: int, name: string, lastReadMessageId: int|null, lastDeliveredMessageId: int|null}>, assignment: array<string, mixed>|null, canRequestQuote: bool}
      */
     public function thread(User $user, Conversation $conversation, ?int $before, ?int $after, ?int $limit): array
     {
@@ -141,7 +143,21 @@ class ConversationService
             'hasMore' => $page['hasMore'],
             'pointers' => $this->pointers($conversation),
             'assignment' => $this->assignmentFor($user, $conversation),
+            'canRequestQuote' => $this->canRequestQuote($user, $conversation),
         ];
+    }
+
+    /**
+     * Whether this viewer's thread offers the "Request a quotation" button: only
+     * their own Regray Team thread, only if they may send an inquiry, and only
+     * while they have none going.
+     */
+    public function canRequestQuote(User $user, Conversation $conversation): bool
+    {
+        return $conversation->isSupport()
+            && $conversation->support_client_id === $user->id
+            && $user->can(Permission::InquiriesCreate->value)
+            && ! $this->inquiries->clientHasActive($user);
     }
 
     /**

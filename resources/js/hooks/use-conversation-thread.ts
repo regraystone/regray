@@ -36,6 +36,7 @@ export type ThreadState = {
     hasMore: boolean;
     pointers: Pointer[];
     assignment: Assignment | null;
+    canRequestQuote: boolean;
     loaded: boolean;
     loadingOlder: boolean;
     error: string | null;
@@ -48,6 +49,7 @@ const EMPTY: ThreadState = {
     hasMore: false,
     pointers: [],
     assignment: null,
+    canRequestQuote: false,
     loaded: false,
     loadingOlder: false,
     error: null,
@@ -158,6 +160,7 @@ export function useConversationThread(
                 messages: mergeMessages(previous.messages, payload.messages),
                 pointers: payload.pointers,
                 assignment: payload.assignment,
+                canRequestQuote: payload.canRequestQuote,
             }));
             callbacks.current.onSummaryChange?.(payload.conversation);
         } catch (error) {
@@ -194,6 +197,7 @@ export function useConversationThread(
                     hasMore: payload.hasMore,
                     pointers: payload.pointers,
                     assignment: payload.assignment,
+                    canRequestQuote: payload.canRequestQuote,
                     loaded: true,
                 });
                 callbacks.current.onSummaryChange?.(payload.conversation);

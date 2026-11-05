@@ -133,6 +133,8 @@ export type ThreadPayload = {
     hasMore: boolean;
     pointers: Pointer[];
     assignment: Assignment | null;
+    /** The server's answer: this viewer's Regray Team thread, and no inquiry going. */
+    canRequestQuote: boolean;
 };
 
 export type InboxPageProps = {

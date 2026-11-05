@@ -1,3 +1,10 @@
+# Request a quotation from the Regray Team thread
+
+A client with no inquiry going sees a floating "Request a quotation" button in their Regray Team thread, which opens the stepper. It reads "Continue your request" when this browser holds their draft.
+
+- **`canRequestQuote`** on the thread response (`ThreadController::messages`) is decided by the server: the viewer's own support thread, `inquiries.create`, and no active inquiry. Only `sales_status = rejected` or `process_status = completed` ends an inquiry; `marketing_status = lost` and payment do not.
+- **The ×** hides it for this browser tab, under `quote-prompt-dismissed` in `sessionStorage`. Nothing is stored on the server.
+
 # Best seller is a stone category
 
 A category is a best seller, not a single stone. The top three active categories by completed inquiries count, ties included (`BestSellerService::BEST_SELLER_COUNT`), and each stone takes it from its primary category.

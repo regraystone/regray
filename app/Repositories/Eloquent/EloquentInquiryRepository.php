@@ -191,6 +191,15 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         return array_values($removed->map(fn (InquiryFile $file): array => ['disk' => $file->disk, 'path' => $file->path])->all());
     }
 
+    public function clientHasActive(User $client): bool
+    {
+        return Inquiry::query()
+            ->where('client_id', $client->id)
+            ->where(fn (Builder $query) => $query->whereNull('sales_status')->orWhere('sales_status', '!=', SalesStatus::Rejected))
+            ->where(fn (Builder $query) => $query->whereNull('process_status')->orWhere('process_status', '!=', ProcessStatus::Completed))
+            ->exists();
+    }
+
     public function paginateForClient(User $client, InquiryListFilters $filters, ?string $escapedSearch, int $perPage): LengthAwarePaginator
     {
         $direction = $filters->sort === InquiryListFilters::SORT_OLDEST ? 'asc' : 'desc';

@@ -16,6 +16,7 @@ import Composer, {
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
+import QuotePrompt from '@/components/conversations/quote-prompt';
 import AddMembersDialog from '@/components/conversations/add-members-dialog';
 import ReassignDialog from '@/components/conversations/reassign-dialog';
 import Receipts from '@/components/conversations/receipts';
@@ -35,6 +36,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { useConversationThread } from '@/hooks/use-conversation-thread';
+import { useQuotePrompt } from '@/hooks/use-quote-prompt';
 import { assignmentView } from '@/lib/assignment';
 import { threadLoadingState } from '@/lib/conversation-skeleton';
 import { isFileDrag, nextDragDepth } from '@/lib/file-drop';
@@ -150,6 +152,7 @@ const Thread = ({
 
     const { state } = thread;
     const conversation = state.conversation ?? initialSummary;
+    const quotePrompt = useQuotePrompt(state.canRequestQuote, currentUserId);
 
     // Reset the per-thread interface state when another thread opens.
     useEffect(() => {
@@ -612,6 +615,10 @@ const Thread = ({
                     <TypingIndicator
                         names={thread.typing.map((person) => person.name)}
                     />
+
+                    {quotePrompt !== null && unseen === 0 ? (
+                        <QuotePrompt {...quotePrompt} />
+                    ) : null}
                 </div>
             )}
 
