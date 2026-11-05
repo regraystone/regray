@@ -233,7 +233,10 @@ class HealthCheckCommand extends Command
     {
         $since = CarbonImmutable::now()->subDay();
 
-        $recent = collect(app('queue.failer')->all())
+        /** @var list<stdClass> $failedJobs */
+        $failedJobs = app('queue.failer')->all();
+
+        $recent = collect($failedJobs)
             ->filter(fn (stdClass $job): bool => CarbonImmutable::parse($job->failed_at)->isAfter($since))
             ->count();
 

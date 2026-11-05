@@ -225,7 +225,7 @@ class InquiryDetailsResource extends JsonResource
                         $position++;
 
                         return [
-                            'id' => 'document-'.$position,
+                            'id' => 'document-'.(int) $position,
                             'type' => $file->document_type->value,
                             'name' => $file->original_name,
                             'sizeBytes' => $file->size_bytes,
