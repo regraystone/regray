@@ -9,6 +9,7 @@ import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
 import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
 import {
+    passwordStrength,
     registerDefaults,
     registerFields,
     registerSchema,
@@ -44,12 +45,9 @@ export default function Register() {
         defaultValues: registerDefaults,
     });
 
-    const passwordValue = watch('password') || '';
-    const hasLength = passwordValue.length >= 8;
-    const hasNumber = /[0-9]/.test(passwordValue);
-    const hasSpecial = /[._@!#$%^&*()\-_=+[\]{};:'",<>?/\\]/.test(
-        passwordValue,
-    );
+    const meetsPasswordRules = passwordStrength.safeParse(
+        (watch('password') || '').trim(),
+    ).success;
 
     const onValid = (values: RegisterFormValues) =>
         new Promise<void>((resolve) => {
@@ -112,9 +110,9 @@ export default function Register() {
                     {...registerField('email')}
                 />
 
-                {/* Side by side from md up, stacked below. */}
-                <div className="space-y-5 max-md:space-y-(--auth-field-gap) md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-                    <div className="space-y-1.5">
+                <div className="space-y-1.5">
+                    {/* Side by side from md up, stacked below. */}
+                    <div className="space-y-5 max-md:space-y-(--auth-field-gap) md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
                         <PasswordField
                             id="password"
                             type="password"
@@ -125,47 +123,28 @@ export default function Register() {
                             error={errors.password?.message}
                             {...registerField('password')}
                         />
-                        <div className="space-y-1 text-xs">
-                            <p
-                                className={
-                                    hasLength
-                                        ? 'font-medium text-green-600 dark:text-green-400'
-                                        : 'font-medium text-red-600 dark:text-red-400'
-                                }
-                            >
-                                • At least 8 characters
-                            </p>
-                            <p
-                                className={
-                                    hasNumber
-                                        ? 'font-medium text-green-600 dark:text-green-400'
-                                        : 'font-medium text-red-600 dark:text-red-400'
-                                }
-                            >
-                                • At least one number
-                            </p>
-                            <p
-                                className={
-                                    hasSpecial
-                                        ? 'font-medium text-green-600 dark:text-green-400'
-                                        : 'font-medium text-red-600 dark:text-red-400'
-                                }
-                            >
-                                • At least one special character (e.g. . _ @)
-                            </p>
-                        </div>
+
+                        <PasswordField
+                            id="password_confirmation"
+                            type="password"
+                            label="Confirm Password"
+                            placeholder="Confirm password"
+                            autoComplete="new-password"
+                            tabIndex={4}
+                            error={errors.password_confirmation?.message}
+                            {...registerField('password_confirmation')}
+                        />
                     </div>
 
-                    <PasswordField
-                        id="password_confirmation"
-                        type="password"
-                        label="Confirm Password"
-                        placeholder="Confirm password"
-                        autoComplete="new-password"
-                        tabIndex={4}
-                        error={errors.password_confirmation?.message}
-                        {...registerField('password_confirmation')}
-                    />
+                    <p
+                        className={
+                            meetsPasswordRules
+                                ? 'text-xs font-medium text-green-600 dark:text-green-400'
+                                : 'text-xs font-medium text-red-600 dark:text-red-400'
+                        }
+                    >
+                        Use 12+ characters, mixed case, a number and a symbol
+                    </p>
                 </div>
 
                 {formError.length > 0 ? (
