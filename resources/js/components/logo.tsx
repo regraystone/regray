@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import BetaBadge from '@/components/beta-badge';
-import { dashboard } from '@/routes';
+import { home } from '@/routes';
 
 /** The "Regray" wordmark: black letters on a transparent background. */
 const WORDMARK_SRC = '/images/regray_logo.svg';
@@ -10,22 +10,23 @@ const WORDMARK_SRC = '/images/regray_logo.svg';
  * over `bg-current`, so a parent's `text-white` (the auth pages) or the
  * default foreground (the workspace) sets its colour. `compact` (the collapsed
  * sidebar) has no room for it, so it shows an R on a black square instead.
+ *
+ * It always links to `/`, which shows a guest the landing page and sends
+ * anyone signed in on to their role's own home page.
  */
 const Logo = ({
     className = '',
     compact = false,
-    href = dashboard(),
 }: {
     className?: string;
     compact?: boolean;
-    href?: any;
 }) => (
     <Link
-        href={href}
+        href={home()}
         className={`relative flex items-center ${
             compact ? 'justify-center' : 'gap-2'
         } ${className}`}
-        aria-label="Regray home"
+        aria-label="Regray Beta home"
     >
         {compact ? (
             <span

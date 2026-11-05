@@ -4,7 +4,6 @@ use App\Enums\Permission;
 use App\Enums\Role;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
-use Database\Seeders\BrandSeeder;
 use Database\Seeders\FurnitureSeeder;
 use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\ProjectSeeder;
@@ -33,7 +32,7 @@ beforeEach(function () {
 /**
  * Every guarded workspace page, with the parameters each route needs.
  *
- * The public catalogue (a brand, a piece of furniture, the stone catch-all) is
+ * The public catalogue (a brand and its products, the project catch-all) is
  * not here: it never refuses anyone, so there is no 403 or login redirect for
  * the walk below to check. Its guard, which is none at all, is pinned by the
  * guard map instead.
@@ -45,9 +44,9 @@ function workspacePages(): array
     return [
         'home.index' => [],
         'home.show' => ['slug' => 'ginza-one'],
-        'home.stone' => ['stone' => 'arctic-pink'],
-        'dashboard.brand.show' => ['brand' => 'regray-stone'],
-        'dashboard.furniture.show' => ['furniture' => 'alora'],
+        'dashboard.brands.show' => ['brand' => 'regray-stone'],
+        'dashboard.brands.stones.show' => ['brand' => 'regray-stone', 'stone' => 'arctic-pink'],
+        'dashboard.brands.furniture.show' => ['brand' => 'regray-stone', 'furniture' => 'alora'],
         'overview.index' => [],
         'saved.index' => [],
         'saved.show' => ['stone' => 'arctic-pink'],
@@ -147,13 +146,14 @@ test('guards every route with exactly these permissions', function () {
     $expected = [
         'home.index' => $p(Permission::HomeView),
         'home.show' => $p(Permission::HomeStoneView, Permission::HomeProjectsView),
-        'home.stone' => $p(Permission::HomeStoneView),
         // The public catalogue answers guests, so it carries no permission.
         'brands.show' => [],
-        'furniture.show' => [],
+        'brands.stones.show' => [],
+        'brands.furniture.show' => [],
         'stone.show' => [],
-        'dashboard.brand.show' => $p(Permission::HomeView),
-        'dashboard.furniture.show' => $p(Permission::HomeView),
+        'dashboard.brands.show' => $p(Permission::HomeView),
+        'dashboard.brands.stones.show' => $p(Permission::HomeStoneView),
+        'dashboard.brands.furniture.show' => $p(Permission::HomeView),
         'overview.index' => $p(Permission::OverviewView),
         'saved.index' => $p(Permission::SavedView),
         'saved.show' => $p(Permission::SavedStoneView),
@@ -235,14 +235,10 @@ test('lets only the two details pages open on either of two permissions', functi
 });
 
 test('opens to each role exactly the pages its matrix entry grants', function (string $role) {
-    if (guardsAllow($role, 'home.show') || guardsAllow($role, 'home.stone')) {
-        $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
-    }
-
-    if (guardsAllow($role, 'dashboard.brand.show') || guardsAllow($role, 'dashboard.furniture.show') || guardsAllow($role, 'saved.furniture.show')) {
-        Storage::fake(config('filesystems.public_disk'));
-        $this->seed([ProjectCategorySeeder::class, BrandSeeder::class, FurnitureSeeder::class]);
-    }
+    // The catalogue binds its product before checking the permission, so the
+    // products have to exist for a refusal to be what this walk is checking.
+    Storage::fake(config('filesystems.public_disk'));
+    $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
 
     $user = User::factory()->role($role)->create();
 
@@ -291,6 +287,14 @@ test('lands each role on a page it can open, and the rest on the default', funct
     $this->actingAs($user->fresh())->get(route('dashboard'))->assertRedirect(config('roles.default'));
 })->with(Role::names());
 
+test('shows a guest the landing page at the root and sends a signed-in user on to their role home', function (string $role) {
+    $this->get(route('home'))->assertOk();
+
+    $this->actingAs(User::factory()->role($role)->create())
+        ->get(route('home'))
+        ->assertRedirect(route('dashboard'));
+})->with([Role::Client->value, Role::Sales->value]);
+
 test('matches the stepper ahead of the details route under it', function (string $stepper, string $details) {
     // `{reference}` matches the word `inquire` too: only registration order
     // keeps the stepper from being swallowed by the details page.
@@ -312,8 +316,6 @@ test('refuses a reader without the permission alike for a profile that exists an
     foreach ([
         ['home.show', ['slug' => 'ginza-one']],
         ['home.show', ['slug' => 'no-such-project']],
-        ['home.stone', ['stone' => 'arctic-pink']],
-        ['home.stone', ['stone' => 'no-such-stone']],
         ['saved.show', ['stone' => 'arctic-pink']],
         ['saved.show', ['stone' => 'no-such-stone']],
         ['saved.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']],

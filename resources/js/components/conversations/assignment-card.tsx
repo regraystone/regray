@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 
 /**
- * The staff-only card at the top of an unassigned Regray Team thread. It is
- * part of the page, never a stored message, and is never sent to a client.
+ * The staff-only strip under the header of an unassigned Regray Team thread,
+ * and the one place to claim it. Pinned outside the scrolling messages so it is
+ * in view on a long thread, which opens at its newest message. It is part of the
+ * page, never a stored message, and is never sent to a client.
  */
 const AssignmentCard = ({
     onClaim,
@@ -14,19 +16,21 @@ const AssignmentCard = ({
     claiming: boolean;
 }) => (
     <div
-        className="mx-auto w-full max-w-sm rounded-md border border-sidebar-border bg-secondary p-4 text-center"
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-sidebar-border bg-secondary px-4 py-2.5"
         data-testid="assignment-card"
     >
-        <p className="text-sm font-bold">
-            Do you want to be assigned to this conversation?
-        </p>
-        <p className="mt-1 text-xs text-secondary-foreground">
-            Once you are, only you can reply to this client.
-        </p>
+        <div className="min-w-0">
+            <p className="text-sm font-bold">
+                Do you want to be assigned to this conversation?
+            </p>
+            <p className="mt-0.5 text-xs text-secondary-foreground">
+                Once you are, only you can reply to this client.
+            </p>
+        </div>
         <Button
             type="button"
             size="sm"
-            className="mt-3"
+            className="shrink-0"
             onClick={onClaim}
             disabled={claiming}
         >

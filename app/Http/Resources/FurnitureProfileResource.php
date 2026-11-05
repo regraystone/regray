@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 class FurnitureProfileResource extends JsonResource
 {
     /**
-     * @return array{slug: string, name: string, description: string|null, thumbnail: string|null, furnitureType: array{slug: string, name: string}}
+     * @return array{slug: string, name: string, description: string|null, thumbnail: string|null, brand: array{slug: string, name: string}, furnitureType: array{slug: string, name: string}}
      */
     public function toArray(Request $request): array
     {
@@ -20,6 +20,7 @@ class FurnitureProfileResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'thumbnail' => $this->thumbnail_path === null ? null : ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'brand' => ['slug' => $this->brand->slug, 'name' => $this->brand->name],
             'furnitureType' => ['slug' => Str::slug($this->furniture_type), 'name' => $this->furniture_type],
         ];
     }

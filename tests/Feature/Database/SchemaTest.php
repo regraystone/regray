@@ -2,6 +2,7 @@
 
 use App\Models\EdgeProfile;
 use App\Models\Finish;
+use App\Models\Furniture;
 use App\Models\Stone;
 use App\Models\StoneCategory;
 use App\Models\StoneImage;
@@ -277,6 +278,8 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
         StoneCategory::factory()->create(['name' => 'Granite']);
         StoneCategory::factory()->create(['name' => 'GRANITE']);
     }],
+    'removing a brand its stones use' => ['stones_brand_id_foreign', fn () => Stone::factory()->create()->brand->delete()],
+    'removing a brand its furniture uses' => ['furniture_brand_id_foreign', fn () => Furniture::factory()->create()->brand->delete()],
     'removing a category its stones use' => ['stones_stone_category_id_foreign', fn () => Stone::factory()->create()->category->forceDelete()],
 ]);
 

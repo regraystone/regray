@@ -128,7 +128,6 @@ const ProjectProfile = ({
                                 slug: stone.slug,
                                 name: stone.name,
                                 thumbnail: stone.thumbnail,
-                                bestSeller: stone.bestSeller,
                                 category: stone.category,
                             }}
                             aspect="aspect-[4/3]"

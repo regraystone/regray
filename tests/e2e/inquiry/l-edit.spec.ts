@@ -4,6 +4,7 @@ import {
     continueButton,
     expectStep,
     openInquire,
+    renameProject,
     sendAndReadReference,
 } from '../support/inquiry-flow';
 
@@ -17,15 +18,7 @@ test("42 · the edit page opens the inquiry's project at step 1, it is edited th
     await addStoneProject(page, { name: 'Kitchen counters' });
     const reference = await sendAndReadReference(page);
 
-    // The Quote card no longer links to the edit page, so it is opened directly.
-    await page.goto('/quote');
-    await expect(
-        page
-            .locator('article')
-            .filter({ hasText: reference })
-            .getByRole('link', { name: 'Update' }),
-    ).toHaveCount(0);
-    await page.goto(`/quote/${reference}/edit`);
+    await page.goto(`/dashboard/quote/${reference}/edit`);
 
     await expect(page).toHaveURL(new RegExp(`/quote/${reference}/edit$`));
     await expect(
@@ -43,14 +36,13 @@ test("42 · the edit page opens the inquiry's project at step 1, it is edited th
         await expectStep(page, step);
     }
 
-    await expect(page.getByLabel('Project name')).toHaveValue(
-        'Kitchen counters',
-    );
-    await page.getByLabel('Project name').fill('Kitchen and island');
-    await page.getByRole('button', { name: 'Back to Review' }).click();
+    await page.getByRole('button', { name: 'Continue to review' }).click();
 
     await expectStep(page, 5);
-    await expect(page.getByText('Kitchen and island')).toBeVisible();
+    await expect(
+        page.getByText('Kitchen counters', { exact: true }).first(),
+    ).toBeVisible();
+    await renameProject(page, 'Kitchen and island');
     await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
     await expect(
         page.getByRole('button', { name: /Add (a|another) project/ }),

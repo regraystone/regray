@@ -88,14 +88,17 @@ it('refuses', function (Closure $change, string $errorKey): void {
 })->with('refused values');
 
 describe('projects', function (): void {
-    it('accepts up to 10 projects, one inquiry each', function (): void {
-        postInquiry($this, array_fill(0, 10, inquiryProjectInput()))->assertSessionHasNoErrors();
+    it('accepts one project, as one inquiry', function (): void {
+        postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
 
-        expect(Inquiry::query()->count())->toBe(10);
+        expect(Inquiry::query()->count())->toBe(1);
     });
 
-    it('refuses an 11th project', function (): void {
-        postInquiry($this, array_fill(0, 11, inquiryProjectInput()))->assertSessionHasErrors('projects');
+    it('refuses a second project', function (): void {
+        postInquiry($this, array_fill(0, 2, inquiryProjectInput()))
+            ->assertSessionHasErrors(['projects' => 'An inquiry can only have one project.']);
+
+        expect(Inquiry::query()->count())->toBe(0);
     });
 
     it('refuses an inquiry with no projects', function (): void {

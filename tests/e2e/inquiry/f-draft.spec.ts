@@ -7,6 +7,7 @@ import {
 import { expect, test } from '../support/fixtures';
 import {
     CATALOG,
+    changeQuestion,
     checkbox,
     continueButton,
     expectStep,
@@ -84,17 +85,14 @@ test('25 · after a reload the draft is back, on a step its answers justify', as
     }, draftKey(clientAId));
     await page.reload();
     await expectStep(page, 3);
-    await expect(
-        page.getByRole('heading', { name: 'Application' }),
-    ).toBeVisible();
 
-    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await changeQuestion(page, 2).click();
     await expectStep(page, 2);
     await expect(checkbox(page, CATALOG.stones[0])).toHaveAttribute(
         'aria-checked',
         'true',
     );
-    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await changeQuestion(page, 1).click();
     await expectStep(page, 1);
     await expect(checkbox(page, CATALOG.stoneService)).toHaveAttribute(
         'aria-checked',
@@ -113,7 +111,7 @@ test('26 · "Start new" clears the draft, and a reload stays empty', async ({
     await expectStep(page, 2);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
-    await page.goto('/quote');
+    await page.goto('/dashboard/quote');
     await page
         .getByRole('button', { name: 'Inquire', exact: true })
         .first()
@@ -145,7 +143,7 @@ test("27 · on a shared browser, client B never sees client A's draft", async ({
     await openInquire(page);
     await pickService(page, CATALOG.visitService);
     await continueButton(page).click();
-    await expectStep(page, 2);
+    await expectStep(page, 4);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
     await signOut(page);

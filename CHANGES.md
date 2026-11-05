@@ -1,3 +1,64 @@
+# Confirmation popups
+
+`ConfirmDialog` is the app's one way to ask before doing something. Cancelling an inquiry (it was the browser's `confirm()`), logging out and removing a message all use it.
+
+# A simpler inquiry: two steps, one project
+
+The stepper is now **1. Your request** and **2. Review and send**. The first step is four questions on one page, one open at a time; an answered question closes to a line with a Change button.
+
+- **One project per inquiry.** "Add another project" is gone, and the server refuses a second (`config/inquiry.php`, `MAX_PROJECTS`). Visits skip the stone and "where it is used" questions.
+- **Edge and finish** start as "Not sure yet, advise me" and fold away behind "Choose edge and finish (optional)". Landmark, area, files and notes fold away behind "Add more details (optional)".
+- **The project name is automatic** ("Kitchen Islands - Natural Stone Supply") and can be changed on Review. A name the reader gave is kept on later edits.
+- **Help me choose** sends an inquiry with no stone. New column `inquiries.stone_advice_requested`, added to the create migration, so an existing database needs `migrate:fresh --seed`. Staff and clients see "Stone to be recommended by Regray" on the inquiry page and the chat card.
+
+# Request a quotation from the Regray Team thread
+
+A client with no inquiry going sees a floating "Request a quotation" button in their Regray Team thread, which opens the stepper. It reads "Continue your request" when this browser holds their draft.
+
+- **`canRequestQuote`** on the thread response (`ThreadController::messages`) is decided by the server: the viewer's own support thread, `inquiries.create`, and no active inquiry. Only `sales_status = rejected` or `process_status = completed` ends an inquiry; `marketing_status = lost` and payment do not.
+- **The ×** hides it for this browser tab, under `quote-prompt-dismissed` in `sessionStorage`. Nothing is stored on the server.
+
+# Best seller is a stone category
+
+A category is a best seller, not a single stone. The top three active categories by completed inquiries count, ties included (`BestSellerService::BEST_SELLER_COUNT`), and each stone takes it from its primary category.
+
+- **Product cards** no longer show the Best Seller tag, and their payloads no longer carry `bestSeller`.
+- **The brand page's Natural Stones filter** stars the best-selling categories (`filterOptions.categories.*.bestSeller`).
+- **The stone page** shows its Best Seller badge when the stone's category is one. The Inquire page's Best Sellers filter follows the same rule.
+
+# Products belong to brands, and each brand page has the collection
+
+Every stone and furniture piece now has one brand. The collection moved from Home and the landing page onto each brand's page, under "Our Collection". Product URLs and breadcrumbs are brand-scoped. Projects are unchanged.
+
+## What changed
+
+### Database
+
+- **`brands`** moved into its own migration (`2026_09_29_000003`), so it runs before `stones` (`000004`) and `furniture` (`000015`).
+- **`stones.brand_id`, `furniture.brand_id`**: required, indexed, FK to `brands`, `RESTRICT`. Slugs stay globally unique. These edits are in the create migrations, so an existing database needs `migrate:fresh --seed`.
+
+### Seeders
+
+- **`DatabaseSeeder`** calls `BrandSeeder` before `StoneSeeder`. `StoneSeeder` and `FurnitureSeeder` attach everything to `regray-stone`, and call `BrandSeeder` themselves so they still work alone. The other brands have no products.
+
+### Routes
+
+- **Guest**: `/brands/{brand}`, `/brands/{brand}/stones/{stone}`, `/brands/{brand}/furniture/{furniture}`. **Signed in**: the same under `/dashboard`, with the existing permissions. A signed-in user on a guest URL gets a 301 to the dashboard form, marked `no-store`.
+- A product resolves only under its own active brand and while active (`Brand::resolveRouteBinding`, `resolveChildRouteBinding`).
+- **Old URLs 301**: `/{slug}` for a stone, `/furniture/{slug}`, `/dashboard/home/stones/{stone}`, `/dashboard/home/furniture/{furniture}`, `/dashboard/home/brand/{brand}`, and `/dashboard/home/{slug}` for a stone. `/{slug}` and `/dashboard/home/{slug}` still show projects.
+
+### Brand page
+
+- **`BrandController`** lists the brand's products through one union query (`BrandRepository::paginateProducts`), so All Categories has one search and one pagination, ordered by name case-insensitively. A single kind keeps its `sort_order`.
+- **Query**: `collection=all|stones|furniture`, with `category` (and `size`, `thickness`) for stones or `furniture_type` for furniture. A param from another collection is ignored.
+- **Page size**: 16 at a time on phones, 24 from tablet up, from the `grid_page_size` cookie the browser sets, so `per_page` is gone from the URL.
+- **`brand-collection.tsx`** holds the grid and filters, moved out of `home-catalogue.tsx`. The second select is hidden under All Categories. A brand with no active products shows "Products coming soon" and no filters.
+- **Home and landing** keep the hero and the brand tiles. The `collection` param is gone from both controllers.
+
+### Breadcrumbs
+
+- `catalogueCrumbs` builds Regray / Home / Brand / Product from the payloads, which now carry `brand { slug, name }`. The workspace header shows it; guests see no breadcrumbs. The Saved doors keep their Saved trail.
+
 # Brands and furniture on Home, brand and furniture pages, and no stone project types
 
 Home now has one heading, "Our Collection", over the brands and the products. The brands come from the database, one full-width tile per row with a tagline, each linking to its own page. The second collection is Furniture, not projects. The stone profile drops Project Highlights and gets an "Ask a Quote" button. Stones no longer have project types. Run `php artisan migrate:fresh --seed`.

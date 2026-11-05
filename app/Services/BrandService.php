@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Data\BrandProductFilterData;
 use App\Models\Brand;
+use App\Models\Furniture;
+use App\Models\Stone;
 use App\Repositories\Contracts\BrandRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class BrandService
 {
@@ -19,14 +22,38 @@ class BrandService
         return $this->brandRepository->active();
     }
 
-    public function getActiveBrand(string $slug): Brand
+    /**
+     * @return array{products: LengthAwarePaginator<int, Stone|Furniture>, hasProducts: bool, filters: array{collection: string, search: string|null, category: string|null, size: string|null, thickness: string|null, furnitureType: string|null, perPage: int}}
+     */
+    public function listProducts(Brand $brand, BrandProductFilterData $filters): array
     {
-        $brand = $this->brandRepository->findActiveBySlug($slug);
+        return [
+            'products' => $this->brandRepository->paginateProducts($brand, $this->withEscapedSearch($filters)),
+            'hasProducts' => $this->brandRepository->hasActiveProducts($brand),
+            'filters' => [
+                'collection' => $filters->collection,
+                'search' => $filters->search,
+                'category' => $filters->category,
+                'size' => $filters->size,
+                'thickness' => $filters->thickness,
+                'furnitureType' => $filters->furnitureType,
+                'perPage' => $filters->perPage,
+            ],
+        ];
+    }
 
-        if ($brand === null) {
-            throw (new ModelNotFoundException)->setModel(Brand::class, [$slug]);
-        }
-
-        return $brand;
+    /** A `%` or `_` someone typed is searched for, not treated as a wildcard. */
+    private function withEscapedSearch(BrandProductFilterData $filters): BrandProductFilterData
+    {
+        return new BrandProductFilterData(
+            $filters->collection,
+            $filters->search === null ? null : str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $filters->search),
+            $filters->category,
+            $filters->size,
+            $filters->thickness,
+            $filters->furnitureType,
+            $filters->page,
+            $filters->perPage,
+        );
     }
 }

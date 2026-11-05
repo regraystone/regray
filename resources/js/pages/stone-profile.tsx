@@ -6,7 +6,8 @@ import ImageLightbox, { type LightboxImage } from '@/components/image-lightbox';
 import { FactChip, SpecRow } from '@/components/profile-facts';
 import ProfileGallery from '@/components/profile-gallery';
 import { Button } from '@/components/ui/button';
-import { index as homeIndex } from '@/routes/home';
+import { show as brandsShow } from '@/routes/brands';
+import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
 import { index as savedIndex } from '@/routes/saved';
 import type { StoneProfile as StoneProfileData } from '@/types/stone';
 
@@ -32,12 +33,13 @@ const BulletedList = ({ items }: { items: string[] }) => (
 );
 
 const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
-    const { url } = usePage();
+    const { url, props } = usePage<{ auth: { user: unknown } }>();
+    const isSignedIn = props.auth?.user != null;
     const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(
         null,
     );
 
-    // Both stone doors return to their own feed, including on a direct visit.
+    // Each stone door returns to where it hangs off, including on a direct visit.
     const goBack = () => {
         if (window.history.length > 1) {
             window.history.back();
@@ -45,7 +47,9 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
             router.visit(
                 url.startsWith(`${savedIndex.url()}/`)
                     ? savedIndex.url()
-                    : homeIndex.url(),
+                    : (isSignedIn ? dashboardBrandShow : brandsShow).url({
+                          brand: stone.brand.slug,
+                      }),
             );
         }
     };

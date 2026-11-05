@@ -62,6 +62,7 @@ return new class extends Migration
             $table->string('landmark', 150)->nullable();
             $table->decimal('area_sqm', 10, 2)->nullable();
             $table->string('notes', 1000)->nullable();
+            $table->boolean('stone_advice_requested')->default(false);
             $table->string('sales_status', 20)->nullable();
             $table->timestampTz('sales_status_changed_at')->nullable();
             $table->string('payment_status', 20)->nullable();

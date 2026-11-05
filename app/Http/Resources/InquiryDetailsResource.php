@@ -258,6 +258,7 @@ class InquiryDetailsResource extends JsonResource
                 'option' => $this->serviceOptions->firstWhere('service_id', $service->id)?->name,
             ])->values()->all(),
             'applications' => $this->categories->map(fn ($category): string => $category->name)->values()->all(),
+            'stoneAdviceRequested' => $this->stone_advice_requested,
             'stones' => $this->stones->map(fn (InquiryStone $row): array => [
                 'id' => $row->stone->slug,
                 'name' => $row->stone->name,

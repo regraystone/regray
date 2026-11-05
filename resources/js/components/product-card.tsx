@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Check, ExternalLink, Heart, ImageOff, Star } from 'lucide-react';
+import { Check, ExternalLink, Heart, ImageOff } from 'lucide-react';
 import { useState } from 'react';
 
 /**
@@ -12,7 +12,6 @@ export type ProductCardData = {
     slug: string;
     name: string;
     thumbnail: string | null;
-    bestSeller?: boolean;
     category: { slug: string; name: string };
 };
 
@@ -143,16 +142,6 @@ const ProductCard = ({
         </div>
     );
 
-    const bestSeller = product.bestSeller ? (
-        <span className="absolute top-0 left-0 flex items-center gap-1 rounded-none bg-black p-2 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
-            <Star
-                className="size-3 shrink-0 fill-white text-white"
-                aria-hidden
-            />
-            Best Seller
-        </span>
-    ) : null;
-
     if (selectable) {
         // The footer is at least 60px tall: 44px controls with 8px above and
         // below, or the name and category's 36px with 12px above and below,
@@ -196,7 +185,6 @@ const ProductCard = ({
                         ) : (
                             placeholder
                         )}
-                        {bestSeller}
                         {selected ? (
                             <span
                                 aria-hidden
@@ -206,10 +194,8 @@ const ProductCard = ({
                             </span>
                         ) : null}
                         {/*
-                         * Bottom-left, where nothing else sits: the
-                         * best-seller tag is top-left, the tick top-right, and
-                         * this is the one tag that can appear on a card that is
-                         * also a best seller.
+                         * Bottom-left, where nothing else sits: the tick is
+                         * top-right.
                          */}
                         {note ? (
                             <span className="absolute bottom-0 left-0 rounded-none bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
@@ -268,7 +254,6 @@ const ProductCard = ({
                 ) : (
                     placeholder
                 )}
-                {bestSeller}
                 {heart || view ? (
                     <div className="absolute top-3 right-3 z-10 hidden items-center gap-1 rounded-md bg-black/60 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 lg:flex">
                         {heart}

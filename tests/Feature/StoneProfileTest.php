@@ -29,7 +29,7 @@ beforeEach(function (): void {
     ]);
 });
 
-test('a client reads the full database stone profile through either door', function (string $routeName): void {
+test('a client reads the full database stone profile through either door', function (string $door): void {
     $stone = Stone::query()->where('slug', 'cosmic-black')->firstOrFail();
     $category = $stone->category;
     $category->update(['description' => 'Database description', 'origin' => 'Database origin']);
@@ -69,7 +69,7 @@ test('a client reads the full database stone profile through either door', funct
 
     $user = User::factory()->role(Role::Client)->create();
 
-    $response = $this->actingAs($user)->get(route($routeName, ['stone' => 'cosmic-black']));
+    $response = $this->actingAs($user)->get($door);
 
     $response->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('stone-profile')
@@ -81,6 +81,7 @@ test('a client reads the full database stone profile through either door', funct
                 ->where('name', 'Database Granite')
                 ->where('thumbnail', '/storage/stones/hero.jpg')
                 ->where('bestSeller', false)
+                ->where('brand', ['slug' => 'regray-stone', 'name' => 'Regray Stone'])
                 ->where('category', ['slug' => 'granite', 'name' => 'Granite'])
                 ->where('description', 'Database description')
                 ->where('specifications', ['stoneType' => 'Granite', 'origin' => 'Database origin', 'size' => '60x120', 'thicknessMm' => 75])
@@ -97,12 +98,12 @@ test('a client reads the full database stone profile through either door', funct
     );
 
     $response->assertInertia(fn (Assert $page) => $page->missing('projectSlug'));
-})->with(['saved.show', 'home.stone']);
+})->with(['/dashboard/saved/stones/cosmic-black', '/dashboard/brands/regray-stone/stones/cosmic-black']);
 
 test('shows the not-found page for an unknown, inactive or deleted stone through both doors', function (): void {
     $user = User::factory()->role(Role::Client)->create();
     $notFound = function (string $slug) use ($user): void {
-        foreach ([route('saved.show', $slug), route('home.stone', ['stone' => $slug])] as $url) {
+        foreach ([route('saved.show', $slug), route('dashboard.brands.stones.show', ['brand' => 'regray-stone', 'stone' => $slug])] as $url) {
             $this->actingAs($user)->get($url)->assertNotFound()
                 ->assertInertia(fn (Assert $page) => $page->component('not-found'));
         }
@@ -125,7 +126,7 @@ test('answers a malformed stone or project slug with 404 without looking it up',
     foreach ([
         route('saved.show', ['stone' => 'Bad_Stone']),
         route('saved.show', ['stone' => str_repeat('a', 101)]),
-        route('home.stone', ['stone' => 'onyx--stone']),
+        route('dashboard.brands.stones.show', ['brand' => 'regray-stone', 'stone' => 'onyx--stone']),
         route('home.show', ['slug' => 'Bad_Project']),
         route('home.show', ['slug' => str_repeat('a', 101)]),
     ] as $url) {
@@ -140,7 +141,7 @@ test('stones in one category share its facts but have their own galleries', func
     $user = User::factory()->role(Role::Client)->create();
 
     foreach (['cosmic-black', 'golden-fusion'] as $slug) {
-        $this->actingAs($user)->get(route('home.stone', $slug))->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($user)->get(route('dashboard.brands.stones.show', ['brand' => 'regray-stone', 'stone' => $slug]))->assertInertia(fn (Assert $page) => $page
             ->where('stone.data.slug', $slug)
             ->where('stone.data.description', 'Shared category description')
             ->where('stone.data.category', ['slug' => 'granite', 'name' => 'Granite'])

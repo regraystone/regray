@@ -1,4 +1,5 @@
-﻿import type { MouseEvent } from 'react';
+﻿import { ChevronDown } from 'lucide-react';
+import { useState, type MouseEvent } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import FileUpload from '@/components/file-upload';
 import FormField, {
@@ -6,6 +7,7 @@ import FormField, {
     fieldMessage,
 } from '@/components/form-field';
 import InputError from '@/components/input-error';
+import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -143,8 +145,31 @@ const InquiryProjectDetails = ({
         register,
         control,
         setValue,
+        getValues,
         formState: { errors },
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
+
+    /*
+     * Everything optional stays folded away until it is wanted. A project that
+     * already holds one of these answers opens with them showing, and so does one
+     * with a complaint about them, because hidden answers can't be checked or fixed.
+     */
+    const [wantsMoreDetails, setWantsMoreDetails] = useState(() => {
+        const { landmark, areaSqm, notes, attachments } = getValues();
+
+        return (
+            landmark !== '' ||
+            areaSqm !== '' ||
+            notes !== '' ||
+            attachments.length > 0
+        );
+    });
+    const showsMoreDetails =
+        wantsMoreDetails ||
+        errors.landmark !== undefined ||
+        errors.areaSqm !== undefined ||
+        errors.notes !== undefined ||
+        errors.attachments !== undefined;
 
     /*
      * Scoped to the project rather than the flat `inquiry-*` ids the details step
@@ -169,17 +194,9 @@ const InquiryProjectDetails = ({
 
     return (
         <div>
-            <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                Where and when
-            </h4>
+            <h3 className="text-base font-bold">Where and when</h3>
 
-            <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
-                {needsNeededByTime
-                    ? 'Tell us where the work is and when you want it. This service needs a date and a time.'
-                    : 'Tell us where the work is and the day you want it.'}
-            </p>
-
-            <div className="mt-4 grid gap-5 md:grid-cols-2">
+            <div className="mt-3 grid gap-5 md:grid-cols-2">
                 <FormField
                     id={id('location')}
                     label="Location"
@@ -222,47 +239,6 @@ const InquiryProjectDetails = ({
                     )}
                 </FormField>
 
-                <FormField
-                    id={id('landmark')}
-                    label="Landmark"
-                    error={errors.landmark?.message}
-                >
-                    {(accessibility) => (
-                        <Input
-                            id={id('landmark')}
-                            {...register('landmark')}
-                            maxLength={LANDMARK_MAX}
-                            placeholder="Near the old railway station"
-                            aria-describedby={accessibility.describedBy}
-                            aria-invalid={accessibility.invalid}
-                            className="rounded-none"
-                        />
-                    )}
-                </FormField>
-            </div>
-
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                <FormField
-                    id={id('area')}
-                    label="Approximate area (sqm)"
-                    error={errors.areaSqm?.message}
-                >
-                    {(accessibility) => (
-                        <Input
-                            id={id('area')}
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="any"
-                            {...register('areaSqm')}
-                            placeholder="24"
-                            aria-describedby={accessibility.describedBy}
-                            aria-invalid={accessibility.invalid}
-                            className="rounded-none"
-                        />
-                    )}
-                </FormField>
-
                 {/*
                  * A service the team attends at an hour, so when it is wanted is
                  * a moment rather than a day. The date widens to take the time
@@ -278,7 +254,9 @@ const InquiryProjectDetails = ({
                      * stays in the draft, so saving sends it back unchanged.
                      */
                     <div>
-                        <p className="text-sm font-bold">Target deadline</p>
+                        <p className="text-sm font-bold">
+                            When do you need it?
+                        </p>
                         <p
                             id={id('needed-by')}
                             className="mt-2 text-sm"
@@ -299,7 +277,7 @@ const InquiryProjectDetails = ({
                 ) : needsNeededByTime ? (
                     <FormField
                         id={id('needed-by')}
-                        label="Target deadline"
+                        label="When do you need it?"
                         required
                         /*
                          * The pair is one answer, so the complaint about a missing
@@ -345,7 +323,7 @@ const InquiryProjectDetails = ({
                                      * pointed at the date: without this the second
                                      * control would be announced as an edit box
                                      * with nothing on it. "Time of day" beside
-                                     * "Target deadline" says the same thing to a screen
+                                     * "When do you need it?" says the same thing to a screen
                                      * reader as the two fields and the word
                                      * between them say to anyone else.
                                      */
@@ -360,7 +338,7 @@ const InquiryProjectDetails = ({
                 ) : (
                     <FormField
                         id={id('needed-by')}
-                        label="Target deadline"
+                        label="When do you need it?"
                         required
                         error={errors.neededBy?.message}
                     >
@@ -380,97 +358,158 @@ const InquiryProjectDetails = ({
                 )}
             </div>
 
-            <div className="mt-8">
-                <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                    {allowAttachments ? 'Attachments and notes' : 'Notes'}
-                </h4>
-
-                <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
-                    {allowAttachments
-                        ? 'Plans, sketches or site photos help us quote accurately. Everything here is optional.'
-                        : 'Optional. Files are added by the client.'}
-                </p>
-
-                <div className={allowAttachments ? 'mt-4' : 'hidden'}>
-                    <Controller
-                        control={control}
-                        name="attachments"
-                        render={({ field }) => (
-                            <FileUpload
-                                files={field.value}
-                                onFilesChange={(next) =>
-                                    /*
-                                     * The list is rewritten on every progress
-                                     * tick, so validation is asked for only once
-                                     * nothing is in flight. Re-running the check
-                                     * ten times a second over the whole field is
-                                     * what would make the progress bar stutter.
-                                     */
-                                    setValue('attachments', next, {
-                                        shouldValidate: next.every(
-                                            (attachment) =>
-                                                attachment.status === 'done',
-                                        ),
-                                    })
-                                }
-                            />
-                        )}
-                    />
-
-                    {/*
-                     * Whatever the schema objected to, rather than only the
-                     * first thing: a list of four files can be wrong in more than
-                     * one way at once, and the reader has to be able to fix all
-                     * of it in one pass.
-                     */}
-                    <div aria-live="polite">
-                        {attachmentErrors.map((message, index) => (
-                            <InputError
-                                key={`${index}-${message}`}
-                                message={message}
-                                role="alert"
-                                className="mt-2"
-                            />
-                        ))}
-                    </div>
-                </div>
-
-                <FormField
-                    id={id('notes')}
-                    label="Additional notes"
-                    error={errors.notes?.message}
-                    className="mt-6"
+            <div className="mt-6">
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-expanded={showsMoreDetails}
+                    aria-controls={id('more-details')}
+                    onClick={() => setWantsMoreDetails(!showsMoreDetails)}
                 >
-                    {(accessibility) => (
-                        <div>
-                            <Textarea
-                                id={id('notes')}
-                                {...register('notes')}
-                                maxLength={NOTES_MAX}
-                                placeholder="Anything else we should know about the site, the access, or the look you are after."
-                                aria-describedby={accessibility.describedBy}
-                                aria-invalid={accessibility.invalid}
-                            />
-                            {/*
-                             * The count is the limit made visible, so there is
-                             * no reason to also error on a limit the field
-                             * already refuses to pass. Reading the value rather
-                             * than a copy of it in local state is what keeps the
-                             * count true on autofill too, which writes into the
-                             * field without going through this component.
-                             */}
-                            <p className="mt-2 text-right text-xs text-secondary-foreground">
-                                <span className="sr-only">
-                                    {notes.length} of {NOTES_MAX} characters
-                                    used
-                                </span>
-                                <span aria-hidden>
-                                    {notes.length} / {NOTES_MAX}
-                                </span>
-                            </p>
+                    <ChevronDown
+                        aria-hidden
+                        className={showsMoreDetails ? 'rotate-180' : ''}
+                    />
+                    Add more details (optional)
+                </Button>
+
+                {/*
+                 * Hidden rather than taken out, so the fields stay registered and
+                 * an upload in flight is not lost when it is folded away.
+                 */}
+                <div
+                    id={id('more-details')}
+                    className={showsMoreDetails ? 'mt-5' : 'hidden'}
+                >
+                    <div className="grid gap-5 md:grid-cols-2">
+                        <FormField
+                            id={id('landmark')}
+                            label="A nearby landmark"
+                            error={errors.landmark?.message}
+                        >
+                            {(accessibility) => (
+                                <Input
+                                    id={id('landmark')}
+                                    {...register('landmark')}
+                                    maxLength={LANDMARK_MAX}
+                                    placeholder="Near the old railway station"
+                                    aria-describedby={accessibility.describedBy}
+                                    aria-invalid={accessibility.invalid}
+                                    className="rounded-none"
+                                />
+                            )}
+                        </FormField>
+                        <FormField
+                            id={id('area')}
+                            label="Size of the area in square metres, if you know"
+                            error={errors.areaSqm?.message}
+                        >
+                            {(accessibility) => (
+                                <Input
+                                    id={id('area')}
+                                    type="number"
+                                    inputMode="decimal"
+                                    min="0"
+                                    step="any"
+                                    {...register('areaSqm')}
+                                    placeholder="24"
+                                    aria-describedby={accessibility.describedBy}
+                                    aria-invalid={accessibility.invalid}
+                                    className="rounded-none"
+                                />
+                            )}
+                        </FormField>
+                    </div>
+
+                    <p className="mt-5 max-w-2xl text-sm text-secondary-foreground">
+                        {allowAttachments
+                            ? 'Plans, sketches or site photos help us quote accurately.'
+                            : 'Files are added by the client.'}
+                    </p>
+
+                    <div className={allowAttachments ? 'mt-3' : 'hidden'}>
+                        <Controller
+                            control={control}
+                            name="attachments"
+                            render={({ field }) => (
+                                <FileUpload
+                                    files={field.value}
+                                    onFilesChange={(next) =>
+                                        /*
+                                         * The list is rewritten on every progress
+                                         * tick, so validation is asked for only once
+                                         * nothing is in flight. Re-running the check
+                                         * ten times a second over the whole field is
+                                         * what would make the progress bar stutter.
+                                         */
+                                        setValue('attachments', next, {
+                                            shouldValidate: next.every(
+                                                (attachment) =>
+                                                    attachment.status ===
+                                                    'done',
+                                            ),
+                                        })
+                                    }
+                                />
+                            )}
+                        />
+
+                        {/*
+                         * Whatever the schema objected to, rather than only the
+                         * first thing: a list of four files can be wrong in more than
+                         * one way at once, and the reader has to be able to fix all
+                         * of it in one pass.
+                         */}
+                        <div aria-live="polite">
+                            {attachmentErrors.map((message, index) => (
+                                <InputError
+                                    key={`${index}-${message}`}
+                                    message={message}
+                                    role="alert"
+                                    className="mt-2"
+                                />
+                            ))}
                         </div>
-                    )}
-                </FormField>
+                    </div>
+
+                    <FormField
+                        id={id('notes')}
+                        label="Anything else we should know?"
+                        error={errors.notes?.message}
+                        className="mt-5"
+                    >
+                        {(accessibility) => (
+                            <div>
+                                <Textarea
+                                    id={id('notes')}
+                                    {...register('notes')}
+                                    maxLength={NOTES_MAX}
+                                    placeholder="Anything else we should know about the site, the access, or the look you are after."
+                                    aria-describedby={accessibility.describedBy}
+                                    aria-invalid={accessibility.invalid}
+                                />
+                                {/*
+                                 * The count is the limit made visible, so there is
+                                 * no reason to also error on a limit the field
+                                 * already refuses to pass. Reading the value rather
+                                 * than a copy of it in local state is what keeps the
+                                 * count true on autofill too, which writes into the
+                                 * field without going through this component.
+                                 */}
+                                <p className="mt-2 text-right text-xs text-secondary-foreground">
+                                    <span className="sr-only">
+                                        {notes.length} of {NOTES_MAX} characters
+                                        used
+                                    </span>
+                                    <span aria-hidden>
+                                        {notes.length} / {NOTES_MAX}
+                                    </span>
+                                </p>
+                            </div>
+                        )}
+                    </FormField>
+                </div>
             </div>
         </div>
     );

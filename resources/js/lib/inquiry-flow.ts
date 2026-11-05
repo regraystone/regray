@@ -8,6 +8,11 @@
  * here or handed in as an argument.
  */
 
+/*
+ * The reader sees two steps: Your request and Review and send. The first is four
+ * questions on one page, one open at a time, and these numbers are those
+ * questions. Stored drafts hold the same numbers.
+ */
 export const SERVICES_STEP = 1;
 export const STONES_STEP = 2;
 export const APPLICATION_STEP = 3;
@@ -16,13 +21,11 @@ export const REQUIREMENTS_STEP = 4;
 /** Review is the last step, and owns no fields of its own to validate. */
 export const REVIEW_STEP = REQUIREMENTS_STEP + 1;
 
-export const INQUIRY_STEP_LABELS = [
-    'Services',
-    'Stones',
-    'Application',
-    'Requirements',
-    'Review',
-] as const;
+export const INQUIRY_STEP_LABELS = ['Your request', 'Review and send'] as const;
+
+/** Which of the two steps the reader sees this question or Review belongs to. */
+export const stepperPosition = (step: number): number =>
+    step >= REVIEW_STEP ? 2 : 1;
 
 /**
  * The part of the draft that decides the path through the steps.
@@ -42,49 +45,55 @@ export const isStandaloneOnly = (draft: FlowDraft): boolean =>
     draft.serviceIds.length === 0 && draft.standaloneServiceIds.length > 0;
 
 /**
- * Whether Stones and Application have to be answered.
- *
- * Required as soon as one service supplies stone, optional when the draft is
- * only standalone services. Optional is still a step: it is walked through, not
- * skipped.
+ * Whether Stones and Application are asked at all: as soon as one service
+ * supplies stone. A draft of only standalone services skips both.
  */
 export const isStonesAndApplicationRequired = (draft: FlowDraft): boolean =>
     draft.serviceIds.length > 0;
 
-/** Whether the step is one the reader may continue past with nothing picked. */
-export const isStepOptional = (step: number, draft: FlowDraft): boolean =>
-    (step === STONES_STEP || step === APPLICATION_STEP) &&
-    isStandaloneOnly(draft);
+/**
+ * The question after this one: Services, Stones, Application, Requirements, then
+ * Review. A visit goes straight from Services to Requirements.
+ */
+export const nextQuestion = (step: number, draft: FlowDraft): number => {
+    if (step === SERVICES_STEP && isStandaloneOnly(draft)) {
+        return REQUIREMENTS_STEP;
+    }
 
-/** The line shown on an optional step. */
-export const OPTIONAL_STEP_NOTE = 'Optional — extra information for this visit';
+    return Math.min(step + 1, REVIEW_STEP);
+};
 
 /**
- * The step after this one. Every draft goes Services → Stones → Application →
- * Requirements → Review; what the draft holds changes whether a step needs an
- * answer, never whether it is shown.
+ * A project's name, made from what the reader answered: where the stone goes and
+ * the service it is for. Capped at the name's own limit, which the caller passes
+ * because this file imports nothing. It can be changed on Review.
  */
-export const nextStep = (step: number): number =>
-    Math.min(step + 1, REVIEW_STEP);
-
-/** The step before this one, never before Services. */
-export const previousStep = (step: number): number =>
-    Math.max(step - 1, SERVICES_STEP);
+export const autoProjectName = (
+    applicationNames: string[],
+    serviceNames: string[],
+    maxLength: number,
+): string =>
+    [applicationNames[0], serviceNames[0]]
+        .filter((part): part is string => Boolean(part))
+        .join(' - ')
+        .slice(0, maxLength)
+        .trim();
 
 /**
  * Where a restored draft is allowed to land.
  *
  * The stored step is a number the draft behind it may no longer justify: a
  * Review with no projects left to review, an Application step whose stones were
- * never picked, a step number no longer in the stepper at all. So the stored
- * step is held to the furthest step the draft still justifies — Review needs a
- * project, Requirements needs a service, Stones are needed once a service
- * supplies stone, and then Application — and Services is the floor.
+ * never picked, a question a visit is never asked, a step number no longer in the
+ * stepper at all. So the stored step is held to the furthest step the draft still
+ * justifies — Review needs a project, Requirements needs a service, Stones are
+ * needed once a service supplies stone, and then Application — and Services is the
+ * floor.
  */
 export const clampRestoredStep = (
     stored: number,
     projectCount: number,
-    draft: FlowDraft,
+    draft: FlowDraft & { stoneAdvice?: boolean },
 ): number => {
     if (stored >= REVIEW_STEP && projectCount > 0) {
         return REVIEW_STEP;
@@ -96,8 +105,12 @@ export const clampRestoredStep = (
 
     let furthest = REQUIREMENTS_STEP;
 
+    if (isStandaloneOnly(draft)) {
+        return stored > SERVICES_STEP ? REQUIREMENTS_STEP : SERVICES_STEP;
+    }
+
     if (isStonesAndApplicationRequired(draft)) {
-        if (draft.stoneIds.length === 0) {
+        if (draft.stoneIds.length === 0 && draft.stoneAdvice !== true) {
             furthest = STONES_STEP;
         } else if (draft.applicationIds.length === 0) {
             furthest = APPLICATION_STEP;
@@ -113,10 +126,9 @@ export const clampRestoredStep = (
  * The stone rows for the picks.
  *
  * Keeps every row of a stone that is still picked, drops the rows of one that
- * is not, and gives each newly picked stone one fresh row. A draft that is only
- * standalone services has nothing to specify, so its rows are filled with the
- * "advise me" edge and finish, which is what lets the picks travel as extra
- * information without a question the reader was never asked.
+ * is not, and gives each newly picked stone one fresh row. Blank edges and
+ * finishes take the "advise me" answer, so the reader only has to say otherwise
+ * if they know what they want.
  */
 export type StoneRow = {
     stoneId: string;
@@ -164,6 +176,8 @@ export type CommitDraft = FlowDraft & {
     /** The kind of work picked under each service, by service id. */
     serviceOptions: Record<string, string>;
     name: string;
+    /** The reader asked Regray to recommend a stone instead of choosing one. */
+    stoneAdvice: boolean;
     stones: StoneRow[];
     location: string;
     landmark: string;
@@ -215,6 +229,7 @@ export const buildCommittedProject = <T extends CommitDraft>(
         serviceIds,
         serviceOptions: pickServiceOptions(draft.serviceOptions, serviceIds),
         applications: [...draft.applicationIds],
+        stoneAdvice: draft.stoneAdvice,
         stones: draft.stones.map((row) => ({ ...row })),
         location: draft.location,
         landmark: draft.landmark,
@@ -229,25 +244,6 @@ export const buildCommittedProject = <T extends CommitDraft>(
         ) as T['attachments'],
     };
 };
-
-/**
- * The draft that waits for the next queued service.
- *
- * The stones and applications stay, because they are copied onto every
- * standalone project that comes out of this draft.
- */
-export const draftForNextInQueue = <T extends CommitDraft>(
-    draft: T,
-    blank: T,
-    remaining: string[],
-): T => ({
-    ...blank,
-    standaloneServiceIds: remaining,
-    serviceOptions: pickServiceOptions(draft.serviceOptions, remaining),
-    stoneIds: [...draft.stoneIds],
-    stones: draft.stones.map((row) => ({ ...row })),
-    applicationIds: [...draft.applicationIds],
-});
 
 /** The kinds of work picked for just these services. */
 export const pickServiceOptions = (
@@ -286,6 +282,7 @@ export type RequestProject = {
     serviceIds: string[];
     serviceOptions: Record<string, string>;
     applications: string[];
+    stoneAdvice: boolean;
     stones: StoneRow[];
     location: string;
     landmark: string;
@@ -339,6 +336,8 @@ export const buildInquiryFormData = (
         project.applications.forEach((id, k) =>
             body.append(`${field('applicationIds')}[${k}]`, id),
         );
+
+        body.append(field('stoneAdvice'), project.stoneAdvice ? '1' : '0');
 
         project.stones.forEach((row, k) => {
             const stone = (name: string): string =>
@@ -488,6 +487,7 @@ export type InquiryEditProject = {
      */
     serviceOptionSlugs: Record<string, string> | [];
     applicationSlugs: string[];
+    stoneAdviceRequested: boolean;
     stones: StoneRow[];
     location: string;
     landmark: string | null;
@@ -513,6 +513,7 @@ export type EditFormProject = {
     serviceIds: string[];
     serviceOptions: Record<string, string>;
     applications: string[];
+    stoneAdvice: boolean;
     stones: StoneRow[];
     location: string;
     landmark: string;
@@ -548,6 +549,7 @@ export const toEditFormProjects = (
             ? {}
             : { ...project.serviceOptionSlugs },
         applications: [...project.applicationSlugs],
+        stoneAdvice: project.stoneAdviceRequested,
         stones: project.stones.map((row) => ({ ...row })),
         location: project.location,
         landmark: project.landmark ?? '',
@@ -585,29 +587,20 @@ export const deadlineLocks = (
 export type InquiryMode = 'create' | 'edit';
 
 /**
- * What the Review sheet offers in each mode.
- *
- * Editing changes the projects an inquiry already has: none can be added or
- * removed, only opened with Edit, and the send is a save of the same inquiry.
+ * What the Review sheet says in each mode. The send is a save when editing.
  */
 export const reviewActions = (
     mode: InquiryMode,
 ): {
-    canAddProject: boolean;
-    canRemoveProject: boolean;
     submitLabel: string;
     footerNote: string;
 } =>
     mode === 'edit'
         ? {
-              canAddProject: false,
-              canRemoveProject: false,
               submitLabel: 'Save changes',
               footerNote: 'Nothing is saved until you save changes',
           }
         : {
-              canAddProject: true,
-              canRemoveProject: true,
-              submitLabel: 'Request a Quote',
-              footerNote: 'Nothing is sent until you request a quote',
+              submitLabel: 'Send my request',
+              footerNote: 'Nothing is sent until you press Send my request',
           };

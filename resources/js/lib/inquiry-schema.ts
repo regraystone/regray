@@ -24,9 +24,8 @@ import type { InquiryCatalog } from '@/types/inquiry';
  *
  * Services come first and stones second, because the services are what tell the
  * reader whether they have a project of the kind that needs stones at all.
- * Application comes after stones and before requirements. Every draft walks all
- * five steps: a draft of nothing but standalone services (a site visit) is not
- * asked for stones and an application, it is allowed to leave them empty.
+ * Application comes after stones and before requirements. A draft of nothing but
+ * standalone services (a site visit) goes straight from services to requirements.
  *
  * Steps 1 to 4 build one project and are a separate flow from the Review step,
  * which is about the inquiry as a whole. That is why `STEP_FIELDS` below starts
@@ -46,13 +45,10 @@ export const ATTACHMENT_MIME_TYPES = [
 ];
 
 /**
- * How many projects one inquiry may hold.
- *
- * A ceiling rather than a suggestion: ten is more than any real client sends,
- * and an unbounded list would let a reader build a request that takes an hour
- * to fill in on a phone. The backend holds the same number in config/inquiry.php.
+ * How many projects one inquiry may hold. A client who wants another project
+ * sends another inquiry. The backend holds the same number in config/inquiry.php.
  */
-export const MAX_PROJECTS = 10;
+export const MAX_PROJECTS = 1;
 
 /**
  * How many pieces of one stone a project may ask for.
@@ -552,7 +548,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
         neededBy: z
             .string()
             .refine((date) => date === '' || date >= todayIsoDate(), {
-                error: 'Target deadline cannot be in the past.',
+                error: 'That date has already passed.',
             }),
 
         /*
@@ -599,6 +595,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                 .min(1, { error: 'Select at least one service.' }),
             serviceOptions: serviceOptionsSchema,
             applications: applicationsSchema,
+            stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
             ...projectDetailsShape,
         })
@@ -618,7 +615,11 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                 (id) => !standaloneIds.has(id),
             );
 
-            if (needsStones && project.stones.length === 0) {
+            if (
+                needsStones &&
+                project.stones.length === 0 &&
+                !project.stoneAdvice
+            ) {
                 ctx.addIssue({
                     code: 'custom',
                     path: ['stones'],
@@ -630,7 +631,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                 ctx.addIssue({
                     code: 'custom',
                     path: ['applications'],
-                    message: 'Select at least one application.',
+                    message: 'Choose at least one place.',
                 });
             }
 
@@ -702,6 +703,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             applicationIds: applicationsSchema,
             standaloneServiceIds: z.array(serviceIdSchema),
             serviceOptions: serviceOptionsSchema,
+            stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
             ...projectDetailsShape,
         })
@@ -732,7 +734,11 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
              * stone. A draft of nothing but standalone services passes both with
              * nothing picked: they are extra information for the visit.
              */
-            if (draft.serviceIds.length > 0 && draft.stoneIds.length === 0) {
+            if (
+                draft.serviceIds.length > 0 &&
+                draft.stoneIds.length === 0 &&
+                !draft.stoneAdvice
+            ) {
                 ctx.addIssue({
                     code: 'custom',
                     path: ['stoneIds'],
@@ -747,7 +753,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                 ctx.addIssue({
                     code: 'custom',
                     path: ['applicationIds'],
-                    message: 'Select at least one application.',
+                    message: 'Choose at least one place.',
                 });
             }
 
@@ -804,7 +810,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             .array(projectSchema)
             .min(1, { error: NEEDS_A_PROJECT })
             .max(MAX_PROJECTS, {
-                error: `An inquiry can hold up to ${MAX_PROJECTS} projects.`,
+                error: 'An inquiry can only have one project.',
             }),
     });
 
@@ -858,6 +864,7 @@ export const inquiryDefaults = {
  */
 export const draftDefaults = {
     name: '',
+    stoneAdvice: false,
     stoneIds: [],
     serviceIds: [],
     standaloneServiceIds: [],

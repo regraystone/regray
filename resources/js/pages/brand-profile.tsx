@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
-import EmptyState from '@/components/empty-state';
+import BrandCollection from '@/components/home/brand-collection';
 import { Button } from '@/components/ui/button';
 import { home } from '@/routes';
 import { index as homeIndex } from '@/routes/home';
@@ -13,7 +13,7 @@ type BrandProfileProps = {
 /*
  * A brand's page, laid out like the stone profile: a full-width hero (its
  * thumbnail, or a neutral background without one) with the logo and
- * tagline, then the description and a "Coming soon" collection.
+ * tagline, then the description and the brand's collection.
  */
 const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
     const pageProps = usePage<{ auth: { user: unknown } }>().props;
@@ -104,23 +104,7 @@ const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
                 </section>
             ) : null}
 
-            <section
-                aria-labelledby="brand-collection-heading"
-                className="pb-12"
-            >
-                <div className="mb-6 border-b border-sidebar-border pb-4">
-                    <h2
-                        id="brand-collection-heading"
-                        className="text-2xl font-bold tracking-[-0.04em] uppercase sm:text-3xl"
-                    >
-                        Collection
-                    </h2>
-                </div>
-                <EmptyState
-                    title="Coming soon"
-                    description={`The ${brand.name} collection is on its way. Check back soon.`}
-                />
-            </section>
+            <BrandCollection />
         </div>
     );
 };

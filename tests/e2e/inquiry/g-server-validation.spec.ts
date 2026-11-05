@@ -12,10 +12,10 @@ test('28 · an inactive service slug is refused with 422 at its form path, and n
 }) => {
     const { clientAId, retiredService } = inquiryFixtures();
     const { page } = await actors.open('client');
-    await page.goto('/quote');
+    await page.goto('/dashboard/quote');
     const before = inquiryCount(clientAId);
 
-    const response = await postAsUser(page, '/quote/inquire', {
+    const response = await postAsUser(page, '/dashboard/quote/inquire', {
         projects: [projectPayload({ serviceIds: [retiredService] })],
     });
 
@@ -31,10 +31,10 @@ test('29 · a quantity of 10000 and an edge not in the catalogue are refused wit
 }) => {
     const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
-    await page.goto('/quote');
+    await page.goto('/dashboard/quote');
     const before = inquiryCount(clientAId);
 
-    const response = await postAsUser(page, '/quote/inquire', {
+    const response = await postAsUser(page, '/dashboard/quote/inquire', {
         projects: [
             projectPayload({
                 stones: [
@@ -57,23 +57,23 @@ test('29 · a quantity of 10000 and an edge not in the catalogue are refused wit
     expect(inquiryCount(clientAId)).toBe(before);
 });
 
-test('30 · an 11-project request is refused by the server', async ({
+test('30 · a request with a second project is refused by the server', async ({
     actors,
 }) => {
     const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
-    await page.goto('/quote');
+    await page.goto('/dashboard/quote');
     const before = inquiryCount(clientAId);
 
-    const response = await postAsUser(page, '/quote/inquire', {
-        projects: Array.from({ length: 11 }, (_, index) =>
+    const response = await postAsUser(page, '/dashboard/quote/inquire', {
+        projects: Array.from({ length: 2 }, (_, index) =>
             projectPayload({ name: `Project ${index + 1}` }),
         ),
     });
 
     expect(response.status).toBe(422);
     expect(response.json?.errors).toEqual({
-        projects: ['An inquiry can hold up to 10 projects.'],
+        projects: ['An inquiry can only have one project.'],
     });
     expect(inquiryCount(clientAId)).toBe(before);
 });

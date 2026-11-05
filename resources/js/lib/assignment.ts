@@ -2,8 +2,8 @@
  * What a Regray Team thread shows a viewer, from who they are and whether the
  * thread is assigned. Pure, with no imports, for tests/js.
  *
- * - Before anyone claims it, every pool member sees the assignment card and a
- *   composer that cannot send, with the same "Assign to me" button.
+ * - Before anyone claims it, every pool member sees the assignment card, which
+ *   has the only "Assign to me" button, and a disabled composer.
  * - After a claim, only the assignee may write; the client always may.
  * - The client never sees the card.
  * - Groups and direct chats have no assignment at all.
@@ -19,11 +19,10 @@ export type AssignmentInput = {
 
 export type ComposerState =
     | { mode: 'enabled' }
-    | { mode: 'claim'; note: string }
     | { mode: 'locked'; note: string };
 
 export type AssignmentView = {
-    /** The staff-only card at the top of the thread. */
+    /** The staff-only card pinned under the thread header. */
     showCard: boolean;
     composer: ComposerState;
     /** "Handled by {name}" in the header, once somebody handles it. */
@@ -34,7 +33,7 @@ export type AssignmentView = {
     canReassign: boolean;
 };
 
-export const ASSIGN_TO_REPLY = 'Assign to me to reply';
+export const ASSIGN_TO_REPLY = 'Assign to yourself to reply';
 
 export const assignmentView = ({
     isSupport,
@@ -77,12 +76,12 @@ export const assignmentView = ({
     if (handledBy === null) {
         return {
             showCard: assignment.canClaim,
-            composer: assignment.canClaim
-                ? { mode: 'claim', note: ASSIGN_TO_REPLY }
-                : {
-                      mode: 'locked',
-                      note: 'Nobody is handling this conversation yet.',
-                  },
+            composer: {
+                mode: 'locked',
+                note: assignment.canClaim
+                    ? ASSIGN_TO_REPLY
+                    : 'Nobody is handling this conversation yet.',
+            },
             subtitle: null,
             showStaffNames: false,
             canRelease: false,

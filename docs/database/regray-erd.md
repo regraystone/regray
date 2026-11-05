@@ -150,12 +150,46 @@ erDiagram
 
 ## 2. Stone catalog
 
+Every product belongs to exactly one brand: `stones.brand_id` and `furniture.brand_id` are required and `RESTRICT`, so a brand with products cannot be removed. Slugs stay globally unique; a product is scoped to its brand in the route lookup (`/brands/{brand}/stones/{stone}`, `/brands/{brand}/furniture/{furniture}`), not by its slug. `brands` is created before `stones` for this. `projects.brand_id` is separate and optional (section 3).
+
 The catalogue has three levels: nine `stone_categories` (Granite, Marble and the other former stone types), individual named `stones`, and their `stone_images`. Description, origin, applications, care tips and finishes belong to the category and are shared by its stones. The legacy category thumbnail is retained; each individual stone has its own thumbnail, size, thickness and recommendation flag.
 
 The 75 former image entries seed the individual stones, with one gallery image each. Sizes are placeholder data, rotated deterministically through `20x120`, `60x60`, `60x120`, and `80x80`; replace them with measured dimensions. Thickness and recommendation flags initially inherit their category's former values. Duplicate Monumental names are qualified with `(Monumental)` and their slugs with `-monumental` to preserve global name and slug uniqueness.
 
 ```mermaid
 erDiagram
+    brands {
+        bigint id PK
+        varchar(100) slug UK
+        varchar(150) name
+        varchar(255) logo_path
+        varchar(255) thumbnail_path "null"
+        varchar(120) tagline "null"
+        text description "null"
+        varchar(255) website_url "null"
+        boolean is_active
+        smallint sort_order
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    furniture {
+        bigint id PK
+        bigint brand_id FK "restrict"
+        varchar(100) slug UK
+        varchar(150) name
+        text description "null"
+        varchar(255) thumbnail_path "null"
+        varchar(100) furniture_type
+        boolean is_active
+        smallint sort_order
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    saved_furniture {
+        bigint user_id PK, FK "cascade"
+        bigint furniture_id PK, FK "cascade"
+        timestamptz created_at
+    }
     stone_categories {
         bigint id PK
         varchar(100) slug UK "partial unique, not deleted"
@@ -171,6 +205,7 @@ erDiagram
     }
     stones {
         bigint id PK
+        bigint brand_id FK "restrict"
         bigint stone_category_id FK "restrict"
         varchar(100) slug UK "partial unique, not deleted"
         varchar(150) name UK "partial unique, not deleted"
@@ -236,6 +271,10 @@ erDiagram
         bigint id PK
     }
 
+    brands ||--o{ stones : "sells"
+    brands ||--o{ furniture : "sells"
+    users ||--o{ saved_furniture : "saves"
+    furniture ||--o{ saved_furniture : "saved by"
     stone_categories ||--o{ stones : "categorises"
     stones ||--o{ stone_images : "has gallery"
     stone_categories ||--o{ application_stone_category : "suited to"
@@ -268,6 +307,7 @@ Seed project `stone_slugs` remain legacy category references and expand to every
 erDiagram
     projects {
         bigint id PK
+        bigint brand_id FK "null, set null"
         varchar(100) slug UK "partial unique, not deleted"
         varchar(150) name
         smallint completed_year
@@ -372,6 +412,7 @@ erDiagram
         varchar(150) landmark "null"
         decimal area_sqm "null, 10,2"
         varchar(1000) notes "null"
+        boolean stone_advice_requested "default false"
         varchar(20) sales_status "null until marketing wins it: negotiation, site_visited, on_hold, quoted, revision, won, rejected"
         timestamptz sales_status_changed_at "null"
         varchar(20) payment_status "null until approval: awaiting, partial, fully_paid"
@@ -691,11 +732,11 @@ An inquiry card is posted when an inquiry is sent, on any change to sales, payme
 
 ## Foreign key actions
 
-| Action     | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's stones, files, status history and payment transactions, a lead's status history, a client's contacts, message attachments, conversation members and messages.                                                                                                                                                                                                                                                              |
-| `RESTRICT` | Anything history depends on: `inquiry_stones` to stones, edge profiles and finishes, `inquiry_services` and `inquiry_categories` to their catalog rows, inquiries and schedules to the client's user, `inquiry_handlers` to users, leads to their client and marketing user, `inquiries.lead_id` to leads, `conversations.inquiry_id` to inquiries, `clients.user_id` to users, `inquiries.client_record_id` to clients. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
-| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `recorded_by`, `sender_id`, `last_read_message_id`), the link from a schedule to an inquiry, and from a card message to what it announces.                                                                                                                                                                                                                                                                  |
+| Action     | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's stones, files, status history and payment transactions, a lead's status history, a client's contacts, message attachments, conversation members and messages.                                                                                                                                                                                                                                                                                                                            |
+| `RESTRICT` | A brand's products (`stones.brand_id`, `furniture.brand_id`). Anything history depends on: `inquiry_stones` to stones, edge profiles and finishes, `inquiry_services` and `inquiry_categories` to their catalog rows, inquiries and schedules to the client's user, `inquiry_handlers` to users, leads to their client and marketing user, `inquiries.lead_id` to leads, `conversations.inquiry_id` to inquiries, `clients.user_id` to users, `inquiries.client_record_id` to clients. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
+| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `recorded_by`, `sender_id`, `last_read_message_id`), the link from a schedule to an inquiry, and from a card message to what it announces.                                                                                                                                                                                                                                                                                                                                |
 
 ---
 

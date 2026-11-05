@@ -10,12 +10,14 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import AssignmentCard from '@/components/conversations/assignment-card';
+import ConfirmDialog from '@/components/confirm-dialog';
 import Composer, {
     type ComposerHandle,
 } from '@/components/conversations/composer';
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
+import QuotePrompt from '@/components/conversations/quote-prompt';
 import AddMembersDialog from '@/components/conversations/add-members-dialog';
 import ReassignDialog from '@/components/conversations/reassign-dialog';
 import Receipts from '@/components/conversations/receipts';
@@ -24,17 +26,10 @@ import SystemEvent from '@/components/conversations/system-event';
 import ThreadHeader from '@/components/conversations/thread-header';
 import TypingIndicator from '@/components/conversations/typing-indicator';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { useConversationThread } from '@/hooks/use-conversation-thread';
+import { useQuotePrompt } from '@/hooks/use-quote-prompt';
 import { assignmentView } from '@/lib/assignment';
 import { threadLoadingState } from '@/lib/conversation-skeleton';
 import { isFileDrag, nextDragDepth } from '@/lib/file-drop';
@@ -150,6 +145,7 @@ const Thread = ({
 
     const { state } = thread;
     const conversation = state.conversation ?? initialSummary;
+    const quotePrompt = useQuotePrompt(state.canRequestQuote, currentUserId);
 
     // Reset the per-thread interface state when another thread opens.
     useEffect(() => {
@@ -461,6 +457,13 @@ const Thread = ({
                 onAddMembers={() => setAddMembersOpen(true)}
             />
 
+            {view.showCard && state.error === null ? (
+                <AssignmentCard
+                    onClaim={() => void claim()}
+                    claiming={claiming}
+                />
+            ) : null}
+
             {state.error !== null ? (
                 <p className="m-auto px-4 text-center text-sm font-semibold text-secondary-foreground">
                     {state.error}
@@ -472,7 +475,7 @@ const Thread = ({
                     ref={scrollRef}
                     onScroll={handleScroll}
                     className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain bg-cover bg-center bg-no-repeat p-4 md:p-5"
-                    style={{ backgroundImage: 'url(/images/convo_bg.png)' }}
+                    style={{ backgroundImage: 'url(/images/convo_bg.jpg)' }}
                     data-testid="thread-scroll"
                 >
                     {loading === 'olderSpinner' ? (
@@ -484,13 +487,6 @@ const Thread = ({
                         </div>
                     ) : null}
 
-                    {view.showCard ? (
-                        <AssignmentCard
-                            onClaim={() => void claim()}
-                            claiming={claiming}
-                        />
-                    ) : null}
-
                     {state.messages.length === 0 &&
                     state.pending.length === 0 ? (
                         <p
@@ -499,7 +495,9 @@ const Thread = ({
                         >
                             {conversation.isOwnSupport
                                 ? SUPPORT_EMPTY_TEXT
-                                : 'No messages yet — say hello'}
+                                : view.composer.mode === 'enabled'
+                                  ? 'No messages yet — say hello'
+                                  : 'No messages yet'}
                         </p>
                     ) : null}
 
@@ -610,6 +608,10 @@ const Thread = ({
                     <TypingIndicator
                         names={thread.typing.map((person) => person.name)}
                     />
+
+                    {quotePrompt !== null && unseen === 0 ? (
+                        <QuotePrompt {...quotePrompt} />
+                    ) : null}
                 </div>
             )}
 
@@ -634,7 +636,6 @@ const Thread = ({
                     isTouch={isTouch}
                     replyTo={replyTo}
                     editing={editing}
-                    claiming={claiming}
                     onSend={(body, files) => {
                         stickToBottomRef.current = true;
                         thread.send(body, replyTo, files);
@@ -659,49 +660,22 @@ const Thread = ({
                     }}
                     onCancelReply={() => setReplyTo(null)}
                     onCancelEdit={() => setEditing(null)}
-                    onClaim={() => void claim()}
                     onTyping={() => thread.signalTyping(currentUserName)}
                 />
             ) : null}
 
-            <Dialog
+            <ConfirmDialog
                 open={removeTarget !== null}
                 onOpenChange={(open) =>
-                    !open && !removing ? setRemoveTarget(null) : undefined
+                    open ? undefined : setRemoveTarget(null)
                 }
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
-                            Remove this message?
-                        </DialogTitle>
-                        <DialogDescription>
-                            Everyone in the conversation will see “This message
-                            was removed” instead.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setRemoveTarget(null)}
-                            disabled={removing}
-                        >
-                            Keep message
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={() => void confirmRemove()}
-                            disabled={removing}
-                        >
-                            {removing ? (
-                                <Spinner className="motion-reduce:animate-none" />
-                            ) : null}
-                            Remove
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                title="Remove this message?"
+                description="Everyone in the conversation will see “This message was removed” instead."
+                confirmLabel="Remove"
+                cancelLabel="Keep message"
+                processing={removing}
+                onConfirm={() => void confirmRemove()}
+            />
 
             {view.canReassign ? (
                 <ReassignDialog

@@ -86,6 +86,13 @@ interface InquiryRepositoryInterface
     public function recordMarketingStatus(Inquiry $inquiry, LeadStatus $status, CarbonInterface $changedAt): void;
 
     /**
+     * Whether this client has an inquiry still going. Only two things end one:
+     * sales rejecting it, or logistics completing it. A status that has not
+     * started yet is still going, and payment never ends an inquiry.
+     */
+    public function clientHasActive(User $client): bool;
+
+    /**
      * One page of this client's inquiries. The scope is the `$client` argument
      * and nothing else: it is never read from the filters.
      *

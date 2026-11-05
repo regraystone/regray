@@ -26,7 +26,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class InquiryEditResource extends JsonResource
 {
     /**
-     * @return array{id: int, name: string, serviceSlugs: list<string>, serviceOptionSlugs: array<string, string>, applicationSlugs: list<string>, stones: list<array{stoneId: string, quantity: int, edge: string, finish: string}>, location: string, landmark: string|null, areaSqm: float|null, notes: string|null, neededBy: string|null, neededByTime: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
+     * @return array{id: int, name: string, serviceSlugs: list<string>, serviceOptionSlugs: array<string, string>, applicationSlugs: list<string>, stoneAdviceRequested: bool, stones: list<array{stoneId: string, quantity: int, edge: string, finish: string}>, location: string, landmark: string|null, areaSqm: float|null, notes: string|null, neededBy: string|null, neededByTime: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -48,6 +48,7 @@ class InquiryEditResource extends JsonResource
                 ->filter()
                 ->all(),
             'applicationSlugs' => array_values($this->categories->map(fn (ProjectCategory $category): string => $category->slug)->all()),
+            'stoneAdviceRequested' => $this->stone_advice_requested,
             'stones' => array_values($this->stones->map(fn (InquiryStone $row): array => [
                 'stoneId' => $row->stone->slug,
                 'quantity' => $row->quantity,

@@ -2,6 +2,7 @@
 
 use App\Enums\Permission;
 use App\Http\Controllers\Brand\BrandController;
+use App\Http\Controllers\Brand\ProductRedirectController;
 use App\Http\Controllers\Furniture\FurnitureController;
 use App\Http\Controllers\Guest\LandingController;
 use App\Http\Controllers\Home\StoneController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Saved\SavedStoneController;
 use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
 use App\Http\Controllers\Schedule\BookingController;
 use App\Http\Controllers\ViewController;
+use App\Http\Middleware\RedirectSignedInToDashboard;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -32,16 +34,20 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [LandingController::class, 'index'])->name('home');
 
 /*
- * Public catalogue routes: guests can browse stones, projects, brands, and furniture.
- * Reserved single-segment names are excluded via the negative lookahead in the where() constraint.
+ * The public catalogue: a brand's page and its products, with the signed-in
+ * forms of the same URLs under /dashboard below. A product resolves only under
+ * its own active brand, and only while active (see Brand's route bindings).
  */
-Route::get('/brands/{brand}', [BrandController::class, 'show'])
-    ->middleware('throttle:heavy-reads')
-    ->name('brands.show');
+Route::middleware(['throttle:heavy-reads', RedirectSignedInToDashboard::class])
+    ->scopeBindings()
+    ->group(function () {
+        Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+        Route::get('/brands/{brand}/stones/{stone}', [HomeStoneProfileController::class, 'showForBrand'])->name('brands.stones.show');
+        Route::get('/brands/{brand}/furniture/{furniture}', [FurnitureController::class, 'showForBrand'])->name('brands.furniture.show');
+    });
 
-Route::get('/furniture/{furniture}', [FurnitureController::class, 'show'])
-    ->middleware('throttle:heavy-reads')
-    ->name('furniture.show');
+Route::get('/furniture/{furniture}', [ProductRedirectController::class, 'furniture'])
+    ->middleware('throttle:heavy-reads');
 
 /*
  * The sidebar already hides the links a user may not follow, so it only hides
@@ -58,26 +64,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
             ->name('home.index');
 
-        Route::get('home/brand/{brand}', [BrandController::class, 'show'])
-            ->middleware(Permission::HomeView->middleware())
-            ->name('dashboard.brand.show');
-        Route::redirect('home/brands/{brand}', 'home/brand/{brand}', 301);
-
-        Route::get('home/furniture/{furniture}', [FurnitureController::class, 'show'])
-            ->middleware(Permission::HomeView->middleware())
-            ->name('dashboard.furniture.show');
+        /*
+         * The signed-in catalogue. Each keeps its permission; the binding runs
+         * first, so a product that does not exist is a 404 for everyone.
+         */
+        Route::scopeBindings()->group(function () {
+            Route::get('brands/{brand}', [BrandController::class, 'show'])
+                ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
+                ->name('dashboard.brands.show');
+            Route::get('brands/{brand}/stones/{stone}', [HomeStoneProfileController::class, 'showForBrand'])
+                ->middleware(Permission::HomeStoneView->middleware())
+                ->name('dashboard.brands.stones.show');
+            Route::get('brands/{brand}/furniture/{furniture}', [FurnitureController::class, 'showForBrand'])
+                ->middleware(Permission::HomeView->middleware())
+                ->name('dashboard.brands.furniture.show');
+        });
 
         /*
-         * Named route for Wayfinder stone profiles.
+         * Where the catalogue used to live.
          */
-        Route::get('home/stones/{stone}', [HomeStoneProfileController::class, 'show'])
-            ->middleware(Permission::HomeStoneView->middleware())
-            ->name('home.stone');
+        Route::redirect('home/brand/{brand}', '/dashboard/brands/{brand}', 301);
+        Route::redirect('home/brands/{brand}', '/dashboard/brands/{brand}', 301);
+        Route::get('home/furniture/{furniture}', [ProductRedirectController::class, 'dashboardFurniture']);
+        Route::get('home/stones/{stone}', [ProductRedirectController::class, 'dashboardStone']);
         Route::redirect('home-stone/{stone}', 'home/stones/{stone}', 301);
 
         /*
-         * Home is the stone feed. Stone profiles and projects are guarded by their own
-         * separate permissions: `home-stone.view` and `home-projects.view` respectively.
+         * A flat URL under Home is a project, or a stone's old address. Stone profiles and
+         * projects are guarded by their own separate permissions: `home-stone.view` and
+         * `home-projects.view` respectively.
          */
         Route::get('home/{slug}', [HomeStoneProfileController::class, 'showFlat'])
             ->middleware(Permission::anyOfMiddleware(Permission::HomeStoneView, Permission::HomeProjectsView))
@@ -373,7 +388,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 /*
- * Public catalogue catch-all: stone or project profiles at /{slug}.
+ * Public catch-all: a project's profile, or a stone's old address, at /{slug}.
  * Reserved single-segment names are excluded via negative lookahead.
  * Must be registered last, after all other routes.
  */

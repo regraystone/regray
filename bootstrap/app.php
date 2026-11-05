@@ -30,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
          * Trusted proxies come from config/trustedproxy.php (TRUSTED_PROXIES),
          * which trusts nobody unless a proxy is named.
          */
-        $middleware->encryptCookies(except: ['sidebar_state']);
+        $middleware->encryptCookies(except: ['sidebar_state', 'grid_page_size']);
 
         $middleware->web(append: [
             HandleInertiaRequests::class,

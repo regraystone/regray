@@ -21,11 +21,11 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RolePermissionSeeder::class);
 
+        $this->call(BrandSeeder::class);
         $this->call(StoneSeeder::class);
         $this->call(EdgeProfileSeeder::class);
         $this->call(ProjectCategorySeeder::class);
         $this->call(ServiceSeeder::class);
-        $this->call(BrandSeeder::class);
         $this->call(ProjectSeeder::class);
         $this->call(FurnitureSeeder::class);
 

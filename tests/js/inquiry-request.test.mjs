@@ -19,6 +19,7 @@ const project = (overrides = {}) => ({
         'custom-stone-fabrication': 'fabrication-supply',
     },
     applications: ['3', '7'],
+    stoneAdvice: false,
     stones: [
         {
             stoneId: 'marble',
@@ -59,6 +60,7 @@ describe('buildInquiryFormData', () => {
                 'fabrication-supply',
             'projects[0][applicationIds][0]': '3',
             'projects[0][applicationIds][1]': '7',
+            'projects[0][stoneAdvice]': '0',
             'projects[0][stones][0][stoneId]': 'marble',
             'projects[0][stones][0][quantity]': '4',
             'projects[0][stones][0][edge]': 'Straight Edge',
@@ -74,6 +76,18 @@ describe('buildInquiryFormData', () => {
             'projects[0][neededByTime]': '09:30',
             'projects[0][notes]': 'Ground floor.',
         });
+    });
+
+    it('sends the request for a stone recommendation, with no stones', () => {
+        const body = buildInquiryFormData({
+            projects: [project({ stoneAdvice: true, stones: [] })],
+        });
+
+        assert.equal(body.get('projects[0][stoneAdvice]'), '1');
+        assert.equal(
+            keys(body).some((name) => name.includes('[stones]')),
+            false,
+        );
     });
 
     it('sends a blank kind of work for a service without one, for the server to name it', () => {

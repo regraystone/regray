@@ -10,7 +10,7 @@ import {
 
 const FORBIDDEN_TEXT = "You don't have access to this page";
 
-test('1 · a client opens /quote/inquire and lands on "Step 1 of 5 · Services"', async ({
+test('1 · a client opens /quote/inquire and lands on "Step 1 of 2 · Your request"', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -19,7 +19,7 @@ test('1 · a client opens /quote/inquire and lands on "Step 1 of 5 · Services"'
 
     await expectStep(page, 1);
     await expect(stepper(page).locator('[aria-current="step"]')).toContainText(
-        'Services',
+        'Your request',
     );
     await expect(page.getByRole('checkbox').first()).toBeVisible();
 });
@@ -31,7 +31,7 @@ test("2 · a marketing user opens a lead's inquiry on /inquiry/inquire and lands
 
     await openStaffInquire(page);
 
-    await expect(page).toHaveURL(/\/inquiry\/inquire\?.*lead=LEAD-0008/);
+    await expect(page).toHaveURL(/\/inquiry\/inquire\?.*lead=LEAD-0007/);
     await expectStep(page, 1);
 });
 
@@ -41,14 +41,14 @@ test('3 · a sales user is asked Platform or Direct on /inquiry/inquire, and get
     const { page } = await actors.open('sales');
     actors.allowConsole(/status of 403/);
 
-    await page.goto('/inquiry/inquire');
+    await page.goto('/dashboard/inquiry/inquire');
     await expect(
         page
             .getByTestId('staff-inquire-dialog')
             .locator('[data-staff-inquire-kind]'),
     ).toHaveCount(2);
 
-    const response = await page.goto('/quote/inquire');
+    const response = await page.goto('/dashboard/quote/inquire');
 
     expect(response?.status()).toBe(403);
     await expect(page.getByText(FORBIDDEN_TEXT)).toBeVisible();
@@ -58,7 +58,10 @@ test('3 · a sales user is asked Platform or Direct on /inquiry/inquire, and get
 test('4 · a guest is sent to the login page', async ({ actors }) => {
     const { page } = await actors.open('guest');
 
-    for (const url of ['/quote/inquire', '/inquiry/inquire']) {
+    for (const url of [
+        '/dashboard/quote/inquire',
+        '/dashboard/inquiry/inquire',
+    ]) {
         await page.goto(url);
         await expect(page).toHaveURL(/\/login$/);
     }
@@ -69,7 +72,7 @@ test('5 · an unverified user is sent to the verification notice', async ({
 }) => {
     const { page } = await actors.open('unverified');
 
-    await page.goto('/quote/inquire');
+    await page.goto('/dashboard/quote/inquire');
 
     await expect(page).toHaveURL(/\/email\/verify$/);
     await expect(stepper(page)).toHaveCount(0);

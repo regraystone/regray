@@ -55,6 +55,7 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.applicationIds' => ['nullable', 'array'],
             'projects.*.applicationIds.*' => ['string', Rule::exists('project_categories', 'slug')->where('is_active', true)],
 
+            'projects.*.stoneAdvice' => ['nullable', 'boolean'],
             'projects.*.stones' => ['nullable', 'array', 'max:'.$limits['stone_rows']],
             'projects.*.stones.*.stoneId' => [
                 'required', 'string',
@@ -88,7 +89,7 @@ class StoreInquiryRequest extends FormRequest
         return [
             'projects.required' => 'Add at least one project.',
             'projects.min' => 'Add at least one project.',
-            'projects.max' => "An inquiry can hold up to {$limits['projects']} projects.",
+            'projects.max' => 'An inquiry can only have one project.',
             'projects.*.name.required' => 'Give this project a name.',
             'projects.*.name.max' => "Keep the project name to {$limits['name']} characters or fewer.",
             'projects.*.serviceIds.required' => 'Select at least one service.',
@@ -125,9 +126,10 @@ class StoreInquiryRequest extends FormRequest
      * The rules that depend on what the project is for.
      *
      * A project with any service that supplies material needs stones and
-     * applications. A project of nothing but standalone services (a site visit)
-     * needs neither: whatever was picked is extra information. It is attended
-     * at an hour, so it needs a time too, still ahead.
+     * applications, unless the client asked Regray to recommend the stone, which
+     * still needs an application. A project of nothing but standalone services
+     * (a site visit) needs neither: whatever was picked is extra information. It
+     * is attended at an hour, so it needs a time too, still ahead.
      *
      * Services can share a project only when they share a selection group, and
      * every service needs one of its own active kinds of work picked.
@@ -206,7 +208,7 @@ class StoreInquiryRequest extends FormRequest
                     if ($standaloneOnly) {
                         $this->requireVisitTime($validator, $index, $project);
                     } else {
-                        if (empty($project['stones'])) {
+                        if (empty($project['stones']) && ! filter_var($project['stoneAdvice'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
                             $validator->errors()->add("projects.{$index}.stones", 'Select at least one stone.');
                         }
 
@@ -341,6 +343,8 @@ class StoreInquiryRequest extends FormRequest
                 // for the default time.
                 'deadline_time' => $isVisit ? ($project['neededByTime'] ?? null) : null,
                 'notes' => $project['notes'] ?? null,
+                // Choosing a stone answers the question, so the two never stand together.
+                'stone_advice_requested' => empty($project['stones']) && filter_var($project['stoneAdvice'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'files' => [],
             ];
 

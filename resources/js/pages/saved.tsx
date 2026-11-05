@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { index as homeIndex } from '@/routes/home';
-import { show as savedShow } from '@/routes/saved';
-import { show as savedFurnitureShow } from '@/routes/saved/furniture';
+import { show as brandFurnitureShow } from '@/routes/dashboard/brands/furniture';
+import { show as brandStoneShow } from '@/routes/dashboard/brands/stones';
 import type { FurnitureCardData } from '@/types/home';
 import type { StoneCardData } from '@/types/stone';
 
@@ -98,11 +98,11 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                                     slug: stone.slug,
                                     name: stone.name,
                                     thumbnail: stone.thumbnail,
-                                    bestSeller: stone.bestSeller,
                                     category: stone.category,
                                 }}
-                                href={savedShow.url({ stone: stone.slug } as {
-                                    stone: string;
+                                href={brandStoneShow.url({
+                                    brand: stone.brand.slug,
+                                    stone: stone.slug,
                                 })}
                                 saved
                                 onToggleSave={
@@ -129,7 +129,8 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                                     ...item,
                                     category: item.furnitureType,
                                 }}
-                                href={savedFurnitureShow.url({
+                                href={brandFurnitureShow.url({
+                                    brand: item.brand.slug,
                                     furniture: item.slug,
                                 })}
                                 saved

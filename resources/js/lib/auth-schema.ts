@@ -37,7 +37,7 @@ const emailSchema = z
  * One message per rule, so a password that misses several of them says so once
  * each rather than as one long sentence.
  */
-const passwordStrength = z
+export const passwordStrength = z
     .string()
     .min(12, { error: 'Use at least 12 characters' })
     .regex(/[a-z]/, {

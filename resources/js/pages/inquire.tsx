@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Search, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -8,6 +8,9 @@ import ApplicationCard from '@/components/application-card';
 import EmptyState from '@/components/empty-state';
 import { fieldMessage } from '@/components/form-field';
 import InquiryProjectForm from '@/components/inquiry-project-form';
+import InquiryQuestion, {
+    inquiryQuestionId,
+} from '@/components/inquiry-question';
 import InquiryResult from '@/components/inquiry-result';
 import InquiryReview from '@/components/inquiry-review';
 import InquiryStepper from '@/components/inquiry-stepper';
@@ -23,14 +26,6 @@ import {
 } from '@/lib/staff-inquire';
 import ProductCard from '@/components/product-card';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -51,22 +46,21 @@ import { rateLimitFrom } from '@/lib/rate-limit';
 import type { RateLimit } from '@/lib/rate-limit';
 import {
     APPLICATION_STEP,
+    autoProjectName,
     buildCommittedProject,
     buildInquiryFormData,
     clampRestoredStep,
     commitPlan,
     deadlineLocks,
-    draftForNextInQueue,
     INQUIRY_STEP_LABELS,
+    isStandaloneOnly,
     isStandaloneProject,
-    isStepOptional,
     mapInquiryErrors,
-    nextStep,
-    OPTIONAL_STEP_NOTE,
-    previousStep,
+    nextQuestion,
     readInquiryFlash,
     REVIEW_STEP,
     seedStoneRows,
+    stepperPosition,
     toEditFormProjects,
     type InquiryEditProject,
     type InquiryFlash,
@@ -84,6 +78,7 @@ import {
     type InquiryFormInput,
     type InquiryFormValues,
 } from '@/lib/inquiry-schema';
+import { PROJECT_NAME_MAX } from '@/data/inquiries';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex, update as quoteUpdate } from '@/routes/quote';
@@ -98,14 +93,14 @@ import type {
 
 const STEPS = [...INQUIRY_STEP_LABELS];
 
-const STEP_DESCRIPTIONS: Record<number, string> = {
-    [SERVICES_STEP]: 'Choose the services you need',
-    [STONES_STEP]: "Choose the stones you're interested in",
-    [APPLICATION_STEP]: 'Choose where the stone will be used',
-    [REQUIREMENTS_STEP]:
-        'Name this project, set how each stone is worked, and tell us where and when',
-    [REVIEW_STEP]: 'Check your inquiry before sending it',
-};
+const REQUEST_DESCRIPTION =
+    'Answer a few simple questions. We save your answers as you go.';
+
+const REVIEW_DESCRIPTION = 'Check your request, then send it';
+
+const neededByFormatter = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'long',
+});
 
 /**
  * Which step owns which field, read off `STEP_FIELDS` rather than written out
@@ -226,7 +221,7 @@ const sendInquiryRequest = (
 
 const SKELETON_MS = 700;
 
-type StoneFilter = 'latest' | 'bestSellers' | 'saved';
+type StoneFilter = 'all' | 'bestSellers' | 'saved';
 
 /**
  * The strip above steps 1 and 2 saying which project is being built and how to
@@ -430,7 +425,7 @@ const InquireFlow = ({
      * there as soon as it is loaded (see the effect after `openProject`).
      */
     const [step, setStep] = useState<number>(SERVICES_STEP);
-    const [filter, setFilter] = useState<StoneFilter>('latest');
+    const [filter, setFilter] = useState<StoneFilter>('all');
     const [search, setSearch] = useState('');
     const [applicationSearch, setApplicationSearch] = useState('');
 
@@ -438,9 +433,6 @@ const InquireFlow = ({
     const [editingProjectId, setEditingProjectId] = useState<string | null>(
         null,
     );
-
-    /** The project waiting to be confirmed out. */
-    const [removeTarget, setRemoveTarget] = useState<string | null>(null);
 
     const [result, setResult] = useState<InquiryResultState>(null);
     const [isSending, setIsSending] = useState(false);
@@ -537,6 +529,10 @@ const InquireFlow = ({
     const draftStandaloneServiceIds = watchDraft('standaloneServiceIds');
     const draftServiceOptions = watchDraft('serviceOptions');
     const draftApplicationIds = watchDraft('applicationIds');
+    const draftStoneAdvice = watchDraft('stoneAdvice');
+    const draftLocation = watchDraft('location');
+    const draftNeededBy = watchDraft('neededBy');
+    const draftNeededByTime = watchDraft('neededByTime');
 
     /*
      * The part of the draft that decides the path through the steps, handed to
@@ -686,17 +682,35 @@ const InquireFlow = ({
     });
 
     /*
-     * Both grids are long enough to leave the reader scrolled well past the
-     * heading, so a step change takes them back to the top. The result panel is
-     * deliberately left out: it arrives where the reader pressed the button, and
-     * jumping to the top would move the thing they were waiting for off screen.
+     * A newly opened question is brought into view and takes focus, because the
+     * page is long and the question that changed is the one the reader has to
+     * read next. Review, and anything that is not a move between questions, goes
+     * to the top. The result panel is left out: it arrives where the reader
+     * pressed the button, and jumping would move it off screen.
      */
+    const shownStepRef = useRef(step);
+
     useEffect(() => {
         if (result !== null) {
             return;
         }
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const hasMoved = shownStepRef.current !== step;
+        shownStepRef.current = step;
+
+        const question =
+            hasMoved && step < REVIEW_STEP
+                ? document.getElementById(inquiryQuestionId(step))
+                : null;
+
+        if (question === null) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            return;
+        }
+
+        question.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        question.querySelector('h2')?.focus({ preventScroll: true });
     }, [step, result]);
 
     const visibleStones = useMemo(() => {
@@ -729,23 +743,6 @@ const InquireFlow = ({
         );
     }, [filter, savedIds, search, stones]);
 
-    /*
-     * Which stones are already part of a committed project.
-     *
-     * Shown as a badge rather than as a disabled card: a stone wanted in two
-     * projects is a real and common request — a honed floor and a polished top
-     * of the same material — and refusing the second pick would say it is not.
-     */
-    const committedStoneIds = useMemo(
-        () =>
-            new Set(
-                projects.flatMap((project) =>
-                    project.stones.map((selection) => selection.stoneId),
-                ),
-            ),
-        [projects],
-    );
-
     const toggleIn = (chosen: string[], id: string): string[] =>
         chosen.includes(id)
             ? chosen.filter((entry) => entry !== id)
@@ -756,6 +753,19 @@ const InquireFlow = ({
             shouldDirty: true,
             shouldValidate: hasDraftContinued.current,
         });
+        setDraftValue('stoneAdvice', false, { shouldDirty: true });
+    };
+
+    /**
+     * The reader does not know which stone yet, so the team will recommend one.
+     * Nothing else on this question needs answering, so it moves straight on.
+     */
+    const askForStoneAdvice = () => {
+        setDraftValue('stoneIds', [], { shouldDirty: true });
+        setDraftValue('stones', [], { shouldDirty: true });
+        setDraftValue('stoneAdvice', true, { shouldDirty: true });
+        draftMethods.clearErrors('stoneIds');
+        setStep(nextQuestion(STONES_STEP, flowDraft));
     };
 
     /** Pick or unpick one application, which a project may hold several of. */
@@ -824,19 +834,9 @@ const InquireFlow = ({
         setEditingProjectId(null);
     };
 
-    /** A fresh project, starting from the services list. */
-    const startProject = () => {
-        clearDraft();
-        setStep(SERVICES_STEP);
-    };
-
     /**
-     * Walk away from the project in progress, from the strip on steps 1 and 2.
-     *
-     * Review rather than the requirements step, because there is no longer a list of
-     * projects in between: Review is the only screen that shows what has already
-     * been added, so it is the only one a reader who has decided not to finish
-     * this project can usefully be sent to.
+     * Stop changing the project, from the strip above the questions. Back to
+     * Review, which is the only screen that shows it.
      */
     const cancelExcursion = () => {
         clearDraft();
@@ -884,6 +884,7 @@ const InquireFlow = ({
 
         draftMethods.reset({
             name: project.name,
+            stoneAdvice: project.stoneAdvice,
             stoneIds: project.stones.map((selection) => selection.stoneId),
             serviceIds: isStandalone ? [] : [...project.serviceIds],
             standaloneServiceIds: isStandalone ? [...project.serviceIds] : [],
@@ -929,20 +930,8 @@ const InquireFlow = ({
     });
 
     /**
-     * Name the draft after the service at the head of the queue, so the
-     * requirements form has something to title itself with.
-     *
-     * Seeded rather than asked for because there is nothing to ask: the service is
-     * what the reader asked for and is therefore what this piece of work is
-     * called, and a field for it could only ever hold the value this writes into
-     * it. The form hides it rather than showing it read-only, because a name the
-     * reader cannot change is a question they were not asked.
-     *
-     * Takes the queue as an argument rather than reading it back, so it does not
-     * depend on a reset having landed in the form's values before it runs.
-     *
-     * The head is the one being specified and committing takes it off, so the
-     * count in the requirements form is always the truth about what is left.
+     * Name the draft after its service. A visit has nothing else to be called, so
+     * the reader is never asked.
      */
     const seedStandaloneName = (queue: string[]): boolean => {
         const [next] = queue;
@@ -967,33 +956,42 @@ const InquireFlow = ({
      * once the reader knows they are staying on this step: a material added and
      * removed in the grid never has to be given a count at all.
      *
-     * A draft of nothing but standalone services has no requirements form for its
-     * stones, so its rows take the "advise me" answers instead of staying blank.
+     * Every new row takes the "advise me" answers, so the reader is only asked
+     * about edge and finish if they want to be.
      */
     const seedDraftStones = () => {
-        const standaloneOnly =
-            getDraftValues('serviceIds').length === 0 &&
-            catalog.advisoryEdge !== null &&
-            catalog.advisoryFinish !== null;
+        const advisory =
+            catalog.advisoryEdge !== null && catalog.advisoryFinish !== null
+                ? {
+                      edge: catalog.advisoryEdge,
+                      finish: catalog.advisoryFinish,
+                  }
+                : null;
 
         setDraftValue(
             'stones',
             seedStoneRows(
                 getDraftValues('stoneIds'),
                 getDraftValues('stones'),
-                standaloneOnly
-                    ? {
-                          edge: catalog.advisoryEdge ?? '',
-                          finish: catalog.advisoryFinish ?? '',
-                      }
-                    : null,
+                advisory,
             ),
         );
     };
 
     /**
-     * Step 2 onward. Needs a stone once a service supplies one; a draft of only
-     * standalone services may continue with none.
+     * Open another question from its Change button. The stones get their rows on
+     * the way out of their question, however the reader leaves it.
+     */
+    const openQuestion = (question: number) => {
+        if (step === STONES_STEP) {
+            seedDraftStones();
+        }
+
+        setStep(question);
+    };
+
+    /**
+     * Step 2 onward. Needs a stone, or the reader asking for a recommendation.
      *
      * The objection is spoken by the bar rather than by refusing the button,
      * because a grid of cards is not a field and there is nothing to send the
@@ -1006,13 +1004,14 @@ const InquireFlow = ({
 
         if (valid) {
             seedDraftStones();
-            setStep(nextStep(STONES_STEP));
+            setStep(nextQuestion(STONES_STEP, flowDraft));
         }
     };
 
     /**
-     * Step 1 onward. Every draft goes on to Stones: a draft of only standalone
-     * services is not sent past it, it is told the step is optional.
+     * Step 1 onward. A draft of only standalone services skips the stones and the
+     * application and is named after its service. When a new request changes to
+     * one, what was picked for the stone it no longer wants is dropped.
      */
     const continueFromServices = async () => {
         hasDraftContinued.current = true;
@@ -1033,18 +1032,27 @@ const InquireFlow = ({
             { shouldFocus: true },
         );
 
-        if (valid) {
-            setStep(nextStep(SERVICES_STEP));
+        if (!valid) {
+            return;
         }
+
+        if (isStandaloneOnly(flowDraft)) {
+            if (edit === null) {
+                setDraftValue('stoneIds', []);
+                setDraftValue('stones', []);
+                setDraftValue('applicationIds', []);
+                setDraftValue('stoneAdvice', false);
+            }
+
+            seedStandaloneName(getDraftValues('standaloneServiceIds'));
+            hasDraftContinued.current = false;
+        }
+
+        setStep(nextQuestion(SERVICES_STEP, flowDraft));
     };
 
     /**
-     * Step 3 onward. Needs an application once a service supplies stone, and
-     * is optional for a draft of only standalone services.
-     *
-     * A draft of only standalone services reaches the requirements form with the
-     * first of those services under its own name, and works through them one at
-     * a time from there.
+     * Step 3 onward. Needs an application.
      */
     const continueFromApplication = async () => {
         hasDraftContinued.current = true;
@@ -1053,16 +1061,55 @@ const InquireFlow = ({
             shouldFocus: true,
         });
 
-        if (!valid) {
+        if (valid) {
+            setStep(nextQuestion(APPLICATION_STEP, flowDraft));
+        }
+    };
+
+    /** What a project is called unless the reader names it on Review. */
+    const projectNameFor = (
+        applicationIds: string[],
+        serviceIds: string[],
+    ): string =>
+        autoProjectName(
+            applicationIds.flatMap((id) => {
+                const application = catalog.applications.find(
+                    (entry) => entry.id === id,
+                );
+
+                return application === undefined ? [] : [application.name];
+            }),
+            serviceIds.map((id) => serviceNameIn(catalog, id)),
+            PROJECT_NAME_MAX,
+        );
+
+    /**
+     * Name the draft before it is checked. A project being reopened keeps a name
+     * its reader gave it; one still carrying its automatic name is named again,
+     * so that name keeps describing what the project now is.
+     */
+    const nameDraft = () => {
+        if (getDraftValues('serviceIds').length === 0) {
             return;
         }
 
-        if (getDraftValues('serviceIds').length === 0) {
-            seedStandaloneName(getDraftValues('standaloneServiceIds'));
-            hasDraftContinued.current = false;
-        }
+        const reopened = getValues('projects').find(
+            (project) => project.id === editingProjectId,
+        );
+        const hasOwnName =
+            reopened !== undefined &&
+            reopened.name !==
+                projectNameFor(reopened.applications, reopened.serviceIds);
 
-        setStep(nextStep(APPLICATION_STEP));
+        setDraftValue(
+            'name',
+            hasOwnName
+                ? reopened.name
+                : projectNameFor(
+                      getDraftValues('applicationIds'),
+                      getDraftValues('serviceIds'),
+                  ),
+        );
     };
 
     /**
@@ -1072,22 +1119,25 @@ const InquireFlow = ({
      * because this is the one press that takes all the steps' answers together
      * and puts them on the inquiry.
      *
-     * Where it lands is decided by what is left in the queue of services that
-     * stand on their own, and by nothing else. The service at the head of the
-     * queue is the one committed here, as a project of its own: a survey visit
-     * asked for with a countertop is still a survey of somebody else's stone, and
-     * folding it into the countertop's project would say the reader wants that
-     * material for it. A draft that has stone of its own is committed beside that
-     * queue rather than out of it.
-     *
      * Every standalone project is committed with the stones and applications
-     * picked in the steps before it, as extra information. There is still one
-     * project per service.
+     * picked before it, as extra information.
      */
     const commitDraft = async () => {
         hasDraftContinued.current = true;
+        seedDraftStones();
+        nameDraft();
 
-        const valid = await triggerDraft(undefined, { shouldFocus: true });
+        /*
+         * `handleSubmit` rather than `trigger`, because it is what makes a refused
+         * field re-check as it changes. With `trigger`, a complaint stayed until
+         * the field lost focus, which is the press of this button: it went between
+         * the press and the release, moved the button, and the press did nothing.
+         */
+        let valid = false;
+
+        await draftMethods.handleSubmit(() => {
+            valid = true;
+        })();
 
         if (!valid) {
             return;
@@ -1097,13 +1147,12 @@ const InquireFlow = ({
         const { isStandalone, head, remaining } = commitPlan(draft);
 
         /*
-         * An edit changes the projects the inquiry has and adds none. Services
-         * that would split this one into several (a site visit picked beside a
-         * stone, or two visits) are refused here rather than sent and refused.
+         * An inquiry is one project. Services that would split this one into
+         * several (two visits) are refused here rather than sent and refused.
          */
-        if (edit !== null && remaining.length > 0) {
+        if (remaining.length > 0) {
             toast.error(
-                'An inquiry being edited cannot gain projects. Keep this project to one kind of service to save it.',
+                'An inquiry can only have one project. Keep one of these services here and send the others as a new inquiry.',
             );
 
             return;
@@ -1134,66 +1183,8 @@ const InquireFlow = ({
 
         setEditingProjectId(null);
 
-        /*
-         * Straight back to the requirements step for the next of the queued
-         * services, with the committed project left behind rather than wiped: the
-         * draft has to come down to that project being committed so the site and
-         * the date the reader just gave it are not the next project's answers,
-         * and the queue has to be shortened so the form is not asked about this
-         * service again. The stones and applications stay, because they are copied
-         * onto the next one too.
-         *
-         * The whole queue is carried over rather than only the tail of it when the
-         * project just written was one of stone, because a countertop asked for
-         * alongside a survey is two pieces of work and the survey is still owed a
-         * form of its own.
-         */
-        if (remaining.length > 0) {
-            draftMethods.reset(
-                draftForNextInQueue(
-                    getDraftValues(),
-                    { ...draftDefaults },
-                    remaining,
-                ),
-            );
-            seedStandaloneName(remaining);
-            hasDraftContinued.current = false;
-
-            return;
-        }
-
         clearDraft();
         setStep(REVIEW_STEP);
-    };
-
-    /**
-     * Take a project out, once the reader has said which one.
-     *
-     * The sheet keeps its place either way, because it has a way to add a project
-     * of its own: sending a reader to the services list instead would be a step
-     * backwards past a screen they did not come back for, and the empty sheet it
-     * would leave them at has only one thing on it.
-     */
-    const confirmRemoveProject = () => {
-        if (removeTarget === null) {
-            return;
-        }
-
-        setValue(
-            'projects',
-            getValues('projects').filter(
-                (project) => project.id !== removeTarget,
-            ),
-            { shouldDirty: true },
-        );
-
-        setProjectMessages((messages) =>
-            Object.fromEntries(
-                Object.entries(messages).filter(([id]) => id !== removeTarget),
-            ),
-        );
-
-        setRemoveTarget(null);
     };
 
     /**
@@ -1388,7 +1379,7 @@ const InquireFlow = ({
          */
         discardDraft();
         setSearch('');
-        setFilter('latest');
+        setFilter('all');
         setApplicationSearch('');
         setValidationAlertErrors([]);
         setSectionMessages({});
@@ -1477,9 +1468,9 @@ const InquireFlow = ({
           : null;
 
     const stoneTabs: Array<{ value: StoneFilter; label: string }> = [
-        { value: 'latest', label: 'Latest' },
-        { value: 'bestSellers', label: 'Best Sellers' },
         { value: 'saved', label: 'Saved' },
+        { value: 'all', label: 'All' },
+        { value: 'bestSellers', label: 'Best Seller' },
     ];
 
     /*
@@ -1493,67 +1484,101 @@ const InquireFlow = ({
             : projects.findIndex((project) => project.id === editingProjectId) +
               1;
 
-    const draftBannerLabel =
-        editingProjectNumber > 0
-            ? `Editing Project ${editingProjectNumber}`
-            : `Adding Project ${projects.length + 1}`;
-
     /*
-     * The strip only appears once there is more than one project in play. On the
-     * very first one there is nothing it could tell the reader.
+     * Only when coming back from Review, where Cancel returns to. An edit of a
+     * sent inquiry starts here instead, and has its own way back at the top.
      */
-    const showDraftBanner = projects.length > 0 || editingProjectNumber > 0;
-
-    const removeProjectNumber = removeTarget
-        ? projects.findIndex((project) => project.id === removeTarget) + 1
-        : 0;
+    const showDraftBanner = edit === null && editingProjectNumber > 0;
 
     /*
-     * The service the requirements form is about, when the project in progress is
-     * one that stands on its own.
-     *
-     * Read off the two service lists together rather than off a flag: a draft is
-     * such a project when nothing in it is wanted for stone and something in it is
-     * queued to become one. Handed down rather than worked out in the form too,
-     * because the page has to answer the same question to decide what the commit
-     * button says and where Back goes, and two readings of one pair of lists would
-     * be free to disagree.
-     */
-    const draftStandaloneServiceId =
-        draftServiceIds.length === 0
-            ? (draftStandaloneServiceIds[0] ?? '')
-            : '';
-
-    const standalone =
-        draftStandaloneServiceId === ''
-            ? null
-            : {
-                  serviceId: draftStandaloneServiceId,
-                  total: draftStandaloneServiceIds.length,
-              };
-
-    /*
-     * Whether committing leaves another of the queued services to specify, which
-     * is what the commit button has to say before it is pressed: "Next service"
-     * promises the reader this press saves what they have filled in and takes
-     * them to the next one, and the promise is only honest if the press does both.
-     */
-    const commitLeavesMore =
-        draftStandaloneServiceIds.length > (standalone === null ? 0 : 1);
-
-    const requirementsSubmitLabel = commitLeavesMore
-        ? 'Next service'
-        : editingProjectId !== null
-          ? 'Back to Review'
-          : 'Add to inquiry';
-
-    /*
-     * A finished request is past every step, so the rail shows all four done. A
+     * A finished request is past every step, so the rail shows them all done. A
      * failure is not a step of its own, so it leaves the reader where they were:
      * they are looking at the request that failed, not at a new question.
      */
     const stepperCurrent =
-        result?.status === 'success' ? STEPS.length + 1 : step;
+        result?.status === 'success' ? STEPS.length + 1 : stepperPosition(step);
+
+    /*
+     * The questions this draft is asked, in order. One waiting for an answer is
+     * not drawn until the reader reaches it.
+     */
+    const questions = isStandaloneOnly(flowDraft)
+        ? [SERVICES_STEP, REQUIREMENTS_STEP]
+        : [SERVICES_STEP, STONES_STEP, APPLICATION_STEP, REQUIREMENTS_STEP];
+
+    const isAnswered: Record<number, boolean> = {
+        [SERVICES_STEP]: hasServices,
+        [STONES_STEP]: hasSelection || draftStoneAdvice,
+        [APPLICATION_STEP]: draftApplicationIds.length > 0,
+        [REQUIREMENTS_STEP]: draftLocation !== '' && draftNeededBy !== '',
+    };
+
+    /** The question's props, or null while it waits for the reader to reach it. */
+    const question = (questionStep: number) =>
+        step === questionStep || isAnswered[questionStep]
+            ? {
+                  step: questionStep,
+                  number: questions.indexOf(questionStep) + 1,
+                  isOpen: step === questionStep,
+                  onChange: () => openQuestion(questionStep),
+              }
+            : null;
+
+    const namesOf = (names: string[], limit = 3): string =>
+        names.length > limit
+            ? `${names.slice(0, limit).join(', ')} and ${names.length - limit} more`
+            : names.join(', ');
+
+    const servicesSummary = namesOf(
+        chosenServiceIds.map((id) => {
+            const service = catalog.services.find((entry) => entry.id === id);
+            const kind = service?.options.find(
+                (option) => option.id === draftServiceOptions[id],
+            )?.name;
+
+            return kind === undefined
+                ? serviceNameIn(catalog, id)
+                : `${serviceNameIn(catalog, id)} (${kind})`;
+        }),
+    );
+
+    const stonesSummary = draftStoneAdvice
+        ? "We'll recommend a stone for you"
+        : namesOf(
+              draftStoneIds.map(
+                  (id) => stones.find((stone) => stone.slug === id)?.name ?? id,
+              ),
+          );
+
+    const applicationsSummary = namesOf(
+        draftApplicationIds.flatMap((id) => {
+            const application = catalog.applications.find(
+                (entry) => entry.id === id,
+            );
+
+            return application === undefined ? [] : [application.name];
+        }),
+    );
+
+    const detailsSummary =
+        draftNeededBy === ''
+            ? draftLocation
+            : [
+                  draftLocation,
+                  neededByFormatter.format(new Date(`${draftNeededBy}T00:00`)),
+                  isStandaloneOnly(flowDraft) ? draftNeededByTime : '',
+              ]
+                  .filter((part) => part !== '')
+                  .join(', ');
+
+    const servicesQuestion = question(SERVICES_STEP);
+    const stonesQuestion = questions.includes(STONES_STEP)
+        ? question(STONES_STEP)
+        : null;
+    const applicationQuestion = questions.includes(APPLICATION_STEP)
+        ? question(APPLICATION_STEP)
+        : null;
+    const detailsQuestion = question(REQUIREMENTS_STEP);
 
     return (
         <FormProvider {...methods}>
@@ -1567,7 +1592,9 @@ const InquireFlow = ({
                             ? 'Your request has been sent'
                             : edit !== null && step === REVIEW_STEP
                               ? 'Choose a project to edit, then save your changes'
-                              : STEP_DESCRIPTIONS[step]
+                              : step === REVIEW_STEP
+                                ? REVIEW_DESCRIPTION
+                                : REQUEST_DESCRIPTION
                     }
                     action={
                         edit === null ? (
@@ -1636,8 +1663,6 @@ const InquireFlow = ({
                 ) : step === REVIEW_STEP ? (
                     <InquiryReview
                         onEditProject={openProject}
-                        onRemoveProject={setRemoveTarget}
-                        onAddProject={startProject}
                         sectionMessages={sectionMessages}
                         projectMessages={projectMessages}
                         validationErrors={validationAlertErrors}
@@ -1653,25 +1678,184 @@ const InquireFlow = ({
                      * answer the other owns.
                      */
                     <FormProvider {...draftMethods}>
-                        {step === STONES_STEP ? (
-                            <>
-                                {showDraftBanner ? (
-                                    <ProjectBanner
-                                        label={draftBannerLabel}
-                                        onCancel={cancelExcursion}
-                                    />
+                        {showDraftBanner ? (
+                            <ProjectBanner
+                                label="Changing your request"
+                                onCancel={cancelExcursion}
+                            />
+                        ) : null}
+
+                        {servicesQuestion !== null ? (
+                            <InquiryQuestion
+                                {...servicesQuestion}
+                                title="What do you need?"
+                                summary={servicesSummary}
+                            >
+                                {catalog.services.some(
+                                    (service) =>
+                                        !canPickService(
+                                            catalog.services,
+                                            chosenServiceIds,
+                                            service.id,
+                                        ),
+                                ) ? (
+                                    <p className="mb-3 text-sm text-secondary-foreground">
+                                        Some services can't be combined with the
+                                        ones you picked. Send them as a new
+                                        inquiry.
+                                    </p>
                                 ) : null}
 
-                                <div className="mb-6 border-b border-sidebar-border pb-4">
-                                    <h2 className="text-lg font-bold tracking-[-0.03em]">
-                                        Our Natural Stones
-                                    </h2>
-                                    {isStepOptional(STONES_STEP, flowDraft) ? (
-                                        <p className="mt-1 text-sm text-secondary-foreground">
-                                            {OPTIONAL_STEP_NOTE}
+                                {/*
+                                 * A list, not a grid: the stone grid two steps
+                                 * on is the same control all over again, and the
+                                 * rules between full-width rows are what keep
+                                 * this from reading as it.
+                                 */}
+                                <div className="divide-y divide-sidebar-border border-y border-sidebar-border">
+                                    {catalog.services.map((service, index) => (
+                                        <ServiceCard
+                                            key={service.id}
+                                            service={service}
+                                            index={index}
+                                            selected={chosenServiceIds.includes(
+                                                service.id,
+                                            )}
+                                            disabled={
+                                                !canPickService(
+                                                    catalog.services,
+                                                    chosenServiceIds,
+                                                    service.id,
+                                                )
+                                            }
+                                            onSelect={() =>
+                                                toggleService(service.id)
+                                            }
+                                            option={
+                                                draftServiceOptions[
+                                                    service.id
+                                                ] ?? ''
+                                            }
+                                            onOptionChange={(option) =>
+                                                setServiceOption(
+                                                    service.id,
+                                                    option,
+                                                )
+                                            }
+                                            optionError={fieldMessage(
+                                                draftMethods.formState.errors
+                                                    .serviceOptions?.[
+                                                    service.id
+                                                ],
+                                            )}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Sticky for the same reason as step 2's. */}
+                                <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                                        <p
+                                            aria-live="polite"
+                                            className="text-sm font-bold text-foreground"
+                                        >
+                                            {chosenServiceIds.length}{' '}
+                                            {chosenServiceIds.length === 1
+                                                ? 'service'
+                                                : 'services'}{' '}
+                                            selected
                                         </p>
-                                    ) : null}
-                                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        {hasServices ? (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    const options = {
+                                                        shouldDirty: true,
+                                                        shouldValidate:
+                                                            hasDraftContinued.current,
+                                                    };
+
+                                                    setDraftValue(
+                                                        'serviceIds',
+                                                        [],
+                                                        options,
+                                                    );
+                                                    setDraftValue(
+                                                        'standaloneServiceIds',
+                                                        [],
+                                                        options,
+                                                    );
+                                                    setDraftValue(
+                                                        'serviceOptions',
+                                                        {},
+                                                        options,
+                                                    );
+                                                }}
+                                                className="h-7 cursor-pointer px-1.5 text-xs"
+                                            >
+                                                Clear
+                                            </Button>
+                                        ) : null}
+                                        <InputError
+                                            message={fieldMessage(
+                                                draftMethods.formState.errors
+                                                    .serviceIds,
+                                            )}
+                                            role="alert"
+                                        />
+                                    </div>
+
+                                    {/*
+                                     * Disabled until a service is picked: every
+                                     * inquiry starts from one, and the count
+                                     * beside it already says how many are.
+                                     */}
+                                    <Button
+                                        type="button"
+                                        onClick={continueFromServices}
+                                        disabled={!hasServices}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            </InquiryQuestion>
+                        ) : null}
+
+                        {stonesQuestion !== null ? (
+                            <InquiryQuestion
+                                {...stonesQuestion}
+                                title="Which stones do you like?"
+                                summary={stonesSummary}
+                            >
+                                <div className="mb-5 flex flex-col gap-3 rounded-md border border-sidebar-border bg-secondary p-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-base font-bold">
+                                            Not sure which stone yet?
+                                        </p>
+                                        <p className="mt-0.5 text-sm text-secondary-foreground">
+                                            Our team will recommend one for you.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant={
+                                            draftStoneAdvice
+                                                ? 'default'
+                                                : 'outline'
+                                        }
+                                        onClick={askForStoneAdvice}
+                                        aria-pressed={draftStoneAdvice}
+                                        className="w-full shrink-0 sm:w-auto"
+                                    >
+                                        Help me choose
+                                    </Button>
+                                </div>
+
+                                <div className="mb-6 border-b border-sidebar-border pb-4">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="relative w-full sm:max-w-xs">
                                             <Search
                                                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
@@ -1778,9 +1962,7 @@ const InquireFlow = ({
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                onClick={() =>
-                                                    setFilter('latest')
-                                                }
+                                                onClick={() => setFilter('all')}
                                             >
                                                 Browse all stones
                                             </Button>
@@ -1809,8 +1991,6 @@ const InquireFlow = ({
                                                     slug: stone.slug,
                                                     name: stone.name,
                                                     thumbnail: stone.thumbnail,
-                                                    bestSeller:
-                                                        stone.bestSeller,
                                                     category: stone.category,
                                                 }}
                                                 aspect="aspect-[4/3]"
@@ -1829,13 +2009,6 @@ const InquireFlow = ({
                                                 )}
                                                 onSelect={() =>
                                                     toggleStone(stone.slug)
-                                                }
-                                                note={
-                                                    committedStoneIds.has(
-                                                        stone.slug,
-                                                    )
-                                                        ? 'Already added'
-                                                        : undefined
                                                 }
                                                 // A standalone stone profile
                                                 // lives under Saved, so
@@ -1861,15 +2034,6 @@ const InquireFlow = ({
                                  */}
                                 <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                                        {projects.length > 0 ? (
-                                            <p className="text-sm font-bold text-foreground">
-                                                {projects.length}{' '}
-                                                {projects.length === 1
-                                                    ? 'project'
-                                                    : 'projects'}{' '}
-                                                added
-                                            </p>
-                                        ) : null}
                                         <p
                                             aria-live="polite"
                                             className="text-sm font-bold text-foreground"
@@ -1904,7 +2068,7 @@ const InquireFlow = ({
                                         {/*
                                          * There is no control here to focus — a
                                          * grid of cards is not a field — so
-                                         * Continue is left enabled and the
+                                         * Next is left enabled and the
                                          * objection is said here instead of by
                                          * refusing to let the reader onwards.
                                          */}
@@ -1918,59 +2082,25 @@ const InquireFlow = ({
                                     </div>
 
                                     <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
-                                        {/*
-                                         * The way back to the services that got
-                                         * them here, which is the one answer on
-                                         * the previous step that decides whether
-                                         * this step has anything to ask.
-                                         */}
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() =>
-                                                setStep(
-                                                    previousStep(STONES_STEP),
-                                                )
-                                            }
-                                            className="w-full cursor-pointer sm:w-auto"
-                                        >
-                                            <ArrowLeft aria-hidden />
-                                            Back
-                                        </Button>
                                         <Button
                                             type="button"
                                             onClick={continueFromStones}
                                             className="w-full sm:w-auto"
                                         >
-                                            Continue
+                                            Next
                                         </Button>
                                     </div>
                                 </div>
-                            </>
-                        ) : step === APPLICATION_STEP ? (
-                            <>
-                                {showDraftBanner ? (
-                                    <ProjectBanner
-                                        label={draftBannerLabel}
-                                        onCancel={cancelExcursion}
-                                    />
-                                ) : null}
+                            </InquiryQuestion>
+                        ) : null}
 
-                                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
-                                        <h2 className="text-lg font-bold tracking-[-0.03em]">
-                                            Application
-                                        </h2>
-                                        {isStepOptional(
-                                            APPLICATION_STEP,
-                                            flowDraft,
-                                        ) ? (
-                                            <p className="mt-1 text-sm text-secondary-foreground">
-                                                {OPTIONAL_STEP_NOTE}
-                                            </p>
-                                        ) : null}
-                                    </div>
-
+                        {applicationQuestion !== null ? (
+                            <InquiryQuestion
+                                {...applicationQuestion}
+                                title="Where will the stone be used?"
+                                summary={applicationsSummary}
+                            >
+                                <div className="mb-6">
                                     <div className="relative w-full sm:w-auto sm:max-w-xs">
                                         <Search
                                             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
@@ -1984,8 +2114,8 @@ const InquireFlow = ({
                                                     event.target.value,
                                                 )
                                             }
-                                            placeholder="Search applications"
-                                            aria-label="Search applications"
+                                            placeholder="Search places"
+                                            aria-label="Search places"
                                             className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
                                         />
                                         {applicationSearch ? (
@@ -2022,8 +2152,8 @@ const InquireFlow = ({
 
                                     return filteredApplications.length === 0 ? (
                                         <EmptyState
-                                            title="No applications found"
-                                            description="No application matches that search."
+                                            title="Nothing found"
+                                            description="No place matches that search."
                                             action={
                                                 <Button
                                                     type="button"
@@ -2067,9 +2197,6 @@ const InquireFlow = ({
                                             className="text-sm font-bold text-foreground"
                                         >
                                             {draftApplicationIds.length}{' '}
-                                            {draftApplicationIds.length === 1
-                                                ? 'application'
-                                                : 'applications'}{' '}
                                             selected
                                         </p>
                                         <InputError
@@ -2084,255 +2211,47 @@ const InquireFlow = ({
                                     <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
                                         <Button
                                             type="button"
-                                            variant="outline"
-                                            onClick={() =>
-                                                setStep(
-                                                    previousStep(
-                                                        APPLICATION_STEP,
-                                                    ),
-                                                )
-                                            }
-                                            className="w-full cursor-pointer sm:w-auto"
-                                        >
-                                            <ArrowLeft aria-hidden />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            type="button"
                                             onClick={continueFromApplication}
                                             className="w-full sm:w-auto"
                                         >
-                                            Continue
+                                            Next
                                         </Button>
                                     </div>
                                 </div>
-                            </>
-                        ) : step === SERVICES_STEP ? (
-                            <>
-                                {showDraftBanner ? (
-                                    <ProjectBanner
-                                        label={draftBannerLabel}
-                                        onCancel={cancelExcursion}
-                                    />
-                                ) : null}
+                            </InquiryQuestion>
+                        ) : null}
 
-                                <h3 className="text-lg font-bold tracking-[-0.03em]">
-                                    Our services
-                                </h3>
-                                {catalog.services.some(
-                                    (service) =>
-                                        !canPickService(
-                                            catalog.services,
-                                            chosenServiceIds,
-                                            service.id,
-                                        ),
-                                ) ? (
-                                    <p className="mt-1 text-sm text-secondary-foreground">
-                                        Some services can't share a project with
-                                        the ones you picked. Add them as another
-                                        project.
-                                    </p>
-                                ) : null}
-
-                                {/*
-                                 * A list, not a grid: the stone grid two steps
-                                 * on is the same control all over again, and the
-                                 * rules between full-width rows are what keep
-                                 * this from reading as it.
-                                 */}
-                                <div className="mt-4 divide-y divide-sidebar-border border-y border-sidebar-border">
-                                    {catalog.services.map((service, index) => (
-                                        <ServiceCard
-                                            key={service.id}
-                                            service={service}
-                                            index={index}
-                                            selected={chosenServiceIds.includes(
-                                                service.id,
-                                            )}
-                                            disabled={
-                                                !canPickService(
-                                                    catalog.services,
-                                                    chosenServiceIds,
-                                                    service.id,
-                                                )
-                                            }
-                                            onSelect={() =>
-                                                toggleService(service.id)
-                                            }
-                                            option={
-                                                draftServiceOptions[
-                                                    service.id
-                                                ] ?? ''
-                                            }
-                                            onOptionChange={(option) =>
-                                                setServiceOption(
-                                                    service.id,
-                                                    option,
-                                                )
-                                            }
-                                            optionError={fieldMessage(
-                                                draftMethods.formState.errors
-                                                    .serviceOptions?.[
-                                                    service.id
-                                                ],
-                                            )}
-                                        />
-                                    ))}
-                                </div>
-
-                                {/* Sticky for the same reason as step 2's. */}
-                                <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                                        {projects.length > 0 ? (
-                                            <p className="text-sm font-bold text-foreground">
-                                                {projects.length}{' '}
-                                                {projects.length === 1
-                                                    ? 'project'
-                                                    : 'projects'}{' '}
-                                                added
-                                            </p>
-                                        ) : null}
-                                        <p
-                                            aria-live="polite"
-                                            className="text-sm font-bold text-foreground"
-                                        >
-                                            {chosenServiceIds.length}{' '}
-                                            {chosenServiceIds.length === 1
-                                                ? 'service'
-                                                : 'services'}{' '}
-                                            selected
-                                        </p>
-                                        {hasServices ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                    const options = {
-                                                        shouldDirty: true,
-                                                        shouldValidate:
-                                                            hasDraftContinued.current,
-                                                    };
-
-                                                    setDraftValue(
-                                                        'serviceIds',
-                                                        [],
-                                                        options,
-                                                    );
-                                                    setDraftValue(
-                                                        'standaloneServiceIds',
-                                                        [],
-                                                        options,
-                                                    );
-                                                    setDraftValue(
-                                                        'serviceOptions',
-                                                        {},
-                                                        options,
-                                                    );
-                                                }}
-                                                className="h-7 cursor-pointer px-1.5 text-xs"
-                                            >
-                                                Clear
-                                            </Button>
-                                        ) : null}
-                                        <InputError
-                                            message={fieldMessage(
-                                                draftMethods.formState.errors
-                                                    .serviceIds,
-                                            )}
-                                            role="alert"
-                                        />
-                                    </div>
-
-                                    {/*
-                                     * No Back: this is the first step, and what
-                                     * Continue does next is decided by what has
-                                     * been picked here rather than by where the
-                                     * reader came from.
-                                     *
-                                     * Disabled until a service is picked: every
-                                     * inquiry starts from one, and the count
-                                     * beside it already says how many are.
-                                     */}
-                                    <Button
-                                        type="button"
-                                        onClick={continueFromServices}
-                                        disabled={!hasServices}
-                                        className="w-full sm:w-auto"
-                                    >
-                                        Continue
-                                    </Button>
-                                </div>
-                            </>
-                        ) : (
-                            <InquiryProjectForm
-                                projectNumber={
-                                    editingProjectNumber > 0
-                                        ? editingProjectNumber
-                                        : projects.length + 1
-                                }
-                                standalone={standalone}
-                                submitLabel={requirementsSubmitLabel}
-                                onChangeServices={() => setStep(SERVICES_STEP)}
-                                allowAttachments={
-                                    target === null &&
-                                    (edit?.allowAttachments ?? true)
-                                }
-                                onCommit={commitDraft}
-                                onBack={() =>
-                                    setStep(previousStep(REQUIREMENTS_STEP))
-                                }
-                                deadlineLockReason={
-                                    editingProjectId === null
-                                        ? null
-                                        : (lockedDeadlines[editingProjectId] ??
-                                          null)
-                                }
-                            />
-                        )}
+                        {detailsQuestion !== null ? (
+                            <InquiryQuestion
+                                {...detailsQuestion}
+                                title="A few last details"
+                                summary={detailsSummary}
+                            >
+                                <InquiryProjectForm
+                                    projectNumber={
+                                        editingProjectNumber > 0
+                                            ? editingProjectNumber
+                                            : projects.length + 1
+                                    }
+                                    isStandalone={isStandaloneOnly(flowDraft)}
+                                    allowAttachments={
+                                        target === null &&
+                                        (edit?.allowAttachments ?? true)
+                                    }
+                                    onCommit={commitDraft}
+                                    deadlineLockReason={
+                                        editingProjectId === null
+                                            ? null
+                                            : (lockedDeadlines[
+                                                  editingProjectId
+                                              ] ?? null)
+                                    }
+                                />
+                            </InquiryQuestion>
+                        ) : null}
                     </FormProvider>
                 )}
             </div>
-
-            {/*
-             * One dialog asking before a project goes. Every project can now be
-             * removed from the one screen that lists it, so there is only ever one
-             * set of words asking.
-             */}
-            <Dialog
-                open={removeTarget !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setRemoveTarget(null);
-                    }
-                }}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
-                            Remove Project {removeProjectNumber}?
-                        </DialogTitle>
-                        <DialogDescription>
-                            The stones, the counts and the services it holds
-                            will be taken off this inquiry. You can add them
-                            again straight afterwards.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setRemoveTarget(null)}
-                        >
-                            Keep project
-                        </Button>
-                        <Button type="button" onClick={confirmRemoveProject}>
-                            <Trash2 aria-hidden />
-                            Remove project
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </FormProvider>
     );
 };

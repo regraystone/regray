@@ -23,6 +23,7 @@ export type InquiryServiceOption = {
 
 /** A stone the Inquire page offers, with what its search runs over. */
 export type InquiryStoneOption = StoneCardData & {
+    bestSeller: boolean;
     description: string;
     specifications: {
         stoneType: string;

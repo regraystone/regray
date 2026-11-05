@@ -95,6 +95,7 @@ export type QuoteInquiryDetails = {
     project: {
         name: string;
         /** Each with the kind of work picked under it; null when sent before the choice. */
+        stoneAdviceRequested: boolean;
         services: Array<{ name: string; image: string; option: string | null }>;
         applications: string[];
         stones: Array<{

@@ -1,4 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     ArrowLeftRight,
     Calendar,
@@ -10,9 +11,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeading from '@/components/page-heading';
+import LogoutDialog from '@/components/logout-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
-import { logout } from '@/routes';
 import {
     schedule as profileSchedule,
     edit as editAccountSecurity,
@@ -31,6 +32,7 @@ import {
  * against `schedule.view` — so nothing here names a role.
  */
 const Profile = () => {
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const { can } = usePermissions();
 
     return (
@@ -232,10 +234,9 @@ const Profile = () => {
                                 />
                             </button>
 
-                            <Link
-                                href={logout()}
-                                as="button"
-                                onClick={() => router.flushAll()}
+                            <button
+                                type="button"
+                                onClick={() => setIsLoggingOut(true)}
                                 data-test="logout-button"
                                 className="group flex min-h-[56px] w-full cursor-pointer items-center justify-between gap-4 border-t border-border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
                             >
@@ -258,11 +259,13 @@ const Profile = () => {
                                     className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
                                     aria-hidden
                                 />
-                            </Link>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <LogoutDialog open={isLoggingOut} onOpenChange={setIsLoggingOut} />
         </>
     );
 };

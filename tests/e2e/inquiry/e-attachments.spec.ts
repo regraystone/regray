@@ -10,6 +10,7 @@ import {
     expectStep,
     futureDate,
     openInquire,
+    openMoreDetails,
     pickService,
     sendAndReadReference,
 } from '../support/inquiry-flow';
@@ -51,16 +52,15 @@ const openVisitRequirements = async (page: Page): Promise<void> => {
     await openInquire(page);
     await pickService(page, CATALOG.visitService);
     await continueButton(page).click();
-    await continueButton(page).click();
-    await continueButton(page).click();
     await expectStep(page, 4);
+    await openMoreDetails(page);
 };
 
 const finishVisit = async (page: Page): Promise<void> => {
     await chooseLocation(page, 'Makati');
     await deadlineDate(page).fill(futureDate(8));
     await deadlineTime(page).fill('15:00');
-    await page.getByRole('button', { name: 'Add to inquiry' }).click();
+    await page.getByRole('button', { name: 'Continue to review' }).click();
     await expectStep(page, 5);
 };
 

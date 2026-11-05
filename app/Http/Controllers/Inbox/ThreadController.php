@@ -51,6 +51,7 @@ class ThreadController extends Controller
             'hasMore' => $thread['hasMore'],
             'pointers' => $thread['pointers'],
             'assignment' => $thread['assignment'],
+            'canRequestQuote' => $thread['canRequestQuote'],
         ]);
     }
 

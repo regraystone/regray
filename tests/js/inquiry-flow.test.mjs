@@ -4,21 +4,19 @@ import { describe, it } from 'node:test';
 import {
     APPLICATION_STEP,
     INQUIRY_STEP_LABELS,
-    OPTIONAL_STEP_NOTE,
     REQUIREMENTS_STEP,
     REVIEW_STEP,
     SERVICES_STEP,
     STONES_STEP,
+    autoProjectName,
     buildCommittedProject,
     clampRestoredStep,
     commitPlan,
-    draftForNextInQueue,
     isStandaloneOnly,
     isStandaloneProject,
-    isStepOptional,
-    nextStep,
-    previousStep,
+    nextQuestion,
     seedStoneRows,
+    stepperPosition,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
 const draft = (overrides = {}) => ({
@@ -44,30 +42,39 @@ const mixed = draft({
     applicationIds: ['3'],
 });
 
-/** Every step a reader is shown, following Continue from the first. */
-const walk = () => {
+/** Every question a reader is shown, following Next from the first. */
+const walk = (picked) => {
     const seen = [SERVICES_STEP];
 
     while (seen.at(-1) !== REVIEW_STEP) {
-        seen.push(nextStep(seen.at(-1)));
+        seen.push(nextQuestion(seen.at(-1), picked));
     }
 
     return seen;
 };
 
 describe('the steps', () => {
-    it('are Services, Stones, Application, Requirements and Review', () => {
+    it('are Your request and Review and send', () => {
         assert.deepEqual(INQUIRY_STEP_LABELS, [
-            'Services',
-            'Stones',
-            'Application',
-            'Requirements',
-            'Review',
+            'Your request',
+            'Review and send',
         ]);
-        assert.equal(INQUIRY_STEP_LABELS.includes('Category'), false);
     });
 
-    it('are numbered 1 to 5', () => {
+    it('show every question as the first step and Review as the second', () => {
+        for (const question of [
+            SERVICES_STEP,
+            STONES_STEP,
+            APPLICATION_STEP,
+            REQUIREMENTS_STEP,
+        ]) {
+            assert.equal(stepperPosition(question), 1);
+        }
+
+        assert.equal(stepperPosition(REVIEW_STEP), 2);
+    });
+
+    it('keep the numbers stored drafts already hold', () => {
         assert.deepEqual(
             [
                 SERVICES_STEP,
@@ -81,37 +88,31 @@ describe('the steps', () => {
     });
 });
 
-describe('step navigation never skips', () => {
-    it('goes Services, Stones, Application, Requirements, Review', () => {
-        assert.deepEqual(walk(), [1, 2, 3, 4, 5]);
+describe('moving between the questions', () => {
+    it('asks a request for stone everything, in order', () => {
+        assert.deepEqual(walk(regular), [
+            SERVICES_STEP,
+            STONES_STEP,
+            APPLICATION_STEP,
+            REQUIREMENTS_STEP,
+            REVIEW_STEP,
+        ]);
     });
 
-    it('goes to Stones from Services whatever was picked', () => {
-        for (const picked of [regular, visitOnly, mixed]) {
-            assert.equal(nextStep(SERVICES_STEP, picked), STONES_STEP);
-        }
+    it('takes a visit straight from its service to the details', () => {
+        assert.deepEqual(walk(visitOnly), [
+            SERVICES_STEP,
+            REQUIREMENTS_STEP,
+            REVIEW_STEP,
+        ]);
     });
 
-    it('goes to Application from Stones, even with nothing picked', () => {
-        assert.equal(nextStep(STONES_STEP, visitOnly), APPLICATION_STEP);
-        assert.equal(nextStep(STONES_STEP, regular), APPLICATION_STEP);
+    it('asks about stone once one service supplies it, beside a visit too', () => {
+        assert.equal(nextQuestion(SERVICES_STEP, mixed), STONES_STEP);
     });
 
-    it('goes to Requirements from Application', () => {
-        assert.equal(nextStep(APPLICATION_STEP, visitOnly), REQUIREMENTS_STEP);
-        assert.equal(nextStep(APPLICATION_STEP, regular), REQUIREMENTS_STEP);
-    });
-
-    it('goes to Review from Requirements and stops there', () => {
-        assert.equal(nextStep(REQUIREMENTS_STEP), REVIEW_STEP);
-        assert.equal(nextStep(REVIEW_STEP), REVIEW_STEP);
-    });
-
-    it('goes back one step at a time, down to Services', () => {
-        assert.equal(previousStep(REQUIREMENTS_STEP), APPLICATION_STEP);
-        assert.equal(previousStep(APPLICATION_STEP), STONES_STEP);
-        assert.equal(previousStep(STONES_STEP), SERVICES_STEP);
-        assert.equal(previousStep(SERVICES_STEP), SERVICES_STEP);
+    it('stops at Review', () => {
+        assert.equal(nextQuestion(REVIEW_STEP, regular), REVIEW_STEP);
     });
 });
 
@@ -122,29 +123,27 @@ describe('the standalone-only path', () => {
         assert.equal(isStandaloneOnly(mixed), false);
         assert.equal(isStandaloneOnly(draft()), false);
     });
+});
 
-    it('makes Stones and Application optional', () => {
-        assert.equal(isStepOptional(STONES_STEP, visitOnly), true);
-        assert.equal(isStepOptional(APPLICATION_STEP, visitOnly), true);
-    });
-
-    it('leaves Services and Requirements as they are', () => {
-        assert.equal(isStepOptional(SERVICES_STEP, visitOnly), false);
-        assert.equal(isStepOptional(REQUIREMENTS_STEP, visitOnly), false);
-    });
-
-    it('keeps Stones and Application required once a service supplies stone', () => {
-        assert.equal(isStepOptional(STONES_STEP, regular), false);
-        assert.equal(isStepOptional(APPLICATION_STEP, regular), false);
-        assert.equal(isStepOptional(STONES_STEP, mixed), false);
-        assert.equal(isStepOptional(APPLICATION_STEP, mixed), false);
-    });
-
-    it('says the step is optional', () => {
+describe('autoProjectName', () => {
+    it('says where the stone goes and what the service is', () => {
         assert.equal(
-            OPTIONAL_STEP_NOTE,
-            'Optional — extra information for this visit',
+            autoProjectName(
+                ['Kitchen', 'Bathroom'],
+                ['Natural Stone Supply', 'Custom Stone Fabrication'],
+                100,
+            ),
+            'Kitchen - Natural Stone Supply',
         );
+    });
+
+    it('uses what it has when one half is missing', () => {
+        assert.equal(autoProjectName([], ['Supply'], 100), 'Supply');
+    });
+
+    it('stays inside the limit, without a trailing space', () => {
+        assert.equal(autoProjectName(['Kitchen'], ['Supply'], 8), 'Kitchen');
+        assert.equal(autoProjectName(['Kitchen'], ['Supply'], 10), 'Kitchen -');
     });
 });
 
@@ -178,6 +177,19 @@ describe('clampRestoredStep', () => {
         assert.equal(clampRestoredStep(4, 0, noApplication), APPLICATION_STEP);
     });
 
+    it('lets a request for a recommendation past Stones with none picked', () => {
+        const advice = draft({
+            serviceIds: ['natural-stone-supply'],
+            stoneAdvice: true,
+        });
+
+        assert.equal(clampRestoredStep(4, 0, advice), APPLICATION_STEP);
+        assert.equal(
+            clampRestoredStep(4, 0, { ...advice, applicationIds: ['3'] }),
+            REQUIREMENTS_STEP,
+        );
+    });
+
     it('keeps a step the draft still justifies', () => {
         assert.equal(clampRestoredStep(4, 0, regular), REQUIREMENTS_STEP);
         assert.equal(clampRestoredStep(3, 0, regular), APPLICATION_STEP);
@@ -185,10 +197,11 @@ describe('clampRestoredStep', () => {
         assert.equal(clampRestoredStep(1, 0, regular), SERVICES_STEP);
     });
 
-    it('lets a standalone-only draft reach Requirements with nothing picked', () => {
+    it('never lands a standalone-only draft on a question it is not asked', () => {
         assert.equal(clampRestoredStep(4, 0, visitOnly), REQUIREMENTS_STEP);
-        assert.equal(clampRestoredStep(3, 0, visitOnly), APPLICATION_STEP);
-        assert.equal(clampRestoredStep(2, 0, visitOnly), STONES_STEP);
+        assert.equal(clampRestoredStep(3, 0, visitOnly), REQUIREMENTS_STEP);
+        assert.equal(clampRestoredStep(2, 0, visitOnly), REQUIREMENTS_STEP);
+        assert.equal(clampRestoredStep(1, 0, visitOnly), SERVICES_STEP);
     });
 
     it('treats a step number that is not a number as the first', () => {
@@ -318,30 +331,6 @@ describe('committing a draft', () => {
 
         assert.equal(plan.isStandalone, false);
         assert.deepEqual(plan.remaining, ['site-ocular']);
-    });
-
-    it('carries stones and applications to the next service in the queue', () => {
-        const source = filled({
-            standaloneServiceIds: ['visit', 'care'],
-            stoneIds: ['marble'],
-            applicationIds: ['3'],
-            location: 'Makati',
-        });
-        const blank = filled({
-            name: '',
-            stones: [],
-            location: '',
-            neededBy: '',
-        });
-        const next = draftForNextInQueue(source, blank, ['care']);
-
-        assert.deepEqual(next.standaloneServiceIds, ['care']);
-        assert.deepEqual(next.serviceOptions, { care: 'care-only' });
-        assert.deepEqual(next.stoneIds, ['marble']);
-        assert.deepEqual(next.applicationIds, ['3']);
-        assert.equal(next.stones.length, 1);
-        assert.equal(next.location, '');
-        assert.equal('categories' in next, false);
     });
 
     it('tells a standalone project from its services, not from its stones', () => {

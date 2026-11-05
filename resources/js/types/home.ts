@@ -1,3 +1,4 @@
+import type { BrandCollectionKind } from '@/lib/brand-collection';
 import type { StoneCardData } from '@/types/stone';
 
 export type ProjectProfileCategory = {
@@ -9,7 +10,6 @@ export type ProjectProfileStone = {
     slug: string;
     name: string;
     thumbnail: string;
-    bestSeller: boolean;
     category: { slug: string; name: string };
 };
 
@@ -43,6 +43,12 @@ export type BrandCardData = {
     thumbnail: string | null;
 };
 
+/** The brand a product belongs to, enough to build its URL and breadcrumb. */
+export type ProductBrand = {
+    slug: string;
+    name: string;
+};
+
 export type BrandProfile = BrandCardData & {
     description: string | null;
     websiteUrl: string | null;
@@ -54,6 +60,7 @@ export type FurnitureCardData = {
     slug: string;
     name: string;
     thumbnail: string | null;
+    brand: ProductBrand;
     furnitureType: { slug: string; name: string };
 };
 
@@ -64,6 +71,7 @@ export type FurnitureProfile = FurnitureCardData & {
 export type FilterOption = {
     value: string;
     label: string;
+    bestSeller?: boolean;
 };
 
 export type FilterOptions = {
@@ -73,28 +81,31 @@ export type FilterOptions = {
     furnitureTypes?: FilterOption[];
 };
 
-/** The home page's collections, as the `collection` query param names them. */
-export type HomeCollection = 'stones' | 'furniture';
-
-export type Filters = {
+export type BrandFilters = {
+    collection: BrandCollectionKind;
     search: string | null;
     category: string | null;
     size: string | null;
     thickness: string | null;
     furnitureType: string | null;
-    projectCategory?: string | null;
-    collection?: HomeCollection;
     perPage: number;
 };
 
-export type HomePageProps = {
-    stones?: {
-        data: StoneCardData[];
+/** One card in a brand's collection; `kind` says which link and save list it uses. */
+export type BrandProduct =
+    | (StoneCardData & { kind: 'stone' })
+    | (FurnitureCardData & { kind: 'furniture' });
+
+export type BrandPageProps = {
+    brand: { data: BrandProfile };
+    products?: {
+        data: BrandProduct[];
     };
-    furniture?: {
-        data: FurnitureCardData[];
-    };
-    brands: BrandCardData[];
-    filters: Filters;
+    hasProducts: boolean;
+    filters: BrandFilters;
     filterOptions: FilterOptions;
+};
+
+export type HomePageProps = {
+    brands: BrandCardData[];
 };

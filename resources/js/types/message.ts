@@ -47,6 +47,8 @@ export type InquiryCard = {
     location: string;
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
     stoneCount: number;
+    /** The client asked Regray to recommend a stone instead of choosing one. */
+    stoneAdviceRequested: boolean;
     announcedStatus: InquiryStatus;
     /** Null for a stage that had not started when the card was posted. */
     announcedSalesStatus: SalesStatus | null;
@@ -133,6 +135,8 @@ export type ThreadPayload = {
     hasMore: boolean;
     pointers: Pointer[];
     assignment: Assignment | null;
+    /** The server's answer: this viewer's Regray Team thread, and no inquiry going. */
+    canRequestQuote: boolean;
 };
 
 export type InboxPageProps = {

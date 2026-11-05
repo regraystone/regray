@@ -114,6 +114,7 @@ const storedProjectSchema = z.object({
     serviceIds: z.array(z.string()),
     serviceOptions: storedServiceOptionsSchema,
     applications: z.array(z.string()),
+    stoneAdvice: z.boolean().catch(false),
     stones: z.array(storedStoneSchema),
     location: z.string(),
     landmark: z.string(),
@@ -125,6 +126,7 @@ const storedProjectSchema = z.object({
 
 const storedDraftSchema = z.object({
     name: z.string(),
+    stoneAdvice: z.boolean().catch(false),
     stoneIds: z.array(z.string()),
     serviceIds: z.array(z.string()),
     standaloneServiceIds: z.array(z.string()),

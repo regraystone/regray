@@ -2,7 +2,7 @@ import { expect, test } from '../support/fixtures';
 
 /*
  * M. The staff Inquire modal: Platform or Direct (walk-in), staff only.
- * Demo seed: Lucas Moreau has marketing's idle lead LEAD-0008, and Carmela
+ * Demo seed: Lucas Moreau has marketing's idle lead LEAD-0007, and Carmela
  * Reyes is a direct client with carmela@reyesbakeshop.example.
  */
 
@@ -11,7 +11,7 @@ test('47 · staff are asked Platform or Direct when they press Inquire; Platform
 }) => {
     const { page } = await actors.open('marketing');
 
-    await page.goto('/inquiry');
+    await page.goto('/dashboard/inquiry');
     await page.getByRole('button', { name: 'Add inquiry' }).click();
 
     const dialog = page.getByTestId('staff-inquire-dialog');
@@ -35,9 +35,9 @@ test('47 · staff are asked Platform or Direct when they press Inquire; Platform
         .click();
 
     await expect(
-        page.getByRole('heading', { name: 'Our services' }),
+        page.getByRole('heading', { name: 'What do you need?' }),
     ).toBeVisible();
-    await expect(page.getByTestId('inquire-target')).toContainText('LEAD-0008');
+    await expect(page.getByTestId('inquire-target')).toContainText('LEAD-0007');
 });
 
 test("48 · a client's Inquire goes straight to the stepper, never through the modal", async ({
@@ -45,14 +45,14 @@ test("48 · a client's Inquire goes straight to the stepper, never through the m
 }) => {
     const { page } = await actors.open('client');
 
-    await page.goto('/quote');
+    await page.goto('/dashboard/quote');
     await page
         .getByRole('button', { name: /Inquire/ })
         .first()
         .click();
 
     await expect(
-        page.getByRole('heading', { name: 'Our services' }),
+        page.getByRole('heading', { name: 'What do you need?' }),
     ).toBeVisible();
     await expect(page.getByTestId('staff-inquire-dialog')).toHaveCount(0);
 });
@@ -62,7 +62,7 @@ test('49 · the Direct branch offers the client already on file instead of a sec
 }) => {
     const { page } = await actors.open('sales');
 
-    await page.goto('/inquiry/inquire?kind=direct');
+    await page.goto('/dashboard/inquiry/inquire?kind=direct');
     await page.locator('#direct-full-name').fill('Carmela R.');
     // The phone number is required, and this one is already on file.
     await page
@@ -76,7 +76,7 @@ test('49 · the Direct branch offers the client already on file instead of a sec
     await page.getByRole('button', { name: /Use Carmela Reyes/ }).click();
 
     await expect(
-        page.getByRole('heading', { name: 'Our services' }),
+        page.getByRole('heading', { name: 'What do you need?' }),
     ).toBeVisible();
     await expect(page.getByTestId('inquire-target')).toContainText(
         'Direct (walk-in)',
@@ -89,7 +89,7 @@ test('50 · Back from the Platform or Direct screen returns to the Inquiry list,
     const { page } = await actors.open('marketing');
 
     for (const kind of ['platform', 'direct']) {
-        await page.goto('/inquiry');
+        await page.goto('/dashboard/inquiry');
         await page.getByRole('button', { name: 'Add inquiry' }).click();
         await page
             .getByTestId('staff-inquire-dialog')

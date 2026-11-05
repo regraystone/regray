@@ -351,6 +351,7 @@ class E2EMessageSeeder extends Seeder
             InquiryStatus::Negotiation, InquiryStatus::SiteVisited, InquiryStatus::OnHold => [$status->value, null, null],
             InquiryStatus::Quoted, InquiryStatus::Revision => [$status->value, null, null],
             InquiryStatus::Won => ['won', 'awaiting', 'order_received'],
+            InquiryStatus::ForRefund => ['for_refund', 'partial', 'order_received'],
             default => ['won', 'awaiting', $status->value],
         };
 

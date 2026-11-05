@@ -21,8 +21,8 @@ test('38 · the whole flow, for the client and for marketing, logs no console er
     await openInquire(client.page);
     await addStoneProject(client.page, { name: 'Console tour' });
     const reference = await sendAndReadReference(client.page);
-    await client.page.goto('/quote');
-    await client.page.goto(`/quote/${reference}`);
+    await client.page.goto('/dashboard/quote');
+    await client.page.goto(`/dashboard/quote/${reference}`);
     await expect(client.page.locator('main')).toContainText(reference);
 
     const marketing = await actors.open('marketing');

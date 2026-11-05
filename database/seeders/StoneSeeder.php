@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Application;
+use App\Models\Brand;
 use App\Models\CareTip;
 use App\Models\Finish;
 use App\Models\Stone;
@@ -14,6 +15,10 @@ class StoneSeeder extends Seeder
 {
     public function run(): void
     {
+        // Every seeded stone is Regray Stone's, so the brand has to exist first.
+        $this->call(BrandSeeder::class);
+        $brandId = Brand::query()->where('slug', 'regray-stone')->firstOrFail()->id;
+
         $this->call(StoneFilterOptionSeeder::class);
         $data = require database_path('seeders/data/stones.php');
 
@@ -58,6 +63,7 @@ class StoneSeeder extends Seeder
             $usedNames[Str::lower($name)] = true;
 
             $stone = Stone::query()->updateOrCreate(['slug' => $slug], [
+                'brand_id' => $brandId,
                 'stone_category_id' => $category->id,
                 'name' => $name,
                 'thumbnail_path' => $imageData['path'],

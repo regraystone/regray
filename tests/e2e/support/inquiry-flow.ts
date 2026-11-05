@@ -2,9 +2,10 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from './fixtures';
 
 /*
- * The Inquire page, step by step, through the controls a reader uses: the
- * service, stone and application cards are checkboxes named after what they
- * pick, the location is a combobox, edge and finish are selects.
+ * The Inquire page through the controls a reader uses: two steps, the first being
+ * four questions, one open at a time. The service, stone and application cards
+ * are checkboxes named after what they pick, the location is a combobox, edge and
+ * finish are selects that stay folded away until asked for.
  *
  * The names below are the catalogue that DatabaseSeeder writes.
  */
@@ -22,12 +23,12 @@ export const CATALOG = {
     finishes: ['Polished', 'Honed'],
 } as const;
 
-export const STEP_LABELS = [
-    'Services',
-    'Stones',
-    'Application',
-    'Requirements',
-    'Review',
+/** The four questions of the first step, in order. Number 5 means Review. */
+export const QUESTIONS = [
+    'What do you need?',
+    'Which stones do you like?',
+    'Where will the stone be used?',
+    'A few last details',
 ] as const;
 
 /** A date `days` from today in the browser's own calendar, as YYYY-MM-DD. */
@@ -43,36 +44,50 @@ export const futureDate = (days: number): string => {
 export const stepper = (page: Page): Locator =>
     page.getByRole('navigation', { name: 'Inquiry progress' });
 
-/** The one-line "Step N of 5 · Label", present at every width. */
+/** Where the reader is: which of the two steps, and which question is open. */
 export const expectStep = async (page: Page, step: number): Promise<void> => {
+    if (step === 5) {
+        await expect(stepper(page).locator('p')).toHaveText(
+            'Step 2 of 2 · Review and send',
+        );
+
+        return;
+    }
+
     await expect(stepper(page).locator('p')).toHaveText(
-        `Step ${step} of 5 · ${STEP_LABELS[step - 1]}`,
+        'Step 1 of 2 · Your request',
+    );
+    await expect(page.locator('[data-state="open"] h2')).toHaveText(
+        QUESTIONS[step - 1],
     );
 };
+
+export const changeQuestion = (page: Page, step: number): Locator =>
+    page.getByRole('button', { name: `Change: ${QUESTIONS[step - 1]}` });
 
 /** Open the Inquire page and wait for the skeleton to give way to step 1. */
 export const openInquire = async (
     page: Page,
-    url = '/quote/inquire',
+    url = '/dashboard/quote/inquire',
 ): Promise<void> => {
     await page.goto(url);
     await expect(
-        page.getByRole('heading', { name: 'Our services' }),
+        page.getByRole('heading', { name: QUESTIONS[0] }),
     ).toBeVisible();
 };
 
 /**
  * Staff open the stepper on the Platform branch, for a lead's client, the way
  * the Leads page's "Create inquiry" does: past the modal, the account and the
- * lead. LEAD-0008 is marketing's idle lead in the demo seed.
+ * lead. LEAD-0007 is marketing's idle lead in the demo seed.
  */
 export const openStaffInquire = async (
     page: Page,
-    lead = 'LEAD-0008',
+    lead = 'LEAD-0007',
 ): Promise<void> => {
-    await page.goto(`/inquiry/inquire?lead=${lead}`);
+    await page.goto(`/dashboard/inquiry/inquire?kind=platform&lead=${lead}`);
     await expect(
-        page.getByRole('heading', { name: 'Our services' }),
+        page.getByRole('heading', { name: QUESTIONS[0] }),
     ).toBeVisible();
     await expect(page.getByTestId('inquire-target')).toContainText(lead);
 };
@@ -81,11 +96,14 @@ export const checkbox = (page: Page, name: string): Locator =>
     page.getByRole('checkbox', { name, exact: true });
 
 export const continueButton = (page: Page): Locator =>
-    page.getByRole('button', { name: 'Continue', exact: true });
+    page.getByRole('button', { name: 'Next', exact: true });
+
+export const continueToReview = (page: Page): Locator =>
+    page.getByRole('button', { name: 'Continue to review' });
 
 /**
  * Tick a service and take the first kind of work in the dropdown it opens
- * (`kind` to pick another), which step 1 needs before Continue.
+ * (`kind` to pick another), which the question needs before Next.
  */
 export const pickService = async (
     page: Page,
@@ -153,6 +171,23 @@ export type StoneRowAnswer = {
     finish: string;
 };
 
+/** Unfold the optional answers: landmark, area, files and notes. */
+export const openMoreDetails = async (page: Page): Promise<void> => {
+    const toggle = page.getByRole('button', {
+        name: 'Add more details (optional)',
+    });
+
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+        await toggle.click();
+    }
+};
+
+export const landmarkField = (page: Page): Locator =>
+    page.getByLabel('A nearby landmark');
+
+export const notesField = (page: Page): Locator =>
+    page.getByLabel('Anything else we should know?');
+
 export const answerStoneRow = async (
     page: Page,
     index: number,
@@ -164,12 +199,22 @@ export const answerStoneRow = async (
             .fill(String(answer.quantity));
     }
 
+    const edge = page.locator(`#requirements-edge-${index}`);
+
+    if ((await edge.count()) === 0) {
+        await page
+            .locator('li')
+            .filter({ has: page.locator(`#requirements-quantity-${index}`) })
+            .getByRole('button', { name: /^Choose edge and finish/ })
+            .click();
+    }
+
     await chooseInSelect(page, `requirements-edge-${index}`, answer.edge);
     await chooseInSelect(page, `requirements-finish-${index}`, answer.finish);
 };
 
 export const deadlineDate = (page: Page): Locator =>
-    page.getByLabel(/^Target deadline/);
+    page.getByLabel(/^When do you need it/);
 
 export const deadlineTime = (page: Page): Locator =>
     page.getByLabel('Time of day');
@@ -200,8 +245,8 @@ export type VisitAnswers = {
 };
 
 /**
- * A standalone visit from step 1 to Review: the service, Stones and
- * Application left empty, then the site and the slot.
+ * A standalone visit from the first question to Review: the service, then the
+ * site and the slot. A visit is not asked about stones or where they are used.
  */
 export const addVisitProject = async (
     page: Page,
@@ -209,25 +254,23 @@ export const addVisitProject = async (
 ): Promise<void> => {
     await pickService(page, answers.service ?? CATALOG.visitService);
     await continueButton(page).click();
-    await expectStep(page, 2);
-    await continueButton(page).click();
-    await expectStep(page, 3);
-    await continueButton(page).click();
     await expectStep(page, 4);
     await chooseLocation(page, answers.location ?? 'Makati');
 
     if (answers.landmark !== undefined) {
-        await page.getByLabel('Landmark').fill(answers.landmark);
+        await openMoreDetails(page);
+        await landmarkField(page).fill(answers.landmark);
     }
 
     await deadlineDate(page).fill(answers.date ?? futureDate(10));
     await deadlineTime(page).fill(answers.time ?? '10:00');
 
     if (answers.notes !== undefined) {
-        await page.getByLabel('Additional notes').fill(answers.notes);
+        await openMoreDetails(page);
+        await notesField(page).fill(answers.notes);
     }
 
-    await page.getByRole('button', { name: 'Add to inquiry' }).click();
+    await continueToReview(page).click();
     await expectStep(page, 5);
 };
 
@@ -241,7 +284,7 @@ export type StoneProjectAnswers = {
     notes?: string;
 };
 
-/** A project of stone from step 1 up to the Requirements form, not committed. */
+/** A project of stone from the first question up to the last, not committed. */
 export const walkToRequirements = async (
     page: Page,
     answers: StoneProjectAnswers = {},
@@ -267,15 +310,15 @@ export const walkToRequirements = async (
     await expectStep(page, 4);
 };
 
-/** A project of stone from step 1 to Review. */
+/**
+ * A project of stone from the first question to Review. It is named automatically,
+ * so a `name` is given the way the reader gives one: on Review.
+ */
 export const addStoneProject = async (
     page: Page,
     answers: StoneProjectAnswers = {},
 ): Promise<void> => {
     await walkToRequirements(page, answers);
-    await page
-        .getByLabel('Project name')
-        .fill(answers.name ?? 'Kitchen counters');
 
     const rows = answers.rows ?? [
         { quantity: 4, edge: CATALOG.edges[0], finish: CATALOG.finishes[0] },
@@ -289,21 +332,38 @@ export const addStoneProject = async (
     await answerDeadline(page);
 
     if (answers.landmark !== undefined) {
-        await page.getByLabel('Landmark').fill(answers.landmark);
+        await openMoreDetails(page);
+        await landmarkField(page).fill(answers.landmark);
     }
 
     if (answers.notes !== undefined) {
-        await page.getByLabel('Additional notes').fill(answers.notes);
+        await openMoreDetails(page);
+        await notesField(page).fill(answers.notes);
     }
 
-    await page.getByRole('button', { name: 'Add to inquiry' }).click();
+    await continueToReview(page).click();
     await expectStep(page, 5);
+
+    if (answers.name !== undefined) {
+        await renameProject(page, answers.name);
+    }
+};
+
+/** Give the project on Review a name of the reader's own. */
+export const renameProject = async (
+    page: Page,
+    name: string,
+): Promise<void> => {
+    await page.getByRole('button', { name: /^Change name: / }).click();
+    await page.getByLabel('Project name').fill(name);
+    await page.getByRole('button', { name: 'Save name' }).click();
+    await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
 };
 
 export const requestQuoteButton = (page: Page): Locator =>
-    page.getByRole('button', { name: /Request a Quote|Sending/ });
+    page.getByRole('button', { name: /Send my request|Sending/ });
 
-/** Press Request a Quote and return the reference the result panel shows. */
+/** Press Send my request and return the reference the result panel shows. */
 export const sendAndReadReference = async (page: Page): Promise<string> => {
     await requestQuoteButton(page).click();
     await expect(

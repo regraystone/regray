@@ -32,7 +32,7 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
     {
         return Stone::query()
             ->active()
-            ->with('category:id,slug,name,description,origin')
+            ->with(['category:id,slug,name,description,origin', 'brand:id,slug,name'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();

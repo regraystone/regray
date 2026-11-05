@@ -15,7 +15,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
     Storage::fake(config('filesystems.public_disk'));
-    $this->seed([RolePermissionSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, BrandSeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
+    $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
 });
 
 test('the seeder gives each brand its logo under its stable path', function (): void {
@@ -61,7 +61,7 @@ test('a brand profile lists its published projects and its website', function ()
     Project::query()->where('slug', 'belo-medical-group')->update(['is_published' => false]);
 
     $this->actingAs(User::factory()->role(Role::Client)->create())
-        ->get(route('brands.show', ['brand' => 'regray-stone']))
+        ->get(route('dashboard.brands.show', ['brand' => 'regray-stone']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('brand-profile')
@@ -76,13 +76,13 @@ test('an unknown, inactive or malformed brand is not found', function (string $s
     Brand::query()->where('slug', 'faer')->update(['is_active' => false]);
 
     $this->actingAs(User::factory()->role(Role::Client)->create())
-        ->get(route('brands.show', ['brand' => $slug]))
+        ->get(route('dashboard.brands.show', ['brand' => $slug]))
         ->assertNotFound();
 })->with(['no-such-brand', 'faer', 'Bad_Slug']);
 
 test('a furniture profile shows its furniture type', function (): void {
     $this->actingAs(User::factory()->role(Role::Client)->create())
-        ->get(route('furniture.show', ['furniture' => 'alora']))
+        ->get(route('dashboard.brands.furniture.show', ['brand' => 'regray-stone', 'furniture' => 'alora']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('furniture-profile')
@@ -92,6 +92,6 @@ test('a furniture profile shows its furniture type', function (): void {
         );
 
     $this->actingAs(User::factory()->role(Role::Client)->create())
-        ->get(route('furniture.show', ['furniture' => 'no-such-piece']))
+        ->get(route('dashboard.brands.furniture.show', ['brand' => 'regray-stone', 'furniture' => 'no-such-piece']))
         ->assertNotFound();
 });

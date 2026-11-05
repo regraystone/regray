@@ -25,7 +25,7 @@ return [
     */
 
     'limits' => [
-        'projects' => 10,
+        'projects' => 1,
         'stone_rows' => 20,
         'quantity_min' => 1,
         'quantity_max' => 9999,
