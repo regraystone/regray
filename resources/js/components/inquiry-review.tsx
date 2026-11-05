@@ -221,7 +221,7 @@ const ReviewProjectCard = ({
                                 type="button"
                                 onClick={() => setNewName(project.name)}
                                 disabled={locked}
-                                aria-label={`Change the name of ${project.name}`}
+                                aria-label={`Change name: ${project.name}`}
                                 className="mt-0.5 block cursor-pointer py-1 text-xs font-normal underline underline-offset-2 disabled:cursor-not-allowed"
                             >
                                 Change name

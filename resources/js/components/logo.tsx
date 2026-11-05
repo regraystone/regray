@@ -26,7 +26,7 @@ const Logo = ({
         className={`relative flex items-center ${
             compact ? 'justify-center' : 'gap-2'
         } ${className}`}
-        aria-label="Regray home"
+        aria-label="Regray Beta home"
     >
         {compact ? (
             <span

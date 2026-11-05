@@ -139,7 +139,9 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     await answerDeadline(page);
 
     const duplicate = page
-        .getByRole('button', { name: `Duplicate ${CATALOG.stones[0]}` })
+        .getByRole('button', {
+            name: `Add it again with another finish: ${CATALOG.stones[0]}`,
+        })
         .first();
 
     await duplicate.click();

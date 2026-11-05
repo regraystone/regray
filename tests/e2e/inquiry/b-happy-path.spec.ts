@@ -1,4 +1,4 @@
-import { inquiryFixtures } from '../support/accounts';
+import { credentialsFor, inquiryFixtures } from '../support/accounts';
 import {
     expect,
     inquiryReferences,
@@ -173,7 +173,14 @@ test('9 · the new inquiry is Pending in the Quote list, and its details show th
 test('9a · Log out asks first, and only leaves when told to', async ({
     actors,
 }) => {
-    const { page } = await actors.open('client');
+    const { email, password } = credentialsFor('client');
+    const { page } = await actors.open('guest');
+
+    await page.goto('/login');
+    await page.locator('#email').fill(email);
+    await page.locator('#password').fill(password);
+    await page.locator('[data-test="login-button"]').click();
+    await page.waitForURL((url) => !url.pathname.startsWith('/login'));
     await page.goto('/dashboard/profile');
 
     await page.locator('[data-test="logout-button"]').click();

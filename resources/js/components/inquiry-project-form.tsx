@@ -395,7 +395,7 @@ const StoneSpecRow = ({
                                 size="sm"
                                 onClick={onDuplicate}
                                 disabled={rowCount >= MAX_STONE_ROWS}
-                                aria-label={`Duplicate ${stone.name}`}
+                                aria-label={`Add it again with another finish: ${stone.name}`}
                                 title={
                                     rowCount >= MAX_STONE_ROWS
                                         ? `Maximum ${MAX_STONE_ROWS} rows per project`
@@ -436,7 +436,7 @@ const StoneSpecRow = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => setWantsChoices(true)}
-                            aria-label={`Choose edge and finish for ${stone.name} (optional)`}
+                            aria-label={`Choose edge and finish (optional): ${stone.name}`}
                             className="h-9 cursor-pointer px-2 text-xs"
                         >
                             Choose edge and finish (optional)
@@ -592,7 +592,7 @@ const InquiryProjectForm = ({
         setTimeout(() => {
             if (index > 0) {
                 const prevDuplicateBtn = document.querySelector(
-                    `button[aria-label*="Duplicate ${stones.find((s) => s.slug === stoneId)?.name}"]`,
+                    `button[aria-label*="Add it again with another finish: ${stones.find((s) => s.slug === stoneId)?.name}"]`,
                 );
                 if (prevDuplicateBtn instanceof HTMLElement) {
                     prevDuplicateBtn.focus();

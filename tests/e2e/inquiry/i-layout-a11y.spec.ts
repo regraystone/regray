@@ -80,7 +80,7 @@ test('34 · no horizontal page scroll on any step @layout', async ({
     });
 });
 
-test('35 · at phone width the stepper is the one-line "Step N of 5 · label", not the rail @mobile', async ({
+test('35 · at phone width the stepper is the one-line "Step N of 2 · label", not the rail @mobile', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -151,6 +151,14 @@ test('36 · keyboard only: pick a service, walk the steps and send, with focus v
     await expect(
         page.getByRole('checkbox', { name: CATALOG.visitService, exact: true }),
     ).toHaveAttribute('aria-checked', 'true');
+
+    // Every service asks what kind of work: open its list and take the first.
+    await tabTo(page, (t) => t.name.startsWith('Choose'), 'the kind of work');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('option').first()).toBeVisible();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('option')).toHaveCount(0);
 
     await tabTo(page, (t) => t.name === 'Next', 'Next');
     await page.keyboard.press('Enter');

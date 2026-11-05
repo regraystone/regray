@@ -354,7 +354,7 @@ export const renameProject = async (
     page: Page,
     name: string,
 ): Promise<void> => {
-    await page.getByRole('button', { name: /^Change the name of / }).click();
+    await page.getByRole('button', { name: /^Change name: / }).click();
     await page.getByLabel('Project name').fill(name);
     await page.getByRole('button', { name: 'Save name' }).click();
     await expect(page.getByText(name, { exact: true }).first()).toBeVisible();

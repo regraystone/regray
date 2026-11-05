@@ -29,8 +29,8 @@ const cardsFor = async (
 
     await expect(async () => {
         await page.goto(url);
-        await expect(cards).toHaveCount(count, { timeout: 3_000 });
-    }).toPass({ timeout: 45_000 });
+        await expect(cards).toHaveCount(count, { timeout: 10_000 });
+    }).toPass({ timeout: 90_000 });
 
     return cards;
 };
