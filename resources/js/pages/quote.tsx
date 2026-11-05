@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import EmptyState from '@/components/empty-state';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import PageHeading from '@/components/page-heading';
+import CancelInquiryButton from '@/components/cancel-inquiry-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,7 +29,6 @@ import {
     index as quoteIndex,
     show as quoteShow,
     edit as quoteEdit,
-    cancel as quoteCancel,
 } from '@/routes/quote';
 import type { QuoteInquiry, QuotePageProps } from '@/types/quote';
 
@@ -354,27 +354,13 @@ const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
                         }
                         if (button.key === 'cancel') {
                             return button.enabled ? (
-                                <Button
+                                <CancelInquiryButton
                                     key={button.key}
+                                    reference={inquiry.reference}
+                                    label={button.label}
                                     variant={button.variant}
                                     className="w-full sm:w-auto lg:w-full"
-                                    onClick={() => {
-                                        if (
-                                            confirm(
-                                                'Are you sure you want to cancel this inquiry?',
-                                            )
-                                        ) {
-                                            router.patch(
-                                                quoteCancel.url({
-                                                    reference:
-                                                        inquiry.reference,
-                                                }),
-                                            );
-                                        }
-                                    }}
-                                >
-                                    {button.label}
-                                </Button>
+                                />
                             ) : null;
                         }
                         if (button.key === 'invoice') {

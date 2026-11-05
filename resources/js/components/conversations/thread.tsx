@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import AssignmentCard from '@/components/conversations/assignment-card';
+import ConfirmDialog from '@/components/confirm-dialog';
 import Composer, {
     type ComposerHandle,
 } from '@/components/conversations/composer';
@@ -25,14 +26,6 @@ import SystemEvent from '@/components/conversations/system-event';
 import ThreadHeader from '@/components/conversations/thread-header';
 import TypingIndicator from '@/components/conversations/typing-indicator';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { useConversationThread } from '@/hooks/use-conversation-thread';
@@ -671,44 +664,18 @@ const Thread = ({
                 />
             ) : null}
 
-            <Dialog
+            <ConfirmDialog
                 open={removeTarget !== null}
                 onOpenChange={(open) =>
-                    !open && !removing ? setRemoveTarget(null) : undefined
+                    open ? undefined : setRemoveTarget(null)
                 }
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
-                            Remove this message?
-                        </DialogTitle>
-                        <DialogDescription>
-                            Everyone in the conversation will see “This message
-                            was removed” instead.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setRemoveTarget(null)}
-                            disabled={removing}
-                        >
-                            Keep message
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={() => void confirmRemove()}
-                            disabled={removing}
-                        >
-                            {removing ? (
-                                <Spinner className="motion-reduce:animate-none" />
-                            ) : null}
-                            Remove
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                title="Remove this message?"
+                description="Everyone in the conversation will see “This message was removed” instead."
+                confirmLabel="Remove"
+                cancelLabel="Keep message"
+                processing={removing}
+                onConfirm={() => void confirmRemove()}
+            />
 
             {view.canReassign ? (
                 <ReassignDialog

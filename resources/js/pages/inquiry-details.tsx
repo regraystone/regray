@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     FileText,
@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/format-date';
 import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import { Badge } from '@/components/ui/badge';
+import CancelInquiryButton from '@/components/cancel-inquiry-button';
 import { Button } from '@/components/ui/button';
 import type {
     InquiryFile,
@@ -28,11 +29,7 @@ import {
 import { buildCardActions } from '@/lib/quote-actions';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
-import {
-    index as quoteIndex,
-    edit as quoteEdit,
-    cancel as quoteCancel,
-} from '@/routes/quote';
+import { index as quoteIndex, edit as quoteEdit } from '@/routes/quote';
 import type { QuoteInquiryDetails } from '@/types/quote';
 
 type InquiryDetailsProps = {
@@ -59,6 +56,8 @@ type ResolvedStone = {
 
 type ResolvedProject = {
     name: string;
+    /** The client asked Regray to recommend a stone instead of choosing one. */
+    stoneAdviceRequested: boolean;
     services: Array<{ name: string; image?: string; option?: string | null }>;
     stones: ResolvedStone[];
     /** Application names, in the order the client picked them. */
@@ -611,9 +610,13 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                          * reader looking at one needs to be told so rather than
                          * left to wonder what was left out.
                          */
-                        <p className="mt-2 text-sm text-secondary-foreground">
-                            Nothing to supply or install — this project is a
-                            visit.
+                        <p
+                            className="mt-2 text-sm text-secondary-foreground"
+                            data-testid="project-no-stones"
+                        >
+                            {project.stoneAdviceRequested
+                                ? 'Stone to be recommended by Regray.'
+                                : 'Nothing to supply or install — this project is a visit.'}
                         </p>
                     )}
                 </section>
@@ -783,6 +786,7 @@ const InquiryDetails = () => {
 
     const project: ResolvedProject = {
         name: inquiry.project.name,
+        stoneAdviceRequested: inquiry.project.stoneAdviceRequested,
         services: inquiry.project.services,
         stones: inquiry.project.stones,
         applications: inquiry.project.applications,
@@ -893,27 +897,13 @@ const InquiryDetails = () => {
                         }
                         if (button.key === 'cancel') {
                             return button.enabled ? (
-                                <Button
+                                <CancelInquiryButton
                                     key={button.key}
+                                    reference={inquiry.reference}
+                                    label={button.label}
                                     variant={button.variant}
                                     className="shrink-0 self-start"
-                                    onClick={() => {
-                                        if (
-                                            confirm(
-                                                'Are you sure you want to cancel this inquiry?',
-                                            )
-                                        ) {
-                                            router.patch(
-                                                quoteCancel.url({
-                                                    reference:
-                                                        inquiry.reference,
-                                                }),
-                                            );
-                                        }
-                                    }}
-                                >
-                                    {button.label}
-                                </Button>
+                                />
                             ) : null;
                         }
                         if (button.key === 'invoice') {

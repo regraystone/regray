@@ -22,6 +22,7 @@ import {
     pickApplication,
     pickService,
     pickStone,
+    renameProject,
     projectPayload,
     sendAndReadReference,
     answerStoneRow,
@@ -29,9 +30,7 @@ import {
 
 /* B. Happy path: from the first click to the saved inquiry. */
 
-const OPTIONAL_NOTE = 'Optional — extra information for this visit';
-
-test('6 · a standalone visit walks the optional steps empty and sends @layout', async ({
+test('6 · a standalone visit skips the stones and the application and sends @layout', async ({
     actors,
 }, testInfo) => {
     const { page } = await actors.open('client');
@@ -43,22 +42,12 @@ test('6 · a standalone visit walks the optional steps empty and sends @layout',
     await shot(page, name('1-services'), testInfo);
     await continueButton(page).click();
 
-    await expectStep(page, 2);
-    await expect(page.getByText(OPTIONAL_NOTE)).toBeVisible();
-    await shot(page, name('2-stones'), testInfo);
-    await continueButton(page).click();
-
-    await expectStep(page, 3);
-    await expect(page.getByText(OPTIONAL_NOTE)).toBeVisible();
-    await shot(page, name('3-application'), testInfo);
-    await continueButton(page).click();
-
     await expectStep(page, 4);
     await chooseLocation(page, 'Taguig');
     await deadlineDate(page).fill(futureDate(7));
     await deadlineTime(page).fill('09:30');
     await shot(page, name('4-requirements'), testInfo);
-    await page.getByRole('button', { name: 'Add to inquiry' }).click();
+    await page.getByRole('button', { name: 'Continue to review' }).click();
 
     await expectStep(page, 5);
     await shot(page, name('5-review'), testInfo);
@@ -84,7 +73,6 @@ test('7 · a project of stone with two rows and two applications sends @layout',
     await continueButton(page).click();
 
     await expectStep(page, 2);
-    await expect(page.getByText(OPTIONAL_NOTE)).toHaveCount(0);
     await pickStone(page, CATALOG.stones[0]);
     await pickStone(page, CATALOG.stones[1]);
     await shot(page, name('2-stones'), testInfo);
@@ -97,7 +85,6 @@ test('7 · a project of stone with two rows and two applications sends @layout',
     await continueButton(page).click();
 
     await expectStep(page, 4);
-    await page.getByLabel('Project name').fill('Kitchen and island');
     await answerStoneRow(page, 0, {
         quantity: 3,
         edge: CATALOG.edges[0],
@@ -111,10 +98,11 @@ test('7 · a project of stone with two rows and two applications sends @layout',
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
     await shot(page, name('4-requirements'), testInfo);
-    await page.getByRole('button', { name: 'Add to inquiry' }).click();
+    await page.getByRole('button', { name: 'Continue to review' }).click();
 
     await expectStep(page, 5);
     await expect(page.getByText(/8 pieces of 2 stones/)).toBeVisible();
+    await renameProject(page, 'Kitchen and island');
     await shot(page, name('5-review'), testInfo);
 
     const reference = await sendAndReadReference(page);
@@ -164,7 +152,7 @@ test('9 · the new inquiry is Pending in the Quote list, and its details show th
     });
     const reference = await sendAndReadReference(page);
 
-    await page.goto('/quote');
+    await page.goto('/dashboard/quote');
     const card = page.locator('article').filter({ hasText: reference });
     await expect(card).toHaveCount(1);
     await expect(card).toContainText('Pending');
@@ -182,14 +170,33 @@ test('9 · the new inquiry is Pending in the Quote list, and its details show th
     await expect(main).toContainText('Second floor, no lift.');
 });
 
-test('10 · the Quote card offers no Cancel, and a pending inquiry cancelled through its endpoint turns Cancelled', async ({
+test('9a · Log out asks first, and only leaves when told to', async ({
+    actors,
+}) => {
+    const { page } = await actors.open('client');
+    await page.goto('/dashboard/profile');
+
+    await page.locator('[data-test="logout-button"]').click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Log out?');
+
+    await dialog.getByRole('button', { name: 'Stay logged in' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(/\/dashboard\/profile/);
+
+    await page.locator('[data-test="logout-button"]').click();
+    await dialog.getByRole('button', { name: 'Log out' }).click();
+    await expect(page).not.toHaveURL(/\/dashboard/);
+});
+
+test('10 · Cancel on the Quote card asks first, and only cancels when told to', async ({
     actors,
 }) => {
     const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
-    await page.goto('/quote');
+    await page.goto('/dashboard/quote');
 
-    const sent = await postAsUser(page, '/quote/inquire', {
+    const sent = await postAsUser(page, '/dashboard/quote/inquire', {
         projects: [projectPayload({ name: 'To be cancelled' })],
     });
     expect([302, 303], `store answered ${sent.status}`).toContain(sent.status);
@@ -199,16 +206,18 @@ test('10 · the Quote card offers no Cancel, and a pending inquiry cancelled thr
     const card = page.locator('article').filter({ hasText: reference });
     await expect(card).toContainText('Pending');
 
-    // The card's only action is View details: Cancel was taken off it.
-    await expect(card.getByRole('button')).toHaveCount(0);
-    await expect(card.getByRole('link')).toHaveText(['View details']);
+    const cancel = card.getByRole('button', { name: 'Cancel', exact: true });
+    const dialog = page.getByRole('dialog');
 
-    const cancelled = await postAsUser(page, `/quote/${reference}/cancel`, {
-        _method: 'PATCH',
-    });
-    expect([302, 303], `cancel answered ${cancelled.status}`).toContain(
-        cancelled.status,
-    );
+    await cancel.click();
+    await expect(dialog).toContainText('Cancel this inquiry?');
+    await dialog.getByRole('button', { name: 'Keep inquiry' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(card).toContainText('Pending');
+
+    await cancel.click();
+    await dialog.getByRole('button', { name: 'Cancel inquiry' }).click();
+    await expect(dialog).toHaveCount(0);
 
     await page.reload();
     await expect(card).toContainText('Cancelled');

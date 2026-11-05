@@ -25,6 +25,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Logo from '@/components/logo';
+import LogoutDialog from '@/components/logout-dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
     DropdownMenu,
@@ -51,7 +52,6 @@ import { index as scheduleIndex } from '@/routes/schedule';
 import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
 import { index as homeIndex } from '@/routes/home';
 import { index as leadsIndex } from '@/routes/leads';
-import { logout } from '@/routes';
 import {
     index as inquiryIndex,
     inquire as inquiryInquire,
@@ -549,9 +549,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         };
     }, [drawerOpen]);
 
-    const handleLogout = () => {
-        router.flushAll();
-    };
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const getInitials = useInitials();
     const initials = user ? getInitials(user.name) || 'R' : 'R';
@@ -816,20 +814,21 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                     Help
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem asChild>
-                                    <Link
-                                        href={logout()}
-                                        as="button"
-                                        onClick={handleLogout}
-                                        data-test="logout-button"
-                                        className="block w-full cursor-pointer"
-                                    >
-                                        <LogOut className="mr-2" />
-                                        Log out
-                                    </Link>
+                                <DropdownMenuItem
+                                    onSelect={() => setIsLoggingOut(true)}
+                                    data-test="logout-button"
+                                    className="cursor-pointer"
+                                >
+                                    <LogOut className="mr-2" />
+                                    Log out
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+
+                        <LogoutDialog
+                            open={isLoggingOut}
+                            onOpenChange={setIsLoggingOut}
+                        />
 
                         <button
                             type="button"
