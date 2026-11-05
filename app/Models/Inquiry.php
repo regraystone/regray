@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\DB;
  * @property string|null $landmark
  * @property string|null $area_sqm
  * @property string|null $notes
+ * @property bool $stone_advice_requested Whether the client asked Regray to recommend a stone instead of choosing one.
  * @property SalesStatus|null $sales_status Null until marketing wins the inquiry.
  * @property Carbon|null $sales_status_changed_at
  * @property PaymentStatus|null $payment_status Null until the client approves the quotation.
@@ -58,7 +59,7 @@ use Illuminate\Support\Facades\DB;
  */
 #[Fillable([
     'reference', 'client_id', 'client_record_id', 'lead_id', 'marketing_status', 'marketing_status_changed_at',
-    'name', 'location', 'landmark', 'area_sqm', 'notes',
+    'name', 'location', 'landmark', 'area_sqm', 'notes', 'stone_advice_requested',
     'sales_status', 'sales_status_changed_at',
     'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
     'quoted_total', 'quote_revision', 'contract_total',
@@ -69,6 +70,7 @@ class Inquiry extends Model
     {
         return [
             'area_sqm' => 'decimal:2',
+            'stone_advice_requested' => 'boolean',
             'sales_status' => SalesStatus::class,
             'sales_status_changed_at' => 'datetime',
             'payment_status' => PaymentStatus::class,

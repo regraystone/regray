@@ -4,15 +4,13 @@
     useFormContext,
     useWatch,
 } from 'react-hook-form';
-import { ArrowLeft, Copy, Minus, Plus, Trash2 } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { Copy, Minus, Plus, Trash2 } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import FormField, {
     chooseFromList,
     fieldMessage,
 } from '@/components/form-field';
 import InquiryProjectDetails from '@/components/inquiry-project-details';
-import InquiryServiceBullets from '@/components/inquiry-service-bullets';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,9 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { PROJECT_NAME_MAX } from '@/data/inquiries';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
-import { serviceNameIn } from '@/lib/inquiry-catalog';
 import {
     MAX_STONE_QUANTITY,
     MAX_STONE_ROWS,
@@ -71,9 +67,12 @@ const StoneSpecRow = ({
     onRemove,
     onApplyToAll,
     showApplyToAll,
+    canRemove,
 }: {
     index: number;
     rowCount: number;
+    /** False on the only row: the request needs a stone, or Help me choose. */
+    canRemove: boolean;
     onDuplicate: () => void;
     onRemove: () => void;
     onApplyToAll: () => void;
@@ -89,9 +88,34 @@ const StoneSpecRow = ({
 
     const stoneId = useWatch({ control, name: stoneIdPath(index) });
     const quantity = useWatch({ control, name: quantityPath(index) });
-    const { stones, edgeProfiles, finishes } = useInquiryCatalog();
+    const edge = useWatch({ control, name: edgePath(index) });
+    const finish = useWatch({ control, name: finishPath(index) });
+    const { stones, edgeProfiles, finishes, advisoryEdge, advisoryFinish } =
+        useInquiryCatalog();
     const stone = stones.find((entry) => entry.slug === stoneId);
     const rowErrors = errors.stones?.[index];
+
+    /*
+     * Edge and finish are trade words, so they stay folded away behind the "advise
+     * me" answer unless the reader asks for them. A blank row (a duplicate) and a
+     * refused one open by themselves, because those need an answer.
+     */
+    const [wantsChoices, setWantsChoices] = useState(
+        () => edge === '' || finish === '',
+    );
+    const showsChoices =
+        wantsChoices ||
+        fieldMessage(rowErrors?.edge) !== undefined ||
+        fieldMessage(rowErrors?.finish) !== undefined;
+    const isAdvised = edge === advisoryEdge && finish === advisoryFinish;
+
+    const letRegrayAdvise = () => {
+        const options = { shouldDirty: true, shouldValidate: true };
+
+        setValue(edgePath(index), advisoryEdge ?? '', options);
+        setValue(finishPath(index), advisoryFinish ?? '', options);
+        setWantsChoices(false);
+    };
 
     /*
      * Clamped at both ends rather than left to the input: a typed number can
@@ -118,14 +142,14 @@ const StoneSpecRow = ({
 
     /*
      * A stone dropped from the catalogue since it was picked. The draft's own
-     * schema refuses it, so the reader is sent back to step 2 rather than shown a
-     * row with nothing in it.
+     * schema refuses it, so the reader is sent back to the stones rather than
+     * shown a row with nothing in it.
      */
     if (stone === undefined) {
         return (
             <li className="py-6 text-sm text-secondary-foreground">
-                That stone is no longer available. Go back a step and choose
-                another.
+                That stone is no longer available. Press Change next to the
+                stones above and choose another.
             </li>
         );
     }
@@ -138,19 +162,10 @@ const StoneSpecRow = ({
 
     return (
         /*
-         * Four bands across on a wide screen, one per row of the stone grid —
-         * stone, count, edge, finish — because the three controls are the same
-         * three questions for every stone, and lining them up is what makes a
-         * project of six stones readable as one specification rather than as six
-         * cards. The labels stay on each row rather than moving into one header
-         * above them all: a reader who has scrolled to the fourth stone still
-         * knows which control is which without scrolling back up.
-         *
-         * Rules between the rows rather than a box around each one, for the same
-         * reason the summary is a sheet: the stones are rows of one table, not
-         * separate objects to be dealt with one at a time.
+         * Rules between the rows rather than a box around each one: the stones
+         * are rows of one list, not separate objects to deal with one at a time.
          */
-        <li className="grid gap-x-6 gap-y-5 py-6 sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,1fr)_minmax(0,1fr)]">
+        <li className="grid gap-x-6 gap-y-4 py-5 sm:grid-cols-[minmax(0,1fr)_11rem]">
             <div className="flex min-w-0 items-center gap-4">
                 <img
                     src={stone.thumbnail}
@@ -158,7 +173,7 @@ const StoneSpecRow = ({
                     loading="lazy"
                     className="size-14 shrink-0 rounded-md object-cover"
                 />
-                <p className="min-w-0 text-sm font-bold break-words">
+                <p className="min-w-0 text-base font-bold break-words">
                     {stone.name}
                 </p>
             </div>
@@ -173,11 +188,7 @@ const StoneSpecRow = ({
                     htmlFor={ids.quantity}
                     className="text-sm font-bold text-foreground"
                 >
-                    Quantity
-                    <span className="text-destructive" aria-hidden>
-                        {' *'}
-                    </span>
-                    <span className="sr-only"> (required)</span>
+                    How many pieces?
                 </Label>
 
                 <div className="mt-2 flex items-stretch">
@@ -187,11 +198,9 @@ const StoneSpecRow = ({
                      * text field between them, so typing it is not a second-class
                      * way of answering the question.
                      *
-                     * `size-9 p-0` puts them at exactly the input's height and
-                     * strips the button's own padding. The default button is padded
-                     * rather than sized, so left alone it is two thirds taller than
-                     * the field it belongs to and the three parts stop reading as
-                     * one control.
+                     * `size-11 p-0` puts them at exactly the input's height and
+                     * strips the button's own padding, so the three parts read as
+                     * one control and are easy to press.
                      */}
                     <Button
                         type="button"
@@ -200,7 +209,7 @@ const StoneSpecRow = ({
                         onClick={() => stepBy(-1)}
                         disabled={quantity <= 1}
                         aria-label={`Fewer pieces of ${stone.name}`}
-                        className="size-9 shrink-0 cursor-pointer rounded-none border-r-0 p-0"
+                        className="size-11 shrink-0 cursor-pointer rounded-none border-r-0 p-0"
                     >
                         <Minus aria-hidden />
                     </Button>
@@ -225,7 +234,7 @@ const StoneSpecRow = ({
                         aria-invalid={
                             fieldMessage(rowErrors?.quantity) !== undefined
                         }
-                        className="no-stepper h-9 rounded-none text-center"
+                        className="no-stepper h-11 rounded-none text-center"
                     />
                     <Button
                         type="button"
@@ -234,7 +243,7 @@ const StoneSpecRow = ({
                         onClick={() => stepBy(1)}
                         disabled={quantity >= MAX_STONE_QUANTITY}
                         aria-label={`More pieces of ${stone.name}`}
-                        className="size-9 shrink-0 cursor-pointer rounded-none border-l-0 p-0"
+                        className="size-11 shrink-0 cursor-pointer rounded-none border-l-0 p-0"
                     >
                         <Plus aria-hidden />
                     </Button>
@@ -249,195 +258,206 @@ const StoneSpecRow = ({
                 </p>
             </div>
 
-            <FormField
-                id={ids.edge}
-                label="Edge profile"
-                required
-                error={fieldMessage(rowErrors?.edge)}
-            >
-                {(accessibility) => (
-                    <Controller
-                        control={control}
-                        name={edgePath(index)}
-                        render={({ field }) => (
-                            <Select
-                                /*
-                                 * The value goes over as it is, empty string and
-                                 * all. An unanswered select is `''`, and Radix shows
-                                 * the placeholder for an empty string exactly as it
-                                 * does for no value at all — but swapping one for
-                                 * the other would move this from uncontrolled to
-                                 * controlled the first time the reader answers, and
-                                 * React says so loudly on the console.
-                                 */
-                                value={field.value}
-                                onValueChange={chooseFromList(
-                                    field.onChange,
-                                    field.onBlur,
-                                )}
-                            >
-                                <SelectTrigger
-                                    id={ids.edge}
-                                    ref={field.ref}
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="w-full rounded-none"
-                                >
-                                    <SelectValue placeholder="Choose an edge profile" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {edgeProfiles.map(({ name: edge }) => (
-                                        <SelectItem
-                                            key={edge}
-                                            value={edge}
-                                            className="rounded-none"
-                                        >
-                                            {edge}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                )}
-            </FormField>
-
-            <FormField
-                id={ids.finish}
-                label="Finish"
-                required
-                error={fieldMessage(rowErrors?.finish)}
-            >
-                {(accessibility) => (
-                    <Controller
-                        control={control}
-                        name={finishPath(index)}
-                        render={({ field }) => (
-                            <Select
-                                value={field.value}
-                                onValueChange={chooseFromList(
-                                    field.onChange,
-                                    field.onBlur,
-                                )}
-                            >
-                                <SelectTrigger
-                                    id={ids.finish}
-                                    ref={field.ref}
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="w-full rounded-none"
-                                >
-                                    <SelectValue placeholder="Choose a finish" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {finishes.map(({ name: finish }) => (
-                                        <SelectItem
-                                            key={finish}
-                                            value={finish}
-                                            className="rounded-none"
-                                        >
-                                            {finish}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                )}
-            </FormField>
-
-            {index === 0 ? (
-                <div className="col-span-full mt-2 flex flex-wrap items-center gap-2">
-                    <div className="flex gap-1.5">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onDuplicate}
-                            disabled={rowCount >= MAX_STONE_ROWS}
-                            aria-label={`Duplicate ${stone.name}`}
-                            title={
-                                rowCount >= MAX_STONE_ROWS
-                                    ? `Maximum ${MAX_STONE_ROWS} rows per project`
-                                    : undefined
-                            }
-                            className="h-7 cursor-pointer px-1.5 text-xs"
+            <div className="col-span-full">
+                {showsChoices ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField
+                            id={ids.edge}
+                            label="Edge profile"
+                            error={fieldMessage(rowErrors?.edge)}
                         >
-                            <Copy aria-hidden className="size-4" />
-                            Duplicate
-                        </Button>
+                            {(accessibility) => (
+                                <Controller
+                                    control={control}
+                                    name={edgePath(index)}
+                                    render={({ field }) => (
+                                        <Select
+                                            /*
+                                             * The value goes over as it is, empty string and
+                                             * all. An unanswered select is `''`, and Radix shows
+                                             * the placeholder for an empty string exactly as it
+                                             * does for no value at all — but swapping one for
+                                             * the other would move this from uncontrolled to
+                                             * controlled the first time the reader answers, and
+                                             * React says so loudly on the console.
+                                             */
+                                            value={field.value}
+                                            onValueChange={chooseFromList(
+                                                field.onChange,
+                                                field.onBlur,
+                                            )}
+                                        >
+                                            <SelectTrigger
+                                                id={ids.edge}
+                                                ref={field.ref}
+                                                aria-describedby={
+                                                    accessibility.describedBy
+                                                }
+                                                aria-invalid={
+                                                    accessibility.invalid
+                                                }
+                                                className="w-full rounded-none"
+                                            >
+                                                <SelectValue placeholder="Choose an edge profile" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {edgeProfiles.map(
+                                                    ({ name }) => (
+                                                        <SelectItem
+                                                            key={name}
+                                                            value={name}
+                                                            className="rounded-none"
+                                                        >
+                                                            {name}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                            )}
+                        </FormField>
 
-                        {rowCount > 1 ? (
+                        <FormField
+                            id={ids.finish}
+                            label="Finish"
+                            error={fieldMessage(rowErrors?.finish)}
+                        >
+                            {(accessibility) => (
+                                <Controller
+                                    control={control}
+                                    name={finishPath(index)}
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value}
+                                            onValueChange={chooseFromList(
+                                                field.onChange,
+                                                field.onBlur,
+                                            )}
+                                        >
+                                            <SelectTrigger
+                                                id={ids.finish}
+                                                ref={field.ref}
+                                                aria-describedby={
+                                                    accessibility.describedBy
+                                                }
+                                                aria-invalid={
+                                                    accessibility.invalid
+                                                }
+                                                className="w-full rounded-none"
+                                            >
+                                                <SelectValue placeholder="Choose a finish" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {finishes.map(({ name }) => (
+                                                    <SelectItem
+                                                        key={name}
+                                                        value={name}
+                                                        className="rounded-none"
+                                                    >
+                                                        {name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                            )}
+                        </FormField>
+
+                        {showApplyToAll ? (
+                            <div className="col-span-full mt-2 flex flex-col items-end text-end">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={onApplyToAll}
+                                    aria-describedby={`apply-to-all-hint-${index}`}
+                                    className="h-7 cursor-pointer px-1.5 text-xs"
+                                >
+                                    Apply to all stones
+                                </Button>
+                                <p
+                                    id={`apply-to-all-hint-${index}`}
+                                    className="mt-1 text-xs text-secondary-foreground"
+                                >
+                                    Copies this edge profile and finish to every
+                                    other row.
+                                </p>
+                            </div>
+                        ) : null}
+
+                        <div className="col-span-full flex flex-wrap items-center gap-1.5">
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={onRemove}
-                                aria-label={`Remove this ${stone.name} row`}
-                                className="h-7 cursor-pointer px-1.5 text-xs"
+                                onClick={onDuplicate}
+                                disabled={rowCount >= MAX_STONE_ROWS}
+                                aria-label={`Duplicate ${stone.name}`}
+                                title={
+                                    rowCount >= MAX_STONE_ROWS
+                                        ? `Maximum ${MAX_STONE_ROWS} rows per project`
+                                        : undefined
+                                }
+                                className="h-9 cursor-pointer px-2 text-xs"
                             >
-                                <Trash2 aria-hidden className="size-4" />
-                                Remove
+                                <Copy aria-hidden className="size-4" />
+                                Add it again with another finish
                             </Button>
-                        ) : null}
-                    </div>
-                </div>
-            ) : (
-                <div className="col-span-full mt-2 flex gap-1.5">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={onDuplicate}
-                        disabled={rowCount >= MAX_STONE_ROWS}
-                        aria-label={`Duplicate ${stone.name}`}
-                        title={
-                            rowCount >= MAX_STONE_ROWS
-                                ? `Maximum ${MAX_STONE_ROWS} rows per project`
-                                : undefined
-                        }
-                        className="h-7 cursor-pointer px-1.5 text-xs"
-                    >
-                        <Copy aria-hidden className="size-4" />
-                        Duplicate
-                    </Button>
 
-                    {rowCount > 1 ? (
+                            {advisoryEdge !== null &&
+                            advisoryFinish !== null ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={letRegrayAdvise}
+                                    className="h-9 cursor-pointer px-2 text-xs"
+                                >
+                                    Let Regray advise me
+                                </Button>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-sm text-secondary-foreground">
+                        {isAdvised
+                            ? "Edge and finish: we'll advise you"
+                            : `Edge: ${edge}. Finish: ${finish}.`}
+                    </p>
+                )}
+
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {showsChoices ? null : (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setWantsChoices(true)}
+                            aria-label={`Choose edge and finish for ${stone.name} (optional)`}
+                            className="h-9 cursor-pointer px-2 text-xs"
+                        >
+                            Choose edge and finish (optional)
+                        </Button>
+                    )}
+
+                    {canRemove ? (
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={onRemove}
                             aria-label={`Remove this ${stone.name} row`}
-                            className="h-7 cursor-pointer px-1.5 text-xs"
+                            className="h-9 cursor-pointer px-2 text-xs"
                         >
                             <Trash2 aria-hidden className="size-4" />
                             Remove
                         </Button>
                     ) : null}
                 </div>
-            )}
-
-            {index === 0 && showApplyToAll ? (
-                <div className="col-span-full mt-2 flex flex-col items-end text-end">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={onApplyToAll}
-                        aria-describedby={`apply-to-all-hint-${index}`}
-                        className="h-7 cursor-pointer px-1.5 text-xs"
-                    >
-                        Apply to all stones
-                    </Button>
-                    <p
-                        id={`apply-to-all-hint-${index}`}
-                        className="mt-1 text-xs text-secondary-foreground"
-                    >
-                        Copies this edge profile and finish to every other row.
-                    </p>
-                </div>
-            ) : null}
+            </div>
         </li>
     );
 };
@@ -445,30 +465,13 @@ const StoneSpecRow = ({
 type InquiryProjectFormProps = {
     /** Which project this is, 1-based, for the field ids and the heading. */
     projectNumber: number;
+    /** Whether this project is a service that stands on its own: a visit. */
+    isStandalone: boolean;
     /**
-     * The service this project is for when that service stands on its own, and how
-     * many of those the reader picked in all. Null for a project built from stones,
-     * which is the one shape with a name to give and a material to specify.
-     *
-     * A project of that kind is worked through one at a time rather than all at
-     * once, so the count is what tells the reader there are more of these ahead of
-     * them instead of a copy of this form appearing twice over.
-     */
-    standalone: { serviceId: string; total: number } | null;
-    /**
-     * The primary button. "Next service" while another of the services they picked
-     * is still to be specified, "Back to Review" when they came here to change a
-     * project that is already on the sheet, "Add to inquiry" otherwise.
-     */
-    submitLabel: string;
-    /** Back to step 1, to change which services this project wants. */
-    onChangeServices: () => void;
-    /**
-     * Run by the page when the draft is ready. It validates, commits and decides
-     * where to go next, so the draft never leaves the page's hands.
+     * Run by the page when the draft is ready. It names, validates, commits and
+     * decides where to go next, so the draft never leaves the page's hands.
      */
     onCommit: () => void;
-    onBack: () => void;
     /**
      * Why this project's date and time can no longer be changed, when editing a
      * sent inquiry whose visit is no longer pending. Null otherwise.
@@ -479,46 +482,21 @@ type InquiryProjectFormProps = {
 };
 
 /**
- * Step 3 of the inquiry flow, editing one project: what it is called, how each of
- * its stones is worked, and where and when the work is.
+ * The last question of the request: how many of each stone, and where and when
+ * the work is. A visit has no stones, so it is only asked the second part.
  *
- * A form rather than a picker because this is the one step where the answers are a
- * number, a specification and an address rather than a yes. It reads the draft form
- * from context like the other steps do, which is also what keeps an unfinished
- * project out of the form the request is actually built from.
- *
- * Laid out as a specification sheet rather than as a stack of cards: the name
- * answers the only question about the project as a whole, the services are said
- * back above the stones they are wanted for, the stones themselves are rows of one
- * table, and the site's own answers come last because they are about the work
- * rather than about the material. Three boxes said those were three separate
- * objects to be dealt with one at a time; one sheet of rows says this is one
- * project, and it hands the whole width to the content, which is what lets the
- * stones line up four across.
- *
- * Two shapes, because a project is two things. A project built from stones is
- * named by the reader and specifies its material. A project that is a service
- * standing on its own is named by the catalogue and has no material at all, so
- * asking for a name it already has and a stone that does not exist would be two
- * questions with only one answer between them. Both are asked the same questions
- * about where the work is.
- *
- * One form, so pressing Enter in any field is the same answer as pressing Add to
- * inquiry. `noValidate` because the browser's own bubbles are the wrong voice for
+ * One form, so pressing Enter in any field is the same answer as pressing the
+ * button. `noValidate` because the browser's own bubbles are the wrong voice for
  * this app, and they would fire before the page's own messages.
  */
 const InquiryProjectForm = ({
     projectNumber,
-    standalone,
-    submitLabel,
-    onChangeServices,
+    isStandalone,
     onCommit,
-    onBack,
     deadlineLockReason = null,
     allowAttachments = true,
 }: InquiryProjectFormProps) => {
     const {
-        register,
         setValue,
         getValues,
         watch,
@@ -531,13 +509,8 @@ const InquiryProjectForm = ({
         name: 'stones',
     });
 
-    const catalog = useInquiryCatalog();
-    const { stones } = catalog;
-    const serviceIds = watch('serviceIds');
-    const standaloneServiceIds = watch('standaloneServiceIds');
+    const { stones } = useInquiryCatalog();
     const rows = watch('stones');
-
-    const isStandalone = standalone !== null;
 
     const pieceCount = rows.reduce(
         (total, row) =>
@@ -607,6 +580,15 @@ const InquiryProjectForm = ({
         const stoneId = rows[index]?.stoneId;
         remove(index);
 
+        // The stone's last row: it is no longer one of the reader's stones.
+        if (stoneId !== undefined && getRowCountForStone(stoneId) === 1) {
+            setValue(
+                'stoneIds',
+                getValues('stoneIds').filter((id) => id !== stoneId),
+                { shouldDirty: true },
+            );
+        }
+
         setTimeout(() => {
             if (index > 0) {
                 const prevDuplicateBtn = document.querySelector(
@@ -650,161 +632,11 @@ const InquiryProjectForm = ({
                 onCommit();
             }}
         >
-            {isStandalone ? (
-                /*
-                 * Titled by the service rather than by a number. The service is the
-                 * whole of this project — there is no material to specify and so no
-                 * name to give it — and the count of how many more of these are ahead
-                 * of the reader is the only thing a number could say here.
-                 *
-                 * Only when there are more than one, because "Service 1 of 1" says
-                 * the reader is partway through a queue when there is no queue: a
-                 * single service picked, or one project reopened to correct its date,
-                 * is the whole of what they asked for and needs no count above it.
-                 */
-                <header>
-                    {standalone.total > 1 ? (
-                        <p className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                            Service 1 of {standalone.total}
-                        </p>
-                    ) : null}
-
-                    <h3
-                        className={`text-lg font-bold tracking-[-0.03em] break-words ${standalone.total > 1 ? 'mt-2' : ''}`}
-                    >
-                        {serviceNameIn(catalog, standalone.serviceId)}
-                    </h3>
-
-                    <p className="mt-2 max-w-2xl text-xs text-secondary-foreground">
-                        This project is named after the service. Just tell us
-                        where the work is and when you want it done.
-                    </p>
-                </header>
-            ) : (
+            {!isStandalone && rows.length > 0 ? (
                 <>
-                    <h3 className="text-lg font-bold tracking-[-0.03em]">
-                        Project {projectNumber}
-                    </h3>
+                    <h3 className="text-base font-bold">Your stones</h3>
 
-                    {/*
-                     * First, because it is what the two bands beneath it are the
-                     * specifications of: a reader who has three projects to add has
-                     * to be able to tell them apart on the summary, in the review
-                     * sheet and in the team's inbox, and this is the only place they
-                     * can say which is which. The first one named is also the name
-                     * the whole request is known by.
-                     */}
-                    <FormField
-                        id={`requirements-name-${projectNumber}`}
-                        label="Project name"
-                        required
-                        error={fieldMessage(errors.name)}
-                        className="mt-4 max-w-2xl"
-                        hint="What you would call this part of the work, such as “Kitchen counters”."
-                    >
-                        {(accessibility) => (
-                            <Input
-                                id={`requirements-name-${projectNumber}`}
-                                {...register('name')}
-                                maxLength={PROJECT_NAME_MAX}
-                                placeholder="Kitchen counters and island"
-                                aria-describedby={accessibility.describedBy}
-                                aria-invalid={accessibility.invalid}
-                                className="rounded-none"
-                            />
-                        )}
-                    </FormField>
-
-                    {/*
-                     * What step 1 collected, said back before the numbers are asked
-                     * for. A reader who wants a different service set should not
-                     * have to go back, remember to change it and come forward again.
-                     */}
-                    <div className="mt-8">
-                        <div className="border-t border-sidebar-border" />
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
-                            <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                                Services
-                            </h4>
-
-                            {serviceIds.map((id) => (
-                                <Badge
-                                    key={id}
-                                    variant="secondary"
-                                    className="max-w-full whitespace-normal text-secondary-foreground"
-                                >
-                                    {/*
-                                     * A service dropped from the catalogue since it was
-                                     * picked shows its id rather than nothing: the reader
-                                     * is about to commit this project, and an empty tag
-                                     * would say they had chosen nothing.
-                                     */}
-                                    {serviceNameIn(catalog, id)}
-                                </Badge>
-                            ))}
-
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={onChangeServices}
-                                className="h-7 cursor-pointer px-1.5 text-xs"
-                            >
-                                Change
-                            </Button>
-                        </div>
-                        <div className="border-b border-sidebar-border" />
-                    </div>
-
-                    {/*
-                     * Where the services that stand on their own went.
-                     *
-                     * They were picked on step 1 alongside the ones above, so this
-                     * is the first place the reader is told they are not part of this
-                     * project: without it, committing would silently split them out
-                     * and the band above would go on listing them. Each one gets a
-                     * form of its own straight after this one, which is what the
-                     * button label says.
-                     */}
-                    {standaloneServiceIds.length > 0 ? (
-                        <p className="mt-2.5 text-xs text-secondary-foreground">
-                            Specified next, as{' '}
-                            {standaloneServiceIds.length === 1
-                                ? 'a project of its own'
-                                : 'projects of their own'}
-                            :{' '}
-                            {standaloneServiceIds
-                                .map((id) => serviceNameIn(catalog, id))
-                                .join(', ')}
-                        </p>
-                    ) : null}
-                </>
-            )}
-
-            {isStandalone ? (
-                /*
-                 * The service's own bullets rather than the band above, because the
-                 * name is already the heading and a badge repeating the line
-                 * directly under it says nothing. What the service covers is the
-                 * thing a reader checking this project wants under its title, since
-                 * there is no material here to describe instead.
-                 */
-                <div className="mt-8 border-t border-sidebar-border pt-6">
-                    <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                        What this service covers
-                    </h4>
-
-                    <InquiryServiceBullets
-                        serviceIds={[standalone.serviceId]}
-                    />
-                </div>
-            ) : (
-                <>
-                    <h4 className="mt-8 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                        Stones
-                    </h4>
-
-                    <ul className="mt-3 divide-y divide-sidebar-border">
+                    <ul className="mt-1 divide-y divide-sidebar-border">
                         {fields.map((field, index) => {
                             const stoneId = rows[index]?.stoneId;
                             const rowCount = stoneId
@@ -815,33 +647,35 @@ const InquiryProjectForm = ({
                                     key={field.id}
                                     index={index}
                                     rowCount={rowCount}
+                                    canRemove={rows.length > 1}
                                     onDuplicate={() => duplicateRow(index)}
                                     onRemove={() => removeRow(index)}
                                     onApplyToAll={applyToAll}
-                                    showApplyToAll={rows.length > 1}
+                                    showApplyToAll={
+                                        index === 0 && rows.length > 1
+                                    }
                                 />
                             );
                         })}
                     </ul>
 
                     <div className="border-t border-sidebar-border" />
-
-                    {/*
-                     * Where the two stones a project can be short of are said.
-                     * `stoneIds` first because that is where the reader is sent
-                     * back to when the grid came up empty; `stones` is read as well
-                     * because the committed project says the same thing about the
-                     * specifications themselves, and a project cannot be written
-                     * from either one alone.
-                     */}
-                    <p
-                        role="alert"
-                        className="mt-4 text-sm text-destructive empty:hidden"
-                    >
-                        {fieldMessage(errors.stoneIds) ??
-                            fieldMessage(errors.stones)}
-                    </p>
                 </>
+            ) : null}
+
+            {/*
+             * `stoneIds` is where the reader is sent back to when the stones came
+             * up empty; `stones` is what the committed project says about the same
+             * thing.
+             */}
+            {isStandalone ? null : (
+                <p
+                    role="alert"
+                    className="mt-4 text-sm text-destructive empty:hidden"
+                >
+                    {fieldMessage(errors.stoneIds) ??
+                        fieldMessage(errors.stones)}
+                </p>
             )}
 
             {/*
@@ -850,7 +684,7 @@ const InquiryProjectForm = ({
              * unfinished project's site and date cost nothing if the reader walks
              * away from it, and a finished one carries its own onto the sheet.
              */}
-            <div className="mt-10">
+            <div className={isStandalone ? '' : 'mt-8'}>
                 <InquiryProjectDetails
                     projectNumber={projectNumber}
                     allowAttachments={allowAttachments}
@@ -872,45 +706,18 @@ const InquiryProjectForm = ({
              * other steps': a project of six stones is taller than a phone.
              */}
             <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
-                {isStandalone ? (
-                    /*
-                     * What committing will do next, rather than a count of material
-                     * this project has none of. The button beside it says the same
-                     * thing, so this is the version that is read out as it changes.
-                     */
-                    <p
-                        aria-live="polite"
-                        className="min-w-0 flex-1 text-sm font-bold text-foreground"
-                    >
-                        {standalone.total === 1
-                            ? 'The last of the services you picked'
-                            : `${standalone.total - 1} more to specify after this`}
-                    </p>
-                ) : (
-                    <p
-                        aria-live="polite"
-                        className="min-w-0 flex-1 text-sm font-bold text-foreground"
-                    >
-                        {countDistinctStones()}{' '}
-                        {countDistinctStones() === 1 ? 'stone' : 'stones'} ·{' '}
-                        {pieceCount} {pieceCount === 1 ? 'pc' : 'pcs'}
-                    </p>
-                )}
+                <p
+                    aria-live="polite"
+                    className="min-w-0 flex-1 text-sm font-bold text-foreground"
+                >
+                    {isStandalone || rows.length === 0
+                        ? ''
+                        : `${countDistinctStones()} ${countDistinctStones() === 1 ? 'stone' : 'stones'}, ${pieceCount} ${pieceCount === 1 ? 'piece' : 'pieces'}`}
+                </p>
 
-                <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onBack}
-                        className="w-full cursor-pointer sm:w-auto"
-                    >
-                        <ArrowLeft aria-hidden />
-                        Back
-                    </Button>
-                    <Button type="submit" className="w-full sm:w-auto">
-                        {submitLabel}
-                    </Button>
-                </div>
+                <Button type="submit" className="w-full shrink-0 sm:w-auto">
+                    Continue to review
+                </Button>
             </div>
         </form>
     );

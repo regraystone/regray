@@ -16,13 +16,15 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('opens one inquiry per project sent, each with one pending schedule, at the visit time or 10:00 otherwise', function (): void {
-    $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [
-            inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04', 'neededByTime' => '15:45']),
-            inquiryVisitInput(['name' => 'Survey', 'location' => 'Taguig', 'neededBy' => '2030-03-05', 'neededByTime' => '14:00']),
-        ]])
-        ->assertSessionHasNoErrors();
+it('gives each inquiry sent one pending schedule, at the visit time or 10:00 otherwise', function (): void {
+    foreach ([
+        inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04', 'neededByTime' => '15:45']),
+        inquiryVisitInput(['name' => 'Survey', 'location' => 'Taguig', 'neededBy' => '2030-03-05', 'neededByTime' => '14:00']),
+    ] as $project) {
+        $this->actingAs($this->client)
+            ->post(route('quote.inquire.store'), ['projects' => [$project]])
+            ->assertSessionHasNoErrors();
+    }
 
     [$kitchen, $survey] = Inquiry::query()->with('schedule')->orderBy('id')->get()->all();
 
@@ -48,9 +50,11 @@ it('opens one inquiry per project sent, each with one pending schedule, at the v
 });
 
 it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leaves others alone', function (): void {
-    $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(), inquiryProjectInput()]])
-        ->assertSessionHasNoErrors();
+    foreach ([1, 2] as $inquiryNumber) {
+        $this->actingAs($this->client)
+            ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+            ->assertSessionHasNoErrors();
+    }
 
     [$inquiry, $other] = Inquiry::query()->orderBy('id')->get()->all();
     [$open, $untouched] = Schedule::query()->orderBy('id')->get()->all();

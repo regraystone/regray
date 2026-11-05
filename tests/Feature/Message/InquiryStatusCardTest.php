@@ -66,13 +66,15 @@ it('posts a "New inquiry" card with no role status in its snapshot into the Regr
         ->and($card->sender_id)->toBeNull();
 });
 
-it('posts one card per inquiry when several projects are sent at once', function (): void {
+it('posts one card per inquiry when a client sends several', function (): void {
     $client = inquiryClient();
     $thread = supportThreadFor($client);
 
-    $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(), inquiryProjectInput(['name' => 'Bath'])]])
-        ->assertRedirect();
+    foreach (['Kitchen', 'Bath'] as $name) {
+        $this->actingAs($client)
+            ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => $name])]])
+            ->assertRedirect();
+    }
 
     expect(Message::query()->where('conversation_id', $thread->id)->pluck('inquiry_id')->all())
         ->toEqualCanonicalizing(Inquiry::query()->pluck('id')->all())

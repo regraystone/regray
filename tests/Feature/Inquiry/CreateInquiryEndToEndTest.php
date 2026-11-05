@@ -12,7 +12,7 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('creates the whole row graph, one inquiry per project', function (): void {
+it('creates the whole row graph for each inquiry sent', function (): void {
     $applications = ProjectCategory::query()->orderBy('id')->limit(2)->pluck('slug')->all();
     $plan = UploadedFile::fake()->create('plan.pdf', 50, 'application/pdf');
 
@@ -23,8 +23,11 @@ it('creates the whole row graph, one inquiry per project', function (): void {
                 'applicationIds' => array_reverse($applications),
                 'attachments' => [$plan],
             ]),
-            inquiryVisitInput(),
         ]])
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($this->client)
+        ->post(route('quote.inquire.store'), ['projects' => [inquiryVisitInput()]])
         ->assertSessionHasNoErrors();
 
     [$first, $visit] = Inquiry::query()->with(['services', 'categories', 'stones', 'files', 'schedule', 'statusHistory'])->orderBy('id')->get()->all();

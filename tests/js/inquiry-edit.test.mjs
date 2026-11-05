@@ -15,6 +15,7 @@ const payload = (overrides = {}) => ({
     serviceSlugs: ['natural-stone-supply'],
     serviceOptionSlugs: { 'natural-stone-supply': 'supply-only' },
     applicationSlugs: ['countertops-backsplash'],
+    stoneAdviceRequested: false,
     stones: [
         { stoneId: 'marble', quantity: 4, edge: 'Half Bevel', finish: 'Honed' },
     ],
@@ -47,6 +48,7 @@ describe('toEditFormProjects', () => {
                 serviceIds: ['natural-stone-supply'],
                 serviceOptions: { 'natural-stone-supply': 'supply-only' },
                 applications: ['countertops-backsplash'],
+                stoneAdvice: false,
                 stones: [
                     {
                         stoneId: 'marble',
@@ -112,8 +114,6 @@ describe('deadlineLocks', () => {
 describe('reviewActions', () => {
     it('offers no Add or Remove when editing, and saves changes', () => {
         assert.deepEqual(reviewActions('edit'), {
-            canAddProject: false,
-            canRemoveProject: false,
             submitLabel: 'Save changes',
             footerNote: 'Nothing is saved until you save changes',
         });
@@ -121,10 +121,8 @@ describe('reviewActions', () => {
 
     it('is unchanged for a new inquiry', () => {
         assert.deepEqual(reviewActions('create'), {
-            canAddProject: true,
-            canRemoveProject: true,
-            submitLabel: 'Request a Quote',
-            footerNote: 'Nothing is sent until you request a quote',
+            submitLabel: 'Send my request',
+            footerNote: 'Nothing is sent until you press Send my request',
         });
     });
 });

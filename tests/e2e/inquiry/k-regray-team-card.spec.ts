@@ -89,10 +89,14 @@ test('41 · without a group chat, a status change posts its card into the Regray
     await addVisitProject(page, { location: 'Taguig' });
     const reference = await sendAndReadReference(page);
 
-    await page.goto('/quote');
-    const cancelled = await postAsUser(page, `/quote/${reference}/cancel`, {
-        _method: 'PATCH',
-    });
+    await page.goto('/dashboard/quote');
+    const cancelled = await postAsUser(
+        page,
+        `/dashboard/quote/${reference}/cancel`,
+        {
+            _method: 'PATCH',
+        },
+    );
     expect([302, 303], `cancel answered ${cancelled.status}`).toContain(
         cancelled.status,
     );

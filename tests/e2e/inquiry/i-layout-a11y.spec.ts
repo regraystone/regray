@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { expect, shot, test } from '../support/fixtures';
 import {
     CATALOG,
-    STEP_LABELS,
+    QUESTIONS,
     answerStoneRow,
     answerDeadline,
     chooseLocation,
@@ -30,22 +30,21 @@ const walkEveryStep = async (
     check: (label: string) => Promise<void>,
 ): Promise<void> => {
     await openInquire(page);
-    await check(STEP_LABELS[0]);
+    await check(QUESTIONS[0]);
     await pickService(page, CATALOG.stoneService);
     await continueButton(page).click();
 
     await expectStep(page, 2);
-    await check(STEP_LABELS[1]);
+    await check(QUESTIONS[1]);
     await pickStone(page, CATALOG.stones[0]);
     await continueButton(page).click();
 
     await expectStep(page, 3);
-    await check(STEP_LABELS[2]);
+    await check(QUESTIONS[2]);
     await pickApplication(page, CATALOG.applications[0]);
     await continueButton(page).click();
 
     await expectStep(page, 4);
-    await page.getByLabel('Project name').fill('Layout walk');
     await answerStoneRow(page, 0, {
         quantity: 2,
         edge: CATALOG.edges[0],
@@ -53,11 +52,11 @@ const walkEveryStep = async (
     });
     await chooseLocation(page, 'Las Piñas');
     await answerDeadline(page);
-    await check(STEP_LABELS[3]);
-    await page.getByRole('button', { name: 'Add to inquiry' }).click();
+    await check(QUESTIONS[3]);
+    await page.getByRole('button', { name: 'Continue to review' }).click();
 
     await expectStep(page, 5);
-    await check(STEP_LABELS[4]);
+    await check('Review');
     await sendAndReadReference(page);
     await check('Result');
 };
@@ -89,13 +88,15 @@ test('35 · at phone width the stepper is the one-line "Step N of 5 · label", n
 
     await expect(stepper(page).locator('p')).toBeVisible();
     await expect(stepper(page).locator('p')).toHaveText(
-        'Step 1 of 5 · Services',
+        'Step 1 of 2 · Your request',
     );
     await expect(stepper(page).locator('ol')).toBeHidden();
 
     await pickService(page, CATALOG.stoneService);
     await continueButton(page).click();
-    await expect(stepper(page).locator('p')).toHaveText('Step 2 of 5 · Stones');
+    await expect(stepper(page).locator('p')).toHaveText(
+        'Step 1 of 2 · Your request',
+    );
     await expect(stepper(page).locator('ol')).toBeHidden();
 });
 
@@ -151,15 +152,9 @@ test('36 · keyboard only: pick a service, walk the steps and send, with focus v
         page.getByRole('checkbox', { name: CATALOG.visitService, exact: true }),
     ).toHaveAttribute('aria-checked', 'true');
 
-    for (const step of [2, 3, 4]) {
-        await tabTo(
-            page,
-            (t) => t.name === 'Continue',
-            `Continue to step ${step}`,
-        );
-        await page.keyboard.press('Enter');
-        await expectStep(page, step);
-    }
+    await tabTo(page, (t) => t.name === 'Next', 'Next');
+    await page.keyboard.press('Enter');
+    await expectStep(page, 4);
 
     await tabTo(
         page,
@@ -189,7 +184,7 @@ test('36 · keyboard only: pick a service, walk the steps and send, with focus v
     await page.keyboard.press('Enter');
     await expectStep(page, 5);
 
-    await tabTo(page, (t) => t.name === 'Request a Quote', 'Request a Quote');
+    await tabTo(page, (t) => t.name === 'Send my request', 'Send my request');
     await page.keyboard.press('Enter');
     await expect(
         page.getByRole('heading', { name: 'Quote requested' }),

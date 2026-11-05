@@ -10,7 +10,8 @@ import {
 
 /* H. A send that fails, and a send pressed twice. */
 
-const isStore = (url: URL): boolean => url.pathname === '/quote/inquire';
+const isStore = (url: URL): boolean =>
+    url.pathname === '/dashboard/quote/inquire';
 
 /** Count the POSTs to the store route that leave the page. */
 const countStorePosts = (page: Page): (() => number) => {

@@ -29,8 +29,8 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * @phpstan-type ProjectInput array{name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type ProjectInput array{name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -266,6 +266,7 @@ class InquiryService
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
             'notes' => $project['notes'],
+            'stone_advice_requested' => $project['stone_advice_requested'] ?? false,
         ]);
 
         $this->scheduleService->createForInquiry(
@@ -312,6 +313,7 @@ class InquiryService
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
             'notes' => $project['notes'],
+            'stone_advice_requested' => $project['stone_advice_requested'] ?? false,
         ]);
 
         $this->moveVisit($inquiry, $client, $project, $bookedBy);
@@ -375,6 +377,7 @@ class InquiryService
             'landmark' => $inquiry->landmark,
             'area_sqm' => $inquiry->area_sqm === null ? null : (float) $inquiry->area_sqm,
             'notes' => $inquiry->notes,
+            'stone_advice_requested' => $inquiry->stone_advice_requested,
             'service_ids' => $inquiry->services()->pluck('services.id')->all(),
             'service_option_ids' => $inquiry->services()->pluck('inquiry_services.service_option_id', 'services.id')->all(),
             'application_ids' => $inquiry->categories()->pluck('project_categories.id')->all(),

@@ -22,7 +22,7 @@ class InquiryCardResource extends JsonResource
     public const HERO_STONES = 2;
 
     /**
-     * @return array{reference: string, name: string, location: string, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, announcedStatus: string, announcedSalesStatus: string|null, announcedPaymentStatus: string|null, announcedProcessStatus: string|null, status: string, occurredAt: string}
+     * @return array{reference: string, name: string, location: string, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, stoneAdviceRequested: bool, announcedStatus: string, announcedSalesStatus: string|null, announcedPaymentStatus: string|null, announcedProcessStatus: string|null, status: string, occurredAt: string}
      */
     public function toArray(Request $request): array
     {
@@ -47,6 +47,7 @@ class InquiryCardResource extends JsonResource
             'location' => $inquiry->location,
             'stones' => array_slice(array_values($stones), 0, self::HERO_STONES),
             'stoneCount' => count($stones),
+            'stoneAdviceRequested' => $inquiry->stone_advice_requested,
             'announcedStatus' => (string) $this->announced_status,
             // Null for a stage that had not started when the card was posted.
             'announcedSalesStatus' => $this->announced_sales_status,

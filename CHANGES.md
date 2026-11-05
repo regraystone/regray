@@ -1,3 +1,16 @@
+# Confirmation popups
+
+`ConfirmDialog` is the app's one way to ask before doing something. Cancelling an inquiry (it was the browser's `confirm()`), logging out and removing a message all use it.
+
+# A simpler inquiry: two steps, one project
+
+The stepper is now **1. Your request** and **2. Review and send**. The first step is four questions on one page, one open at a time; an answered question closes to a line with a Change button.
+
+- **One project per inquiry.** "Add another project" is gone, and the server refuses a second (`config/inquiry.php`, `MAX_PROJECTS`). Visits skip the stone and "where it is used" questions.
+- **Edge and finish** start as "Not sure yet, advise me" and fold away behind "Choose edge and finish (optional)". Landmark, area, files and notes fold away behind "Add more details (optional)".
+- **The project name is automatic** ("Kitchen Islands - Natural Stone Supply") and can be changed on Review. A name the reader gave is kept on later edits.
+- **Help me choose** sends an inquiry with no stone. New column `inquiries.stone_advice_requested`, added to the create migration, so an existing database needs `migrate:fresh --seed`. Staff and clients see "Stone to be recommended by Regray" on the inquiry page and the chat card.
+
 # Request a quotation from the Regray Team thread
 
 A client with no inquiry going sees a floating "Request a quotation" button in their Regray Team thread, which opens the stepper. It reads "Continue your request" when this browser holds their draft.

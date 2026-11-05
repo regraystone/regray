@@ -1,5 +1,5 @@
-﻿import { ChevronDown, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+﻿import { ChevronDown, FileText, Pencil } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import AlertError from '@/components/alert-error';
 import { formatSize } from '@/components/file-upload';
@@ -10,8 +10,9 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { attachmentMeta } from '@/data/inquiries';
+import { attachmentMeta, PROJECT_NAME_MAX } from '@/data/inquiries';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import {
     isStandaloneProject,
@@ -19,7 +20,6 @@ import {
     type InquiryMode,
 } from '@/lib/inquiry-flow';
 import {
-    MAX_PROJECTS,
     REQUIREMENTS_STEP,
     type InquiryFormInput,
     type InquiryFormValues,
@@ -126,34 +126,46 @@ type ReviewProject = InquiryFormValues['projects'][number];
  * is sent: stones as tiles with their pieces, edge and finish; services as rows
  * with their pictures; the applications; and the site's own answers.
  *
- * Edit and Remove sit in the header, beside the chevron that folds the body away.
+ * Edit sits in the header, beside the chevron that folds the body away.
  * The project's complaint, when the whole-form check has one, is said under the
  * header where the reader is looking when they decide what to change.
  */
 const ReviewProjectCard = ({
     index,
     project,
-    ofMany,
     stones,
     message,
     locked,
     onEdit,
-    onRemove,
 }: {
     index: number;
     project: ReviewProject;
-    ofMany: number;
     stones: Array<
         ReviewProject['stones'][number] & { stone: InquiryStoneOption }
     >;
     message: string | undefined;
     locked: boolean;
     onEdit: () => void;
-    /** Absent when projects cannot be removed, as when editing a sent inquiry. */
-    onRemove?: () => void;
 }) => {
     const catalog = useInquiryCatalog();
     const [open, setOpen] = useState(true);
+    const { setValue } = useFormContext<
+        InquiryFormInput,
+        unknown,
+        InquiryFormValues
+    >();
+    const [newName, setNewName] = useState<string | null>(null);
+
+    /** Keep the typed name unless it is blank, which a project can't be. */
+    const saveName = () => {
+        const name = (newName ?? '').trim();
+
+        if (name !== '') {
+            setValue(`projects.${index}.name`, name, { shouldDirty: true });
+        }
+
+        setNewName(null);
+    };
 
     const pieces = stones.reduce((total, row) => total + row.quantity, 0);
     const stoneTypes = new Set(stones.map((row) => row.stoneId)).size;
@@ -200,25 +212,21 @@ const ReviewProjectCard = ({
             <Collapsible open={open} onOpenChange={setOpen}>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-3 sm:px-5">
                     <h3 className="min-w-0 flex-1">
-                        {/*
-                         * Numbered only when there is more than one. "Project 1 of
-                         * 1" says the reader is partway through a set when there
-                         * is no set, and on a single-project request the name is
-                         * the whole of what identifies it.
-                         */}
-                        {ofMany > 1 ? (
-                            <span className="block text-[0.65rem] font-bold tracking-[0.2em] text-secondary-foreground uppercase">
-                                Project {index + 1}
-                            </span>
-                        ) : null}
-
-                        <span
-                            className={`block text-sm font-bold break-words ${
-                                ofMany > 1 ? 'mt-1' : ''
-                            }`}
-                        >
+                        <span className="block text-sm font-bold break-words">
                             {project.name}
                         </span>
+
+                        {newName === null ? (
+                            <button
+                                type="button"
+                                onClick={() => setNewName(project.name)}
+                                disabled={locked}
+                                aria-label={`Change the name of ${project.name}`}
+                                className="mt-0.5 block cursor-pointer py-1 text-xs font-normal underline underline-offset-2 disabled:cursor-not-allowed"
+                            >
+                                Change name
+                            </button>
+                        ) : null}
                     </h3>
 
                     {stoneTypes > 0 ? (
@@ -231,20 +239,6 @@ const ReviewProjectCard = ({
                     ) : null}
 
                     <div className="flex shrink-0 items-center gap-2">
-                        {onRemove ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={onRemove}
-                                disabled={locked}
-                                aria-label={`Remove ${project.name}`}
-                            >
-                                <Trash2 aria-hidden />
-                                Remove
-                            </Button>
-                        ) : null}
-
                         <Button
                             type="button"
                             variant="outline"
@@ -270,6 +264,38 @@ const ReviewProjectCard = ({
                         </CollapsibleTrigger>
                     </div>
                 </div>
+
+                {newName !== null ? (
+                    <div className="flex flex-col gap-2 px-4 pb-3 sm:flex-row sm:items-center sm:px-5">
+                        <Input
+                            value={newName}
+                            onChange={(event) => setNewName(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    saveName();
+                                }
+                            }}
+                            maxLength={PROJECT_NAME_MAX}
+                            aria-label="Project name"
+                            autoFocus
+                            className="min-w-0 flex-1 rounded-none"
+                        />
+                        <div className="flex gap-2">
+                            <Button type="button" size="sm" onClick={saveName}>
+                                Save name
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setNewName(null)}
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                ) : null}
 
                 {/*
                  * The same complaint is said twice on purpose: once in the list at
@@ -315,12 +341,24 @@ const ReviewProjectCard = ({
                                                         {row.quantity} pcs
                                                     </p>
                                                 </div>
-                                                <p className="mt-1 truncate text-xs text-secondary-foreground">
-                                                    {row.edge}
-                                                </p>
-                                                <p className="truncate text-xs text-secondary-foreground">
-                                                    {row.finish}
-                                                </p>
+                                                {row.edge ===
+                                                    catalog.advisoryEdge &&
+                                                row.finish ===
+                                                    catalog.advisoryFinish ? (
+                                                    <p className="mt-1 text-xs text-secondary-foreground">
+                                                        We'll advise on edge and
+                                                        finish
+                                                    </p>
+                                                ) : (
+                                                    <>
+                                                        <p className="mt-1 truncate text-xs text-secondary-foreground">
+                                                            {row.edge}
+                                                        </p>
+                                                        <p className="truncate text-xs text-secondary-foreground">
+                                                            {row.finish}
+                                                        </p>
+                                                    </>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -328,7 +366,9 @@ const ReviewProjectCard = ({
                                     <p className="mt-2 text-sm text-secondary-foreground">
                                         {isVisit
                                             ? 'Nothing to supply or install — this project is a visit.'
-                                            : 'No stones were chosen for this project.'}
+                                            : project.stoneAdvice
+                                              ? 'Stone to be recommended by Regray.'
+                                              : 'No stones were chosen for this project.'}
                                     </p>
                                 )}
                             </section>
@@ -377,7 +417,7 @@ const ReviewProjectCard = ({
                             {applications.length > 0 ? (
                                 <section>
                                     <SectionLabel count={applications.length}>
-                                        Applications
+                                        Where it will be used
                                     </SectionLabel>
 
                                     <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
@@ -396,7 +436,7 @@ const ReviewProjectCard = ({
                             ) : null}
 
                             <section>
-                                <SectionLabel>Requirements</SectionLabel>
+                                <SectionLabel>Where and when</SectionLabel>
 
                                 <dl>
                                     <SummaryRow
@@ -404,11 +444,11 @@ const ReviewProjectCard = ({
                                         value={project.location}
                                     />
                                     <SummaryRow
-                                        label="Landmark"
+                                        label="A nearby landmark"
                                         value={project.landmark}
                                     />
                                     <SummaryRow
-                                        label="Approximate area"
+                                        label="Size of the area"
                                         value={
                                             project.areaSqm.trim() === ''
                                                 ? ''
@@ -416,7 +456,7 @@ const ReviewProjectCard = ({
                                         }
                                     />
                                     <SummaryRow
-                                        label="Target deadline"
+                                        label="When you need it"
                                         value={formatNeededByMoment(
                                             project.neededBy,
                                             project.neededByTime,
@@ -522,9 +562,7 @@ type InquiryReviewProps = {
     /** Reopen one project in the requirements step, prefilled. */
     onEditProject: (id: string) => void;
     /** Ask the page to confirm before a project goes. */
-    onRemoveProject: (id: string) => void;
     /** Start a blank project and go back to the services list. */
-    onAddProject: () => void;
     /**
      * One complaint about the request as a whole — no projects at all, or too many
      * — keyed by the step that owns the fields it is about. Separate from
@@ -543,7 +581,7 @@ type InquiryReviewProps = {
     locked: boolean;
     onRequestQuote: () => void;
     /**
-     * `edit` when changing a sent inquiry: no Add or Remove, and the button
+     * `edit` when changing a sent inquiry: the button
      * saves the changes instead of requesting a quote. See `reviewActions`.
      */
     mode?: InquiryMode;
@@ -564,8 +602,6 @@ type InquiryReviewProps = {
  */
 const InquiryReview = ({
     onEditProject,
-    onRemoveProject,
-    onAddProject,
     sectionMessages,
     projectMessages,
     validationErrors,
@@ -584,15 +620,9 @@ const InquiryReview = ({
     /*
      * Subscribed rather than read with `watch`, which takes a value out of the
      * form and nothing else: it does not listen for the value changing, so the
-     * sheet would keep showing a project that had just been removed.
+     * sheet would keep showing a project as it was before a change.
      */
     const projects = useWatch({ control, name: 'projects' });
-
-    /*
-     * Whether the request is full. Read here rather than left to the form's own
-     * rule so the button can say so instead of pressing it and being refused.
-     */
-    const atCap = projects.length >= MAX_PROJECTS;
 
     /*
      * Resolved in the order the reader picked them rather than in the order the
@@ -639,30 +669,6 @@ const InquiryReview = ({
 
     const requestMessage = sectionMessages[REQUIREMENTS_STEP];
 
-    const addProjectButton: ReactNode = (
-        <div>
-            <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={onAddProject}
-                disabled={locked || atCap}
-            >
-                <Plus aria-hidden />
-                {projects.length === 0
-                    ? 'Add a project'
-                    : 'Add another project'}
-            </Button>
-
-            {atCap ? (
-                <p className="mt-2 text-xs text-secondary-foreground">
-                    This request already has {MAX_PROJECTS} projects, which is
-                    the most it can hold.
-                </p>
-            ) : null}
-        </div>
-    );
-
     return (
         <div>
             {/* Above everything, because it is the answer to the button. */}
@@ -703,27 +709,13 @@ const InquiryReview = ({
                             key={project.id}
                             index={index}
                             project={project}
-                            ofMany={projects.length}
                             stones={stones}
                             message={projectMessages[project.id]}
                             locked={locked}
                             onEdit={() => onEditProject(project.id)}
-                            onRemove={
-                                actions.canRemoveProject
-                                    ? () => onRemoveProject(project.id)
-                                    : undefined
-                            }
                         />
                     ))
                 )}
-
-                {/*
-                 * A project of its own, rather than a link inside another project:
-                 * adding one is not a change to an existing project. Disabled at the
-                 * ceiling rather than left to refuse later, because the whole-form
-                 * check can only speak once the reader has pressed send.
-                 */}
-                {actions.canAddProject ? addProjectButton : null}
             </div>
 
             {/*

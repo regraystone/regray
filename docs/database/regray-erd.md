@@ -412,6 +412,7 @@ erDiagram
         varchar(150) landmark "null"
         decimal area_sqm "null, 10,2"
         varchar(1000) notes "null"
+        boolean stone_advice_requested "default false"
         varchar(20) sales_status "null until marketing wins it: negotiation, site_visited, on_hold, quoted, revision, won, rejected"
         timestamptz sales_status_changed_at "null"
         varchar(20) payment_status "null until approval: awaiting, partial, fully_paid"

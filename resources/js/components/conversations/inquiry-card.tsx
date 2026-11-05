@@ -84,6 +84,13 @@ const InquiryCard = ({ card }: { card: InquiryCardData }) => {
                                 </span>
                             ))}
                         </span>
+                    ) : card.stoneAdviceRequested ? (
+                        <span
+                            className="block p-3 text-center text-xs font-bold text-foreground"
+                            data-testid="inquiry-card-stone-advice"
+                        >
+                            Stone to be recommended
+                        </span>
                     ) : null}
 
                     <span className="absolute inset-x-0 bottom-0 block min-w-0 space-y-0.5 bg-foreground/60 p-3">
