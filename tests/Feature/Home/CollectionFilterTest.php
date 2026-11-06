@@ -6,10 +6,9 @@ use App\Models\Brand;
 use App\Models\Furniture;
 use App\Models\Stone;
 use App\Models\StoneCategory;
-use App\Models\StoneSize;
-use App\Models\StoneThickness;
 use App\Models\User;
 use Database\Seeders\FurnitureSeeder;
+use Database\Seeders\FurnitureTypeSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -18,7 +17,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  */
 
 beforeEach(function (): void {
-    $this->seed(RolePermissionSeeder::class);
+    $this->seed([RolePermissionSeeder::class, FurnitureTypeSeeder::class]);
     $this->brand = Brand::factory()->create(['slug' => 'acme', 'name' => 'Acme']);
 });
 
@@ -30,13 +29,11 @@ function brandPage(array $query = []): string
     return route('brands.show', ['brand' => 'acme', ...$query]);
 }
 
-test('offers every active lookup option in both collections, matched or not, and no inactive one', function (): void {
+test('offers what active stones hold in both collections, matched or not, and nothing inactive', function (): void {
     $category = StoneCategory::factory()->create();
-    StoneSize::factory()->create(['name' => '90x90']);
-    StoneThickness::factory()->create(['slug' => '12-mm', 'name' => '12 mm']);
     $inactive = StoneCategory::factory()->create(['is_active' => false]);
-    StoneSize::factory()->create(['name' => '95x95', 'is_active' => false]);
-    Stone::factory()->for($this->brand)->create();
+    Stone::factory()->for($this->brand)->create(['size' => '90x90', 'thickness_mm' => 12]);
+    Stone::factory()->for($this->brand)->create(['size' => '95x95', 'thickness_mm' => 99, 'is_active' => false]);
 
     $this->get(brandPage(['collection' => 'stones', 'search' => 'no matching item']))
         ->assertOk()
@@ -44,7 +41,7 @@ test('offers every active lookup option in both collections, matched or not, and
             ->has('products.data', 0)
             ->where('filterOptions.categories', fn ($options) => $options->pluck('value')->contains($category->slug) && ! $options->pluck('value')->contains($inactive->slug))
             ->where('filterOptions.sizes', fn ($options) => $options->pluck('value')->contains('90x90') && ! $options->pluck('value')->contains('95x95'))
-            ->where('filterOptions.thicknesses', fn ($options) => $options->pluck('value')->contains('12-mm'))
+            ->where('filterOptions.thicknesses', fn ($options) => $options->contains(['value' => '12', 'label' => '12 mm']) && ! $options->pluck('value')->contains('99'))
         );
 
     $this->get(brandPage(['collection' => 'furniture', 'search' => 'no matching item']))
@@ -57,41 +54,34 @@ test('offers every active lookup option in both collections, matched or not, and
         );
 });
 
-test('stones can match additional categories sizes and thicknesses through pivots', function (): void {
-    $stone = Stone::factory()->for($this->brand)->create();
+test('stones match an additional category, and their own size and thickness', function (): void {
+    $stone = Stone::factory()->for($this->brand)->create(['size' => '90x90', 'thickness_mm' => 12]);
     Stone::factory()->for($this->brand)->create();
     $category = StoneCategory::factory()->create();
-    $size = StoneSize::factory()->create(['name' => '90x90']);
-    $thickness = StoneThickness::factory()->create(['slug' => '12-mm']);
     $stone->categories()->attach($category);
-    $stone->sizes()->attach($size);
-    $stone->thicknesses()->attach($thickness);
 
-    $this->get(brandPage(['collection' => 'stones', 'category' => $category->slug, 'size' => '90x90', 'thickness' => '12-mm']))
+    $this->get(brandPage(['collection' => 'stones', 'category' => $category->slug, 'size' => '90x90', 'thickness' => '12']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
             ->where('products.data.0.slug', $stone->slug)
         );
 
     expect($stone->categories()->count())->toBe(2);
-    expect($stone->sizes()->count())->toBe(2);
-    expect($stone->thicknesses()->count())->toBe(2);
 });
 
-test('unused database stone options are valid filters even with no stone matching them', function (): void {
+test('a size and thickness of another brand are valid filters even with no stone here matching them', function (): void {
     Stone::factory()->for($this->brand)->create();
+    Stone::factory()->create(['size' => '90x90', 'thickness_mm' => 12]);
     $category = StoneCategory::factory()->create();
-    StoneSize::factory()->create(['name' => '90x90']);
-    StoneThickness::factory()->create(['slug' => '12-mm']);
 
-    $this->get(brandPage(['collection' => 'stones', 'category' => $category->slug, 'size' => '90x90', 'thickness' => '12-mm']))
+    $this->get(brandPage(['collection' => 'stones', 'category' => $category->slug, 'size' => '90x90', 'thickness' => '12']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
             ->where('hasProducts', true)
             ->where('filters.category', $category->slug)
             ->where('filters.size', '90x90')
-            ->where('filters.thickness', '12-mm')
+            ->where('filters.thickness', '12')
         );
 });
 
@@ -136,7 +126,7 @@ test('an unknown collection is dropped from the URL', function (): void {
         ->assertRedirect(brandPage(['search' => 'table']));
 });
 
-test('All Categories is the default and returns both kinds in one list ordered by name, case-insensitively', function (): void {
+test('All Categories is the default and lists the stones and then the furniture, each by name, case-insensitively', function (): void {
     Stone::factory()->for($this->brand)->create(['name' => 'bravo stone', 'slug' => 'bravo']);
     Stone::factory()->for($this->brand)->create(['name' => 'Delta stone', 'slug' => 'delta']);
     Furniture::factory()->for($this->brand)->create(['name' => 'Alpha table', 'slug' => 'alpha']);
@@ -148,8 +138,8 @@ test('All Categories is the default and returns both kinds in one list ordered b
             ->component('brand-profile')
             ->where('filters.collection', 'all')
             ->where('products.meta.total', 4)
-            ->where('products.data', fn ($products) => $products->pluck('slug')->all() === ['alpha', 'bravo', 'charlie', 'delta']
-                && $products->pluck('kind')->all() === ['furniture', 'stone', 'furniture', 'stone'])
+            ->where('products.data', fn ($products) => $products->pluck('slug')->all() === ['bravo', 'delta', 'alpha', 'charlie']
+                && $products->pluck('kind')->all() === ['stone', 'stone', 'furniture', 'furniture'])
         );
 });
 
@@ -195,7 +185,7 @@ test('a percent sign in a search is searched for, not treated as a wildcard', fu
 
 test('the second param is ignored under All Categories, and a param from the other collection is too', function (): void {
     $stone = Stone::factory()->for($this->brand)->create();
-    $furniture = Furniture::factory()->for($this->brand)->create(['furniture_type' => 'Beds']);
+    $furniture = Furniture::factory()->for($this->brand)->ofType('Beds')->create();
 
     $this->get(brandPage(['collection' => 'all', 'category' => 'no-such-category', 'furniture_type' => 'Tables']))
         ->assertOk()

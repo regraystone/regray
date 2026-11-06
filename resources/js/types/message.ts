@@ -44,7 +44,8 @@ export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
 export type InquiryCard = {
     reference: string;
     name: string;
-    location: string;
+    /** Null on a pickup. */
+    location: string | null;
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
     stoneCount: number;
     /** The client asked Regray to recommend a stone instead of choosing one. */

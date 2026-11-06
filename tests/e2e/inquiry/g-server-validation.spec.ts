@@ -7,21 +7,31 @@ import { CATALOG, projectPayload } from '../support/inquiry-flow';
  * the signed-in client's cookies straight to POST /quote/inquire.
  */
 
-test('28 · an inactive service slug is refused with 422 at its form path, and nothing is saved', async ({
+test('28 · a kind of work no longer offered is refused with 422 at its form path, and nothing is saved', async ({
     actors,
 }) => {
-    const { clientAId, retiredService } = inquiryFixtures();
+    const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
     await page.goto('/dashboard/quote');
     const before = inquiryCount(clientAId);
 
     const response = await postAsUser(page, '/dashboard/quote/inquire', {
-        projects: [projectPayload({ serviceIds: [retiredService] })],
+        projects: [
+            projectPayload({
+                work: [
+                    {
+                        stoneId: CATALOG.stoneSlug,
+                        serviceId: 'consultation-only',
+                        furnitureType: '',
+                    },
+                ],
+            }),
+        ],
     });
 
     expect(response.status).toBe(422);
     expect(response.json?.errors).toEqual({
-        'projects.0.serviceIds.0': ['That service is no longer available.'],
+        'projects.0.work.0.serviceId': ['That choice is no longer available.'],
     });
     expect(inquiryCount(clientAId)).toBe(before);
 });

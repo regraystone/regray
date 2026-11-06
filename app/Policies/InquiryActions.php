@@ -25,6 +25,9 @@ use App\Services\InquiryStatusRules;
  *
  * Once the client has approved the quotation they can no longer cancel: only
  * sales can, by rejecting, which shows the inquiry as cancelled.
+ *
+ * The page draws only the clickable ones. Disabled is for the endpoints, which
+ * refuse the request and say why.
  */
 class InquiryActions
 {

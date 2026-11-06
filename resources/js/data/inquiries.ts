@@ -94,7 +94,9 @@ export type InquiryFile = {
  * project at the same time. It asked the right questions in the wrong place.
  */
 export type InquiryRequirementsRecord = {
-    location: string;
+    deliveryMethod?: string;
+    /** None on a pickup. */
+    location?: string;
     landmark?: string;
     areaSqm?: number;
     neededBy?: string;
@@ -103,7 +105,6 @@ export type InquiryRequirementsRecord = {
      * team attends at one. A bare `HH:mm` rather than a full timestamp, so it
      * reads with whatever date sits beside it and cannot disagree with it.
      */
-    neededByTime?: string;
     notes?: string;
     attachments: InquiryFile[];
 };
@@ -158,8 +159,6 @@ export type Inquiry = {
     services: string[];
     /** In the order the client picked them. */
     stones: InquiryStoneSelection[];
-    /** Application names, in the order the client picked them. Optional for standalone services. */
-    applications?: string[];
     /** Where the work is, when it is wanted, and what else came with the request. */
     requirements: InquiryRequirementsRecord;
 };
@@ -186,7 +185,6 @@ export const inquiries: Inquiry[] = [
         clientId: 'cl-grace',
         handledByIds: [],
         services: ['Custom Stone Fabrication', 'Natural Stone Installation'],
-        applications: ['Kitchen Islands'],
         stones: [
             {
                 stoneId: 'cosmic-black',
@@ -215,7 +213,6 @@ export const inquiries: Inquiry[] = [
         clientId: 'cl-haruki',
         handledByIds: ['sofia'],
         services: ['Custom Stone Fabrication', 'Natural Stone Installation'],
-        applications: ['Lavatories'],
         stones: [
             {
                 stoneId: 'avocado-green-iii',
@@ -243,7 +240,6 @@ export const inquiries: Inquiry[] = [
         clientId: 'cl-rafael',
         handledByIds: ['daniel', 'maria'],
         services: ['Custom Stone Fabrication', 'Natural Stone Installation'],
-        applications: ['Countertops & Backsplash'],
         stones: [
             {
                 stoneId: 'avocado-green-iii',
@@ -286,7 +282,6 @@ export const inquiries: Inquiry[] = [
         clientId: 'cl-elena',
         handledByIds: ['daniel'],
         services: ['Custom Stone Fabrication', 'Natural Stone Installation'],
-        applications: ['Countertops & Backsplash'],
         stones: [
             {
                 stoneId: 'cosmic-black',
@@ -327,7 +322,6 @@ export const inquiries: Inquiry[] = [
             'Custom Stone Fabrication',
             'Natural Stone Installation',
         ],
-        applications: ['Kitchen Islands'],
         stones: [
             {
                 stoneId: 'cosmic-black',
@@ -363,12 +357,10 @@ export const inquiries: Inquiry[] = [
         clientId: 'cl-grace',
         handledByIds: ['sofia'],
         services: ['Stone Relocation, Dismantling & Reinstallation'],
-        applications: ['Wall Accents'],
         stones: [],
         requirements: {
             location: 'Quezon City',
             neededBy: '2026-08-20',
-            neededByTime: '08:00',
             attachments: [],
         },
     },

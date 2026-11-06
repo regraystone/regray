@@ -2,17 +2,14 @@ import type { Page } from '@playwright/test';
 import { inquiryFixtures } from '../support/accounts';
 import { expect, inquiryReferences, php, test } from '../support/fixtures';
 import {
-    CATALOG,
+    REVIEW,
+    answerDeadline,
     chooseLocation,
-    continueButton,
-    deadlineDate,
-    deadlineTime,
     expectStep,
-    futureDate,
     openInquire,
     openMoreDetails,
-    pickService,
     sendAndReadReference,
+    walkToRequirements,
 } from '../support/inquiry-flow';
 
 /* E. Attachments on the Requirements step. */
@@ -47,28 +44,25 @@ const fileInput = (page: Page) => page.locator('input[type="file"]');
 const attachmentRow = (page: Page, name: string) =>
     page.locator('li').filter({ has: page.getByTitle(name, { exact: true }) });
 
-/** A visit up to the Requirements step, where the attachments are. */
-const openVisitRequirements = async (page: Page): Promise<void> => {
+/** A request up to the details, where the attachments are. */
+const openRequirements = async (page: Page): Promise<void> => {
     await openInquire(page);
-    await pickService(page, CATALOG.visitService);
-    await continueButton(page).click();
-    await expectStep(page, 4);
+    await walkToRequirements(page);
     await openMoreDetails(page);
 };
 
-const finishVisit = async (page: Page): Promise<void> => {
+const finishRequirements = async (page: Page): Promise<void> => {
     await chooseLocation(page, 'Makati');
-    await deadlineDate(page).fill(futureDate(8));
-    await deadlineTime(page).fill('15:00');
+    await answerDeadline(page);
     await page.getByRole('button', { name: 'Continue to review' }).click();
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
 };
 
 test('21 · a PDF and a PNG appear with their names; removing one takes it off', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
-    await openVisitRequirements(page);
+    await openRequirements(page);
 
     await fileInput(page).setInputFiles([
         pdf('site-plan.pdf'),
@@ -91,7 +85,7 @@ test('22 · a .gif and a file over 10 MB are refused with a message, and nothing
     actors,
 }) => {
     const { page } = await actors.open('client');
-    await openVisitRequirements(page);
+    await openRequirements(page);
 
     const sent: string[] = [];
     page.on('request', (request) => sent.push(request.url()));
@@ -119,13 +113,13 @@ test('23 · attachments are kept on the private disk and a guessed /storage URL 
     const { clientAId, disk } = inquiryFixtures();
     const { page } = await actors.open('client');
     actors.allowConsole(/status of 40[34]/);
-    await openVisitRequirements(page);
+    await openRequirements(page);
 
     await fileInput(page).setInputFiles([pdf('private-plan.pdf')]);
     await expect(attachmentRow(page, 'private-plan.pdf')).toContainText(
         'Uploaded',
     );
-    await finishVisit(page);
+    await finishRequirements(page);
     const reference = await sendAndReadReference(page);
     expect(inquiryReferences(clientAId)[0]).toBe(reference);
 
@@ -164,7 +158,7 @@ test('24 · ten attachments are accepted and the eleventh is refused', async ({
 }) => {
     const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
-    await openVisitRequirements(page);
+    await openRequirements(page);
 
     const files = Array.from({ length: 11 }, (_, index) =>
         pdf(`sheet-${String(index + 1).padStart(2, '0')}.pdf`),
@@ -180,7 +174,7 @@ test('24 · ten attachments are accepted and the eleventh is refused', async ({
     await expect(attachmentRow(page, 'sheet-11.pdf')).toHaveCount(0);
     await expect(page.getByText('Uploaded', { exact: true })).toHaveCount(10);
 
-    await finishVisit(page);
+    await finishRequirements(page);
     const reference = await sendAndReadReference(page);
     expect(inquiryReferences(clientAId)[0]).toBe(reference);
     expect(

@@ -118,6 +118,11 @@ class ViewController extends Controller
                     continue;
                 }
 
+                // Sales won shows as quoted, so no inquiry is ever at won.
+                if ($status === InquiryStatus::Won) {
+                    continue;
+                }
+
                 $options[] = [
                     'value' => $status->value,
                     'label' => match ($status) {
@@ -129,7 +134,6 @@ class ViewController extends Controller
                         InquiryStatus::OnHold => 'On hold',
                         InquiryStatus::Quoted => 'Quoted',
                         InquiryStatus::Revision => 'Revision',
-                        InquiryStatus::Won => 'Won',
                         InquiryStatus::OrderReceived => 'Order received',
                         InquiryStatus::Measure => 'Measure',
                         InquiryStatus::Sourcing => 'Sourcing',
@@ -149,8 +153,8 @@ class ViewController extends Controller
     }
 
     /**
-     * The Inquire page and everything it offers: the services, the stones, the
-     * applications, the edge profiles and finishes still in use, and the
+     * The Inquire page and everything it offers: the services, the furniture
+     * types, the stones, the edge profiles and finishes still in use, and the
      * locations. All of it is read here rather than imported by the page, so
      * the flow and the validation behind it start from the same rows.
      *

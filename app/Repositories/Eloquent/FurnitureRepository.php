@@ -11,7 +11,7 @@ class FurnitureRepository implements FurnitureRepositoryInterface
     {
         return Furniture::query()
             ->active()
-            ->with('brand:id,slug,name')
+            ->with(['brand:id,slug,name', 'furnitureType:id,slug,name'])
             ->where('slug', $slug)
             ->first();
     }

@@ -13,6 +13,7 @@ use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
 use App\Models\InquiryStone;
+use App\Models\InquiryWorkItem;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Services\ScheduleService;
@@ -247,17 +248,25 @@ class InquiryDetailsResource extends JsonResource
     private function project(): array
     {
         $arrivalAt = $this->schedule?->arrival_at->setTimezone(ScheduleService::timezone());
-        $isVisit = $this->services->isNotEmpty() && $this->services->every(fn ($service): bool => $service->is_standalone);
+        $workOf = fn (?int $stoneId): array => $this->workItems
+            ->where('stone_id', $stoneId)
+            ->map(fn (InquiryWorkItem $item): array => [
+                'service' => $item->service->name,
+                'furnitureType' => $item->furnitureType?->name,
+            ])
+            ->values()
+            ->all();
 
         return [
             'name' => $this->name,
-            'services' => $this->services->map(fn ($service): array => [
-                'name' => $service->name,
-                'image' => ProjectCardResource::resolveThumbnailUrl($service->image_path),
-                // The kind of work picked under it; null on inquiries sent before the choice existed.
-                'option' => $this->serviceOptions->firstWhere('service_id', $service->id)?->name,
-            ])->values()->all(),
-            'applications' => $this->categories->map(fn ($category): string => $category->name)->values()->all(),
+            // Each service wanted, once, however many stones want it.
+            'services' => $this->workItems
+                ->unique('service_id')
+                ->map(fn (InquiryWorkItem $item): array => ['name' => $item->service->name])
+                ->values()
+                ->all(),
+            // The work not tied to a chosen stone: Regray is to recommend one.
+            'unassignedWork' => $workOf(null),
             'stoneAdviceRequested' => $this->stone_advice_requested,
             'stones' => $this->stones->map(fn (InquiryStone $row): array => [
                 'id' => $row->stone->slug,
@@ -266,15 +275,14 @@ class InquiryDetailsResource extends JsonResource
                 'quantity' => $row->quantity,
                 'edge' => $row->edgeProfile->name,
                 'finish' => $row->finish->name,
+                'work' => $workOf($row->stone_id),
             ])->values()->all(),
             'requirements' => [
+                'deliveryMethod' => $this->delivery_method->value,
                 'location' => $this->location,
                 'landmark' => $this->landmark,
                 'areaSqm' => $this->area_sqm === null ? null : (float) $this->area_sqm,
                 'neededBy' => $arrivalAt?->toDateString(),
-                // Only a visit asks for a time; any other project's schedule
-                // holds the default time, which the client never typed.
-                'neededByTime' => $isVisit ? $arrivalAt?->format('H:i') : null,
                 'notes' => $this->notes,
                 'attachments' => $this->files
                     ->filter(fn (InquiryFile $file): bool => $file->document_type === DocumentType::ClientAttachment)

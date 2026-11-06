@@ -179,9 +179,18 @@ erDiagram
         varchar(150) name
         text description "null"
         varchar(255) thumbnail_path "null"
-        varchar(100) furniture_type
+        bigint furniture_type_id FK "restrict"
         boolean is_active
         smallint sort_order
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    furniture_types {
+        bigint id PK
+        varchar(100) slug UK
+        varchar(100) name UK
+        smallint sort_order
+        boolean is_active
         timestamptz created_at
         timestamptz updated_at
     }
@@ -196,7 +205,6 @@ erDiagram
         varchar(150) name UK "partial unique, not deleted"
         varchar(255) thumbnail_path
         text description
-        varchar(255) origin "for example Brazil, India"
         boolean is_active
         smallint sort_order
         timestamptz created_at
@@ -212,6 +220,7 @@ erDiagram
         varchar(255) thumbnail_path
         varchar(20) size "digits x digits, for example 20x120"
         smallint thickness_mm "positive millimetres"
+        varchar(255) origin "for example Brazil, India"
         boolean recommended
         boolean is_active
         smallint sort_order
@@ -275,6 +284,7 @@ erDiagram
     brands ||--o{ furniture : "sells"
     users ||--o{ saved_furniture : "saves"
     furniture ||--o{ saved_furniture : "saved by"
+    furniture_types ||--o{ furniture : "types"
     stone_categories ||--o{ stones : "categorises"
     stones ||--o{ stone_images : "has gallery"
     stone_categories ||--o{ application_stone_category : "suited to"
@@ -349,22 +359,13 @@ erDiagram
     }
     services {
         bigint id PK
-        varchar(100) slug UK "partial unique, not deleted"
-        varchar(150) name UK "partial unique, not deleted"
-        varchar(255) image_path
-        boolean is_standalone "needs no stone"
-        string selection_group "services share a project only within one group"
+        varchar(100) slug UK
+        varchar(150) name UK
+        boolean needs_furniture "also asks for a furniture type"
         boolean is_active
         smallint sort_order
         timestamptz created_at
         timestamptz updated_at
-        timestamptz deleted_at "null"
-    }
-    service_features {
-        bigint id PK
-        bigint service_id FK "cascade"
-        varchar(255) body
-        smallint sort_order
     }
     stones {
         bigint id PK
@@ -375,7 +376,6 @@ erDiagram
     stones ||--o{ project_stone : "used in"
     projects ||--|{ category_project : "tagged"
     project_categories ||--o{ category_project : "tags"
-    services ||--o{ service_features : "covers"
 ```
 
 | Table                | Indexes and rules                                                                                                                                                                                      |
@@ -385,7 +385,6 @@ erDiagram
 | Pivots               | Composite primary key plus a reverse index on `stone_id` and `project_category_id`.                                                                                                                    |
 | `project_categories` | Unique `slug` and `lower(name)`. Seeded with the nine categories.                                                                                                                                      |
 | `services`           | Partial unique `slug` and `lower(name)` where `deleted_at IS NULL`. Index `(is_active, sort_order)`.                                                                                                   |
-| `service_features`   | Unique `(service_id, sort_order)`.                                                                                                                                                                     |
 
 ---
 
@@ -408,7 +407,8 @@ erDiagram
         varchar(20) marketing_status "null while waiting for marketing: won, lost"
         timestamptz marketing_status_changed_at "null"
         varchar(100) name
-        varchar(255) location
+        varchar(20) delivery_method "default delivery: delivery, pickup"
+        varchar(255) location "null only for a pickup"
         varchar(150) landmark "null"
         decimal area_sqm "null, 10,2"
         varchar(1000) notes "null"
@@ -458,14 +458,14 @@ erDiagram
         varchar(500) note "null"
         timestamptz changed_at
     }
-    inquiry_services {
-        bigint inquiry_id PK, FK "cascade"
-        bigint service_id PK, FK "restrict"
-    }
-    inquiry_categories {
-        bigint inquiry_id PK, FK "cascade"
-        bigint project_category_id PK, FK "restrict"
-        smallint sort_order
+    inquiry_work_items {
+        bigint id PK
+        bigint inquiry_id FK "cascade"
+        bigint stone_id FK "null when Regray is to recommend one, restrict"
+        bigint service_id FK "restrict"
+        bigint furniture_type_id FK "null unless the option needs one, restrict"
+        timestamptz created_at
+        timestamptz updated_at
     }
     inquiry_stones {
         bigint id PK
@@ -513,7 +513,7 @@ erDiagram
     services {
         bigint id PK
     }
-    project_categories {
+    furniture_types {
         bigint id PK
     }
     edge_profiles {
@@ -548,10 +548,10 @@ erDiagram
     inquiries ||--o{ inquiry_handlers : "assigned to"
     users ||--o{ inquiry_handlers : "handles"
     inquiries ||--|{ inquiry_status_history : "timeline, per track"
-    inquiries ||--|{ inquiry_services : "wants"
-    services ||--o{ inquiry_services : "requested in"
-    inquiries ||--o{ inquiry_categories : "categorised"
-    project_categories ||--o{ inquiry_categories : "chosen in"
+    inquiries ||--|{ inquiry_work_items : "wants"
+    stones |o--o{ inquiry_work_items : "worked in"
+    services ||--o{ inquiry_work_items : "requested in"
+    furniture_types |o--o{ inquiry_work_items : "made as"
     inquiries ||--o{ inquiry_stones : "specifies"
     stones ||--o{ inquiry_stones : "picked in"
     edge_profiles ||--o{ inquiry_stones : "cut with"
@@ -573,7 +573,7 @@ erDiagram
 | `inquiry_stones`         | **Unique `(inquiry_id, stone_id, edge_profile_id, finish_id)`** (`idx_inquiry_stones_unique`): the same stone twice is fine only when cut or finished differently. Index `stone_id`. CHECK `quantity BETWEEN 1 AND 9999`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `inquiry_files`          | Index `(inquiry_id, document_type)`, index `status_history_id`. CHECK `document_type IN ('client_attachment','quotation','job_order','billing_statement','receipt','invoice')`, `revision >= 1`. **Files are grouped per status update**: `status_history_id` is the history row of the update a file came with (a quote's quotation and job order; payment's billing statement; a payment's receipts and invoice), and NULL for the client's attachments. A quotation file carries the `quote_revision` it was issued as. **Who uploads which** is the app's rule (`App\Policies\InquiryFileUploads`), not the database's: the inquiry's client uploads `client_attachment`; whoever may move sales (`inquiries.status.sales`) uploads `quotation` and `job_order`; whoever may move payment (`inquiries.status.payment`) uploads `billing_statement`, `receipt` and `invoice`. **Who sees which**: the quotation, billing statement, receipts and invoice are shared with the client, grouped by update ("Partial payment · June 22, 2020"); the job order is internal and is never sent, to anyone. Per inquiry limits (count and size) on client attachments are enforced in validation; an edit by the client only ever keeps or drops client attachments, and staff never touch them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `payment_transactions`   | Index `(inquiry_id, received_at)`. CHECK `kind IN ('payment','refund')`, `amount > 0`. The ledger behind the payment status, which accounting sets **by hand**: it is not derived from these rows. The `payment` rows never add up to more than `quoted_total`; `awaiting` has none, `partial` has some, `fully_paid` adds up to `quoted_total`. A refund has no payment status of its own.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Pivots                   | `inquiry_services` and `inquiry_categories`, keyed on `inquiry_id`. Reverse index on `service_id` and `project_category_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `inquiry_work_items`     | Unique `(inquiry_id, stone_id, service_id)`, and `(inquiry_id, service_id)` where `stone_id` is NULL. Index each FK. One row is one fact: this inquiry wants this service for this stone. It is not on `inquiry_stones` because a stone has a row there per edge and finish, and the work depends on the stone alone. That `furniture_type_id` is set only for a service with `needs_furniture` spans two tables, so the request holds it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `edge_profiles`          | Unique `lower(name)`. Seed it with the 7 profiles plus Advise me. Never hard delete a row an inquiry used: set `is_active = false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 When the project is wanted is not a column: sending the inquiry books one schedule for it (`schedules.inquiry_id`, at most one per inquiry), and the target deadline is that schedule's `arrival_at`, read in Asia/Manila.
@@ -620,7 +620,7 @@ Built. Staff move each track from the Inquiry list's **Update Status** dialog (`
 9. **Logistics** moves to any value but its current one once the job order has started it: `order_received`, `measure`, `sourcing`, `production`, `quality_check`, `ready`, `dispatched`, `installation`, `completed`, `on_hold`, `delayed`. The forward order (`order_received` → … → `completed`) is the usual path but is not enforced. No files. `completed` is final and closes the inquiry.
 10. **Cancelled.** Sales `rejected`, or marketing's `lost`, shows `cancelled`. The client may cancel only **before the quotation is approved**: Cancel is locked on their Quote card from sales `quoted` on, and the endpoint refuses it. A client's cancel sets `sales_status` to `rejected` if sales has started, and decides that inquiry `lost` if it has not (that inquiry alone); an inquiry with no lead yet has nobody to decide it, so its sales becomes `rejected` from NULL. After approval the way out is a refund (step 11). Either way the inquiry's open schedules are cancelled.
 11. **Refund.** Once won, sales' only move is `for_refund`, offered only while a `partial` or `fully_paid` payment is in and logistics has not completed the project, with the client's **refund request form** (required) and the note; it is final, logistics stops, and the inquiry shows `for_refund`. Accounting then moves payment, from any state, to `partially_refunded` or `refunded`, each with the **refund settled** file, the note and the **amount refunded**, recorded as a `refund` `payment_transactions` row: a partial refund has to leave part of what was paid held, and `refunded` has to return all of it. `refunded` is final, and moves sales on its own from `for_refund` to `rejected` (same user, an automatic note), so the inquiry shows `cancelled` with accounting's `refunded` badge beside it. Both refund files are shared with the client.
-12. **Edit.** Marketing and sales (`inquiries.edit`) may change an open inquiry's project from the Inquiry list: name, location, landmark, area, notes, services, applications, stones and deadline. Never its client, its statuses or the client's files.
+12. **Edit.** Marketing and sales (`inquiries.edit`) may change an open inquiry's project from the Inquiry list: name, delivery method, location, landmark, area, notes, work, stones and deadline. Never its client, its statuses or the client's files.
 
 Every change to sales, payment or logistics, a new inquiry, and an inquiry marketing lost post an inquiry card with the new snapshot (section 5). The client sees only the inquiry status and the payment status: nothing about the lead, marketing, or who is in a group chat.
 
@@ -732,11 +732,11 @@ An inquiry card is posted when an inquiry is sent, on any change to sales, payme
 
 ## Foreign key actions
 
-| Action     | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's stones, files, status history and payment transactions, a lead's status history, a client's contacts, message attachments, conversation members and messages.                                                                                                                                                                                                                                                                                                                            |
-| `RESTRICT` | A brand's products (`stones.brand_id`, `furniture.brand_id`). Anything history depends on: `inquiry_stones` to stones, edge profiles and finishes, `inquiry_services` and `inquiry_categories` to their catalog rows, inquiries and schedules to the client's user, `inquiry_handlers` to users, leads to their client and marketing user, `inquiries.lead_id` to leads, `conversations.inquiry_id` to inquiries, `clients.user_id` to users, `inquiries.client_record_id` to clients. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
-| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `recorded_by`, `sender_id`, `last_read_message_id`), the link from a schedule to an inquiry, and from a card message to what it announces.                                                                                                                                                                                                                                                                                                                                |
+| Action     | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's stones, files, status history and payment transactions, a lead's status history, a client's contacts, message attachments, conversation members and messages.                                                                                                                                                                                                                                                                                                   |
+| `RESTRICT` | A brand's products (`stones.brand_id`, `furniture.brand_id`). Anything history depends on: `inquiry_stones` to stones, edge profiles and finishes, `inquiry_work_items` to its catalog rows, inquiries and schedules to the client's user, `inquiry_handlers` to users, leads to their client and marketing user, `inquiries.lead_id` to leads, `conversations.inquiry_id` to inquiries, `clients.user_id` to users, `inquiries.client_record_id` to clients. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
+| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `recorded_by`, `sender_id`, `last_read_message_id`), the link from a schedule to an inquiry, and from a card message to what it announces.                                                                                                                                                                                                                                                                                                       |
 
 ---
 
@@ -757,7 +757,7 @@ An inquiry card is posted when an inquiry is sent, on any change to sales, payme
 
 ## Decisions to confirm
 
-1. **`stone_categories.origin` is free text.** A category with several origins is written as "Brazil, India", which is not strictly third normal form. This was your call, and it keeps data entry simple.
+1. **`stones.origin` is free text.** A stone with several origins is written as "Brazil, India", which is not strictly third normal form. This was your call, and it keeps data entry simple.
 2. **Thickness is one number.** The sample stones have ranges such as "50-100 mm" and "20-30 mm", so each needs a single value picked when the data is entered.
 3. **Edge profiles are a separate lookup** used only by inquiries, with no link to stones.
 4. **Client contact fields are in `user_profiles`** (`phone`, `company`, `address`, `avatar_path`), a one-to-one table used by clients only, because `users` must not change and staff do not need these fields.

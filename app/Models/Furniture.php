@@ -20,30 +20,19 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string|null $description
  * @property string|null $thumbnail_path
- * @property string $furniture_type
+ * @property int $furniture_type_id
  * @property bool $is_active
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Brand $brand
+ * @property-read FurnitureType $furnitureType
  */
-#[Fillable(['brand_id', 'slug', 'name', 'description', 'thumbnail_path', 'furniture_type', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'slug', 'name', 'description', 'thumbnail_path', 'furniture_type_id', 'is_active', 'sort_order'])]
 class Furniture extends Model
 {
     /** @use HasFactory<FurnitureFactory> */
     use HasFactory;
-
-    /** The furniture types a piece can have, in the order the filter lists them. */
-    public const TYPES = [
-        'Seating',
-        'Tables',
-        'Storage',
-        'Cabinets',
-        'Beds',
-        'Desks',
-        'Shelving',
-        'Decorative Furniture',
-    ];
 
     protected $table = 'furniture';
 
@@ -67,6 +56,12 @@ class Furniture extends Model
     protected function active(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /** @return BelongsTo<FurnitureType, $this> */
+    public function furnitureType(): BelongsTo
+    {
+        return $this->belongsTo(FurnitureType::class);
     }
 
     /** @return BelongsTo<Brand, $this> */

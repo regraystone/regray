@@ -324,9 +324,14 @@ class E2EMessageSeeder extends Seeder
             'location' => 'Makati',
         ])->save();
 
-        $inquiry->services()->attach(Service::query()->where('slug', 'natural-stone-supply')->value('id'));
+        $stoneId = Stone::query()->orderBy('id')->value('id');
+
+        $inquiry->workItems()->create([
+            'stone_id' => $stoneId,
+            'service_id' => Service::query()->where('slug', 'supply-only')->value('id'),
+        ]);
         $inquiry->stones()->create([
-            'stone_id' => Stone::query()->orderBy('id')->value('id'),
+            'stone_id' => $stoneId,
             'edge_profile_id' => EdgeProfile::query()->value('id'),
             'finish_id' => Finish::query()->value('id'),
             'quantity' => 1,

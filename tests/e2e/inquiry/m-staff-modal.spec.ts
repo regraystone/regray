@@ -35,7 +35,7 @@ test('47 · staff are asked Platform or Direct when they press Inquire; Platform
         .click();
 
     await expect(
-        page.getByRole('heading', { name: 'What do you need?' }),
+        page.getByRole('heading', { name: 'Which stones do you like?' }),
     ).toBeVisible();
     await expect(page.getByTestId('inquire-target')).toContainText('LEAD-0007');
 });
@@ -52,7 +52,7 @@ test("48 · a client's Inquire goes straight to the stepper, never through the m
         .click();
 
     await expect(
-        page.getByRole('heading', { name: 'What do you need?' }),
+        page.getByRole('heading', { name: 'Which stones do you like?' }),
     ).toBeVisible();
     await expect(page.getByTestId('staff-inquire-dialog')).toHaveCount(0);
 });
@@ -76,7 +76,7 @@ test('49 · the Direct branch offers the client already on file instead of a sec
     await page.getByRole('button', { name: /Use Carmela Reyes/ }).click();
 
     await expect(
-        page.getByRole('heading', { name: 'What do you need?' }),
+        page.getByRole('heading', { name: 'Which stones do you like?' }),
     ).toBeVisible();
     await expect(page.getByTestId('inquire-target')).toContainText(
         'Direct (walk-in)',

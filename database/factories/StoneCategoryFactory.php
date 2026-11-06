@@ -22,7 +22,6 @@ class StoneCategoryFactory extends Factory
             'name' => fake()->unique()->words(3, true),
             'thumbnail_path' => 'stones/category.jpg',
             'description' => fake()->sentence(),
-            'origin' => fake()->country(),
             'is_active' => true,
             'sort_order' => 0,
         ];

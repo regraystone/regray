@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string $size
  * @property int $thickness_mm
  * @property bool $is_active
+ * @property string $origin
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -36,10 +37,8 @@ use Illuminate\Support\Carbon;
  * @property-read StoneCategory $category
  * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, StoneCategory> $categories
- * @property-read Collection<int, StoneSize> $sizes
- * @property-read Collection<int, StoneThickness> $thicknesses
  */
-#[Fillable(['brand_id', 'stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'origin', 'is_active', 'sort_order'])]
 class Stone extends Model
 {
     /** @use HasFactory<StoneFactory> */
@@ -103,29 +102,10 @@ class Stone extends Model
         return $this->belongsToMany(StoneCategory::class, 'stone_stone_category');
     }
 
-    /** @return BelongsToMany<StoneSize, $this> */
-    public function sizes(): BelongsToMany
-    {
-        return $this->belongsToMany(StoneSize::class, 'stone_stone_size');
-    }
-
-    /** @return BelongsToMany<StoneThickness, $this> */
-    public function thicknesses(): BelongsToMany
-    {
-        return $this->belongsToMany(StoneThickness::class, 'stone_stone_thickness');
-    }
-
-    /** Preserve legacy primary values when importing stones, without removing additional options. */
+    /** List the stone under its primary category when importing, without removing additional ones. */
     public function attachPrimaryFilterOptions(): void
     {
         $this->categories()->syncWithoutDetaching([$this->stone_category_id]);
-        $size = StoneSize::query()->firstOrCreate(['name' => $this->size], ['is_active' => true]);
-        $this->sizes()->syncWithoutDetaching([$size->id]);
-        $thicknessIds = StoneThickness::query()
-            ->where('min_mm', '<=', $this->thickness_mm)
-            ->where(fn (Builder $query) => $query->whereNull('max_mm')->orWhere('max_mm', '>=', $this->thickness_mm))
-            ->pluck('id');
-        $this->thicknesses()->syncWithoutDetaching($thicknessIds);
     }
 
     /** @return BelongsToMany<User, $this> */

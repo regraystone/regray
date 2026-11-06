@@ -28,7 +28,6 @@ export type InquiryFixtures = {
     >;
     clientAId: number;
     clientBId: number;
-    retiredService: string;
     disk: string;
 };
 

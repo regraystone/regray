@@ -4,19 +4,22 @@ import { ArrowLeft, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
-import ApplicationCard from '@/components/application-card';
+import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
 import { fieldMessage } from '@/components/form-field';
+import { INQUIRY_DELIVERY_METHOD_ID } from '@/components/inquiry-project-details';
 import InquiryProjectForm from '@/components/inquiry-project-form';
 import InquiryQuestion, {
+    InquiryActionBar,
+    InquiryActionBarSlot,
     inquiryQuestionId,
 } from '@/components/inquiry-question';
 import InquiryResult from '@/components/inquiry-result';
 import InquiryReview from '@/components/inquiry-review';
 import InquiryStepper from '@/components/inquiry-stepper';
+import InquiryStoneWork from '@/components/inquiry-stone-work';
 import InputError from '@/components/input-error';
 import PageHeading from '@/components/page-heading';
-import ServiceCard from '@/components/service-card';
 import StaffInquireStart, {
     leadTarget,
 } from '@/components/staff-inquire-start';
@@ -36,43 +39,46 @@ import { useInquireStoreUrl } from '@/hooks/use-inquire-route';
 import { useInquiryDraftAutosave } from '@/hooks/use-inquiry-draft-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSavedStones } from '@/hooks/use-saved-stones';
-import {
-    canPickService,
-    createInquiryCatalog,
-    serviceNameIn,
-} from '@/lib/inquiry-catalog';
+import { createInquiryCatalog } from '@/lib/inquiry-catalog';
 import { readInquiryDraft } from '@/lib/inquiry-draft-storage';
 import { rateLimitFrom } from '@/lib/rate-limit';
 import type { RateLimit } from '@/lib/rate-limit';
 import {
-    APPLICATION_STEP,
     autoProjectName,
     buildCommittedProject,
     buildInquiryFormData,
+    chooseWorkService,
     clampRestoredStep,
-    commitPlan,
+    copyStoneWork,
     deadlineLocks,
+    DELIVERY,
+    DELIVERY_METHODS,
     INQUIRY_STEP_LABELS,
-    isStandaloneOnly,
-    isStandaloneProject,
+    keepWorkFor,
     mapInquiryErrors,
     nextQuestion,
+    PICKUP,
     readInquiryFlash,
     REVIEW_STEP,
     seedStoneRows,
+    STONE_ADVICE_LABEL,
     stepperPosition,
     toEditFormProjects,
+    workProblems,
+    workRowKeys,
+    workRowLabel,
     type InquiryEditProject,
     type InquiryFlash,
+    type StoneWorkMap,
 } from '@/lib/inquiry-flow';
 import {
     createInquirySchemas,
     draftDefaults,
     inquiryDefaults,
     REQUIREMENTS_STEP,
-    SERVICES_STEP,
     STEP_FIELDS,
     STONES_STEP,
+    WORK_STEP,
     type InquiryDraftInput,
     type InquiryDraftValues,
     type InquiryFormInput,
@@ -97,6 +103,19 @@ const REQUEST_DESCRIPTION =
     'Answer a few simple questions. We save your answers as you go.';
 
 const REVIEW_DESCRIPTION = 'Check your request, then send it';
+
+/**
+ * The page fills the screen under the header, and gives back the layout's bottom
+ * padding, so the bar at its end sits on the bottom edge of the screen: 3.5rem or
+ * 4rem of header and 1.5rem or 2rem of padding, as the layout steps them up.
+ */
+const FULL_SCREEN_PAGE =
+    'flex min-h-[calc(100svh-5rem)] w-full flex-col -mb-6 sm:min-h-[calc(100svh-5.5rem)] sm:-mb-8 lg:min-h-[calc(100svh-6rem)]';
+
+const BOTTOM_BAR = 'sticky bottom-0 z-10';
+
+/** How many stone cards the placeholder draws: two rows of the widest grid. */
+const SKELETON_STONE_COUNT = 10;
 
 const neededByFormatter = new Intl.DateTimeFormat(undefined, {
     dateStyle: 'long',
@@ -258,21 +277,18 @@ const ProjectBanner = ({
  *
  * Shaped from the step the reader lands on rather than from a generic list of
  * blocks, because a placeholder that does not match the thing it stands in for
- * is worse than none: the page jumps the moment the real services arrive, and
- * the jump is the jarring part — the skeleton is supposed to be what absorbs it.
- * So the heading, the rail and the footer are the real ones' measurements, and
- * the rows are the real catalogue's rows, because the count of them is what the
- * reader's eye is about to land on.
+ * is worse than none: the page jumps the moment the real stones arrive, and the
+ * jump is the jarring part — the skeleton is supposed to be what absorbs it. So
+ * the heading, the rail and the footer are the real ones' measurements, and the
+ * cards are the stone grid's cards.
  *
  * Marked busy rather than loading, and paired with the one line a screen reader
  * is given, because a column of empty boxes cannot say anything on its own: it
  * would be read as a page that has finished and simply has no content.
  */
 const InquireSkeleton = () => {
-    const { services } = useInquiryCatalog();
-
     return (
-        <div role="status" aria-busy="true" className="w-full">
+        <div role="status" aria-busy="true" className={FULL_SCREEN_PAGE}>
             {/* Everything below is empty boxes; this is the only thing to hear. */}
             <span className="sr-only">Loading the inquiry</span>
 
@@ -314,49 +330,16 @@ const InquireSkeleton = () => {
                 </div>
             </div>
 
-            {/* The heading over the list, which is the row above it. */}
+            {/* The heading over the grid, which is the row above it. */}
             <Skeleton className="h-7 w-36" />
 
-            {/*
-             * The services themselves, one row each: a square thumbnail, a name and
-             * its bullets, and the counter at the far end. Built from the catalogue
-             * rather than from a fixed number, so the band is the height it is going
-             * to be and adding a service cannot quietly make the page jump again.
-             */}
-            <div className="mt-4 divide-y divide-sidebar-border border-y border-sidebar-border">
-                {services.map((service) => (
-                    <div
-                        key={service.id}
-                        className="flex w-full items-start gap-4 p-4 sm:gap-6 sm:p-5"
-                    >
-                        <Skeleton className="size-20 shrink-0 rounded-md sm:size-28" />
-
-                        <div className="min-w-0 flex-1">
-                            <Skeleton className="h-5 w-2/5 sm:h-6" />
-
-                            <ul className="mt-2 space-y-1.5">
-                                {service.features.map((feature) => (
-                                    <li
-                                        key={feature}
-                                        className="flex items-center gap-2.5"
-                                    >
-                                        <Skeleton className="size-1.5 shrink-0 rounded-full" />
-                                        {/*
-                                         * 23px, because that is what a real bullet
-                                         * line comes out at — `text-sm` on a
-                                         * `leading-relaxed` row — and a row's height
-                                         * is its bullet count times this. Getting it
-                                         * wrong by a few pixels per bullet is enough
-                                         * to make every row below it sit higher than
-                                         * where the real row will land.
-                                         */}
-                                        <Skeleton className="h-[23px] w-4/5" />
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        <Skeleton className="hidden h-3 w-6 shrink-0 sm:block" />
+            {/* The stone cards, in the real grid's columns. */}
+            <div className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
+                {Array.from({ length: SKELETON_STONE_COUNT }, (_, index) => (
+                    <div key={index}>
+                        <Skeleton className="aspect-square w-full rounded-none" />
+                        <Skeleton className="mt-3 h-4 w-3/4" />
+                        <Skeleton className="mt-2 h-3 w-1/2" />
                     </div>
                 ))}
             </div>
@@ -367,7 +350,9 @@ const InquireSkeleton = () => {
              * page and a placeholder that scrolls away while the real one does not
              * would move the button a reader was reaching for.
              */}
-            <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+                className={`${BOTTOM_BAR} mt-auto flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between`}
+            >
                 <Skeleton className="h-5 w-32" />
 
                 {/*
@@ -424,10 +409,9 @@ const InquireFlow = ({
      * Both start on the first step. An edit opens the inquiry's one project
      * there as soon as it is loaded (see the effect after `openProject`).
      */
-    const [step, setStep] = useState<number>(SERVICES_STEP);
+    const [step, setStep] = useState<number>(STONES_STEP);
     const [filter, setFilter] = useState<StoneFilter>('all');
     const [search, setSearch] = useState('');
-    const [applicationSearch, setApplicationSearch] = useState('');
 
     /** Which committed project the open draft is editing, or null when new. */
     const [editingProjectId, setEditingProjectId] = useState<string | null>(
@@ -436,6 +420,11 @@ const InquireFlow = ({
 
     const [result, setResult] = useState<InquiryResultState>(null);
     const [isSending, setIsSending] = useState(false);
+    const [actionBarSlot, setActionBarSlot] = useState<HTMLDivElement | null>(
+        null,
+    );
+    /** How many files a restored draft could not keep, until the reader has read so. */
+    const [lostAttachments, setLostAttachments] = useState(0);
     const [validationAlertErrors, setValidationAlertErrors] = useState<
         string[]
     >([]);
@@ -525,35 +514,11 @@ const InquireFlow = ({
     } = draftMethods;
 
     const draftStoneIds = watchDraft('stoneIds');
-    const draftServiceIds = watchDraft('serviceIds');
-    const draftStandaloneServiceIds = watchDraft('standaloneServiceIds');
-    const draftServiceOptions = watchDraft('serviceOptions');
-    const draftApplicationIds = watchDraft('applicationIds');
+    const draftStoneWork = watchDraft('stoneWork');
+    const draftDeliveryMethod = watchDraft('deliveryMethod');
     const draftStoneAdvice = watchDraft('stoneAdvice');
     const draftLocation = watchDraft('location');
     const draftNeededBy = watchDraft('neededBy');
-    const draftNeededByTime = watchDraft('neededByTime');
-
-    /*
-     * The part of the draft that decides the path through the steps, handed to
-     * the flow helpers rather than re-read inside them.
-     */
-    const flowDraft = {
-        serviceIds: draftServiceIds,
-        standaloneServiceIds: draftStandaloneServiceIds,
-        stoneIds: draftStoneIds,
-        applicationIds: draftApplicationIds,
-    };
-
-    /*
-     * Everything the reader has picked on the services step, both kinds together.
-     *
-     * The step shows one list of cards, so everything it can say — the count, the
-     * "n selected" line, Clear — has to be about what the reader can see rather
-     * than about which of the draft's two lists a service happens to be filed
-     * under.
-     */
-    const chosenServiceIds = [...draftServiceIds, ...draftStandaloneServiceIds];
 
     /*
      * Whether Continue has been pressed at all, once. A card is checked once there
@@ -561,6 +526,11 @@ const InquireFlow = ({
      * objection the reader has not caused yet.
      */
     const hasDraftContinued = useRef(false);
+    /*
+     * The same for the Work question alone, so a stone's row is not refused for
+     * being empty while the reader is still working down the list.
+     */
+    const hasWorkContinued = useRef(false);
     const isSendingRef = useRef(false);
 
     const { can } = usePermissions();
@@ -577,7 +547,7 @@ const InquireFlow = ({
      * Whether the restore has already happened.
      *
      * An effect runs twice under Strict Mode, and restoring twice would only
-     * repeat the same work — but the toast about attachments the browser could
+     * repeat the same work — but the notice about attachments the browser could
      * not keep would be said twice, which is why the guard exists.
      */
     const hasRestoredRef = useRef(false);
@@ -625,7 +595,7 @@ const InquireFlow = ({
         if (stored !== null) {
             /*
              * The files come back empty because a `File` has no form storage
-             * can hold; the count of them is what the toast below is about.
+             * can hold; the count of them is what the notice below is about.
              */
             reset({
                 projects: stored.projects.map((project) => ({
@@ -633,7 +603,10 @@ const InquireFlow = ({
                     attachments: [],
                 })),
             });
-            draftMethods.reset({ ...stored.draft, attachments: [] });
+            draftMethods.reset({
+                ...stored.draft,
+                attachments: [],
+            });
             setEditingProjectId(
                 stored.editingProjectId !== null &&
                     stored.projects.some(
@@ -643,21 +616,21 @@ const InquireFlow = ({
                     : null,
             );
             setStep(
-                clampRestoredStep(
-                    stored.step,
-                    stored.projects.length,
-                    stored.draft,
-                ),
+                clampRestoredStep(stored.step, stored.projects.length, {
+                    ...stored.draft,
+                    workIsComplete:
+                        workProblems(
+                            workRowKeys(stored.draft),
+                            stored.draft.stoneWork,
+                            catalog.services,
+                            catalog.furnitureTypes.map(({ id }) => id),
+                        ).length === 0,
+                }),
             );
             hasDraftContinued.current = false;
+            hasWorkContinued.current = false;
 
-            if (stored.droppedAttachments > 0) {
-                toast.info(
-                    stored.droppedAttachments === 1
-                        ? 'Your draft is back. Its attachment could not be saved here — attach the file again.'
-                        : `Your draft is back. ${stored.droppedAttachments} attachments could not be saved here — attach the files again.`,
-                );
-            }
+            setLostAttachments(stored.droppedAttachments);
         }
 
         setIsRestored(true);
@@ -748,13 +721,46 @@ const InquireFlow = ({
             ? chosen.filter((entry) => entry !== id)
             : [...chosen, id];
 
-    const toggleStone = (id: string) => {
-        setDraftValue('stoneIds', toggleIn(draftStoneIds, id), {
+    const furnitureTypeIds = catalog.furnitureTypes.map(({ id }) => id);
+
+    /** The work rows the draft has right now, read from the form. */
+    const currentWorkKeys = (): string[] =>
+        workRowKeys({
+            stoneIds: getDraftValues('stoneIds'),
+            stoneAdvice: getDraftValues('stoneAdvice'),
+        });
+
+    /** Every field of these work rows, for checking them by their own paths. */
+    const workPaths = (keys: string[]) =>
+        keys.flatMap((key) => [
+            `stoneWork.${key}.serviceId` as const,
+            `stoneWork.${key}.furnitureType` as const,
+        ]);
+
+    /** Once Next has been refused, each change re-checks the rows. */
+    const recheckWork = () => {
+        if (hasWorkContinued.current) {
+            void triggerDraft(workPaths(currentWorkKeys()));
+        }
+    };
+
+    /** A stone taken off takes its work row with it. */
+    const setStones = (ids: string[]) => {
+        setDraftValue('stoneIds', ids, {
             shouldDirty: true,
             shouldValidate: hasDraftContinued.current,
         });
         setDraftValue('stoneAdvice', false, { shouldDirty: true });
+        setDraftValue(
+            'stoneWork',
+            keepWorkFor(ids, getDraftValues('stoneWork')),
+            {
+                shouldDirty: true,
+            },
+        );
     };
+
+    const toggleStone = (id: string) => setStones(toggleIn(draftStoneIds, id));
 
     /**
      * The reader does not know which stone yet, so the team will recommend one.
@@ -765,60 +771,41 @@ const InquireFlow = ({
         setDraftValue('stones', [], { shouldDirty: true });
         setDraftValue('stoneAdvice', true, { shouldDirty: true });
         draftMethods.clearErrors('stoneIds');
-        setStep(nextQuestion(STONES_STEP, flowDraft));
+        setDraftValue(
+            'stoneWork',
+            keepWorkFor(currentWorkKeys(), getDraftValues('stoneWork')),
+            { shouldDirty: true },
+        );
+        setStep(WORK_STEP);
     };
 
-    /** Pick or unpick one application, which a project may hold several of. */
-    const toggleApplication = (id: string) => {
-        setDraftValue('applicationIds', toggleIn(draftApplicationIds, id), {
-            shouldDirty: true,
-            shouldValidate: hasDraftContinued.current,
-        });
+    /** One stone's kind of work, clearing what the new option no longer offers. */
+    const setWorkOption = (key: string, serviceId: string) => {
+        setDraftValue(
+            'stoneWork',
+            chooseWorkService(
+                getDraftValues('stoneWork'),
+                key,
+                serviceId,
+                catalog.services,
+            ),
+            { shouldDirty: true },
+        );
+        recheckWork();
     };
 
-    /**
-     * Pick or unpick one service, filed under whichever of the draft's two lists
-     * it belongs to.
-     *
-     * The split is a fact about the catalogue rather than something the reader
-     * chose, so it decides where a service goes: a service that stands on its own
-     * can never be one this project is specified for, and the requirements form must not
-     * say it is.
-     */
-    const toggleService = (id: string) => {
-        const field = catalog.standaloneServiceIds.has(id)
-            ? 'standaloneServiceIds'
-            : 'serviceIds';
-        const options = {
-            shouldDirty: true,
-            shouldValidate: hasDraftContinued.current,
-        };
+    const setWorkFurnitureType = (key: string, furnitureType: string) => {
+        const work = getDraftValues('stoneWork');
+        const entry = work[key];
 
-        const current = getDraftValues(field);
-
-        setDraftValue(field, toggleIn(current, id), options);
-
-        // A service taken off takes the kind of work picked under it too.
-        if (current.includes(id)) {
+        if (entry !== undefined) {
             setDraftValue(
-                'serviceOptions',
-                Object.fromEntries(
-                    Object.entries(getDraftValues('serviceOptions')).filter(
-                        ([serviceId]) => serviceId !== id,
-                    ),
-                ),
-                options,
+                'stoneWork',
+                { ...work, [key]: { ...entry, furnitureType } },
+                { shouldDirty: true },
             );
+            recheckWork();
         }
-    };
-
-    /** The kind of work picked under one service, from its dropdown. */
-    const setServiceOption = (id: string, option: string) => {
-        // By its own path, so a revalidation clears this service's error.
-        setDraftValue(`serviceOptions.${id}`, option, {
-            shouldDirty: true,
-            shouldValidate: hasDraftContinued.current,
-        });
     };
 
     /**
@@ -831,6 +818,7 @@ const InquireFlow = ({
     const clearDraft = () => {
         draftMethods.reset(draftDefaults);
         hasDraftContinued.current = false;
+        hasWorkContinued.current = false;
         setEditingProjectId(null);
     };
 
@@ -856,15 +844,6 @@ const InquireFlow = ({
      * answers a draft that opened without them would ask all over again, and a
      * reader who has opened a project to correct one thing should not have to
      * retype the rest to do it.
-     *
-     * The applications come back too, so Edit from Review shows the saved
-     * choices selected in the Application step.
-     *
-     * A project that is a service standing on its own goes back into the draft's
-     * queue rather than into its services, because that is how the requirements step
-     * knows to ask for a site and a date instead of a material: the queue being
-     * what is there and this project's own service not being in it is exactly
-     * what "this project is the service" means.
      */
     const openProject = (id: string, startAt: number = REQUIREMENTS_STEP) => {
         const project = getValues('projects').find((entry) => entry.id === id);
@@ -873,35 +852,29 @@ const InquireFlow = ({
             return;
         }
 
-        /*
-         * Read off the services rather than off the stones: a visit may now carry
-         * stones as extra information, so having none no longer says it is one.
-         */
-        const isStandalone = isStandaloneProject(
-            project.serviceIds,
-            catalog.standaloneServiceIds,
-        );
-
         draftMethods.reset({
             name: project.name,
             stoneAdvice: project.stoneAdvice,
-            stoneIds: project.stones.map((selection) => selection.stoneId),
-            serviceIds: isStandalone ? [] : [...project.serviceIds],
-            standaloneServiceIds: isStandalone ? [...project.serviceIds] : [],
-            serviceOptions: { ...project.serviceOptions },
+            // Once each: a stone added again with another finish has two rows.
+            stoneIds: [
+                ...new Set(
+                    project.stones.map((selection) => selection.stoneId),
+                ),
+            ],
             stones: project.stones.map((selection) => ({ ...selection })),
-            applicationIds: [...project.applications],
+            stoneWork: copyStoneWork(project.stoneWork),
+            deliveryMethod: project.deliveryMethod || DELIVERY,
             location: project.location,
             landmark: project.landmark,
             areaSqm: project.areaSqm,
             neededBy: project.neededBy,
-            neededByTime: project.neededByTime,
             notes: project.notes,
             attachments: project.attachments.map((attachment) => ({
                 ...attachment,
             })),
         });
         hasDraftContinued.current = false;
+        hasWorkContinued.current = false;
         setEditingProjectId(id);
         setStep(startAt);
     };
@@ -926,27 +899,8 @@ const InquireFlow = ({
         }
 
         hasOpenedEditRef.current = true;
-        openProject(project.id, SERVICES_STEP);
+        openProject(project.id, STONES_STEP);
     });
-
-    /**
-     * Name the draft after its service. A visit has nothing else to be called, so
-     * the reader is never asked.
-     */
-    const seedStandaloneName = (queue: string[]): boolean => {
-        const [next] = queue;
-
-        if (next === undefined) {
-            return false;
-        }
-
-        setDraftValue('name', serviceNameIn(catalog, next), {
-            shouldDirty: true,
-            shouldValidate: false,
-        });
-
-        return true;
-    };
 
     /**
      * Give the draft a specification row per chosen stone, keeping duplicate rows
@@ -1004,82 +958,46 @@ const InquireFlow = ({
 
         if (valid) {
             seedDraftStones();
-            setStep(nextQuestion(STONES_STEP, flowDraft));
+            setStep(nextQuestion(STONES_STEP));
         }
     };
 
     /**
-     * Step 1 onward. A draft of only standalone services skips the stones and the
-     * application and is named after its service. When a new request changes to
-     * one, what was picked for the stone it no longer wants is dropped.
+     * The Work question onward. Every stone needs its work, and a furniture type
+     * where the work asks for one. Refused rows say so beside themselves.
      */
-    const continueFromServices = async () => {
-        hasDraftContinued.current = true;
+    const continueFromWork = async () => {
+        hasWorkContinued.current = true;
 
-        /*
-         * Each service's kind of work by its own path: react-hook-form keeps
-         * an error only where it carries a message, which the
-         * `serviceOptions.<id>` entries do and the map as a whole does not.
-         */
-        const valid = await triggerDraft(
-            [
-                'serviceIds',
-                'standaloneServiceIds',
-                ...chosenServiceIds.map(
-                    (id) => `serviceOptions.${id}` as const,
-                ),
-            ],
-            { shouldFocus: true },
-        );
-
-        if (!valid) {
-            return;
-        }
-
-        if (isStandaloneOnly(flowDraft)) {
-            if (edit === null) {
-                setDraftValue('stoneIds', []);
-                setDraftValue('stones', []);
-                setDraftValue('applicationIds', []);
-                setDraftValue('stoneAdvice', false);
-            }
-
-            seedStandaloneName(getDraftValues('standaloneServiceIds'));
-            hasDraftContinued.current = false;
-        }
-
-        setStep(nextQuestion(SERVICES_STEP, flowDraft));
-    };
-
-    /**
-     * Step 3 onward. Needs an application.
-     */
-    const continueFromApplication = async () => {
-        hasDraftContinued.current = true;
-
-        const valid = await triggerDraft('applicationIds', {
+        const keys = currentWorkKeys();
+        const valid = await triggerDraft(workPaths(keys), {
             shouldFocus: true,
         });
 
-        if (valid) {
-            setStep(nextQuestion(APPLICATION_STEP, flowDraft));
+        if (
+            valid &&
+            workProblems(
+                keys,
+                getDraftValues('stoneWork'),
+                catalog.services,
+                furnitureTypeIds,
+            ).length === 0
+        ) {
+            seedDraftStones();
+            setStep(nextQuestion(WORK_STEP));
         }
     };
 
-    /** What a project is called unless the reader names it on Review. */
-    const projectNameFor = (
-        applicationIds: string[],
-        serviceIds: string[],
-    ): string =>
+    /** What a project is called unless the reader names it on Review: its first service. */
+    const projectNameFor = (work: StoneWorkMap): string =>
         autoProjectName(
-            applicationIds.flatMap((id) => {
-                const application = catalog.applications.find(
-                    (entry) => entry.id === id,
+            Object.values(work).flatMap(({ serviceId }) => {
+                const option = catalog.services.find(
+                    ({ id }) => id === serviceId,
                 );
 
-                return application === undefined ? [] : [application.name];
+                return option === undefined ? [] : [option.name];
             }),
-            serviceIds.map((id) => serviceNameIn(catalog, id)),
             PROJECT_NAME_MAX,
         );
 
@@ -1089,26 +1007,18 @@ const InquireFlow = ({
      * so that name keeps describing what the project now is.
      */
     const nameDraft = () => {
-        if (getDraftValues('serviceIds').length === 0) {
-            return;
-        }
-
         const reopened = getValues('projects').find(
             (project) => project.id === editingProjectId,
         );
         const hasOwnName =
             reopened !== undefined &&
-            reopened.name !==
-                projectNameFor(reopened.applications, reopened.serviceIds);
+            reopened.name !== projectNameFor(reopened.stoneWork);
 
         setDraftValue(
             'name',
             hasOwnName
                 ? reopened.name
-                : projectNameFor(
-                      getDraftValues('applicationIds'),
-                      getDraftValues('serviceIds'),
-                  ),
+                : projectNameFor(getDraftValues('stoneWork')),
         );
     };
 
@@ -1119,11 +1029,10 @@ const InquireFlow = ({
      * because this is the one press that takes all the steps' answers together
      * and puts them on the inquiry.
      *
-     * Every standalone project is committed with the stones and applications
-     * picked before it, as extra information.
      */
     const commitDraft = async () => {
         hasDraftContinued.current = true;
+
         seedDraftStones();
         nameDraft();
 
@@ -1135,35 +1044,39 @@ const InquireFlow = ({
          */
         let valid = false;
 
-        await draftMethods.handleSubmit(() => {
-            valid = true;
-        })();
+        await draftMethods.handleSubmit(
+            () => {
+                valid = true;
+            },
+            /*
+             * A complaint about another question has no field on this one, so
+             * the reader is taken to where it can be answered.
+             */
+            (errors) => {
+                if (errors.stoneIds !== undefined) {
+                    setStep(STONES_STEP);
+                } else if (errors.stoneWork !== undefined) {
+                    hasWorkContinued.current = true;
+                    setStep(WORK_STEP);
+                } else if (errors.deliveryMethod !== undefined) {
+                    document
+                        .getElementById(INQUIRY_DELIVERY_METHOD_ID)
+                        ?.scrollIntoView({
+                            block: 'center',
+                            behavior: 'smooth',
+                        });
+                }
+            },
+        )();
 
         if (!valid) {
             return;
         }
 
         const draft = getDraftValues();
-        const { isStandalone, head, remaining } = commitPlan(draft);
-
-        /*
-         * An inquiry is one project. Services that would split this one into
-         * several (two visits) are refused here rather than sent and refused.
-         */
-        if (remaining.length > 0) {
-            toast.error(
-                'An inquiry can only have one project. Keep one of these services here and send the others as a new inquiry.',
-            );
-
-            return;
-        }
 
         const project = buildCommittedProject(draft, {
             id: editingProjectId ?? newProjectId(),
-            standaloneService:
-                isStandalone && head !== undefined
-                    ? { id: head, name: serviceNameIn(catalog, head) }
-                    : undefined,
         });
 
         /*
@@ -1380,11 +1293,10 @@ const InquireFlow = ({
         discardDraft();
         setSearch('');
         setFilter('all');
-        setApplicationSearch('');
         setValidationAlertErrors([]);
         setSectionMessages({});
         setProjectMessages({});
-        setStep(SERVICES_STEP);
+        setStep(STONES_STEP);
         setResult({ status: 'success', title, reference });
     };
 
@@ -1440,7 +1352,7 @@ const InquireFlow = ({
      */
     const inquireAgain = () => {
         setResult(null);
-        setStep(SERVICES_STEP);
+        setStep(STONES_STEP);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -1449,7 +1361,6 @@ const InquireFlow = ({
     }
 
     const hasSelection = draftStoneIds.length > 0;
-    const hasServices = chosenServiceIds.length > 0;
     // A stone that stands alone is read under Saved, so that is what opens
     // one in a new tab.
     const canSeeStoneProfile = can(permissions.savedView);
@@ -1502,15 +1413,23 @@ const InquireFlow = ({
      * The questions this draft is asked, in order. One waiting for an answer is
      * not drawn until the reader reaches it.
      */
-    const questions = isStandaloneOnly(flowDraft)
-        ? [SERVICES_STEP, REQUIREMENTS_STEP]
-        : [SERVICES_STEP, STONES_STEP, APPLICATION_STEP, REQUIREMENTS_STEP];
+    const questions = [STONES_STEP, WORK_STEP, REQUIREMENTS_STEP];
 
+    const workRows = workRowKeys({
+        stoneIds: draftStoneIds,
+        stoneAdvice: draftStoneAdvice,
+    });
+    const deliveryMethodName =
+        DELIVERY_METHODS.find(({ value }) => value === draftDeliveryMethod)
+            ?.title ?? '';
+    const isPickup = draftDeliveryMethod === PICKUP;
     const isAnswered: Record<number, boolean> = {
-        [SERVICES_STEP]: hasServices,
         [STONES_STEP]: hasSelection || draftStoneAdvice,
-        [APPLICATION_STEP]: draftApplicationIds.length > 0,
-        [REQUIREMENTS_STEP]: draftLocation !== '' && draftNeededBy !== '',
+        [WORK_STEP]: workRows.some(
+            (key) => (draftStoneWork[key]?.serviceId ?? '') !== '',
+        ),
+        [REQUIREMENTS_STEP]:
+            (isPickup || draftLocation !== '') && draftNeededBy !== '',
     };
 
     /** The question's props, or null while it waits for the reader to reach it. */
@@ -1524,642 +1443,334 @@ const InquireFlow = ({
               }
             : null;
 
-    const namesOf = (names: string[], limit = 3): string =>
+    const namesOf = (names: string[], limit = 3, separator = ', '): string =>
         names.length > limit
-            ? `${names.slice(0, limit).join(', ')} and ${names.length - limit} more`
-            : names.join(', ');
-
-    const servicesSummary = namesOf(
-        chosenServiceIds.map((id) => {
-            const service = catalog.services.find((entry) => entry.id === id);
-            const kind = service?.options.find(
-                (option) => option.id === draftServiceOptions[id],
-            )?.name;
-
-            return kind === undefined
-                ? serviceNameIn(catalog, id)
-                : `${serviceNameIn(catalog, id)} (${kind})`;
-        }),
-    );
+            ? `${names.slice(0, limit).join(separator)} and ${names.length - limit} more`
+            : names.join(separator);
 
     const stonesSummary = draftStoneAdvice
-        ? "We'll recommend a stone for you"
+        ? STONE_ADVICE_LABEL
         : namesOf(
               draftStoneIds.map(
                   (id) => stones.find((stone) => stone.slug === id)?.name ?? id,
               ),
           );
 
-    const applicationsSummary = namesOf(
-        draftApplicationIds.flatMap((id) => {
-            const application = catalog.applications.find(
-                (entry) => entry.id === id,
-            );
+    /* Semicolons, because the names of the options have commas of their own. */
+    const workSummary = namesOf(
+        workRows.map((key) => {
+            const entry = draftStoneWork[key];
+            const work =
+                catalog.services.find(({ id }) => id === entry?.serviceId)
+                    ?.name ?? 'not chosen yet';
+            const furnitureType = catalog.furnitureTypes.find(
+                ({ id }) => id === entry?.furnitureType,
+            )?.name;
 
-            return application === undefined ? [] : [application.name];
+            return `${workRowLabel(key, stones)}: ${
+                furnitureType === undefined
+                    ? work
+                    : `${work} - ${furnitureType}`
+            }`;
         }),
+        3,
+        '; ',
     );
 
-    const detailsSummary =
+    const detailsSummary = [
+        deliveryMethodName,
+        isPickup ? '' : draftLocation,
         draftNeededBy === ''
-            ? draftLocation
-            : [
-                  draftLocation,
-                  neededByFormatter.format(new Date(`${draftNeededBy}T00:00`)),
-                  isStandaloneOnly(flowDraft) ? draftNeededByTime : '',
-              ]
-                  .filter((part) => part !== '')
-                  .join(', ');
+            ? ''
+            : neededByFormatter.format(new Date(`${draftNeededBy}T00:00`)),
+    ]
+        .filter((part) => part !== '')
+        .join(', ');
 
-    const servicesQuestion = question(SERVICES_STEP);
     const stonesQuestion = questions.includes(STONES_STEP)
         ? question(STONES_STEP)
         : null;
-    const applicationQuestion = questions.includes(APPLICATION_STEP)
-        ? question(APPLICATION_STEP)
+    const workQuestion = questions.includes(WORK_STEP)
+        ? question(WORK_STEP)
         : null;
     const detailsQuestion = question(REQUIREMENTS_STEP);
 
     return (
         <FormProvider {...methods}>
-            <div className="w-full">
-                <PageHeading
-                    title={
-                        edit === null ? 'Inquire' : `Update ${edit.reference}`
-                    }
-                    description={
-                        result?.status === 'success'
-                            ? 'Your request has been sent'
-                            : edit !== null && step === REVIEW_STEP
-                              ? 'Choose a project to edit, then save your changes'
-                              : step === REVIEW_STEP
-                                ? REVIEW_DESCRIPTION
-                                : REQUEST_DESCRIPTION
-                    }
-                    action={
-                        edit === null ? (
-                            target !== null && onChangeTarget ? (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span
-                                        className="text-sm"
-                                        data-testid="inquire-target"
-                                    >
-                                        For{' '}
-                                        <span className="font-bold">
-                                            {target.name}
-                                        </span>{' '}
-                                        · {target.detail}
-                                    </span>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={onChangeTarget}
-                                    >
-                                        Change client
-                                    </Button>
-                                </div>
-                            ) : undefined
-                        ) : (
-                            <Button asChild variant="outline">
-                                {/* Back to the list the edit was started from. */}
-                                <Link href={edit.back.url}>
-                                    <ArrowLeft aria-hidden />
-                                    {edit.back.label}
-                                </Link>
-                            </Button>
-                        )
-                    }
-                />
-
-                <InquiryStepper steps={STEPS} current={stepperCurrent} />
-
-                {result !== null ? (
-                    <InquiryResult
-                        status={result.status}
-                        title={result.status === 'success' ? result.title : ''}
-                        reference={
-                            result.status === 'success'
-                                ? result.reference
-                                : undefined
+            <InquiryActionBarSlot.Provider value={actionBarSlot}>
+                <div className={FULL_SCREEN_PAGE}>
+                    <PageHeading
+                        title={
+                            edit === null
+                                ? 'Inquire'
+                                : `Update ${edit.reference}`
                         }
-                        message={
-                            result.status === 'error'
-                                ? result.message
-                                : undefined
+                        description={
+                            result?.status === 'success'
+                                ? 'Your request has been sent'
+                                : edit !== null && step === REVIEW_STEP
+                                  ? 'Choose a project to edit, then save your changes'
+                                  : step === REVIEW_STEP
+                                    ? REVIEW_DESCRIPTION
+                                    : REQUEST_DESCRIPTION
                         }
-                        retryAt={
-                            result.status === 'error'
-                                ? (result.retryAt ?? null)
-                                : null
-                        }
-                        canChat={canChat}
-                        inquiriesHref={inquiriesHref}
-                        onTryAgain={sendInquiry}
-                        onBackToReview={() => setResult(null)}
-                        onInquireAgain={inquireAgain}
-                        submitting={isSending}
-                    />
-                ) : step === REVIEW_STEP ? (
-                    <InquiryReview
-                        onEditProject={openProject}
-                        sectionMessages={sectionMessages}
-                        projectMessages={projectMessages}
-                        validationErrors={validationAlertErrors}
-                        locked={isSending}
-                        onRequestQuote={requestQuote}
-                        mode={edit === null ? 'create' : 'edit'}
-                    />
-                ) : (
-                    /*
-                     * Steps 1 to 3 with a project open all read the draft form, so
-                     * they sit inside its own provider. Shadowing the inquiry's
-                     * provider for this subtree is the point: neither can reach an
-                     * answer the other owns.
-                     */
-                    <FormProvider {...draftMethods}>
-                        {showDraftBanner ? (
-                            <ProjectBanner
-                                label="Changing your request"
-                                onCancel={cancelExcursion}
-                            />
-                        ) : null}
-
-                        {servicesQuestion !== null ? (
-                            <InquiryQuestion
-                                {...servicesQuestion}
-                                title="What do you need?"
-                                summary={servicesSummary}
-                            >
-                                {catalog.services.some(
-                                    (service) =>
-                                        !canPickService(
-                                            catalog.services,
-                                            chosenServiceIds,
-                                            service.id,
-                                        ),
-                                ) ? (
-                                    <p className="mb-3 text-sm text-secondary-foreground">
-                                        Some services can't be combined with the
-                                        ones you picked. Send them as a new
-                                        inquiry.
-                                    </p>
-                                ) : null}
-
-                                {/*
-                                 * A list, not a grid: the stone grid two steps
-                                 * on is the same control all over again, and the
-                                 * rules between full-width rows are what keep
-                                 * this from reading as it.
-                                 */}
-                                <div className="divide-y divide-sidebar-border border-y border-sidebar-border">
-                                    {catalog.services.map((service, index) => (
-                                        <ServiceCard
-                                            key={service.id}
-                                            service={service}
-                                            index={index}
-                                            selected={chosenServiceIds.includes(
-                                                service.id,
-                                            )}
-                                            disabled={
-                                                !canPickService(
-                                                    catalog.services,
-                                                    chosenServiceIds,
-                                                    service.id,
-                                                )
-                                            }
-                                            onSelect={() =>
-                                                toggleService(service.id)
-                                            }
-                                            option={
-                                                draftServiceOptions[
-                                                    service.id
-                                                ] ?? ''
-                                            }
-                                            onOptionChange={(option) =>
-                                                setServiceOption(
-                                                    service.id,
-                                                    option,
-                                                )
-                                            }
-                                            optionError={fieldMessage(
-                                                draftMethods.formState.errors
-                                                    .serviceOptions?.[
-                                                    service.id
-                                                ],
-                                            )}
-                                        />
-                                    ))}
-                                </div>
-
-                                {/* Sticky for the same reason as step 2's. */}
-                                <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                                        <p
-                                            aria-live="polite"
-                                            className="text-sm font-bold text-foreground"
+                        action={
+                            edit === null ? (
+                                target !== null && onChangeTarget ? (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span
+                                            className="text-sm"
+                                            data-testid="inquire-target"
                                         >
-                                            {chosenServiceIds.length}{' '}
-                                            {chosenServiceIds.length === 1
-                                                ? 'service'
-                                                : 'services'}{' '}
-                                            selected
-                                        </p>
-                                        {hasServices ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                    const options = {
-                                                        shouldDirty: true,
-                                                        shouldValidate:
-                                                            hasDraftContinued.current,
-                                                    };
-
-                                                    setDraftValue(
-                                                        'serviceIds',
-                                                        [],
-                                                        options,
-                                                    );
-                                                    setDraftValue(
-                                                        'standaloneServiceIds',
-                                                        [],
-                                                        options,
-                                                    );
-                                                    setDraftValue(
-                                                        'serviceOptions',
-                                                        {},
-                                                        options,
-                                                    );
-                                                }}
-                                                className="h-7 cursor-pointer px-1.5 text-xs"
-                                            >
-                                                Clear
-                                            </Button>
-                                        ) : null}
-                                        <InputError
-                                            message={fieldMessage(
-                                                draftMethods.formState.errors
-                                                    .serviceIds,
-                                            )}
-                                            role="alert"
-                                        />
-                                    </div>
-
-                                    {/*
-                                     * Disabled until a service is picked: every
-                                     * inquiry starts from one, and the count
-                                     * beside it already says how many are.
-                                     */}
-                                    <Button
-                                        type="button"
-                                        onClick={continueFromServices}
-                                        disabled={!hasServices}
-                                        className="w-full sm:w-auto"
-                                    >
-                                        Next
-                                    </Button>
-                                </div>
-                            </InquiryQuestion>
-                        ) : null}
-
-                        {stonesQuestion !== null ? (
-                            <InquiryQuestion
-                                {...stonesQuestion}
-                                title="Which stones do you like?"
-                                summary={stonesSummary}
-                            >
-                                <div className="mb-5 flex flex-col gap-3 rounded-md border border-sidebar-border bg-secondary p-4 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="min-w-0">
-                                        <p className="text-base font-bold">
-                                            Not sure which stone yet?
-                                        </p>
-                                        <p className="mt-0.5 text-sm text-secondary-foreground">
-                                            Our team will recommend one for you.
-                                        </p>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        variant={
-                                            draftStoneAdvice
-                                                ? 'default'
-                                                : 'outline'
-                                        }
-                                        onClick={askForStoneAdvice}
-                                        aria-pressed={draftStoneAdvice}
-                                        className="w-full shrink-0 sm:w-auto"
-                                    >
-                                        Help me choose
-                                    </Button>
-                                </div>
-
-                                <div className="mb-6 border-b border-sidebar-border pb-4">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="relative w-full sm:max-w-xs">
-                                            <Search
-                                                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
-                                                aria-hidden
-                                            />
-                                            <Input
-                                                type="search"
-                                                value={search}
-                                                onChange={(event) =>
-                                                    setSearch(
-                                                        event.target.value,
-                                                    )
-                                                }
-                                                placeholder="Search stones"
-                                                aria-label="Search stones"
-                                                className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
-                                            />
-                                            {search ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setSearch('')
-                                                    }
-                                                    aria-label="Clear search"
-                                                    className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                                >
-                                                    <X
-                                                        className="size-4"
-                                                        aria-hidden
-                                                    />
-                                                </button>
-                                            ) : null}
-                                        </div>
-
-                                        <div
-                                            className="hidden items-center gap-5 text-sm sm:ml-auto sm:flex"
-                                            role="tablist"
-                                            aria-label="Filter stones"
-                                        >
-                                            {stoneTabs.map((tab) => {
-                                                const isActive =
-                                                    filter === tab.value;
-
-                                                return (
-                                                    <button
-                                                        key={tab.value}
-                                                        type="button"
-                                                        role="tab"
-                                                        aria-selected={isActive}
-                                                        onClick={() =>
-                                                            setFilter(tab.value)
-                                                        }
-                                                        className={`-my-2.5 rounded-md px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
-                                                            isActive
-                                                                ? 'font-bold text-foreground underline decoration-foreground underline-offset-4'
-                                                                : 'text-secondary-foreground'
-                                                        }`}
-                                                    >
-                                                        {tab.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <div
-                                            className="flex items-center gap-2.5 sm:hidden"
-                                            role="tablist"
-                                            aria-label="Filter stones"
-                                        >
-                                            {stoneTabs.map((tab) => {
-                                                const isActive =
-                                                    filter === tab.value;
-
-                                                return (
-                                                    <Button
-                                                        key={tab.value}
-                                                        type="button"
-                                                        role="tab"
-                                                        aria-selected={isActive}
-                                                        variant={
-                                                            isActive
-                                                                ? 'default'
-                                                                : 'secondary'
-                                                        }
-                                                        size="sm"
-                                                        className="px-3 py-1.5"
-                                                        onClick={() =>
-                                                            setFilter(tab.value)
-                                                        }
-                                                    >
-                                                        {tab.label}
-                                                    </Button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {filter === 'saved' && savedIds.size === 0 ? (
-                                    <EmptyState
-                                        title="You haven't saved any stones yet"
-                                        description="Tap the heart on a stone and it will show up here."
-                                        action={
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => setFilter('all')}
-                                            >
-                                                Browse all stones
-                                            </Button>
-                                        }
-                                    />
-                                ) : visibleStones.length === 0 ? (
-                                    <EmptyState
-                                        title="No stones found"
-                                        description="No stone in this filter matches that search."
-                                        action={
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => setSearch('')}
-                                            >
-                                                Clear search
-                                            </Button>
-                                        }
-                                    />
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
-                                        {visibleStones.map((stone) => (
-                                            <ProductCard
-                                                key={stone.slug}
-                                                product={{
-                                                    slug: stone.slug,
-                                                    name: stone.name,
-                                                    thumbnail: stone.thumbnail,
-                                                    category: stone.category,
-                                                }}
-                                                aspect="aspect-[4/3]"
-                                                saved={savedIds.has(stone.slug)}
-                                                onToggleSave={
-                                                    canSave
-                                                        ? () =>
-                                                              toggleSave(
-                                                                  stone.slug,
-                                                              )
-                                                        : undefined
-                                                }
-                                                selectable
-                                                selected={draftStoneIds.includes(
-                                                    stone.slug,
-                                                )}
-                                                onSelect={() =>
-                                                    toggleStone(stone.slug)
-                                                }
-                                                // A standalone stone profile
-                                                // lives under Saved, so
-                                                // without that permission
-                                                // the new tab would only show
-                                                // the forbidden page.
-                                                viewHref={
-                                                    canSeeStoneProfile
-                                                        ? savedShow.url({
-                                                              stone: stone.slug,
-                                                          })
-                                                        : undefined
-                                                }
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/*
-                                 * Sticky so the way forward stays reachable
-                                 * while a long grid scrolls past, and opaque so
-                                 * the grid does not read through it.
-                                 */}
-                                <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                                        <p
-                                            aria-live="polite"
-                                            className="text-sm font-bold text-foreground"
-                                        >
-                                            {draftStoneIds.length}{' '}
-                                            {draftStoneIds.length === 1
-                                                ? 'stone'
-                                                : 'stones'}{' '}
-                                            selected
-                                        </p>
-                                        {hasSelection ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                    setDraftValue(
-                                                        'stoneIds',
-                                                        [],
-                                                        {
-                                                            shouldDirty: true,
-                                                            shouldValidate:
-                                                                hasDraftContinued.current,
-                                                        },
-                                                    )
-                                                }
-                                                className="h-7 cursor-pointer px-1.5 text-xs"
-                                            >
-                                                Clear
-                                            </Button>
-                                        ) : null}
-                                        {/*
-                                         * There is no control here to focus — a
-                                         * grid of cards is not a field — so
-                                         * Next is left enabled and the
-                                         * objection is said here instead of by
-                                         * refusing to let the reader onwards.
-                                         */}
-                                        <InputError
-                                            message={fieldMessage(
-                                                draftMethods.formState.errors
-                                                    .stoneIds,
-                                            )}
-                                            role="alert"
-                                        />
-                                    </div>
-
-                                    <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
+                                            For{' '}
+                                            <span className="font-bold">
+                                                {target.name}
+                                            </span>{' '}
+                                            · {target.detail}
+                                        </span>
                                         <Button
                                             type="button"
-                                            onClick={continueFromStones}
-                                            className="w-full sm:w-auto"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={onChangeTarget}
                                         >
-                                            Next
+                                            Change client
                                         </Button>
                                     </div>
-                                </div>
-                            </InquiryQuestion>
-                        ) : null}
+                                ) : undefined
+                            ) : (
+                                <Button asChild variant="outline">
+                                    {/* Back to the list the edit was started from. */}
+                                    <Link href={edit.back.url}>
+                                        <ArrowLeft aria-hidden />
+                                        {edit.back.label}
+                                    </Link>
+                                </Button>
+                            )
+                        }
+                    />
 
-                        {applicationQuestion !== null ? (
-                            <InquiryQuestion
-                                {...applicationQuestion}
-                                title="Where will the stone be used?"
-                                summary={applicationsSummary}
-                            >
-                                <div className="mb-6">
-                                    <div className="relative w-full sm:w-auto sm:max-w-xs">
-                                        <Search
-                                            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
-                                            aria-hidden
-                                        />
-                                        <Input
-                                            type="search"
-                                            value={applicationSearch}
-                                            onChange={(event) =>
-                                                setApplicationSearch(
-                                                    event.target.value,
-                                                )
+                    <InquiryStepper steps={STEPS} current={stepperCurrent} />
+
+                    {result !== null ? (
+                        <InquiryResult
+                            status={result.status}
+                            title={
+                                result.status === 'success' ? result.title : ''
+                            }
+                            reference={
+                                result.status === 'success'
+                                    ? result.reference
+                                    : undefined
+                            }
+                            message={
+                                result.status === 'error'
+                                    ? result.message
+                                    : undefined
+                            }
+                            retryAt={
+                                result.status === 'error'
+                                    ? (result.retryAt ?? null)
+                                    : null
+                            }
+                            canChat={canChat}
+                            inquiriesHref={inquiriesHref}
+                            onTryAgain={sendInquiry}
+                            onBackToReview={() => setResult(null)}
+                            onInquireAgain={inquireAgain}
+                            submitting={isSending}
+                        />
+                    ) : step === REVIEW_STEP ? (
+                        <InquiryReview
+                            onEditProject={openProject}
+                            sectionMessages={sectionMessages}
+                            projectMessages={projectMessages}
+                            validationErrors={validationAlertErrors}
+                            locked={isSending}
+                            onRequestQuote={requestQuote}
+                            mode={edit === null ? 'create' : 'edit'}
+                        />
+                    ) : (
+                        /*
+                         * Steps 1 to 3 with a project open all read the draft form, so
+                         * they sit inside its own provider. Shadowing the inquiry's
+                         * provider for this subtree is the point: neither can reach an
+                         * answer the other owns.
+                         */
+                        <FormProvider {...draftMethods}>
+                            {showDraftBanner ? (
+                                <ProjectBanner
+                                    label="Changing your request"
+                                    onCancel={cancelExcursion}
+                                />
+                            ) : null}
+
+                            {stonesQuestion !== null ? (
+                                <InquiryQuestion
+                                    {...stonesQuestion}
+                                    title="Which stones do you like?"
+                                    summary={stonesSummary}
+                                >
+                                    <div className="mb-5 flex flex-col gap-3 rounded-md border border-sidebar-border bg-secondary p-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="min-w-0">
+                                            <p className="text-base font-bold">
+                                                Not sure which stone yet?
+                                            </p>
+                                            <p className="mt-0.5 text-sm text-secondary-foreground">
+                                                Our team will recommend one for
+                                                you.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant={
+                                                draftStoneAdvice
+                                                    ? 'default'
+                                                    : 'outline'
                                             }
-                                            placeholder="Search places"
-                                            aria-label="Search places"
-                                            className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
-                                        />
-                                        {applicationSearch ? (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setApplicationSearch('')
-                                                }
-                                                aria-label="Clear search"
-                                                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                            >
-                                                <X
-                                                    className="size-4"
+                                            onClick={askForStoneAdvice}
+                                            aria-pressed={draftStoneAdvice}
+                                            className="w-full shrink-0 sm:w-auto"
+                                        >
+                                            Help me choose
+                                        </Button>
+                                    </div>
+
+                                    <div className="mb-6 border-b border-sidebar-border pb-4">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="relative w-full sm:max-w-xs">
+                                                <Search
+                                                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
                                                     aria-hidden
                                                 />
-                                            </button>
-                                        ) : null}
+                                                <Input
+                                                    type="search"
+                                                    value={search}
+                                                    onChange={(event) =>
+                                                        setSearch(
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="Search stones"
+                                                    aria-label="Search stones"
+                                                    className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                                                />
+                                                {search ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setSearch('')
+                                                        }
+                                                        aria-label="Clear search"
+                                                        className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                                    >
+                                                        <X
+                                                            className="size-4"
+                                                            aria-hidden
+                                                        />
+                                                    </button>
+                                                ) : null}
+                                            </div>
+
+                                            <div
+                                                className="hidden items-center gap-5 text-sm sm:ml-auto sm:flex"
+                                                role="tablist"
+                                                aria-label="Filter stones"
+                                            >
+                                                {stoneTabs.map((tab) => {
+                                                    const isActive =
+                                                        filter === tab.value;
+
+                                                    return (
+                                                        <button
+                                                            key={tab.value}
+                                                            type="button"
+                                                            role="tab"
+                                                            aria-selected={
+                                                                isActive
+                                                            }
+                                                            onClick={() =>
+                                                                setFilter(
+                                                                    tab.value,
+                                                                )
+                                                            }
+                                                            className={`-my-2.5 rounded-md px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
+                                                                isActive
+                                                                    ? 'font-bold text-foreground underline decoration-foreground underline-offset-4'
+                                                                    : 'text-secondary-foreground'
+                                                            }`}
+                                                        >
+                                                            {tab.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <div
+                                                className="flex items-center gap-2.5 sm:hidden"
+                                                role="tablist"
+                                                aria-label="Filter stones"
+                                            >
+                                                {stoneTabs.map((tab) => {
+                                                    const isActive =
+                                                        filter === tab.value;
+
+                                                    return (
+                                                        <Button
+                                                            key={tab.value}
+                                                            type="button"
+                                                            role="tab"
+                                                            aria-selected={
+                                                                isActive
+                                                            }
+                                                            variant={
+                                                                isActive
+                                                                    ? 'default'
+                                                                    : 'secondary'
+                                                            }
+                                                            size="sm"
+                                                            className="px-3 py-1.5"
+                                                            onClick={() =>
+                                                                setFilter(
+                                                                    tab.value,
+                                                                )
+                                                            }
+                                                        >
+                                                            {tab.label}
+                                                        </Button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {(() => {
-                                    const query = applicationSearch
-                                        .trim()
-                                        .toLowerCase();
-                                    const filteredApplications =
-                                        query === ''
-                                            ? catalog.applications
-                                            : catalog.applications.filter(
-                                                  (application) =>
-                                                      application.name
-                                                          .toLowerCase()
-                                                          .includes(query),
-                                              );
-
-                                    return filteredApplications.length === 0 ? (
+                                    {filter === 'saved' &&
+                                    savedIds.size === 0 ? (
                                         <EmptyState
-                                            title="Nothing found"
-                                            description="No place matches that search."
+                                            title="You haven't saved any stones yet"
+                                            description="Tap the heart on a stone and it will show up here."
                                             action={
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     onClick={() =>
-                                                        setApplicationSearch('')
+                                                        setFilter('all')
+                                                    }
+                                                >
+                                                    Browse all stones
+                                                </Button>
+                                            }
+                                        />
+                                    ) : visibleStones.length === 0 ? (
+                                        <EmptyState
+                                            title="No stones found"
+                                            description="No stone in this filter matches that search."
+                                            action={
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        setSearch('')
                                                     }
                                                 >
                                                     Clear search
@@ -2167,91 +1778,176 @@ const InquireFlow = ({
                                             }
                                         />
                                     ) : (
-                                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
-                                            {filteredApplications.map(
-                                                (application) => (
-                                                    <ApplicationCard
-                                                        key={application.id}
-                                                        application={
-                                                            application
-                                                        }
-                                                        selected={draftApplicationIds.includes(
-                                                            application.id,
-                                                        )}
-                                                        onSelect={() =>
-                                                            toggleApplication(
-                                                                application.id,
-                                                            )
-                                                        }
-                                                    />
-                                                ),
-                                            )}
+                                        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
+                                            {visibleStones.map((stone) => (
+                                                <ProductCard
+                                                    key={stone.slug}
+                                                    product={{
+                                                        slug: stone.slug,
+                                                        name: stone.name,
+                                                        thumbnail:
+                                                            stone.thumbnail,
+                                                        category:
+                                                            stone.category,
+                                                    }}
+                                                    aspect="aspect-[4/3]"
+                                                    saved={savedIds.has(
+                                                        stone.slug,
+                                                    )}
+                                                    onToggleSave={
+                                                        canSave
+                                                            ? () =>
+                                                                  toggleSave(
+                                                                      stone.slug,
+                                                                  )
+                                                            : undefined
+                                                    }
+                                                    selectable
+                                                    selected={draftStoneIds.includes(
+                                                        stone.slug,
+                                                    )}
+                                                    onSelect={() =>
+                                                        toggleStone(stone.slug)
+                                                    }
+                                                    // A standalone stone profile
+                                                    // lives under Saved, so
+                                                    // without that permission
+                                                    // the new tab would only show
+                                                    // the forbidden page.
+                                                    viewHref={
+                                                        canSeeStoneProfile
+                                                            ? savedShow.url({
+                                                                  stone: stone.slug,
+                                                              })
+                                                            : undefined
+                                                    }
+                                                />
+                                            ))}
                                         </div>
-                                    );
-                                })()}
+                                    )}
 
-                                <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                                        <p
-                                            aria-live="polite"
-                                            className="text-sm font-bold text-foreground"
-                                        >
-                                            {draftApplicationIds.length}{' '}
-                                            selected
-                                        </p>
-                                        <InputError
-                                            message={fieldMessage(
-                                                draftMethods.formState.errors
-                                                    .applicationIds,
-                                            )}
-                                            role="alert"
-                                        />
-                                    </div>
+                                    {/*
+                                     * Sticky so the way forward stays reachable
+                                     * while a long grid scrolls past, and opaque so
+                                     * the grid does not read through it.
+                                     */}
+                                    <InquiryActionBar>
+                                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                                            <p
+                                                aria-live="polite"
+                                                className="text-sm font-bold text-foreground"
+                                            >
+                                                {draftStoneIds.length}{' '}
+                                                {draftStoneIds.length === 1
+                                                    ? 'stone'
+                                                    : 'stones'}{' '}
+                                                selected
+                                            </p>
+                                            {hasSelection ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        setStones([])
+                                                    }
+                                                    className="h-7 cursor-pointer px-1.5 text-xs"
+                                                >
+                                                    Clear
+                                                </Button>
+                                            ) : null}
+                                            {/*
+                                             * There is no control here to focus — a
+                                             * grid of cards is not a field — so
+                                             * Next is left enabled and the
+                                             * objection is said here instead of by
+                                             * refusing to let the reader onwards.
+                                             */}
+                                            <InputError
+                                                message={fieldMessage(
+                                                    draftMethods.formState
+                                                        .errors.stoneIds,
+                                                )}
+                                                role="alert"
+                                            />
+                                        </div>
 
-                                    <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
-                                        <Button
-                                            type="button"
-                                            onClick={continueFromApplication}
-                                            className="w-full sm:w-auto"
-                                        >
-                                            Next
-                                        </Button>
-                                    </div>
-                                </div>
-                            </InquiryQuestion>
-                        ) : null}
+                                        <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
+                                            <Button
+                                                type="button"
+                                                onClick={continueFromStones}
+                                                className="w-full sm:w-auto"
+                                            >
+                                                Next
+                                            </Button>
+                                        </div>
+                                    </InquiryActionBar>
+                                </InquiryQuestion>
+                            ) : null}
 
-                        {detailsQuestion !== null ? (
-                            <InquiryQuestion
-                                {...detailsQuestion}
-                                title="A few last details"
-                                summary={detailsSummary}
-                            >
-                                <InquiryProjectForm
-                                    projectNumber={
-                                        editingProjectNumber > 0
-                                            ? editingProjectNumber
-                                            : projects.length + 1
-                                    }
-                                    isStandalone={isStandaloneOnly(flowDraft)}
-                                    allowAttachments={
-                                        target === null &&
-                                        (edit?.allowAttachments ?? true)
-                                    }
-                                    onCommit={commitDraft}
-                                    deadlineLockReason={
-                                        editingProjectId === null
-                                            ? null
-                                            : (lockedDeadlines[
-                                                  editingProjectId
-                                              ] ?? null)
-                                    }
-                                />
-                            </InquiryQuestion>
-                        ) : null}
-                    </FormProvider>
-                )}
-            </div>
+                            {workQuestion !== null ? (
+                                <InquiryQuestion
+                                    {...workQuestion}
+                                    title="What work does each stone need?"
+                                    summary={workSummary}
+                                >
+                                    <InquiryStoneWork
+                                        rowKeys={workRows}
+                                        onOption={setWorkOption}
+                                        onFurnitureType={setWorkFurnitureType}
+                                        onNext={continueFromWork}
+                                    />
+                                </InquiryQuestion>
+                            ) : null}
+
+                            {detailsQuestion !== null ? (
+                                <InquiryQuestion
+                                    {...detailsQuestion}
+                                    title="Other details"
+                                    summary={detailsSummary}
+                                >
+                                    <InquiryProjectForm
+                                        projectNumber={
+                                            editingProjectNumber > 0
+                                                ? editingProjectNumber
+                                                : projects.length + 1
+                                        }
+                                        allowAttachments={
+                                            target === null &&
+                                            (edit?.allowAttachments ?? true)
+                                        }
+                                        onCommit={commitDraft}
+                                        deadlineLockReason={
+                                            editingProjectId === null
+                                                ? null
+                                                : (lockedDeadlines[
+                                                      editingProjectId
+                                                  ] ?? null)
+                                        }
+                                    />
+                                </InquiryQuestion>
+                            ) : null}
+                        </FormProvider>
+                    )}
+
+                    {/* The gap above the bar, and what pushes it down the screen. */}
+                    <div aria-hidden className="min-h-6 flex-1" />
+                    <div ref={setActionBarSlot} className={BOTTOM_BAR} />
+                </div>
+            </InquiryActionBarSlot.Provider>
+
+            <ConfirmDialog
+                open={lostAttachments > 0}
+                onOpenChange={() => setLostAttachments(0)}
+                title="Your draft is back"
+                description={
+                    lostAttachments === 1
+                        ? 'Its attachment could not be saved here. Attach the file again.'
+                        : `${lostAttachments} attachments could not be saved here. Attach the files again.`
+                }
+                confirmLabel="OK"
+                onConfirm={() => setLostAttachments(0)}
+            />
         </FormProvider>
     );
 };
@@ -2259,8 +1955,8 @@ const InquireFlow = ({
 const Inquire = (props: InquirePageProps) => {
     const {
         services,
+        furnitureTypes,
         stones,
-        applications,
         edgeProfiles,
         finishes,
         locations,
@@ -2356,13 +2052,22 @@ const Inquire = (props: InquirePageProps) => {
         () =>
             createInquiryCatalog({
                 services,
+                furnitureTypes,
                 stones,
-                applications,
                 edgeProfiles,
                 finishes,
                 locations,
+                projects,
             }),
-        [services, stones, applications, edgeProfiles, finishes, locations],
+        [
+            services,
+            furnitureTypes,
+            stones,
+            edgeProfiles,
+            finishes,
+            locations,
+            projects,
+        ],
     );
 
     if (edit === null && leads !== null && target === null) {

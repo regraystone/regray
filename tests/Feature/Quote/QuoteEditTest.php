@@ -9,7 +9,7 @@ use App\Models\AuditLog;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
-use App\Models\ServiceOption;
+use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use App\Policies\InquiryActions;
@@ -77,8 +77,12 @@ describe('the edit page', function (): void {
                 ->has('projects', 1)
                 ->where('projects.0.id', $inquiry->id)
                 ->where('projects.0.name', 'Kitchen')
-                ->where('projects.0.serviceSlugs', ['natural-stone-supply'])
-                ->where('projects.0.serviceOptionSlugs', ['natural-stone-supply' => 'supply-only'])
+                ->where('projects.0.deliveryMethod', 'delivery')
+                ->where('projects.0.work', [[
+                    'stoneId' => Stone::query()->active()->orderBy('id')->value('slug'),
+                    'serviceId' => 'supply-only',
+                    'furnitureType' => null,
+                ]])
                 ->where('projects.0.stones.0.stoneId', Stone::query()->active()->orderBy('id')->value('slug'))
                 ->where('projects.0.deadlineLocked', false)
                 ->where('projects.0.attachments.0.id', $inquiry->files->sole()->id)
@@ -127,8 +131,8 @@ describe('saving the edit', function (): void {
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
                 'name' => 'Kitchen and island',
-                'serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication'],
                 'stones' => [[...inquiryProjectInput()['stones'][0], 'stoneId' => $otherStone, 'quantity' => 9]],
+                'work' => [['stoneId' => $otherStone, 'serviceId' => 'fabrication-supply']],
                 'location' => 'Taguig',
                 'neededBy' => '2030-05-06',
             ])]])
@@ -141,7 +145,7 @@ describe('saving the edit', function (): void {
 
         expect($inquiry->name)->toBe('Kitchen and island')
             ->and($inquiry->location)->toBe('Taguig')
-            ->and($inquiry->services()->pluck('slug')->all())->toEqualCanonicalizing(['natural-stone-supply', 'custom-stone-fabrication'])
+            ->and($inquiry->workItems()->sole()->service->slug)->toBe('fabrication-supply')
             ->and($inquiry->stones()->sole()->quantity)->toBe(9)
             ->and($inquiry->stones()->sole()->stone->slug)->toBe($otherStone)
             ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-05-06 10:00', 'Asia/Manila')))->toBeTrue()
@@ -159,19 +163,60 @@ describe('saving the edit', function (): void {
             ->and($audit->new_values['name'])->toBe('Kitchen and island');
     });
 
-    it('changes the kind of work picked under a service and records it in the audit row', function (): void {
+    it('changes the kind of work of a stone and records it in the audit row', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        $stone = $inquiry->stones()->sole()->stone->slug;
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+                'work' => [['stoneId' => $stone, 'serviceId' => 'installation-supply']],
+            ])]])
+            ->assertSessionHasNoErrors();
+
+        $installation = Service::query()->where('slug', 'installation-supply')->value('id');
+
+        expect($inquiry->workItems()->sole()->service_id)->toBe($installation)
+            ->and(AuditLog::query()->sole()->new_values['work'][0]['service_id'])->toBe($installation);
+    });
+
+    it('keeps a service no longer offered that the inquiry already has, but offers no other', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        $stone = $inquiry->stones()->sole()->stone->slug;
+
+        Service::query()->whereIn('slug', ['supply-only', 'full-package'])->update(['is_active' => false]);
+
+        $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
+            ->assertInertia(fn (Assert $page) => $page->where('projects.0.heldServices.0.id', 'supply-only'));
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry)]])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+                'work' => [['stoneId' => $stone, 'serviceId' => 'full-package']],
+            ])]])
+            ->assertSessionHasErrors(['projects.0.work.0.serviceId' => 'That choice is no longer available.']);
+    });
+
+    it('moves an inquiry to pickup and back, keeping the location to the delivery', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
-                'serviceOptions' => ['natural-stone-supply' => 'supply-installation'],
+                'deliveryMethod' => 'pickup',
+                'location' => '',
             ])]])
             ->assertSessionHasNoErrors();
 
-        $installation = ServiceOption::query()->where('slug', 'supply-installation')->value('id');
+        expect($inquiry->refresh()->location)->toBeNull()
+            ->and($inquiry->schedule->notes)->toEndWith('· Pickup');
 
-        expect($inquiry->serviceOptions()->pluck('slug')->all())->toBe(['supply-installation'])
-            ->and(AuditLog::query()->sole()->new_values['service_option_ids'])->toContain($installation);
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['location' => 'Taguig'])]])
+            ->assertSessionHasNoErrors();
+
+        expect($inquiry->refresh()->location)->toBe('Taguig');
     });
 
     it('refuses to move a visit that is already confirmed, but saves the rest when it stays put', function (): void {

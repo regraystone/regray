@@ -9,8 +9,6 @@ use App\Enums\Role;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
-use App\Models\Service;
-use App\Models\ServiceOption;
 use App\Models\Stone;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Services\ScheduleService;
@@ -26,7 +24,7 @@ function detailedInquiry(mixed $test): Inquiry
 {
     $inquiry = makeInquiry(
         $test->client,
-        ['name' => 'Kitchen', 'stones' => $test->slugs, 'services' => ['natural-stone-supply', 'custom-stone-fabrication']],
+        ['name' => 'Kitchen', 'stones' => $test->slugs, 'services' => ['supply-only', 'fabrication-supply']],
         ['reference' => 'INQ-D1'],
     );
 
@@ -71,7 +69,6 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
             'landmark' => 'Near the church',
             'areaSqm' => 12.5,
             'neededBy' => '2030-01-02',
-            'neededByTime' => null,
             'notes' => 'Ground floor',
         ])
         // The client's own attachment only: the quotation is staff's.
@@ -139,17 +136,6 @@ it('shares quotations and payment receipts with the client, never the job order 
         ->and(array_keys($documents[0]['files'][0]))->toBe(['id', 'type', 'name', 'sizeBytes', 'mimeType']);
 });
 
-it('shows a visit\'s target deadline with the time from its schedule', function (): void {
-    $inquiry = makeInquiry($this->client, ['name' => 'Survey', 'stones' => [], 'services' => ['stone-relocation-dismantling-reinstallation']], ['reference' => 'INQ-V1']);
-    app(ScheduleService::class)->createForInquiry($inquiry, $this->client, '2030-01-02', '14:15');
-
-    $requirements = $this->actingAs($this->client)->get(route('quote.show', 'INQ-V1'))
-        ->viewData('page')['props']['inquiry']['project']['requirements'];
-
-    expect($requirements['neededBy'])->toBe('2030-01-02')
-        ->and($requirements['neededByTime'])->toBe('14:15');
-});
-
 it('carries nothing a client should not see', function (): void {
     detailedInquiry($this);
 
@@ -201,18 +187,20 @@ it('shows the client their refund: the request form, the settled file, and the r
         ->and($refund)->toMatchArray(['amount' => '600.00', 'currentBalance' => '600.00', 'remainingBalance' => '0.00']);
 });
 
-it('shows the kind of work picked under each service, and none for a service sent before the choice', function (): void {
-    $inquiry = detailedInquiry($this);
-    $supply = Service::query()->where('slug', 'natural-stone-supply')->value('id');
-    $inquiry->services()->updateExistingPivot($supply, [
-        'service_option_id' => ServiceOption::query()->where('slug', 'supply-installation')->value('id'),
-    ]);
+it('shows the service of each stone, and each service wanted once', function (): void {
+    detailedInquiry($this);
 
     $services = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
         ->viewData('page')['props']['inquiry']['project']['services'];
 
-    expect(array_column($services, 'option', 'name'))->toBe([
-        'Natural Stone Supply' => 'Stone supply with installation',
-        'Custom Stone Fabrication' => null,
+    $stones = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
+        ->viewData('page')['props']['inquiry']['project']['stones'];
+
+    expect($services)->toBe([
+        ['name' => 'Stone supply only'],
+        ['name' => 'Stone supply and fabrication'],
+    ])->and($stones[0]['work'])->toBe([
+        ['service' => 'Stone supply only', 'furnitureType' => null],
+        ['service' => 'Stone supply and fabrication', 'furnitureType' => null],
     ]);
 });

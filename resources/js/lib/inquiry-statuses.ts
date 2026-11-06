@@ -17,7 +17,8 @@
 /**
  * The stage an inquiry has reached: one sales or logistics value, or pending,
  * closed, cancelled or for refund. A full refund cancels it; the payment badge
- * beside it then reads refunded.
+ * beside it then reads refunded. Sales won shows as quoted, so `won` is only on
+ * cards posted before that.
  */
 export type InquiryStatus =
     | 'pending'

@@ -8,6 +8,13 @@ import StaffInquireDialog from '@/components/staff-inquire-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { ApiError } from '@/lib/message-api';
 import {
@@ -387,23 +394,32 @@ const DirectStart = ({
                         <div className="flex items-center gap-2">
                             {/* The first contact is always the phone number, which is required. */}
                             {index === 0 ? null : (
-                                <select
+                                <Select
                                     value={contact.kind}
-                                    onChange={(event) =>
+                                    onValueChange={(kind) =>
                                         setContact(index, {
-                                            kind: event.target
-                                                .value as ContactKind,
+                                            kind: kind as ContactKind,
                                         })
                                     }
-                                    aria-label={`Contact ${index + 1} kind`}
-                                    className="h-9 shrink-0 border border-input bg-background px-2 text-sm"
                                 >
-                                    {CONTACT_KINDS.map((kind) => (
-                                        <option key={kind} value={kind}>
-                                            {CONTACT_KIND_LABELS[kind]}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <SelectTrigger
+                                        aria-label={`Contact ${index + 1} kind`}
+                                        className="w-32 shrink-0 rounded-none text-base data-[size=default]:h-11"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CONTACT_KINDS.map((kind) => (
+                                            <SelectItem
+                                                key={kind}
+                                                value={kind}
+                                                className="rounded-none"
+                                            >
+                                                {CONTACT_KIND_LABELS[kind]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             )}
                             <Input
                                 id={`direct-contact-${index}`}

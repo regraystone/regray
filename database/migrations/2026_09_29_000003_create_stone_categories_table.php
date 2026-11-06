@@ -15,7 +15,6 @@ return new class extends Migration
             $table->string('name', 150);
             $table->string('thumbnail_path', 255);
             $table->text('description');
-            $table->string('origin', 255);
             $table->boolean('is_active');
             $table->smallInteger('sort_order');
             $table->timestampTz('created_at');

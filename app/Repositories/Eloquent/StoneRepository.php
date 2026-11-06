@@ -7,8 +7,6 @@ use App\Models\Inquiry;
 use App\Models\InquiryStone;
 use App\Models\Stone;
 use App\Models\StoneCategory;
-use App\Models\StoneSize;
-use App\Models\StoneThickness;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -96,16 +94,15 @@ class StoneRepository implements StoneRepositoryInterface
                 'bestSeller' => $stone->is_best_seller,
             ]);
 
-        $sizes = StoneSize::query()->where('is_active', true)->pluck('name')
+        $sizes = Stone::query()->active()->distinct()->pluck('size')
             ->sort(function (string $left, string $right): int {
                 [$leftWidth, $leftLength] = array_map('intval', explode('x', $left));
                 [$rightWidth, $rightLength] = array_map('intval', explode('x', $right));
 
                 return ($leftWidth <=> $rightWidth) ?: ($leftLength <=> $rightLength);
             })->values()->map(fn (string $size): array => ['value' => $size, 'label' => $size]);
-        $thicknesses = StoneThickness::query()->where('is_active', true)
-            ->orderBy('sort_order')->orderBy('name')->get(['slug', 'name'])
-            ->map(fn (StoneThickness $thickness): array => ['value' => $thickness->slug, 'label' => $thickness->name]);
+        $thicknesses = Stone::query()->active()->distinct()->orderBy('thickness_mm')->pluck('thickness_mm')
+            ->map(fn (int $millimetres): array => ['value' => (string) $millimetres, 'label' => "{$millimetres} mm"]);
 
         return ['categories' => $categories, 'sizes' => $sizes, 'thicknesses' => $thicknesses];
     }

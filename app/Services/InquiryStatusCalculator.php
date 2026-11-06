@@ -22,8 +22,10 @@ use App\Enums\SalesStatus;
  * 3. closed when logistics has completed;
  * 4. the logistics status once sales has uploaded the job order (and
  *    logistics has started, which the first payment does);
- * 5. the sales status once sales has started;
- * 6. pending otherwise.
+ * 5. quoted when sales has won: the client approved the quotation, which the
+ *    role statuses and the payment badge say, and the inquiry still reads quoted;
+ * 6. the sales status once sales has started;
+ * 7. pending otherwise.
  *
  * Accounting's status counts only once fully refunded: otherwise it has a
  * badge of its own, which reads refunded beside the cancelled status.
@@ -54,6 +56,10 @@ class InquiryStatusCalculator
 
         if ($hasJobOrder && $process !== null) {
             return InquiryStatus::from($process->value);
+        }
+
+        if ($sales === SalesStatus::Won) {
+            return InquiryStatus::Quoted;
         }
 
         if ($sales !== null) {
@@ -87,6 +93,7 @@ class InquiryStatusCalculator
                     AND inquiry_files.document_type = 'job_order'
                     AND inquiry_files.deleted_at IS NULL
             ) THEN inquiries.process_status
+            WHEN inquiries.sales_status = 'won' THEN 'quoted'
             WHEN inquiries.sales_status IS NOT NULL THEN inquiries.sales_status
             ELSE 'pending'
         END

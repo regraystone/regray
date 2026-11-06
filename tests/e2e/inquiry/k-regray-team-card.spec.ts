@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { inquiryFixtures } from '../support/accounts';
 import { expect, php, postAsUser, test } from '../support/fixtures';
 import {
-    addVisitProject,
+    addStoneProject,
     openInquire,
     sendAndReadReference,
 } from '../support/inquiry-flow';
@@ -57,7 +57,7 @@ test('40 · a sent inquiry posts a "New Inquiry" card into the Regray Team threa
     const client = await actors.open('client');
 
     await openInquire(client.page);
-    await addVisitProject(client.page, { location: 'Pasig' });
+    await addStoneProject(client.page, { location: 'Pasig' });
     const reference = await sendAndReadReference(client.page);
 
     await expectCard(
@@ -86,7 +86,7 @@ test('41 · without a group chat, a status change posts its card into the Regray
     const { page } = await actors.open('client');
 
     await openInquire(page);
-    await addVisitProject(page, { location: 'Taguig' });
+    await addStoneProject(page, { location: 'Taguig' });
     const reference = await sendAndReadReference(page);
 
     await page.goto('/dashboard/quote');

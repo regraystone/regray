@@ -9,25 +9,25 @@ import {
 } from '../support/fixtures';
 import {
     CATALOG,
+    DELIVERY_METHOD_ID,
+    REVIEW,
     answerStoneRow,
     changeQuestion,
     checkbox,
     answerDeadline,
+    chooseInSelect,
     chooseLocation,
     continueButton,
-    deadlineDate,
-    deadlineTime,
     expectStep,
-    futureDate,
     landmarkField,
     locationField,
     notesField,
     openInquire,
     openMoreDetails,
-    pickApplication,
-    pickService,
     pickStone,
+    pickWork,
     projectPayload,
+    workRow,
     sendAndReadReference,
     walkToRequirements,
 } from '../support/inquiry-flow';
@@ -41,54 +41,63 @@ const pageError = (page: Page, text: string) =>
 const addToInquiry = (page: Page) =>
     page.getByRole('button', { name: 'Continue to review' });
 
-test('11 · Services: Continue is disabled until a service is picked, and the objection is in the page style', async ({
+test('11 · Work: the list is in order, each stone needs its work, and furniture needs its type', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
+    const [stone] = CATALOG.stones;
     await openInquire(page);
-
-    // The scenario asks for a disabled button. Soft, so the rest of the step's
-    // behaviour is still recorded when it is not.
-    await expect
-        .soft(continueButton(page), 'Continue with no service picked')
-        .toBeDisabled();
-
-    if (await continueButton(page).isEnabled()) {
-        await continueButton(page).click();
-        const message = pageError(page, 'Select at least one service.');
-        await expect(message).toBeVisible();
-        await expect(message).toHaveClass(/text-red-600/);
-        await expectStep(page, 1);
-    }
-
-    await pickService(page, CATALOG.stoneService);
-    await expect(continueButton(page)).toBeEnabled();
-    await expect(pageError(page, 'Select at least one service.')).toHaveCount(
-        0,
-    );
+    await pickStone(page, stone);
     await continueButton(page).click();
     await expectStep(page, 2);
+
+    await continueButton(page).click();
+    await expect(
+        pageError(page, `Choose the work for ${stone}.`),
+    ).toBeVisible();
+    await expectStep(page, 2);
+
+    await workRow(page, stone).getByTestId('service-option').click();
+    await expect(page.getByRole('option')).toHaveText([
+        'Stone supply, fabrication and installation',
+        'Stone supply and fabrication',
+        'Stone supply and installation',
+        'Stone supply only',
+        'Customized furniture',
+        'Full kitchen fit-out',
+        'Cabinetry with stone countertop and installation',
+        'Cabinetry with stone countertop',
+    ]);
+    await page.keyboard.press('Escape');
+
+    await pickWork(page, stone, CATALOG.furnitureWork);
+    await continueButton(page).click();
+    await expect(
+        pageError(page, `Choose the furniture type for ${stone}.`),
+    ).toBeVisible();
+    await expectStep(page, 2);
+
+    await pickWork(page, stone, CATALOG.furnitureWork, 'Tables');
+    await continueButton(page).click();
+    await expectStep(page, 3);
 });
 
-test('12 · Stones: no stone blocks Continue; quantity 0 and 10000 are refused, 1 and 9999 accepted', async ({
+test('12 · Stones: no stone blocks Next; quantity 0 and 10000 are refused, 1 and 9999 accepted', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
     await openInquire(page);
-    await pickService(page, CATALOG.stoneService);
-    await continueButton(page).click();
-    await expectStep(page, 2);
 
     await continueButton(page).click();
     await expect(pageError(page, 'Select at least one stone.')).toBeVisible();
-    await expectStep(page, 2);
+    await expectStep(page, 1);
 
     await pickStone(page, CATALOG.stones[0]);
     await continueButton(page).click();
-    await expectStep(page, 3);
-    await pickApplication(page, CATALOG.applications[0]);
+    await expectStep(page, 2);
+    await pickWork(page, CATALOG.stones[0]);
     await continueButton(page).click();
-    await expectStep(page, 4);
+    await expectStep(page, 3);
 
     const quantity = page.locator('#requirements-quantity-0');
     const quantityError = page.locator('#requirements-quantity-0-error');
@@ -107,7 +116,7 @@ test('12 · Stones: no stone blocks Continue; quantity 0 and 10000 are refused, 
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
     await addToInquiry(page).click();
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
     await expect(page.getByText('9999 pcs')).toBeVisible();
 });
 
@@ -155,7 +164,7 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     await expect(
         pageError(page, 'Another row of this stone has the same edge profile'),
     ).toBeVisible();
-    await expectStep(page, 4);
+    await expectStep(page, 3);
 
     for (let rows = 2; rows < 20; rows += 1) {
         await duplicate.click();
@@ -180,11 +189,8 @@ test('14 · Requirements: location is required, and "Parañaque" survives the ro
     const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
     await openInquire(page);
-    await pickService(page, CATALOG.visitService);
-    await continueButton(page).click();
-    await expectStep(page, 4);
-    await deadlineDate(page).fill(futureDate(6));
-    await deadlineTime(page).fill('11:00');
+    await walkToRequirements(page);
+    await answerDeadline(page);
 
     await addToInquiry(page).click();
     await expect(pageError(page, 'Choose where the site is.')).toBeVisible();
@@ -192,7 +198,7 @@ test('14 · Requirements: location is required, and "Parañaque" survives the ro
 
     await chooseLocation(page, 'Parañaque');
     await addToInquiry(page).click();
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
     await expect(page.getByText('Parañaque')).toBeVisible();
 
     const reference = await sendAndReadReference(page);
@@ -210,9 +216,7 @@ test('15 · Requirements: landmark takes 150 characters and refuses 151; notes t
     const { page } = await actors.open('client');
     actors.allowConsole(/status of 422/);
     await openInquire(page);
-    await pickService(page, CATALOG.visitService);
-    await continueButton(page).click();
-    await expectStep(page, 4);
+    await walkToRequirements(page);
 
     await openMoreDetails(page);
 
@@ -236,10 +240,9 @@ test('15 · Requirements: landmark takes 150 characters and refuses 151; notes t
         .toHaveText('1000 of 1000 characters used');
 
     await chooseLocation(page, 'Makati');
-    await deadlineDate(page).fill(futureDate(6));
-    await deadlineTime(page).fill('11:00');
+    await answerDeadline(page);
     await addToInquiry(page).click();
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
     await expect(
         page.getByText('L'.repeat(150), { exact: true }),
     ).toBeVisible();
@@ -260,34 +263,29 @@ test('15 · Requirements: landmark takes 150 characters and refuses 151; notes t
     }
 });
 
-test('16 · the needed-by time shows only for a service attended at an hour, and is required with it', async ({
+test('16 · a pickup is asked no location, with the landmark kept either way', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
     await openInquire(page);
-
     await walkToRequirements(page);
-    await expect(deadlineDate(page)).toBeVisible();
-    await expect(deadlineTime(page)).toHaveCount(0);
 
-    await changeQuestion(page, 1).click();
-    await expectStep(page, 1);
-    await checkbox(page, CATALOG.stoneService).click();
-    await pickService(page, CATALOG.visitService);
-    await continueButton(page).click();
-    await expectStep(page, 4);
+    await expect(page.locator(`#${DELIVERY_METHOD_ID}`)).toContainText(
+        'Delivery',
+    );
 
-    await expect(deadlineTime(page)).toBeVisible();
     await chooseLocation(page, 'Makati');
-    await deadlineDate(page).fill(futureDate(6));
-    await addToInquiry(page).click();
-    await expect(pageError(page, 'Say what time of day works.')).toBeVisible();
-    await expectStep(page, 4);
+    await openMoreDetails(page);
+    await landmarkField(page).fill('Near the church');
 
-    await deadlineTime(page).fill('14:15');
-    await addToInquiry(page).click();
-    await expectStep(page, 5);
-    await expect(page.getByText(/at 14:15$/)).toBeVisible();
+    await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
+    await expect(locationField(page)).toHaveCount(0);
+    await expect(landmarkField(page)).toHaveValue('Near the church');
+
+    // Changing back brings back what was typed.
+    await chooseInSelect(page, DELIVERY_METHOD_ID, 'Delivery');
+    await expect(locationField(page)).toHaveValue('Makati');
+    await expect(landmarkField(page)).toHaveValue('Near the church');
 });
 
 test('17 · Change opens an answered question and keeps every answer', async ({
@@ -297,7 +295,10 @@ test('17 · Change opens an answered question and keeps every answer', async ({
     await openInquire(page);
     await walkToRequirements(page, {
         stones: [...CATALOG.stones],
-        applications: [CATALOG.applications[1]],
+        work: [
+            { option: CATALOG.work },
+            { option: CATALOG.furnitureWork, furnitureType: 'Tables' },
+        ],
     });
     await answerStoneRow(page, 0, {
         quantity: 12,
@@ -307,15 +308,13 @@ test('17 · Change opens an answered question and keeps every answer', async ({
     await chooseLocation(page, 'Pasig');
     await answerDeadline(page);
 
-    await changeQuestion(page, 3).click();
-    await expectStep(page, 3);
-    await expect(checkbox(page, CATALOG.applications[1])).toHaveAttribute(
-        'aria-checked',
-        'true',
-    );
-
     await changeQuestion(page, 2).click();
     await expectStep(page, 2);
+    await expect(workRow(page, CATALOG.stones[0])).toContainText(CATALOG.work);
+    await expect(workRow(page, CATALOG.stones[1])).toContainText('Tables');
+
+    await changeQuestion(page, 1).click();
+    await expectStep(page, 1);
     for (const stone of CATALOG.stones) {
         await expect(checkbox(page, stone)).toHaveAttribute(
             'aria-checked',
@@ -323,17 +322,9 @@ test('17 · Change opens an answered question and keeps every answer', async ({
         );
     }
 
-    await changeQuestion(page, 1).click();
-    await expectStep(page, 1);
-    await expect(checkbox(page, CATALOG.stoneService)).toHaveAttribute(
-        'aria-checked',
-        'true',
-    );
-
     await continueButton(page).click();
     await continueButton(page).click();
-    await continueButton(page).click();
-    await expectStep(page, 4);
+    await expectStep(page, 3);
     await expect(page.locator('#requirements-quantity-0')).toHaveValue('12');
     // Folded away again, and said back in a line.
     await expect(
@@ -349,24 +340,28 @@ test('17a · Help me choose moves on with no stone, and picking a stone takes it
 }) => {
     const { page } = await actors.open('client');
     await openInquire(page);
-    await pickService(page, CATALOG.stoneService);
-    await continueButton(page).click();
 
     await page.getByRole('button', { name: 'Help me choose' }).click();
-    await expectStep(page, 3);
-    await expect(
-        page.getByText("We'll recommend a stone for you"),
-    ).toBeVisible();
-
-    await changeQuestion(page, 2).click();
-    await pickStone(page, CATALOG.stones[0]);
+    await expectStep(page, 2);
+    await pickWork(page, 'Stone to be recommended by Regray');
     await continueButton(page).click();
     await expectStep(page, 3);
-    await expect(page.getByText("We'll recommend a stone for you")).toHaveCount(
-        0,
-    );
     await expect(
-        page.getByText(CATALOG.stones[0], { exact: true }),
+        page.getByText('Stone to be recommended by Regray').first(),
+    ).toBeVisible();
+
+    await changeQuestion(page, 1).click();
+    await pickStone(page, CATALOG.stones[0]);
+    await continueButton(page).click();
+    await expectStep(page, 2);
+    await pickWork(page, CATALOG.stones[0]);
+    await continueButton(page).click();
+    await expectStep(page, 3);
+    await expect(
+        page.getByText('Stone to be recommended by Regray'),
+    ).toHaveCount(0);
+    await expect(
+        page.getByText(CATALOG.stones[0], { exact: true }).first(),
     ).toBeVisible();
 });
 
@@ -385,5 +380,5 @@ test('17b · a press that fixes a refused answer is not lost when the complaint 
 
     // One press, straight after the answer, with the field still focused.
     await addToInquiry(page).click();
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
 });

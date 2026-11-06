@@ -1,6 +1,29 @@
 import { Check } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
+
+/**
+ * Where the page's bar goes: one place at the end of the page, so it stays at the
+ * bottom of the screen whichever question is open and however short it is. A bar
+ * drawn inside a question could only stick within that question, and would sit
+ * above the summaries of the questions after it.
+ */
+export const InquiryActionBarSlot = createContext<HTMLElement | null>(null);
+
+/** The way forward of whatever is open, drawn into the page's slot. */
+export const InquiryActionBar = ({ children }: { children: ReactNode }) => {
+    const slot = useContext(InquiryActionBarSlot);
+
+    return slot === null
+        ? null
+        : createPortal(
+              <div className="flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+                  {children}
+              </div>,
+              slot,
+          );
+};
 
 /** The id of one question's section, for moving the reader to it when it opens. */
 export const inquiryQuestionId = (step: number): string =>

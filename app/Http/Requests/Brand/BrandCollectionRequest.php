@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Brand;
 
-use App\Models\Furniture;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -70,9 +69,9 @@ class BrandCollectionRequest extends FormRequest
             'collection' => ['sometimes', 'nullable', 'string', Rule::in([self::COLLECTION_ALL, self::COLLECTION_STONES, self::COLLECTION_FURNITURE])],
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
             'category' => ['sometimes', 'nullable', 'string', Rule::exists('stone_categories', 'slug')->where('deleted_at', null)->where('is_active', true)],
-            'size' => ['sometimes', 'nullable', 'string', 'max:20', Rule::exists('stone_sizes', 'name')->where('is_active', true)],
-            'thickness' => ['sometimes', 'nullable', 'string', Rule::exists('stone_thicknesses', 'slug')->where('is_active', true)],
-            'furniture_type' => ['sometimes', 'nullable', 'string', Rule::in(Furniture::TYPES)],
+            'size' => ['sometimes', 'nullable', 'string', 'max:20', Rule::exists('stones', 'size')->where('is_active', true)->whereNull('deleted_at')],
+            'thickness' => ['bail', 'sometimes', 'nullable', 'integer', 'min:1', 'max:32767', Rule::exists('stones', 'thickness_mm')->where('is_active', true)->whereNull('deleted_at')],
+            'furniture_type' => ['sometimes', 'nullable', 'string', Rule::exists('furniture_types', 'name')->where('is_active', true)],
             'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
     }

@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\StoneThickness;
+use App\Models\FurnitureType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<StoneThickness>
+ * @extends Factory<FurnitureType>
  */
-class StoneThicknessFactory extends Factory
+class FurnitureTypeFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -19,11 +19,9 @@ class StoneThicknessFactory extends Factory
     {
         return [
             'slug' => fake()->unique()->slug(2),
-            'name' => '12 mm',
-            'min_mm' => 12,
-            'max_mm' => 12,
-            'is_active' => true,
+            'name' => fake()->unique()->words(2, true),
             'sort_order' => 0,
+            'is_active' => true,
         ];
     }
 }

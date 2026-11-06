@@ -9,14 +9,13 @@
  */
 
 /*
- * The reader sees two steps: Your request and Review and send. The first is four
- * questions on one page, one open at a time, and these numbers are those
- * questions. Stored drafts hold the same numbers.
+ * The reader sees two steps: Your request and Review and send. The first is
+ * questions on one page, one open at a time: the stones, the work each one needs,
+ * then the details. Stored drafts hold the same numbers.
  */
-export const SERVICES_STEP = 1;
-export const STONES_STEP = 2;
-export const APPLICATION_STEP = 3;
-export const REQUIREMENTS_STEP = 4;
+export const STONES_STEP = 1;
+export const WORK_STEP = 2;
+export const REQUIREMENTS_STEP = 3;
 
 /** Review is the last step, and owns no fields of its own to validate. */
 export const REVIEW_STEP = REQUIREMENTS_STEP + 1;
@@ -27,100 +26,168 @@ export const INQUIRY_STEP_LABELS = ['Your request', 'Review and send'] as const;
 export const stepperPosition = (step: number): number =>
     step >= REVIEW_STEP ? 2 : 1;
 
-/**
- * The part of the draft that decides the path through the steps.
- *
- * `serviceIds` are the services that supply stone; `standaloneServiceIds` are
- * the ones that stand as projects of their own, such as a site visit.
- */
-export type FlowDraft = {
-    serviceIds: string[];
-    standaloneServiceIds: string[];
-    stoneIds: string[];
-    applicationIds: string[];
-};
+export type InquiryMode = 'create' | 'edit';
 
-/** Whether the draft is nothing but services that stand on their own. */
-export const isStandaloneOnly = (draft: FlowDraft): boolean =>
-    draft.serviceIds.length === 0 && draft.standaloneServiceIds.length > 0;
+/** How the project reaches the client. A pickup has no location to ask for. */
+export const DELIVERY = 'delivery';
+export const PICKUP = 'pickup';
+
+export const DELIVERY_METHODS = [
+    { value: DELIVERY, title: 'Delivery' },
+    { value: PICKUP, title: 'Pickup' },
+];
+
+/** The question after this one. */
+export const nextQuestion = (step: number): number =>
+    Math.min(step + 1, REVIEW_STEP);
 
 /**
- * Whether Stones and Application are asked at all: as soon as one service
- * supplies stone. A draft of only standalone services skips both.
- */
-export const isStonesAndApplicationRequired = (draft: FlowDraft): boolean =>
-    draft.serviceIds.length > 0;
-
-/**
- * The question after this one: Services, Stones, Application, Requirements, then
- * Review. A visit goes straight from Services to Requirements.
- */
-export const nextQuestion = (step: number, draft: FlowDraft): number => {
-    if (step === SERVICES_STEP && isStandaloneOnly(draft)) {
-        return REQUIREMENTS_STEP;
-    }
-
-    return Math.min(step + 1, REVIEW_STEP);
-};
-
-/**
- * A project's name, made from what the reader answered: where the stone goes and
- * the service it is for. Capped at the name's own limit, which the caller passes
- * because this file imports nothing. It can be changed on Review.
+ * A project's name, made from the first service the reader picked, capped at the
+ * name's own limit, which the caller passes because this file imports nothing. It
+ * can be changed on Review.
  */
 export const autoProjectName = (
-    applicationNames: string[],
     serviceNames: string[],
     maxLength: number,
-): string =>
-    [applicationNames[0], serviceNames[0]]
-        .filter((part): part is string => Boolean(part))
-        .join(' - ')
-        .slice(0, maxLength)
-        .trim();
+): string => (serviceNames[0] ?? '').slice(0, maxLength).trim();
 
 /**
  * Where a restored draft is allowed to land.
  *
  * The stored step is a number the draft behind it may no longer justify: a
- * Review with no projects left to review, an Application step whose stones were
- * never picked, a question a visit is never asked, a step number no longer in the
- * stepper at all. So the stored step is held to the furthest step the draft still
- * justifies — Review needs a project, Requirements needs a service, Stones are
- * needed once a service supplies stone, and then Application — and Services is the
- * floor.
+ * Review with no projects left to review, a Work question whose stones were never
+ * picked, details whose work is unfinished. So the stored step is held to the
+ * furthest step the draft still justifies, and Stones is the floor.
  */
 export const clampRestoredStep = (
     stored: number,
     projectCount: number,
-    draft: FlowDraft & { stoneAdvice?: boolean },
+    draft: {
+        stoneIds: string[];
+        stoneAdvice?: boolean;
+        workIsComplete?: boolean;
+    },
 ): number => {
     if (stored >= REVIEW_STEP && projectCount > 0) {
         return REVIEW_STEP;
     }
 
-    if (draft.serviceIds.length + draft.standaloneServiceIds.length === 0) {
-        return SERVICES_STEP;
-    }
+    const hasStones = draft.stoneIds.length > 0 || draft.stoneAdvice === true;
+    const furthest = !hasStones
+        ? STONES_STEP
+        : draft.workIsComplete === true
+          ? REQUIREMENTS_STEP
+          : WORK_STEP;
+    const requested = Number.isFinite(stored)
+        ? Math.trunc(stored)
+        : STONES_STEP;
 
-    let furthest = REQUIREMENTS_STEP;
-
-    if (isStandaloneOnly(draft)) {
-        return stored > SERVICES_STEP ? REQUIREMENTS_STEP : SERVICES_STEP;
-    }
-
-    if (isStonesAndApplicationRequired(draft)) {
-        if (draft.stoneIds.length === 0 && draft.stoneAdvice !== true) {
-            furthest = STONES_STEP;
-        } else if (draft.applicationIds.length === 0) {
-            furthest = APPLICATION_STEP;
-        }
-    }
-
-    const requested = Number.isFinite(stored) ? Math.trunc(stored) : 1;
-
-    return Math.min(Math.max(requested, SERVICES_STEP), furthest);
+    return Math.min(Math.max(requested, STONES_STEP), furthest);
 };
+
+/* ------------------------------------------------------------------ */
+/* The work per stone                                                   */
+/* ------------------------------------------------------------------ */
+
+/** The key of the work with no stone: what "Help me choose" makes. */
+export const STONE_ADVICE_KEY = '__recommended__';
+
+export const STONE_ADVICE_LABEL = 'Stone to be recommended by Regray';
+
+/** One kind of work a stone can be given, as InquiryServiceResource sends it. */
+export type WorkService = {
+    id: string;
+    name: string;
+    needsFurniture: boolean;
+};
+
+/** What was chosen for one stone. `''` is not chosen yet; both are slugs. */
+export type StoneWorkEntry = {
+    serviceId: string;
+    furnitureType: string;
+};
+
+/** The work of a draft, keyed by stone slug or by `STONE_ADVICE_KEY`. */
+export type StoneWorkMap = Record<string, StoneWorkEntry>;
+
+/** Which work rows the draft has: one per stone, or the one for a recommendation. */
+export const workRowKeys = (draft: {
+    stoneIds: string[];
+    stoneAdvice: boolean;
+}): string[] => (draft.stoneAdvice ? [STONE_ADVICE_KEY] : [...draft.stoneIds]);
+
+/** What one work row is called. */
+export const workRowLabel = (
+    key: string,
+    stones: ReadonlyArray<{ slug: string; name: string }>,
+): string =>
+    key === STONE_ADVICE_KEY
+        ? STONE_ADVICE_LABEL
+        : (stones.find((stone) => stone.slug === key)?.name ?? key);
+
+/** The work of just these rows: a stone taken off takes its work with it. */
+export const keepWorkFor = (
+    keys: readonly string[],
+    work: StoneWorkMap,
+): StoneWorkMap =>
+    Object.fromEntries(
+        Object.entries(work).filter(([key]) => keys.includes(key)),
+    );
+
+/**
+ * One row's option changed. An option that asks for no furniture type clears it,
+ * so nothing it no longer offers stays on Review.
+ */
+export const chooseWorkService = (
+    work: StoneWorkMap,
+    key: string,
+    serviceId: string,
+    options: readonly WorkService[],
+): StoneWorkMap => ({
+    ...work,
+    [key]: {
+        serviceId,
+        furnitureType: options.find((entry) => entry.id === serviceId)
+            ?.needsFurniture
+            ? (work[key]?.furnitureType ?? '')
+            : '',
+    },
+});
+
+export type WorkProblem = {
+    key: string;
+    field: 'serviceId' | 'furnitureType';
+};
+
+/**
+ * What still stops the reader leaving the Work question: a row with no option, or
+ * an option that needs a furniture type with none picked.
+ */
+export const workProblems = (
+    keys: readonly string[],
+    work: StoneWorkMap,
+    options: readonly WorkService[],
+    furnitureTypes: readonly string[],
+): WorkProblem[] =>
+    keys.flatMap((key): WorkProblem[] => {
+        const entry = work[key];
+        const option = options.find(({ id }) => id === entry?.serviceId);
+
+        if (option === undefined) {
+            return [{ key, field: 'serviceId' }];
+        }
+
+        return option.needsFurniture &&
+            !furnitureTypes.includes(entry.furnitureType)
+            ? [{ key, field: 'furnitureType' }]
+            : [];
+    });
+
+/** A copy that shares no rows with the one it came from. */
+export const copyStoneWork = (work: StoneWorkMap): StoneWorkMap =>
+    Object.fromEntries(
+        Object.entries(work).map(([key, entry]) => [key, { ...entry }]),
+    );
 
 /**
  * The stone rows for the picks.
@@ -155,7 +222,7 @@ export const seedStoneRows = (
                   },
         );
 
-    return picked.flatMap((id) => {
+    return [...new Set(picked)].flatMap((id) => {
         const existing = kept.filter((row) => row.stoneId === id);
 
         return existing.length > 0
@@ -172,70 +239,46 @@ export const seedStoneRows = (
 };
 
 /** The draft, as far as committing it goes. */
-export type CommitDraft = FlowDraft & {
-    /** The kind of work picked under each service, by service id. */
-    serviceOptions: Record<string, string>;
+export type CommitDraft = {
     name: string;
+    stoneIds: string[];
     /** The reader asked Regray to recommend a stone instead of choosing one. */
     stoneAdvice: boolean;
     stones: StoneRow[];
+    stoneWork: StoneWorkMap;
+    deliveryMethod: string;
     location: string;
     landmark: string;
     areaSqm: string;
     neededBy: string;
-    neededByTime: string;
     notes: string;
     attachments: unknown[];
 };
 
 /**
- * What a commit does with the queue of standalone services.
- *
- * The head of the queue is the one committed when the draft is nothing but
- * standalone services; a draft with stone of its own is committed beside the
- * queue, which then waits whole.
- */
-export const commitPlan = (
-    draft: FlowDraft,
-): { isStandalone: boolean; head: string | undefined; remaining: string[] } => {
-    const [head, ...queue] = draft.standaloneServiceIds;
-    const isStandalone = draft.serviceIds.length === 0 && head !== undefined;
-
-    return {
-        isStandalone,
-        head,
-        remaining: isStandalone ? queue : draft.standaloneServiceIds,
-    };
-};
-
-/**
- * One committed project.
- *
- * A standalone project still carries the stones and applications picked in the
- * steps before it, as extra information. It is still one project per service.
+ * One committed project. A stone taken off has taken its work with it, and a
+ * pickup keeps no location: what was typed before changing to it stays on the
+ * draft, in case they change back.
  */
 export const buildCommittedProject = <T extends CommitDraft>(
     draft: T,
-    context: { id: string; standaloneService?: { id: string; name: string } },
+    context: { id: string },
 ) => {
-    const standalone = context.standaloneService;
-
-    const serviceIds =
-        standalone === undefined ? [...draft.serviceIds] : [standalone.id];
+    const isPickup = draft.deliveryMethod === PICKUP;
 
     return {
         id: context.id,
-        name: standalone === undefined ? draft.name : standalone.name,
-        serviceIds,
-        serviceOptions: pickServiceOptions(draft.serviceOptions, serviceIds),
-        applications: [...draft.applicationIds],
+        name: draft.name,
         stoneAdvice: draft.stoneAdvice,
         stones: draft.stones.map((row) => ({ ...row })),
-        location: draft.location,
+        stoneWork: copyStoneWork(
+            keepWorkFor(workRowKeys(draft), draft.stoneWork),
+        ),
+        deliveryMethod: draft.deliveryMethod,
+        location: isPickup ? '' : draft.location,
         landmark: draft.landmark,
         areaSqm: draft.areaSqm,
         neededBy: draft.neededBy,
-        neededByTime: draft.neededByTime,
         notes: draft.notes,
         attachments: draft.attachments.map((attachment) =>
             typeof attachment === 'object' && attachment !== null
@@ -244,24 +287,6 @@ export const buildCommittedProject = <T extends CommitDraft>(
         ) as T['attachments'],
     };
 };
-
-/** The kinds of work picked for just these services. */
-export const pickServiceOptions = (
-    options: Record<string, string>,
-    serviceIds: string[],
-): Record<string, string> =>
-    Object.fromEntries(
-        serviceIds.flatMap((id) =>
-            options[id] === undefined ? [] : [[id, options[id]]],
-        ),
-    );
-
-/** A project is a standalone one when every service it is for stands alone. */
-export const isStandaloneProject = (
-    serviceIds: string[],
-    standaloneIds: ReadonlySet<string>,
-): boolean =>
-    serviceIds.length > 0 && serviceIds.every((id) => standaloneIds.has(id));
 
 /* ------------------------------------------------------------------ */
 /* The request                                                          */
@@ -279,16 +304,14 @@ export type RequestProject = {
     /** The project's id; sent only when editing, where it is the database id. */
     id?: string;
     name: string;
-    serviceIds: string[];
-    serviceOptions: Record<string, string>;
-    applications: string[];
     stoneAdvice: boolean;
     stones: StoneRow[];
+    stoneWork: StoneWorkMap;
+    deliveryMethod: string;
     location: string;
     landmark: string;
     areaSqm: string;
     neededBy: string;
-    neededByTime: string;
     notes: string;
     attachments: RequestAttachment[];
 };
@@ -320,22 +343,15 @@ export const buildInquiryFormData = (
 
         body.append(field('name'), project.name);
 
-        project.serviceIds.forEach((id, k) =>
-            body.append(`${field('serviceIds')}[${k}]`, id),
-        );
+        // What is wanted of each stone; the work with no stone sends none.
+        Object.entries(project.stoneWork).forEach(([key, entry], k) => {
+            const work = (name: string): string =>
+                `${field('work')}[${k}][${name}]`;
 
-        // The kind of work under each service, keyed by its slug. Sent even
-        // when blank, so the server names the service that is missing one.
-        project.serviceIds.forEach((id) =>
-            body.append(
-                `${field('serviceOptions')}[${id}]`,
-                project.serviceOptions[id] ?? '',
-            ),
-        );
-
-        project.applications.forEach((id, k) =>
-            body.append(`${field('applicationIds')}[${k}]`, id),
-        );
+            body.append(work('stoneId'), key === STONE_ADVICE_KEY ? '' : key);
+            body.append(work('serviceId'), entry.serviceId);
+            body.append(work('furnitureType'), entry.furnitureType);
+        });
 
         body.append(field('stoneAdvice'), project.stoneAdvice ? '1' : '0');
 
@@ -349,11 +365,11 @@ export const buildInquiryFormData = (
             body.append(stone('finish'), row.finish);
         });
 
+        body.append(field('deliveryMethod'), project.deliveryMethod);
         body.append(field('location'), project.location);
         body.append(field('landmark'), project.landmark);
         body.append(field('areaSqm'), project.areaSqm);
         body.append(field('neededBy'), project.neededBy);
-        body.append(field('neededByTime'), project.neededByTime);
         body.append(field('notes'), project.notes);
 
         let kept = 0;
@@ -480,21 +496,21 @@ export const readInquiryFlash = (flash: unknown): InquiryFlash | null => {
 export type InquiryEditProject = {
     id: number;
     name: string;
-    serviceSlugs: string[];
-    /**
-     * The kind of work under each service, by service slug. A service sent
-     * before the choice existed is missing, and an empty map arrives as [].
-     */
-    serviceOptionSlugs: Record<string, string> | [];
-    applicationSlugs: string[];
+    work: Array<{
+        stoneId: string | null;
+        serviceId: string;
+        furnitureType: string | null;
+    }>;
+    /** The options it already has, which may no longer be offered to new inquiries. */
+    heldServices: WorkService[];
     stoneAdviceRequested: boolean;
     stones: StoneRow[];
-    location: string;
+    deliveryMethod: string;
+    location: string | null;
     landmark: string | null;
     areaSqm: number | null;
     notes: string | null;
     neededBy: string | null;
-    neededByTime: string | null;
     deadlineLocked: boolean;
     deadlineLockedReason: string | null;
     attachments: Array<{
@@ -510,16 +526,14 @@ export type InquiryEditProject = {
 export type EditFormProject = {
     id: string;
     name: string;
-    serviceIds: string[];
-    serviceOptions: Record<string, string>;
-    applications: string[];
     stoneAdvice: boolean;
     stones: StoneRow[];
+    stoneWork: StoneWorkMap;
+    deliveryMethod: string;
     location: string;
     landmark: string;
     areaSqm: string;
     neededBy: string;
-    neededByTime: string;
     notes: string;
     attachments: Array<{
         id: string;
@@ -537,35 +551,44 @@ export type EditFormProject = {
  *
  * The project's id becomes the form id, as a string, which is also what is
  * sent back as `projects[i][id]`. Missing answers become the form's blank `''`.
+ *
+ * One service per stone, so the first row of a stone is the one the form holds.
  */
 export const toEditFormProjects = (
     projects: InquiryEditProject[],
 ): EditFormProject[] =>
-    projects.map((project) => ({
-        id: String(project.id),
-        name: project.name,
-        serviceIds: [...project.serviceSlugs],
-        serviceOptions: Array.isArray(project.serviceOptionSlugs)
-            ? {}
-            : { ...project.serviceOptionSlugs },
-        applications: [...project.applicationSlugs],
-        stoneAdvice: project.stoneAdviceRequested,
-        stones: project.stones.map((row) => ({ ...row })),
-        location: project.location,
-        landmark: project.landmark ?? '',
-        areaSqm: project.areaSqm === null ? '' : String(project.areaSqm),
-        neededBy: project.neededBy ?? '',
-        neededByTime: project.neededByTime ?? '',
-        notes: project.notes ?? '',
-        attachments: project.attachments.map((file) => ({
-            id: `saved-${file.id}`,
-            status: 'saved' as const,
-            fileId: file.id,
-            name: file.name,
-            sizeBytes: file.sizeBytes,
-            mimeType: file.mimeType,
-        })),
-    }));
+    projects.map((project) => {
+        const stoneWork: StoneWorkMap = {};
+
+        for (const row of project.work) {
+            stoneWork[row.stoneId ?? STONE_ADVICE_KEY] ??= {
+                serviceId: row.serviceId,
+                furnitureType: row.furnitureType ?? '',
+            };
+        }
+
+        return {
+            id: String(project.id),
+            name: project.name,
+            stoneAdvice: project.stoneAdviceRequested,
+            stones: project.stones.map((row) => ({ ...row })),
+            stoneWork,
+            deliveryMethod: project.deliveryMethod,
+            location: project.location ?? '',
+            landmark: project.landmark ?? '',
+            areaSqm: project.areaSqm === null ? '' : String(project.areaSqm),
+            neededBy: project.neededBy ?? '',
+            notes: project.notes ?? '',
+            attachments: project.attachments.map((file) => ({
+                id: `saved-${file.id}`,
+                status: 'saved' as const,
+                fileId: file.id,
+                name: file.name,
+                sizeBytes: file.sizeBytes,
+                mimeType: file.mimeType,
+            })),
+        };
+    });
 
 /**
  * Why each project's date and time can no longer be changed, keyed by the form
@@ -583,8 +606,6 @@ export const deadlineLocks = (
                     'This date and time can no longer be changed.',
             ]),
     );
-
-export type InquiryMode = 'create' | 'edit';
 
 /**
  * What the Review sheet says in each mode. The send is a save when editing.

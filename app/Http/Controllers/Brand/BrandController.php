@@ -9,7 +9,7 @@ use App\Http\Requests\Brand\BrandCollectionRequest;
 use App\Http\Resources\BrandProductResource;
 use App\Http\Resources\BrandProfileResource;
 use App\Models\Brand;
-use App\Models\Furniture;
+use App\Models\FurnitureType;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,10 +35,9 @@ class BrandController extends Controller
             'filters' => $result['filters'],
             'filterOptions' => Inertia::once(fn () => [
                 ...$this->stoneRepository->filterOptions(),
-                'furnitureTypes' => collect(Furniture::TYPES)->map(fn (string $type) => [
-                    'value' => $type,
-                    'label' => $type,
-                ])->all(),
+                'furnitureTypes' => FurnitureType::query()->active()->orderBy('sort_order')->pluck('name')
+                    ->map(fn (string $type): array => ['value' => $type, 'label' => $type])
+                    ->all(),
             ]),
         ]);
     }

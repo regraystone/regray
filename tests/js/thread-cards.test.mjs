@@ -18,6 +18,11 @@ describe('inquiry card', () => {
         assert.equal(inquiryHeadline('cancelled'), 'Inquiry cancelled');
     });
 
+    it('announces the approval when sales won shows the inquiry as quoted', () => {
+        assert.equal(inquiryHeadline('quoted', 'won'), 'Quotation approved');
+        assert.equal(inquiryHeadline('quoted', 'quoted'), 'Quotation sent');
+    });
+
     it('calls the card a newly sent inquiry posts "New Inquiry"', () => {
         assert.equal(inquiryHeadline('pending'), 'New Inquiry');
     });

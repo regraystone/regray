@@ -58,38 +58,9 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         ]);
     }
 
-    public function attachServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void
+    public function addWorkItems(Inquiry $inquiry, array $items): void
     {
-        $inquiry->services()->attach($this->servicePivots($serviceIds, $optionIds));
-    }
-
-    /**
-     * Each service id with the kind of work picked under it, as pivot rows.
-     *
-     * @param  list<int>  $serviceIds
-     * @param  array<int, int>  $optionIds
-     * @return array<int, array{service_option_id: int|null}>
-     */
-    private function servicePivots(array $serviceIds, array $optionIds): array
-    {
-        $rows = [];
-
-        foreach ($serviceIds as $serviceId) {
-            $rows[$serviceId] = ['service_option_id' => $optionIds[$serviceId] ?? null];
-        }
-
-        return $rows;
-    }
-
-    public function attachApplications(Inquiry $inquiry, array $applicationIds): void
-    {
-        $rows = [];
-
-        foreach ($applicationIds as $position => $applicationId) {
-            $rows[$applicationId] = ['sort_order' => $position];
-        }
-
-        $inquiry->categories()->attach($rows);
+        $inquiry->workItems()->createMany($items);
     }
 
     public function addStones(Inquiry $inquiry, array $stones): void
@@ -163,15 +134,10 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         $inquiry->forceFill($attributes)->save();
     }
 
-    public function syncServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void
+    public function replaceWorkItems(Inquiry $inquiry, array $items): void
     {
-        $inquiry->services()->sync($this->servicePivots($serviceIds, $optionIds));
-    }
-
-    public function syncApplications(Inquiry $inquiry, array $applicationIds): void
-    {
-        $inquiry->categories()->detach();
-        $this->attachApplications($inquiry, $applicationIds);
+        $inquiry->workItems()->delete();
+        $this->addWorkItems($inquiry, $items);
     }
 
     public function replaceStones(Inquiry $inquiry, array $stones): void
@@ -247,13 +213,13 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         }
 
         return Service::query()
-            ->join('inquiry_services as isv', 'isv.service_id', '=', 'services.id')
-            ->leftJoin('service_options as so', 'so.id', '=', 'isv.service_option_id')
-            ->whereIn('isv.inquiry_id', $inquiryIds)
-            ->select(['services.id', 'services.slug', 'services.name', 'isv.inquiry_id', 'so.name as option_name'])
-            ->orderBy('isv.inquiry_id')
+            ->join('inquiry_work_items as work', 'work.service_id', '=', 'services.id')
+            ->whereIn('work.inquiry_id', $inquiryIds)
+            ->select(['services.id', 'services.slug', 'services.name', 'services.sort_order', 'work.inquiry_id'])
+            ->distinct()
+            ->orderBy('work.inquiry_id')
             ->orderBy('services.sort_order')
-            ->orderBy('services.id')
+            ->orderBy('services.slug')
             ->get();
     }
 
@@ -363,9 +329,9 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     {
         return $query
             ->with([
-                'services' => fn ($services) => $services->withTrashed()->orderBy('services.sort_order'),
-                'serviceOptions',
-                'categories',
+                'workItems.service',
+                'workItems.stone' => fn ($stone) => $stone->withTrashed(),
+                'workItems.furnitureType',
                 'schedule:id,inquiry_id,arrival_at,status',
                 'stones' => fn ($stones) => $stones->orderBy('sort_order'),
                 'stones.stone' => fn ($stone) => $stone->withTrashed(),

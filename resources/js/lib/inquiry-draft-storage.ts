@@ -1,5 +1,10 @@
 import { toast } from 'sonner';
 import { z } from 'zod';
+import type {
+    DELIVERY,
+    STONE_ADVICE_KEY,
+    StoneWorkMap,
+} from '@/lib/inquiry-flow';
 import type { InquiryDraftInput, InquiryFormInput } from '@/lib/inquiry-schema';
 import type { InquiryCatalog } from '@/types/inquiry';
 
@@ -9,11 +14,14 @@ import type { InquiryCatalog } from '@/types/inquiry';
  */
 export type StoredInquiryProject = Omit<
     InquiryFormInput['projects'][number],
-    'attachments'
->;
+    'attachments' | 'stoneWork'
+> & { stoneWork: StoneWorkMap };
 
 /** The project in progress, likewise reduced to what a record can hold. */
-export type StoredInquiryDraftValues = Omit<InquiryDraftInput, 'attachments'>;
+export type StoredInquiryDraftValues = Omit<
+    InquiryDraftInput,
+    'attachments' | 'stoneWork'
+> & { stoneWork: StoneWorkMap };
 
 /**
  * Everything one autosave writes, other than the bookkeeping the storage adds.
@@ -39,17 +47,29 @@ export type InquiryDraftState = {
 };
 
 export type StoredInquiryDraft = InquiryDraftState & {
-    version: 4;
+    version: 7;
     /** When the autosave wrote it, as it is shown back to the reader. */
     savedAt: string;
 };
 
 /**
- * Bumped from 3 when the Category step became Application. A version 3 record
- * holds `categories`, which name portfolio categories rather than applications
- * and cannot be turned into either, so it is discarded instead of mis-restored.
+ * Bumped from 4 when the order became Stones, work per stone, details. A version
+ * 4 record holds its services as the first answer, with no work per stone and a
+ * step number that now means another question, so it is discarded instead of
+ * mis-restored. Versions 5 and 6 only ever existed in development, with answers
+ * nothing asks any more.
  */
-const DRAFT_VERSION = 4;
+const DRAFT_VERSION = 7;
+
+/**
+ * The key of a work row with no stone. Written out because a runtime import of
+ * `inquiry-flow` through the alias would keep this file from running under the
+ * Node tests; the annotation fails the type check if the two ever differ.
+ */
+const ADVICE_ROW_KEY: typeof STONE_ADVICE_KEY = '__recommended__';
+
+/** The delivery method a fresh stepper starts on, written out for the same reason. */
+const DEFAULT_DELIVERY_METHOD: typeof DELIVERY = 'delivery';
 
 /**
  * The one key this browser's draft for this account lives under.
@@ -59,11 +79,15 @@ const DRAFT_VERSION = 4;
  * an old record outright rather than half-understand it.
  */
 const storageKey = (userId: number): string =>
-    `regray.inquiry-draft.v4:${userId}`;
+    `regray.inquiry-draft.v7:${userId}`;
 
-/** The key version 3 wrote under, forgotten the first time a read finds it. */
-const legacyStorageKey = (userId: number): string =>
-    `regray.inquiry-draft.v3:${userId}`;
+/** The keys older versions wrote under, forgotten the first time a read runs. */
+const legacyStorageKeys = (userId: number): string[] => [
+    `regray.inquiry-draft.v3:${userId}`,
+    `regray.inquiry-draft.v4:${userId}`,
+    `regray.inquiry-draft.v5:${userId}`,
+    `regray.inquiry-draft.v6:${userId}`,
+];
 
 /**
  * Say that a write failed, once per page load.
@@ -101,26 +125,34 @@ const storedStoneSchema = z.object({
     finish: z.string(),
 });
 
-/**
- * The kind of work picked under each service. Drafts saved before the choice
- * existed have none, and read back as nothing picked yet rather than as a
- * broken record.
- */
-const storedServiceOptionsSchema = z.record(z.string(), z.string()).catch({});
+/** The delivery method. A draft saved with none starts on the default, as a new one does. */
+const storedDeliveryMethodSchema = z
+    .string()
+    .catch('')
+    .transform((value) => (value === '' ? DEFAULT_DELIVERY_METHOD : value));
+
+/** The work per stone. */
+const storedStoneWorkSchema = z
+    .record(
+        z.string(),
+        z.object({
+            serviceId: z.string(),
+            furnitureType: z.string().catch(''),
+        }),
+    )
+    .catch({});
 
 const storedProjectSchema = z.object({
     id: z.string(),
     name: z.string(),
-    serviceIds: z.array(z.string()),
-    serviceOptions: storedServiceOptionsSchema,
-    applications: z.array(z.string()),
     stoneAdvice: z.boolean().catch(false),
     stones: z.array(storedStoneSchema),
+    stoneWork: storedStoneWorkSchema,
+    deliveryMethod: storedDeliveryMethodSchema,
     location: z.string(),
     landmark: z.string(),
     areaSqm: z.string(),
     neededBy: z.string(),
-    neededByTime: z.string(),
     notes: z.string(),
 });
 
@@ -128,16 +160,13 @@ const storedDraftSchema = z.object({
     name: z.string(),
     stoneAdvice: z.boolean().catch(false),
     stoneIds: z.array(z.string()),
-    serviceIds: z.array(z.string()),
-    standaloneServiceIds: z.array(z.string()),
-    serviceOptions: storedServiceOptionsSchema,
     stones: z.array(storedStoneSchema),
-    applicationIds: z.array(z.string()),
+    stoneWork: storedStoneWorkSchema,
+    deliveryMethod: storedDeliveryMethodSchema,
     location: z.string(),
     landmark: z.string(),
     areaSqm: z.string(),
     neededBy: z.string(),
-    neededByTime: z.string(),
     notes: z.string(),
 });
 
@@ -165,10 +194,10 @@ const storedRecordSchema = z.object({
  * Read the stored draft back, with anything the catalogue has since dropped
  * silently taken out of it.
  *
- * A stone, service or application that no longer exists cannot be rendered as a
- * card or named on a badge, so its id is simply gone: the reader is not asked
- * about a material they cannot see, and the send's own validation is what says a
- * project has lost one of its services. Everything else is kept as it stands.
+ * A stone or kind of work that no longer exists cannot be rendered, so its id is
+ * simply gone: the reader is not asked about a material they cannot see, and the
+ * send's own validation is what says a stone has lost its work. Everything else is
+ * kept as it stands.
  *
  * Without a catalogue nothing is filtered, which is what the callers that only
  * ask whether a draft exists want.
@@ -182,51 +211,35 @@ const sanitize = (
     }
 
     const stoneIds = new Set(catalog.stones.map((stone) => stone.slug));
-    const serviceIds = new Set(catalog.services.map((service) => service.id));
-    const applicationIds = new Set(
-        catalog.applications.map((application) => application.id),
-    );
 
     const known = (ids: string[], allowed: Set<string>): string[] =>
         ids.filter((id) => allowed.has(id));
-    // A kind of work survives only while its service still offers it.
-    const knownOptions = (
-        options: Record<string, string>,
-    ): Record<string, string> =>
-        Object.fromEntries(
-            Object.entries(options).filter(([serviceId, optionId]) =>
-                catalog.services.some(
-                    (service) =>
-                        service.id === serviceId &&
-                        service.options.some(
-                            (option) => option.id === optionId,
-                        ),
-                ),
-            ),
-        );
     const knownRows = <T extends { stoneId: string }>(rows: T[]): T[] =>
         rows.filter((row) => stoneIds.has(row.stoneId));
+    // A stone's work survives while the stone and the option both do.
+    const knownWork = (work: StoneWorkMap): StoneWorkMap =>
+        Object.fromEntries(
+            Object.entries(work).filter(
+                ([key, entry]) =>
+                    (key === ADVICE_ROW_KEY || stoneIds.has(key)) &&
+                    catalog.services.some(
+                        (option) => option.id === entry.serviceId,
+                    ),
+            ),
+        );
 
     return {
         ...record,
         projects: record.projects.map((project) => ({
             ...project,
-            serviceIds: known(project.serviceIds, serviceIds),
-            serviceOptions: knownOptions(project.serviceOptions),
-            applications: known(project.applications, applicationIds),
             stones: knownRows(project.stones),
+            stoneWork: knownWork(project.stoneWork),
         })),
         draft: {
             ...record.draft,
             stoneIds: known(record.draft.stoneIds, stoneIds),
-            serviceIds: known(record.draft.serviceIds, serviceIds),
-            standaloneServiceIds: known(
-                record.draft.standaloneServiceIds,
-                serviceIds,
-            ),
-            serviceOptions: knownOptions(record.draft.serviceOptions),
-            applicationIds: known(record.draft.applicationIds, applicationIds),
             stones: knownRows(record.draft.stones),
+            stoneWork: knownWork(record.draft.stoneWork),
         },
     };
 };
@@ -244,14 +257,21 @@ export const inquiryDraftState = (values: {
     projects: InquiryFormInput['projects'];
     draft: InquiryDraftInput;
 }): InquiryDraftState => {
-    const strip = <T extends { attachments: unknown }>(
+    const strip = <
+        T extends { attachments: unknown; stoneWork?: StoneWorkMap },
+    >(
         entry: T,
-    ): Omit<T, 'attachments'> => {
+    ): Omit<T, 'attachments' | 'stoneWork'> & {
+        stoneWork: StoneWorkMap;
+    } => {
         const copy = { ...entry } as Partial<T>;
 
         delete copy.attachments;
 
-        return copy as Omit<T, 'attachments'>;
+        return {
+            ...(copy as Omit<T, 'attachments' | 'stoneWork'>),
+            stoneWork: entry.stoneWork ?? {},
+        };
     };
 
     const droppedAttachments =
@@ -279,16 +299,16 @@ export const inquiryDraftState = (values: {
 const isBlank = (state: InquiryDraftState): boolean =>
     state.projects.length === 0 &&
     state.draft.name === '' &&
+    !state.draft.stoneAdvice &&
+    (state.draft.deliveryMethod === '' ||
+        state.draft.deliveryMethod === DEFAULT_DELIVERY_METHOD) &&
+    Object.keys(state.draft.stoneWork).length === 0 &&
     state.draft.stoneIds.length === 0 &&
-    state.draft.serviceIds.length === 0 &&
-    state.draft.standaloneServiceIds.length === 0 &&
     state.draft.stones.length === 0 &&
-    state.draft.applicationIds.length === 0 &&
     state.draft.location === '' &&
     state.draft.landmark === '' &&
     state.draft.areaSqm === '' &&
     state.draft.neededBy === '' &&
-    state.draft.neededByTime === '' &&
     state.draft.notes === '';
 
 /**
@@ -312,7 +332,9 @@ export const readInquiryDraft = (
     let raw: string | null = null;
 
     try {
-        window.localStorage.removeItem(legacyStorageKey(userId));
+        legacyStorageKeys(userId).forEach((legacyKey) =>
+            window.localStorage.removeItem(legacyKey),
+        );
         raw = window.localStorage.getItem(key);
     } catch {
         return null;

@@ -3,8 +3,6 @@
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
-use App\Models\Service;
-use App\Models\ServiceOption;
 use App\Models\Stone;
 use Illuminate\Support\Facades\DB;
 
@@ -36,38 +34,31 @@ describe('a card', function (): void {
     it('lists unique stones in the order picked, and the services', function (): void {
         [$a, $b] = $this->slugs;
 
-        makeInquiry($this->client, ['name' => 'Kitchen', 'stones' => [$b, $a], 'services' => ['natural-stone-supply', 'custom-stone-fabrication']]);
+        makeInquiry($this->client, ['name' => 'Kitchen', 'stones' => [$b, $a], 'services' => ['supply-only', 'fabrication-supply']]);
 
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
         expect(collect($card['stones'])->pluck('slug')->all())->toBe([$b, $a])
-            ->and(collect($card['services'])->pluck('id')->all())->toEqualCanonicalizing(['natural-stone-supply', 'custom-stone-fabrication'])
+            ->and(collect($card['services'])->pluck('id')->all())->toBe(['fabrication-supply', 'supply-only'])
             ->and($card['title'])->toBe('Kitchen')
             ->and($card)->not->toHaveKey('projectCount')
             ->and($card['actions']['cancel'])->toBe(['visible' => true, 'enabled' => true]);
     });
 
-    it('names the kind of work picked under each service, and none for a service sent before the choice', function (): void {
-        $inquiry = makeInquiry($this->client, ['services' => ['natural-stone-supply', 'custom-stone-fabrication']]);
-        $inquiry->services()->updateExistingPivot(
-            Service::query()->where('slug', 'natural-stone-supply')->value('id'),
-            ['service_option_id' => ServiceOption::query()->where('slug', 'supply-only')->value('id')],
-        );
+    it('names each kind of work wanted, once, however many stones want it', function (): void {
+        makeInquiry($this->client, ['stones' => $this->slugs, 'services' => ['supply-only']]);
 
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
-        expect(array_column($card['services'], 'option', 'id'))->toBe([
-            'natural-stone-supply' => 'Stone supply only',
-            'custom-stone-fabrication' => null,
-        ]);
+        expect(array_column($card['services'], 'name', 'id'))->toBe(['supply-only' => 'Stone supply only']);
     });
 
-    it('carries the payment status only once the client has approved the quotation', function (InquiryStatus $status, ?string $payment): void {
+    it('carries the payment status only once the client has approved the quotation', function (InquiryStatus $status, ?string $payment, ?string $shown = null): void {
         makeInquiry($this->client, attributes: ['status' => $status]);
 
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
-        expect($card['status'])->toBe($status->value)
+        expect($card['status'])->toBe($shown ?? $status->value)
             ->and($card['paymentStatus'])->toBe($payment);
     })->with([
         'pending' => [InquiryStatus::Pending, null],
@@ -75,7 +66,7 @@ describe('a card', function (): void {
         'sales on hold' => [InquiryStatus::OnHold, null],
         'cancelled' => [InquiryStatus::Cancelled, null],
         'quoted' => [InquiryStatus::Quoted, null],
-        'won' => [InquiryStatus::Won, 'awaiting'],
+        'sales won, shown as quoted' => [InquiryStatus::Won, 'awaiting', 'quoted'],
         'closed' => [InquiryStatus::Closed, 'awaiting'],
     ]);
 
@@ -121,7 +112,7 @@ describe('a card', function (): void {
             ->has('inquiries.data.0', fn ($card) => $card
                 ->hasAll(['reference', 'status', 'paymentStatus', 'createdAt', 'title', 'actions'])
                 ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail']))
-                ->has('services.0', fn ($service) => $service->hasAll(['id', 'name', 'option'])))
+                ->has('services.0', fn ($service) => $service->hasAll(['id', 'name'])))
             ->etc());
 
         $json = json_encode($response->viewData('page')['props']['inquiries']);

@@ -1,8 +1,8 @@
 <?php
 
+use App\Enums\DeliveryMethod;
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
-use App\Models\ProjectCategory;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -13,26 +13,23 @@ beforeEach(function (): void {
 });
 
 it('creates the whole row graph for each inquiry sent', function (): void {
-    $applications = ProjectCategory::query()->orderBy('id')->limit(2)->pluck('slug')->all();
     $plan = UploadedFile::fake()->create('plan.pdf', 50, 'application/pdf');
 
     $this->actingAs($this->client)
         ->post(route('quote.inquire.store'), ['projects' => [
             inquiryProjectInput([
-                'serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication'],
-                'applicationIds' => array_reverse($applications),
                 'attachments' => [$plan],
             ]),
         ]])
         ->assertSessionHasNoErrors();
 
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryVisitInput()]])
+        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [], 'stoneAdvice' => '1'])]])
         ->assertSessionHasNoErrors();
 
-    [$first, $visit] = Inquiry::query()->with(['services', 'categories', 'stones', 'files', 'schedule', 'statusHistory'])->orderBy('id')->get()->all();
+    [$first, $advice] = Inquiry::query()->with(['workItems.service', 'stones', 'files', 'schedule', 'statusHistory'])->orderBy('id')->get()->all();
 
-    foreach ([$first, $visit] as $inquiry) {
+    foreach ([$first, $advice] as $inquiry) {
         expect($inquiry->reference)->toStartWith('INQ-')
             ->and($inquiry->client_id)->toBe($this->client->id)
             ->and($inquiry->status)->toBe(InquiryStatus::Pending)
@@ -45,33 +42,17 @@ it('creates the whole row graph for each inquiry sent', function (): void {
         ->and($first->landmark)->toBe('Near the church')
         ->and((float) $first->area_sqm)->toBe(12.5)
         ->and($first->notes)->toBe('Ground floor.')
-        ->and($first->services->pluck('slug')->all())->toEqualCanonicalizing(['natural-stone-supply', 'custom-stone-fabrication'])
-        ->and($first->categories->pluck('slug')->all())->toBe(array_reverse($applications))
+        ->and($first->delivery_method)->toBe(DeliveryMethod::Delivery)
+        ->and($first->workItems->pluck('service.slug')->all())->toBe(['supply-only'])
         ->and($first->stones)->toHaveCount(1)
         ->and($first->stones->first()->quantity)->toBe(4)
         ->and($first->files)->toHaveCount(1)
         ->and($first->files->first()->path)->toStartWith("inquiries/{$first->reference}/")
-        ->and($visit->stones)->toBeEmpty()
-        ->and($visit->files)->toBeEmpty()
-        ->and($visit->schedule->arrival_at->setTimezone('Asia/Manila')->format('H:i'))->toBe('12:00');
+        ->and($advice->stones)->toBeEmpty()
+        ->and($advice->files)->toBeEmpty()
+        ->and($advice->schedule->arrival_at->setTimezone('Asia/Manila')->format('H:i'))->toBe('10:00');
 
     Storage::disk(config('inquiry.disk'))->assertExists($first->files->first()->path);
-});
-
-it('keeps stones and applications picked as extras on a standalone project', function (): void {
-    $extras = inquiryProjectInput();
-
-    $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryVisitInput([
-            'stones' => $extras['stones'],
-            'applicationIds' => $extras['applicationIds'],
-        ])]])
-        ->assertSessionHasNoErrors();
-
-    $inquiry = Inquiry::query()->sole();
-
-    expect($inquiry->stones()->count())->toBe(1)
-        ->and($inquiry->categories()->count())->toBe(1);
 });
 
 it('numbers inquiries from the sequence', function (): void {

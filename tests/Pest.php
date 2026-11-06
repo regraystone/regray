@@ -16,15 +16,13 @@ use App\Models\Finish;
 use App\Models\Inquiry;
 use App\Models\Lead;
 use App\Models\Message;
-use App\Models\ProjectCategory;
 use App\Models\Service;
-use App\Models\ServiceOption;
 use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Services\Message\SupportConversationService;
 use Database\Seeders\EdgeProfileSeeder;
-use Database\Seeders\ProjectCategorySeeder;
+use Database\Seeders\FurnitureTypeSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\StoneSeeder;
@@ -79,14 +77,14 @@ function something()
 
 /**
  * The rows an inquiry is made from: roles, services, edge profiles, and the
- * stones and finishes the stone seeder, and the project categories the Application step offers brings with them.
+ * stones and finishes the stone seeder brings with it, and the furniture types.
  */
 function seedInquiryCatalog(): void
 {
     test()->seed([
         RolePermissionSeeder::class,
         ServiceSeeder::class,
-        ProjectCategorySeeder::class,
+        FurnitureTypeSeeder::class,
         EdgeProfileSeeder::class,
         StoneSeeder::class,
     ]);
@@ -98,99 +96,46 @@ function inquiryClient(Role $role = Role::Client): User
 }
 
 /**
- * The first kind of work of each service, by service slug: what a reader who
- * took the dropdown's first entry for every service would send.
- *
- * @param  list<string>  $serviceSlugs
- * @return array<string, string>
- */
-function firstServiceOptions(array $serviceSlugs): array
-{
-    $options = [];
-
-    foreach ($serviceSlugs as $slug) {
-        $options[$slug] = ServiceOption::query()
-            ->whereHas('service', fn ($service) => $service->where('slug', $slug))
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->value('slug');
-    }
-
-    return $options;
-}
-
-/**
- * The project with a kind of work picked for each of its services, unless the
- * test set `serviceOptions` itself.
- *
- * @param  array<string, mixed>  $project
- * @param  array<string, mixed>  $overrides
- * @return array<string, mixed>
- */
-function withServiceOptions(array $project, array $overrides): array
-{
-    if (array_key_exists('serviceOptions', $overrides)) {
-        return $project;
-    }
-
-    return [...$project, 'serviceOptions' => firstServiceOptions($project['serviceIds'] ?? [])];
-}
-
-/**
  * One valid project in the shape the Inquire page posts, with `$overrides`
- * laid over it. A regular service, so it carries a stone and an application.
+ * laid over it: one stone, with one service for it. Stones given without work get
+ * "Stone supply only" each; none at all is one row with no stone, for a
+ * recommendation.
  *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function inquiryProjectInput(array $overrides = []): array
 {
-    return withServiceOptions([
+    $stones = $overrides['stones'] ?? [[
+        'stoneId' => Stone::query()->active()->orderBy('id')->value('slug'),
+        'quantity' => 4,
+        'edge' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
+        'finish' => Finish::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
+    ]];
+
+    return [
         'name' => 'Kitchen counters',
-        'serviceIds' => ['natural-stone-supply'],
-        'applicationIds' => [ProjectCategory::query()->orderBy('id')->value('slug')],
-        'stones' => [[
-            'stoneId' => Stone::query()->active()->orderBy('id')->value('slug'),
-            'quantity' => 4,
-            'edge' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
-            'finish' => Finish::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
-        ]],
+        'work' => array_map(
+            fn (string $stoneId): array => ['stoneId' => $stoneId, 'serviceId' => 'supply-only', 'furnitureType' => ''],
+            array_values(array_unique(array_column($stones, 'stoneId'))) ?: [''],
+        ),
+        'stones' => $stones,
+        'deliveryMethod' => 'delivery',
         'location' => 'Makati',
         'landmark' => 'Near the church',
         'areaSqm' => '12.5',
         'neededBy' => now()->addDays(10)->toDateString(),
-        'neededByTime' => '',
         'notes' => 'Ground floor.',
         ...$overrides,
-    ], $overrides);
-}
-
-/**
- * A visit: a service that stands on its own, with no stone and no application.
- *
- * @param  array<string, mixed>  $overrides
- * @return array<string, mixed>
- */
-function inquiryVisitInput(array $overrides = []): array
-{
-    return withServiceOptions([
-        'name' => 'Stone Relocation, Dismantling & Reinstallation',
-        'serviceIds' => ['stone-relocation-dismantling-reinstallation'],
-        'location' => 'Taguig',
-        'landmark' => '',
-        'areaSqm' => '',
-        'neededBy' => now()->addDays(5)->toDateString(),
-        'neededByTime' => '12:00',
-        'notes' => '',
-        ...$overrides,
-    ], $overrides);
+    ];
 }
 
 /**
  * Role statuses that show `$status`, for an inquiry or a card snapshot, NULL
  * for a stage that has not started: sales starts when the lead is won, payment
  * when the client approves, and logistics with the first payment. Won comes
- * with the job order (`job_order` true), billed and waiting for that payment;
+ * with the job order (`job_order` true), billed and waiting for that payment,
+ * and shows as quoted, so `$status` Won is the shorthand for that state only;
  * a logistics stage and closed have the job order too. On hold is sales' on
  * hold, before the client approved; cancelled is sales rejected.
  *
@@ -281,13 +226,18 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
         addInquiryFile($inquiry, DocumentType::JobOrder);
     }
 
-    $inquiry->services()->attach(
-        Service::query()->whereIn('slug', $project['services'] ?? ['natural-stone-supply'])->pluck('id')->all(),
-    );
-
     $edge = EdgeProfile::query()->value('id');
     $finish = Finish::query()->value('id');
     $stones = $project['stones'] ?? [Stone::query()->orderBy('id')->value('slug')];
+
+    foreach ($project['services'] ?? ['supply-only'] as $serviceSlug) {
+        foreach ($stones === [] ? [null] : $stones as $slug) {
+            $inquiry->workItems()->create([
+                'stone_id' => $slug === null ? null : Stone::query()->where('slug', $slug)->value('id'),
+                'service_id' => Service::query()->where('slug', $serviceSlug)->value('id'),
+            ]);
+        }
+    }
 
     foreach (array_values($stones) as $order => $slug) {
         $inquiry->stones()->create([

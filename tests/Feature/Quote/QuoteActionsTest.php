@@ -27,6 +27,7 @@ it('enforces the table on the cancel endpoint', function (string $status, array 
 
     // Not shown (or shown and locked): the request is refused.
     $response->assertUnprocessable()->assertJsonValidationErrors('status');
-    expect($inquiry->refresh()->status->value)->toBe($status)
+    // Sales won shows as quoted.
+    expect($inquiry->refresh()->status->value)->toBe($status === 'won' ? 'quoted' : $status)
         ->and(InquiryStatusHistory::query()->count())->toBe(0);
 })->with('inquiry button table');

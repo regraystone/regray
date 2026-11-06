@@ -13,7 +13,7 @@ final readonly class ClientInquiryCard
 {
     /**
      * @param  list<array{slug: string, name: string, thumbnail_path: string}>  $stones  Unique, first-picked first.
-     * @param  list<array{id: string, name: string, option: string|null}>  $services  Unique, first-picked first, each with the kind of work picked under it.
+     * @param  list<array{id: string, name: string}>  $services  Unique, first-picked first, each with the kind of work picked under it.
      * @param  array<string, array{visible: bool, enabled: bool, reason?: string}>  $actions  Straight from InquiryActions.
      */
     public function __construct(

@@ -16,6 +16,9 @@ import { Spinner } from '@/components/ui/spinner';
  * Both buttons say what they do, so the choice reads without the question above
  * it. Focus starts on the safe one. While `processing`, nothing can be pressed or
  * closed, so the answer can't be given twice or walked away from halfway.
+ *
+ * With no `cancelLabel` there is nothing to choose, so it only tells the reader
+ * something and has the one button to say they have read it.
  */
 const ConfirmDialog = ({
     open,
@@ -34,7 +37,7 @@ const ConfirmDialog = ({
     description: string;
     confirmLabel: string;
     /** What staying means, such as "Keep inquiry". */
-    cancelLabel: string;
+    cancelLabel?: string;
     onConfirm: () => void;
     /** For something that can't be undone. */
     destructive?: boolean;
@@ -56,14 +59,16 @@ const ConfirmDialog = ({
                 <DialogDescription>{description}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onOpenChange(false)}
-                    disabled={processing}
-                >
-                    {cancelLabel}
-                </Button>
+                {cancelLabel === undefined ? null : (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        disabled={processing}
+                    >
+                        {cancelLabel}
+                    </Button>
+                )}
                 <Button
                     type="button"
                     variant={destructive ? 'destructive' : 'default'}

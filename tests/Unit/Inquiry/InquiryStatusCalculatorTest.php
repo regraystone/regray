@@ -28,6 +28,10 @@ it('takes the first rule that matches, NULL being a stage not started', function
     'sales rejected wins over logistics completed' => [LeadStatus::Won, SalesStatus::Rejected, ProcessStatus::Completed, true, InquiryStatus::Cancelled],
     'sales quoted, process not started' => [LeadStatus::Won, SalesStatus::Quoted, null, false, InquiryStatus::Quoted],
     'sales quoted, process received, no job order yet' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::OrderReceived, false, InquiryStatus::Quoted],
+    'sales won shows as quoted' => [LeadStatus::Won, SalesStatus::Won, null, false, InquiryStatus::Quoted],
+    'sales won with the job order, logistics not started' => [LeadStatus::Won, SalesStatus::Won, null, true, InquiryStatus::Quoted],
+    'sales won, process received, no job order yet' => [LeadStatus::Won, SalesStatus::Won, ProcessStatus::OrderReceived, false, InquiryStatus::Quoted],
+    'sales won, job order in, in production' => [LeadStatus::Won, SalesStatus::Won, ProcessStatus::Production, true, InquiryStatus::Production],
     'job order in, process received' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::OrderReceived, true, InquiryStatus::OrderReceived],
     'job order in, in production' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::Production, true, InquiryStatus::Production],
     'job order in, logistics on hold' => [LeadStatus::Won, SalesStatus::Quoted, ProcessStatus::OnHold, true, InquiryStatus::OnHold],
@@ -141,6 +145,6 @@ it('does not count a removed job order file', function (): void {
 
     $inquiry->files()->where('document_type', DocumentType::JobOrder)->sole()->delete();
 
-    expect($inquiry->fresh()->status)->toBe(InquiryStatus::Won)
-        ->and(Inquiry::query()->withDisplayStatus()->whereKey($inquiry->id)->value('display_status'))->toBe('won');
+    expect($inquiry->fresh()->status)->toBe(InquiryStatus::Quoted)
+        ->and(Inquiry::query()->withDisplayStatus()->whereKey($inquiry->id)->value('display_status'))->toBe('quoted');
 });

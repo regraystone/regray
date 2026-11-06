@@ -9,10 +9,13 @@ import {
     type InquiryUploadAttachment,
 } from '@/data/inquiries';
 import {
-    APPLICATION_STEP,
+    DELIVERY,
     REQUIREMENTS_STEP,
-    SERVICES_STEP,
     STONES_STEP,
+    WORK_STEP,
+    workProblems,
+    workRowKeys,
+    workRowLabel,
 } from '@/lib/inquiry-flow';
 import type { InquiryCatalog } from '@/types/inquiry';
 
@@ -22,17 +25,14 @@ import type { InquiryCatalog } from '@/types/inquiry';
  * by them, and one owner means a step cannot be renumbered on one side and still
  * own the same fields on the other.
  *
- * Services come first and stones second, because the services are what tell the
- * reader whether they have a project of the kind that needs stones at all.
- * Application comes after stones and before requirements. A draft of nothing but
- * standalone services (a site visit) goes straight from services to requirements.
+ * Stones come first, then the work each one needs, then the details.
  *
- * Steps 1 to 4 build one project and are a separate flow from the Review step,
+ * The questions build one project and are a separate flow from the Review step,
  * which is about the inquiry as a whole. That is why `STEP_FIELDS` below starts
- * at `REQUIREMENTS_STEP`: the first four steps validate a draft rather than the
- * form the request is built from, so they own no committed fields.
+ * at `REQUIREMENTS_STEP`: the questions validate a draft rather than the form the
+ * request is built from, so they own no committed fields.
  */
-export { APPLICATION_STEP, REQUIREMENTS_STEP, SERVICES_STEP, STONES_STEP };
+export { REQUIREMENTS_STEP, STONES_STEP, WORK_STEP };
 
 /** Attachments, shared so the drop zone and the rule below cannot disagree. */
 export const MAX_ATTACHMENTS = 10;
@@ -89,33 +89,6 @@ export const todayIsoDate = (): string => {
     const day = String(now.getDate()).padStart(2, '0');
 
     return `${now.getFullYear()}-${month}-${day}`;
-};
-
-/**
- * What a time input hands back: two digits, a colon, two digits.
- *
- * Anchored and bounded on both ends so that `9:00`, `9:00:00` and half past
- * nothing are all refused — the field is a `<input type="time">`, so anything
- * else in the value is something no reader put there on purpose.
- */
-const HH_MM = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-
-/**
- * This moment, to the minute, in the reader's own timezone.
- *
- * The same shape a `datetime-local` field fills in and the same one the two
- * answers are joined into before they are compared, which is what makes the
- * comparison an ordering of real instants rather than a string test. Built from
- * the clock parts rather than from `toISOString()` for the reason above: that one
- * reports UTC, and would call a reader's own afternoon yesterday evening.
- */
-const localDateTime = (): string => {
-    const now = new Date();
-    const date = todayIsoDate();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-
-    return `${date}T${hours}:${minutes}`;
 };
 
 /*
@@ -298,145 +271,29 @@ const projectNameSchema = z
 /**
  * Every rule the inquiry form has, built over the options the page was given.
  *
- * A function rather than constants because what a stone, a service, an
- * application, an edge profile, a finish or a location *is* now comes from the
+ * A function rather than constants because what a stone, a service, a furniture
+ * type, an edge profile, a finish or a location *is* now comes from the
  * database through the page's props: the rules that say "it has to still be on
  * the list" can only be written once the list is known.
  */
 export const createInquirySchemas = (catalog: InquiryCatalog) => {
     const stoneIds = new Set(catalog.stones.map((stone) => stone.slug));
-    const serviceIds = new Set(catalog.services.map((service) => service.id));
-    const applicationIds = new Set(
-        catalog.applications.map((application) => application.id),
-    );
     const edgeNames = new Set(catalog.edgeProfiles.map((edge) => edge.name));
     const finishNames = new Set(catalog.finishes.map((finish) => finish.name));
-    const standaloneIds = catalog.standaloneServiceIds;
-    const servicesById = new Map(
-        catalog.services.map((service) => [service.id, service]),
+    const furnitureTypeIds = catalog.furnitureTypes.map(({ id }) => id);
+
+    /** What was chosen for each stone. Whether it is complete is the draft's rule. */
+    const stoneWorkSchema = z.record(
+        z.string(),
+        z.object({
+            serviceId: z.string(),
+            furnitureType: z.string(),
+        }),
     );
 
-    /**
-     * Every picked service needs one of its own kinds of work, such as "Stone
-     * supply only". The complaint names the service and sits under its row, at
-     * `serviceOptions.<service id>`, so step 1 can show it there.
-     */
-    const requireServiceOptions = (
-        ids: string[],
-        options: Record<string, string>,
-        ctx: z.RefinementCtx,
-    ): void => {
-        ids.forEach((id) => {
-            const service = servicesById.get(id);
-            const picked = options[id];
-
-            if (
-                service === undefined ||
-                service.options.some((option) => option.id === picked)
-            ) {
-                return;
-            }
-
-            ctx.addIssue({
-                code: 'custom',
-                path: ['serviceOptions', id],
-                message: `Choose what you need for ${service.name}.`,
-            });
-        });
-    };
-
-    /** The kind of work picked under each service, by service id. */
-    const serviceOptionsSchema = z.record(z.string(), z.string());
-
-    /**
-     * Whether a project's service is one the team attends at an hour.
-     *
-     * Every service answers "when would you like this?", but not every answer is
-     * the same shape. A countertop is wanted before a closing on a Friday, which
-     * is a day. A survey, a dismantling and a quality check are wanted for a
-     * morning on a site, and the team has to be there at that hour, so for those
-     * a day alone leaves the reader's actual question unanswered.
-     *
-     * Read off the catalogue's own `standalone` flag rather than off a list kept
-     * here: a service that stands on its own is exactly a service nobody is
-     * making or installing, so the two cannot come to disagree about which these
-     * are.
-     */
-    const needsNeededByTime = (ids: string[]): boolean =>
-        ids.length > 0 && ids.every((id) => standaloneIds.has(id));
-
-    /*
-     * A stone, a service and an application, as an id that has to still be in
-     * the catalogue. Three definitions of one rule with a different sentence.
-     */
+    /* A stone, as an id that has to still be in the catalogue. */
     const stoneIdSchema = z.string().refine((id) => stoneIds.has(id), {
         error: 'That stone is no longer available.',
-    });
-
-    const serviceIdSchema = z.string().refine((id) => serviceIds.has(id), {
-        error: 'That service is no longer available.',
-    });
-
-    const applicationIdSchema = z
-        .string()
-        .refine((id) => applicationIds.has(id), {
-            error: 'That application is no longer available.',
-        });
-
-    /**
-     * The applications of a project, kept in the order the reader picked them.
-     *
-     * No rule about how many, because whether one is needed is a fact about the
-     * project rather than about this list: it is needed once a service supplies
-     * stone, and optional when the project is only services that stand on their
-     * own. The rule that says so lives on the project and on the draft, where
-     * those services are.
-     */
-    const applicationsSchema = z
-        .array(applicationIdSchema)
-        .superRefine((entries, ctx) => {
-            const seen = new Set<string>();
-
-            entries.forEach((entry, index) => {
-                if (seen.has(entry)) {
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: [index],
-                        message:
-                            'An application can only appear once in a project.',
-                    });
-
-                    return;
-                }
-
-                seen.add(entry);
-            });
-        });
-
-    /**
-     * Step 2 of the project flow: which stones it is built from.
-     *
-     * Holds a list of ids rather than the specifications they grow into, because
-     * the two answers are not made at the same time and the reader is not going
-     * back for a slab count every time they change their mind about a material.
-     *
-     * No rule about how many, because whether one is needed depends on the
-     * services, which sit in the same object as the stones.
-     */
-    const stonesStepSchema = z.object({
-        stoneIds: z.array(stoneIdSchema),
-    });
-
-    /**
-     * Step 1: which services are wanted.
-     *
-     * No rule of its own about how many, because the reader's answer is two
-     * lists — the services this project supplies stone for, and the services
-     * that stand as projects of their own — and "at least one" is a rule about
-     * both of them together. That rule lives on the draft below.
-     */
-    const servicesStepSchema = z.object({
-        serviceIds: z.array(serviceIdSchema),
     });
 
     /**
@@ -503,19 +360,8 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
      * accept different answers to the same question.
      */
     const projectDetailsShape = {
-        /*
-         * A search over a fixed list, so anything that is not one of its entries
-         * is half-typed text rather than an answer we can route. The emptiness
-         * check comes first so an untouched field reads as unanswered instead of
-         * as something the reader mistyped.
-         */
-        location: z
-            .string()
-            .trim()
-            .min(1, { error: 'Choose where the site is.' })
-            .refine((location) => catalog.locations.includes(location), {
-                error: 'Choose a city or municipality from the list.',
-            }),
+        /* Whether it is asked depends on the delivery method: see `refineAnswers`. */
+        location: z.string().trim(),
 
         landmark: z
             .string()
@@ -551,19 +397,6 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                 error: 'That date has already passed.',
             }),
 
-        /*
-         * The clock half of "when it is wanted", asked for only of the services
-         * that turn up at an hour rather than over a run of days. `HH:mm` because
-         * that is what the control gives and what the team reads. The pairing with
-         * `neededBy` is checked by the schemas that know whether this project is
-         * one of those services.
-         */
-        neededByTime: z
-            .string()
-            .refine((time) => time === '' || HH_MM.test(time), {
-                error: 'Enter a time as hours and minutes.',
-            }),
-
         notes: z.string().max(NOTES_MAX, {
             error: `Keep the notes to ${NOTES_MAX} characters or fewer.`,
         }),
@@ -576,107 +409,123 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
     };
 
     /**
+     * The rules a project's answers have to meet together, committed or not.
+     *
+     * A project of stone needs a stone or the request for a recommendation, and
+     * the work for each. A delivery needs its location. Every project needs a day,
+     * because sending the inquiry books it as a schedule, for 10:00.
+     */
+    const refineAnswers = (
+        answers: {
+            stoneAdvice: boolean;
+            stoneIds: string[];
+            stoneWork: Record<
+                string,
+                { serviceId: string; furnitureType: string }
+            >;
+            deliveryMethod: string;
+            location: string;
+            neededBy: string;
+        },
+        stonesField: string,
+        ctx: z.RefinementCtx,
+    ): void => {
+        {
+            if (answers.stoneIds.length === 0 && !answers.stoneAdvice) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: [stonesField],
+                    message: 'Select at least one stone.',
+                });
+            }
+
+            workProblems(
+                workRowKeys(answers),
+                answers.stoneWork,
+                catalog.services,
+                furnitureTypeIds,
+            ).forEach(({ key, field }) => {
+                const label = workRowLabel(key, catalog.stones);
+
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['stoneWork', key, field],
+                    message: {
+                        serviceId: `Choose the work for ${label}.`,
+                        furnitureType: `Choose the furniture type for ${label}.`,
+                    }[field],
+                });
+            });
+
+            if (answers.deliveryMethod === '') {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['deliveryMethod'],
+                    message: 'Choose how you would like to get it.',
+                });
+            }
+        }
+
+        if (answers.deliveryMethod === DELIVERY) {
+            /*
+             * A search over a fixed list, so anything that is not one of its
+             * entries is half-typed text rather than an answer we can route. The
+             * emptiness check comes first so an untouched field reads as unanswered
+             * instead of as something the reader mistyped.
+             */
+            if (answers.location === '') {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['location'],
+                    message: 'Choose where the site is.',
+                });
+            } else if (!catalog.locations.includes(answers.location)) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['location'],
+                    message: 'Choose a city or municipality from the list.',
+                });
+            }
+        }
+
+        if (answers.neededBy === '') {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['neededBy'],
+                message: 'Say when this is needed.',
+            });
+        }
+    };
+
+    /**
      * One project as it is committed to the inquiry.
      *
      * The `id` is here rather than derived from the index because a project has to
      * survive being reordered and removed: Edit and Remove both point at one, and
      * an index would mean Project 3 quietly became Project 2 when Project 1 went.
-     *
-     * A project whose only services stand on its own needs no stone and no
-     * application. If it has any, they are extra information and are not
-     * checked against the rules that apply to a project of stone.
      */
     const projectSchema = z
         .object({
             id: z.string(),
             name: projectNameSchema,
-            serviceIds: z
-                .array(serviceIdSchema)
-                .min(1, { error: 'Select at least one service.' }),
-            serviceOptions: serviceOptionsSchema,
-            applications: applicationsSchema,
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
+            stoneWork: stoneWorkSchema,
+            deliveryMethod: z.string(),
             ...projectDetailsShape,
         })
-        .superRefine((project, ctx) => {
-            requireServiceOptions(
-                project.serviceIds,
-                project.serviceOptions,
+        .superRefine((project, ctx) =>
+            refineAnswers(
+                {
+                    ...project,
+                    stoneIds: [
+                        ...new Set(project.stones.map((row) => row.stoneId)),
+                    ],
+                },
+                'stones',
                 ctx,
-            );
-
-            /*
-             * One service that supplies something is enough to need a stone, so
-             * the test is "any", not "all": a reader who wants a site survey
-             * *and* a countertop has to say what the countertop is made of.
-             */
-            const needsStones = project.serviceIds.some(
-                (id) => !standaloneIds.has(id),
-            );
-
-            if (
-                needsStones &&
-                project.stones.length === 0 &&
-                !project.stoneAdvice
-            ) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['stones'],
-                    message: 'Select at least one stone.',
-                });
-            }
-
-            if (needsStones && project.applications.length === 0) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['applications'],
-                    message: 'Choose at least one place.',
-                });
-            }
-
-            /*
-             * The hour the team has to be on site, which only these services ask
-             * for. The pairing rather than the time on its own, because a time
-             * with no date is not an appointment.
-             */
-            if (needsNeededByTime(project.serviceIds)) {
-                if (project.neededBy === '') {
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: ['neededBy'],
-                        message: 'Say when this service is needed.',
-                    });
-                }
-
-                if (project.neededByTime === '') {
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: ['neededByTime'],
-                        message: 'Say what time of day works.',
-                    });
-                } else if (
-                    `${project.neededBy}T${project.neededByTime}` <=
-                    localDateTime()
-                ) {
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: ['neededByTime'],
-                        message: 'That time has already passed.',
-                    });
-                }
-            } else if (project.neededBy === '') {
-                /*
-                 * Every project needs a day, because sending the inquiry books
-                 * it as a schedule. Without a time it is booked for 10:00.
-                 */
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['neededBy'],
-                    message: 'Say when this is needed.',
-                });
-            }
-        });
+            ),
+        );
 
     /**
      * The project in progress, as its own form.
@@ -685,119 +534,21 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
      * stones and not yet said how many is not an inquiry that fails to validate,
      * they are a reader halfway through a step.
      *
-     * It carries the step 1 to 3 picks alongside the requirements answers rather
-     * than replacing them, because that is what lets the reader walk back to the
-     * grid, change a stone and come forward again without their specifications
-     * vanishing.
-     *
-     * The services are two lists because they become two different things. One is
-     * what this project is for; the other are services that stand as projects of
-     * their own, and are worked through one at a time — the head of that list is
-     * the one the requirements form is about.
+     * It carries the earlier picks alongside the details rather than replacing
+     * them, because that is what lets the reader walk back to the grid, change a
+     * stone and come forward again without their specifications vanishing.
      */
     const projectDraftSchema = z
         .object({
-            ...stonesStepSchema.shape,
-            ...servicesStepSchema.shape,
+            stoneIds: z.array(stoneIdSchema),
             name: projectNameSchema,
-            applicationIds: applicationsSchema,
-            standaloneServiceIds: z.array(serviceIdSchema),
-            serviceOptions: serviceOptionsSchema,
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
+            stoneWork: stoneWorkSchema,
+            deliveryMethod: z.string(),
             ...projectDetailsShape,
         })
-        .superRefine((draft, ctx) => {
-            /*
-             * "At least one service" is a rule about both lists together, so it is
-             * checked here rather than on either of them.
-             */
-            if (
-                draft.serviceIds.length === 0 &&
-                draft.standaloneServiceIds.length === 0
-            ) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['serviceIds'],
-                    message: 'Select at least one service.',
-                });
-            }
-
-            requireServiceOptions(
-                [...draft.serviceIds, ...draft.standaloneServiceIds],
-                draft.serviceOptions,
-                ctx,
-            );
-
-            /*
-             * Stones and an application are required when a service supplies
-             * stone. A draft of nothing but standalone services passes both with
-             * nothing picked: they are extra information for the visit.
-             */
-            if (
-                draft.serviceIds.length > 0 &&
-                draft.stoneIds.length === 0 &&
-                !draft.stoneAdvice
-            ) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['stoneIds'],
-                    message: 'Select at least one stone.',
-                });
-            }
-
-            if (
-                draft.serviceIds.length > 0 &&
-                draft.applicationIds.length === 0
-            ) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['applicationIds'],
-                    message: 'Choose at least one place.',
-                });
-            }
-
-            /*
-             * The hour, asked of the queue rather than of the draft's own
-             * services: a draft whose services all stand on their own is one of
-             * the queued ones being written out, and it is the head of that queue
-             * the requirements form is about.
-             */
-            if (
-                draft.serviceIds.length === 0 &&
-                needsNeededByTime(draft.standaloneServiceIds)
-            ) {
-                if (draft.neededBy === '') {
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: ['neededBy'],
-                        message: 'Say when this service is needed.',
-                    });
-                }
-
-                if (draft.neededByTime === '') {
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: ['neededByTime'],
-                        message: 'Say what time of day works.',
-                    });
-                } else if (
-                    `${draft.neededBy}T${draft.neededByTime}` <= localDateTime()
-                ) {
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: ['neededByTime'],
-                        message: 'That time has already passed.',
-                    });
-                }
-            } else if (draft.neededBy === '') {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['neededBy'],
-                    message: 'Say when this is needed.',
-                });
-            }
-        });
+        .superRefine((draft, ctx) => refineAnswers(draft, 'stoneIds', ctx));
 
     /**
      * Every rule the inquiry form has, as one value.
@@ -866,16 +617,13 @@ export const draftDefaults = {
     name: '',
     stoneAdvice: false,
     stoneIds: [],
-    serviceIds: [],
-    standaloneServiceIds: [],
-    serviceOptions: {},
     stones: [],
-    applicationIds: [],
+    stoneWork: {},
+    deliveryMethod: DELIVERY,
     location: '',
     landmark: '',
     areaSqm: '',
     neededBy: '',
-    neededByTime: '',
     notes: '',
     attachments: [],
 } satisfies InquiryDraftValues;

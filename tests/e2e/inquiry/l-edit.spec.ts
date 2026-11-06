@@ -1,11 +1,14 @@
 import { expect, test } from '../support/fixtures';
 import {
+    CATALOG,
+    REVIEW,
     addStoneProject,
     continueButton,
     expectStep,
     openInquire,
     renameProject,
     sendAndReadReference,
+    workRow,
 } from '../support/inquiry-flow';
 
 /* L. Editing a sent inquiry through its edit page. */
@@ -31,14 +34,16 @@ test("42 · the edit page opens the inquiry's project at step 1, it is edited th
         page.getByRole('link', { name: 'Back to Quote' }),
     ).toHaveAttribute('href', /\/quote$/);
 
-    for (const step of [2, 3, 4]) {
-        await continueButton(page).click();
-        await expectStep(page, step);
-    }
+    await continueButton(page).click();
+    await expectStep(page, 2);
+    await expect(workRow(page, CATALOG.stones[0])).toContainText(CATALOG.work);
+
+    await continueButton(page).click();
+    await expectStep(page, 3);
 
     await page.getByRole('button', { name: 'Continue to review' }).click();
 
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
     await expect(
         page.getByText('Kitchen counters', { exact: true }).first(),
     ).toBeVisible();

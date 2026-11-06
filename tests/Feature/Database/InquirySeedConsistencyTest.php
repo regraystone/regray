@@ -45,6 +45,7 @@ function expectedDisplayStatus(Inquiry $inquiry): InquiryStatus
         $inquiry->sales_status === SalesStatus::ForRefund => InquiryStatus::ForRefund,
         $inquiry->process_status === ProcessStatus::Completed => InquiryStatus::Closed,
         $inquiry->process_status !== null && $inquiry->files->contains('document_type', DocumentType::JobOrder) => InquiryStatus::from($inquiry->process_status->value),
+        $inquiry->sales_status === SalesStatus::Won => InquiryStatus::Quoted,
         $inquiry->sales_status !== null => InquiryStatus::from($inquiry->sales_status->value),
         default => InquiryStatus::Pending,
     };
@@ -97,8 +98,8 @@ describe('the seeded inquiries', function (): void {
         $shown = $this->inquiries->map(fn (Inquiry $inquiry): string => $inquiry->status->value);
         $has = fn (callable $test): bool => $this->inquiries->contains($test);
 
-        // Won carries the job order and shows until the first payment starts logistics.
-        expect($shown->unique()->sort()->values()->all())->toEqualCanonicalizing(InquiryStatus::values())
+        // Every status but won, which sales won shows as quoted until the first payment starts logistics.
+        expect($shown->unique()->sort()->values()->all())->toEqualCanonicalizing(array_values(array_diff(InquiryStatus::values(), ['won'])))
             // Waiting on its lead for marketing's decision.
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->lead !== null && $inquiry->marketing_status === null && $inquiry->sales_status === null && $inquiry->payment_status === null && $inquiry->process_status === null && $inquiry->status === InquiryStatus::Pending))->toBeTrue()
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Negotiation && $inquiry->payment_status === null && $inquiry->process_status === null))->toBeTrue()
@@ -116,7 +117,7 @@ describe('the seeded inquiries', function (): void {
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Quoted && $inquiry->payment_status === null && $inquiry->process_status === null))->toBeTrue()
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Revision && $inquiry->quote_revision >= 2))->toBeTrue()
             // Won and billed, with logistics waiting for the first payment.
-            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Won && $inquiry->payment_status === PaymentStatus::Awaiting && $inquiry->process_status === null))->toBeTrue()
+            ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::Quoted && $inquiry->sales_status === SalesStatus::Won && $inquiry->payment_status === PaymentStatus::Awaiting && $inquiry->process_status === null))->toBeTrue()
             // Received by logistics at its first payment, and not moved on yet.
             ->and($has(fn (Inquiry $inquiry): bool => $inquiry->status === InquiryStatus::OrderReceived && $inquiry->payment_status === PaymentStatus::Partial))->toBeTrue()
             // Logistics only ever starts on an inquiry with its job order and a payment in

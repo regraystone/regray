@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ConversationType;
+use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusGroup;
@@ -16,7 +17,6 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -38,6 +38,7 @@ use Illuminate\Support\Facades\DB;
  * @property string $location
  * @property string|null $landmark
  * @property string|null $area_sqm
+ * @property DeliveryMethod $delivery_method
  * @property string|null $notes
  * @property bool $stone_advice_requested Whether the client asked Regray to recommend a stone instead of choosing one.
  * @property SalesStatus|null $sales_status Null until marketing wins the inquiry.
@@ -59,7 +60,7 @@ use Illuminate\Support\Facades\DB;
  */
 #[Fillable([
     'reference', 'client_id', 'client_record_id', 'lead_id', 'marketing_status', 'marketing_status_changed_at',
-    'name', 'location', 'landmark', 'area_sqm', 'notes', 'stone_advice_requested',
+    'name', 'delivery_method', 'location', 'landmark', 'area_sqm', 'notes', 'stone_advice_requested',
     'sales_status', 'sales_status_changed_at',
     'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
     'quoted_total', 'quote_revision', 'contract_total',
@@ -70,6 +71,7 @@ class Inquiry extends Model
     {
         return [
             'area_sqm' => 'decimal:2',
+            'delivery_method' => DeliveryMethod::class,
             'stone_advice_requested' => 'boolean',
             'sales_status' => SalesStatus::class,
             'sales_status_changed_at' => 'datetime',
@@ -201,31 +203,14 @@ class Inquiry extends Model
         return $this->hasMany(InquiryStatusHistory::class)->orderBy('changed_at')->orderBy('id');
     }
 
-    /** @return BelongsToMany<Service, $this> */
-    public function services(): BelongsToMany
-    {
-        return $this->belongsToMany(Service::class, 'inquiry_services')
-            ->withPivot('service_option_id');
-    }
-
     /**
-     * The kind of work picked under each of the project's services, one per
-     * service (an option's `service_id` says which). A service picked before
-     * the choice existed has none.
+     * What is wanted of each stone. The inquiry's services are read through these.
      *
-     * @return BelongsToMany<ServiceOption, $this>
+     * @return HasMany<InquiryWorkItem, $this>
      */
-    public function serviceOptions(): BelongsToMany
+    public function workItems(): HasMany
     {
-        return $this->belongsToMany(ServiceOption::class, 'inquiry_services', 'inquiry_id', 'service_option_id');
-    }
-
-    /** @return BelongsToMany<ProjectCategory, $this> */
-    public function categories(): BelongsToMany
-    {
-        return $this->belongsToMany(ProjectCategory::class, 'inquiry_categories')
-            ->withPivot('sort_order')
-            ->orderByPivot('sort_order');
+        return $this->hasMany(InquiryWorkItem::class)->orderBy('id');
     }
 
     /** @return HasMany<InquiryStone, $this> */
