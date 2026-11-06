@@ -62,12 +62,12 @@ describe('a card', function (): void {
         ]);
     });
 
-    it('carries the payment status only once the client has approved the quotation', function (InquiryStatus $status, ?string $payment): void {
+    it('carries the payment status only once the client has approved the quotation', function (InquiryStatus $status, ?string $payment, ?string $shown = null): void {
         makeInquiry($this->client, attributes: ['status' => $status]);
 
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
-        expect($card['status'])->toBe($status->value)
+        expect($card['status'])->toBe($shown ?? $status->value)
             ->and($card['paymentStatus'])->toBe($payment);
     })->with([
         'pending' => [InquiryStatus::Pending, null],
@@ -75,7 +75,7 @@ describe('a card', function (): void {
         'sales on hold' => [InquiryStatus::OnHold, null],
         'cancelled' => [InquiryStatus::Cancelled, null],
         'quoted' => [InquiryStatus::Quoted, null],
-        'won' => [InquiryStatus::Won, 'awaiting'],
+        'sales won, shown as quoted' => [InquiryStatus::Won, 'awaiting', 'quoted'],
         'closed' => [InquiryStatus::Closed, 'awaiting'],
     ]);
 

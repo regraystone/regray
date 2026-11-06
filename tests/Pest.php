@@ -190,7 +190,8 @@ function inquiryVisitInput(array $overrides = []): array
  * Role statuses that show `$status`, for an inquiry or a card snapshot, NULL
  * for a stage that has not started: sales starts when the lead is won, payment
  * when the client approves, and logistics with the first payment. Won comes
- * with the job order (`job_order` true), billed and waiting for that payment;
+ * with the job order (`job_order` true), billed and waiting for that payment,
+ * and shows as quoted, so `$status` Won is the shorthand for that state only;
  * a logistics stage and closed have the job order too. On hold is sales' on
  * hold, before the client approved; cancelled is sales rejected.
  *

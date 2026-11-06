@@ -13,6 +13,9 @@ namespace App\Enums;
  * marketing lost, sales rejected or accounting refunded all of it, and
  * `for_refund` is sales asking for a refund until accounting has refunded it
  * all.
+ *
+ * Sales won shows as `quoted`, so `won` is no longer calculated: it is only on
+ * inquiry cards posted before that, which keep what they announced.
  */
 enum InquiryStatus: string
 {

@@ -581,8 +581,8 @@ return [
                 'attachments' => [],
             ],
             // Approved with the job order and billed, but nothing paid yet, so
-            // logistics has not received it: it shows won.
-            'shows' => 'won',
+            // logistics has not received it: it shows quoted.
+            'shows' => 'quoted',
             'events' => [
                 ['at' => '2026-10-15T02:00:00Z', 'by' => 'sofia', 'sales' => 'quoted', 'quote' => '84300.00', 'note' => 'Sent the quotation to the client.'],
                 ['at' => '2026-10-15T02:01:00Z', 'by' => 'sofia', 'sales' => 'won', 'job_order' => 'JO-2045', 'note' => 'The client approved the quotation in the group chat.'],

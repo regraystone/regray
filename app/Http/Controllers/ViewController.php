@@ -118,6 +118,11 @@ class ViewController extends Controller
                     continue;
                 }
 
+                // Sales won shows as quoted, so no inquiry is ever at won.
+                if ($status === InquiryStatus::Won) {
+                    continue;
+                }
+
                 $options[] = [
                     'value' => $status->value,
                     'label' => match ($status) {
@@ -129,7 +134,6 @@ class ViewController extends Controller
                         InquiryStatus::OnHold => 'On hold',
                         InquiryStatus::Quoted => 'Quoted',
                         InquiryStatus::Revision => 'Revision',
-                        InquiryStatus::Won => 'Won',
                         InquiryStatus::OrderReceived => 'Order received',
                         InquiryStatus::Measure => 'Measure',
                         InquiryStatus::Sourcing => 'Sourcing',

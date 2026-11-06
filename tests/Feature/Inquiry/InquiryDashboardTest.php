@@ -102,14 +102,16 @@ it('filters accounting by payment, logistics by process, and everyone else by th
         ->and(collect($filtered['inquiries']['data'])->pluck('reference')->sort()->values()->all())->toBe($references)
         ->and($filtered['filters']['status'])->toBe($filter);
 })->with(function (): array {
-    $display = array_values(array_diff(InquiryStatus::values(), ['pending']));
+    // Sales won shows as quoted, so there is no won to filter by.
+    $options = array_values(array_diff(InquiryStatus::values(), ['won']));
+    $display = array_values(array_diff($options, ['pending']));
 
     return [
-        'marketing, pending too' => [Role::Marketing, InquiryStatus::values(), 'pending', ['INQ-P1']],
-        'sales, pending too' => [Role::Sales, InquiryStatus::values(), 'won', ['INQ-W1']],
+        'marketing, pending too' => [Role::Marketing, $options, 'pending', ['INQ-P1']],
+        'sales, pending too' => [Role::Sales, $options, 'quoted', ['INQ-Q1', 'INQ-W1']],
         'technical' => [Role::Technical, $display, 'measure', ['INQ-M1']],
-        'owner, pending too' => [Role::Owner, InquiryStatus::values(), 'pending', ['INQ-P1']],
-        'admin, pending too' => [Role::Admin, InquiryStatus::values(), 'quoted', ['INQ-Q1']],
+        'owner, pending too' => [Role::Owner, $options, 'pending', ['INQ-P1']],
+        'admin, pending too' => [Role::Admin, $options, 'quoted', ['INQ-Q1', 'INQ-W1']],
         'accounting, by payment' => [Role::Accounting, array_map(fn (PaymentStatus $status): string => $status->value, PaymentStatus::cases()), 'partial', ['INQ-M1']],
         'logistics, by process' => [Role::Logistics, array_map(fn (ProcessStatus $status): string => $status->value, ProcessStatus::cases()), 'measure', ['INQ-M1']],
     ];
@@ -184,7 +186,7 @@ describe('Update Status', function (): void {
         expect($this->inquiry->refresh()->sales_status)->toBe(SalesStatus::Won)
             ->and($this->inquiry->quoted_total)->toBe('1350.00')
             ->and($this->inquiry->process_status)->toBeNull()
-            ->and($this->inquiry->status)->toBe(InquiryStatus::Won)
+            ->and($this->inquiry->status)->toBe(InquiryStatus::Quoted)
             ->and($this->inquiry->payment_status)->toBeNull()
             ->and($this->inquiry->files()->where('document_type', DocumentType::JobOrder)->value('status_history_id'))->toBe($won->id);
 
@@ -205,7 +207,7 @@ describe('Update Status', function (): void {
         $this->inquiry->forceFill(['sales_status' => SalesStatus::Won, 'quote_revision' => 1, 'quoted_total' => '1500.00'])->save();
         $row = fn () => collect($this->actingAs($this->sales)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->firstWhere('reference', 'INQ-S1');
 
-        expect($this->inquiry->refresh()->status)->toBe(InquiryStatus::Won)
+        expect($this->inquiry->refresh()->status)->toBe(InquiryStatus::Quoted)
             ->and($row()['actions'])->toContain('job_order');
 
         $this->actingAs($this->sales)->postJson(route('inquiries.job-order', 'INQ-S1'), ['note' => 'Job order in.'])->assertJsonValidationErrors('files');
@@ -214,7 +216,7 @@ describe('Update Status', function (): void {
 
         // Nothing paid yet, so the job order waits on its own for the first payment.
         expect($this->inquiry->refresh()->process_status)->toBeNull()
-            ->and($this->inquiry->status)->toBe(InquiryStatus::Won)
+            ->and($this->inquiry->status)->toBe(InquiryStatus::Quoted)
             ->and($this->inquiry->files()->where('document_type', DocumentType::JobOrder)->value('status_history_id'))->toBeNull()
             ->and($row()['actions'])->not->toContain('job_order');
 
@@ -464,7 +466,7 @@ it('hands an inquiry to logistics only once it has the job order and a payment',
     $move($accounting, ['track' => 'payment', 'to' => 'awaiting', 'contractTotal' => '1000.00', 'files' => ['billing_statement' => [pdf('billing.pdf')]]]);
 
     expect($inquiry->refresh()->process_status)->toBeNull()
-        ->and($inquiry->status)->toBe(InquiryStatus::Won)
+        ->and($inquiry->status)->toBe(InquiryStatus::Quoted)
         ->and($listedFor($logistics))->toBeFalse();
 
     $this->actingAs($logistics)->postJson(route('inquiries.status', 'INQ-G1'), ['track' => 'process', 'to' => 'completed', 'note' => 'Done.'])

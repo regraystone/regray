@@ -34,7 +34,10 @@ const HERO_COLUMNS = ['grid-cols-1', 'grid-cols-2'] as const;
  */
 const InquiryCard = ({ card }: { card: InquiryCardData }) => {
     const { can } = usePermissions();
-    const headline = inquiryHeadline(card.announcedStatus);
+    const headline = inquiryHeadline(
+        card.announcedStatus,
+        card.announcedSalesStatus,
+    );
     const extraStones = card.stoneCount - card.stones.length;
     const detailsHref = can(permissions.quotationsView)
         ? quoteShow.url({ reference: card.reference })

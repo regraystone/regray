@@ -65,8 +65,17 @@ export const INQUIRY_HEADLINES: Record<CardInquiryStatus, string> = {
     refunded: 'Refunded',
 };
 
-export const inquiryHeadline = (status: CardInquiryStatus): string =>
-    INQUIRY_HEADLINES[status];
+/**
+ * Sales won shows as quoted, but a card posted then is announcing the approval,
+ * not another quotation.
+ */
+export const inquiryHeadline = (
+    status: CardInquiryStatus,
+    salesStatus: string | null = null,
+): string =>
+    status === 'quoted' && salesStatus === 'won'
+        ? INQUIRY_HEADLINES.won
+        : INQUIRY_HEADLINES[status];
 
 const SCHEDULE_HEADLINES: Record<
     CardScheduleStatus,

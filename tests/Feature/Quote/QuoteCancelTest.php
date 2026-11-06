@@ -46,13 +46,14 @@ it('cancels a started sales stage as rejected, the sales history says so, and ma
 
 it('refuses the client once they have approved the quotation: only sales can cancel then, by rejecting', function (InquiryStatus $status): void {
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-C8', 'status' => $status]);
+    $shownBefore = $inquiry->refresh()->status;
 
     $this->actingAs($this->client)
         ->patchJson(route('quote.cancel', 'INQ-C8'))
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['status' => InquiryActions::CANCEL_LOCKED_WHEN_QUOTED]);
 
-    expect($inquiry->refresh()->status)->toBe($status)
+    expect($inquiry->refresh()->status)->toBe($shownBefore)
         ->and($inquiry->sales_status)->toBe(SalesStatus::Won)
         ->and(InquiryStatusHistory::query()->count())->toBe(0);
 })->with([
