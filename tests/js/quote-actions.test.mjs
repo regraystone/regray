@@ -41,39 +41,28 @@ const table = {
         {
             key: 'view',
             label: 'View details',
-            enabled: true,
             variant: 'default',
         },
-        { key: 'update', label: 'Update', enabled: true, variant: 'outline' },
-        { key: 'cancel', label: 'Cancel', enabled: true, variant: 'outline' },
+        { key: 'update', label: 'Update', variant: 'outline' },
+        { key: 'cancel', label: 'Cancel', variant: 'outline' },
     ],
     quoted: [
         {
             key: 'view',
             label: 'View details',
-            enabled: true,
             variant: 'default',
         },
-        {
-            key: 'update',
-            label: 'Update',
-            enabled: false,
-            reason: QUOTED_REASON,
-            variant: 'outline',
-        },
-        { key: 'cancel', label: 'Cancel', enabled: true, variant: 'outline' },
+        { key: 'cancel', label: 'Cancel', variant: 'outline' },
     ],
     paid: [
         {
             key: 'view',
             label: 'View details',
-            enabled: true,
             variant: 'default',
         },
         {
             key: 'invoice',
             label: 'Get invoice',
-            enabled: true,
             variant: 'outline',
         },
     ],
@@ -81,13 +70,11 @@ const table = {
         {
             key: 'view',
             label: 'View details',
-            enabled: true,
             variant: 'default',
         },
         {
             key: 'invoice',
             label: 'Get invoice',
-            enabled: true,
             variant: 'outline',
         },
     ],
@@ -95,15 +82,7 @@ const table = {
         {
             key: 'view',
             label: 'View details',
-            enabled: true,
             variant: 'default',
-        },
-        {
-            key: 'update',
-            label: 'Update',
-            enabled: false,
-            reason: CANCELLED_REASON,
-            variant: 'outline',
         },
     ],
 };
@@ -137,27 +116,22 @@ describe('buildCardActions', () => {
         assert.equal(keys('pending').includes('invoice'), false);
     });
 
-    it('carries a reason only on a shown and locked button', () => {
-        for (const status of Object.keys(fromServer)) {
-            for (const button of buildCardActions(fromServer[status])) {
-                assert.equal(
-                    'reason' in button,
-                    !button.enabled,
-                    `${status} ${button.key}`,
-                );
-            }
-        }
-    });
+    it('does not render an action that is shown but locked', () => {
+        const keys = (status) =>
+            buildCardActions(fromServer[status]).map((button) => button.key);
 
-    it('takes the reason from the server, not from the status', () => {
-        const buttons = buildCardActions({
-            ...fromServer.quoted,
-            update: { visible: true, enabled: false, reason: 'Ask the team.' },
-        });
-
-        assert.equal(
-            buttons.find((b) => b.key === 'update').reason,
-            'Ask the team.',
+        assert.equal(keys('quoted').includes('update'), false);
+        assert.equal(keys('cancelled').includes('update'), false);
+        assert.deepEqual(
+            buildCardActions({
+                ...fromServer.pending,
+                cancel: {
+                    visible: true,
+                    enabled: false,
+                    reason: 'Ask the team.',
+                },
+            }).map((button) => button.key),
+            ['view', 'update'],
         );
     });
 
@@ -170,7 +144,7 @@ describe('buildCardActions', () => {
 
         assert.deepEqual(
             buttons.map((b) => b.key),
-            ['view', 'update', 'cancel'],
+            ['view', 'cancel'],
         );
     });
 });

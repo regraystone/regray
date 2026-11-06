@@ -868,7 +868,7 @@ const InquiryDetails = () => {
                             return null;
                         }
                         if (button.key === 'update') {
-                            return button.enabled ? (
+                            return (
                                 <Button
                                     asChild
                                     key={button.key}
@@ -883,20 +883,10 @@ const InquiryDetails = () => {
                                         {button.label}
                                     </Link>
                                 </Button>
-                            ) : (
-                                <Button
-                                    key={button.key}
-                                    variant={button.variant}
-                                    disabled
-                                    title={button.reason}
-                                    className="shrink-0 self-start"
-                                >
-                                    {button.label}
-                                </Button>
                             );
                         }
                         if (button.key === 'cancel') {
-                            return button.enabled ? (
+                            return (
                                 <CancelInquiryButton
                                     key={button.key}
                                     reference={inquiry.reference}
@@ -904,10 +894,10 @@ const InquiryDetails = () => {
                                     variant={button.variant}
                                     className="shrink-0 self-start"
                                 />
-                            ) : null;
+                            );
                         }
                         if (button.key === 'invoice') {
-                            return button.enabled ? (
+                            return (
                                 <Button
                                     asChild
                                     key={button.key}
@@ -916,7 +906,7 @@ const InquiryDetails = () => {
                                 >
                                     <Link href="#">{button.label}</Link>
                                 </Button>
-                            ) : null;
+                            );
                         }
                         return null;
                     })}

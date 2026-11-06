@@ -325,7 +325,7 @@ const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
                             );
                         }
                         if (button.key === 'update') {
-                            return button.enabled ? (
+                            return (
                                 <Button
                                     asChild
                                     key={button.key}
@@ -340,20 +340,10 @@ const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
                                         {button.label}
                                     </Link>
                                 </Button>
-                            ) : (
-                                <Button
-                                    key={button.key}
-                                    variant={button.variant}
-                                    disabled
-                                    title={button.reason}
-                                    className="w-full sm:w-auto lg:w-full"
-                                >
-                                    {button.label}
-                                </Button>
                             );
                         }
                         if (button.key === 'cancel') {
-                            return button.enabled ? (
+                            return (
                                 <CancelInquiryButton
                                     key={button.key}
                                     reference={inquiry.reference}
@@ -361,10 +351,10 @@ const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
                                     variant={button.variant}
                                     className="w-full sm:w-auto lg:w-full"
                                 />
-                            ) : null;
+                            );
                         }
                         if (button.key === 'invoice') {
-                            return button.enabled ? (
+                            return (
                                 <Button
                                     asChild
                                     key={button.key}
@@ -373,7 +363,7 @@ const InquiryCard = ({ inquiry }: { inquiry: QuoteInquiry }) => {
                                 >
                                     <Link href="#">{button.label}</Link>
                                 </Button>
-                            ) : null;
+                            );
                         }
                         return null;
                     })}
