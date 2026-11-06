@@ -3,6 +3,7 @@
 namespace App\Repositories\Contracts;
 
 use App\Data\InquiryListFilters;
+use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
@@ -46,13 +47,9 @@ interface InquiryRepositoryInterface
     ): InquiryStatusHistory;
 
     /**
-     * @param  list<int>  $serviceIds
-     * @param  array<int, int>  $optionIds  The kind of work picked, by service id; a service without one gets none.
+     * @param  list<array{stone_id: int|null, service_id: int, furniture_type_id: int|null}>  $items
      */
-    public function attachServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void;
-
-    /** @param  list<int>  $applicationIds  Stored in the order given. */
-    public function attachApplications(Inquiry $inquiry, array $applicationIds): void;
+    public function addWorkItems(Inquiry $inquiry, array $items): void;
 
     /**
      * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>  $stones  Stored in the order given.
@@ -111,9 +108,8 @@ interface InquiryRepositoryInterface
     public function distinctStonesFor(array $inquiryIds): Collection;
 
     /**
-     * The services of each inquiry, in one query. Each service carries the
-     * `inquiry_id` it belongs to and the `option_name` of the kind of work
-     * picked under it, null when none was.
+     * The services of each inquiry, once each, in one query. Each carries the
+     * `inquiry_id` it belongs to.
      *
      * @param  list<int>  $inquiryIds
      * @return Collection<int, Service>
@@ -138,18 +134,16 @@ interface InquiryRepositoryInterface
     ): void;
 
     /**
-     * @param  array{name?: string, location?: string, landmark?: ?string, area_sqm?: ?float, notes?: ?string}  $attributes
+     * @param  array{name?: string, delivery_method?: DeliveryMethod, location?: ?string, landmark?: ?string, area_sqm?: ?float, notes?: ?string}  $attributes
      */
     public function updateDetails(Inquiry $inquiry, array $attributes): void;
 
     /**
-     * @param  list<int>  $serviceIds
-     * @param  array<int, int>  $optionIds  The kind of work picked, by service id; a service without one gets none.
+     * Replace what is wanted of the inquiry's stones with these.
+     *
+     * @param  list<array{stone_id: int|null, service_id: int, furniture_type_id: int|null}>  $items
      */
-    public function syncServices(Inquiry $inquiry, array $serviceIds, array $optionIds = []): void;
-
-    /** @param  list<int>  $applicationIds  Stored in the order given. */
-    public function syncApplications(Inquiry $inquiry, array $applicationIds): void;
+    public function replaceWorkItems(Inquiry $inquiry, array $items): void;
 
     /**
      * Replace the inquiry's stone rows with these, in the order given.

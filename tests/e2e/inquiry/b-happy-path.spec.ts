@@ -9,19 +9,20 @@ import {
 } from '../support/fixtures';
 import {
     CATALOG,
+    DELIVERY_METHOD_ID,
+    REVIEW,
     addStoneProject,
-    addVisitProject,
     answerDeadline,
+    chooseInSelect,
     chooseLocation,
     continueButton,
-    deadlineDate,
-    deadlineTime,
     expectStep,
-    futureDate,
+    landmarkField,
+    locationField,
     openInquire,
-    pickApplication,
-    pickService,
+    openMoreDetails,
     pickStone,
+    pickWork,
     renameProject,
     projectPayload,
     sendAndReadReference,
@@ -30,7 +31,7 @@ import {
 
 /* B. Happy path: from the first click to the saved inquiry. */
 
-test('6 · a standalone visit skips the stones and the application and sends @layout', async ({
+test('6 · a pickup asks for no location, keeps its landmark, and sends @layout', async ({
     actors,
 }, testInfo) => {
     const { page } = await actors.open('client');
@@ -38,29 +39,50 @@ test('6 · a standalone visit skips the stones and the application and sends @la
     const name = (step: string) => `06-${step}-${width}`;
 
     await openInquire(page);
-    await pickService(page, CATALOG.visitService);
-    await shot(page, name('1-services'), testInfo);
+    await pickStone(page, CATALOG.stones[0]);
+    await shot(page, name('1-stones'), testInfo);
     await continueButton(page).click();
 
-    await expectStep(page, 4);
-    await chooseLocation(page, 'Taguig');
-    await deadlineDate(page).fill(futureDate(7));
-    await deadlineTime(page).fill('09:30');
-    await shot(page, name('4-requirements'), testInfo);
+    await expectStep(page, 2);
+    await pickWork(page, CATALOG.stones[0]);
+    await shot(page, name('2-work'), testInfo);
+    await continueButton(page).click();
+
+    await expectStep(page, 3);
+    await expect(locationField(page)).toBeVisible();
+    await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
+    await expect(locationField(page)).toHaveCount(0);
+    await openMoreDetails(page);
+    await landmarkField(page).fill('Near the studio gate');
+    await answerDeadline(page);
+    await shot(page, name('3-details'), testInfo);
     await page.getByRole('button', { name: 'Continue to review' }).click();
 
-    await expectStep(page, 5);
-    await shot(page, name('5-review'), testInfo);
+    await expectStep(page, REVIEW);
+    await expect(page.getByText('Pickup', { exact: true })).toBeVisible();
+    await expect(
+        page.getByText('Near the studio gate', { exact: true }),
+    ).toBeVisible();
+    await shot(page, name('4-review'), testInfo);
     const reference = await sendAndReadReference(page);
 
     await expect(page.getByRole('status')).toContainText(
-        `We've received your request for ${CATALOG.visitService}.`,
+        `We've received your request for ${CATALOG.work}.`,
     );
-    expect(reference).toMatch(/^INQ-/);
-    await shot(page, name('6-result'), testInfo);
+    await shot(page, name('5-result'), testInfo);
+
+    expect(
+        php<Record<string, string | null>>(
+            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first(['delivery_method', 'location', 'landmark'])->toArray()`,
+        ),
+    ).toEqual({
+        delivery_method: 'pickup',
+        location: null,
+        landmark: 'Near the studio gate',
+    });
 });
 
-test('7 · a project of stone with two rows and two applications sends @layout', async ({
+test('7 · two stones, each with its own work, one of them furniture, send @layout', async ({
     actors,
 }, testInfo) => {
     const { page } = await actors.open('client');
@@ -68,23 +90,18 @@ test('7 · a project of stone with two rows and two applications sends @layout',
     const name = (step: string) => `07-${step}-${width}`;
 
     await openInquire(page);
-    await pickService(page, CATALOG.stoneService);
-    await shot(page, name('1-services'), testInfo);
+    await pickStone(page, CATALOG.stones[0]);
+    await pickStone(page, CATALOG.stones[1]);
+    await shot(page, name('1-stones'), testInfo);
     await continueButton(page).click();
 
     await expectStep(page, 2);
-    await pickStone(page, CATALOG.stones[0]);
-    await pickStone(page, CATALOG.stones[1]);
-    await shot(page, name('2-stones'), testInfo);
+    await pickWork(page, CATALOG.stones[0]);
+    await pickWork(page, CATALOG.stones[1], CATALOG.furnitureWork, 'Tables');
+    await shot(page, name('2-work'), testInfo);
     await continueButton(page).click();
 
     await expectStep(page, 3);
-    await pickApplication(page, CATALOG.applications[0]);
-    await pickApplication(page, CATALOG.applications[1]);
-    await shot(page, name('3-application'), testInfo);
-    await continueButton(page).click();
-
-    await expectStep(page, 4);
     await answerStoneRow(page, 0, {
         quantity: 3,
         edge: CATALOG.edges[0],
@@ -97,21 +114,32 @@ test('7 · a project of stone with two rows and two applications sends @layout',
     });
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
-    await shot(page, name('4-requirements'), testInfo);
+    await shot(page, name('3-details'), testInfo);
     await page.getByRole('button', { name: 'Continue to review' }).click();
 
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
     await expect(page.getByText(/8 pieces of 2 stones/)).toBeVisible();
     await renameProject(page, 'Kitchen and island');
-    await shot(page, name('5-review'), testInfo);
+    await shot(page, name('4-review'), testInfo);
 
     const reference = await sendAndReadReference(page);
 
     await expect(page.getByRole('status')).toContainText(
         "We've received your request for Kitchen and island.",
     );
-    expect(reference).toMatch(/^INQ-/);
-    await shot(page, name('6-result'), testInfo);
+    await shot(page, name('5-result'), testInfo);
+
+    const workOf = (column: string) =>
+        php<Array<string | null>>(
+            `App\\Models\\Inquiry::query()->with(['workItems.stone', 'workItems.service', 'workItems.furnitureType'])->where('reference', '${reference}')->first()->workItems->pluck('${column}')`,
+        );
+
+    expect(workOf('stone.name')).toEqual([...CATALOG.stones]);
+    expect(workOf('service.slug')).toEqual([
+        CATALOG.workSlug,
+        'furniture-only',
+    ]);
+    expect(workOf('furnitureType.slug')).toEqual([null, 'tables']);
 });
 
 test('8 · the reference on the result page is the one new inquiries row for that client', async ({
@@ -122,7 +150,7 @@ test('8 · the reference on the result page is the one new inquiries row for tha
     const before = inquiryReferences(clientAId);
 
     await openInquire(page);
-    await addVisitProject(page, { location: 'Pasig' });
+    await addStoneProject(page, { location: 'Pasig' });
     const reference = await sendAndReadReference(page);
 
     const after = inquiryReferences(clientAId);
@@ -164,6 +192,7 @@ test('9 · the new inquiry is Pending in the Quote list, and its details show th
     await expect(main).toContainText(reference);
     await expect(main).toContainText('Guest bath vanity');
     await expect(main).toContainText(CATALOG.stones[0]);
+    await expect(main).toContainText(CATALOG.work);
     await expect(main).toContainText('7 pcs');
     await expect(main).toContainText('Quezon City');
     await expect(main).toContainText('Beside the chapel');
@@ -230,7 +259,7 @@ test('10 · Cancel on the Quote card asks first, and only cancels when told to',
     await expect(card).toContainText('Cancelled');
     expect(
         php<string>(
-            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->value('status')`,
+            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first()->status->value`,
         ),
     ).toBe('cancelled');
 });

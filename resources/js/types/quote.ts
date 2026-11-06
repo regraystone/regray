@@ -20,7 +20,7 @@ export type QuoteInquiry = {
     title: string;
     stones: Array<{ slug: string; name: string; thumbnail: string }>;
     /** Each with the kind of work picked under it; null when sent before the choice. */
-    services: Array<{ id: string; name: string; option: string | null }>;
+    services: Array<{ id: string; name: string }>;
     /** Which buttons the card shows, and which can be pressed. */
     actions: QuoteActions;
 };
@@ -94,10 +94,14 @@ export type QuoteInquiryDetails = {
     /** The one project the inquiry is. */
     project: {
         name: string;
-        /** Each with the kind of work picked under it; null when sent before the choice. */
         stoneAdviceRequested: boolean;
-        services: Array<{ name: string; image: string; option: string | null }>;
-        applications: string[];
+        /** Each kind of work wanted, once. */
+        services: Array<{ name: string }>;
+        /** The work with no stone chosen: Regray is to recommend one. */
+        unassignedWork: Array<{
+            service: string;
+            furnitureType: string | null;
+        }>;
         stones: Array<{
             id: string;
             name: string;
@@ -105,13 +109,16 @@ export type QuoteInquiryDetails = {
             quantity: number;
             edge: string;
             finish: string;
+            /** What is wanted of this stone. */
+            work: Array<{ service: string; furnitureType: string | null }>;
         }>;
         requirements: {
-            location: string;
+            deliveryMethod: string;
+            /** Null on a pickup. */
+            location: string | null;
             landmark: string | null;
             areaSqm: number | null;
             neededBy: string | null;
-            neededByTime: string | null;
             notes: string | null;
             attachments: Array<{
                 id: string;

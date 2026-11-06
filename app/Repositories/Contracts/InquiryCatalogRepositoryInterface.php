@@ -4,7 +4,7 @@ namespace App\Repositories\Contracts;
 
 use App\Models\EdgeProfile;
 use App\Models\Finish;
-use App\Models\ProjectCategory;
+use App\Models\FurnitureType;
 use App\Models\Service;
 use App\Models\Stone;
 use Illuminate\Database\Eloquent\Collection;
@@ -12,11 +12,18 @@ use Illuminate\Database\Eloquent\Collection;
 interface InquiryCatalogRepositoryInterface
 {
     /**
-     * Active services with their features.
+     * The services the page offers, in the order it lists them.
      *
      * @return Collection<int, Service>
      */
     public function services(): Collection;
+
+    /**
+     * The furniture types the page offers.
+     *
+     * @return Collection<int, FurnitureType>
+     */
+    public function furnitureTypes(): Collection;
 
     /**
      * Active stones with the category facts the Inquire page shows.
@@ -24,13 +31,6 @@ interface InquiryCatalogRepositoryInterface
      * @return Collection<int, Stone>
      */
     public function stones(): Collection;
-
-    /**
-     * The options of the Application step, which are the active project categories.
-     *
-     * @return Collection<int, ProjectCategory>
-     */
-    public function applications(): Collection;
 
     /** @return Collection<int, EdgeProfile> */
     public function activeEdgeProfiles(): Collection;

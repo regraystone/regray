@@ -1,6 +1,6 @@
 import { storageUrl } from '@/lib/storage-url';
 
-export type ServiceOption = {
+export type Service = {
     id: string;
     name: string;
     /**
@@ -30,7 +30,7 @@ export type ServiceOption = {
  * already vetted as card-worthy. There is one per stone, so no two services
  * repeat. Swap a path here to use a dedicated service photo.
  */
-export const serviceOptions: ServiceOption[] = [
+export const serviceOptions: Service[] = [
     {
         id: 'natural-stone-supply',
         name: 'Natural Stone Supply',

@@ -1,8 +1,4 @@
-import type {
-    InquiryCatalog,
-    InquirePageProps,
-    InquiryServiceOption,
-} from '@/types/inquiry';
+import type { InquiryCatalog, InquirePageProps } from '@/types/inquiry';
 
 /**
  * The answer a stone picked as extra information is given for its edge or finish.
@@ -22,45 +18,24 @@ const placeholderAnswer = (
 export const createInquiryCatalog = (
     props: InquirePageProps,
 ): InquiryCatalog => ({
-    services: props.services,
+    // A service no longer offered still reads back on the inquiry that has it.
+    services: [
+        ...props.services,
+        ...(props.projects ?? []).flatMap((project) =>
+            project.heldServices.filter(
+                (held) =>
+                    !props.services.some((service) => service.id === held.id),
+            ),
+        ),
+    ],
+    furnitureTypes: props.furnitureTypes,
     stones: props.stones,
-    applications: props.applications,
     edgeProfiles: props.edgeProfiles,
     finishes: props.finishes,
     locations: props.locations,
-    standaloneServiceIds: new Set(
-        props.services
-            .filter((service) => service.standalone)
-            .map((service) => service.id),
-    ),
     advisoryEdge: placeholderAnswer(props.edgeProfiles),
     advisoryFinish: placeholderAnswer(props.finishes),
 });
-
-/**
- * Whether a service may join the ones already picked.
- *
- * Services share a project only when they share a group, which the database
- * sets on each service. One that is already picked can always be unpicked.
- */
-export const canPickService = (
-    services: readonly InquiryServiceOption[],
-    chosenIds: readonly string[],
-    id: string,
-): boolean => {
-    if (chosenIds.includes(id)) {
-        return true;
-    }
-
-    const groupOf = (serviceId: string) =>
-        services.find((service) => service.id === serviceId)?.group;
-
-    return chosenIds.every((chosenId) => groupOf(chosenId) === groupOf(id));
-};
-
-/** What a service is called, falling back to its id for one that is gone. */
-export const serviceNameIn = (catalog: InquiryCatalog, id: string): string =>
-    catalog.services.find((service) => service.id === id)?.name ?? id;
 
 /**
  * Folds a name down to what a keyboard actually produces.

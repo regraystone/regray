@@ -1,8 +1,9 @@
-﻿import { ChevronDown, FileText, Pencil } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { ChevronDown, FileText, Pencil, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import AlertError from '@/components/alert-error';
 import { formatSize } from '@/components/file-upload';
+import { InquiryActionBar } from '@/components/inquiry-question';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,15 +13,24 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { attachmentMeta, PROJECT_NAME_MAX } from '@/data/inquiries';
+import {
+    attachmentMeta,
+    PROJECT_NAME_MAX,
+    type InquiryAttachment,
+} from '@/data/inquiries';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import {
-    isStandaloneProject,
+    DELIVERY_METHODS,
+    PICKUP,
     reviewActions,
+    workRowKeys,
+    workRowLabel,
     type InquiryMode,
 } from '@/lib/inquiry-flow';
 import {
     REQUIREMENTS_STEP,
+    STONES_STEP,
+    WORK_STEP,
     type InquiryFormInput,
     type InquiryFormValues,
 } from '@/lib/inquiry-schema';
@@ -48,9 +58,6 @@ const formatNeededBy = (value: string): string =>
  * a date has not asked for a moment: the hour is asked for by the services the
  * team attends at one, and everything else stops at the day.
  */
-const formatNeededByMoment = (date: string, time: string): string =>
-    time === '' ? formatNeededBy(date) : `${formatNeededBy(date)} at ${time}`;
-
 /** One answer, or the fact that there was none. */
 const NotProvided = () => (
     <span className="font-normal text-secondary-foreground">Not provided</span>
@@ -116,17 +123,97 @@ const AttachmentPreview = ({ file }: { file: File }) => {
     return <img src={url} alt="" className="size-full object-cover" />;
 };
 
+/** Files, with a preview of the ones the browser still holds. */
+const AttachmentList = ({
+    attachments,
+}: {
+    attachments: InquiryAttachment[];
+}) => (
+    <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
+        {attachments.map((attachment) => {
+            const meta = attachmentMeta(attachment);
+
+            return (
+                <li
+                    key={attachment.id}
+                    className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                >
+                    <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border text-secondary-foreground">
+                        {attachment.status === 'saved' ? (
+                            <FileText className="size-5" aria-hidden />
+                        ) : (
+                            <AttachmentPreview file={attachment.file} />
+                        )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span
+                            className="block truncate text-sm font-bold"
+                            title={meta.name}
+                        >
+                            {meta.name}
+                        </span>
+                        <span className="block text-xs text-secondary-foreground">
+                            {formatSize(meta.size)}
+                        </span>
+                    </span>
+                    {attachment.status === 'uploading' ? (
+                        <span className="flex shrink-0 items-center gap-1.5 text-xs text-secondary-foreground">
+                            <Spinner className="size-3.5 motion-reduce:animate-none" />
+                            {attachment.progress}%
+                        </span>
+                    ) : null}
+                </li>
+            );
+        })}
+    </ul>
+);
+
+/** A section's way back to the question that asked it. */
+const EditSection = ({
+    label,
+    locked,
+    onClick,
+}: {
+    label: string;
+    locked: boolean;
+    onClick: () => void;
+}) => (
+    <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onClick}
+        disabled={locked}
+    >
+        <Pencil aria-hidden />
+        {label}
+    </Button>
+);
+
+/** A section's heading, with its way back on the right. */
+const SectionHeader = ({
+    label,
+    count,
+    children,
+}: {
+    label: string;
+    count?: number;
+    children?: ReactNode;
+}) => (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+        <SectionLabel count={count}>{label}</SectionLabel>
+        <div className="flex flex-wrap items-center gap-2">{children}</div>
+    </div>
+);
+
 type ReviewProject = InquiryFormValues['projects'][number];
 
 /**
- * One project, whole.
+ * One project, whole: each stone with its work, furniture and reference files,
+ * then the details. Each section's Edit returns to the question that asked it. A
+ * visit, which only an inquiry already sent can be, has no stones to choose and
+ * says so.
  *
- * The same card the inquiry details page uses for a project, so a reader checking
- * what they are about to send sees it laid out the way they will read it once it
- * is sent: stones as tiles with their pieces, edge and finish; services as rows
- * with their pictures; the applications; and the site's own answers.
- *
- * Edit sits in the header, beside the chevron that folds the body away.
  * The project's complaint, when the whole-form check has one, is said under the
  * header where the reader is looking when they decide what to change.
  */
@@ -145,7 +232,7 @@ const ReviewProjectCard = ({
     >;
     message: string | undefined;
     locked: boolean;
-    onEdit: () => void;
+    onEdit: (step?: number) => void;
 }) => {
     const catalog = useInquiryCatalog();
     const [open, setOpen] = useState(true);
@@ -169,36 +256,24 @@ const ReviewProjectCard = ({
 
     const pieces = stones.reduce((total, row) => total + row.quantity, 0);
     const stoneTypes = new Set(stones.map((row) => row.stoneId)).size;
-    const serviceCount = project.serviceIds.length;
-    const isVisit = isStandaloneProject(
-        project.serviceIds,
-        catalog.standaloneServiceIds,
-    );
+    const work = project.stoneWork;
+    const wanted = [
+        ...new Set(Object.values(work).map(({ serviceId }) => serviceId)),
+    ].flatMap((id) => {
+        const option = catalog.services.find((entry) => entry.id === id);
 
-    const applications = project.applications.flatMap((id) => {
-        const application = catalog.applications.find(
-            (entry) => entry.id === id,
-        );
-
-        return application === undefined ? [] : [application.name];
+        return option === undefined ? [] : [option];
     });
-
-    const services = project.serviceIds.flatMap((id) => {
-        const service = catalog.services.find((entry) => entry.id === id);
-
-        return service === undefined
-            ? []
-            : [
-                  {
-                      ...service,
-                      // The kind of work picked under it, by name.
-                      kind: service.options.find(
-                          (option) => option.id === project.serviceOptions[id],
-                      )?.name,
-                  },
-              ];
+    const serviceCount = wanted.length;
+    const workKeys = workRowKeys({
+        stoneIds: [...new Set(project.stones.map((row) => row.stoneId))],
+        stoneAdvice: project.stoneAdvice,
     });
-
+    const labelOf = (key: string) => workRowLabel(key, catalog.stones);
+    const deliveryMethodName =
+        DELIVERY_METHODS.find(({ value }) => value === project.deliveryMethod)
+            ?.title ?? '';
+    const isPickup = project.deliveryMethod === PICKUP;
     const plural = (count: number, one: string, many: string): string =>
         `${count} ${count === 1 ? one : many}`;
 
@@ -206,6 +281,44 @@ const ReviewProjectCard = ({
         stoneTypes > 0
             ? `${plural(serviceCount, 'service', 'services')} · ${plural(pieces, 'piece', 'pieces')} of ${plural(stoneTypes, 'stone', 'stones')}`
             : plural(serviceCount, 'service', 'services');
+
+    const stoneTiles = (
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
+            {stones.map((row, rowIndex) => (
+                <div key={`${row.stoneId}-${rowIndex}`} className="min-w-0">
+                    <img
+                        src={row.stone.thumbnail}
+                        alt=""
+                        loading="lazy"
+                        className="aspect-square w-full rounded-md object-cover"
+                    />
+                    <div className="mt-2 flex items-baseline justify-between gap-x-2">
+                        <p className="truncate text-sm font-bold">
+                            {row.stone.name}
+                        </p>
+                        <p className="shrink-0 text-xs font-bold text-secondary-foreground">
+                            {row.quantity} pcs
+                        </p>
+                    </div>
+                    {row.edge === catalog.advisoryEdge &&
+                    row.finish === catalog.advisoryFinish ? (
+                        <p className="mt-1 text-xs text-secondary-foreground">
+                            We'll advise on edge and finish
+                        </p>
+                    ) : (
+                        <>
+                            <p className="mt-1 truncate text-xs text-secondary-foreground">
+                                {row.edge}
+                            </p>
+                            <p className="truncate text-xs text-secondary-foreground">
+                                {row.finish}
+                            </p>
+                        </>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
 
     return (
         <section className="overflow-hidden rounded-md border border-sidebar-border bg-background">
@@ -239,18 +352,6 @@ const ReviewProjectCard = ({
                     ) : null}
 
                     <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={onEdit}
-                            disabled={locked}
-                            aria-label={`Edit ${project.name}`}
-                        >
-                            <Pencil aria-hidden />
-                            Edit
-                        </Button>
-
                         <CollapsibleTrigger
                             aria-label={`${open ? 'Collapse' : 'Expand'} ${project.name}`}
                             className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-secondary-foreground transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -315,123 +416,98 @@ const ReviewProjectCard = ({
                 <CollapsibleContent>
                     <div className="border-t border-sidebar-border p-4 sm:p-5">
                         <div className="space-y-7">
-                            <section>
-                                <SectionLabel count={stoneTypes}>
-                                    Stones
-                                </SectionLabel>
+                            <section data-testid="review-stones-and-work">
+                                <SectionHeader
+                                    label="Stones and work"
+                                    count={workKeys.length}
+                                >
+                                    <EditSection
+                                        label="Edit stones"
+                                        locked={locked}
+                                        onClick={() => onEdit(STONES_STEP)}
+                                    />
+                                    <EditSection
+                                        label="Edit work"
+                                        locked={locked}
+                                        onClick={() => onEdit(WORK_STEP)}
+                                    />
+                                </SectionHeader>
 
-                                {stones.length > 0 ? (
-                                    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
-                                        {stones.map((row, rowIndex) => (
-                                            <div
-                                                key={`${row.stoneId}-${rowIndex}`}
-                                                className="min-w-0"
-                                            >
-                                                <img
-                                                    src={row.stone.thumbnail}
-                                                    alt=""
-                                                    loading="lazy"
-                                                    className="aspect-square w-full rounded-md object-cover"
-                                                />
-                                                <div className="mt-2 flex items-baseline justify-between gap-x-2">
-                                                    <p className="truncate text-sm font-bold">
-                                                        {row.stone.name}
-                                                    </p>
-                                                    <p className="shrink-0 text-xs font-bold text-secondary-foreground">
-                                                        {row.quantity} pcs
-                                                    </p>
-                                                </div>
-                                                {row.edge ===
-                                                    catalog.advisoryEdge &&
-                                                row.finish ===
-                                                    catalog.advisoryFinish ? (
-                                                    <p className="mt-1 text-xs text-secondary-foreground">
-                                                        We'll advise on edge and
-                                                        finish
-                                                    </p>
-                                                ) : (
-                                                    <>
-                                                        <p className="mt-1 truncate text-xs text-secondary-foreground">
-                                                            {row.edge}
-                                                        </p>
-                                                        <p className="truncate text-xs text-secondary-foreground">
-                                                            {row.finish}
-                                                        </p>
-                                                    </>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="mt-2 text-sm text-secondary-foreground">
-                                        {isVisit
-                                            ? 'Nothing to supply or install — this project is a visit.'
-                                            : project.stoneAdvice
-                                              ? 'Stone to be recommended by Regray.'
-                                              : 'No stones were chosen for this project.'}
-                                    </p>
-                                )}
-                            </section>
+                                <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
+                                    {workKeys.map((key) => {
+                                        const entry = work[key];
+                                        const stone = catalog.stones.find(
+                                            ({ slug }) => slug === key,
+                                        );
+                                        const option = catalog.services.find(
+                                            ({ id }) => id === entry?.serviceId,
+                                        );
+                                        const furnitureType =
+                                            catalog.furnitureTypes.find(
+                                                ({ id }) =>
+                                                    id === entry?.furnitureType,
+                                            )?.name;
 
-                            <section>
-                                <SectionLabel count={services.length}>
-                                    Services
-                                </SectionLabel>
-
-                                {services.length > 0 ? (
-                                    <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                                        {services.map(
-                                            ({ id, name, image, kind }) => (
-                                                <li
-                                                    key={id}
-                                                    className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
-                                                >
-                                                    <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                                        {name}
-                                                        {kind ? (
-                                                            <span className="mt-0.5 block font-normal text-secondary-foreground">
-                                                                {kind}
-                                                            </span>
-                                                        ) : null}
-                                                    </p>
-                                                    {image ? (
-                                                        <img
-                                                            src={image}
-                                                            alt=""
-                                                            loading="lazy"
-                                                            className="size-12 shrink-0 rounded-md object-cover"
-                                                        />
-                                                    ) : null}
-                                                </li>
-                                            ),
-                                        )}
-                                    </ul>
-                                ) : (
-                                    <p className="mt-2 text-sm text-secondary-foreground">
-                                        No services were asked for on this
-                                        project.
-                                    </p>
-                                )}
-                            </section>
-
-                            {applications.length > 0 ? (
-                                <section>
-                                    <SectionLabel count={applications.length}>
-                                        Where it will be used
-                                    </SectionLabel>
-
-                                    <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                                        {applications.map((name) => (
+                                        return (
                                             <li
-                                                key={name}
-                                                className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                                                key={key}
+                                                className="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
+                                                data-testid="review-stone-work"
                                             >
-                                                <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                                    {name}
-                                                </p>
+                                                {stone?.thumbnail ? (
+                                                    <img
+                                                        src={stone.thumbnail}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        className="size-14 shrink-0 rounded-md object-cover"
+                                                    />
+                                                ) : (
+                                                    <span
+                                                        aria-hidden
+                                                        className="grid size-14 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground"
+                                                    >
+                                                        <Sparkles className="size-5" />
+                                                    </span>
+                                                )}
+
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-bold break-words">
+                                                        {labelOf(key)}
+                                                    </p>
+                                                    <p className="mt-0.5 text-sm break-words text-secondary-foreground">
+                                                        {option?.name ??
+                                                            'Not chosen yet'}
+                                                    </p>
+
+                                                    {furnitureType ? (
+                                                        <p className="mt-1 text-sm break-words text-secondary-foreground">
+                                                            Furniture type:{' '}
+                                                            <span className="font-bold text-foreground">
+                                                                {furnitureType}
+                                                            </span>
+                                                        </p>
+                                                    ) : null}
+                                                </div>
                                             </li>
-                                        ))}
-                                    </ul>
+                                        );
+                                    })}
+                                </ul>
+                            </section>
+
+                            <SectionHeader label="Details">
+                                <EditSection
+                                    label="Edit details"
+                                    locked={locked}
+                                    onClick={() => onEdit(REQUIREMENTS_STEP)}
+                                />
+                            </SectionHeader>
+
+                            {stones.length > 0 ? (
+                                <section>
+                                    <SectionLabel count={stones.length}>
+                                        Pieces, edge and finish
+                                    </SectionLabel>
+                                    {stoneTiles}
                                 </section>
                             ) : null}
 
@@ -440,9 +516,15 @@ const ReviewProjectCard = ({
 
                                 <dl>
                                     <SummaryRow
-                                        label="Location"
-                                        value={project.location}
+                                        label="How you'll get it"
+                                        value={deliveryMethodName}
                                     />
+                                    {isPickup ? null : (
+                                        <SummaryRow
+                                            label="Location"
+                                            value={project.location}
+                                        />
+                                    )}
                                     <SummaryRow
                                         label="A nearby landmark"
                                         value={project.landmark}
@@ -457,10 +539,7 @@ const ReviewProjectCard = ({
                                     />
                                     <SummaryRow
                                         label="When you need it"
-                                        value={formatNeededByMoment(
-                                            project.neededBy,
-                                            project.neededByTime,
-                                        )}
+                                        value={formatNeededBy(project.neededBy)}
                                     />
                                 </dl>
 
@@ -480,64 +559,9 @@ const ReviewProjectCard = ({
                                     <SectionLabel>Attachments</SectionLabel>
 
                                     {project.attachments.length > 0 ? (
-                                        <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                                            {project.attachments.map(
-                                                (attachment) => {
-                                                    const meta =
-                                                        attachmentMeta(
-                                                            attachment,
-                                                        );
-
-                                                    return (
-                                                        <li
-                                                            key={attachment.id}
-                                                            className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                                                        >
-                                                            <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border text-secondary-foreground">
-                                                                {attachment.status ===
-                                                                'saved' ? (
-                                                                    <FileText
-                                                                        className="size-5"
-                                                                        aria-hidden
-                                                                    />
-                                                                ) : (
-                                                                    <AttachmentPreview
-                                                                        file={
-                                                                            attachment.file
-                                                                        }
-                                                                    />
-                                                                )}
-                                                            </span>
-                                                            <span className="min-w-0 flex-1">
-                                                                <span
-                                                                    className="block truncate text-sm font-bold"
-                                                                    title={
-                                                                        meta.name
-                                                                    }
-                                                                >
-                                                                    {meta.name}
-                                                                </span>
-                                                                <span className="block text-xs text-secondary-foreground">
-                                                                    {formatSize(
-                                                                        meta.size,
-                                                                    )}
-                                                                </span>
-                                                            </span>
-                                                            {attachment.status ===
-                                                            'uploading' ? (
-                                                                <span className="flex shrink-0 items-center gap-1.5 text-xs text-secondary-foreground">
-                                                                    <Spinner className="size-3.5 motion-reduce:animate-none" />
-                                                                    {
-                                                                        attachment.progress
-                                                                    }
-                                                                    %
-                                                                </span>
-                                                            ) : null}
-                                                        </li>
-                                                    );
-                                                },
-                                            )}
-                                        </ul>
+                                        <AttachmentList
+                                            attachments={project.attachments}
+                                        />
                                     ) : (
                                         <p className="mt-2 text-sm text-secondary-foreground">
                                             No files were attached to this
@@ -559,8 +583,8 @@ const ReviewProjectCard = ({
 };
 
 type InquiryReviewProps = {
-    /** Reopen one project in the requirements step, prefilled. */
-    onEditProject: (id: string) => void;
+    /** Reopen one project at a question, the details unless it says, prefilled. */
+    onEditProject: (id: string, step?: number) => void;
     /** Ask the page to confirm before a project goes. */
     /** Start a blank project and go back to the services list. */
     /**
@@ -712,7 +736,7 @@ const InquiryReview = ({
                             stones={stones}
                             message={projectMessages[project.id]}
                             locked={locked}
-                            onEdit={() => onEditProject(project.id)}
+                            onEdit={(step) => onEditProject(project.id, step)}
                         />
                     ))
                 )}
@@ -728,7 +752,7 @@ const InquiryReview = ({
              * than a step button that would drop them at the start of a grid they
              * did not ask to see again.
              */}
-            <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+            <InquiryActionBar>
                 <p className="min-w-0 flex-1 text-xs text-secondary-foreground">
                     {actions.footerNote}
                 </p>
@@ -748,7 +772,7 @@ const InquiryReview = ({
                         actions.submitLabel
                     )}
                 </Button>
-            </div>
+            </InquiryActionBar>
         </div>
     );
 };

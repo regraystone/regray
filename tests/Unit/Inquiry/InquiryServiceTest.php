@@ -1,6 +1,7 @@
 <?php
 
 use App\Data\WrittenFiles;
+use App\Enums\DeliveryMethod;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
@@ -20,9 +21,9 @@ function serviceInput(array $files = []): array
 {
     return ['projects' => [[
         'name' => 'Counters',
-        'service_ids' => [Service::query()->value('id')],
-        'application_ids' => [],
+        'work' => [['stone_id' => null, 'service_id' => Service::query()->value('id'), 'furniture_type_id' => null]],
         'stones' => [],
+        'delivery_method' => DeliveryMethod::Delivery,
         'location' => 'Makati',
         'landmark' => null,
         'area_sqm' => null,

@@ -83,10 +83,10 @@ class BrandRepository implements BrandRepositoryInterface
             $query->whereHas('categories', fn (Builder $category) => $category->where('slug', $filters->category)->where('is_active', true));
         }
         if ($filters->size !== null) {
-            $query->whereHas('sizes', fn (Builder $size) => $size->where('name', $filters->size)->where('is_active', true));
+            $query->where('size', $filters->size);
         }
         if ($filters->thickness !== null) {
-            $query->whereHas('thicknesses', fn (Builder $thickness) => $thickness->where('slug', $filters->thickness)->where('is_active', true));
+            $query->where('thickness_mm', (int) $filters->thickness);
         }
 
         return $query->toBase();
@@ -103,11 +103,11 @@ class BrandRepository implements BrandRepositoryInterface
         if ($filters->search !== null) {
             $query->where(function (Builder $query) use ($filters): void {
                 $query->where('name', 'ILIKE', "%{$filters->search}%")
-                    ->orWhere('furniture_type', 'ILIKE', "%{$filters->search}%");
+                    ->orWhereHas('furnitureType', fn (Builder $type) => $type->where('name', 'ILIKE', "%{$filters->search}%"));
             });
         }
         if ($filters->furnitureType !== null) {
-            $query->where('furniture_type', $filters->furnitureType);
+            $query->whereHas('furnitureType', fn (Builder $type) => $type->where('name', $filters->furnitureType));
         }
 
         return $query->toBase();
@@ -123,7 +123,7 @@ class BrandRepository implements BrandRepositoryInterface
         $idsOf = fn (string $kind): array => $rows->where('kind', $kind)->pluck('id')->all();
 
         $stones = Stone::query()->with('category:id,slug,name')->findMany($idsOf('stone'))->keyBy('id');
-        $furniture = Furniture::query()->findMany($idsOf('furniture'))->keyBy('id');
+        $furniture = Furniture::query()->with('furnitureType:id,slug,name')->findMany($idsOf('furniture'))->keyBy('id');
 
         /** @var LengthAwarePaginator<int, Stone|Furniture> $page */
         $page->setCollection($rows->map(

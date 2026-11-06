@@ -2,7 +2,7 @@ import type { Page, Route } from '@playwright/test';
 import { inquiryFixtures } from '../support/accounts';
 import { expect, inquiryCount, test } from '../support/fixtures';
 import {
-    addVisitProject,
+    addStoneProject,
     openInquire,
     requestQuoteButton,
     sendAndReadReference,
@@ -32,7 +32,7 @@ test('31 · a 500 shows the error and keeps the answers; retrying without it sav
     const { page } = await actors.open('client');
     actors.allowConsole(/status of 500/);
     await openInquire(page);
-    await addVisitProject(page, { location: 'Pasay', landmark: 'Keep me' });
+    await addStoneProject(page, { location: 'Pasay', landmark: 'Keep me' });
     const before = inquiryCount(clientAId);
 
     const failOnce = async (route: Route) => {
@@ -89,7 +89,7 @@ test('32 · Send pressed twice quickly saves exactly one inquiry', async ({
     const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
     await openInquire(page);
-    await addVisitProject(page, { location: 'Manila' });
+    await addStoneProject(page, { location: 'Manila' });
     const before = inquiryCount(clientAId);
     const posts = countStorePosts(page);
 
@@ -111,7 +111,7 @@ test('33 · the Send button is disabled while the request is in flight', async (
 }) => {
     const { page } = await actors.open('client');
     await openInquire(page);
-    await addVisitProject(page, { location: 'Marikina' });
+    await addStoneProject(page, { location: 'Marikina' });
 
     let release: () => void = () => undefined;
     const held = new Promise<void>((resolve) => {

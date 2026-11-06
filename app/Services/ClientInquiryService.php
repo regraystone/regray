@@ -60,7 +60,6 @@ class ClientInquiryService
                 ->map(fn (Service $service): array => [
                     'id' => $service->slug,
                     'name' => $service->name,
-                    'option' => $service->getAttribute('option_name'),
                 ])
                 ->all()),
             actions: $this->inquiryActions->for($inquiry),

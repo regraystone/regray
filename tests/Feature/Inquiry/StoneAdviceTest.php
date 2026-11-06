@@ -33,9 +33,13 @@ it('still asks for a stone without the request for a recommendation', function (
     expect(Inquiry::query()->count())->toBe(0);
 })->with(['not sent' => null, 'refused' => '0']);
 
-it('still needs to know where the stone will be used', function (): void {
-    sendProject($this, ['stones' => [], 'stoneAdvice' => '1', 'applicationIds' => []])
-        ->assertSessionHasErrors(['projects.0.applicationIds' => 'Select at least one application.']);
+it('stores the work of the stone left to Regray, with no stone', function (): void {
+    sendProject($this, ['stones' => [], 'stoneAdvice' => '1'])->assertSessionHasNoErrors();
+
+    $work = Inquiry::query()->sole()->workItems()->sole();
+
+    expect($work->stone_id)->toBeNull()
+        ->and($work->service->slug)->toBe('supply-only');
 });
 
 it('does not record a recommendation when stones were chosen', function (): void {

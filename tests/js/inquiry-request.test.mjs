@@ -6,6 +6,7 @@ import {
     buildInquiryFormData,
     mapInquiryErrors,
     readInquiryFlash,
+    STONE_ADVICE_KEY,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
 const file = (name, contents = 'x') =>
@@ -13,12 +14,10 @@ const file = (name, contents = 'x') =>
 
 const project = (overrides = {}) => ({
     name: 'Kitchen counters',
-    serviceIds: ['natural-stone-supply', 'custom-stone-fabrication'],
-    serviceOptions: {
-        'natural-stone-supply': 'supply-installation',
-        'custom-stone-fabrication': 'fabrication-supply',
+    stoneWork: {
+        marble: { serviceId: 'installation-supply', furnitureType: '' },
+        onyx: { serviceId: 'furniture-only', furnitureType: 'tables' },
     },
-    applications: ['3', '7'],
     stoneAdvice: false,
     stones: [
         {
@@ -34,11 +33,11 @@ const project = (overrides = {}) => ({
             finish: 'Polished',
         },
     ],
+    deliveryMethod: 'delivery',
     location: 'Makati',
     landmark: 'Near the church',
     areaSqm: '12.5',
     neededBy: '2030-01-02',
-    neededByTime: '09:30',
     notes: 'Ground floor.',
     attachments: [],
     ...overrides,
@@ -52,14 +51,12 @@ describe('buildInquiryFormData', () => {
 
         assert.deepEqual(Object.fromEntries(body.entries()), {
             'projects[0][name]': 'Kitchen counters',
-            'projects[0][serviceIds][0]': 'natural-stone-supply',
-            'projects[0][serviceIds][1]': 'custom-stone-fabrication',
-            'projects[0][serviceOptions][natural-stone-supply]':
-                'supply-installation',
-            'projects[0][serviceOptions][custom-stone-fabrication]':
-                'fabrication-supply',
-            'projects[0][applicationIds][0]': '3',
-            'projects[0][applicationIds][1]': '7',
+            'projects[0][work][0][stoneId]': 'marble',
+            'projects[0][work][0][serviceId]': 'installation-supply',
+            'projects[0][work][0][furnitureType]': '',
+            'projects[0][work][1][stoneId]': 'onyx',
+            'projects[0][work][1][serviceId]': 'furniture-only',
+            'projects[0][work][1][furnitureType]': 'tables',
             'projects[0][stoneAdvice]': '0',
             'projects[0][stones][0][stoneId]': 'marble',
             'projects[0][stones][0][quantity]': '4',
@@ -69,46 +66,65 @@ describe('buildInquiryFormData', () => {
             'projects[0][stones][1][quantity]': '2',
             'projects[0][stones][1][edge]': 'Half Bevel',
             'projects[0][stones][1][finish]': 'Polished',
+            'projects[0][deliveryMethod]': 'delivery',
             'projects[0][location]': 'Makati',
             'projects[0][landmark]': 'Near the church',
             'projects[0][areaSqm]': '12.5',
             'projects[0][neededBy]': '2030-01-02',
-            'projects[0][neededByTime]': '09:30',
             'projects[0][notes]': 'Ground floor.',
         });
     });
 
     it('sends the request for a stone recommendation, with no stones', () => {
         const body = buildInquiryFormData({
-            projects: [project({ stoneAdvice: true, stones: [] })],
+            projects: [
+                project({
+                    stoneAdvice: true,
+                    stones: [],
+                    stoneWork: {
+                        [STONE_ADVICE_KEY]: {
+                            serviceId: 'supply-only',
+                            furnitureType: '',
+                        },
+                    },
+                }),
+            ],
         });
 
         assert.equal(body.get('projects[0][stoneAdvice]'), '1');
+        assert.equal(body.get('projects[0][work][0][stoneId]'), '');
+        assert.equal(
+            body.get('projects[0][work][0][serviceId]'),
+            'supply-only',
+        );
         assert.equal(
             keys(body).some((name) => name.includes('[stones]')),
             false,
         );
     });
 
-    it('sends a blank kind of work for a service without one, for the server to name it', () => {
-        const body = buildInquiryFormData({
-            projects: [project({ serviceOptions: {} })],
-        });
+    it('sends the services only as the work of each stone', () => {
+        const names = keys(buildInquiryFormData({ projects: [project()] }));
 
         assert.equal(
-            body.get('projects[0][serviceOptions][natural-stone-supply]'),
-            '',
+            names.some((name) => /serviceIds|application|categor/i.test(name)),
+            false,
         );
     });
 
-    it('sends applications as `applicationIds`, never as categories', () => {
-        const names = keys(buildInquiryFormData({ projects: [project()] }));
+    it('sends a pickup with no location', () => {
+        const body = buildInquiryFormData({
+            projects: [
+                project({
+                    deliveryMethod: 'pickup',
+                    location: '',
+                    landmark: '',
+                }),
+            ],
+        });
 
-        assert.ok(names.some((name) => name.includes('[applicationIds]')));
-        assert.equal(
-            names.some((name) => /categor/i.test(name)),
-            false,
-        );
+        assert.equal(body.get('projects[0][deliveryMethod]'), 'pickup');
+        assert.equal(body.get('projects[0][location]'), '');
     });
 
     it('appends each file as projects[i][attachments][j], in the order attached', () => {
@@ -155,10 +171,8 @@ describe('buildInquiryFormData', () => {
             projects: [
                 project({
                     stones: [],
-                    applications: [],
                     landmark: '',
                     areaSqm: '',
-                    neededByTime: '',
                     notes: '',
                 }),
             ],
@@ -166,37 +180,10 @@ describe('buildInquiryFormData', () => {
 
         assert.equal(body.get('projects[0][landmark]'), '');
         assert.equal(body.get('projects[0][areaSqm]'), '');
-        assert.equal(body.get('projects[0][neededByTime]'), '');
         assert.equal(
             keys(body).some((name) => name.includes('[stones]')),
             false,
         );
-        assert.equal(
-            keys(body).some((name) => name.includes('[applicationIds]')),
-            false,
-        );
-    });
-
-    it('carries the extras of a standalone project', () => {
-        const body = buildInquiryFormData({
-            projects: [
-                project({
-                    serviceIds: ['stone-relocation-dismantling-reinstallation'],
-                    stones: [
-                        {
-                            stoneId: 'marble',
-                            quantity: 1,
-                            edge: 'Not sure yet, advise me',
-                            finish: 'Not sure yet, advise me',
-                        },
-                    ],
-                    applications: ['3'],
-                }),
-            ],
-        });
-
-        assert.equal(body.get('projects[0][stones][0][stoneId]'), 'marble');
-        assert.equal(body.get('projects[0][applicationIds][0]'), '3');
     });
 });
 

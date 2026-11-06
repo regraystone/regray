@@ -31,7 +31,7 @@ class StoneProfileResource extends JsonResource
             'description' => $this->category->description,
             'specifications' => [
                 'stoneType' => $this->category->name,
-                'origin' => $this->category->origin,
+                'origin' => $this->origin,
                 'size' => $this->size,
                 'thicknessMm' => $this->thickness_mm,
             ],

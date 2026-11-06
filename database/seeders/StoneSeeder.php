@@ -19,7 +19,6 @@ class StoneSeeder extends Seeder
         $this->call(BrandSeeder::class);
         $brandId = Brand::query()->where('slug', 'regray-stone')->firstOrFail()->id;
 
-        $this->call(StoneFilterOptionSeeder::class);
         $data = require database_path('seeders/data/stones.php');
 
         $categories = [];
@@ -33,7 +32,6 @@ class StoneSeeder extends Seeder
                     'name' => $stoneData['name'],
                     'thumbnail_path' => $stoneData['thumbnail_path'],
                     'description' => $stoneData['description'],
-                    'origin' => $stoneData['origin'],
                     'is_active' => true,
                     'sort_order' => $sortOrder++,
                 ]
@@ -69,6 +67,7 @@ class StoneSeeder extends Seeder
                 'thumbnail_path' => $imageData['path'],
                 'size' => $sizes[$idx % count($sizes)],
                 'thickness_mm' => $defaults[$categorySlug]['thickness_mm'],
+                'origin' => $defaults[$categorySlug]['origin'],
                 'is_active' => true,
                 'sort_order' => $idx,
             ]);

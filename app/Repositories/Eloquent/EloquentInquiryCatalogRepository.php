@@ -4,12 +4,11 @@ namespace App\Repositories\Eloquent;
 
 use App\Models\EdgeProfile;
 use App\Models\Finish;
-use App\Models\ProjectCategory;
+use App\Models\FurnitureType;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Relations\Relation;
 
 class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterface
 {
@@ -17,34 +16,24 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
     {
         return Service::query()
             ->where('is_active', true)
-            ->with([
-                'features:id,service_id,body,sort_order',
-                'options' => fn (Relation $options) => $options->getQuery()
-                    ->where('is_active', true)
-                    ->select(['id', 'service_id', 'slug', 'name', 'sort_order']),
-            ])
             ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('id')
+            ->get(['id', 'slug', 'name', 'needs_furniture']);
+    }
+
+    public function furnitureTypes(): Collection
+    {
+        return FurnitureType::query()->active()->orderBy('sort_order')->get(['id', 'slug', 'name']);
     }
 
     public function stones(): Collection
     {
         return Stone::query()
             ->active()
-            ->with(['category:id,slug,name,description,origin', 'brand:id,slug,name'])
+            ->with(['category:id,slug,name,description', 'brand:id,slug,name'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-    }
-
-    public function applications(): Collection
-    {
-        return ProjectCategory::query()
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'slug', 'name', 'image_path']);
     }
 
     public function activeEdgeProfiles(): Collection

@@ -1,11 +1,14 @@
 <?php
 
+use App\Enums\DeliveryMethod;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
-use App\Models\ServiceOption;
+use App\Models\Service;
 use App\Models\Stone;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 
@@ -62,9 +65,10 @@ dataset('refused values', [
     'a fractional quantity' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1.5]]], 'projects.0.stones.0.quantity'],
     'a location not in the list' => [fn (array $p): array => [...$p, 'location' => 'Atlantis'], 'projects.0.location'],
     'an unknown stone' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'stoneId' => 'no-such-stone']]], 'projects.0.stones.0.stoneId'],
-    'an unknown service' => [fn (array $p): array => [...$p, 'serviceIds' => ['no-such-service']], 'projects.0.serviceIds.0'],
+    'an unknown service' => [fn (array $p): array => [...$p, 'work' => [[...$p['work'][0], 'serviceId' => 'no-such-option']]], 'projects.0.work.0.serviceId'],
+    'an unknown furniture type' => [fn (array $p): array => [...$p, 'work' => [[...$p['work'][0], 'furnitureType' => 'no-such-type']]], 'projects.0.work.0.furnitureType'],
+    'an unknown delivery method' => [fn (array $p): array => [...$p, 'deliveryMethod' => 'drone'], 'projects.0.deliveryMethod'],
     'an unknown edge profile' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'edge' => 'Wavy']]], 'projects.0.stones.0.edge'],
-    'an unknown application' => [fn (array $p): array => [...$p, 'applicationIds' => [999999]], 'projects.0.applicationIds.0'],
     'eleven files' => [fn (array $p): array => [...$p, 'attachments' => array_map(
         fn (int $n): UploadedFile => UploadedFile::fake()->create("plan-{$n}.pdf", 10, 'application/pdf'),
         range(1, 11),
@@ -145,84 +149,168 @@ describe('stone rows', function (): void {
     });
 });
 
-describe('standalone and regular services', function (): void {
-    it('accepts a standalone service with no stones and no applications', function (): void {
-        postInquiry($this, [inquiryVisitInput()])->assertSessionHasNoErrors();
-    });
+/** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
+function twoStoneRows(): array
+{
+    $row = inquiryProjectInput()['stones'][0];
+    $other = Stone::query()->active()->where('slug', '!=', $row['stoneId'])->orderBy('id')->value('slug');
 
-    it('accepts extras on a standalone service', function (): void {
-        postInquiry($this, [inquiryVisitInput([
-            'stones' => inquiryProjectInput()['stones'],
-            'applicationIds' => inquiryProjectInput()['applicationIds'],
-        ])])->assertSessionHasNoErrors();
-    });
+    return [$row, [...$row, 'stoneId' => $other]];
+}
 
-    it('refuses a standalone service with no date or time', function (): void {
-        postInquiry($this, [inquiryVisitInput(['neededBy' => '', 'neededByTime' => ''])])
-            ->assertSessionHasErrors(['projects.0.neededBy', 'projects.0.neededByTime']);
-    });
-
-    it('refuses a standalone visit at a time that has already passed', function (): void {
-        postInquiry($this, [inquiryVisitInput(['neededBy' => now()->toDateString(), 'neededByTime' => now()->subMinutes(5)->format('H:i')])])
-            ->assertSessionHasErrors('projects.0.neededByTime');
-    });
-
-    it('refuses a regular service with no stones', function (): void {
+describe('stones and services', function (): void {
+    it('refuses a project with no stones', function (): void {
         postInquiry($this, [inquiryProjectInput(['stones' => []])])->assertSessionHasErrors('projects.0.stones');
     });
 
-    it('refuses a regular service with no applications', function (): void {
-        postInquiry($this, [inquiryProjectInput(['applicationIds' => []])])->assertSessionHasErrors('projects.0.applicationIds');
+    it('does not ask where the stone will be used', function (): void {
+        postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
     });
 
-    it('refuses services from different selection groups in one project', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'stone-relocation-dismantling-reinstallation']])])
-            ->assertSessionHasErrors(['projects.0.serviceIds' => 'These services cannot be in the same project.']);
-    });
+    it('accepts a different service for each stone', function (): void {
+        [$first, $second] = twoStoneRows();
 
-    it('accepts services from the same selection group in one project', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication']])])
-            ->assertSessionDoesntHaveErrors();
+        postInquiry($this, [inquiryProjectInput([
+            'stones' => [$first, $second],
+            'work' => [
+                ['stoneId' => $first['stoneId'], 'serviceId' => 'supply-only'],
+                ['stoneId' => $second['stoneId'], 'serviceId' => 'fabrication-supply'],
+            ],
+        ])])->assertSessionDoesntHaveErrors();
     });
 });
 
 describe('kinds of work', function (): void {
-    it('saves the kind of work picked under each service', function (): void {
+    it('saves the service of each stone', function (): void {
+        [$first, $second] = twoStoneRows();
+
         postInquiry($this, [inquiryProjectInput([
-            'serviceIds' => ['natural-stone-supply', 'custom-stone-fabrication'],
-            'serviceOptions' => ['natural-stone-supply' => 'supply-installation', 'custom-stone-fabrication' => 'fabrication-supply'],
+            'stones' => [$first, $second],
+            'work' => [
+                ['stoneId' => $first['stoneId'], 'serviceId' => 'installation-supply'],
+                ['stoneId' => $second['stoneId'], 'serviceId' => 'full-package'],
+            ],
         ])])->assertSessionHasNoErrors();
 
-        $inquiry = Inquiry::query()->with('serviceOptions')->sole();
+        $work = Inquiry::query()->sole()->workItems()->with(['stone', 'service'])->get();
 
-        expect($inquiry->serviceOptions->pluck('slug')->sort()->values()->all())
-            ->toBe(['fabrication-supply', 'supply-installation']);
+        expect($work->map(fn ($item): array => [$item->stone->slug, $item->service->slug])->all())->toBe([
+            [$first['stoneId'], 'installation-supply'],
+            [$second['stoneId'], 'full-package'],
+        ]);
     });
 
-    it('refuses a service with no kind of work, naming the service', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceOptions' => ['custom-stone-fabrication' => 'fabrication-only']])])
-            ->assertSessionHasErrors(['projects.0.serviceOptions.natural-stone-supply' => 'Choose what you need for Natural Stone Supply.']);
+    it('keeps one row of work for a stone added again with another finish', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+        $other = Finish::query()->where('name', '!=', $row['finish'])->value('name');
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [$row, [...$row, 'finish' => $other]]])])
+            ->assertSessionHasNoErrors();
+
+        $inquiry = Inquiry::query()->sole();
+
+        expect($inquiry->stones()->count())->toBe(2)
+            ->and($inquiry->workItems()->count())->toBe(1);
+    });
+
+    it('refuses a stone with no work, and work for a stone not on the project', function (array $work): void {
+        [$first, $second] = twoStoneRows();
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [$first], 'work' => [
+            ...$work === [] ? [] : [['stoneId' => $work[0] === 'first' ? $first['stoneId'] : $second['stoneId'], 'serviceId' => 'supply-only']],
+            ...count($work) > 1 ? [['stoneId' => $second['stoneId'], 'serviceId' => 'supply-only']] : [],
+        ]])])->assertSessionHasErrors('projects.0.work');
 
         expect(Inquiry::query()->count())->toBe(0);
+    })->with([
+        'no work at all' => [[]],
+        'only another stone' => [['second']],
+        'an extra stone' => [['first', 'second']],
+    ]);
+
+    it('refuses two kinds of work for one stone', function (): void {
+        $stone = inquiryProjectInput()['stones'][0]['stoneId'];
+
+        postInquiry($this, [inquiryProjectInput(['work' => [
+            ['stoneId' => $stone, 'serviceId' => 'supply-only'],
+            ['stoneId' => $stone, 'serviceId' => 'fabrication-supply'],
+        ]])])->assertSessionHasErrors('projects.0.work');
     });
 
-    it('refuses a project sent without any kinds of work', function (): void {
-        $project = inquiryProjectInput();
-        unset($project['serviceOptions']);
+    it('asks customized furniture for a furniture type, and stores it', function (): void {
+        $stone = inquiryProjectInput()['stones'][0]['stoneId'];
+        $work = fn (string $type): array => ['work' => [['stoneId' => $stone, 'serviceId' => 'furniture-only', 'furnitureType' => $type]]];
 
-        postInquiry($this, [$project])
-            ->assertSessionHasErrors(['projects.0.serviceOptions' => 'Choose what you need for each service.']);
+        postInquiry($this, [inquiryProjectInput($work(''))])
+            ->assertSessionHasErrors(['projects.0.work.0.furnitureType' => 'Choose the furniture type.']);
+
+        postInquiry($this, [inquiryProjectInput($work('tables'))])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->workItems()->sole()->furnitureType->name)->toBe('Tables');
     });
 
-    it('refuses a kind of work that belongs to another service', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceOptions' => ['natural-stone-supply' => 'fabrication-only']])])
-            ->assertSessionHasErrors(['projects.0.serviceOptions.natural-stone-supply' => 'That choice is no longer available for Natural Stone Supply.']);
+    it('keeps no furniture type on work that does not ask for one', function (): void {
+        $stone = inquiryProjectInput()['stones'][0]['stoneId'];
+
+        postInquiry($this, [inquiryProjectInput(['work' => [
+            ['stoneId' => $stone, 'serviceId' => 'supply-only', 'furnitureType' => 'tables'],
+        ]])])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->workItems()->sole()->furniture_type_id)->toBeNull();
     });
 
     it('refuses a kind of work that is no longer offered', function (): void {
-        ServiceOption::query()->where('slug', 'supply-only')->update(['is_active' => false]);
+        Service::query()->where('slug', 'supply-only')->update(['is_active' => false]);
 
-        postInquiry($this, [inquiryProjectInput(['serviceOptions' => ['natural-stone-supply' => 'supply-only']])])
-            ->assertSessionHasErrors(['projects.0.serviceOptions.natural-stone-supply' => 'That choice is no longer available for Natural Stone Supply.']);
+        postInquiry($this, [inquiryProjectInput()])
+            ->assertSessionHasErrors(['projects.0.work.0.serviceId' => 'That choice is no longer available.']);
     });
+});
+
+describe('the delivery method', function (): void {
+    it('stores a delivery with its location', function (): void {
+        postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
+
+        $inquiry = Inquiry::query()->sole();
+
+        expect($inquiry->delivery_method)->toBe(DeliveryMethod::Delivery)
+            ->and($inquiry->location)->toBe('Makati');
+    });
+
+    it('needs a location for a delivery', function (): void {
+        postInquiry($this, [inquiryProjectInput(['location' => ''])])
+            ->assertSessionHasErrors(['projects.0.location' => 'Choose where the site is.']);
+    });
+
+    it('needs no location for a pickup, and keeps none it was sent', function (array $site): void {
+        postInquiry($this, [inquiryProjectInput(['deliveryMethod' => 'pickup', ...$site])])->assertSessionHasNoErrors();
+
+        $inquiry = Inquiry::query()->sole();
+
+        expect($inquiry->delivery_method)->toBe(DeliveryMethod::Pickup)
+            ->and($inquiry->location)->toBeNull();
+    })->with([
+        'none sent' => [['location' => '']],
+        'one left over' => [['location' => 'Makati']],
+    ]);
+
+    it('keeps the landmark of a pickup', function (): void {
+        postInquiry($this, [inquiryProjectInput([
+            'deliveryMethod' => 'pickup',
+            'location' => '',
+            'landmark' => 'Near the church',
+        ])])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->landmark)->toBe('Near the church');
+    });
+
+    it('does not let the database hold a delivery with no location or a pickup with one', function (string $method, ?string $location): void {
+        postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
+
+        expect(fn () => DB::table('inquiries')->update(['delivery_method' => $method, 'location' => $location, 'landmark' => null]))
+            ->toThrow(QueryException::class);
+    })->with([
+        'delivery with no location' => ['delivery', null],
+        'pickup with a location' => ['pickup', 'Makati'],
+    ]);
 });

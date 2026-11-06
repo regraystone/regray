@@ -1,24 +1,15 @@
-import type { InquiryEditProject, InquiryMode } from '@/lib/inquiry-flow';
+import type {
+    InquiryEditProject,
+    InquiryMode,
+    WorkService,
+} from '@/lib/inquiry-flow';
 import type { LeadTally } from '@/lib/lead-statuses';
 import type { StoneCardData } from '@/types/stone';
 
-/** A kind of work a client picks under a service. `id` is its slug. */
-export type InquiryServiceKind = {
+/** A furniture type the Inquire page offers. `id` is its slug. */
+export type InquiryFurnitureType = {
     id: string;
     name: string;
-};
-
-/** A service the Inquire page offers. `id` is its slug. */
-export type InquiryServiceOption = {
-    id: string;
-    name: string;
-    features: string[];
-    /** The kinds of work to pick one of, such as "Stone supply only". */
-    options: InquiryServiceKind[];
-    image: string;
-    standalone: boolean;
-    /** Services share a project only when they share a group. */
-    group: string;
 };
 
 /** A stone the Inquire page offers, with what its search runs over. */
@@ -31,13 +22,6 @@ export type InquiryStoneOption = StoneCardData & {
         size: string;
         thicknessMm: number;
     };
-};
-
-/** An option of the Application step: a project category, `id` being its slug. */
-export type InquiryApplicationOption = {
-    id: string;
-    name: string;
-    image: string;
 };
 
 /** An edge profile or a finish. `isAdvisory` is the "advise me" answer. */
@@ -53,9 +37,9 @@ export type InquiryFinishingOption = {
  * its projects as `InquiryEditResource` describes them).
  */
 export type InquirePageProps = {
-    services: InquiryServiceOption[];
+    services: WorkService[];
+    furnitureTypes: InquiryFurnitureType[];
     stones: InquiryStoneOption[];
-    applications: InquiryApplicationOption[];
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
     locations: string[];
@@ -104,17 +88,16 @@ export type InquiryLeadOption = {
 /**
  * What the Inquire flow reads, derived once from the page props.
  *
- * Applications' ids are strings here because the draft holds them as strings,
- * the same as service and stone ids.
+ * Everything is known by its slug, as the draft holds it.
  */
 export type InquiryCatalog = {
-    services: InquiryServiceOption[];
+    /** What the page offers, and any an inquiry being edited already has. */
+    services: WorkService[];
+    furnitureTypes: InquiryFurnitureType[];
     stones: InquiryStoneOption[];
-    applications: InquiryApplicationOption[];
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
     locations: string[];
-    standaloneServiceIds: ReadonlySet<string>;
     /** The "Not sure yet, advise me" answers, or null if none is offered. */
     advisoryEdge: string | null;
     advisoryFinish: string | null;

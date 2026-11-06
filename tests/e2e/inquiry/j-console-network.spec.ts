@@ -1,7 +1,6 @@
 import { allowedHosts, expect, test } from '../support/fixtures';
 import {
     addStoneProject,
-    addVisitProject,
     openInquire,
     openStaffInquire,
     sendAndReadReference,
@@ -27,7 +26,7 @@ test('38 · the whole flow, for the client and for marketing, logs no console er
 
     const marketing = await actors.open('marketing');
     await openStaffInquire(marketing.page);
-    await addVisitProject(marketing.page);
+    await addStoneProject(marketing.page);
 
     expect(client.errors).toEqual([]);
     expect(marketing.errors).toEqual([]);

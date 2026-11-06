@@ -103,8 +103,7 @@ return [
             'handlers' => ['sofia'],
             'project' => [
                 'name' => 'Maple Lane - Laundry',
-                'categories' => ['wall-accents'],
-                'services' => ['Stone Relocation, Dismantling & Reinstallation'],
+                'services' => ['Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'onyx', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
                     ['stone_slug' => 'cobblestone', 'quantity' => 10, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
@@ -131,8 +130,7 @@ return [
             'handlers' => ['daniel', 'sofia'],
             'project' => [
                 'name' => 'The Grove — Outdoor Kitchen and Deck',
-                'categories' => ['kitchen-islands'],
-                'services' => ['Natural Stone Supply', 'Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply only', 'Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 12, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
                     ['stone_slug' => 'granite', 'quantity' => 6, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
@@ -177,8 +175,7 @@ return [
             'handlers' => ['daniel'],
             'project' => [
                 'name' => 'The Grove - Pool Deck',
-                'categories' => ['exterior-walls'],
-                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'services' => ['Stone supply only', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 20, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
@@ -219,8 +216,7 @@ return [
             'handlers' => ['priya'],
             'project' => [
                 'name' => 'Hillcrest Showroom — Display Units',
-                'categories' => ['center-side-tables'],
-                'services' => ['Custom Stone Furniture', 'Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Customized furniture', 'Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 5, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                     ['stone_slug' => 'monumental', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
@@ -256,8 +252,7 @@ return [
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Garden Court — Vanity Tops',
-                'categories' => ['lavatories'],
-                'services' => ['Design & Project Consultation'],
+                'services' => ['Stone supply only'],
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 8, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
                     ['stone_slug' => 'marble', 'quantity' => 5, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
@@ -286,8 +281,7 @@ return [
             'handlers' => ['daniel'],
             'project' => [
                 'name' => 'Brightleaf Studio — Reception Desk',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Polished'],
                 ],
@@ -322,8 +316,7 @@ return [
             'handlers' => ['daniel'],
             'project' => [
                 'name' => 'Brightleaf Studio — Feature Wall',
-                'categories' => ['wall-accents'],
-                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'services' => ['Stone supply only', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'onyx', 'quantity' => 6, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
@@ -355,8 +348,7 @@ return [
             'handlers' => ['daniel', 'maria'],
             'project' => [
                 'name' => 'Northgate Cafe — Counters and Flooring',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 7, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
                     ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
@@ -386,8 +378,7 @@ return [
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Northgate Cafe — Dining Floor',
-                'categories' => ['dining-tables'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 9, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
@@ -425,8 +416,7 @@ return [
             'handlers' => [],
             'project' => [
                 'name' => 'Moreau Studio — Kitchen Island',
-                'categories' => ['kitchen-islands'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Polished'],
                 ],
@@ -451,8 +441,7 @@ return [
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Lumen & Co — Lobby Feature Wall',
-                'categories' => ['wall-accents'],
-                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'services' => ['Stone supply only', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'onyx', 'quantity' => 8, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
@@ -479,8 +468,7 @@ return [
             'handlers' => ['priya'],
             'project' => [
                 'name' => 'Hillcrest Showroom — Front Steps',
-                'categories' => ['exterior-walls'],
-                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'services' => ['Stone supply only', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 14, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
                 ],
@@ -507,8 +495,7 @@ return [
             'handlers' => ['sofia'],
             'project' => [
                 'name' => 'The Grove — Guest Bath Vanity',
-                'categories' => ['lavatories'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
                 ],
@@ -541,8 +528,7 @@ return [
             'handlers' => ['sofia'],
             'project' => [
                 'name' => 'Moreau Studio — Garden Path',
-                'categories' => ['exterior-walls'],
-                'services' => ['Natural Stone Supply'],
+                'services' => ['Stone supply only'],
                 'stones' => [
                     ['stone_slug' => 'cobblestone', 'quantity' => 40, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
@@ -567,8 +553,7 @@ return [
             'handlers' => ['daniel'],
             'project' => [
                 'name' => 'Brightleaf Studio — Pantry Counter',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
@@ -597,8 +582,7 @@ return [
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Northgate Cafe — Restroom Vanities',
-                'categories' => ['lavatories'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 4, 'edge' => 'Half Bevel', 'finish' => 'Honed'],
                 ],
@@ -627,8 +611,7 @@ return [
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Lumen & Co — Conference Table',
-                'categories' => ['dining-tables'],
-                'services' => ['Custom Stone Furniture'],
+                'services' => ['Customized furniture'],
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
@@ -658,8 +641,7 @@ return [
             'handlers' => ['priya'],
             'project' => [
                 'name' => 'Hillcrest Showroom — Reception Counter',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Custom Stone Fabrication', 'Natural Stone Installation'],
+                'services' => ['Stone supply and fabrication', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Leather'],
                 ],
@@ -691,8 +673,7 @@ return [
             'handlers' => ['daniel'],
             'project' => [
                 'name' => 'The Grove — Outdoor Shower Wall',
-                'categories' => ['exterior-walls'],
-                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'services' => ['Stone supply only', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 10, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
@@ -726,8 +707,7 @@ return [
             'handlers' => ['daniel'],
             'project' => [
                 'name' => 'Brightleaf Studio — Window Sills',
-                'categories' => ['fixtures'],
-                'services' => ['Natural Stone Supply', 'Custom Stone Fabrication'],
+                'services' => ['Stone supply only', 'Stone supply and fabrication'],
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 12, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
@@ -761,8 +741,7 @@ return [
             'handlers' => ['sofia'],
             'project' => [
                 'name' => 'Maple Lane — Bathroom Floor',
-                'categories' => ['lavatories'],
-                'services' => ['Natural Stone Supply', 'Natural Stone Installation'],
+                'services' => ['Stone supply only', 'Stone supply and installation'],
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 18, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
@@ -799,8 +778,7 @@ return [
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Reyes Bakeshop — Display Counter',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Natural Stone Supply'],
+                'services' => ['Stone supply only'],
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
@@ -827,8 +805,7 @@ return [
             'handlers' => ['sofia'],
             'project' => [
                 'name' => 'Elena — Kitchen Island Top',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Natural Stone Supply'],
+                'services' => ['Stone supply only'],
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
@@ -860,8 +837,7 @@ return [
             'handlers' => ['sofia'],
             'project' => [
                 'name' => 'Ivan — Bar Counter',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Natural Stone Supply'],
+                'services' => ['Stone supply only'],
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
@@ -894,8 +870,7 @@ return [
             'handlers' => ['sofia'],
             'project' => [
                 'name' => 'Nadine — Vanity Top',
-                'categories' => ['countertops-backsplash'],
-                'services' => ['Natural Stone Supply'],
+                'services' => ['Stone supply only'],
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 1, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],

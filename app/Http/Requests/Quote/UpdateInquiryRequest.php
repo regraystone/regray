@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Quote;
 
 use App\Http\Requests\Inquiry\StoreInquiryRequest;
+use App\Models\Service;
 use Closure;
 use Illuminate\Validation\Validator;
 
@@ -55,6 +56,19 @@ class UpdateInquiryRequest extends StoreInquiryRequest
                 }
             },
         ];
+    }
+
+    /**
+     * An edit keeps the services its inquiry already has, offered or not.
+     *
+     * @return list<string>
+     */
+    protected function heldServiceSlugs(): array
+    {
+        return array_values(Service::query()
+            ->whereHas('workItems.inquiry', fn ($inquiry) => $inquiry->where('reference', $this->route('reference')))
+            ->pluck('slug')
+            ->all());
     }
 
     /**

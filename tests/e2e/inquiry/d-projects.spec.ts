@@ -2,7 +2,6 @@ import { expect, postAsUser, test } from '../support/fixtures';
 import {
     CATALOG,
     addStoneProject,
-    addVisitProject,
     openInquire,
     projectPayload,
     renameProject,
@@ -16,7 +15,7 @@ test('18 · Review offers no second project, and the server refuses one', async 
     const { page } = await actors.open('client');
     actors.allowConsole(/status of 422/);
     await openInquire(page);
-    await addVisitProject(page);
+    await addStoneProject(page);
 
     await expect(
         page.getByRole('button', { name: /Add (a|another) project/ }),
@@ -41,15 +40,14 @@ test('19 · the project is named from its answers, and the name can be changed o
     await addStoneProject(page);
 
     await expect(
-        page.getByText(`${CATALOG.applications[0]} - ${CATALOG.stoneService}`, {
-            exact: true,
-        }),
+        page.getByText(CATALOG.work, { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+        page.getByRole('button', { name: `Change name: ${CATALOG.work}` }),
     ).toBeVisible();
 
     await renameProject(page, 'Our new kitchen');
     await expect(
-        page.getByText(`${CATALOG.applications[0]} - ${CATALOG.stoneService}`, {
-            exact: true,
-        }),
+        page.getByRole('button', { name: `Change name: ${CATALOG.work}` }),
     ).toHaveCount(0);
 });

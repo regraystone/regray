@@ -52,11 +52,19 @@ it('sends the Inquire page its options', function (): void {
         ->get(route('quote.inquire'))
         ->assertInertia(fn ($page) => $page
             ->component('inquire')
-            ->has('services', 7, fn ($service) => $service->hasAll(['id', 'name', 'features', 'options', 'image', 'standalone', 'group']))
-            ->where('services.0.options.0', ['id' => 'supply-only', 'name' => 'Stone supply only'])
-            ->where('services.5.standalone', true)
+            ->where('services', [
+                ['id' => 'full-package', 'name' => 'Stone supply, fabrication and installation', 'needsFurniture' => false],
+                ['id' => 'fabrication-supply', 'name' => 'Stone supply and fabrication', 'needsFurniture' => false],
+                ['id' => 'installation-supply', 'name' => 'Stone supply and installation', 'needsFurniture' => false],
+                ['id' => 'supply-only', 'name' => 'Stone supply only', 'needsFurniture' => false],
+                ['id' => 'furniture-only', 'name' => 'Customized furniture', 'needsFurniture' => true],
+                ['id' => 'full-kitchen-fit-out', 'name' => 'Full kitchen fit-out', 'needsFurniture' => false],
+                ['id' => 'cabinetry-countertop-installation', 'name' => 'Cabinetry with stone countertop and installation', 'needsFurniture' => false],
+                ['id' => 'cabinetry-countertop-supply', 'name' => 'Cabinetry with stone countertop', 'needsFurniture' => false],
+            ])
+            ->where('furnitureTypes.1', ['id' => 'tables', 'name' => 'Tables'])
+            ->has('furnitureTypes', 8)
             ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'bestSeller', 'brand', 'category', 'description', 'specifications']))
-            ->has('applications.0', fn ($application) => $application->hasAll(['id', 'name', 'image']))
             ->has('edgeProfiles', 8)
             ->has('finishes.0', fn ($finish) => $finish->hasAll(['id', 'name', 'isAdvisory']))
             ->where('locations', config('inquiry.locations')));

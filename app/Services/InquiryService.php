@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Data\WrittenFiles;
 use App\Enums\AuditEvent;
 use App\Enums\ClientKind;
+use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
@@ -29,8 +30,9 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * @phpstan-type ProjectInput array{name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_ids: list<int>, service_option_ids?: array<int, int>, application_ids: list<int>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, location: string, landmark: ?string, area_sqm: ?float, deadline_date: string, deadline_time: ?string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type WorkItemInput array{stone_id: int|null, service_id: int, furniture_type_id: int|null}
+ * @phpstan-type ProjectInput array{name: string, work: list<WorkItemInput>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, work: list<WorkItemInput>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -118,8 +120,7 @@ class InquiryService
      * because it may have moved on since the page was opened.
      *
      * The edit form still sends a list of projects; it must be exactly this
-     * inquiry, by id. Its fields, services, applications and stones are
-     * replaced, its visit is moved when the deadline changed (refused once the
+     * inquiry, by id. Its fields, work and stones are replaced, its visit is moved when the deadline changed (refused once the
      * visit is no longer pending), its attachments are kept by id and new
      * uploads added. No status changes and no history row is written; an audit
      * row records the change instead.
@@ -178,8 +179,8 @@ class InquiryService
 
     /**
      * Staff change an inquiry's project from the Inquiry list (Edit): its
-     * name, location, landmark, area, notes, services, applications, stones
-     * and deadline. Never its client, its statuses or the client's files.
+     * name, delivery method, location, landmark, area, notes, work, stones and
+     * deadline. Never its client, its statuses or the client's files.
      * Refused once the inquiry is closed or cancelled. An audit row records
      * the change under the staff member.
      *
@@ -262,6 +263,7 @@ class InquiryService
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
             'name' => $project['name'],
+            'delivery_method' => $project['delivery_method'],
             'location' => $project['location'],
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
@@ -273,12 +275,11 @@ class InquiryService
             $inquiry,
             $client,
             $project['deadline_date'],
-            $project['deadline_time'],
+            null,
             $by,
         );
 
-        $this->inquiryRepository->attachServices($inquiry, $project['service_ids'], $project['service_option_ids'] ?? []);
-        $this->inquiryRepository->attachApplications($inquiry, $project['application_ids']);
+        $this->inquiryRepository->addWorkItems($inquiry, $project['work']);
         $this->inquiryRepository->addStones($inquiry, $project['stones']);
 
         if ($client !== null) {
@@ -299,7 +300,7 @@ class InquiryService
     }
 
     /**
-     * The project's fields, services, applications and stones, and its visit
+     * The project's fields, work and stones, and its visit
      * moved to the edited deadline. `$bookedBy` is the staff member when staff
      * edit, for a visit booked afresh.
      *
@@ -309,6 +310,7 @@ class InquiryService
     {
         $this->inquiryRepository->updateDetails($inquiry, [
             'name' => $project['name'],
+            'delivery_method' => $project['delivery_method'],
             'location' => $project['location'],
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
@@ -317,8 +319,7 @@ class InquiryService
         ]);
 
         $this->moveVisit($inquiry, $client, $project, $bookedBy);
-        $this->inquiryRepository->syncServices($inquiry, $project['service_ids'], $project['service_option_ids'] ?? []);
-        $this->inquiryRepository->syncApplications($inquiry, $project['application_ids']);
+        $this->inquiryRepository->replaceWorkItems($inquiry, $project['work']);
         $this->inquiryRepository->replaceStones($inquiry, $project['stones']);
     }
 
@@ -342,14 +343,14 @@ class InquiryService
                 $inquiry,
                 $client,
                 $project['deadline_date'],
-                $project['deadline_time'],
+                null,
                 $bookedBy,
             );
 
             return;
         }
 
-        $arrivalAt = $this->scheduleService->arrivalForInquiry($schedule, $project['deadline_date'], $project['deadline_time']);
+        $arrivalAt = $this->scheduleService->arrivalForInquiry($schedule, $project['deadline_date'], null);
         $locked = $this->scheduleService->deadlineLockedReason($schedule);
 
         if ($locked !== null && ! $arrivalAt->equalTo($schedule->arrival_at)) {
@@ -373,14 +374,13 @@ class InquiryService
     {
         return [
             'name' => $inquiry->name,
+            'delivery_method' => $inquiry->delivery_method->value,
             'location' => $inquiry->location,
             'landmark' => $inquiry->landmark,
             'area_sqm' => $inquiry->area_sqm === null ? null : (float) $inquiry->area_sqm,
             'notes' => $inquiry->notes,
             'stone_advice_requested' => $inquiry->stone_advice_requested,
-            'service_ids' => $inquiry->services()->pluck('services.id')->all(),
-            'service_option_ids' => $inquiry->services()->pluck('inquiry_services.service_option_id', 'services.id')->all(),
-            'application_ids' => $inquiry->categories()->pluck('project_categories.id')->all(),
+            'work' => $inquiry->workItems()->get(['stone_id', 'service_id', 'furniture_type_id'])->toArray(),
             'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity'])->toArray(),
             'file_ids' => $inquiry->files()->where('document_type', DocumentType::ClientAttachment)->orderBy('id')->pluck('id')->all(),
             'arrival_at' => $inquiry->schedule()->value('arrival_at'),

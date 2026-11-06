@@ -148,10 +148,10 @@ class ScheduleService
         };
     }
 
-    /** "Inquiry INQ-1048 · Kitchen counters · Makati" */
+    /** "Inquiry INQ-1048 · Kitchen counters · Makati", or "· Pickup" where there is no location. */
     private static function inquiryNotes(Inquiry $inquiry): string
     {
-        return "Inquiry {$inquiry->reference} · {$inquiry->name} · {$inquiry->location}";
+        return "Inquiry {$inquiry->reference} · {$inquiry->name} · ".($inquiry->location ?? 'Pickup');
     }
 
     /** Cancel the inquiry's open visits along with it. */

@@ -25,6 +25,22 @@ return new class extends Migration
         DB::statement('CREATE UNIQUE INDEX idx_project_categories_name_lower ON project_categories (lower(name))');
 
         /*
+         * The types a piece of furniture can be, which inquiries reference too, so
+         * one type has one row and one name. FurnitureTypeSeeder fills it.
+         */
+        Schema::create('furniture_types', function (Blueprint $table) {
+            $table->id();
+            $table->string('slug', 100)->unique();
+            $table->string('name', 100)->unique();
+            $table->smallInteger('sort_order');
+            $table->boolean('is_active')->default(true);
+            $table->timestampTz('created_at');
+            $table->timestampTz('updated_at');
+
+            $table->index(['is_active', 'sort_order']);
+        });
+
+        /*
          * The furniture in each brand's collection.
          */
         Schema::create('furniture', function (Blueprint $table) {
@@ -34,14 +50,14 @@ return new class extends Migration
             $table->string('name', 150);
             $table->text('description')->nullable();
             $table->string('thumbnail_path', 255)->nullable();
-            $table->string('furniture_type', 100);
+            $table->foreignId('furniture_type_id')->constrained()->restrictOnDelete();
             $table->boolean('is_active')->default(true);
             $table->smallInteger('sort_order')->default(0);
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
             $table->index('brand_id');
-            $table->index('furniture_type');
+            $table->index('furniture_type_id');
             $table->index(['is_active', 'sort_order']);
         });
 
@@ -60,6 +76,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('saved_furniture');
         Schema::dropIfExists('furniture');
+        Schema::dropIfExists('furniture_types');
         DB::statement('DROP INDEX IF EXISTS idx_project_categories_name_lower');
         Schema::dropIfExists('project_categories');
     }

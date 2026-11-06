@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Inquiry\CreateInquiryAction;
+use App\Enums\DeliveryMethod;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
@@ -40,9 +41,9 @@ it('leaves no rows and no files when a write fails after files are on disk', fun
     $input = [
         'projects' => [[
             'name' => 'Counters',
-            'service_ids' => [Service::query()->value('id')],
-            'application_ids' => [],
+            'work' => [['stone_id' => null, 'service_id' => Service::query()->value('id'), 'furniture_type_id' => null]],
             'stones' => [],
+            'delivery_method' => DeliveryMethod::Delivery,
             'location' => 'Makati',
             'landmark' => null,
             'area_sqm' => null,

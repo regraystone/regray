@@ -10,7 +10,6 @@ import { formatDate } from '@/lib/format-date';
 import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import { Badge } from '@/components/ui/badge';
-import CancelInquiryButton from '@/components/cancel-inquiry-button';
 import { Button } from '@/components/ui/button';
 import type {
     InquiryFile,
@@ -29,7 +28,8 @@ import {
 import { buildCardActions } from '@/lib/quote-actions';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
-import { index as quoteIndex, edit as quoteEdit } from '@/routes/quote';
+import { index as quoteIndex } from '@/routes/quote';
+import { DELIVERY_METHODS, PICKUP } from '@/lib/inquiry-flow';
 import type { QuoteInquiryDetails } from '@/types/quote';
 
 type InquiryDetailsProps = {
@@ -40,10 +40,7 @@ type InquiryDetailsProps = {
  * The project the inquiry is, as the page draws it. One inquiry is one project.
  *
  * The server sends it already resolved — stones with their names and pictures,
- * services with theirs — so the page looks nothing up. A project with no stones
- * is kept: the services the team attends at an hour are booked on their own,
- * with nothing to supply or install, and dropping those projects would have left
- * a real request reported as an empty one.
+ * services with theirs — so the page looks nothing up.
  */
 type ResolvedStone = {
     id: string;
@@ -52,20 +49,31 @@ type ResolvedStone = {
     quantity: number;
     edge: string;
     finish: string;
+    work: WorkDone[];
 };
+
+/** What was asked of a stone. */
+type WorkDone = { service: string; furnitureType: string | null };
+
+const workLine = ({ service, furnitureType }: WorkDone): string =>
+    furnitureType === null ? service : `${service} - ${furnitureType}`;
 
 type ResolvedProject = {
     name: string;
     /** The client asked Regray to recommend a stone instead of choosing one. */
     stoneAdviceRequested: boolean;
-    services: Array<{ name: string; image?: string; option?: string | null }>;
+    services: Array<{ name: string }>;
     stones: ResolvedStone[];
-    /** Application names, in the order the client picked them. */
-    applications: string[];
+    /** What was asked for with no stone chosen: Regray is to recommend one. */
+    unassignedWork: WorkDone[];
+    /** Application names, on inquiries sent while the client was asked for them. */
     requirements: InquiryRequirementsRecord;
 };
 
 /** Pieces rather than types: how much was asked for, not how many kinds of it. */
+const inquiryDeliveryMethod = (project: ResolvedProject): string | undefined =>
+    project.requirements.deliveryMethod;
+
 const countPieces = (
     selections: Array<Pick<InquiryStoneSelection, 'quantity'>>,
 ): number =>
@@ -100,24 +108,13 @@ const neededByFormatter = new Intl.DateTimeFormat(undefined, {
  * land on the day before the one that was picked. The `T00:00` pins the reading
  * to the reader's own timezone.
  *
- * The time is appended only when there is one, because a project that asked for
- * a date has not asked for a moment: the hour is asked for by the three services
- * the team attends at one, and everything else stops at the day.
  */
 const formatNeededBy = ({
     neededBy,
-    neededByTime,
-}: InquiryRequirementsRecord): string | undefined => {
-    if (neededBy === undefined || neededBy === '') {
-        return undefined;
-    }
-
-    const day = neededByFormatter.format(new Date(`${neededBy}T00:00`));
-
-    return neededByTime === undefined || neededByTime === ''
-        ? day
-        : `${day} at ${neededByTime}`;
-};
+}: InquiryRequirementsRecord): string | undefined =>
+    neededBy === undefined || neededBy === ''
+        ? undefined
+        : neededByFormatter.format(new Date(`${neededBy}T00:00`));
 
 /** One answer, or the fact that there was none. */
 const NotProvided = () => (
@@ -600,6 +597,14 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                                     <p className="truncate text-xs text-secondary-foreground">
                                         {stone.finish}
                                     </p>
+                                    {stone.work.map((work) => (
+                                        <p
+                                            key={workLine(work)}
+                                            className="mt-1 text-xs font-bold break-words"
+                                        >
+                                            {workLine(work)}
+                                        </p>
+                                    ))}
                                 </div>
                             ))}
                         </div>
@@ -617,6 +622,16 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                             {project.stoneAdviceRequested
                                 ? 'Stone to be recommended by Regray.'
                                 : 'Nothing to supply or install — this project is a visit.'}
+                            {project.stoneAdviceRequested
+                                ? project.unassignedWork.map((work) => (
+                                      <span
+                                          key={workLine(work)}
+                                          className="mt-1 block text-xs font-bold text-foreground"
+                                      >
+                                          {workLine(work)}
+                                      </span>
+                                  ))
+                                : null}
                         </p>
                     )}
                 </section>
@@ -625,34 +640,13 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                     <SectionLabel count={serviceCount}>Services</SectionLabel>
 
                     {project.services.length > 0 ? (
-                        /*
-                         * Name, the kind of work picked and the picture. The
-                         * bullets are what the service card in the stepper is
-                         * for, where a client is still choosing; here they have
-                         * already chosen, and the row is a record of what they
-                         * picked. An inquiry sent before the choice existed says
-                         * so rather than leaving a gap.
-                         */
                         <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                            {project.services.map(({ name, image, option }) => (
+                            {project.services.map(({ name }) => (
                                 <li
                                     key={name}
-                                    className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                                    className="py-4 text-sm font-bold break-words first:pt-0 last:pb-0"
                                 >
-                                    <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                        {name}
-                                        <span className="mt-0.5 block font-normal text-secondary-foreground">
-                                            {option ?? 'Not specified'}
-                                        </span>
-                                    </p>
-                                    {image ? (
-                                        <img
-                                            src={image}
-                                            alt=""
-                                            loading="lazy"
-                                            className="size-12 shrink-0 rounded-md object-cover"
-                                        />
-                                    ) : null}
+                                    {name}
                                 </li>
                             ))}
                         </ul>
@@ -663,44 +657,32 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                     )}
                 </section>
 
-                {project.applications.length > 0 ? (
-                    <section>
-                        <SectionLabel count={project.applications.length}>
-                            Applications
-                        </SectionLabel>
-
-                        {/*
-                         * Name only: applications are a pick, and the row is a
-                         * record of what the client chose rather than a picture
-                         * they still need to decide between.
-                         */}
-                        <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                            {project.applications.map((application) => (
-                                <li
-                                    key={application}
-                                    className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
-                                >
-                                    <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                        {application}
-                                    </p>
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
-                ) : null}
-
                 <section>
                     <SectionLabel>Requirements</SectionLabel>
 
                     <dl>
                         <SummaryRow
-                            label="Location"
-                            value={project.requirements.location}
+                            label="How you'll get it"
+                            value={
+                                DELIVERY_METHODS.find(
+                                    ({ value }) =>
+                                        value ===
+                                        inquiryDeliveryMethod(project),
+                                )?.title
+                            }
                         />
-                        <SummaryRow
-                            label="Landmark"
-                            value={project.requirements.landmark}
-                        />
+                        {inquiryDeliveryMethod(project) === PICKUP ? null : (
+                            <>
+                                <SummaryRow
+                                    label="Location"
+                                    value={project.requirements.location}
+                                />
+                                <SummaryRow
+                                    label="Landmark"
+                                    value={project.requirements.landmark}
+                                />
+                            </>
+                        )}
                         <SummaryRow
                             label="Approximate area"
                             value={
@@ -761,11 +743,11 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 const toRequirements = (
     requirements: QuoteInquiryDetails['project']['requirements'],
 ): InquiryRequirementsRecord => ({
-    location: requirements.location,
+    deliveryMethod: requirements.deliveryMethod,
+    location: requirements.location ?? undefined,
     landmark: requirements.landmark ?? undefined,
     areaSqm: requirements.areaSqm ?? undefined,
     neededBy: requirements.neededBy ?? undefined,
-    neededByTime: requirements.neededByTime ?? undefined,
     notes: requirements.notes ?? undefined,
     attachments: requirements.attachments as InquiryFile[],
 });
@@ -789,7 +771,7 @@ const InquiryDetails = () => {
         stoneAdviceRequested: inquiry.project.stoneAdviceRequested,
         services: inquiry.project.services,
         stones: inquiry.project.stones,
-        applications: inquiry.project.applications,
+        unassignedWork: inquiry.project.unassignedWork,
         requirements: toRequirements(inquiry.project.requirements),
     };
 
@@ -863,53 +845,18 @@ const InquiryDetails = () => {
                  * inquiry that the reader is in.
                  */}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    {buildCardActions(inquiry.actions).map((button) => {
-                        if (button.key === 'view') {
-                            return null;
-                        }
-                        if (button.key === 'update') {
-                            return (
-                                <Button
-                                    asChild
-                                    key={button.key}
-                                    variant={button.variant}
-                                    className="shrink-0 self-start"
-                                >
-                                    <Link
-                                        href={quoteEdit.url({
-                                            reference: inquiry.reference,
-                                        })}
-                                    >
-                                        {button.label}
-                                    </Link>
-                                </Button>
-                            );
-                        }
-                        if (button.key === 'cancel') {
-                            return (
-                                <CancelInquiryButton
-                                    key={button.key}
-                                    reference={inquiry.reference}
-                                    label={button.label}
-                                    variant={button.variant}
-                                    className="shrink-0 self-start"
-                                />
-                            );
-                        }
-                        if (button.key === 'invoice') {
-                            return (
-                                <Button
-                                    asChild
-                                    key={button.key}
-                                    variant={button.variant}
-                                    className="shrink-0 self-start"
-                                >
-                                    <Link href="#">{button.label}</Link>
-                                </Button>
-                            );
-                        }
-                        return null;
-                    })}
+                    {buildCardActions(inquiry.actions).map((button) =>
+                        button.key === 'invoice' ? (
+                            <Button
+                                asChild
+                                key={button.key}
+                                variant={button.variant}
+                                className="shrink-0 self-start"
+                            >
+                                <Link href="#">{button.label}</Link>
+                            </Button>
+                        ) : null,
+                    )}
 
                     {inquiry.conversation ? (
                         <Button

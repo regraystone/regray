@@ -153,8 +153,8 @@ class ViewController extends Controller
     }
 
     /**
-     * The Inquire page and everything it offers: the services, the stones, the
-     * applications, the edge profiles and finishes still in use, and the
+     * The Inquire page and everything it offers: the services, the furniture
+     * types, the stones, the edge profiles and finishes still in use, and the
      * locations. All of it is read here rather than imported by the page, so
      * the flow and the validation behind it start from the same rows.
      *

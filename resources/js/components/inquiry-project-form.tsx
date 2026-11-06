@@ -11,6 +11,7 @@ import FormField, {
     fieldMessage,
 } from '@/components/form-field';
 import InquiryProjectDetails from '@/components/inquiry-project-details';
+import { InquiryActionBar } from '@/components/inquiry-question';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
+import { keepWorkFor } from '@/lib/inquiry-flow';
 import {
     MAX_STONE_QUANTITY,
     MAX_STONE_ROWS,
@@ -90,8 +92,22 @@ const StoneSpecRow = ({
     const quantity = useWatch({ control, name: quantityPath(index) });
     const edge = useWatch({ control, name: edgePath(index) });
     const finish = useWatch({ control, name: finishPath(index) });
-    const { stones, edgeProfiles, finishes, advisoryEdge, advisoryFinish } =
-        useInquiryCatalog();
+    /*
+     * The work is held per stone, so a row made with "Add it again with another
+     * finish" carries the same choice, and says so here.
+     */
+    const stoneWork = useWatch({ control, name: 'stoneWork' });
+    const {
+        stones,
+        services,
+        edgeProfiles,
+        finishes,
+        advisoryEdge,
+        advisoryFinish,
+    } = useInquiryCatalog();
+    const workName = services.find(
+        ({ id }) => id === stoneWork[stoneId]?.serviceId,
+    )?.name;
     const stone = stones.find((entry) => entry.slug === stoneId);
     const rowErrors = errors.stones?.[index];
 
@@ -173,9 +189,16 @@ const StoneSpecRow = ({
                     loading="lazy"
                     className="size-14 shrink-0 rounded-md object-cover"
                 />
-                <p className="min-w-0 text-base font-bold break-words">
-                    {stone.name}
-                </p>
+                <div className="min-w-0">
+                    <p className="text-base font-bold break-words">
+                        {stone.name}
+                    </p>
+                    {workName ? (
+                        <p className="mt-0.5 text-xs text-secondary-foreground">
+                            {workName}
+                        </p>
+                    ) : null}
+                </div>
             </div>
 
             {/*
@@ -462,11 +485,12 @@ const StoneSpecRow = ({
     );
 };
 
+/** The bar is drawn outside this form, so its button names the form it submits. */
+const DETAILS_FORM_ID = 'inquiry-details-form';
+
 type InquiryProjectFormProps = {
     /** Which project this is, 1-based, for the field ids and the heading. */
     projectNumber: number;
-    /** Whether this project is a service that stands on its own: a visit. */
-    isStandalone: boolean;
     /**
      * Run by the page when the draft is ready. It names, validates, commits and
      * decides where to go next, so the draft never leaves the page's hands.
@@ -482,8 +506,8 @@ type InquiryProjectFormProps = {
 };
 
 /**
- * The last question of the request: how many of each stone, and where and when
- * the work is. A visit has no stones, so it is only asked the second part.
+ * The last question of the request: where and when the work is, how many of each
+ * stone, and anything else. A visit has no stones, so it is not asked about them.
  *
  * One form, so pressing Enter in any field is the same answer as pressing the
  * button. `noValidate` because the browser's own bubbles are the wrong voice for
@@ -491,7 +515,6 @@ type InquiryProjectFormProps = {
  */
 const InquiryProjectForm = ({
     projectNumber,
-    isStandalone,
     onCommit,
     deadlineLockReason = null,
     allowAttachments = true,
@@ -582,9 +605,14 @@ const InquiryProjectForm = ({
 
         // The stone's last row: it is no longer one of the reader's stones.
         if (stoneId !== undefined && getRowCountForStone(stoneId) === 1) {
+            const remaining = getValues('stoneIds').filter(
+                (id) => id !== stoneId,
+            );
+
+            setValue('stoneIds', remaining, { shouldDirty: true });
             setValue(
-                'stoneIds',
-                getValues('stoneIds').filter((id) => id !== stoneId),
+                'stoneWork',
+                keepWorkFor(remaining, getValues('stoneWork')),
                 { shouldDirty: true },
             );
         }
@@ -626,49 +654,50 @@ const InquiryProjectForm = ({
 
     return (
         <form
+            id={DETAILS_FORM_ID}
             noValidate
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
                 event.preventDefault();
                 onCommit();
             }}
         >
-            {!isStandalone && rows.length > 0 ? (
-                <>
-                    <h3 className="text-base font-bold">Your stones</h3>
+            <>
+                {rows.length > 0 ? (
+                    <>
+                        <h3 className="text-base font-bold">Your stones</h3>
 
-                    <ul className="mt-1 divide-y divide-sidebar-border">
-                        {fields.map((field, index) => {
-                            const stoneId = rows[index]?.stoneId;
-                            const rowCount = stoneId
-                                ? getRowCountForStone(stoneId)
-                                : 1;
-                            return (
-                                <StoneSpecRow
-                                    key={field.id}
-                                    index={index}
-                                    rowCount={rowCount}
-                                    canRemove={rows.length > 1}
-                                    onDuplicate={() => duplicateRow(index)}
-                                    onRemove={() => removeRow(index)}
-                                    onApplyToAll={applyToAll}
-                                    showApplyToAll={
-                                        index === 0 && rows.length > 1
-                                    }
-                                />
-                            );
-                        })}
-                    </ul>
+                        <ul className="mt-1 divide-y divide-sidebar-border">
+                            {fields.map((field, index) => {
+                                const stoneId = rows[index]?.stoneId;
+                                const rowCount = stoneId
+                                    ? getRowCountForStone(stoneId)
+                                    : 1;
+                                return (
+                                    <StoneSpecRow
+                                        key={field.id}
+                                        index={index}
+                                        rowCount={rowCount}
+                                        canRemove={rows.length > 1}
+                                        onDuplicate={() => duplicateRow(index)}
+                                        onRemove={() => removeRow(index)}
+                                        onApplyToAll={applyToAll}
+                                        showApplyToAll={
+                                            index === 0 && rows.length > 1
+                                        }
+                                    />
+                                );
+                            })}
+                        </ul>
 
-                    <div className="border-t border-sidebar-border" />
-                </>
-            ) : null}
+                        <div className="border-t border-sidebar-border" />
+                    </>
+                ) : null}
 
-            {/*
-             * `stoneIds` is where the reader is sent back to when the stones came
-             * up empty; `stones` is what the committed project says about the same
-             * thing.
-             */}
-            {isStandalone ? null : (
+                {/*
+                 * `stoneIds` is where the reader is sent back to when the
+                 * stones came up empty; `stones` is what the committed project
+                 * says about the same thing.
+                 */}
                 <p
                     role="alert"
                     className="mt-4 text-sm text-destructive empty:hidden"
@@ -676,49 +705,43 @@ const InquiryProjectForm = ({
                     {fieldMessage(errors.stoneIds) ??
                         fieldMessage(errors.stones)}
                 </p>
-            )}
+            </>
 
             {/*
-             * Last, because it is about the work rather than about the material,
-             * and both shapes of project ask it. It reads the draft form, so an
-             * unfinished project's site and date cost nothing if the reader walks
-             * away from it, and a finished one carries its own onto the sheet.
+             * After the stones, because it is about the work rather than about the
+             * material. It reads the draft form, so an unfinished project's site
+             * and date cost nothing if the reader walks away from it, and a
+             * finished one carries its own onto the sheet.
              */}
-            <div className={isStandalone ? '' : 'mt-8'}>
+            <div className={rows.length === 0 ? '' : 'mt-8'}>
                 <InquiryProjectDetails
                     projectNumber={projectNumber}
                     allowAttachments={allowAttachments}
-                    /*
-                     * The same fact the schema asks the time about, read from the
-                     * same flag: a project that is nothing but a service which
-                     * stands on its own is the one kind of work the team attends
-                     * at an hour, and the form and the rule have to be looking at
-                     * the same list to say so.
-                     */
-                    needsNeededByTime={isStandalone}
                     deadlineLockReason={deadlineLockReason}
                 />
             </div>
 
             {/*
-             * Inside the form on purpose, so this is the form's submit button and
-             * Enter reaches the same validation. Sticky for the same reason as the
-             * other steps': a project of six stones is taller than a phone.
+             * The form's submit button, so Enter reaches the same validation.
              */}
-            <div className="sticky bottom-0 z-10 mt-6 flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+            <InquiryActionBar>
                 <p
                     aria-live="polite"
                     className="min-w-0 flex-1 text-sm font-bold text-foreground"
                 >
-                    {isStandalone || rows.length === 0
+                    {rows.length === 0
                         ? ''
                         : `${countDistinctStones()} ${countDistinctStones() === 1 ? 'stone' : 'stones'}, ${pieceCount} ${pieceCount === 1 ? 'piece' : 'pieces'}`}
                 </p>
 
-                <Button type="submit" className="w-full shrink-0 sm:w-auto">
+                <Button
+                    type="submit"
+                    form={DETAILS_FORM_ID}
+                    className="w-full shrink-0 sm:w-auto"
+                >
                     Continue to review
                 </Button>
-            </div>
+            </InquiryActionBar>
         </form>
     );
 };

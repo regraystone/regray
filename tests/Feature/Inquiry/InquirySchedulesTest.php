@@ -16,10 +16,10 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('gives each inquiry sent one pending schedule, at the visit time or 10:00 otherwise', function (): void {
+it('gives each inquiry sent one pending schedule, at 10:00', function (): void {
     foreach ([
-        inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04', 'neededByTime' => '15:45']),
-        inquiryVisitInput(['name' => 'Survey', 'location' => 'Taguig', 'neededBy' => '2030-03-05', 'neededByTime' => '14:00']),
+        inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04']),
+        inquiryProjectInput(['name' => 'Survey', 'location' => 'Taguig', 'neededBy' => '2030-03-05']),
     ] as $project) {
         $this->actingAs($this->client)
             ->post(route('quote.inquire.store'), ['projects' => [$project]])
@@ -46,7 +46,7 @@ it('gives each inquiry sent one pending schedule, at the visit time or 10:00 oth
         ->and($survey->schedule->inquiry_id)->toBe($survey->id)
         ->and($survey->schedule->title)->toBe('Survey')
         ->and($survey->schedule->notes)->toBe("Inquiry {$survey->reference} · Survey · Taguig")
-        ->and($survey->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-03-05 14:00', 'Asia/Manila')))->toBeTrue();
+        ->and($survey->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-03-05 10:00', 'Asia/Manila')))->toBeTrue();
 });
 
 it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leaves others alone', function (): void {

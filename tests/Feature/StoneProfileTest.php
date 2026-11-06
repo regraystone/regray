@@ -32,11 +32,12 @@ beforeEach(function (): void {
 test('a client reads the full database stone profile through either door', function (string $door): void {
     $stone = Stone::query()->where('slug', 'cosmic-black')->firstOrFail();
     $category = $stone->category;
-    $category->update(['description' => 'Database description', 'origin' => 'Database origin']);
+    $category->update(['description' => 'Database description']);
     $stone->update([
         'name' => 'Database Granite',
         'size' => '60x120',
         'thickness_mm' => 75,
+        'origin' => 'Database origin',
         'thumbnail_path' => 'stones/hero.jpg',
     ]);
     $stone->images()->create(['path' => 'stones/second.jpg', 'sort_order' => 1]);

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    STONE_ADVICE_KEY,
     buildInquiryFormData,
     deadlineLocks,
     reviewActions,
@@ -12,19 +13,20 @@ import {
 const payload = (overrides = {}) => ({
     id: 42,
     name: 'Kitchen counters',
-    serviceSlugs: ['natural-stone-supply'],
-    serviceOptionSlugs: { 'natural-stone-supply': 'supply-only' },
-    applicationSlugs: ['countertops-backsplash'],
+    work: [
+        { stoneId: 'marble', serviceId: 'supply-only', furnitureType: null },
+    ],
+    heldServices: [],
     stoneAdviceRequested: false,
     stones: [
         { stoneId: 'marble', quantity: 4, edge: 'Half Bevel', finish: 'Honed' },
     ],
+    deliveryMethod: 'delivery',
     location: 'Makati',
     landmark: null,
     areaSqm: 12.5,
     notes: null,
     neededBy: '2030-01-02',
-    neededByTime: null,
     deadlineLocked: false,
     deadlineLockedReason: null,
     attachments: [
@@ -45,9 +47,6 @@ describe('toEditFormProjects', () => {
             {
                 id: '42',
                 name: 'Kitchen counters',
-                serviceIds: ['natural-stone-supply'],
-                serviceOptions: { 'natural-stone-supply': 'supply-only' },
-                applications: ['countertops-backsplash'],
                 stoneAdvice: false,
                 stones: [
                     {
@@ -57,11 +56,14 @@ describe('toEditFormProjects', () => {
                         finish: 'Honed',
                     },
                 ],
+                stoneWork: {
+                    marble: { serviceId: 'supply-only', furnitureType: '' },
+                },
+                deliveryMethod: 'delivery',
                 location: 'Makati',
                 landmark: '',
                 areaSqm: '12.5',
                 neededBy: '2030-01-02',
-                neededByTime: '',
                 notes: '',
                 attachments: [
                     {
@@ -77,21 +79,63 @@ describe('toEditFormProjects', () => {
         ]);
     });
 
-    it('reads an inquiry sent before the kinds of work as none picked', () => {
+    it('keeps the furniture type, and puts work with no stone on its own row', () => {
         const [project] = toEditFormProjects([
-            payload({ serviceOptionSlugs: [] }),
+            payload({
+                stoneAdviceRequested: true,
+                stones: [],
+                work: [
+                    {
+                        stoneId: null,
+                        serviceId: 'furniture-only',
+                        furnitureType: 'tables',
+                    },
+                ],
+            }),
         ]);
 
-        assert.deepEqual(project.serviceOptions, {});
+        assert.deepEqual(project.stoneWork, {
+            [STONE_ADVICE_KEY]: {
+                serviceId: 'furniture-only',
+                furnitureType: 'tables',
+            },
+        });
     });
 
-    it('keeps a visit time and turns a missing area into a blank', () => {
+    it('holds the first service of a stone that has several rows', () => {
         const [project] = toEditFormProjects([
-            payload({ areaSqm: null, neededByTime: '14:15' }),
+            payload({
+                work: [
+                    {
+                        stoneId: 'marble',
+                        serviceId: 'supply-only',
+                        furnitureType: null,
+                    },
+                    {
+                        stoneId: 'marble',
+                        serviceId: 'fabrication-supply',
+                        furnitureType: null,
+                    },
+                ],
+            }),
         ]);
 
+        assert.equal(project.stoneWork.marble.serviceId, 'supply-only');
+    });
+
+    it('reads a pickup, which holds no location, as blanks', () => {
+        const [project] = toEditFormProjects([
+            payload({ deliveryMethod: 'pickup', location: null }),
+        ]);
+
+        assert.equal(project.deliveryMethod, 'pickup');
+        assert.equal(project.location, '');
+    });
+
+    it('turns a missing area into a blank', () => {
+        const [project] = toEditFormProjects([payload({ areaSqm: null })]);
+
         assert.equal(project.areaSqm, '');
-        assert.equal(project.neededByTime, '14:15');
     });
 });
 

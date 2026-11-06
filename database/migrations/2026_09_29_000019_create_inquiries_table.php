@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Schema;
  *
  * - `client_id`: the client's account. NULL for a direct (walk-in) client,
  *   who has none; `client_record_id` is the client either way (`clients`).
+ * - `delivery_method`: how the project reaches the client. A pickup has no site
+ *   to name, so its `location` is NULL, and a CHECK holds the two facts together.
+ *   A landmark is optional on either.
  * - `lead_id`: marketing's lead for the client (`leads`). NULL until the
  *   client's Regray Team thread is claimed, which links it, and for a direct
  *   client, who has no lead.
@@ -58,7 +61,8 @@ return new class extends Migration
             $table->string('marketing_status', 20)->nullable();
             $table->timestampTz('marketing_status_changed_at')->nullable();
             $table->string('name', 100);
-            $table->string('location', 255);
+            $table->string('delivery_method', 20)->default('delivery');
+            $table->string('location', 255)->nullable();
             $table->string('landmark', 150)->nullable();
             $table->decimal('area_sqm', 10, 2)->nullable();
             $table->string('notes', 1000)->nullable();
@@ -91,6 +95,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quote_revision CHECK (quote_revision >= 1)');
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_contract_total CHECK (contract_total > 0)');
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_marketing_status CHECK (marketing_status IN ('won','lost'))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_delivery_location CHECK ((delivery_method = 'delivery' AND location IS NOT NULL) OR (delivery_method = 'pickup' AND location IS NULL))");
     }
 
     public function down(): void

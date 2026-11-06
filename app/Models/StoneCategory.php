@@ -20,7 +20,6 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $thumbnail_path
  * @property string $description
- * @property string $origin
  * @property bool $is_active
  * @property-read bool $is_best_seller
  * @property int $sort_order
@@ -30,7 +29,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Finish> $finishes
  * @property-read Collection<int, CareTip> $careTips
  */
-#[Fillable(['slug', 'name', 'thumbnail_path', 'description', 'origin', 'is_active', 'sort_order'])]
+#[Fillable(['slug', 'name', 'thumbnail_path', 'description', 'is_active', 'sort_order'])]
 class StoneCategory extends Model
 {
     /** @use HasFactory<StoneCategoryFactory> */

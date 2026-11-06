@@ -7,6 +7,7 @@ use App\Models\Stone;
 use App\Models\StoneCategory;
 use App\Models\User;
 use Database\Seeders\EdgeProfileSeeder;
+use Database\Seeders\FurnitureTypeSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\StoneSeeder;
@@ -15,6 +16,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 beforeEach(function (): void {
     $this->seed([
         RolePermissionSeeder::class,
+        FurnitureTypeSeeder::class,
         StoneSeeder::class,
     ]);
 });
@@ -51,7 +53,7 @@ test('no parameters returns the first page of active individual stones', functio
             ->has('filterOptions.categories')
             ->has('filterOptions.furnitureTypes', 8)
             ->has('filterOptions.sizes', 4)
-            ->has('filterOptions.thicknesses', 3)
+            ->has('filterOptions.thicknesses', 4)
             ->where('products.data.0.category', ['slug' => 'cobblestone', 'name' => 'Cobblestone'])
         );
 });
@@ -90,7 +92,7 @@ test('multi-filter narrows results down correctly across categories, sizes, and 
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(stoneCollection(['search' => 'COSMIC', 'category' => 'granite', 'size' => '80x80', 'thickness' => '18-20']))
+        ->get(stoneCollection(['search' => 'COSMIC', 'category' => 'granite', 'size' => '80x80', 'thickness' => '20']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
@@ -99,7 +101,7 @@ test('multi-filter narrows results down correctly across categories, sizes, and 
                 ->where('search', 'COSMIC')
                 ->where('category', 'granite')
                 ->where('size', '80x80')
-                ->where('thickness', '18-20')
+                ->where('thickness', '20')
                 ->where('furnitureType', null)
                 ->where('perPage', 24)
                 ->where('collection', 'stones')
@@ -176,14 +178,14 @@ test('filters reflect the URL exactly after refresh', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(stoneCollection(['search' => 'test', 'category' => 'marble', 'size' => '80x80', 'thickness' => '18-20', 'page' => 2]))
+        ->get(stoneCollection(['search' => 'test', 'category' => 'marble', 'size' => '80x80', 'thickness' => '20', 'page' => 2]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('filters', fn (Assert $filters) => $filters
                 ->where('search', 'test')
                 ->where('category', 'marble')
                 ->where('size', '80x80')
-                ->where('thickness', '18-20')
+                ->where('thickness', '20')
                 ->where('furnitureType', null)
                 ->where('perPage', 24)
                 ->where('collection', 'stones')

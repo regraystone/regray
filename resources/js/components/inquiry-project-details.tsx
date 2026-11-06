@@ -10,8 +10,16 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { LANDMARK_MAX, NOTES_MAX } from '@/data/inquiries';
+import { DELIVERY_METHODS, PICKUP } from '@/lib/inquiry-flow';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import { searchLocations } from '@/lib/inquiry-catalog';
 import {
@@ -19,6 +27,9 @@ import {
     type InquiryDraftInput,
     type InquiryDraftValues,
 } from '@/lib/inquiry-schema';
+
+/** The id the page scrolls to when the delivery method is unanswered. */
+export const INQUIRY_DELIVERY_METHOD_ID = 'inquiry-delivery-method';
 
 /**
  * Everything the attachment field has to say, as plain sentences.
@@ -45,15 +56,14 @@ const attachmentMessages = (error: unknown): string[] => {
 };
 
 /**
- * Open the browser's own date or time dialog when the field is clicked.
+ * Open the browser's own date dialog when the field is clicked.
  *
  * Chrome and Edge only open it when their own small icon is clicked, and this
  * form hides that icon — it is a rounded grey pill inside an otherwise flat
  * square field, and nothing else here carries one, so it reads as a stray control
  * rather than as part of the field. With the icon hidden and nothing else wired
  * up, the only way to answer is to type: a reader who came to point at a day has
- * to work out its date format and key it in, and the three services that are
- * booked by the hour have to do the same twice.
+ * to work out its date format and key it in.
  *
  * So the field itself is the target. Asking for the picker from the click is
  * what puts it back within reach of the whole field rather than one corner of
@@ -77,16 +87,11 @@ const lockedDateFormatter = new Intl.DateTimeFormat(undefined, {
     dateStyle: 'long',
 });
 
-/** "October 27, 2026 at 14:15", or the date alone when there is no time. */
-const formatLockedDeadline = (date: string, time: string): string => {
-    if (date === '') {
-        return 'Not set';
-    }
-
-    const day = lockedDateFormatter.format(new Date(`${date}T00:00`));
-
-    return time === '' ? day : `${day} at ${time}`;
-};
+/** "October 27, 2026". */
+const formatLockedDeadline = (date: string): string =>
+    date === ''
+        ? 'Not set'
+        : lockedDateFormatter.format(new Date(`${date}T00:00`));
 
 /**
  * Where and when one project is, and whatever else the team needs about it.
@@ -108,7 +113,6 @@ const formatLockedDeadline = (date: string, time: string): string => {
  */
 const InquiryProjectDetails = ({
     projectNumber,
-    needsNeededByTime,
     deadlineLockReason = null,
     allowAttachments = true,
 }: {
@@ -124,19 +128,8 @@ const InquiryProjectDetails = ({
     projectNumber: number;
 
     /**
-     * Whether this project's service is one the team attends at an hour, which is
-     * what turns "needed by" from a date into a date and a time.
-     *
-     * Handed down rather than worked out here: the schema decides the same thing
-     * from the same catalogue flag, and this block cannot see which services the
-     * draft is for, because on a project with stone the services are not what the
-     * date is about.
-     */
-    needsNeededByTime: boolean;
-
-    /**
-     * Why the date and time can no longer be changed, when editing a sent
-     * inquiry whose visit is no longer pending. They are then shown, not asked.
+     * Why the date can no longer be changed, when editing a sent inquiry whose
+     * schedule is no longer pending. It is then shown, not asked.
      */
     deadlineLockReason?: string | null;
 }) => {
@@ -146,7 +139,8 @@ const InquiryProjectDetails = ({
         control,
         setValue,
         getValues,
-        formState: { errors },
+        clearErrors,
+        formState: { errors, isSubmitted },
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
     /*
@@ -186,7 +180,21 @@ const InquiryProjectDetails = ({
      */
     const notes = useWatch({ control, name: 'notes' });
     const neededBy = useWatch({ control, name: 'neededBy' });
-    const neededByTime = useWatch({ control, name: 'neededByTime' });
+    const deliveryMethod = useWatch({ control, name: 'deliveryMethod' });
+
+    /* A pickup is at the studio, so it has no site to locate. */
+    const isPickup = deliveryMethod === PICKUP;
+
+    const chooseDeliveryMethod = (next: string) => {
+        setValue('deliveryMethod', next, {
+            shouldDirty: true,
+            shouldValidate: isSubmitted,
+        });
+
+        if (next === PICKUP) {
+            clearErrors('location');
+        }
+    };
 
     const today = todayIsoDate();
 
@@ -198,55 +206,85 @@ const InquiryProjectDetails = ({
 
             <div className="mt-3 grid gap-5 md:grid-cols-2">
                 <FormField
-                    id={id('location')}
-                    label="Location"
+                    id={INQUIRY_DELIVERY_METHOD_ID}
+                    label="How would you like to get it?"
                     required
-                    error={errors.location?.message}
+                    error={fieldMessage(errors.deliveryMethod)}
                 >
                     {(accessibility) => (
-                        /*
-                         * The combobox owns its own input, so it cannot be
-                         * `register`ed: what it hands back is a string it has
-                         * already decided is the value. The ref is forwarded to
-                         * its text input so a failed check can still send focus
-                         * here, exactly as it would for a plain input.
-                         */
-                        <Controller
-                            control={control}
-                            name="location"
-                            render={({ field }) => (
-                                <Combobox
-                                    id={id('location')}
-                                    ref={field.ref}
-                                    value={field.value}
-                                    options={locations}
-                                    filter={(query) =>
-                                        searchLocations(locations, query)
-                                    }
-                                    listLabel="Cities and municipalities"
-                                    placeholder="Search a city or municipality"
-                                    emptyMessage="No city or municipality matches that."
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="rounded-none"
-                                    onChange={chooseFromList(
-                                        field.onChange,
-                                        field.onBlur,
-                                    )}
-                                />
-                            )}
-                        />
+                        <Select
+                            value={deliveryMethod}
+                            onValueChange={chooseDeliveryMethod}
+                        >
+                            <SelectTrigger
+                                id={INQUIRY_DELIVERY_METHOD_ID}
+                                aria-describedby={accessibility.describedBy}
+                                aria-invalid={accessibility.invalid}
+                                className="w-full rounded-none text-base data-[size=default]:h-11"
+                            >
+                                <SelectValue placeholder="Choose one" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {DELIVERY_METHODS.map((option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        className="rounded-none"
+                                    >
+                                        {option.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     )}
                 </FormField>
 
-                {/*
-                 * A service the team attends at an hour, so when it is wanted is
-                 * a moment rather than a day. The date widens to take the time
-                 * beside it instead of the time opening a row of its own: they
-                 * are one answer to one question, and splitting them across the
-                 * two columns would put the second half below the first on a
-                 * narrow screen with the area in between.
-                 */}
+                {isPickup ? null : (
+                    <FormField
+                        id={id('location')}
+                        label="Location"
+                        required
+                        error={errors.location?.message}
+                    >
+                        {(accessibility) => (
+                            /*
+                             * The combobox owns its own input, so it cannot be
+                             * `register`ed: what it hands back is a string it has
+                             * already decided is the value. The ref is forwarded to
+                             * its text input so a failed check can still send focus
+                             * here, exactly as it would for a plain input.
+                             */
+                            <Controller
+                                control={control}
+                                name="location"
+                                render={({ field }) => (
+                                    <Combobox
+                                        id={id('location')}
+                                        ref={field.ref}
+                                        value={field.value}
+                                        options={locations}
+                                        filter={(query) =>
+                                            searchLocations(locations, query)
+                                        }
+                                        listLabel="Cities and municipalities"
+                                        placeholder="Search a city or municipality"
+                                        emptyMessage="No city or municipality matches that."
+                                        aria-describedby={
+                                            accessibility.describedBy
+                                        }
+                                        aria-invalid={accessibility.invalid}
+                                        className="rounded-none"
+                                        onChange={chooseFromList(
+                                            field.onChange,
+                                            field.onBlur,
+                                        )}
+                                    />
+                                )}
+                            />
+                        )}
+                    </FormField>
+                )}
+
                 {deadlineLockReason !== null ? (
                     /*
                      * Shown rather than asked: the visit has been confirmed (or
@@ -262,10 +300,7 @@ const InquiryProjectDetails = ({
                             className="mt-2 text-sm"
                             aria-describedby={id('needed-by-locked')}
                         >
-                            {formatLockedDeadline(
-                                neededBy,
-                                needsNeededByTime ? neededByTime : '',
-                            )}
+                            {formatLockedDeadline(neededBy)}
                         </p>
                         <p
                             id={id('needed-by-locked')}
@@ -274,67 +309,6 @@ const InquiryProjectDetails = ({
                             {deadlineLockReason}
                         </p>
                     </div>
-                ) : needsNeededByTime ? (
-                    <FormField
-                        id={id('needed-by')}
-                        label="When do you need it?"
-                        required
-                        /*
-                         * The pair is one answer, so the complaint about a missing
-                         * half is written against the date: it is the control the
-                         * reader is sent to, and the one that says what the hour
-                         * has to be later than.
-                         */
-                        error={
-                            fieldMessage(errors.neededBy) ??
-                            fieldMessage(errors.neededByTime)
-                        }
-                    >
-                        {(accessibility) => (
-                            <div
-                                id={id('needed-by-group')}
-                                className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2"
-                            >
-                                <Input
-                                    id={id('needed-by')}
-                                    type="date"
-                                    min={today}
-                                    {...register('neededBy')}
-                                    onClick={openPickerOnClick}
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="rounded-none [&::-webkit-calendar-picker-indicator]:hidden"
-                                />
-
-                                <span
-                                    aria-hidden
-                                    className="text-sm text-secondary-foreground"
-                                >
-                                    at
-                                </span>
-
-                                <Input
-                                    id={id('needed-by-time')}
-                                    type="time"
-                                    {...register('neededByTime')}
-                                    onClick={openPickerOnClick}
-                                    /*
-                                     * Its own name, because the group's label is
-                                     * pointed at the date: without this the second
-                                     * control would be announced as an edit box
-                                     * with nothing on it. "Time of day" beside
-                                     * "When do you need it?" says the same thing to a screen
-                                     * reader as the two fields and the word
-                                     * between them say to anyone else.
-                                     */
-                                    aria-label="Time of day"
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="rounded-none [&::-webkit-calendar-picker-indicator]:hidden"
-                                />
-                            </div>
-                        )}
-                    </FormField>
                 ) : (
                     <FormField
                         id={id('needed-by')}

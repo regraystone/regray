@@ -1,35 +1,35 @@
 import type { Locator, Page } from '@playwright/test';
+import { artisan } from '../message/support/stack';
 import { expect } from './fixtures';
 
 /*
  * The Inquire page through the controls a reader uses: two steps, the first being
- * four questions, one open at a time. The service, stone and application cards
- * are checkboxes named after what they pick, the location is a combobox, edge and
- * finish are selects that stay folded away until asked for.
+ * three questions, one open at a time. The stone cards are checkboxes named after
+ * the stone, the work and the delivery method are selects, the location is a
+ * combobox, edge and finish are selects that stay folded away until asked for.
  *
  * The names below are the catalogue that DatabaseSeeder writes.
  */
 
 export const CATALOG = {
-    visitService: 'Stone Relocation, Dismantling & Reinstallation',
-    stoneService: 'Natural Stone Supply',
-    stoneServiceSlug: 'natural-stone-supply',
+    work: 'Stone supply only',
+    workSlug: 'supply-only',
+    furnitureWork: 'Customized furniture',
     stones: ['Warm Beige Granite', 'Flamed - Gray'],
     stoneSlug: 'warm-beige-granite',
-    applications: ['Kitchen Islands', 'Countertops & Backsplash'],
-    applicationSlug: 'kitchen-islands',
     edges: ['Straight Edge', 'Full Bevel'],
     adviseEdge: 'Not sure yet, advise me',
     finishes: ['Polished', 'Honed'],
 } as const;
 
-/** The four questions of the first step, in order. Number 5 means Review. */
+/** The three questions of the first step, in order. Number 4 means Review. */
 export const QUESTIONS = [
-    'What do you need?',
     'Which stones do you like?',
-    'Where will the stone be used?',
-    'A few last details',
+    'What work does each stone need?',
+    'Other details',
 ] as const;
+
+export const REVIEW = 4;
 
 /** A date `days` from today in the browser's own calendar, as YYYY-MM-DD. */
 export const futureDate = (days: number): string => {
@@ -46,7 +46,7 @@ export const stepper = (page: Page): Locator =>
 
 /** Where the reader is: which of the two steps, and which question is open. */
 export const expectStep = async (page: Page, step: number): Promise<void> => {
-    if (step === 5) {
+    if (step === REVIEW) {
         await expect(stepper(page).locator('p')).toHaveText(
             'Step 2 of 2 · Review and send',
         );
@@ -65,11 +65,15 @@ export const expectStep = async (page: Page, step: number): Promise<void> => {
 export const changeQuestion = (page: Page, step: number): Locator =>
     page.getByRole('button', { name: `Change: ${QUESTIONS[step - 1]}` });
 
-/** Open the Inquire page and wait for the skeleton to give way to step 1. */
+/**
+ * Open the Inquire page and wait for the skeleton to give way to step 1. The suite
+ * sends far faster than a person, so the app's limit on sending starts afresh.
+ */
 export const openInquire = async (
     page: Page,
     url = '/dashboard/quote/inquire',
 ): Promise<void> => {
+    artisan('cache:clear');
     await page.goto(url);
     await expect(
         page.getByRole('heading', { name: QUESTIONS[0] }),
@@ -101,28 +105,34 @@ export const continueButton = (page: Page): Locator =>
 export const continueToReview = (page: Page): Locator =>
     page.getByRole('button', { name: 'Continue to review' });
 
-/**
- * Tick a service and take the first kind of work in the dropdown it opens
- * (`kind` to pick another), which the question needs before Next.
- */
-export const pickService = async (
-    page: Page,
-    name: string,
-    kind?: string,
-): Promise<void> => {
-    await checkbox(page, name).click();
-    await expect(checkbox(page, name)).toHaveAttribute('aria-checked', 'true');
+/** The row of one stone in the Work question, or of `STONE_ADVICE_LABEL`. */
+export const workRow = (page: Page, label: string): Locator =>
+    page.getByTestId('stone-work-row').filter({ hasText: label });
 
-    const dropdown = checkbox(page, name)
-        .locator('xpath=..')
-        .getByTestId('service-option');
+const chooseInRow = async (
+    page: Page,
+    dropdown: Locator,
+    option: string,
+): Promise<void> => {
     await dropdown.click();
-    const option =
-        kind === undefined
-            ? page.getByRole('option').first()
-            : page.getByRole('option', { name: kind, exact: true });
-    await option.click();
-    await expect(dropdown).not.toContainText('Choose one');
+    await page.getByRole('option', { name: option, exact: true }).click();
+    await expect(dropdown).toContainText(option);
+};
+
+/** Answer one row of the Work question, and its furniture type if it asks one. */
+export const pickWork = async (
+    page: Page,
+    label: string,
+    option: string = CATALOG.work,
+    furnitureType?: string,
+): Promise<void> => {
+    const dropdowns = workRow(page, label).getByTestId('service-option');
+
+    await chooseInRow(page, dropdowns.first(), option);
+
+    if (furnitureType !== undefined) {
+        await chooseInRow(page, dropdowns.nth(1), furnitureType);
+    }
 };
 
 export const pickStone = async (page: Page, name: string): Promise<void> => {
@@ -133,13 +143,7 @@ export const pickStone = async (page: Page, name: string): Promise<void> => {
     await search.fill('');
 };
 
-export const pickApplication = async (
-    page: Page,
-    name: string,
-): Promise<void> => {
-    await checkbox(page, name).click();
-    await expect(checkbox(page, name)).toHaveAttribute('aria-checked', 'true');
-};
+export const DELIVERY_METHOD_ID = 'inquiry-delivery-method';
 
 export const locationField = (page: Page): Locator =>
     page.getByRole('combobox', { name: /^Location/ });
@@ -216,68 +220,19 @@ export const answerStoneRow = async (
 export const deadlineDate = (page: Page): Locator =>
     page.getByLabel(/^When do you need it/);
 
-export const deadlineTime = (page: Page): Locator =>
-    page.getByLabel('Time of day');
-
-/**
- * Every project needs a date: sending books it as a schedule. Only a visit
- * shows the time field.
- */
+/** Every project needs a date: sending books it as a schedule. */
 export const answerDeadline = async (
     page: Page,
     date: string = futureDate(10),
-    time = '10:00',
 ): Promise<void> => {
     await deadlineDate(page).fill(date);
-
-    if ((await deadlineTime(page).count()) > 0) {
-        await deadlineTime(page).fill(time);
-    }
-};
-
-export type VisitAnswers = {
-    service?: string;
-    location?: string;
-    landmark?: string;
-    date?: string;
-    time?: string;
-    notes?: string;
-};
-
-/**
- * A standalone visit from the first question to Review: the service, then the
- * site and the slot. A visit is not asked about stones or where they are used.
- */
-export const addVisitProject = async (
-    page: Page,
-    answers: VisitAnswers = {},
-): Promise<void> => {
-    await pickService(page, answers.service ?? CATALOG.visitService);
-    await continueButton(page).click();
-    await expectStep(page, 4);
-    await chooseLocation(page, answers.location ?? 'Makati');
-
-    if (answers.landmark !== undefined) {
-        await openMoreDetails(page);
-        await landmarkField(page).fill(answers.landmark);
-    }
-
-    await deadlineDate(page).fill(answers.date ?? futureDate(10));
-    await deadlineTime(page).fill(answers.time ?? '10:00');
-
-    if (answers.notes !== undefined) {
-        await openMoreDetails(page);
-        await notesField(page).fill(answers.notes);
-    }
-
-    await continueToReview(page).click();
-    await expectStep(page, 5);
 };
 
 export type StoneProjectAnswers = {
     name?: string;
     stones?: string[];
-    applications?: string[];
+    /** The work of each stone, in the same order; supply only where not said. */
+    work?: Array<{ option: string; furnitureType?: string }>;
     rows?: StoneRowAnswer[];
     location?: string;
     landmark?: string;
@@ -289,25 +244,23 @@ export const walkToRequirements = async (
     page: Page,
     answers: StoneProjectAnswers = {},
 ): Promise<void> => {
-    await pickService(page, CATALOG.stoneService);
-    await continueButton(page).click();
-    await expectStep(page, 2);
+    const stones = answers.stones ?? [CATALOG.stones[0]];
 
-    for (const stone of answers.stones ?? [CATALOG.stones[0]]) {
+    for (const stone of stones) {
         await pickStone(page, stone);
     }
 
     await continueButton(page).click();
-    await expectStep(page, 3);
+    await expectStep(page, 2);
 
-    for (const application of answers.applications ?? [
-        CATALOG.applications[0],
-    ]) {
-        await pickApplication(page, application);
+    for (const [index, stone] of stones.entries()) {
+        const work = answers.work?.[index];
+
+        await pickWork(page, stone, work?.option, work?.furnitureType);
     }
 
     await continueButton(page).click();
-    await expectStep(page, 4);
+    await expectStep(page, 3);
 };
 
 /**
@@ -342,7 +295,7 @@ export const addStoneProject = async (
     }
 
     await continueToReview(page).click();
-    await expectStep(page, 5);
+    await expectStep(page, REVIEW);
 
     if (answers.name !== undefined) {
         await renameProject(page, answers.name);
@@ -385,9 +338,13 @@ export const projectPayload = (
     overrides: Record<string, unknown> = {},
 ): Record<string, unknown> => ({
     name: 'Bypass project',
-    serviceIds: [CATALOG.stoneServiceSlug],
-    serviceOptions: { [CATALOG.stoneServiceSlug]: 'supply-only' },
-    applicationIds: [CATALOG.applicationSlug],
+    work: [
+        {
+            stoneId: CATALOG.stoneSlug,
+            serviceId: CATALOG.workSlug,
+            furnitureType: '',
+        },
+    ],
     stones: [
         {
             stoneId: CATALOG.stoneSlug,
@@ -396,11 +353,11 @@ export const projectPayload = (
             finish: CATALOG.finishes[0],
         },
     ],
+    deliveryMethod: 'delivery',
     location: 'Makati',
     landmark: '',
     areaSqm: '',
     neededBy: futureDate(10),
-    neededByTime: '',
     notes: '',
     ...overrides,
 });
