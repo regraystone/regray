@@ -153,7 +153,7 @@ const ProductCard = ({
             <article
                 className={`relative overflow-hidden rounded-none border ${
                     selected
-                        ? 'border-primary bg-primary ring-2 ring-primary'
+                        ? 'border-primary bg-background ring-2 ring-primary'
                         : 'border-sidebar-border bg-background'
                 }`}
             >
