@@ -31,8 +31,8 @@ class BrandRepository implements BrandRepositoryInterface
      * Stones and furniture live in two tables, so the page of ids is taken from
      * a union of the two and the models are loaded after. Every collection goes
      * through it so there is one search and one pagination. All Categories
-     * orders by name so the two kinds interleave; a single kind keeps its
-     * merchandised order.
+     * lists the stones first and then the furniture, each by name; a single
+     * kind keeps its merchandised order.
      *
      * @return LengthAwarePaginator<int, Stone|Furniture>
      */
@@ -47,7 +47,7 @@ class BrandRepository implements BrandRepositoryInterface
         $query = DB::query()->fromSub($rows, 'products');
 
         if ($filters->collection === BrandCollectionRequest::COLLECTION_ALL) {
-            $query->orderByRaw('lower(name)')->orderBy('kind');
+            $query->orderByRaw("CASE kind WHEN 'stone' THEN 0 ELSE 1 END")->orderByRaw('lower(name)');
         } else {
             $query->orderBy('sort_order');
         }

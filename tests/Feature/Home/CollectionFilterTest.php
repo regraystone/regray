@@ -136,7 +136,7 @@ test('an unknown collection is dropped from the URL', function (): void {
         ->assertRedirect(brandPage(['search' => 'table']));
 });
 
-test('All Categories is the default and returns both kinds in one list ordered by name, case-insensitively', function (): void {
+test('All Categories is the default and lists the stones and then the furniture, each by name, case-insensitively', function (): void {
     Stone::factory()->for($this->brand)->create(['name' => 'bravo stone', 'slug' => 'bravo']);
     Stone::factory()->for($this->brand)->create(['name' => 'Delta stone', 'slug' => 'delta']);
     Furniture::factory()->for($this->brand)->create(['name' => 'Alpha table', 'slug' => 'alpha']);
@@ -148,8 +148,8 @@ test('All Categories is the default and returns both kinds in one list ordered b
             ->component('brand-profile')
             ->where('filters.collection', 'all')
             ->where('products.meta.total', 4)
-            ->where('products.data', fn ($products) => $products->pluck('slug')->all() === ['alpha', 'bravo', 'charlie', 'delta']
-                && $products->pluck('kind')->all() === ['furniture', 'stone', 'furniture', 'stone'])
+            ->where('products.data', fn ($products) => $products->pluck('slug')->all() === ['bravo', 'delta', 'alpha', 'charlie']
+                && $products->pluck('kind')->all() === ['stone', 'stone', 'furniture', 'furniture'])
         );
 });
 
