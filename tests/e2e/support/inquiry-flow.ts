@@ -4,10 +4,10 @@ import { expect } from './fixtures';
 
 /*
  * The Inquire page through the controls a reader uses: two steps, the first being
- * three questions, one open at a time. The service type, the service and the
- * delivery method are selects, the stone cards are checkboxes named after the stone,
- * the location is a combobox, edge and finish are selects that stay folded away
- * until asked for.
+ * three questions all on one page. The service type, the service and the delivery
+ * method are selects, the stone cards are checkboxes named after the stone, the
+ * location is a combobox, and slab size, edge and finish sit on each stone's row.
+ * Landmark, area, files and notes stay folded away behind "Add more details".
  *
  * The names below are the catalogue that DatabaseSeeder writes.
  */
@@ -48,7 +48,7 @@ export const futureDate = (days: number): string => {
 export const stepper = (page: Page): Locator =>
     page.getByRole('navigation', { name: 'Inquiry progress' });
 
-/** Where the reader is: which of the two steps, and which question is open. */
+/** Where the reader is: which of the two steps, and that the question is there. */
 export const expectStep = async (page: Page, step: number): Promise<void> => {
     if (step === REVIEW) {
         await expect(stepper(page).locator('p')).toHaveText(
@@ -61,13 +61,10 @@ export const expectStep = async (page: Page, step: number): Promise<void> => {
     await expect(stepper(page).locator('p')).toHaveText(
         'Step 1 of 2 · Your request',
     );
-    await expect(page.locator('[data-state="open"] h2')).toHaveText(
-        QUESTIONS[step - 1],
-    );
+    await expect(
+        page.getByRole('heading', { name: QUESTIONS[step - 1] }),
+    ).toBeVisible();
 };
-
-export const changeQuestion = (page: Page, step: number): Locator =>
-    page.getByRole('button', { name: `Change: ${QUESTIONS[step - 1]}` });
 
 /**
  * Open the Inquire page and wait for the skeleton to give way to step 1. The suite
@@ -103,9 +100,6 @@ export const openStaffInquire = async (
 export const checkbox = (page: Page, name: string): Locator =>
     page.getByRole('checkbox', { name, exact: true });
 
-export const continueButton = (page: Page): Locator =>
-    page.getByRole('button', { name: 'Next', exact: true });
-
 export const continueToReview = (page: Page): Locator =>
     page.getByRole('button', { name: 'Continue to review' });
 
@@ -122,14 +116,13 @@ export const pickService = async (
     await chooseInSelect(page, SERVICE_ID, service);
 };
 
-/** The first question answered, and the stones open. */
+/** The first question answered; the stones are under it on the same page. */
 export const walkToStones = async (
     page: Page,
     serviceType?: string,
     service?: string,
 ): Promise<void> => {
     await pickService(page, serviceType, service);
-    await continueButton(page).click();
     await expectStep(page, 2);
 };
 
@@ -173,11 +166,9 @@ export type StoneRowAnswer = {
     finish: string;
 };
 
-/** Unfold the optional answers: landmark, area, files and notes. */
+/** Unfold the rarer answers: landmark, area, files and notes. */
 export const openMoreDetails = async (page: Page): Promise<void> => {
-    const toggle = page.getByRole('button', {
-        name: 'Add more details (optional)',
-    });
+    const toggle = page.getByRole('button', { name: 'Add more details' });
 
     if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
         await toggle.click();
@@ -190,6 +181,22 @@ export const landmarkField = (page: Page): Locator =>
 export const notesField = (page: Page): Locator =>
     page.getByLabel('Anything else we should know?');
 
+export const SLAB_SIZE = '120 x 60 cm';
+
+/** Every stone row needs a slab size: give each one still empty `size`. */
+export const fillSlabSizes = async (
+    page: Page,
+    size: string = SLAB_SIZE,
+): Promise<void> => {
+    const fields = page.locator('input[id^="requirements-slab-size-"]');
+
+    for (const field of await fields.all()) {
+        if ((await field.inputValue()) === '') {
+            await field.fill(size);
+        }
+    }
+};
+
 export const answerStoneRow = async (
     page: Page,
     index: number,
@@ -199,16 +206,6 @@ export const answerStoneRow = async (
         await page
             .locator(`#requirements-quantity-${index}`)
             .fill(String(answer.quantity));
-    }
-
-    const edge = page.locator(`#requirements-edge-${index}`);
-
-    if ((await edge.count()) === 0) {
-        await page
-            .locator('li')
-            .filter({ has: page.locator(`#requirements-quantity-${index}`) })
-            .getByRole('button', { name: /^Choose edge and finish/ })
-            .click();
     }
 
     await chooseInSelect(page, `requirements-edge-${index}`, answer.edge);
@@ -248,8 +245,8 @@ export const walkToRequirements = async (
         await pickStone(page, stone);
     }
 
-    await continueButton(page).click();
     await expectStep(page, 3);
+    await fillSlabSizes(page);
 };
 
 /**
@@ -332,6 +329,7 @@ export const projectPayload = (
         {
             stoneId: CATALOG.stoneSlug,
             quantity: 4,
+            slabSize: SLAB_SIZE,
             edge: CATALOG.edges[0],
             finish: CATALOG.finishes[0],
         },

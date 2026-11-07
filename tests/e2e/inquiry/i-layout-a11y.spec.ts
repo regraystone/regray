@@ -8,8 +8,8 @@ import {
     answerStoneRow,
     answerDeadline,
     chooseLocation,
-    continueButton,
     expectStep,
+    fillSlabSizes,
     futureDate,
     hasHorizontalScroll,
     openInquire,
@@ -33,12 +33,10 @@ const walkEveryStep = async (
     await openInquire(page);
     await pickService(page);
     await check(QUESTIONS[0]);
-    await continueButton(page).click();
 
     await expectStep(page, 2);
     await check(QUESTIONS[1]);
     await pickStone(page, CATALOG.stones[0]);
-    await continueButton(page).click();
 
     await expectStep(page, 3);
     await answerStoneRow(page, 0, {
@@ -46,6 +44,7 @@ const walkEveryStep = async (
         edge: CATALOG.edges[0],
         finish: CATALOG.finishes[0],
     });
+    await fillSlabSizes(page);
     await chooseLocation(page, 'Las Piñas');
     await answerDeadline(page);
     await check(QUESTIONS[2]);
@@ -132,7 +131,7 @@ const tabTo = async (
     throw new Error(`Tab never reached ${description}.`);
 };
 
-test('36 · keyboard only: choose the service, pick a stone, walk the questions and send, with focus visible throughout', async ({
+test('36 · keyboard only: choose the service, pick a stone, fill the details and send, with focus visible throughout', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -150,8 +149,6 @@ test('36 · keyboard only: choose the service, pick a stone, walk the questions 
         await expect(page.getByRole('option')).toHaveCount(0);
     }
 
-    await tabTo(page, (t) => t.name === 'Next', 'Next');
-    await page.keyboard.press('Enter');
     await expectStep(page, 2);
 
     await tabTo(page, (t) => t.name === CATALOG.stones[0], 'the first stone');
@@ -160,9 +157,10 @@ test('36 · keyboard only: choose the service, pick a stone, walk the questions 
         page.getByRole('checkbox', { name: CATALOG.stones[0], exact: true }),
     ).toHaveAttribute('aria-checked', 'true');
 
-    await tabTo(page, (t) => t.name === 'Next', 'Next');
-    await page.keyboard.press('Enter');
     await expectStep(page, 3);
+
+    await tabTo(page, (t) => t.id === 'requirements-slab-size-0', 'Slab size');
+    await page.keyboard.type('120 x 60 cm');
 
     await tabTo(
         page,

@@ -15,8 +15,8 @@ import {
     answerDeadline,
     chooseInSelect,
     chooseLocation,
-    continueButton,
     expectStep,
+    fillSlabSizes,
     landmarkField,
     locationField,
     openInquire,
@@ -41,15 +41,14 @@ test('6 · a pickup asks for no location, keeps its landmark, and sends @layout'
     await openInquire(page);
     await pickService(page);
     await shot(page, name('1-service'), testInfo);
-    await continueButton(page).click();
 
     await expectStep(page, 2);
     await pickStone(page, CATALOG.stones[0]);
     await shot(page, name('2-stones'), testInfo);
-    await continueButton(page).click();
 
     await expectStep(page, 3);
     await expect(locationField(page)).toBeVisible();
+    await fillSlabSizes(page);
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
     await expect(locationField(page)).toHaveCount(0);
     await openMoreDetails(page);
@@ -92,13 +91,11 @@ test('7 · two stones under one furniture service send, and Review shows the typ
     await openInquire(page);
     await pickService(page, CATALOG.furnitureType, CATALOG.furniture);
     await shot(page, name('1-service'), testInfo);
-    await continueButton(page).click();
 
     await expectStep(page, 2);
     await pickStone(page, CATALOG.stones[0]);
     await pickStone(page, CATALOG.stones[1]);
     await shot(page, name('2-stones'), testInfo);
-    await continueButton(page).click();
 
     await expectStep(page, 3);
     await answerStoneRow(page, 0, {
@@ -106,11 +103,13 @@ test('7 · two stones under one furniture service send, and Review shows the typ
         edge: CATALOG.edges[0],
         finish: CATALOG.finishes[0],
     });
+    await page.locator('#requirements-slab-size-0').fill('120 x 60 cm');
     await answerStoneRow(page, 1, {
         quantity: 5,
         edge: CATALOG.edges[1],
         finish: CATALOG.finishes[1],
     });
+    await page.locator('#requirements-slab-size-1').fill('60 x 60 cm');
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
     await shot(page, name('3-details'), testInfo);
@@ -118,6 +117,7 @@ test('7 · two stones under one furniture service send, and Review shows the typ
 
     await expectStep(page, REVIEW);
     await expect(page.getByText(/8 pieces of 2 stones/)).toBeVisible();
+    await expect(page.getByText('Size: 120 x 60 cm')).toBeVisible();
     await expect(page.getByTestId('review-service')).toContainText(
         CATALOG.furnitureType,
     );

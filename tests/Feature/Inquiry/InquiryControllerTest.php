@@ -55,7 +55,7 @@ it('sends the Inquire page its options', function (): void {
             ->has('serviceTypes', 2)
             ->where('serviceTypes.0.id', 'natural-stone-applications')
             ->where('serviceTypes.0.name', 'Natural Stone & Applications')
-            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'countertop', 'wall-cladding', 'flooring', 'staircase', 'other-applications'])
+            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'countertop', 'wall-cladding', 'flooring', 'staircase', 'installation', 'other-applications'])
             ->where('serviceTypes.1.id', 'custom-stone-furniture')
             ->where('serviceTypes.1.services', fn ($services) => collect($services)->pluck('id')->all() === ['tables', 'seating', 'storage', 'decorative-furniture'])
             ->where('serviceTypes.0.services.0', [

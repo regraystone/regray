@@ -30,8 +30,8 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * @phpstan-type ProjectInput array{name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type ProjectInput array{name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -380,7 +380,7 @@ class InquiryService
             'area_sqm' => $inquiry->area_sqm === null ? null : (float) $inquiry->area_sqm,
             'notes' => $inquiry->notes,
             'stone_advice_requested' => $inquiry->stone_advice_requested,
-            'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity'])->toArray(),
+            'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'slab_size'])->toArray(),
             'file_ids' => $inquiry->files()->where('document_type', DocumentType::ClientAttachment)->orderBy('id')->pluck('id')->all(),
             'arrival_at' => $inquiry->schedule()->value('arrival_at'),
         ];

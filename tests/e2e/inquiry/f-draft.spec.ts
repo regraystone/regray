@@ -7,9 +7,7 @@ import {
 import { expect, test } from '../support/fixtures';
 import {
     CATALOG,
-    changeQuestion,
     checkbox,
-    continueButton,
     expectStep,
     openInquire,
     pickStone,
@@ -58,7 +56,7 @@ const signOut = async (page: Page): Promise<void> => {
     expect([200, 204, 302]).toContain(status);
 };
 
-test('25 · after a reload the draft is back, on a step its answers justify', async ({
+test('25 · after a reload the draft is back, and never on Review unless its answers justify it', async ({
     actors,
 }) => {
     const { clientAId } = inquiryFixtures();
@@ -67,7 +65,6 @@ test('25 · after a reload the draft is back, on a step its answers justify', as
 
     await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
-    await continueButton(page).click();
     await expectStep(page, 3);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
@@ -85,7 +82,6 @@ test('25 · after a reload the draft is back, on a step its answers justify', as
     await page.reload();
     await expectStep(page, 3);
 
-    await changeQuestion(page, 2).click();
     await expectStep(page, 2);
     await expect(checkbox(page, CATALOG.stones[0])).toHaveAttribute(
         'aria-checked',
@@ -101,7 +97,6 @@ test('26 · "Start new" clears the draft, and a reload stays empty', async ({
     await openInquire(page);
     await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
-    await continueButton(page).click();
     await expectStep(page, 3);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
@@ -138,7 +133,6 @@ test("27 · on a shared browser, client B never sees client A's draft", async ({
     await openInquire(page);
     await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
-    await continueButton(page).click();
     await expectStep(page, 3);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 

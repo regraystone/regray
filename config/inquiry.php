@@ -31,6 +31,7 @@ return [
         'quantity_max' => 9999,
         'name' => 100,
         'landmark' => 150,
+        'slab_size' => 50,
         'notes' => 1000,
         'files' => 10,
         'file_kilobytes' => 10 * 1024,

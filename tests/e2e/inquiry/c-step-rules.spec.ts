@@ -14,12 +14,10 @@ import {
     SERVICE_ID,
     SERVICE_TYPE_ID,
     answerStoneRow,
-    changeQuestion,
     checkbox,
     answerDeadline,
     chooseInSelect,
     chooseLocation,
-    continueButton,
     expectStep,
     landmarkField,
     locationField,
@@ -50,7 +48,7 @@ test('11 · What do you need: a type, then its services, then what the service i
 
     const info = page.getByTestId('service-info');
 
-    await continueButton(page).click();
+    await addToInquiry(page).click();
     await expect(pageError(page, 'Choose what you need.')).toBeVisible();
     await expectStep(page, 1);
 
@@ -66,6 +64,9 @@ test('11 · What do you need: a type, then its services, then what the service i
 
     await chooseInSelect(page, SERVICE_TYPE_ID, CATALOG.serviceType);
     await expect(page.getByText('Which application?')).toBeVisible();
+    await expect(page.locator(`label[for="${SERVICE_ID}"]`)).toContainText(
+        'Which application? *',
+    );
     await expect(info).toHaveCount(0);
 
     await page.locator(`#${SERVICE_ID}`).click();
@@ -75,11 +76,12 @@ test('11 · What do you need: a type, then its services, then what the service i
         'Wall Cladding',
         'Flooring',
         'Staircase',
+        'Installation',
         'Other Applications',
     ]);
     await page.keyboard.press('Escape');
 
-    await continueButton(page).click();
+    await addToInquiry(page).click();
     await expect(pageError(page, 'Choose what you need.')).toBeVisible();
     await expectStep(page, 1);
 
@@ -113,11 +115,8 @@ test('11 · What do you need: a type, then its services, then what the service i
     await page.keyboard.press('Escape');
 
     await chooseInSelect(page, SERVICE_ID, CATALOG.furniture);
-    await continueButton(page).click();
+    await expect(pageError(page, 'Choose what you need.')).toHaveCount(0);
     await expectStep(page, 2);
-    await expect(
-        page.getByTestId('inquiry-question-summary').first(),
-    ).toHaveText(`${CATALOG.furnitureType} - ${CATALOG.furniture}`);
 });
 
 test('11a · the stone card has no save or view control, and the type filter combines with the search and the tabs @layout', async ({
@@ -195,7 +194,7 @@ test('11a · the stone card has no save or view control, and the type filter com
     }
 });
 
-test('11c · the server sends the stones a page at a time as the reader scrolls, and a picked stone outlives its page @layout', async ({
+test('11c · the server sends the stones a page at a time as the row is scrolled to its end, cards as tall as the tallest, and a picked stone outlives its page @layout', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -217,7 +216,48 @@ test('11c · the server sends the stones a page at a time as the reader scrolls,
     await expect(cards).toHaveCount(batch);
     expect(pageRequests).toEqual([]);
 
-    await cards.last().scrollIntoViewIfNeeded();
+    // One row that scrolls sideways: every card is as tall as the tallest.
+    const heights = await cards.evaluateAll((all) =>
+        all.map((card) => Math.round(card.getBoundingClientRect().height)),
+    );
+    expect(new Set(heights).size).toBe(1);
+
+    // Each card's picture starts at its top, however tall the row makes it.
+    const pictureOffsets = await cards.evaluateAll((all) =>
+        all.map((card) =>
+            Math.round(
+                (card.querySelector('img')?.getBoundingClientRect().top ?? 0) -
+                    card.getBoundingClientRect().top,
+            ),
+        ),
+    );
+    expect(Math.max(...pictureOffsets)).toBeLessThanOrEqual(2);
+    const [first, second] = await cards.evaluateAll((all) =>
+        all.slice(0, 2).map((card) => card.getBoundingClientRect().top),
+    );
+    expect(second).toBe(first);
+
+    // Arrows on every screen: no "previous" at the first card, "next" only
+    // while there is more.
+    const back = page.getByRole('button', { name: 'Earlier stones' });
+    const onward = page.getByRole('button', { name: 'More stones' });
+    await expect(back).toHaveCount(0);
+    await expect(onward).toBeVisible();
+    await onward.click();
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(back).toHaveCount(0);
+
+    // Scrolling the page past the row loads nothing; reaching its end does.
+    await page
+        .getByRole('heading', { name: 'Other details' })
+        .scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    expect(pageRequests).toEqual([]);
+
+    await page
+        .getByTestId('stones-row')
+        .evaluate((row) => row.scrollTo({ left: row.scrollWidth }));
     await expect(cards).toHaveCount(Math.min(batch * 2, total));
     expect(pageRequests.length).toBe(1);
 
@@ -239,7 +279,6 @@ test('11c · the server sends the stones a page at a time as the reader scrolls,
     await expect(page.getByText('1 stone selected')).toBeVisible();
 
     // The picked stone is on no page in view now, and is still drawn further on.
-    await continueButton(page).click();
     await expectStep(page, 3);
     await expect(
         page.getByText(picked ?? '', { exact: true }).first(),
@@ -259,7 +298,6 @@ test('11d · a restored draft gets its stones back from the server, whichever pa
     );
 
     await pickStone(page, stoneName);
-    await continueButton(page).click();
     await expectStep(page, 3);
     await page.waitForTimeout(2500);
 
@@ -307,19 +345,19 @@ test('11b · the same stone, edge and finish sent twice are added together, and 
     ).toBe(4);
 });
 
-test('12 · Stones: no stone blocks Next; quantity 0 and 10000 are refused, 1 and 9999 accepted', async ({
+test('12 · Stones: no stone or no slab size blocks Continue to review; quantity 0 and 10000 are refused, 1 and 9999 accepted', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
     await openInquire(page);
     await walkToStones(page);
 
-    await continueButton(page).click();
+    await addToInquiry(page).click();
     await expect(pageError(page, 'Select at least one stone.')).toBeVisible();
     await expectStep(page, 2);
 
     await pickStone(page, CATALOG.stones[0]);
-    await continueButton(page).click();
+    await expect(pageError(page, 'Select at least one stone.')).toHaveCount(0);
     await expectStep(page, 3);
 
     const quantity = page.locator('#requirements-quantity-0');
@@ -338,9 +376,19 @@ test('12 · Stones: no stone blocks Next; quantity 0 and 10000 are refused, 1 an
 
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
+
+    const slabSize = page.locator('#requirements-slab-size-0');
+    await addToInquiry(page).click();
+    await expect(page.locator('#requirements-slab-size-0-error')).toHaveText(
+        'Enter the slab size.',
+    );
+    await expectStep(page, 3);
+
+    await slabSize.fill('120 x 60 cm');
     await addToInquiry(page).click();
     await expectStep(page, REVIEW);
     await expect(page.getByText('9999 pcs')).toBeVisible();
+    await expect(page.getByText('Size: 120 x 60 cm')).toBeVisible();
 });
 
 test('13 · Stone rows: edge and finish start as "advise me", a blank row needs answers, and a 21st row is blocked', async ({
@@ -350,11 +398,19 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     await openInquire(page);
     await walkToRequirements(page);
 
-    // Nothing to answer until the reader asks: it goes through as "advise me".
+    // Each stone's slab size (required), edge and finish are on show, with no
+    // "optional"; the rarer answers are folded away until asked for.
+    await expect(page.locator('#requirements-slab-size-0')).toBeVisible();
     await expect(
-        page.getByText("Edge and finish: we'll advise you"),
-    ).toBeVisible();
-    await expect(page.locator('#requirements-edge-0')).toHaveCount(0);
+        page.locator('label[for="requirements-slab-size-0"]'),
+    ).toContainText('Slab size *');
+    await expect(page.getByText('Edge profile', { exact: true })).toBeVisible();
+    await expect(page.getByText('(optional)')).toHaveCount(0);
+    await expect(landmarkField(page)).toBeHidden();
+    await expect(notesField(page)).toBeHidden();
+    await openMoreDetails(page);
+    await expect(landmarkField(page)).toBeVisible();
+    await expect(notesField(page)).toBeVisible();
 
     // The only stone can't be taken away here.
     const removeRow = page.getByRole('button', {
@@ -362,7 +418,6 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     });
     await expect(removeRow).toHaveCount(0);
 
-    await page.getByRole('button', { name: /^Choose edge and finish/ }).click();
     await expect(page.locator('#requirements-edge-0')).toContainText(
         CATALOG.adviseEdge,
     );
@@ -380,6 +435,14 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     await expect(
         page.locator('input[id^="requirements-quantity-"]'),
     ).toHaveCount(2);
+
+    // The new row starts with no edge or finish, and keeps the slab size.
+    await expect(page.locator('#requirements-edge-1')).toContainText(
+        'Choose an edge profile',
+    );
+    await expect(page.locator('#requirements-slab-size-1')).toHaveValue(
+        await page.locator('#requirements-slab-size-0').inputValue(),
+    );
     await expect(removeRow).toHaveCount(2);
 
     // Left unanswered, it would be the same stone worked the same way twice.
@@ -511,7 +574,7 @@ test('16 · a pickup is asked no location, with the landmark kept either way', a
     await expect(landmarkField(page)).toHaveValue('Near the church');
 });
 
-test('17 · Change opens an answered question and keeps every answer', async ({
+test('17 · every question is on one page, and filling the details keeps the answers above', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -529,8 +592,6 @@ test('17 · Change opens an answered question and keeps every answer', async ({
     await chooseLocation(page, 'Pasig');
     await answerDeadline(page);
 
-    await changeQuestion(page, 2).click();
-    await expectStep(page, 2);
     for (const stone of CATALOG.stones) {
         await expect(checkbox(page, stone)).toHaveAttribute(
             'aria-checked',
@@ -538,8 +599,6 @@ test('17 · Change opens an answered question and keeps every answer', async ({
         );
     }
 
-    await changeQuestion(page, 1).click();
-    await expectStep(page, 1);
     await expect(page.locator(`#${SERVICE_TYPE_ID}`)).toContainText(
         CATALOG.furnitureType,
     );
@@ -547,16 +606,14 @@ test('17 · Change opens an answered question and keeps every answer', async ({
         CATALOG.furniture,
     );
 
-    await continueButton(page).click();
-    await continueButton(page).click();
-    await expectStep(page, 3);
+    await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0);
     await expect(page.locator('#requirements-quantity-0')).toHaveValue('12');
-    // Folded away again, and said back in a line.
-    await expect(
-        page.getByText(
-            `Edge: ${CATALOG.edges[1]}. Finish: ${CATALOG.finishes[1]}.`,
-        ),
-    ).toBeVisible();
+    await expect(page.locator('#requirements-edge-0')).toContainText(
+        CATALOG.edges[1],
+    );
+    await expect(page.locator('#requirements-finish-0')).toContainText(
+        CATALOG.finishes[1],
+    );
     await expect(locationField(page)).toHaveValue('Pasig');
 });
 
@@ -573,9 +630,7 @@ test('17a · Help me choose moves on with no stone, and picking a stone takes it
         page.getByText('Stone to be recommended by Regray').first(),
     ).toBeVisible();
 
-    await changeQuestion(page, 2).click();
     await pickStone(page, CATALOG.stones[0]);
-    await continueButton(page).click();
     await expectStep(page, 3);
     await expect(
         page.getByText('Stone to be recommended by Regray'),

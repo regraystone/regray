@@ -50,6 +50,7 @@ class StoreInquiryRequest extends FormRequest
                 Rule::exists('stones', 'slug')->where('is_active', true)->whereNull('deleted_at'),
             ],
             'projects.*.stones.*.quantity' => ['required', 'integer', 'min:'.$limits['quantity_min'], 'max:'.$limits['quantity_max']],
+            'projects.*.stones.*.slabSize' => ['required', 'string', 'max:'.$limits['slab_size']],
             'projects.*.stones.*.edge' => ['required', 'string', Rule::exists('edge_profiles', 'name')->where('is_active', true)],
             'projects.*.stones.*.finish' => ['required', 'string', Rule::exists('finishes', 'name')->where('is_active', true)],
 
@@ -88,6 +89,8 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.stones.*.quantity.integer' => 'Quantity has to be a whole number of pieces.',
             'projects.*.stones.*.quantity.min' => "Enter at least {$limits['quantity_min']} piece.",
             'projects.*.stones.*.quantity.max' => "Enter {$limits['quantity_max']} pieces or fewer.",
+            'projects.*.stones.*.slabSize.required' => 'Enter the slab size.',
+            'projects.*.stones.*.slabSize.max' => "Keep the slab size to {$limits['slab_size']} characters or fewer.",
             'projects.*.stones.*.edge.required' => 'Choose an edge profile.',
             'projects.*.stones.*.edge.exists' => 'Choose an edge profile.',
             'projects.*.stones.*.finish.required' => 'Choose a finish.',
@@ -211,15 +214,17 @@ class StoreInquiryRequest extends FormRequest
 
             $stones = [];
 
-            // A stone holds one row per edge and finish, so a repeated row adds to it.
+            // A stone holds one row per edge, finish and size, so a repeated row adds to it.
             foreach ($project['stones'] ?? [] as $stone) {
-                $row = "{$stone['stoneId']}::{$stone['edge']}::{$stone['finish']}";
+                $slabSize = $stone['slabSize'];
+                $row = "{$stone['stoneId']}::{$stone['edge']}::{$stone['finish']}::{$slabSize}";
 
                 $stones[$row] = [
                     'stone_id' => $stoneIds[$stone['stoneId']],
                     'edge_profile_id' => $edgeProfileIds[$stone['edge']],
                     'finish_id' => $finishIds[$stone['finish']],
                     'quantity' => min(($stones[$row]['quantity'] ?? 0) + (int) $stone['quantity'], $quantityLimit),
+                    'slab_size' => $slabSize,
                 ];
             }
 

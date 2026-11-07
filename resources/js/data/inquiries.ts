@@ -16,6 +16,7 @@ export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
 export const PROJECT_NAME_MAX = 100;
 export const LANDMARK_MAX = 150;
 export const NOTES_MAX = 1000;
+export const SLAB_SIZE_MAX = 50;
 /**
  * An attachment as the details step holds it.
  *

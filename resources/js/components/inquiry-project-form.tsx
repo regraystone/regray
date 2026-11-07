@@ -5,11 +5,12 @@
     useWatch,
 } from 'react-hook-form';
 import { Copy, Minus, Plus, Trash2 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import FormField, {
     chooseFromList,
     fieldMessage,
 } from '@/components/form-field';
+import { SLAB_SIZE_MAX } from '@/data/inquiries';
 import InquiryProjectDetails from '@/components/inquiry-project-details';
 import { InquiryActionBar } from '@/components/inquiry-question';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ const stoneIdPath = (index: number) => `stones.${index}.stoneId` as const;
 const quantityPath = (index: number) => `stones.${index}.quantity` as const;
 const edgePath = (index: number) => `stones.${index}.edge` as const;
 const finishPath = (index: number) => `stones.${index}.finish` as const;
+const slabSizePath = (index: number) => `stones.${index}.slabSize` as const;
 
 /**
  * One stone's row: how many, and how it is worked.
@@ -89,34 +91,9 @@ const StoneSpecRow = ({
 
     const stoneId = useWatch({ control, name: stoneIdPath(index) });
     const quantity = useWatch({ control, name: quantityPath(index) });
-    const edge = useWatch({ control, name: edgePath(index) });
-    const finish = useWatch({ control, name: finishPath(index) });
-    const { stones, edgeProfiles, finishes, advisoryEdge, advisoryFinish } =
-        useInquiryCatalog();
+    const { stones, edgeProfiles, finishes } = useInquiryCatalog();
     const stone = stones.find((entry) => entry.slug === stoneId);
     const rowErrors = errors.stones?.[index];
-
-    /*
-     * Edge and finish are trade words, so they stay folded away behind the "advise
-     * me" answer unless the reader asks for them. A blank row (a duplicate) and a
-     * refused one open by themselves, because those need an answer.
-     */
-    const [wantsChoices, setWantsChoices] = useState(
-        () => edge === '' || finish === '',
-    );
-    const showsChoices =
-        wantsChoices ||
-        fieldMessage(rowErrors?.edge) !== undefined ||
-        fieldMessage(rowErrors?.finish) !== undefined;
-    const isAdvised = edge === advisoryEdge && finish === advisoryFinish;
-
-    const letRegrayAdvise = () => {
-        const options = { shouldDirty: true, shouldValidate: true };
-
-        setValue(edgePath(index), advisoryEdge ?? '', options);
-        setValue(finishPath(index), advisoryFinish ?? '', options);
-        setWantsChoices(false);
-    };
 
     /*
      * Clamped at both ends rather than left to the input: a typed number can
@@ -159,6 +136,7 @@ const StoneSpecRow = ({
         quantity: `requirements-quantity-${index}`,
         edge: `requirements-edge-${index}`,
         finish: `requirements-finish-${index}`,
+        slabSize: `requirements-slab-size-${index}`,
     };
 
     return (
@@ -262,189 +240,166 @@ const StoneSpecRow = ({
             </div>
 
             <div className="col-span-full">
-                {showsChoices ? (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                            id={ids.edge}
-                            label="Edge profile"
-                            error={fieldMessage(rowErrors?.edge)}
-                        >
-                            {(accessibility) => (
-                                <Controller
-                                    control={control}
-                                    name={edgePath(index)}
-                                    render={({ field }) => (
-                                        <Select
-                                            /*
-                                             * The value goes over as it is, empty string and
-                                             * all. An unanswered select is `''`, and Radix shows
-                                             * the placeholder for an empty string exactly as it
-                                             * does for no value at all — but swapping one for
-                                             * the other would move this from uncontrolled to
-                                             * controlled the first time the reader answers, and
-                                             * React says so loudly on the console.
-                                             */
-                                            value={field.value}
-                                            onValueChange={chooseFromList(
-                                                field.onChange,
-                                                field.onBlur,
-                                            )}
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <FormField
+                        id={ids.slabSize}
+                        label="Slab size"
+                        required
+                        error={fieldMessage(rowErrors?.slabSize)}
+                    >
+                        {(accessibility) => (
+                            <Input
+                                id={ids.slabSize}
+                                {...register(slabSizePath(index))}
+                                maxLength={SLAB_SIZE_MAX}
+                                placeholder="e.g. 120 x 60 cm"
+                                aria-describedby={accessibility.describedBy}
+                                aria-invalid={accessibility.invalid}
+                                className="rounded-none"
+                            />
+                        )}
+                    </FormField>
+
+                    <FormField
+                        id={ids.edge}
+                        label="Edge profile"
+                        error={fieldMessage(rowErrors?.edge)}
+                    >
+                        {(accessibility) => (
+                            <Controller
+                                control={control}
+                                name={edgePath(index)}
+                                render={({ field }) => (
+                                    <Select
+                                        /*
+                                         * The value goes over as it is, empty string and
+                                         * all. An unanswered select is `''`, and Radix shows
+                                         * the placeholder for an empty string exactly as it
+                                         * does for no value at all — but swapping one for
+                                         * the other would move this from uncontrolled to
+                                         * controlled the first time the reader answers, and
+                                         * React says so loudly on the console.
+                                         */
+                                        value={field.value}
+                                        onValueChange={chooseFromList(
+                                            field.onChange,
+                                            field.onBlur,
+                                        )}
+                                    >
+                                        <SelectTrigger
+                                            id={ids.edge}
+                                            ref={field.ref}
+                                            aria-describedby={
+                                                accessibility.describedBy
+                                            }
+                                            aria-invalid={accessibility.invalid}
+                                            className="w-full rounded-none text-base data-[size=default]:h-11"
                                         >
-                                            <SelectTrigger
-                                                id={ids.edge}
-                                                ref={field.ref}
-                                                aria-describedby={
-                                                    accessibility.describedBy
-                                                }
-                                                aria-invalid={
-                                                    accessibility.invalid
-                                                }
-                                                className="w-full rounded-none"
-                                            >
-                                                <SelectValue placeholder="Choose an edge profile" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {edgeProfiles.map(
-                                                    ({ name }) => (
-                                                        <SelectItem
-                                                            key={name}
-                                                            value={name}
-                                                            className="rounded-none"
-                                                        >
-                                                            {name}
-                                                        </SelectItem>
-                                                    ),
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            )}
-                        </FormField>
+                                            <SelectValue placeholder="Choose an edge profile" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {edgeProfiles.map(({ name }) => (
+                                                <SelectItem
+                                                    key={name}
+                                                    value={name}
+                                                    className="rounded-none"
+                                                >
+                                                    {name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        )}
+                    </FormField>
 
-                        <FormField
-                            id={ids.finish}
-                            label="Finish"
-                            error={fieldMessage(rowErrors?.finish)}
-                        >
-                            {(accessibility) => (
-                                <Controller
-                                    control={control}
-                                    name={finishPath(index)}
-                                    render={({ field }) => (
-                                        <Select
-                                            value={field.value}
-                                            onValueChange={chooseFromList(
-                                                field.onChange,
-                                                field.onBlur,
-                                            )}
+                    <FormField
+                        id={ids.finish}
+                        label="Finish"
+                        error={fieldMessage(rowErrors?.finish)}
+                    >
+                        {(accessibility) => (
+                            <Controller
+                                control={control}
+                                name={finishPath(index)}
+                                render={({ field }) => (
+                                    <Select
+                                        value={field.value}
+                                        onValueChange={chooseFromList(
+                                            field.onChange,
+                                            field.onBlur,
+                                        )}
+                                    >
+                                        <SelectTrigger
+                                            id={ids.finish}
+                                            ref={field.ref}
+                                            aria-describedby={
+                                                accessibility.describedBy
+                                            }
+                                            aria-invalid={accessibility.invalid}
+                                            className="w-full rounded-none text-base data-[size=default]:h-11"
                                         >
-                                            <SelectTrigger
-                                                id={ids.finish}
-                                                ref={field.ref}
-                                                aria-describedby={
-                                                    accessibility.describedBy
-                                                }
-                                                aria-invalid={
-                                                    accessibility.invalid
-                                                }
-                                                className="w-full rounded-none"
-                                            >
-                                                <SelectValue placeholder="Choose a finish" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {finishes.map(({ name }) => (
-                                                    <SelectItem
-                                                        key={name}
-                                                        value={name}
-                                                        className="rounded-none"
-                                                    >
-                                                        {name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            )}
-                        </FormField>
+                                            <SelectValue placeholder="Choose a finish" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {finishes.map(({ name }) => (
+                                                <SelectItem
+                                                    key={name}
+                                                    value={name}
+                                                    className="rounded-none"
+                                                >
+                                                    {name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        )}
+                    </FormField>
+                </div>
 
-                        {showApplyToAll ? (
-                            <div className="col-span-full mt-2 flex flex-col items-end text-end">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={onApplyToAll}
-                                    aria-describedby={`apply-to-all-hint-${index}`}
-                                    className="h-7 cursor-pointer px-1.5 text-xs"
-                                >
-                                    Apply to all stones
-                                </Button>
-                                <p
-                                    id={`apply-to-all-hint-${index}`}
-                                    className="mt-1 text-xs text-secondary-foreground"
-                                >
-                                    Copies this edge profile and finish to every
-                                    other row.
-                                </p>
-                            </div>
-                        ) : null}
-
-                        <div className="col-span-full flex flex-wrap items-center gap-1.5">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={onDuplicate}
-                                disabled={rowCount >= MAX_STONE_ROWS}
-                                aria-label={`Add it again with another finish: ${stone.name}`}
-                                title={
-                                    rowCount >= MAX_STONE_ROWS
-                                        ? `Maximum ${MAX_STONE_ROWS} rows per project`
-                                        : undefined
-                                }
-                                className="h-9 cursor-pointer px-2 text-xs"
-                            >
-                                <Copy aria-hidden className="size-4" />
-                                Add it again with another finish
-                            </Button>
-
-                            {advisoryEdge !== null &&
-                            advisoryFinish !== null ? (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={letRegrayAdvise}
-                                    className="h-9 cursor-pointer px-2 text-xs"
-                                >
-                                    Let Regray advise me
-                                </Button>
-                            ) : null}
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-sm text-secondary-foreground">
-                        {isAdvised
-                            ? "Edge and finish: we'll advise you"
-                            : `Edge: ${edge}. Finish: ${finish}.`}
-                    </p>
-                )}
-
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {showsChoices ? null : (
+                {showApplyToAll ? (
+                    <div className="mt-2 flex flex-col items-end text-end">
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => setWantsChoices(true)}
-                            aria-label={`Choose edge and finish (optional): ${stone.name}`}
-                            className="h-9 cursor-pointer px-2 text-xs"
+                            onClick={onApplyToAll}
+                            aria-describedby={`apply-to-all-hint-${index}`}
+                            className="h-7 cursor-pointer px-1.5 text-xs"
                         >
-                            Choose edge and finish (optional)
+                            Apply to all stones
                         </Button>
-                    )}
+                        <p
+                            id={`apply-to-all-hint-${index}`}
+                            className="mt-1 text-xs text-secondary-foreground"
+                        >
+                            Copies this edge profile and finish to every other
+                            row.
+                        </p>
+                    </div>
+                ) : null}
+
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onDuplicate}
+                        disabled={rowCount >= MAX_STONE_ROWS}
+                        aria-label={`Add it again with another finish: ${stone.name}`}
+                        title={
+                            rowCount >= MAX_STONE_ROWS
+                                ? `Maximum ${MAX_STONE_ROWS} rows per project`
+                                : undefined
+                        }
+                        className="h-9 cursor-pointer px-2 text-xs"
+                    >
+                        <Copy aria-hidden className="size-4" />
+                        Add it again with another finish
+                    </Button>
 
                     {canRemove ? (
                         <Button
@@ -550,6 +505,8 @@ const InquiryProjectForm = ({
             const newRow = {
                 stoneId: row.stoneId,
                 quantity: 1,
+                // The same slab, worked another way.
+                slabSize: row.slabSize,
                 edge: '',
                 finish: '',
             };
@@ -616,6 +573,7 @@ const InquiryProjectForm = ({
             ...(idx === 0
                 ? {}
                 : {
+                      slabSize: first.slabSize,
                       edge: first.edge,
                       finish: first.finish,
                   }),
@@ -639,9 +597,7 @@ const InquiryProjectForm = ({
             <>
                 {rows.length > 0 ? (
                     <>
-                        <h3 className="text-base font-bold">Your stones</h3>
-
-                        <ul className="mt-1 divide-y divide-sidebar-border">
+                        <ul className="divide-y divide-sidebar-border">
                             {fields.map((field, index) => {
                                 const stoneId = rows[index]?.stoneId;
                                 const rowCount = stoneId
@@ -663,8 +619,6 @@ const InquiryProjectForm = ({
                                 );
                             })}
                         </ul>
-
-                        <div className="border-t border-sidebar-border" />
                     </>
                 ) : null}
 
@@ -688,7 +642,7 @@ const InquiryProjectForm = ({
              * and date cost nothing if the reader walks away from it, and a
              * finished one carries its own onto the sheet.
              */}
-            <div className={rows.length === 0 ? '' : 'mt-8'}>
+            <div className={rows.length === 0 ? '' : 'mt-3'}>
                 <InquiryProjectDetails
                     projectNumber={projectNumber}
                     allowAttachments={allowAttachments}

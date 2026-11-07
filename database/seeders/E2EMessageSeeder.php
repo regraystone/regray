@@ -332,6 +332,7 @@ class E2EMessageSeeder extends Seeder
             'edge_profile_id' => EdgeProfile::query()->value('id'),
             'finish_id' => Finish::query()->value('id'),
             'quantity' => 1,
+            'slab_size' => '120 x 60 cm',
             'sort_order' => 0,
         ]);
 

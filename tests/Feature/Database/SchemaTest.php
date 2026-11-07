@@ -115,6 +115,7 @@ function schemaInquiryStone(int $inquiryId, int $quantity = 1, ?int $finishId = 
         'edge_profile_id' => EdgeProfile::create(['name' => 'Beveled', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 1])->id,
         'finish_id' => $finishId ?? Finish::create(['name' => 'Polished', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 1])->id,
         'quantity' => $quantity,
+        'slab_size' => '120 x 60 cm',
         'sort_order' => 0,
         'created_at' => now(),
         'updated_at' => now(),
@@ -190,12 +191,13 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
         schemaSchedule($clientId, $inquiryId);
         schemaSchedule($clientId, $inquiryId);
     }],
-    'stone: the same stone, edge and finish twice' => ['idx_inquiry_stones_unique', function () {
+    'stone: the same stone, edge, finish and slab size twice' => ['idx_inquiry_stones_unique', function () {
         $row = schemaInquiryStone(schemaInquiry());
         DB::table('inquiry_stones')->insert($row);
         DB::table('inquiry_stones')->insert([...$row, 'quantity' => 3]);
     }],
     'stone: a quantity of 0' => ['chk_inquiry_stones_quantity', fn () => DB::table('inquiry_stones')->insert(schemaInquiryStone(schemaInquiry(), 0))],
+    'stone: no slab size' => ['not-null', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'slab_size' => null])],
 
     // Group chats: one per inquiry, and only a group has one.
     'a second group chat for an inquiry' => ['idx_conversations_inquiry_group', function () {

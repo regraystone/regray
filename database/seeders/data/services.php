@@ -42,6 +42,12 @@ return [
                 'features' => ['Custom dimensions', 'Edge profiling and finishing'],
             ],
             [
+                'slug' => 'installation',
+                'name' => 'Installation',
+                'description' => 'Natural stone installation for your project.',
+                'features' => ['Nationwide installation'],
+            ],
+            [
                 'slug' => 'other-applications',
                 'name' => 'Other Applications',
                 'description' => 'Any other stone application. Tell us what you have in mind.',

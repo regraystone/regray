@@ -202,9 +202,7 @@ const InquiryProjectDetails = ({
 
     return (
         <div>
-            <h3 className="text-base font-bold">Where and when</h3>
-
-            <div className="mt-3 grid gap-5 md:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2">
                 <FormField
                     id={INQUIRY_DELIVERY_METHOD_ID}
                     label="How would you like to get it?"
@@ -345,7 +343,7 @@ const InquiryProjectDetails = ({
                         aria-hidden
                         className={showsMoreDetails ? 'rotate-180' : ''}
                     />
-                    Add more details (optional)
+                    Add more details
                 </Button>
 
                 {/*

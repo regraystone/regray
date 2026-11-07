@@ -13,11 +13,12 @@ use Illuminate\Support\Carbon;
  * @property int $edge_profile_id
  * @property int $finish_id
  * @property int $quantity
+ * @property string $slab_size
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'sort_order'])]
+#[Fillable(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'slab_size', 'sort_order'])]
 class InquiryStone extends Model
 {
     /** @return BelongsTo<Inquiry, $this> */
