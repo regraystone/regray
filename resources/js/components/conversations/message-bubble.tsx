@@ -220,7 +220,7 @@ const MessageBubble = ({
                             removed
                                 ? 'border border-dashed border-sidebar-border bg-transparent text-secondary-foreground italic'
                                 : isOwn
-                                  ? 'bg-primary text-primary-foreground'
+                                  ? 'border border-sidebar-border bg-background text-foreground'
                                   : 'bg-secondary text-foreground',
                             pending?.state === 'sending' && 'opacity-70',
                             highlighted && 'ring-2 ring-ring',
@@ -231,12 +231,9 @@ const MessageBubble = ({
                                 type="button"
                                 onClick={() => onJumpTo?.(replyTo.id)}
                                 className={cn(
-                                    'mb-1.5 block w-full cursor-pointer border-l-2 pl-2 text-left text-xs opacity-80',
+                                    'mb-1.5 block w-full cursor-pointer border-l-2 border-secondary-foreground/60 pl-2 text-left text-xs opacity-80',
                                     hasPhotos &&
                                         'mx-2 mt-1 w-[calc(100%-1rem)]',
-                                    isOwn
-                                        ? 'border-primary-foreground/60'
-                                        : 'border-secondary-foreground/60',
                                 )}
                                 data-testid="reply-quote"
                             >
