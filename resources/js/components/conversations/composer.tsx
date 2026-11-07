@@ -18,6 +18,7 @@ import {
     type ReactNode,
     type Ref,
 } from 'react';
+import { CommonQuestionsList } from '@/components/conversations/common-questions';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import type { ComposerState } from '@/lib/assignment';
@@ -44,6 +45,10 @@ type ComposerProps = {
     isTouch: boolean;
     replyTo: ChatMessage | null;
     editing: ChatMessage | null;
+    /** Questions to send with one press, under the box. Clients only. */
+    commonQuestions?: readonly string[];
+    /** Whether they are open, from the button in the thread. */
+    commonQuestionsOpen?: boolean;
     onSend: (body: string, files: File[]) => void;
     onSaveEdit: (body: string) => Promise<void>;
     onCancelReply: () => void;
@@ -213,6 +218,8 @@ const Composer = ({
     isTouch,
     replyTo,
     editing,
+    commonQuestions,
+    commonQuestionsOpen = false,
     onSend,
     onSaveEdit,
     onCancelReply,
@@ -287,6 +294,12 @@ const Composer = ({
             : draft.trim() !== '');
 
     const inUse = focused || draft.trim() !== '' || editing !== null || saving;
+
+    const showsCommon =
+        commonQuestions !== undefined &&
+        commonQuestionsOpen &&
+        !isLocked &&
+        editing === null;
 
     const submit = async () => {
         const body = draft.trim();
@@ -406,7 +419,13 @@ const Composer = ({
                 </div>
             ) : null}
 
-            <div className="flex items-end gap-1.5 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div
+                className={`flex items-end gap-1.5 p-3 ${
+                    showsCommon
+                        ? ''
+                        : 'pb-[max(0.75rem,env(safe-area-inset-bottom))]'
+                }`}
+            >
                 <input
                     ref={cameraInputRef}
                     type="file"
@@ -504,6 +523,14 @@ const Composer = ({
                     </SendSlot>
                 </div>
             </div>
+
+            {commonQuestions === undefined ? null : (
+                <CommonQuestionsList
+                    questions={commonQuestions}
+                    shown={showsCommon}
+                    onSend={(question) => onSend(question, [])}
+                />
+            )}
         </div>
     );
 };

@@ -27,7 +27,7 @@ class SendMessageRemindersCommand extends Command
     {
         $sent = $this->action->execute();
 
-        $this->info("Reminded {$sent['members']} members and {$sent['pool']} support staff.");
+        $this->info("Reminded {$sent['members']} members, {$sent['clients']} clients and {$sent['pool']} support staff.");
 
         return self::SUCCESS;
     }

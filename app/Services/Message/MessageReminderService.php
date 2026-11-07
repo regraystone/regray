@@ -6,11 +6,13 @@ use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
 use App\Enums\MessageType;
 use App\Enums\Permission;
+use App\Enums\Role;
 use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\User;
 use App\Repositories\Eloquent\EloquentConversationRepository;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -18,11 +20,13 @@ use Illuminate\Support\Facades\DB;
 /**
  * Which unread messages are due an email, and where those emails have got to.
  *
- * Two kinds of reminder:
- * - a member who has not read a text message someone else sent them, once the
- *   oldest of those messages has waited past the cutoff;
+ * Three kinds of reminder:
+ * - a staff member who has not read a text message someone else sent them, once
+ *   the oldest of those messages has waited past the cutoff;
  * - the support pool, when a client has written in a Regray Team thread that
- *   nobody has claimed and the oldest of those messages has waited past it.
+ *   nobody has claimed and the oldest of those messages has waited past it;
+ * - a client who has not replied to a text message, read or not, once the oldest
+ *   of those has waited past their own, longer cutoff.
  *
  * Only people's text messages count. Cards and system lines announce things
  * the reader can see for themselves and never prompt an email. A message is
@@ -33,7 +37,8 @@ use Illuminate\Support\Facades\DB;
 class MessageReminderService
 {
     /**
-     * Members with unread messages due a reminder, grouped by member.
+     * Staff with unread messages due a reminder, grouped by member. Clients are
+     * reminded about what they have not replied to instead (dueForClients).
      *
      * @return list<array{user: User, threads: list<DueThread>}>
      */
@@ -48,6 +53,7 @@ class MessageReminderService
             })
             ->join('users as u', 'u.id', '=', 'cm.user_id')
             ->whereIn('cm.role', [ConversationMemberRole::Member->value, ConversationMemberRole::Admin->value])
+            ->whereNotIn('cm.user_id', $this->clientIds())
             ->whereNotNull('u.email_verified_at')
             ->where('m.type', MessageType::Text->value)
             ->whereNotNull('m.sender_id')
@@ -61,6 +67,58 @@ class MessageReminderService
                 DB::raw('count(m.id) as unread'),
             ]);
 
+        return $this->groupedByUser($rows);
+    }
+
+    /**
+     * Clients who have not replied to messages sent to them, read or not, due a
+     * reminder, grouped by client. A client's own later message answers everything
+     * before it.
+     *
+     * @return list<array{user: User, threads: list<DueThread>}>
+     */
+    public function dueForClients(CarbonInterface $cutoff): array
+    {
+        $rows = DB::table('conversation_members as cm')
+            ->join('messages as m', function ($join): void {
+                $join->on('m.conversation_id', '=', 'cm.conversation_id')
+                    ->whereRaw('m.id > coalesce(cm.last_notified_message_id, 0)')
+                    ->whereColumn('m.sender_id', '<>', 'cm.user_id');
+            })
+            ->join('users as u', 'u.id', '=', 'cm.user_id')
+            ->whereIn('cm.role', [ConversationMemberRole::Member->value, ConversationMemberRole::Admin->value])
+            ->whereIn('cm.user_id', $this->clientIds())
+            ->whereNotNull('u.email_verified_at')
+            ->where('m.type', MessageType::Text->value)
+            ->whereNotNull('m.sender_id')
+            ->whereNull('m.deleted_at')
+            ->whereNotExists(fn ($reply) => $reply->from('messages as reply')
+                ->select(DB::raw(1))
+                ->whereColumn('reply.conversation_id', 'cm.conversation_id')
+                ->whereColumn('reply.sender_id', 'cm.user_id')
+                ->whereColumn('reply.id', '>', 'm.id')
+                ->where('reply.type', MessageType::Text->value)
+                ->whereNull('reply.deleted_at'))
+            ->groupBy('cm.conversation_id', 'cm.user_id')
+            ->havingRaw('min(m.created_at) <= ?', [$cutoff])
+            ->get([
+                'cm.conversation_id',
+                'cm.user_id',
+                DB::raw('max(m.id) as latest_id'),
+                DB::raw('count(m.id) as unread'),
+            ]);
+
+        return $this->groupedByUser($rows);
+    }
+
+    /**
+     * Rows of one conversation and one user each, as reminders per user.
+     *
+     * @param  Collection<int, \stdClass>  $rows
+     * @return list<array{user: User, threads: list<DueThread>}>
+     */
+    private function groupedByUser(Collection $rows): array
+    {
         if ($rows->isEmpty()) {
             return [];
         }
@@ -177,6 +235,12 @@ class MessageReminderService
             ->whereKey($conversationId)
             ->where(fn ($query) => $query->whereNull('pool_notified_message_id')->orWhere('pool_notified_message_id', '<', $messageId))
             ->update(['pool_notified_message_id' => $messageId]);
+    }
+
+    /** @return Builder<User> */
+    private function clientIds(): Builder
+    {
+        return User::role(Role::Client->value)->select('users.id');
     }
 
     /**

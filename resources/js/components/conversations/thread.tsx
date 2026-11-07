@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/confirm-dialog';
 import Composer, {
     type ComposerHandle,
 } from '@/components/conversations/composer';
+import { CommonQuestionsToggle } from '@/components/conversations/common-questions';
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
@@ -31,6 +32,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useConversationThread } from '@/hooks/use-conversation-thread';
 import { useQuotePrompt } from '@/hooks/use-quote-prompt';
 import { assignmentView } from '@/lib/assignment';
+import { COMMON_QUESTIONS, showsCommonQuestions } from '@/lib/common-questions';
 import { threadLoadingState } from '@/lib/conversation-skeleton';
 import { isFileDrag, nextDragDepth } from '@/lib/file-drop';
 import { ApiError } from '@/lib/message-api';
@@ -103,6 +105,7 @@ const Thread = ({
     const anchorRef = useRef<{ height: number; top: number } | null>(null);
     const stickToBottomRef = useRef(true);
     const [unseen, setUnseen] = useState(0);
+    const [commonQuestionsOpen, setCommonQuestionsOpen] = useState(false);
     const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
     const [editing, setEditing] = useState<ChatMessage | null>(null);
     const [removeTarget, setRemoveTarget] = useState<ChatMessage | null>(null);
@@ -126,6 +129,33 @@ const Thread = ({
         setUnseen(0);
     }, []);
 
+    /*
+     * The list under the composer takes its height from the messages as it opens
+     * and closes, so a reader at the newest message stays there. Watched only for
+     * as long as that takes.
+     */
+    useEffect(() => {
+        const viewport = scrollRef.current;
+
+        if (viewport === null) {
+            return;
+        }
+
+        const observer = new ResizeObserver(() => {
+            if (stickToBottomRef.current) {
+                scrollToBottom();
+            }
+        });
+        const timer = window.setTimeout(() => observer.disconnect(), 300);
+
+        observer.observe(viewport);
+
+        return () => {
+            window.clearTimeout(timer);
+            observer.disconnect();
+        };
+    }, [commonQuestionsOpen, scrollToBottom]);
+
     const thread = useConversationThread(conversationId, {
         currentUserId,
         realtime,
@@ -147,11 +177,19 @@ const Thread = ({
     const conversation = state.conversation ?? initialSummary;
     const quotePrompt = useQuotePrompt(state.canRequestQuote, currentUserId);
 
+    /** A message from the composer or a common question, with any pending reply. */
+    const sendMessage = (body: string, files: File[]) => {
+        stickToBottomRef.current = true;
+        thread.send(body, replyTo, files);
+        setReplyTo(null);
+    };
+
     // Reset the per-thread interface state when another thread opens.
     useEffect(() => {
         setReplyTo(null);
         setEditing(null);
         setUnseen(0);
+        setCommonQuestionsOpen(false);
         stickToBottomRef.current = true;
         anchorRef.current = null;
     }, [conversationId]);
@@ -247,6 +285,12 @@ const Thread = ({
         isClient,
         assignment: state.assignment,
         assignee: conversation?.assignee ?? null,
+    });
+    const offersCommonQuestions = showsCommonQuestions({
+        isClient,
+        composerMode: view.composer.mode,
+        isEditing: editing !== null,
+        unseen,
     });
 
     const items = useMemo(
@@ -609,8 +653,45 @@ const Thread = ({
                         names={thread.typing.map((person) => person.name)}
                     />
 
-                    {quotePrompt !== null && unseen === 0 ? (
-                        <QuotePrompt {...quotePrompt} />
+                    {/*
+                     * The last item in the scrolling messages, stuck to the bottom
+                     * of their view: that keeps these above the composer however
+                     * tall that grows, the newest message sits clear above them,
+                     * and a scroll started on one still scrolls. Only the pills
+                     * take presses, so a message behind the row can still be used.
+                     */}
+                    {offersCommonQuestions ||
+                    (quotePrompt !== null && unseen === 0) ? (
+                        <div
+                            className={`@container pointer-events-none sticky bottom-0 z-10 mt-auto flex w-full shrink-0 flex-wrap items-end gap-2 ${
+                                offersCommonQuestions
+                                    ? 'justify-between'
+                                    : 'justify-center'
+                            }`}
+                            data-testid="thread-pills"
+                        >
+                            {offersCommonQuestions ? (
+                                <CommonQuestionsToggle
+                                    isOpen={commonQuestionsOpen}
+                                    compactWhenNarrow={
+                                        quotePrompt !== null && unseen === 0
+                                    }
+                                    onToggle={() =>
+                                        setCommonQuestionsOpen((open) => !open)
+                                    }
+                                />
+                            ) : null}
+                            {quotePrompt !== null && unseen === 0 ? (
+                                // Kept to the right if the two ever still wrap.
+                                <div
+                                    className={
+                                        offersCommonQuestions ? 'ml-auto' : ''
+                                    }
+                                >
+                                    <QuotePrompt {...quotePrompt} />
+                                </div>
+                            ) : null}
+                        </div>
                     ) : null}
                 </div>
             )}
@@ -636,11 +717,9 @@ const Thread = ({
                     isTouch={isTouch}
                     replyTo={replyTo}
                     editing={editing}
-                    onSend={(body, files) => {
-                        stickToBottomRef.current = true;
-                        thread.send(body, replyTo, files);
-                        setReplyTo(null);
-                    }}
+                    commonQuestions={isClient ? COMMON_QUESTIONS : undefined}
+                    commonQuestionsOpen={commonQuestionsOpen}
+                    onSend={sendMessage}
                     onSaveEdit={async (body) => {
                         if (editing === null) {
                             return;

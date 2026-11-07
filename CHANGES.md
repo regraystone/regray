@@ -1,3 +1,9 @@
+# Common Questions, and quicker message reminders
+
+- **Common Questions:** a client's thread has a button on the left of the quotation pill, which opens three questions under the composer, each sent by its own button. The list is `COMMON_QUESTIONS` in `resources/js/lib/common-questions.ts`. The button is only its icon where its label would collide with the quotation pill. Staff never see it.
+- **Staff message reminders** now go out after 3 minutes instead of 30 (`MESSAGE_REMINDER_AFTER_MINUTES`), and `messages:send-reminders` runs every minute instead of every five, so the delay holds. This covers the support pool, the staff member handling a thread and staff in group chats.
+- **Clients** are emailed "waiting for your reply" (`AwaitingReplyNotification`) when they have not replied after 30 minutes (`MESSAGE_REMINDER_CLIENT_AFTER_MINUTES`), whether or not they have read the message. It replaces their unread reminder, and goes out once per batch of messages.
+
 # Inquire asks what you need first
 
 The steps are now **1. What do you need?**, **2. Which stones?**, **3. Other details** and **4. Review and send**. An inquiry asks for one service, chosen from two dropdowns, rather than a service per stone.
