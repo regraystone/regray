@@ -1,5 +1,5 @@
-import { InfiniteScroll } from '@inertiajs/react';
-import { Plus, Search, X } from 'lucide-react';
+import { InfiniteScroll, Link } from '@inertiajs/react';
+import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 import {
     useEffect,
     useRef,
@@ -17,6 +17,7 @@ import {
     SKELETON_ROW_COUNT,
 } from '@/lib/conversation-skeleton';
 import { cn } from '@/lib/utils';
+import { dashboard } from '@/routes';
 import type { ConversationSummary } from '@/types/message';
 
 type ConversationFilter = 'all' | 'unread';
@@ -273,6 +274,21 @@ const ConversationList = ({
 
             <div className="shrink-0 border-b border-sidebar-border p-3">
                 <div className="flex items-center gap-2">
+                    {/*
+                     * A fixed place rather than the browser's back: opening and
+                     * closing a conversation are history entries of their own, so
+                     * going back from here could land in the thread just closed.
+                     */}
+                    <Button
+                        asChild
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 shrink-0 rounded-md md:hidden"
+                    >
+                        <Link href={dashboard.url()} aria-label="Back">
+                            <ArrowLeft className="size-5" aria-hidden />
+                        </Link>
+                    </Button>
                     <div className="relative min-w-0 flex-1">
                         <Search
                             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
