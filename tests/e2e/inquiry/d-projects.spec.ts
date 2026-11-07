@@ -40,14 +40,14 @@ test('19 · the project is named from its answers, and the name can be changed o
     await addStoneProject(page);
 
     await expect(
-        page.getByText(CATALOG.work, { exact: true }).first(),
+        page.getByText(CATALOG.service, { exact: true }).first(),
     ).toBeVisible();
     await expect(
-        page.getByRole('button', { name: `Change name: ${CATALOG.work}` }),
+        page.getByRole('button', { name: `Change name: ${CATALOG.service}` }),
     ).toBeVisible();
 
     await renameProject(page, 'Our new kitchen');
     await expect(
-        page.getByRole('button', { name: `Change name: ${CATALOG.work}` }),
+        page.getByRole('button', { name: `Change name: ${CATALOG.service}` }),
     ).toHaveCount(0);
 });

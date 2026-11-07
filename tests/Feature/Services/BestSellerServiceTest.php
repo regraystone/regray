@@ -2,14 +2,14 @@
 
 use App\Enums\InquiryStatus;
 use App\Models\Stone;
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use App\Services\BestSellerService;
 
 beforeEach(function (): void {
     seedInquiryCatalog();
     $this->client = inquiryClient();
-    // One stone from each category, so each stands for its category below.
-    $this->stones = Stone::query()->orderBy('id')->get()->unique('stone_category_id')->values();
+    // One stone from each type, so each stands for its type below.
+    $this->stones = Stone::query()->orderBy('id')->get()->unique('stone_type_id')->values();
 });
 
 /** `$count` inquiries for the stone, each shown at `$status`. */
@@ -21,7 +21,7 @@ function inquiriesFor(Stone $stone, int $count, InquiryStatus $status = InquiryS
 }
 
 /**
- * Whether each stone's category is a best seller, in the stones' order.
+ * Whether each stone's type is a best seller, in the stones' order.
  *
  * @return list<bool>
  */
@@ -29,17 +29,17 @@ function bestSellerFlags(iterable $stones): array
 {
     $service = app(BestSellerService::class);
 
-    return collect($stones)->map(fn (Stone $stone): bool => $service->isBestSeller($stone->stone_category_id))->values()->all();
+    return collect($stones)->map(fn (Stone $stone): bool => $service->isBestSeller($stone->stone_type_id))->values()->all();
 }
 
-test('the three categories in the most completed inquiries are best sellers', function (): void {
+test('the three types in the most completed inquiries are best sellers', function (): void {
     $this->stones->take(3)->each(fn (Stone $stone) => inquiriesFor($stone, 2));
     inquiriesFor($this->stones[3], 1);
 
     expect(bestSellerFlags($this->stones->take(4)))->toBe([true, true, true, false]);
 });
 
-test('categories tied with the third place are best sellers too', function (): void {
+test('types tied with the third place are best sellers too', function (): void {
     $this->stones->take(2)->each(fn (Stone $stone) => inquiriesFor($stone, 3));
     inquiriesFor($this->stones[2], 2);
     inquiriesFor($this->stones[3], 2);
@@ -62,20 +62,20 @@ test('an inquiry that is not completed does not count', function (InquiryStatus 
     'for refund' => InquiryStatus::ForRefund,
 ]);
 
-test('every stone in a best-selling category is a best seller, sold or not', function (): void {
+test('every stone in a best-selling type is a best seller, sold or not', function (): void {
     $sold = $this->stones[0];
-    $sibling = Stone::query()->where('stone_category_id', $sold->stone_category_id)->whereKeyNot($sold->id)->firstOrFail();
+    $sibling = Stone::query()->where('stone_type_id', $sold->stone_type_id)->whereKeyNot($sold->id)->firstOrFail();
     inquiriesFor($sold, 1);
 
     expect($sibling->is_best_seller)->toBeTrue()
-        ->and(StoneCategory::query()->findOrFail($sold->stone_category_id)->is_best_seller)->toBeTrue()
+        ->and(StoneType::query()->findOrFail($sold->stone_type_id)->is_best_seller)->toBeTrue()
         ->and($this->stones[1]->is_best_seller)->toBeFalse();
 });
 
-test('different stones in a category add up', function (): void {
+test('different stones in a type add up', function (): void {
     $this->stones->take(3)->each(fn (Stone $stone) => inquiriesFor($stone, 1));
     $first = $this->stones[3];
-    $second = Stone::query()->where('stone_category_id', $first->stone_category_id)->whereKeyNot($first->id)->firstOrFail();
+    $second = Stone::query()->where('stone_type_id', $first->stone_type_id)->whereKeyNot($first->id)->firstOrFail();
     inquiriesFor($first, 1);
     inquiriesFor($second, 1);
     inquiriesFor($this->stones[0], 1);
@@ -84,27 +84,27 @@ test('different stones in a category add up', function (): void {
     expect(bestSellerFlags($this->stones->take(4)))->toBe([true, true, false, true]);
 });
 
-test('two stones of a category in one completed inquiry count once', function (): void {
+test('two stones of a type in one completed inquiry count once', function (): void {
     $this->stones->slice(1, 3)->each(fn (Stone $stone) => inquiriesFor($stone, 2));
     $first = $this->stones[0];
-    $second = Stone::query()->where('stone_category_id', $first->stone_category_id)->whereKeyNot($first->id)->firstOrFail();
+    $second = Stone::query()->where('stone_type_id', $first->stone_type_id)->whereKeyNot($first->id)->firstOrFail();
     makeInquiry($this->client, ['stones' => [$first->slug, $second->slug]], ['status' => InquiryStatus::Closed]);
 
     expect(bestSellerFlags([$first]))->toBe([false]);
 });
 
-test('an inactive stone does not count, leaving the place to the next category', function (): void {
+test('an inactive stone does not count, leaving the place to the next type', function (): void {
     $this->stones->take(3)->each(fn (Stone $stone) => inquiriesFor($stone, 2));
     inquiriesFor($this->stones[3], 1);
-    Stone::query()->where('stone_category_id', $this->stones[0]->stone_category_id)->update(['is_active' => false]);
+    Stone::query()->where('stone_type_id', $this->stones[0]->stone_type_id)->update(['is_active' => false]);
 
     expect(bestSellerFlags($this->stones->take(4)))->toBe([false, true, true, true]);
 });
 
-test('an inactive category is not a best seller, leaving its place to the next', function (): void {
+test('an inactive type is not a best seller, leaving its place to the next', function (): void {
     $this->stones->take(3)->each(fn (Stone $stone) => inquiriesFor($stone, 2));
     inquiriesFor($this->stones[3], 1);
-    StoneCategory::query()->whereKey($this->stones[0]->stone_category_id)->update(['is_active' => false]);
+    StoneType::query()->whereKey($this->stones[0]->stone_type_id)->update(['is_active' => false]);
 
     expect(bestSellerFlags($this->stones->take(4)))->toBe([false, true, true, true]);
 });

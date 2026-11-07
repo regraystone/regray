@@ -7,21 +7,22 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One entry of the Inquire page's list of services.
+ * One entry of the Inquire page's second dropdown, with what is shown under it.
  *
  * @mixin Service
  */
 class InquiryServiceResource extends JsonResource
 {
     /**
-     * @return array{id: string, name: string, needsFurniture: bool}
+     * @return array{id: string, name: string, description: string, features: list<string>}
      */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->slug,
             'name' => $this->name,
-            'needsFurniture' => $this->needs_furniture,
+            'description' => $this->description,
+            'features' => $this->features,
         ];
     }
 }

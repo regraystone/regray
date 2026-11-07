@@ -129,7 +129,7 @@ enum Permission: string
 
     /**
      * Changing an inquiry's project from the Inquiry list (Edit): its name,
-     * location, landmark, area, notes, services and stones. Never the client
+     * location, landmark, area, notes, service and stones. Never the client
      * or a status.
      */
     case InquiriesEdit = 'inquiries.edit';

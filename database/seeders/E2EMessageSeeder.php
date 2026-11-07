@@ -321,15 +321,12 @@ class E2EMessageSeeder extends Seeder
             'reference' => $reference,
             'client_id' => $client->id,
             'name' => $projectName,
+            'service_id' => Service::query()->where('slug', 'slab-supply-only')->value('id'),
             'location' => 'Makati',
         ])->save();
 
         $stoneId = Stone::query()->orderBy('id')->value('id');
 
-        $inquiry->workItems()->create([
-            'stone_id' => $stoneId,
-            'service_id' => Service::query()->where('slug', 'supply-only')->value('id'),
-        ]);
         $inquiry->stones()->create([
             'stone_id' => $stoneId,
             'edge_profile_id' => EdgeProfile::query()->value('id'),

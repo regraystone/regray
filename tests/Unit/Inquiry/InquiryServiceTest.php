@@ -21,7 +21,7 @@ function serviceInput(array $files = []): array
 {
     return ['projects' => [[
         'name' => 'Counters',
-        'work' => [['stone_id' => null, 'service_id' => Service::query()->value('id'), 'furniture_type_id' => null]],
+        'service_id' => Service::query()->value('id'),
         'stones' => [],
         'delivery_method' => DeliveryMethod::Delivery,
         'location' => 'Makati',

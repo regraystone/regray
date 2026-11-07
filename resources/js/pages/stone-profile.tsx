@@ -118,8 +118,8 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
                             </h3>
                             <dl>
                                 <SpecRow
-                                    label="Stone category"
-                                    value={stone.specifications.stoneType}
+                                    label="Stone type"
+                                    value={stone.type.name}
                                 />
                                 <SpecRow
                                     label="Origin"

@@ -13,10 +13,11 @@ import {
     futureDate,
     hasHorizontalScroll,
     openInquire,
+    pickService,
     pickStone,
-    pickWork,
     sendAndReadReference,
     stepper,
+    walkToStones,
 } from '../support/inquiry-flow';
 
 /* I. Layout, keyboard and accessibility. */
@@ -30,13 +31,13 @@ const walkEveryStep = async (
     check: (label: string) => Promise<void>,
 ): Promise<void> => {
     await openInquire(page);
+    await pickService(page);
     await check(QUESTIONS[0]);
-    await pickStone(page, CATALOG.stones[0]);
     await continueButton(page).click();
 
     await expectStep(page, 2);
     await check(QUESTIONS[1]);
-    await pickWork(page, CATALOG.stones[0]);
+    await pickStone(page, CATALOG.stones[0]);
     await continueButton(page).click();
 
     await expectStep(page, 3);
@@ -87,8 +88,7 @@ test('35 · at phone width the stepper is the one-line "Step N of 2 · label", n
     );
     await expect(stepper(page).locator('ol')).toBeHidden();
 
-    await pickStone(page, CATALOG.stones[0]);
-    await continueButton(page).click();
+    await walkToStones(page);
     await expect(stepper(page).locator('p')).toHaveText(
         'Step 1 of 2 · Your request',
     );
@@ -132,29 +132,33 @@ const tabTo = async (
     throw new Error(`Tab never reached ${description}.`);
 };
 
-test('36 · keyboard only: pick a stone, walk the questions and send, with focus visible throughout', async ({
+test('36 · keyboard only: choose the service, pick a stone, walk the questions and send, with focus visible throughout', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
     await openInquire(page);
+
+    for (const [id, label] of [
+        ['inquiry-service-type', 'the service type'],
+        ['inquiry-service', 'the service'],
+    ] as const) {
+        await tabTo(page, (t) => t.id === id, label);
+        await page.keyboard.press('Enter');
+        await expect(page.getByRole('option').first()).toBeVisible();
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+        await expect(page.getByRole('option')).toHaveCount(0);
+    }
+
+    await tabTo(page, (t) => t.name === 'Next', 'Next');
+    await page.keyboard.press('Enter');
+    await expectStep(page, 2);
 
     await tabTo(page, (t) => t.name === CATALOG.stones[0], 'the first stone');
     await page.keyboard.press('Space');
     await expect(
         page.getByRole('checkbox', { name: CATALOG.stones[0], exact: true }),
     ).toHaveAttribute('aria-checked', 'true');
-
-    await tabTo(page, (t) => t.name === 'Next', 'Next');
-    await page.keyboard.press('Enter');
-    await expectStep(page, 2);
-
-    // Every stone asks what it needs: open its list and take one.
-    await tabTo(page, (t) => t.name.startsWith('Choose'), 'the work');
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('option').first()).toBeVisible();
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('option')).toHaveCount(0);
 
     await tabTo(page, (t) => t.name === 'Next', 'Next');
     await page.keyboard.press('Enter');
@@ -191,6 +195,39 @@ test('36 · keyboard only: pick a stone, walk the questions and send, with focus
     await expect(
         page.getByRole('heading', { name: 'Quote requested' }),
     ).toBeVisible();
+});
+
+test('36a · the stone type filter follows the width: a dropdown from md up, a scrolling row of pills below it @layout', async ({
+    actors,
+}, testInfo) => {
+    const { page } = await actors.open('client');
+    const width = page.viewportSize()?.width ?? 0;
+
+    await openInquire(page);
+    await walkToStones(page);
+
+    const select = page.getByTestId('stone-type-select');
+    const pills = page.getByTestId('stone-type-pills');
+
+    await shot(page, `36a-stones-${width}`, testInfo);
+
+    if (width >= 768) {
+        await expect(select).toBeVisible();
+        await expect(pills).toBeHidden();
+    } else {
+        await expect(select).toBeHidden();
+        await expect(pills).toBeVisible();
+        await expect(pills).toHaveAttribute('tabindex', '0');
+        await expect(pills.getByRole('button').first()).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        );
+        expect(
+            await pills.evaluate((row) => row.scrollWidth > row.clientWidth),
+            'the pills run past the edge and scroll sideways',
+        ).toBe(true);
+        expect(await hasHorizontalScroll(page)).toBe(false);
+    }
 });
 
 test('37 · axe finds no serious or critical violations on any step', async ({

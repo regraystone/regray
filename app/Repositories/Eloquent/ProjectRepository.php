@@ -24,8 +24,8 @@ class ProjectRepository implements ProjectRepositoryInterface
                     ->select(['id', 'project_id', 'path'])
                     ->orderBy('sort_order'),
                 'stones' => fn (Relation $stones) => $stones->getQuery()
-                    ->select(['stones.id', 'stone_category_id', 'slug', 'name', 'thumbnail_path'])
-                    ->with('category:id,slug,name')
+                    ->select(['stones.id', 'stone_type_id', 'slug', 'name', 'thumbnail_path'])
+                    ->with('type:id,slug,name')
                     ->where('is_active', true)
                     ->orderBy('sort_order')
                     ->orderBy('name'),
@@ -53,8 +53,8 @@ class ProjectRepository implements ProjectRepositoryInterface
                     ->select(['id', 'project_id', 'path'])
                     ->orderBy('sort_order'),
                 'stones' => fn (Relation $stones) => $stones->getQuery()
-                    ->select(['stones.id', 'stone_category_id', 'slug', 'name', 'thumbnail_path'])
-                    ->with('category:id,slug,name')
+                    ->select(['stones.id', 'stone_type_id', 'slug', 'name', 'thumbnail_path'])
+                    ->with('type:id,slug,name')
                     ->where('is_active', true)
                     ->orderBy('sort_order')
                     ->orderBy('name'),

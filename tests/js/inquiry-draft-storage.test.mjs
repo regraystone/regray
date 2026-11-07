@@ -12,19 +12,25 @@ globalThis.window = {
     },
 };
 
-const { inquiryDraftState, readInquiryDraft, writeInquiryDraft } =
-    await import('../../resources/js/lib/inquiry-draft-storage.ts');
+const {
+    draftStoneSlugs,
+    inquiryDraftState,
+    keepKnownStones,
+    readInquiryDraft,
+    writeInquiryDraft,
+} = await import('../../resources/js/lib/inquiry-draft-storage.ts');
 
 const USER = 7;
-const KEY = `regray.inquiry-draft.v7:${USER}`;
-const OLD_KEY = `regray.inquiry-draft.v4:${USER}`;
+const KEY = `regray.inquiry-draft.v8:${USER}`;
+const OLD_KEY = `regray.inquiry-draft.v7:${USER}`;
 
 const draft = (overrides = {}) => ({
     name: '',
+    serviceTypeId: '',
+    serviceId: '',
     stoneAdvice: false,
     stoneIds: [],
     stones: [],
-    stoneWork: {},
     deliveryMethod: '',
     location: '',
     landmark: '',
@@ -43,67 +49,84 @@ const stateOf = (values, step = 2, projects = []) =>
         draft: values,
     });
 
-const entry = (overrides = {}) => ({
-    serviceId: 'furniture-only',
-    furnitureType: 'Tables',
-    ...overrides,
-});
-
 /** A record as the previous version of this app wrote it. */
-const versionFourRecord = () =>
+const versionSevenRecord = () =>
     JSON.stringify({
-        version: 4,
+        version: 7,
         savedAt: '2026-11-01T00:00:00.000Z',
-        step: 4,
+        step: 2,
         editingProjectId: null,
         projects: [],
-        draft: { ...draft(), serviceIds: ['supply-only'] },
+        draft: {
+            ...draft(),
+            stoneIds: ['marble'],
+            stoneWork: {
+                marble: { serviceId: 'supply-only', furnitureType: '' },
+            },
+        },
         droppedAttachments: 0,
     });
 
 const catalog = {
-    stones: [{ slug: 'marble' }],
-    services: [{ id: 'furniture-only' }],
+    stones: [],
+    serviceTypes: [
+        {
+            id: 'custom-stone-furniture',
+            name: 'Custom Stone Furniture',
+            services: [{ id: 'tables', name: 'Tables' }],
+        },
+    ],
 };
 
 describe('an old draft', () => {
     beforeEach(() => memory.clear());
 
     it('is dropped from its old key without an error', () => {
-        memory.set(OLD_KEY, versionFourRecord());
+        memory.set(OLD_KEY, versionSevenRecord());
 
         assert.equal(readInquiryDraft(USER), null);
         assert.equal(memory.has(OLD_KEY), false);
     });
 
-    it('is dropped when a version 4 record sits under the current key', () => {
-        memory.set(KEY, versionFourRecord());
+    it('is dropped when a version 7 record sits under the current key', () => {
+        memory.set(KEY, versionSevenRecord());
 
         assert.equal(readInquiryDraft(USER), null);
         assert.equal(memory.has(KEY), false);
     });
 });
 
-describe('the work per stone in a stored draft', () => {
+describe('a stored draft', () => {
     beforeEach(() => memory.clear());
 
-    it('comes back after a refresh', () => {
-        const work = { marble: entry() };
-
+    it('comes back after a refresh with its service', () => {
         writeInquiryDraft(
             USER,
-            stateOf(draft({ stoneIds: ['marble'], stoneWork: work })),
+            stateOf(
+                draft({
+                    serviceTypeId: 'custom-stone-furniture',
+                    serviceId: 'tables',
+                }),
+            ),
         );
 
         const stored = readInquiryDraft(USER);
 
-        assert.deepEqual(stored.draft.stoneWork, {
-            marble: {
-                serviceId: 'furniture-only',
-                furnitureType: 'Tables',
-            },
-        });
+        assert.equal(stored.draft.serviceTypeId, 'custom-stone-furniture');
+        assert.equal(stored.draft.serviceId, 'tables');
         assert.equal(stored.step, 2);
+    });
+
+    it('keeps a draft of nothing but a service type', () => {
+        writeInquiryDraft(
+            USER,
+            stateOf(draft({ serviceTypeId: 'custom-stone-furniture' })),
+        );
+
+        assert.equal(
+            readInquiryDraft(USER).draft.serviceTypeId,
+            'custom-stone-furniture',
+        );
     });
 
     it('comes back with delivery or pickup', () => {
@@ -139,25 +162,63 @@ describe('the work per stone in a stored draft', () => {
         assert.equal(memory.has(KEY), false);
     });
 
-    it('drops the work of a stone or an option no longer in the catalogue', () => {
+    it('names each of its stones once, and drops those the server no longer offers', () => {
+        const row = (stoneId) => ({
+            stoneId,
+            quantity: 1,
+            edge: 'Straight Edge',
+            finish: 'Honed',
+        });
+
         writeInquiryDraft(
             USER,
             stateOf(
                 draft({
                     stoneIds: ['marble', 'gone'],
-                    stoneWork: {
-                        marble: entry(),
-                        gone: entry(),
-                        __recommended__: entry(),
-                        stale: entry({ serviceId: 'retired' }),
-                    },
+                    stones: [row('marble'), row('gone')],
                 }),
             ),
         );
 
+        const stored = readInquiryDraft(USER, catalog);
+
+        assert.deepEqual(draftStoneSlugs(stored), ['marble', 'gone']);
+
+        const kept = keepKnownStones(stored, new Set(['marble']));
+
+        assert.deepEqual(kept.draft.stoneIds, ['marble']);
         assert.deepEqual(
-            Object.keys(readInquiryDraft(USER, catalog).draft.stoneWork),
-            ['marble', '__recommended__'],
+            kept.draft.stones.map(({ stoneId }) => stoneId),
+            ['marble'],
         );
+    });
+
+    it('drops a service no longer in the catalogue', () => {
+        writeInquiryDraft(
+            USER,
+            stateOf(
+                draft({
+                    serviceTypeId: 'custom-stone-furniture',
+                    serviceId: 'retired',
+                }),
+            ),
+        );
+
+        const { draft: stored } = readInquiryDraft(USER, catalog);
+
+        assert.equal(stored.serviceTypeId, 'custom-stone-furniture');
+        assert.equal(stored.serviceId, '');
+    });
+
+    it('drops a service type no longer in the catalogue, with its service', () => {
+        writeInquiryDraft(
+            USER,
+            stateOf(draft({ serviceTypeId: 'gone', serviceId: 'tables' })),
+        );
+
+        const { draft: stored } = readInquiryDraft(USER, catalog);
+
+        assert.equal(stored.serviceTypeId, '');
+        assert.equal(stored.serviceId, '');
     });
 });

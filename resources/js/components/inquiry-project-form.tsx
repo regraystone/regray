@@ -23,7 +23,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
-import { keepWorkFor } from '@/lib/inquiry-flow';
 import {
     MAX_STONE_QUANTITY,
     MAX_STONE_ROWS,
@@ -92,22 +91,8 @@ const StoneSpecRow = ({
     const quantity = useWatch({ control, name: quantityPath(index) });
     const edge = useWatch({ control, name: edgePath(index) });
     const finish = useWatch({ control, name: finishPath(index) });
-    /*
-     * The work is held per stone, so a row made with "Add it again with another
-     * finish" carries the same choice, and says so here.
-     */
-    const stoneWork = useWatch({ control, name: 'stoneWork' });
-    const {
-        stones,
-        services,
-        edgeProfiles,
-        finishes,
-        advisoryEdge,
-        advisoryFinish,
-    } = useInquiryCatalog();
-    const workName = services.find(
-        ({ id }) => id === stoneWork[stoneId]?.serviceId,
-    )?.name;
+    const { stones, edgeProfiles, finishes, advisoryEdge, advisoryFinish } =
+        useInquiryCatalog();
     const stone = stones.find((entry) => entry.slug === stoneId);
     const rowErrors = errors.stones?.[index];
 
@@ -193,11 +178,6 @@ const StoneSpecRow = ({
                     <p className="text-base font-bold break-words">
                         {stone.name}
                     </p>
-                    {workName ? (
-                        <p className="mt-0.5 text-xs text-secondary-foreground">
-                            {workName}
-                        </p>
-                    ) : null}
                 </div>
             </div>
 
@@ -610,11 +590,6 @@ const InquiryProjectForm = ({
             );
 
             setValue('stoneIds', remaining, { shouldDirty: true });
-            setValue(
-                'stoneWork',
-                keepWorkFor(remaining, getValues('stoneWork')),
-                { shouldDirty: true },
-            );
         }
 
         setTimeout(() => {

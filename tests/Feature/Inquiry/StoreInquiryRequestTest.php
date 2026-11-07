@@ -5,6 +5,7 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
 use App\Models\Service;
+use App\Models\ServiceType;
 use App\Models\Stone;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
@@ -65,8 +66,8 @@ dataset('refused values', [
     'a fractional quantity' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1.5]]], 'projects.0.stones.0.quantity'],
     'a location not in the list' => [fn (array $p): array => [...$p, 'location' => 'Atlantis'], 'projects.0.location'],
     'an unknown stone' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'stoneId' => 'no-such-stone']]], 'projects.0.stones.0.stoneId'],
-    'an unknown service' => [fn (array $p): array => [...$p, 'work' => [[...$p['work'][0], 'serviceId' => 'no-such-option']]], 'projects.0.work.0.serviceId'],
-    'an unknown furniture type' => [fn (array $p): array => [...$p, 'work' => [[...$p['work'][0], 'furnitureType' => 'no-such-type']]], 'projects.0.work.0.furnitureType'],
+    'no service' => [fn (array $p): array => [...$p, 'serviceId' => ''], 'projects.0.serviceId'],
+    'an unknown service' => [fn (array $p): array => [...$p, 'serviceId' => 'no-such-option'], 'projects.0.serviceId'],
     'an unknown delivery method' => [fn (array $p): array => [...$p, 'deliveryMethod' => 'drone'], 'projects.0.deliveryMethod'],
     'an unknown edge profile' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'edge' => 'Wavy']]], 'projects.0.stones.0.edge'],
     'eleven files' => [fn (array $p): array => [...$p, 'attachments' => array_map(
@@ -142,10 +143,18 @@ describe('stone rows', function (): void {
         postInquiry($this, [inquiryProjectInput(['stones' => [$row, [...$row, 'finish' => $other]]])])->assertSessionHasNoErrors();
     });
 
-    it('refuses the same stone with the same edge and finish', function (): void {
-        $row = inquiryProjectInput()['stones'][0];
+    it('adds a repeated stone, edge and finish to one row, up to the quantity limit', function (): void {
+        $row = [...inquiryProjectInput()['stones'][0], 'quantity' => 3];
 
-        postInquiry($this, [inquiryProjectInput(['stones' => [$row, $row]])])->assertSessionHasErrors('projects.0.stones.1.finish');
+        postInquiry($this, [inquiryProjectInput(['stones' => [$row, $row]])])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->stones()->sole()->quantity)->toBe(6);
+
+        $large = [...$row, 'quantity' => config('inquiry.limits.quantity_max')];
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [$large, $large]])])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->orderByDesc('id')->first()->stones()->sole()->quantity)->toBe(config('inquiry.limits.quantity_max'));
     });
 });
 
@@ -167,103 +176,45 @@ describe('stones and services', function (): void {
         postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
     });
 
-    it('accepts a different service for each stone', function (): void {
-        [$first, $second] = twoStoneRows();
-
+    it('saves the one service of the request, however many stones it has', function (): void {
         postInquiry($this, [inquiryProjectInput([
-            'stones' => [$first, $second],
-            'work' => [
-                ['stoneId' => $first['stoneId'], 'serviceId' => 'supply-only'],
-                ['stoneId' => $second['stoneId'], 'serviceId' => 'fabrication-supply'],
-            ],
-        ])])->assertSessionDoesntHaveErrors();
-    });
-});
-
-describe('kinds of work', function (): void {
-    it('saves the service of each stone', function (): void {
-        [$first, $second] = twoStoneRows();
-
-        postInquiry($this, [inquiryProjectInput([
-            'stones' => [$first, $second],
-            'work' => [
-                ['stoneId' => $first['stoneId'], 'serviceId' => 'installation-supply'],
-                ['stoneId' => $second['stoneId'], 'serviceId' => 'full-package'],
-            ],
+            'stones' => twoStoneRows(),
+            'serviceId' => 'wall-cladding',
         ])])->assertSessionHasNoErrors();
 
-        $work = Inquiry::query()->sole()->workItems()->with(['stone', 'service'])->get();
+        $inquiry = Inquiry::query()->sole();
 
-        expect($work->map(fn ($item): array => [$item->stone->slug, $item->service->slug])->all())->toBe([
-            [$first['stoneId'], 'installation-supply'],
-            [$second['stoneId'], 'full-package'],
-        ]);
+        expect($inquiry->service->slug)->toBe('wall-cladding')
+            ->and($inquiry->service->serviceType->slug)->toBe('natural-stone-applications')
+            ->and($inquiry->stones()->count())->toBe(2);
     });
 
-    it('keeps one row of work for a stone added again with another finish', function (): void {
+    it('keeps a stone added again with another finish as two rows under the one service', function (): void {
         $row = inquiryProjectInput()['stones'][0];
         $other = Finish::query()->where('name', '!=', $row['finish'])->value('name');
 
         postInquiry($this, [inquiryProjectInput(['stones' => [$row, [...$row, 'finish' => $other]]])])
             ->assertSessionHasNoErrors();
 
-        $inquiry = Inquiry::query()->sole();
-
-        expect($inquiry->stones()->count())->toBe(2)
-            ->and($inquiry->workItems()->count())->toBe(1);
+        expect(Inquiry::query()->sole()->stones()->count())->toBe(2);
     });
 
-    it('refuses a stone with no work, and work for a stone not on the project', function (array $work): void {
-        [$first, $second] = twoStoneRows();
-
-        postInquiry($this, [inquiryProjectInput(['stones' => [$first], 'work' => [
-            ...$work === [] ? [] : [['stoneId' => $work[0] === 'first' ? $first['stoneId'] : $second['stoneId'], 'serviceId' => 'supply-only']],
-            ...count($work) > 1 ? [['stoneId' => $second['stoneId'], 'serviceId' => 'supply-only']] : [],
-        ]])])->assertSessionHasErrors('projects.0.work');
-
-        expect(Inquiry::query()->count())->toBe(0);
-    })->with([
-        'no work at all' => [[]],
-        'only another stone' => [['second']],
-        'an extra stone' => [['first', 'second']],
-    ]);
-
-    it('refuses two kinds of work for one stone', function (): void {
-        $stone = inquiryProjectInput()['stones'][0]['stoneId'];
-
-        postInquiry($this, [inquiryProjectInput(['work' => [
-            ['stoneId' => $stone, 'serviceId' => 'supply-only'],
-            ['stoneId' => $stone, 'serviceId' => 'fabrication-supply'],
-        ]])])->assertSessionHasErrors('projects.0.work');
-    });
-
-    it('asks customized furniture for a furniture type, and stores it', function (): void {
-        $stone = inquiryProjectInput()['stones'][0]['stoneId'];
-        $work = fn (string $type): array => ['work' => [['stoneId' => $stone, 'serviceId' => 'furniture-only', 'furnitureType' => $type]]];
-
-        postInquiry($this, [inquiryProjectInput($work(''))])
-            ->assertSessionHasErrors(['projects.0.work.0.furnitureType' => 'Choose the furniture type.']);
-
-        postInquiry($this, [inquiryProjectInput($work('tables'))])->assertSessionHasNoErrors();
-
-        expect(Inquiry::query()->sole()->workItems()->sole()->furnitureType->name)->toBe('Tables');
-    });
-
-    it('keeps no furniture type on work that does not ask for one', function (): void {
-        $stone = inquiryProjectInput()['stones'][0]['stoneId'];
-
-        postInquiry($this, [inquiryProjectInput(['work' => [
-            ['stoneId' => $stone, 'serviceId' => 'supply-only', 'furnitureType' => 'tables'],
-        ]])])->assertSessionHasNoErrors();
-
-        expect(Inquiry::query()->sole()->workItems()->sole()->furniture_type_id)->toBeNull();
-    });
-
-    it('refuses a kind of work that is no longer offered', function (): void {
-        Service::query()->where('slug', 'supply-only')->update(['is_active' => false]);
+    it('refuses a service that is no longer offered', function (): void {
+        Service::query()->where('slug', 'slab-supply-only')->update(['is_active' => false]);
 
         postInquiry($this, [inquiryProjectInput()])
-            ->assertSessionHasErrors(['projects.0.work.0.serviceId' => 'That choice is no longer available.']);
+            ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
+    });
+
+    it('refuses a service whose service type is no longer offered', function (): void {
+        ServiceType::query()->where('slug', 'natural-stone-applications')->update(['is_active' => false]);
+
+        postInquiry($this, [inquiryProjectInput()])
+            ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
+
+        expect(Inquiry::query()->count())->toBe(0);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'tables'])])->assertSessionHasNoErrors();
     });
 });
 

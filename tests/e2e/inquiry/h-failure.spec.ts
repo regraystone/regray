@@ -50,7 +50,7 @@ test('31 · a 500 shows the error and keeps the answers; retrying without it sav
 
     await requestQuoteButton(page).click();
 
-    const panel = page.getByRole('alert').filter({
+    const panel = page.getByRole('dialog').filter({
         has: page.getByRole('heading', {
             name: "We couldn't send your request",
         }),
@@ -63,7 +63,7 @@ test('31 · a 500 shows the error and keeps the answers; retrying without it sav
         );
     expect(inquiryCount(clientAId)).toBe(before);
 
-    // The page's own panel is the answer; nothing should sit on top of it.
+    // The page's own dialog is the answer; nothing should sit on top of it.
     const inertiaDialog = page.locator('#inertia-error-dialog');
     await expect
         .soft(inertiaDialog, 'a second error dialog over the page')

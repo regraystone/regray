@@ -42,7 +42,7 @@ const filterOf = (filters: BrandFilters, collection: BrandCollectionKind) =>
     collection === 'furniture'
         ? filters.furnitureType
         : collection === 'stones'
-          ? filters.category
+          ? filters.type
           : null;
 
 const endOfListMessage = (collection: BrandCollectionKind) =>
@@ -389,7 +389,7 @@ export default function BrandCollection() {
     const listKey = JSON.stringify([
         collection,
         pageProps.filters.search,
-        pageProps.filters.category,
+        pageProps.filters.type,
         pageProps.filters.furnitureType,
         pageProps.filters.perPage,
     ]);
@@ -563,7 +563,11 @@ export default function BrandCollection() {
                                             key={`${product.kind}-${product.slug}`}
                                             product={
                                                 product.kind === 'stone'
-                                                    ? product
+                                                    ? {
+                                                          ...product,
+                                                          category:
+                                                              product.type,
+                                                      }
                                                     : {
                                                           ...product,
                                                           category:

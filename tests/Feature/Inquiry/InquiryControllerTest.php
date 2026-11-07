@@ -52,19 +52,21 @@ it('sends the Inquire page its options', function (): void {
         ->get(route('quote.inquire'))
         ->assertInertia(fn ($page) => $page
             ->component('inquire')
-            ->where('services', [
-                ['id' => 'full-package', 'name' => 'Stone supply, fabrication and installation', 'needsFurniture' => false],
-                ['id' => 'fabrication-supply', 'name' => 'Stone supply and fabrication', 'needsFurniture' => false],
-                ['id' => 'installation-supply', 'name' => 'Stone supply and installation', 'needsFurniture' => false],
-                ['id' => 'supply-only', 'name' => 'Stone supply only', 'needsFurniture' => false],
-                ['id' => 'furniture-only', 'name' => 'Customized furniture', 'needsFurniture' => true],
-                ['id' => 'full-kitchen-fit-out', 'name' => 'Full kitchen fit-out', 'needsFurniture' => false],
-                ['id' => 'cabinetry-countertop-installation', 'name' => 'Cabinetry with stone countertop and installation', 'needsFurniture' => false],
-                ['id' => 'cabinetry-countertop-supply', 'name' => 'Cabinetry with stone countertop', 'needsFurniture' => false],
+            ->has('serviceTypes', 2)
+            ->where('serviceTypes.0.id', 'natural-stone-applications')
+            ->where('serviceTypes.0.name', 'Natural Stone & Applications')
+            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'countertop', 'wall-cladding', 'flooring', 'staircase', 'other-applications'])
+            ->where('serviceTypes.1.id', 'custom-stone-furniture')
+            ->where('serviceTypes.1.services', fn ($services) => collect($services)->pluck('id')->all() === ['tables', 'seating', 'storage', 'decorative-furniture'])
+            ->where('serviceTypes.0.services.0', [
+                'id' => 'slab-supply-only',
+                'name' => 'Slab Supply Only',
+                'description' => 'Premium natural stone slabs supplied for your project.',
+                'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'],
             ])
-            ->where('furnitureTypes.1', ['id' => 'tables', 'name' => 'Tables'])
-            ->has('furnitureTypes', 8)
-            ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'bestSeller', 'brand', 'category', 'description', 'specifications']))
+            ->missing('services')
+            ->missing('furnitureTypes')
+            ->has('stones.data.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'brand', 'type']))
             ->has('edgeProfiles', 8)
             ->has('finishes.0', fn ($finish) => $finish->hasAll(['id', 'name', 'isAdvisory']))
             ->where('locations', config('inquiry.locations')));

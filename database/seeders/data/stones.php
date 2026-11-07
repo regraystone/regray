@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'categories' => [
+    'types' => [
         [
             'slug' => 'cobblestone',
             'name' => 'Cobblestone',

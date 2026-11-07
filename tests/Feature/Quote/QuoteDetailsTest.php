@@ -24,7 +24,7 @@ function detailedInquiry(mixed $test): Inquiry
 {
     $inquiry = makeInquiry(
         $test->client,
-        ['name' => 'Kitchen', 'stones' => $test->slugs, 'services' => ['supply-only', 'fabrication-supply']],
+        ['name' => 'Kitchen', 'stones' => $test->slugs, 'service' => 'countertop'],
         ['reference' => 'INQ-D1'],
     );
 
@@ -54,7 +54,7 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
         ->and($inquiry['processStatus'])->toBeNull()
         ->and($inquiry)->not->toHaveKeys(['projects', 'statusHistory'])
         ->and($inquiry['project']['name'])->toBe('Kitchen')
-        ->and($inquiry['project']['services'])->toHaveCount(2);
+        ->and($inquiry['project']['service'])->toBe('Countertop');
 
     $project = $inquiry['project'];
 
@@ -187,20 +187,14 @@ it('shows the client their refund: the request form, the settled file, and the r
         ->and($refund)->toMatchArray(['amount' => '600.00', 'currentBalance' => '600.00', 'remainingBalance' => '0.00']);
 });
 
-it('shows the service of each stone, and each service wanted once', function (): void {
+it('shows the service type and the service, and no work per stone', function (): void {
     detailedInquiry($this);
 
-    $services = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
-        ->viewData('page')['props']['inquiry']['project']['services'];
+    $project = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
+        ->viewData('page')['props']['inquiry']['project'];
 
-    $stones = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
-        ->viewData('page')['props']['inquiry']['project']['stones'];
-
-    expect($services)->toBe([
-        ['name' => 'Stone supply only'],
-        ['name' => 'Stone supply and fabrication'],
-    ])->and($stones[0]['work'])->toBe([
-        ['service' => 'Stone supply only', 'furnitureType' => null],
-        ['service' => 'Stone supply and fabrication', 'furnitureType' => null],
-    ]);
+    expect($project['serviceType'])->toBe('Natural Stone & Applications')
+        ->and($project['service'])->toBe('Countertop')
+        ->and($project)->not->toHaveKeys(['services', 'unassignedWork'])
+        ->and($project['stones'][0])->not->toHaveKey('work');
 });

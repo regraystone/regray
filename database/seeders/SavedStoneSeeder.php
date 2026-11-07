@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -16,15 +16,15 @@ class SavedStoneSeeder extends Seeder
             return;
         }
 
-        $categories = StoneCategory::query()
+        $types = StoneType::query()
             ->active()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->take(6)
             ->get();
 
-        foreach ($categories as $category) {
-            $stone = $category->stones()->orderBy('sort_order')->orderBy('id')->firstOrFail();
+        foreach ($types as $type) {
+            $stone = $type->stones()->orderBy('sort_order')->orderBy('id')->firstOrFail();
             $client->savedStones()->syncWithoutDetaching([
                 $stone->id => ['created_at' => now()],
             ]);

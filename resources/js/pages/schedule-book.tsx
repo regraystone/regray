@@ -9,14 +9,7 @@ import FormField from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import {} from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
@@ -25,7 +18,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { ResultBadge } from '@/components/result-badge';
+import ResultDialog from '@/components/result-dialog';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as scheduleIndex } from '@/routes/schedule';
 import { store as bookingStore } from '@/routes/schedule/book';
@@ -407,113 +400,86 @@ const Page = ({
                 </div>
             </div>
 
-            <Dialog
-                open={result !== null}
-                onOpenChange={(open) => {
-                    if (!open && result?.status === 'success') {
-                        handleSuccessClose();
-                    }
-                    if (!open && result?.status === 'error' && !isSending) {
-                        setResult(null);
-                    }
-                }}
-            >
-                <DialogContent
-                    className="sm:max-w-md"
-                    onInteractOutside={(e) => {
-                        if (isSending) {
-                            e.preventDefault();
-                        }
-                    }}
-                    onEscapeKeyDown={(e) => {
-                        if (isSending) {
-                            e.preventDefault();
-                        }
-                    }}
-                >
-                    {result?.status === 'success' ? (
-                        <>
-                            <div className="flex flex-col items-center text-center">
-                                <ResultBadge status="success" />
-                                <DialogHeader className="mt-6 sm:text-center">
-                                    <DialogTitle
-                                        tabIndex={-1}
-                                        className="outline-none"
-                                    >
-                                        Appointment requested
-                                    </DialogTitle>
-                                    <DialogDescription className="mt-2">
-                                        We&apos;ll expect you on{' '}
-                                        {formatFullDate.format(result.date)} at{' '}
-                                        {slotLabel(result.arrivalTime)}.
-                                    </DialogDescription>
-                                </DialogHeader>
-                            </div>
-                            <DialogFooter className="mt-8 flex-col gap-3 sm:flex-row sm:justify-center">
-                                <Button asChild>
-                                    <Link href={scheduleHref}>
-                                        Back to schedule
-                                    </Link>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={handleSuccessClose}
-                                >
-                                    Book another
-                                </Button>
-                            </DialogFooter>
-                        </>
-                    ) : result?.status === 'error' ? (
-                        <>
-                            <div className="flex flex-col items-center text-center">
-                                <ResultBadge status="error" />
-                                <DialogHeader className="mt-6 sm:text-center">
-                                    <DialogTitle
-                                        tabIndex={-1}
-                                        className="outline-none"
-                                    >
-                                        We couldn&apos;t book your appointment
-                                    </DialogTitle>
-                                    <DialogDescription className="mt-2">
-                                        {result.message ??
-                                            'Something went wrong on our side. Your answers are still here, so you can try again.'}
-                                    </DialogDescription>
-                                </DialogHeader>
-                            </div>
-                            <DialogFooter className="mt-8 flex-col gap-3 sm:flex-row sm:justify-center">
-                                {/* Held until a 429's wait is over, so a retry cannot extend it. */}
-                                <Countdown
-                                    key={result.retryAt ?? 'now'}
-                                    until={result.retryAt ?? null}
-                                >
-                                    {(retryIn) => (
-                                        <Button
-                                            onClick={handleRetry}
-                                            disabled={isSending || retryIn > 0}
+            <ResultDialog
+                result={
+                    result?.status === 'success'
+                        ? {
+                              status: 'success',
+                              title: 'Appointment requested',
+                              description: (
+                                  <>
+                                      We&apos;ll expect you on{' '}
+                                      {formatFullDate.format(result.date)} at{' '}
+                                      {slotLabel(result.arrivalTime)}.
+                                  </>
+                              ),
+                              actions: (
+                                  <>
+                                      <Button asChild>
+                                          <Link href={scheduleHref}>
+                                              Back to schedule
+                                          </Link>
+                                      </Button>
+                                      <Button
+                                          variant="outline"
+                                          onClick={handleSuccessClose}
+                                      >
+                                          Book another
+                                      </Button>
+                                  </>
+                              ),
+                          }
+                        : result?.status === 'error'
+                          ? {
+                                status: 'error',
+                                title: "We couldn't book your appointment",
+                                description:
+                                    result.message ??
+                                    'Something went wrong on our side. Your answers are still here, so you can try again.',
+                                actions: (
+                                    <>
+                                        {/* Held until a 429's wait is over, so a retry cannot extend it. */}
+                                        <Countdown
+                                            key={result.retryAt ?? 'now'}
+                                            until={result.retryAt ?? null}
                                         >
-                                            {isSending ? (
-                                                <>
-                                                    <Spinner />
-                                                    Sending...
-                                                </>
-                                            ) : (
-                                                retryLabel(retryIn)
+                                            {(retryIn) => (
+                                                <Button
+                                                    onClick={handleRetry}
+                                                    disabled={
+                                                        isSending || retryIn > 0
+                                                    }
+                                                >
+                                                    {isSending ? (
+                                                        <>
+                                                            <Spinner />
+                                                            Sending...
+                                                        </>
+                                                    ) : (
+                                                        retryLabel(retryIn)
+                                                    )}
+                                                </Button>
                                             )}
+                                        </Countdown>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setResult(null)}
+                                            disabled={isSending}
+                                        >
+                                            Close
                                         </Button>
-                                    )}
-                                </Countdown>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setResult(null)}
-                                    disabled={isSending}
-                                >
-                                    Close
-                                </Button>
-                            </DialogFooter>
-                        </>
-                    ) : null}
-                </DialogContent>
-            </Dialog>
+                                    </>
+                                ),
+                            }
+                          : null
+                }
+                onClose={() =>
+                    result?.status === 'success'
+                        ? handleSuccessClose()
+                        : setResult(null)
+                }
+                locked={isSending}
+            />
         </div>
     );
 };

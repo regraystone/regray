@@ -13,16 +13,16 @@ interface StoneRepositoryInterface
     public function findActiveSummaryBySlug(string $slug): ?Stone;
 
     /**
-     * The ids of the active stone categories ranked in the top `$count` by how
+     * The ids of the active stone types ranked in the top `$count` by how
      * many completed inquiries their active stones are in, ties at the last
      * place included.
      *
      * @return list<int>
      */
-    public function bestSellerCategoryIds(int $count): array;
+    public function bestSellerTypeIds(int $count): array;
 
     /**
-     * @return array{categories: SupportCollection<int, array{value: string, label: string, bestSeller: bool}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
+     * @return array{types: SupportCollection<int, array{value: string, label: string, bestSeller: bool}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
      */
     public function filterOptions(): array;
 }

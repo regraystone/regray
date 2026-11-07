@@ -73,16 +73,14 @@ describe('the edit page', function (): void {
                 ->component('inquire')
                 ->where('mode', 'edit')
                 ->where('reference', $inquiry->reference)
-                ->has('services')
+                ->has('serviceTypes')
                 ->has('projects', 1)
                 ->where('projects.0.id', $inquiry->id)
                 ->where('projects.0.name', 'Kitchen')
                 ->where('projects.0.deliveryMethod', 'delivery')
-                ->where('projects.0.work', [[
-                    'stoneId' => Stone::query()->active()->orderBy('id')->value('slug'),
-                    'serviceId' => 'supply-only',
-                    'furnitureType' => null,
-                ]])
+                ->where('projects.0.heldStones.0.slug', Stone::query()->active()->orderBy('id')->value('slug'))
+                ->where('projects.0.serviceTypeId', 'natural-stone-applications')
+                ->where('projects.0.serviceId', 'slab-supply-only')
                 ->where('projects.0.stones.0.stoneId', Stone::query()->active()->orderBy('id')->value('slug'))
                 ->where('projects.0.deadlineLocked', false)
                 ->where('projects.0.attachments.0.id', $inquiry->files->sole()->id)
@@ -123,7 +121,7 @@ describe('the edit page', function (): void {
 });
 
 describe('saving the edit', function (): void {
-    it('changes the fields, replaces stones and services, moves the visit, and writes an audit row', function (): void {
+    it('changes the fields and the service, replaces the stones, moves the visit, and writes an audit row', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
         $otherStone = Stone::query()->active()->orderByDesc('id')->value('slug');
         $historyRows = InquiryStatusHistory::query()->count();
@@ -132,7 +130,7 @@ describe('saving the edit', function (): void {
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
                 'name' => 'Kitchen and island',
                 'stones' => [[...inquiryProjectInput()['stones'][0], 'stoneId' => $otherStone, 'quantity' => 9]],
-                'work' => [['stoneId' => $otherStone, 'serviceId' => 'fabrication-supply']],
+                'serviceId' => 'countertop',
                 'location' => 'Taguig',
                 'neededBy' => '2030-05-06',
             ])]])
@@ -145,7 +143,7 @@ describe('saving the edit', function (): void {
 
         expect($inquiry->name)->toBe('Kitchen and island')
             ->and($inquiry->location)->toBe('Taguig')
-            ->and($inquiry->workItems()->sole()->service->slug)->toBe('fabrication-supply')
+            ->and($inquiry->service->slug)->toBe('countertop')
             ->and($inquiry->stones()->sole()->quantity)->toBe(9)
             ->and($inquiry->stones()->sole()->stone->slug)->toBe($otherStone)
             ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-05-06 10:00', 'Asia/Manila')))->toBeTrue()
@@ -163,30 +161,40 @@ describe('saving the edit', function (): void {
             ->and($audit->new_values['name'])->toBe('Kitchen and island');
     });
 
-    it('changes the kind of work of a stone and records it in the audit row', function (): void {
+    it('changes the service and records it in the audit row', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
-        $stone = $inquiry->stones()->sole()->stone->slug;
+        $before = $inquiry->service_id;
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
-                'work' => [['stoneId' => $stone, 'serviceId' => 'installation-supply']],
+                'serviceId' => 'flooring',
             ])]])
             ->assertSessionHasNoErrors();
 
-        $installation = Service::query()->where('slug', 'installation-supply')->value('id');
+        $flooring = Service::query()->where('slug', 'flooring')->value('id');
 
-        expect($inquiry->workItems()->sole()->service_id)->toBe($installation)
-            ->and(AuditLog::query()->sole()->new_values['work'][0]['service_id'])->toBe($installation);
+        expect($inquiry->fresh()->service_id)->toBe($flooring)
+            ->and(AuditLog::query()->sole()->old_values['service_id'])->toBe($before)
+            ->and(AuditLog::query()->sole()->new_values['service_id'])->toBe($flooring);
+    });
+
+    it('needs a service on an edit too', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['serviceId' => ''])]])
+            ->assertSessionHasErrors(['projects.0.serviceId' => 'Choose what you need.']);
     });
 
     it('keeps a service no longer offered that the inquiry already has, but offers no other', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
-        $stone = $inquiry->stones()->sole()->stone->slug;
 
-        Service::query()->whereIn('slug', ['supply-only', 'full-package'])->update(['is_active' => false]);
+        Service::query()->whereIn('slug', ['slab-supply-only', 'countertop'])->update(['is_active' => false]);
 
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
-            ->assertInertia(fn (Assert $page) => $page->where('projects.0.heldServices.0.id', 'supply-only'));
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('projects.0.heldServiceType.id', 'natural-stone-applications')
+                ->where('projects.0.heldServiceType.services.0.id', 'slab-supply-only'));
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry)]])
@@ -194,9 +202,9 @@ describe('saving the edit', function (): void {
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
-                'work' => [['stoneId' => $stone, 'serviceId' => 'full-package']],
+                'serviceId' => 'countertop',
             ])]])
-            ->assertSessionHasErrors(['projects.0.work.0.serviceId' => 'That choice is no longer available.']);
+            ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
     });
 
     it('moves an inquiry to pickup and back, keeping the location to the delivery', function (): void {
@@ -330,26 +338,59 @@ describe('staff editing', function (): void {
         expect($inquiry->fresh()->name)->toBe('Changed');
     })->with([Role::Marketing, Role::Sales]);
 
-    it('locks the project for staff once the client approves the quotation, but not for the admin', function (): void {
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
-        showInquiryAs($inquiry, InquiryStatus::Won);
-        $sales = User::factory()->role(Role::Sales)->create();
-        $admin = User::factory()->role(Role::Admin)->create();
+    it('lets staff change the service, and never the client\'s files', function (): void {
+        Storage::fake(config('inquiry.disk'));
 
-        $this->actingAs($sales)->get(route('inquiry.edit', $inquiry->reference))
-            ->assertRedirect(route('inquiry.index'));
-        $this->actingAs($sales)
-            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed'])]])
-            ->assertSessionHasErrors(['status' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
+        $inquiry = sentInquiry($this, [inquiryProjectInput([
+            'name' => 'Kitchen',
+            'attachments' => [UploadedFile::fake()->create('plan.pdf', 10, 'application/pdf')],
+        ])]);
+        $file = $inquiry->files()->sole();
+        $staff = User::factory()->role(Role::Sales)->create();
 
-        expect($inquiry->fresh()->name)->toBe('Kitchen');
-
-        $this->actingAs($admin)->get(route('inquiry.edit', $inquiry->reference))->assertOk();
-        $this->actingAs($admin)
-            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Admin fix'])]])
+        // No keepFileIds: the stored file stays anyway, as it is not staff's to remove.
+        $this->actingAs($staff)
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['serviceId' => 'tables', 'keepFileIds' => []])]])
             ->assertSessionHasNoErrors();
 
-        expect($inquiry->fresh()->name)->toBe('Admin fix');
+        expect($inquiry->fresh()->service->slug)->toBe('tables')
+            ->and($inquiry->files()->pluck('id')->all())->toBe([$file->id])
+            ->and(Storage::disk(config('inquiry.disk'))->exists($file->path))->toBeTrue();
+
+        $this->actingAs($staff)
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+                'attachments' => [UploadedFile::fake()->create('other.pdf', 10, 'application/pdf')],
+            ])]])
+            ->assertSessionHasErrors('projects.0.attachments.0');
+
+        expect($inquiry->files()->count())->toBe(1);
+    });
+
+    it('locks the project for everyone once the client approves the quotation', function (Role $role): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        showInquiryAs($inquiry, InquiryStatus::Won);
+        $staff = User::factory()->role($role)->create();
+
+        $this->actingAs($staff)->get(route('inquiry.edit', $inquiry->reference))
+            ->assertRedirect(route('inquiry.index'));
+        $this->actingAs($staff)
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed', 'serviceId' => 'tables'])]])
+            ->assertSessionHasErrors(['status' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
+
+        expect($inquiry->fresh()->name)->toBe('Kitchen')
+            ->and($inquiry->fresh()->service->slug)->toBe('slab-supply-only');
+    })->with([Role::Sales, Role::Marketing, Role::Admin]);
+
+    it('hides the edit control from staff once the client approves the quotation', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        $admin = User::factory()->role(Role::Admin)->create();
+        $actions = fn (): array => $this->actingAs($admin)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'][0]['actions'];
+
+        showInquiryAs($inquiry, InquiryStatus::Quoted);
+        expect($actions())->toContain('edit');
+
+        showInquiryAs($inquiry, InquiryStatus::Won);
+        expect($actions())->not->toContain('edit');
     });
 });
 

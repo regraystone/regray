@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Check, ExternalLink, Heart, ImageOff } from 'lucide-react';
+import { Heart, ImageOff } from 'lucide-react';
 import { useState } from 'react';
 
 /**
@@ -21,11 +21,6 @@ const ProductCard = ({
     saved,
     onToggleSave,
     href,
-    selectable = false,
-    selected = false,
-    onSelect,
-    viewHref,
-    note,
     priority = false,
 }: {
     product: ProductCardData;
@@ -37,28 +32,6 @@ const ProductCard = ({
      */
     onToggleSave?: () => void;
     href?: string;
-    /**
-     * Turns the card from a link to a stone into a picker.
-     *
-     * Choosing a stone *is* the action on the inquiry stepper, and its profile
-     * is one visit away at most, so the card is better as a toggle than as a
-     * link. Without this the card is exactly what it has always been.
-     */
-    selectable?: boolean;
-    selected?: boolean;
-    onSelect?: () => void;
-    /** An outbound link on the footer, shown only when there is one to show. */
-    viewHref?: string;
-    /**
-     * A short tag over the picture, said once and left out when there is none.
-     *
-     * On the inquiry stepper this is how a stone that is already part of another
-     * project says so. It is a tag rather than a dimmed or disabled card because
-     * the same stone in two projects is a real request — a honed floor and a
-     * polished top of one material — and a card that refused the second pick
-     * would say it was not.
-     */
-    note?: string;
     priority?: boolean;
 }) => {
     /*
@@ -114,24 +87,7 @@ const ProductCard = ({
             </button>
         ) : null;
 
-    const renderView = (onPicture: boolean) =>
-        viewHref ? (
-            <a
-                href={viewHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(event) => event.stopPropagation()}
-                aria-label={`View ${product.name} (opens in a new tab)`}
-                className={`grid h-9 w-9 shrink-0 place-items-center rounded-md transition-opacity hover:opacity-60 ${
-                    onPicture ? 'text-white' : 'text-secondary-foreground'
-                }`}
-            >
-                <ExternalLink className="size-5" aria-hidden />
-            </a>
-        ) : null;
-
     const heart = renderHeart(true);
-    const view = renderView(true);
 
     const placeholder = (
         <div
@@ -141,95 +97,6 @@ const ProductCard = ({
             <ImageOff className="size-8" />
         </div>
     );
-
-    if (selectable) {
-        // The footer is at least 60px tall: 44px controls with 8px above and
-        // below, or the name and category's 36px with 12px above and below,
-        // and it grows by a line when a long name wraps to two. Reserve the controls' width
-        // plus their 12px right inset.
-        const namePadding = viewHref ? 'pr-[100px]' : 'pr-14';
-
-        return (
-            <article
-                className={`relative overflow-hidden rounded-none border ${
-                    selected
-                        ? 'border-primary bg-background ring-2 ring-primary'
-                        : 'border-sidebar-border bg-background'
-                }`}
-            >
-                {/*
-                 * The toggle covers the image and the name, so a click anywhere
-                 * on the card that is not one of the footer controls lands on
-                 * it, and their clicks cannot reach it. Keeping them as siblings
-                 * of this button rather than children is also what keeps an
-                 * interactive element out of another one. A native button
-                 * already turns Space and Enter into a click, so the card does
-                 * not have to.
-                 */}
-                <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={selected}
-                    aria-label={product.name}
-                    onClick={onSelect}
-                    className="block w-full cursor-pointer rounded-none bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                >
-                    <div className="stone-card-media relative aspect-square w-full overflow-hidden bg-background">
-                        {product.thumbnail ? (
-                            <img
-                                src={product.thumbnail}
-                                alt=""
-                                loading={priority ? 'eager' : 'lazy'}
-                                className="absolute inset-0 size-full object-cover"
-                            />
-                        ) : (
-                            placeholder
-                        )}
-                        {selected ? (
-                            <span
-                                aria-hidden
-                                className="absolute top-0 right-0 rounded-none bg-primary p-2 text-white"
-                            >
-                                <Check className="size-3 shrink-0" />
-                            </span>
-                        ) : null}
-                        {/*
-                         * Bottom-left, where nothing else sits: the tick is
-                         * top-right.
-                         */}
-                        {note ? (
-                            <span className="absolute bottom-0 left-0 rounded-none bg-black px-2 py-1.5 text-[0.65rem] font-bold tracking-[0.05em] text-white uppercase">
-                                {note}
-                            </span>
-                        ) : null}
-                    </div>
-                    {/* The right padding clears the footer controls. */}
-                    <span
-                        className={`block min-w-0 py-3 pl-3 text-sm font-bold text-foreground ${namePadding}`}
-                    >
-                        <span
-                            className="line-clamp-2 break-words uppercase"
-                            title={product.name}
-                        >
-                            {product.name}
-                        </span>
-                        <span className="block text-xs font-normal break-words text-secondary-foreground">
-                            {product.category.name}
-                        </span>
-                    </span>
-                </button>
-
-                {/*
-                 * Out of flow and over the name row, so the image keeps the
-                 * full card width instead of sharing it with the controls.
-                 */}
-                <div className="absolute right-3 bottom-2 flex items-center">
-                    {renderHeart(false)}
-                    {renderView(false)}
-                </div>
-            </article>
-        );
-    }
 
     /*
      * The card is a link when there is somewhere to send it and plain content
@@ -254,10 +121,9 @@ const ProductCard = ({
                 ) : (
                     placeholder
                 )}
-                {heart || view ? (
+                {heart ? (
                     <div className="absolute top-3 right-3 z-10 hidden items-center gap-1 rounded-md bg-black/60 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 lg:flex">
                         {heart}
-                        {view}
                     </div>
                 ) : null}
             </div>
@@ -279,10 +145,9 @@ const ProductCard = ({
                  * first line. From `lg` up the picture copy takes over and this
                  * one is not laid out.
                  */}
-                {onToggleSave || viewHref ? (
+                {onToggleSave ? (
                     <div className="-mt-2 flex shrink-0 items-center lg:hidden">
                         {renderHeart(false)}
-                        {renderView(false)}
                     </div>
                 ) : null}
             </div>

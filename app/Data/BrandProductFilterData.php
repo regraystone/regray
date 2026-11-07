@@ -10,7 +10,7 @@ final readonly class BrandProductFilterData
     public function __construct(
         public string $collection,
         public ?string $search,
-        public ?string $category,
+        public ?string $type,
         public ?string $size,
         public ?string $thickness,
         public ?string $furnitureType,
@@ -23,7 +23,7 @@ final readonly class BrandProductFilterData
         return new self(
             collection: $request->validated('collection') ?? BrandCollectionRequest::COLLECTION_ALL,
             search: $request->validated('search'),
-            category: $request->validated('category'),
+            type: $request->validated('type'),
             size: $request->validated('size'),
             thickness: $request->validated('thickness'),
             furnitureType: $request->validated('furniture_type'),

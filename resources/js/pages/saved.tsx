@@ -98,7 +98,7 @@ const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
                                     slug: stone.slug,
                                     name: stone.name,
                                     thumbnail: stone.thumbnail,
-                                    category: stone.category,
+                                    category: stone.type,
                                 }}
                                 href={brandStoneShow.url({
                                     brand: stone.brand.slug,

@@ -7,7 +7,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 
-/** A labelled dropdown of the Inquire page's lists: its services and furniture types. */
+/** A labelled dropdown of the Inquire page's lists: its service types and services. */
 const ServiceOptionSelect = ({
     id,
     label = 'What do you need?',
@@ -16,6 +16,7 @@ const ServiceOptionSelect = ({
     onChange,
     error,
     options,
+    describedBy,
 }: {
     id: string;
     label?: string;
@@ -26,6 +27,8 @@ const ServiceOptionSelect = ({
     onChange: (option: string) => void;
     error?: string;
     options: Array<{ id: string; name: string }>;
+    /** The id of what explains the entry picked, for a screen reader. */
+    describedBy?: string;
 }) => (
     <>
         <label
@@ -41,7 +44,11 @@ const ServiceOptionSelect = ({
             <SelectTrigger
                 id={id}
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${id}-error` : undefined}
+                aria-describedby={
+                    [describedBy, error ? `${id}-error` : undefined]
+                        .filter(Boolean)
+                        .join(' ') || undefined
+                }
                 className="mt-2 w-full rounded-none bg-background sm:max-w-md"
                 data-testid="service-option"
             >

@@ -63,7 +63,7 @@ it('gives each role its header and row actions on the Inquiry list', function (R
     'accounting' => [Role::Accounting, false, ['view', 'status.payment']],
     'logistics' => [Role::Logistics, false, ['view', 'status.process']],
     'owner' => [Role::Owner, false, ['view']],
-    'admin' => [Role::Admin, true, ['view', 'edit', 'status.sales', 'status.payment', 'status.process']],
+    'admin' => [Role::Admin, true, ['view', 'status.sales', 'status.payment', 'status.process']],
 ]);
 
 it('lists to each role only its own share of the inquiries', function (Role $role, array $references): void {

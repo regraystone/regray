@@ -11,11 +11,8 @@ import {
 import {
     DELIVERY,
     REQUIREMENTS_STEP,
+    SERVICE_STEP,
     STONES_STEP,
-    WORK_STEP,
-    workProblems,
-    workRowKeys,
-    workRowLabel,
 } from '@/lib/inquiry-flow';
 import type { InquiryCatalog } from '@/types/inquiry';
 
@@ -25,14 +22,14 @@ import type { InquiryCatalog } from '@/types/inquiry';
  * by them, and one owner means a step cannot be renumbered on one side and still
  * own the same fields on the other.
  *
- * Stones come first, then the work each one needs, then the details.
+ * What the reader needs comes first, then the stones, then the details.
  *
  * The questions build one project and are a separate flow from the Review step,
  * which is about the inquiry as a whole. That is why `STEP_FIELDS` below starts
  * at `REQUIREMENTS_STEP`: the questions validate a draft rather than the form the
  * request is built from, so they own no committed fields.
  */
-export { REQUIREMENTS_STEP, STONES_STEP, WORK_STEP };
+export { REQUIREMENTS_STEP, SERVICE_STEP, STONES_STEP };
 
 /** Attachments, shared so the drop zone and the rule below cannot disagree. */
 export const MAX_ATTACHMENTS = 10;
@@ -277,24 +274,19 @@ const projectNameSchema = z
  * the list" can only be written once the list is known.
  */
 export const createInquirySchemas = (catalog: InquiryCatalog) => {
-    const stoneIds = new Set(catalog.stones.map((stone) => stone.slug));
     const edgeNames = new Set(catalog.edgeProfiles.map((edge) => edge.name));
     const finishNames = new Set(catalog.finishes.map((finish) => finish.name));
-    const furnitureTypeIds = catalog.furnitureTypes.map(({ id }) => id);
-
-    /** What was chosen for each stone. Whether it is complete is the draft's rule. */
-    const stoneWorkSchema = z.record(
-        z.string(),
-        z.object({
-            serviceId: z.string(),
-            furnitureType: z.string(),
-        }),
+    const serviceIds = new Set(
+        catalog.serviceTypes.flatMap(({ services }) =>
+            services.map(({ id }) => id),
+        ),
     );
 
-    /* A stone, as an id that has to still be in the catalogue. */
-    const stoneIdSchema = z.string().refine((id) => stoneIds.has(id), {
-        error: 'That stone is no longer available.',
-    });
+    /*
+     * A stone, by its slug. The page only holds the stones it has been sent, so
+     * whether this one is still on offer is the server's to say.
+     */
+    const stoneIdSchema = z.string();
 
     /**
      * One stone inside a project: which stone, how many of it, and how it is cut.
@@ -411,18 +403,15 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
     /**
      * The rules a project's answers have to meet together, committed or not.
      *
-     * A project of stone needs a stone or the request for a recommendation, and
-     * the work for each. A delivery needs its location. Every project needs a day,
-     * because sending the inquiry books it as a schedule, for 10:00.
+     * A project needs a service, and a stone or the request for a recommendation.
+     * A delivery needs its location. Every project needs a day, because sending the
+     * inquiry books it as a schedule, for 10:00.
      */
     const refineAnswers = (
         answers: {
+            serviceId: string;
             stoneAdvice: boolean;
             stoneIds: string[];
-            stoneWork: Record<
-                string,
-                { serviceId: string; furnitureType: string }
-            >;
             deliveryMethod: string;
             location: string;
             neededBy: string;
@@ -430,40 +419,28 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
         stonesField: string,
         ctx: z.RefinementCtx,
     ): void => {
-        {
-            if (answers.stoneIds.length === 0 && !answers.stoneAdvice) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: [stonesField],
-                    message: 'Select at least one stone.',
-                });
-            }
-
-            workProblems(
-                workRowKeys(answers),
-                answers.stoneWork,
-                catalog.services,
-                furnitureTypeIds,
-            ).forEach(({ key, field }) => {
-                const label = workRowLabel(key, catalog.stones);
-
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['stoneWork', key, field],
-                    message: {
-                        serviceId: `Choose the work for ${label}.`,
-                        furnitureType: `Choose the furniture type for ${label}.`,
-                    }[field],
-                });
+        if (!serviceIds.has(answers.serviceId)) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['serviceId'],
+                message: 'Choose what you need.',
             });
+        }
 
-            if (answers.deliveryMethod === '') {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['deliveryMethod'],
-                    message: 'Choose how you would like to get it.',
-                });
-            }
+        if (answers.stoneIds.length === 0 && !answers.stoneAdvice) {
+            ctx.addIssue({
+                code: 'custom',
+                path: [stonesField],
+                message: 'Select at least one stone.',
+            });
+        }
+
+        if (answers.deliveryMethod === '') {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['deliveryMethod'],
+                message: 'Choose how you would like to get it.',
+            });
         }
 
         if (answers.deliveryMethod === DELIVERY) {
@@ -508,9 +485,10 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
         .object({
             id: z.string(),
             name: projectNameSchema,
+            serviceTypeId: z.string(),
+            serviceId: z.string(),
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
-            stoneWork: stoneWorkSchema,
             deliveryMethod: z.string(),
             ...projectDetailsShape,
         })
@@ -542,9 +520,10 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
         .object({
             stoneIds: z.array(stoneIdSchema),
             name: projectNameSchema,
+            serviceTypeId: z.string(),
+            serviceId: z.string(),
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
-            stoneWork: stoneWorkSchema,
             deliveryMethod: z.string(),
             ...projectDetailsShape,
         })
@@ -615,10 +594,11 @@ export const inquiryDefaults = {
  */
 export const draftDefaults = {
     name: '',
+    serviceTypeId: '',
+    serviceId: '',
     stoneAdvice: false,
     stoneIds: [],
     stones: [],
-    stoneWork: {},
     deliveryMethod: DELIVERY,
     location: '',
     landmark: '',

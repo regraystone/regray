@@ -7,7 +7,7 @@ import { CATALOG, projectPayload } from '../support/inquiry-flow';
  * the signed-in client's cookies straight to POST /quote/inquire.
  */
 
-test('28 · a kind of work no longer offered is refused with 422 at its form path, and nothing is saved', async ({
+test('28 · a service that is not offered is refused with 422 at its form path, and nothing is saved', async ({
     actors,
 }) => {
     const { clientAId } = inquiryFixtures();
@@ -16,22 +16,12 @@ test('28 · a kind of work no longer offered is refused with 422 at its form pat
     const before = inquiryCount(clientAId);
 
     const response = await postAsUser(page, '/dashboard/quote/inquire', {
-        projects: [
-            projectPayload({
-                work: [
-                    {
-                        stoneId: CATALOG.stoneSlug,
-                        serviceId: 'consultation-only',
-                        furnitureType: '',
-                    },
-                ],
-            }),
-        ],
+        projects: [projectPayload({ serviceId: 'consultation-only' })],
     });
 
     expect(response.status).toBe(422);
     expect(response.json?.errors).toEqual({
-        'projects.0.work.0.serviceId': ['That choice is no longer available.'],
+        'projects.0.serviceId': ['That choice is no longer available.'],
     });
     expect(inquiryCount(clientAId)).toBe(before);
 });

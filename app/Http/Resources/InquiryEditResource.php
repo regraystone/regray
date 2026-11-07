@@ -6,8 +6,6 @@ use App\Enums\DocumentType;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStone;
-use App\Models\InquiryWorkItem;
-use App\Models\Service;
 use App\Services\ScheduleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -17,19 +15,21 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * it is, in the shape of a project on that page.
  *
  * Unlike InquiryDetailsResource, which is for reading, every identifier here is
- * the one the form sends back: the inquiry's and the files' real ids, service,
- * furniture type and stone slugs, and edge and finish names. Only the client's
- * own attachments, nothing about the client and no file paths.
+ * the one the form sends back: the inquiry's and the files' real ids, service
+ * and stone slugs, and edge and finish names. Only the client's own attachments,
+ * nothing about the client and no file paths.
  *
- * `heldServices` are the services it already has, so one no longer offered to new
- * inquiries still reads back on the page and can be kept.
+ * `heldServiceType` is the service it already has under its type, so one no longer
+ * offered to new inquiries still reads back on the page and can be kept.
+ * `heldStones` are its stones as cards, since they may be on no page of stones the
+ * reader has reached.
  *
  * @mixin Inquiry
  */
 class InquiryEditResource extends JsonResource
 {
     /**
-     * @return array{id: int, name: string, work: list<array{stoneId: string|null, serviceId: string, furnitureType: string|null}>, heldServices: array<int, mixed>, stoneAdviceRequested: bool, stones: list<array{stoneId: string, quantity: int, edge: string, finish: string}>, deliveryMethod: string, location: string|null, landmark: string|null, areaSqm: float|null, notes: string|null, neededBy: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
+     * @return array{id: int, name: string, serviceTypeId: string|null, serviceId: string|null, heldServiceType: array{id: string, name: string, services: array<int, mixed>}|null, heldStones: array<int, mixed>, stoneAdviceRequested: bool, stones: list<array{stoneId: string, quantity: int, edge: string, finish: string}>, deliveryMethod: string, location: string|null, landmark: string|null, areaSqm: float|null, notes: string|null, neededBy: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -40,16 +40,15 @@ class InquiryEditResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'work' => array_values($this->workItems->map(fn (InquiryWorkItem $item): array => [
-                'stoneId' => $item->stone?->slug,
-                'serviceId' => $item->service->slug,
-                'furnitureType' => $item->furnitureType?->slug,
-            ])->all()),
-            'heldServices' => InquiryServiceResource::collection(
-                $this->workItems
-                    ->map(fn (InquiryWorkItem $item): Service => $item->service)
-                    ->unique('id')
-                    ->values(),
+            'serviceTypeId' => $this->service?->serviceType->slug,
+            'serviceId' => $this->service?->slug,
+            'heldServiceType' => $this->service === null ? null : [
+                'id' => $this->service->serviceType->slug,
+                'name' => $this->service->serviceType->name,
+                'services' => InquiryServiceResource::collection([$this->service])->resolve($request),
+            ],
+            'heldStones' => StoneCardResource::collection(
+                $this->stones->map(fn (InquiryStone $row) => $row->stone)->unique('id')->values(),
             )->resolve($request),
             'stoneAdviceRequested' => $this->stone_advice_requested,
             'stones' => array_values($this->stones->map(fn (InquiryStone $row): array => [

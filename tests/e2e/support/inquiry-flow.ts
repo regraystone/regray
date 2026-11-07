@@ -4,17 +4,21 @@ import { expect } from './fixtures';
 
 /*
  * The Inquire page through the controls a reader uses: two steps, the first being
- * three questions, one open at a time. The stone cards are checkboxes named after
- * the stone, the work and the delivery method are selects, the location is a
- * combobox, edge and finish are selects that stay folded away until asked for.
+ * three questions, one open at a time. The service type, the service and the
+ * delivery method are selects, the stone cards are checkboxes named after the stone,
+ * the location is a combobox, edge and finish are selects that stay folded away
+ * until asked for.
  *
  * The names below are the catalogue that DatabaseSeeder writes.
  */
 
 export const CATALOG = {
-    work: 'Stone supply only',
-    workSlug: 'supply-only',
-    furnitureWork: 'Customized furniture',
+    serviceType: 'Natural Stone & Applications',
+    service: 'Slab Supply Only',
+    serviceSlug: 'slab-supply-only',
+    furnitureType: 'Custom Stone Furniture',
+    furniture: 'Tables',
+    furnitureSlug: 'tables',
     stones: ['Warm Beige Granite', 'Flamed - Gray'],
     stoneSlug: 'warm-beige-granite',
     edges: ['Straight Edge', 'Full Bevel'],
@@ -24,8 +28,8 @@ export const CATALOG = {
 
 /** The three questions of the first step, in order. Number 4 means Review. */
 export const QUESTIONS = [
-    'Which stones do you like?',
-    'What work does each stone need?',
+    'What do you need?',
+    'Which stones?',
     'Other details',
 ] as const;
 
@@ -105,34 +109,28 @@ export const continueButton = (page: Page): Locator =>
 export const continueToReview = (page: Page): Locator =>
     page.getByRole('button', { name: 'Continue to review' });
 
-/** The row of one stone in the Work question, or of `STONE_ADVICE_LABEL`. */
-export const workRow = (page: Page, label: string): Locator =>
-    page.getByTestId('stone-work-row').filter({ hasText: label });
+export const SERVICE_TYPE_ID = 'inquiry-service-type';
+export const SERVICE_ID = 'inquiry-service';
 
-const chooseInRow = async (
+/** Answer the first question: a service type, then one of its services. */
+export const pickService = async (
     page: Page,
-    dropdown: Locator,
-    option: string,
+    serviceType: string = CATALOG.serviceType,
+    service: string = CATALOG.service,
 ): Promise<void> => {
-    await dropdown.click();
-    await page.getByRole('option', { name: option, exact: true }).click();
-    await expect(dropdown).toContainText(option);
+    await chooseInSelect(page, SERVICE_TYPE_ID, serviceType);
+    await chooseInSelect(page, SERVICE_ID, service);
 };
 
-/** Answer one row of the Work question, and its furniture type if it asks one. */
-export const pickWork = async (
+/** The first question answered, and the stones open. */
+export const walkToStones = async (
     page: Page,
-    label: string,
-    option: string = CATALOG.work,
-    furnitureType?: string,
+    serviceType?: string,
+    service?: string,
 ): Promise<void> => {
-    const dropdowns = workRow(page, label).getByTestId('service-option');
-
-    await chooseInRow(page, dropdowns.first(), option);
-
-    if (furnitureType !== undefined) {
-        await chooseInRow(page, dropdowns.nth(1), furnitureType);
-    }
+    await pickService(page, serviceType, service);
+    await continueButton(page).click();
+    await expectStep(page, 2);
 };
 
 export const pickStone = async (page: Page, name: string): Promise<void> => {
@@ -231,8 +229,8 @@ export const answerDeadline = async (
 export type StoneProjectAnswers = {
     name?: string;
     stones?: string[];
-    /** The work of each stone, in the same order; supply only where not said. */
-    work?: Array<{ option: string; furnitureType?: string }>;
+    serviceType?: string;
+    service?: string;
     rows?: StoneRowAnswer[];
     location?: string;
     landmark?: string;
@@ -244,19 +242,10 @@ export const walkToRequirements = async (
     page: Page,
     answers: StoneProjectAnswers = {},
 ): Promise<void> => {
-    const stones = answers.stones ?? [CATALOG.stones[0]];
+    await walkToStones(page, answers.serviceType, answers.service);
 
-    for (const stone of stones) {
+    for (const stone of answers.stones ?? [CATALOG.stones[0]]) {
         await pickStone(page, stone);
-    }
-
-    await continueButton(page).click();
-    await expectStep(page, 2);
-
-    for (const [index, stone] of stones.entries()) {
-        const work = answers.work?.[index];
-
-        await pickWork(page, stone, work?.option, work?.furnitureType);
     }
 
     await continueButton(page).click();
@@ -323,7 +312,7 @@ export const sendAndReadReference = async (page: Page): Promise<string> => {
         page.getByRole('heading', { name: 'Quote requested' }),
     ).toBeVisible();
     const reference = await page
-        .getByRole('status')
+        .getByRole('dialog')
         .filter({ hasText: 'Your reference is' })
         .locator('span.font-bold')
         .innerText();
@@ -338,13 +327,7 @@ export const projectPayload = (
     overrides: Record<string, unknown> = {},
 ): Record<string, unknown> => ({
     name: 'Bypass project',
-    work: [
-        {
-            stoneId: CATALOG.stoneSlug,
-            serviceId: CATALOG.workSlug,
-            furnitureType: '',
-        },
-    ],
+    serviceId: CATALOG.serviceSlug,
     stones: [
         {
             stoneId: CATALOG.stoneSlug,

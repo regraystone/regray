@@ -7,7 +7,7 @@ use App\Models\Brand;
 use App\Models\CareTip;
 use App\Models\Finish;
 use App\Models\Stone;
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -21,12 +21,12 @@ class StoneSeeder extends Seeder
 
         $data = require database_path('seeders/data/stones.php');
 
-        $categories = [];
+        $types = [];
         $defaults = [];
         $sortOrder = 0;
 
-        foreach ($data['categories'] as $stoneData) {
-            $category = StoneCategory::query()->updateOrCreate(
+        foreach ($data['types'] as $stoneData) {
+            $type = StoneType::query()->updateOrCreate(
                 ['slug' => $stoneData['slug']],
                 [
                     'name' => $stoneData['name'],
@@ -36,7 +36,7 @@ class StoneSeeder extends Seeder
                     'sort_order' => $sortOrder++,
                 ]
             );
-            $categories[$stoneData['slug']] = $category;
+            $types[$stoneData['slug']] = $type;
             $defaults[$stoneData['slug']] = $stoneData;
         }
 
@@ -46,28 +46,28 @@ class StoneSeeder extends Seeder
         $sizes = ['20x120', '60x60', '60x120', '80x80'];
 
         foreach ($data['stones'] as $idx => $imageData) {
-            $categorySlug = $imageData['stone_slug'];
-            $category = $categories[$categorySlug];
+            $typeSlug = $imageData['stone_slug'];
+            $type = $types[$typeSlug];
             $slug = Str::slug($imageData['name']);
             $name = $imageData['name'];
 
             if (isset($usedSlugs[$slug])) {
-                $slug .= '-'.$categorySlug;
+                $slug .= '-'.$typeSlug;
             }
             if (isset($usedNames[Str::lower($name)])) {
-                $name .= ' ('.$category->name.')';
+                $name .= ' ('.$type->name.')';
             }
             $usedSlugs[$slug] = true;
             $usedNames[Str::lower($name)] = true;
 
             $stone = Stone::query()->updateOrCreate(['slug' => $slug], [
                 'brand_id' => $brandId,
-                'stone_category_id' => $category->id,
+                'stone_type_id' => $type->id,
                 'name' => $name,
                 'thumbnail_path' => $imageData['path'],
                 'size' => $sizes[$idx % count($sizes)],
-                'thickness_mm' => $defaults[$categorySlug]['thickness_mm'],
-                'origin' => $defaults[$categorySlug]['origin'],
+                'thickness_mm' => $defaults[$typeSlug]['thickness_mm'],
+                'origin' => $defaults[$typeSlug]['origin'],
                 'is_active' => true,
                 'sort_order' => $idx,
             ]);
@@ -117,7 +117,7 @@ class StoneSeeder extends Seeder
 
         $stoneProfiles = $this->getStoneProfiles();
 
-        foreach ($categories as $stoneSlug => $stone) {
+        foreach ($types as $stoneSlug => $stone) {
             if (! isset($stoneProfiles[$stoneSlug])) {
                 continue;
             }

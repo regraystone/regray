@@ -47,11 +47,6 @@ interface InquiryRepositoryInterface
     ): InquiryStatusHistory;
 
     /**
-     * @param  list<array{stone_id: int|null, service_id: int, furniture_type_id: int|null}>  $items
-     */
-    public function addWorkItems(Inquiry $inquiry, array $items): void;
-
-    /**
      * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>  $stones  Stored in the order given.
      */
     public function addStones(Inquiry $inquiry, array $stones): void;
@@ -108,15 +103,6 @@ interface InquiryRepositoryInterface
     public function distinctStonesFor(array $inquiryIds): Collection;
 
     /**
-     * The services of each inquiry, once each, in one query. Each carries the
-     * `inquiry_id` it belongs to.
-     *
-     * @param  list<int>  $inquiryIds
-     * @return Collection<int, Service>
-     */
-    public function distinctServicesFor(array $inquiryIds): Collection;
-
-    /**
      * This client's inquiry by reference, locked until the transaction ends.
      * Null for a reference that is not theirs, so the two cases look the same.
      */
@@ -139,13 +125,6 @@ interface InquiryRepositoryInterface
     public function updateDetails(Inquiry $inquiry, array $attributes): void;
 
     /**
-     * Replace what is wanted of the inquiry's stones with these.
-     *
-     * @param  list<array{stone_id: int|null, service_id: int, furniture_type_id: int|null}>  $items
-     */
-    public function replaceWorkItems(Inquiry $inquiry, array $items): void;
-
-    /**
      * Replace the inquiry's stone rows with these, in the order given.
      *
      * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>  $stones
@@ -163,7 +142,7 @@ interface InquiryRepositoryInterface
 
     /**
      * This client's inquiry by reference with everything the details page shows:
-     * services, categories, stones (with the edge and finish), files, the
+     * its service and type, stones (with the edge and finish), files, the
      * schedule and the status history. Null for a reference that is not theirs.
      */
     public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry;

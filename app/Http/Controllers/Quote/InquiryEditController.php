@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Quote;
 
 use App\Actions\Inquiry\ListInquiryOptionsAction;
+use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Quote\ShowInquiryEditAction;
 use App\Actions\Quote\UpdateInquiryAction;
 use App\Http\Controllers\Controller;
@@ -35,6 +36,7 @@ class InquiryEditController extends Controller
         public readonly ShowInquiryEditAction $showInquiryEdit,
         public readonly UpdateInquiryAction $updateInquiry,
         public readonly ListInquiryOptionsAction $listInquiryOptions,
+        public readonly ListInquiryStonesAction $listInquiryStones,
         public readonly InquiryDetailsService $inquiryDetailsService,
         public readonly InquiryService $inquiryService,
     ) {}
@@ -52,6 +54,7 @@ class InquiryEditController extends Controller
 
         return Inertia::render('inquire', [
             ...InquiryCatalogResource::make($this->listInquiryOptions->execute())->resolve($request),
+            ...$this->listInquiryStones->execute($request),
             'mode' => 'edit',
             'reference' => $result['inquiry']->reference,
             'projects' => [InquiryEditResource::make($result['inquiry'])->resolve($request)],
@@ -61,7 +64,7 @@ class InquiryEditController extends Controller
     /**
      * Staff edit an inquiry's project from the Inquiry list: the same page in
      * edit mode, for an inquiry that is still open and not yet approved by the
-     * client (the admin may edit an approved one), with no files.
+     * client, with no files.
      */
     public function staffEdit(Request $request, string $reference): Response|RedirectResponse
     {
@@ -73,7 +76,7 @@ class InquiryEditController extends Controller
             return to_route('inquiry.index');
         }
 
-        if (! InquiryStatusRules::isEditableBy($inquiry, $request->user())) {
+        if (! InquiryStatusRules::isEditable($inquiry)) {
             Inertia::flash('toast', ['type' => 'error', 'message' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
 
             return to_route('inquiry.index');
@@ -81,6 +84,7 @@ class InquiryEditController extends Controller
 
         return Inertia::render('inquire', [
             ...InquiryCatalogResource::make($this->listInquiryOptions->execute())->resolve($request),
+            ...$this->listInquiryStones->execute($request),
             'mode' => 'edit',
             'editor' => 'staff',
             'reference' => $inquiry->reference,

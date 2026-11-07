@@ -2,41 +2,39 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    ALL_STONE_TYPES,
     DELIVERY,
     INQUIRY_STEP_LABELS,
     PICKUP,
     REQUIREMENTS_STEP,
     REVIEW_STEP,
-    STONE_ADVICE_KEY,
-    STONE_ADVICE_LABEL,
+    SERVICE_STEP,
     STONES_STEP,
-    WORK_STEP,
     autoProjectName,
     buildCommittedProject,
-    chooseWorkService,
     clampRestoredStep,
-    keepWorkFor,
     nextQuestion,
     seedStoneRows,
+    serviceChoiceLabel,
     stepperPosition,
-    workProblems,
-    workRowKeys,
-    workRowLabel,
+    stoneFilterQuery,
+    stoneTypeOptions,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
 const draft = (overrides = {}) => ({
+    serviceId: '',
     stoneIds: [],
     ...overrides,
 });
 
 const regular = draft({
+    serviceId: 'countertop',
     stoneIds: ['marble'],
-    workIsComplete: true,
 });
 
 /** Every question a reader is shown, following Next from the first. */
 const walk = () => {
-    const seen = [STONES_STEP];
+    const seen = [SERVICE_STEP];
 
     while (seen.at(-1) !== REVIEW_STEP) {
         seen.push(nextQuestion(seen.at(-1)));
@@ -54,7 +52,7 @@ describe('the steps', () => {
     });
 
     it('show every question as the first step and Review as the second', () => {
-        for (const question of [STONES_STEP, WORK_STEP, REQUIREMENTS_STEP]) {
+        for (const question of [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP]) {
             assert.equal(stepperPosition(question), 1);
         }
 
@@ -63,10 +61,10 @@ describe('the steps', () => {
 });
 
 describe('moving between the questions', () => {
-    it('asks Stones, then the work, then the details, then Review', () => {
+    it('asks what is needed, then the stones, then the details, then Review', () => {
         assert.deepEqual(walk(), [
+            SERVICE_STEP,
             STONES_STEP,
-            WORK_STEP,
             REQUIREMENTS_STEP,
             REVIEW_STEP,
         ]);
@@ -77,172 +75,68 @@ describe('moving between the questions', () => {
     });
 });
 
-describe('the work per stone', () => {
-    const options = [
-        {
-            id: 'supply-only',
-            name: 'Stone supply',
-            standalone: false,
-            needsFurniture: false,
-        },
-        {
-            id: 'furniture-only',
-            name: 'Customized furniture',
-            standalone: false,
-            needsFurniture: true,
-        },
-        {
-            id: 'furniture-other',
-            name: 'Other furniture',
-            standalone: false,
-            needsFurniture: true,
-        },
-    ];
-    const types = ['Seating', 'Tables'];
-    const entry = (serviceId = '', furnitureType = '') => ({
-        serviceId,
-        furnitureType,
-    });
-
-    it('has one row per stone', () => {
-        assert.deepEqual(
-            workRowKeys({ stoneIds: ['marble', 'onyx'], stoneAdvice: false }),
-            ['marble', 'onyx'],
-        );
-    });
-
-    it('has one row with no stone for Help me choose', () => {
-        assert.deepEqual(workRowKeys({ stoneIds: [], stoneAdvice: true }), [
-            STONE_ADVICE_KEY,
-        ]);
+describe('the second dropdown', () => {
+    it('asks which application, or which furniture for custom furniture', () => {
         assert.equal(
-            workRowLabel(STONE_ADVICE_KEY, []),
-            'Stone to be recommended by Regray',
+            serviceChoiceLabel('natural-stone-applications'),
+            'Which application?',
         );
-        assert.equal(workRowLabel(STONE_ADVICE_KEY, []), STONE_ADVICE_LABEL);
-    });
-
-    it('labels a stone by its name', () => {
         assert.equal(
-            workRowLabel('marble', [{ slug: 'marble', name: 'Marble' }]),
-            'Marble',
+            serviceChoiceLabel('custom-stone-furniture'),
+            'Which furniture?',
         );
     });
+});
 
-    it('blocks a stone with no option', () => {
-        assert.deepEqual(workProblems(['marble'], {}, options, types), [
-            { key: 'marble', field: 'serviceId' },
-        ]);
-    });
-
-    it('blocks furniture work until a furniture type is picked', () => {
+describe('finding a stone', () => {
+    it('offers All Type first, then the types the server sent', () => {
         assert.deepEqual(
-            workProblems(
-                ['marble'],
-                { marble: entry('furniture-only') },
-                options,
-                types,
-            ),
-            [{ key: 'marble', field: 'furnitureType' }],
-        );
-        assert.deepEqual(
-            workProblems(
-                ['marble'],
-                { marble: entry('furniture-only', 'Tables') },
-                options,
-                types,
-            ),
-            [],
-        );
-    });
-
-    it('does not ask other work for a furniture type', () => {
-        assert.deepEqual(
-            workProblems(
-                ['marble'],
-                { marble: entry('supply-only') },
-                options,
-                types,
-            ),
-            [],
-        );
-    });
-
-    it('refuses an option and a furniture type that are not on the list', () => {
-        assert.deepEqual(
-            workProblems(
-                ['marble', 'onyx'],
-                {
-                    marble: entry('gone'),
-                    onyx: entry('furniture-only', 'Gone'),
-                },
-                options,
-                types,
-            ),
+            stoneTypeOptions([{ value: 'marble', label: 'Marble' }]),
             [
-                { key: 'marble', field: 'serviceId' },
-                { key: 'onyx', field: 'furnitureType' },
+                { value: ALL_STONE_TYPES, label: 'All Type' },
+                { value: 'marble', label: 'Marble' },
             ],
         );
     });
 
-    it('checks only the rows that are still there', () => {
-        assert.deepEqual(workProblems([], {}, options, types), []);
-    });
-
-    it('removes the work of a stone that was unselected', () => {
-        const work = {
-            marble: entry('supply-only'),
-            onyx: entry('supply-only'),
-        };
-
-        assert.deepEqual(keepWorkFor(['onyx'], work), { onyx: work.onyx });
-    });
-
-    it('clears the furniture type when switching to work without one', () => {
-        const work = { marble: entry('furniture-only', 'Tables') };
-
-        assert.equal(
-            chooseWorkService(work, 'marble', 'supply-only', options).marble
-                .furnitureType,
-            '',
+    it('asks the server with no filter by default', () => {
+        assert.deepEqual(
+            stoneFilterQuery({
+                tab: 'all',
+                stoneType: ALL_STONE_TYPES,
+                search: '  ',
+            }),
+            {},
         );
     });
 
-    it('keeps the furniture type when the new work needs one too', () => {
-        const work = { marble: entry('furniture-only', 'Tables') };
-
-        assert.equal(
-            chooseWorkService(work, 'marble', 'furniture-other', options).marble
-                .furnitureType,
-            'Tables',
-        );
-    });
-
-    it('leaves the other rows alone', () => {
-        const work = { onyx: entry('supply-only') };
-
-        assert.equal(
-            chooseWorkService(work, 'marble', 'supply-only', options).onyx,
-            work.onyx,
+    it('sends the tab, the stone type and the trimmed search together', () => {
+        assert.deepEqual(
+            stoneFilterQuery({
+                tab: 'saved',
+                stoneType: 'marble',
+                search: ' bianco ',
+            }),
+            {
+                stone_tab: 'saved',
+                stone_type: 'marble',
+                stone_search: 'bianco',
+            },
         );
     });
 });
 
 describe('autoProjectName', () => {
-    it('is named after the first service picked', () => {
-        assert.equal(
-            autoProjectName(['Stone supply only', 'Full kitchen fit-out'], 100),
-            'Stone supply only',
-        );
+    it('is named after the service', () => {
+        assert.equal(autoProjectName('Countertop', 100), 'Countertop');
     });
 
     it('is blank with no service picked', () => {
-        assert.equal(autoProjectName([], 100), '');
+        assert.equal(autoProjectName('', 100), '');
     });
 
     it('stays inside the limit, without a trailing space', () => {
-        assert.equal(autoProjectName(['Stone supply'], 6), 'Stone');
+        assert.equal(autoProjectName('Stone supply', 6), 'Stone');
     });
 });
 
@@ -252,41 +146,42 @@ describe('clampRestoredStep', () => {
     });
 
     it('does not restore Review with no project', () => {
-        assert.equal(clampRestoredStep(REVIEW_STEP, 0, draft()), STONES_STEP);
+        assert.equal(clampRestoredStep(REVIEW_STEP, 0, draft()), SERVICE_STEP);
         assert.equal(
             clampRestoredStep(REVIEW_STEP, 0, regular),
             REQUIREMENTS_STEP,
         );
     });
 
-    it('lands on Stones when nothing is picked', () => {
+    it('lands on the first question with no service chosen', () => {
         assert.equal(
-            clampRestoredStep(REQUIREMENTS_STEP, 0, draft()),
+            clampRestoredStep(
+                REQUIREMENTS_STEP,
+                0,
+                draft({ stoneIds: ['marble'] }),
+            ),
+            SERVICE_STEP,
+        );
+    });
+
+    it('lands on the stones while none is picked', () => {
+        assert.equal(
+            clampRestoredStep(
+                REQUIREMENTS_STEP,
+                0,
+                draft({ serviceId: 'countertop' }),
+            ),
             STONES_STEP,
         );
     });
 
-    it('lands on the work while a stone still needs it', () => {
-        const unfinished = draft({ stoneIds: ['marble'] });
-
+    it('lets a request for a recommendation past the stones with none picked', () => {
         assert.equal(
-            clampRestoredStep(REQUIREMENTS_STEP, 0, unfinished),
-            WORK_STEP,
-        );
-    });
-
-    it('lets a request for a recommendation past Stones with none picked', () => {
-        const advice = draft({ stoneAdvice: true });
-
-        assert.equal(
-            clampRestoredStep(REQUIREMENTS_STEP, 0, advice),
-            WORK_STEP,
-        );
-        assert.equal(
-            clampRestoredStep(REQUIREMENTS_STEP, 0, {
-                ...advice,
-                workIsComplete: true,
-            }),
+            clampRestoredStep(
+                REQUIREMENTS_STEP,
+                0,
+                draft({ serviceId: 'countertop', stoneAdvice: true }),
+            ),
             REQUIREMENTS_STEP,
         );
     });
@@ -296,24 +191,23 @@ describe('clampRestoredStep', () => {
             clampRestoredStep(REQUIREMENTS_STEP, 0, regular),
             REQUIREMENTS_STEP,
         );
-        assert.equal(clampRestoredStep(WORK_STEP, 0, regular), WORK_STEP);
         assert.equal(clampRestoredStep(STONES_STEP, 0, regular), STONES_STEP);
+        assert.equal(clampRestoredStep(SERVICE_STEP, 0, regular), SERVICE_STEP);
     });
 
     it('treats a step number that is not a number as the first', () => {
-        assert.equal(clampRestoredStep(Number.NaN, 0, regular), STONES_STEP);
-        assert.equal(clampRestoredStep(-3, 0, regular), STONES_STEP);
+        assert.equal(clampRestoredStep(Number.NaN, 0, regular), SERVICE_STEP);
+        assert.equal(clampRestoredStep(-3, 0, regular), SERVICE_STEP);
     });
 });
 
 describe('committing a draft', () => {
     const filled = (overrides = {}) => ({
         name: 'Kitchen counters',
+        serviceTypeId: 'natural-stone-applications',
+        serviceId: 'countertop',
         stoneAdvice: false,
         stoneIds: ['marble'],
-        stoneWork: {
-            marble: { serviceId: 'furniture-only', furnitureType: 'tables' },
-        },
         stones: [
             {
                 stoneId: 'marble',
@@ -332,45 +226,21 @@ describe('committing a draft', () => {
         ...overrides,
     });
 
-    it('carries the work per stone onto the project, sharing nothing', () => {
-        const source = filled();
-        const project = buildCommittedProject(source, { id: 'p-5' });
+    it('carries the service type and the service onto the project', () => {
+        const project = buildCommittedProject(filled(), { id: 'p-5' });
 
-        assert.deepEqual(project.stoneWork, source.stoneWork);
-        assert.notEqual(project.stoneWork.marble, source.stoneWork.marble);
+        assert.equal(project.serviceTypeId, 'natural-stone-applications');
+        assert.equal(project.serviceId, 'countertop');
     });
 
-    it('leaves behind the work of a stone taken off', () => {
+    it('keeps the service of a project left to Regray to recommend a stone', () => {
         const project = buildCommittedProject(
-            filled({
-                stoneWork: {
-                    marble: { serviceId: 'supply-only', furnitureType: '' },
-                    onyx: { serviceId: 'supply-only', furnitureType: '' },
-                },
-            }),
-            { id: 'p-1' },
-        );
-
-        assert.deepEqual(Object.keys(project.stoneWork), ['marble']);
-    });
-
-    it('keeps the work of the row with no stone for Help me choose', () => {
-        const project = buildCommittedProject(
-            filled({
-                stoneAdvice: true,
-                stoneIds: [],
-                stones: [],
-                stoneWork: {
-                    [STONE_ADVICE_KEY]: {
-                        serviceId: 'supply-only',
-                        furnitureType: '',
-                    },
-                },
-            }),
+            filled({ stoneAdvice: true, stoneIds: [], stones: [] }),
             { id: 'p-2' },
         );
 
-        assert.deepEqual(Object.keys(project.stoneWork), [STONE_ADVICE_KEY]);
+        assert.equal(project.serviceId, 'countertop');
+        assert.equal(project.stoneAdvice, true);
     });
 
     it('keeps the location of a delivery', () => {

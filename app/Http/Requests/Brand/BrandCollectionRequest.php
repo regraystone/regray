@@ -17,7 +17,7 @@ class BrandCollectionRequest extends FormRequest
     public const COLLECTION_FURNITURE = 'furniture';
 
     /** Stone filters only mean something in the stones collection. */
-    private const STONE_FILTERS = ['category', 'size', 'thickness'];
+    private const STONE_FILTERS = ['type', 'size', 'thickness'];
 
     /** The route's permission middleware settles access before this request is resolved. */
     public function authorize(): bool
@@ -68,7 +68,7 @@ class BrandCollectionRequest extends FormRequest
         return [
             'collection' => ['sometimes', 'nullable', 'string', Rule::in([self::COLLECTION_ALL, self::COLLECTION_STONES, self::COLLECTION_FURNITURE])],
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'category' => ['sometimes', 'nullable', 'string', Rule::exists('stone_categories', 'slug')->where('deleted_at', null)->where('is_active', true)],
+            'type' => ['sometimes', 'nullable', 'string', Rule::exists('stone_types', 'slug')->where('deleted_at', null)->where('is_active', true)],
             'size' => ['sometimes', 'nullable', 'string', 'max:20', Rule::exists('stones', 'size')->where('is_active', true)->whereNull('deleted_at')],
             'thickness' => ['bail', 'sometimes', 'nullable', 'integer', 'min:1', 'max:32767', Rule::exists('stones', 'thickness_mm')->where('is_active', true)->whereNull('deleted_at')],
             'furniture_type' => ['sometimes', 'nullable', 'string', Rule::exists('furniture_types', 'name')->where('is_active', true)],

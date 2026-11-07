@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<StoneCategory>
+ * @extends Factory<StoneType>
  */
-class StoneCategoryFactory extends Factory
+class StoneTypeFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -20,7 +20,7 @@ class StoneCategoryFactory extends Factory
         return [
             'slug' => fake()->unique()->slug(3),
             'name' => fake()->unique()->words(3, true),
-            'thumbnail_path' => 'stones/category.jpg',
+            'thumbnail_path' => 'stones/type.jpg',
             'description' => fake()->sentence(),
             'is_active' => true,
             'sort_order' => 0,

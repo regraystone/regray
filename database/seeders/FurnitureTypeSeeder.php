@@ -11,13 +11,9 @@ class FurnitureTypeSeeder extends Seeder
     public function run(): void
     {
         $types = [
-            'Seating',
             'Tables',
+            'Seating',
             'Storage',
-            'Cabinets',
-            'Beds',
-            'Desks',
-            'Shelving',
             'Decorative Furniture',
         ];
 

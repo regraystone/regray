@@ -1,7 +1,7 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import ConfirmDialog from '@/components/confirm-dialog';
@@ -14,10 +14,12 @@ import InquiryQuestion, {
     InquiryActionBarSlot,
     inquiryQuestionId,
 } from '@/components/inquiry-question';
-import InquiryResult from '@/components/inquiry-result';
+import InquiryResult, {
+    type InquiryResultState,
+} from '@/components/inquiry-result';
 import InquiryReview from '@/components/inquiry-review';
+import InquiryServiceQuestion from '@/components/inquiry-service-question';
 import InquiryStepper from '@/components/inquiry-stepper';
-import InquiryStoneWork from '@/components/inquiry-stone-work';
 import InputError from '@/components/input-error';
 import PageHeading from '@/components/page-heading';
 import StaffInquireStart, {
@@ -27,7 +29,13 @@ import {
     staffInquireKindFrom,
     type StaffInquireKind,
 } from '@/lib/staff-inquire';
-import ProductCard from '@/components/product-card';
+import InquiryStoneGrid, {
+    StoneGridSkeleton,
+} from '@/components/inquiry-stone-grid';
+import {
+    StoneTypePills,
+    StoneTypeSelect,
+} from '@/components/stone-type-filter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,23 +46,29 @@ import {
 import { useInquireStoreUrl } from '@/hooks/use-inquire-route';
 import { useInquiryDraftAutosave } from '@/hooks/use-inquiry-draft-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useSavedStones } from '@/hooks/use-saved-stones';
+import {
+    gridPageSizeCookieIs,
+    useGridPageSize,
+} from '@/hooks/use-grid-page-size';
 import { createInquiryCatalog } from '@/lib/inquiry-catalog';
-import { readInquiryDraft } from '@/lib/inquiry-draft-storage';
+import {
+    draftStoneSlugs,
+    keepKnownStones,
+    readInquiryDraft,
+    type StoredInquiryDraft,
+} from '@/lib/inquiry-draft-storage';
 import { rateLimitFrom } from '@/lib/rate-limit';
 import type { RateLimit } from '@/lib/rate-limit';
 import {
+    ALL_STONE_TYPES,
     autoProjectName,
     buildCommittedProject,
     buildInquiryFormData,
-    chooseWorkService,
     clampRestoredStep,
-    copyStoneWork,
     deadlineLocks,
     DELIVERY,
     DELIVERY_METHODS,
     INQUIRY_STEP_LABELS,
-    keepWorkFor,
     mapInquiryErrors,
     nextQuestion,
     PICKUP,
@@ -63,22 +77,22 @@ import {
     seedStoneRows,
     STONE_ADVICE_LABEL,
     stepperPosition,
+    stoneFilterQuery,
+    stoneTypeOptions,
     toEditFormProjects,
-    workProblems,
-    workRowKeys,
-    workRowLabel,
     type InquiryEditProject,
     type InquiryFlash,
-    type StoneWorkMap,
+    type StoneFilter,
+    type StoneQuery,
 } from '@/lib/inquiry-flow';
 import {
     createInquirySchemas,
     draftDefaults,
     inquiryDefaults,
     REQUIREMENTS_STEP,
+    SERVICE_STEP,
     STEP_FIELDS,
     STONES_STEP,
-    WORK_STEP,
     type InquiryDraftInput,
     type InquiryDraftValues,
     type InquiryFormInput,
@@ -89,7 +103,6 @@ import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex, update as quoteUpdate } from '@/routes/quote';
 import { update as inquiryUpdate } from '@/routes/inquiry';
-import { show as savedShow } from '@/routes/saved';
 import type { Auth } from '@/types';
 import type {
     InquirePageProps,
@@ -113,9 +126,6 @@ const FULL_SCREEN_PAGE =
     'flex min-h-[calc(100svh-5rem)] w-full flex-col -mb-6 sm:min-h-[calc(100svh-5.5rem)] sm:-mb-8 lg:min-h-[calc(100svh-6rem)]';
 
 const BOTTOM_BAR = 'sticky bottom-0 z-10';
-
-/** How many stone cards the placeholder draws: two rows of the widest grid. */
-const SKELETON_STONE_COUNT = 10;
 
 const neededByFormatter = new Intl.DateTimeFormat(undefined, {
     dateStyle: 'long',
@@ -163,11 +173,6 @@ const newProjectId = (): string => {
 
     return `${projectIdPrefix}-${projectSequence}`;
 };
-
-type InquiryResultState =
-    | { status: 'success'; title: string; reference: string }
-    | { status: 'error'; message?: string; retryAt?: number | null }
-    | null;
 
 /**
  * How a send ended, as the page needs to hear it.
@@ -240,8 +245,6 @@ const sendInquiryRequest = (
 
 const SKELETON_MS = 700;
 
-type StoneFilter = 'all' | 'bestSellers' | 'saved';
-
 /**
  * The strip above steps 1 and 2 saying which project is being built and how to
  * walk away from it.
@@ -279,8 +282,8 @@ const ProjectBanner = ({
  * blocks, because a placeholder that does not match the thing it stands in for
  * is worse than none: the page jumps the moment the real stones arrive, and the
  * jump is the jarring part — the skeleton is supposed to be what absorbs it. So
- * the heading, the rail and the footer are the real ones' measurements, and the
- * cards are the stone grid's cards.
+ * the heading, the rail, the first question and the footer are the real ones'
+ * measurements.
  *
  * Marked busy rather than loading, and paired with the one line a screen reader
  * is given, because a column of empty boxes cannot say anything on its own: it
@@ -330,31 +333,24 @@ const InquireSkeleton = () => {
                 </div>
             </div>
 
-            {/* The heading over the grid, which is the row above it. */}
-            <Skeleton className="h-7 w-36" />
-
-            {/* The stone cards, in the real grid's columns. */}
-            <div className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
-                {Array.from({ length: SKELETON_STONE_COUNT }, (_, index) => (
-                    <div key={index}>
-                        <Skeleton className="aspect-square w-full rounded-none" />
-                        <Skeleton className="mt-3 h-4 w-3/4" />
-                        <Skeleton className="mt-2 h-3 w-1/2" />
-                    </div>
-                ))}
+            {/* The first question: its number and title, then its first dropdown. */}
+            <div className="flex items-center gap-3 border-t border-sidebar-border py-5 first:border-t-0">
+                <Skeleton className="size-8 shrink-0 rounded-full" />
+                <Skeleton className="h-7 w-44" />
+            </div>
+            <div className="sm:max-w-md">
+                <Skeleton className="h-3 w-24 rounded-none" />
+                <Skeleton className="mt-3 h-9 w-full rounded-none" />
             </div>
 
             {/*
-             * The bar the reader finishes on: the count on the left, the way forward
-             * on the right. Pinned the same way, because it is pinned in the real
+             * The bar the reader finishes on, with the way forward on the right. Pinned the same way, because it is pinned in the real
              * page and a placeholder that scrolls away while the real one does not
              * would move the button a reader was reaching for.
              */}
             <div
-                className={`${BOTTOM_BAR} mt-auto flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between`}
+                className={`${BOTTOM_BAR} mt-auto flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-end`}
             >
-                <Skeleton className="h-5 w-32" />
-
                 {/*
                  * 46px, which is what the real Continue comes out at: `py-3` on
                  * both sides of a `text-sm` line, plus the button's own border.
@@ -390,10 +386,12 @@ const InquireFlow = ({
     edit,
     target = null,
     onChangeTarget,
+    rememberStones,
 }: {
     edit: InquiryEdit | null;
     target?: StaffInquireTarget | null;
     onChangeTarget?: () => void;
+    rememberStones: (found: InquiryStoneOption[]) => void;
 }) => {
     const catalog = useInquiryCatalog();
     const { stones } = catalog;
@@ -409,16 +407,28 @@ const InquireFlow = ({
      * Both start on the first step. An edit opens the inquiry's one project
      * there as soon as it is loaded (see the effect after `openProject`).
      */
-    const [step, setStep] = useState<number>(STONES_STEP);
-    const [filter, setFilter] = useState<StoneFilter>('all');
-    const [search, setSearch] = useState('');
+    const [step, setStep] = useState<number>(SERVICE_STEP);
+    const {
+        stones: stonePage,
+        stoneTypes,
+        stoneFilters,
+    } = usePage<InquirePageProps>().props;
+    const [filter, setFilter] = useState<StoneFilter>(stoneFilters.tab);
+    const [stoneType, setStoneType] = useState(
+        stoneFilters.type ?? ALL_STONE_TYPES,
+    );
+    const [search, setSearch] = useState(stoneFilters.search ?? '');
+    const [isLoadingStones, setIsLoadingStones] = useState(false);
+    const searchTimerRef = useRef<number | null>(null);
+    /** While a restored draft asks the server about its stones. */
+    const [isResolvingDraft, setIsResolvingDraft] = useState(false);
 
     /** Which committed project the open draft is editing, or null when new. */
     const [editingProjectId, setEditingProjectId] = useState<string | null>(
         null,
     );
 
-    const [result, setResult] = useState<InquiryResultState>(null);
+    const [result, setResult] = useState<InquiryResultState | null>(null);
     const [isSending, setIsSending] = useState(false);
     const [actionBarSlot, setActionBarSlot] = useState<HTMLDivElement | null>(
         null,
@@ -513,8 +523,9 @@ const InquireFlow = ({
         getValues: getDraftValues,
     } = draftMethods;
 
+    const draftServiceTypeId = watchDraft('serviceTypeId');
+    const draftServiceId = watchDraft('serviceId');
     const draftStoneIds = watchDraft('stoneIds');
-    const draftStoneWork = watchDraft('stoneWork');
     const draftDeliveryMethod = watchDraft('deliveryMethod');
     const draftStoneAdvice = watchDraft('stoneAdvice');
     const draftLocation = watchDraft('location');
@@ -526,15 +537,9 @@ const InquireFlow = ({
      * objection the reader has not caused yet.
      */
     const hasDraftContinued = useRef(false);
-    /*
-     * The same for the Work question alone, so a stone's row is not refused for
-     * being empty while the reader is still working down the list.
-     */
-    const hasWorkContinued = useRef(false);
     const isSendingRef = useRef(false);
 
     const { can } = usePermissions();
-    const { savedIds, toggleSave, canSave } = useSavedStones();
 
     /*
      * Whose draft this is. The key is per account so two people sharing a
@@ -590,9 +595,7 @@ const InquireFlow = ({
             return;
         }
 
-        const stored = readInquiryDraft(userId, catalog);
-
-        if (stored !== null) {
+        const restore = (stored: StoredInquiryDraft) => {
             /*
              * The files come back empty because a `File` has no form storage
              * can hold; the count of them is what the notice below is about.
@@ -616,25 +619,71 @@ const InquireFlow = ({
                     : null,
             );
             setStep(
-                clampRestoredStep(stored.step, stored.projects.length, {
-                    ...stored.draft,
-                    workIsComplete:
-                        workProblems(
-                            workRowKeys(stored.draft),
-                            stored.draft.stoneWork,
-                            catalog.services,
-                            catalog.furnitureTypes.map(({ id }) => id),
-                        ).length === 0,
-                }),
+                clampRestoredStep(
+                    stored.step,
+                    stored.projects.length,
+                    stored.draft,
+                ),
             );
             hasDraftContinued.current = false;
-            hasWorkContinued.current = false;
 
             setLostAttachments(stored.droppedAttachments);
+            setIsRestored(true);
+        };
+
+        const stored = readInquiryDraft(userId, catalog);
+
+        if (stored === null) {
+            setIsRestored(true);
+
+            return;
         }
 
-        setIsRestored(true);
-    }, [userId, catalog, reset, draftMethods, edit]);
+        const slugs = draftStoneSlugs(stored);
+
+        if (slugs.length === 0) {
+            restore(stored);
+
+            return;
+        }
+
+        /*
+         * The page only holds the stones it has been sent, so the draft's own are
+         * asked for by slug. One the server no longer offers is left out, and if
+         * the question fails the draft still comes back as it was.
+         */
+        let answered = false;
+
+        setIsResolvingDraft(true);
+        router.reload({
+            only: ['pickedStones'],
+            data: { picked: slugs },
+            async: true,
+            preserveUrl: true,
+            onSuccess: (page) => {
+                const found =
+                    (page.props as unknown as InquirePageProps).pickedStones ??
+                    [];
+
+                answered = true;
+                rememberStones(found);
+                restore(
+                    keepKnownStones(
+                        stored,
+                        new Set(found.map(({ slug }) => slug)),
+                    ),
+                );
+            },
+            onHttpException: () => false,
+            onFinish: () => {
+                if (!answered) {
+                    restore(stored);
+                }
+
+                setIsResolvingDraft(false);
+            },
+        });
+    }, [userId, catalog, reset, draftMethods, edit, rememberStones]);
 
     /*
      * The draft's own life support: a write a couple of seconds after the last
@@ -686,78 +735,132 @@ const InquireFlow = ({
         question.querySelector('h2')?.focus({ preventScroll: true });
     }, [step, result]);
 
-    const visibleStones = useMemo(() => {
-        const base = ((): InquiryStoneOption[] => {
-            if (filter === 'bestSellers') {
-                return stones.filter((stone) => stone.bestSeller);
-            }
+    const stoneTypeChoices = useMemo(
+        () => stoneTypeOptions(stoneTypes),
+        [stoneTypes],
+    );
+    const visibleStones = stonePage.data;
 
-            if (filter === 'saved') {
-                return stones.filter((stone) => savedIds.has(stone.slug));
-            }
-
-            return stones;
-        })();
-
-        const query = search.trim().toLowerCase();
-
-        if (query === '') {
-            return base;
+    const clearSearchTimer = () => {
+        if (searchTimerRef.current !== null) {
+            window.clearTimeout(searchTimerRef.current);
+            searchTimerRef.current = null;
         }
+    };
 
-        return base.filter((stone) =>
-            [
-                stone.name,
-                stone.specifications.stoneType,
-                stone.specifications.origin,
-            ]
-                .filter((value): value is string => Boolean(value))
-                .some((value) => value.toLowerCase().includes(query)),
+    /**
+     * Ask the server for the first page under these filters, in place: the form
+     * lives in this page's state, so unlike Our Collection it has to survive the
+     * answer. They stay in the address, because each further page reads them there.
+     */
+    const loadStones = (query: StoneQuery) => {
+        clearSearchTimer();
+
+        const url = new URL(window.location.href);
+
+        ['stone_tab', 'stone_type', 'stone_search', 'page'].forEach((name) =>
+            url.searchParams.delete(name),
         );
-    }, [filter, savedIds, search, stones]);
+        Object.entries(stoneFilterQuery(query)).forEach(([name, value]) =>
+            url.searchParams.set(name, value),
+        );
+
+        router.get(`${url.pathname}${url.search}`, undefined, {
+            only: ['stones', 'stoneFilters'],
+            reset: ['stones'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            onStart: () => setIsLoadingStones(true),
+            onFinish: () => setIsLoadingStones(false),
+        });
+    };
+
+    /**
+     * Back to stones to choose from: the search and the type first, and the tab
+     * only when those were not what emptied the grid.
+     */
+    const clearStoneFilters = () => {
+        const tab =
+            search.trim() === '' && stoneType === ALL_STONE_TYPES
+                ? 'all'
+                : filter;
+
+        setFilter(tab);
+        setSearch('');
+        setStoneType(ALL_STONE_TYPES);
+        loadStones({ tab, stoneType: ALL_STONE_TYPES, search: '' });
+    };
+
+    const changeTab = (tab: StoneFilter) => {
+        setFilter(tab);
+        loadStones({ tab, stoneType, search });
+    };
+
+    const changeStoneType = (value: string) => {
+        setStoneType(value);
+        loadStones({ tab: filter, stoneType: value, search });
+    };
+
+    /** Asked for once the reader stops typing, as on a brand's Our Collection. */
+    const changeSearch = (value: string) => {
+        setSearch(value);
+        clearSearchTimer();
+        searchTimerRef.current = window.setTimeout(
+            () => loadStones({ tab: filter, stoneType, search: value }),
+            300,
+        );
+    };
+
+    const clearSearch = () => {
+        setSearch('');
+        loadStones({ tab: filter, stoneType, search: '' });
+    };
+
+    /*
+     * A first visit, or a screen that crossed the tablet width, was answered at
+     * the other page size. The cookie is set by now, so asking again corrects it.
+     * If the browser refused the cookie, asking again would only repeat forever.
+     */
+    const gridPageSize = useGridPageSize();
+
+    useEffect(() => {
+        if (
+            gridPageSize !== null &&
+            gridPageSize !== stoneFilters.perPage &&
+            gridPageSizeCookieIs(gridPageSize)
+        ) {
+            loadStones({ tab: filter, stoneType, search });
+        }
+        // Only a change of size asks again; the filters ask for themselves.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gridPageSize, stoneFilters.perPage]);
+
+    useEffect(() => clearSearchTimer, []);
 
     const toggleIn = (chosen: string[], id: string): string[] =>
         chosen.includes(id)
             ? chosen.filter((entry) => entry !== id)
             : [...chosen, id];
 
-    const furnitureTypeIds = catalog.furnitureTypes.map(({ id }) => id);
-
-    /** The work rows the draft has right now, read from the form. */
-    const currentWorkKeys = (): string[] =>
-        workRowKeys({
-            stoneIds: getDraftValues('stoneIds'),
-            stoneAdvice: getDraftValues('stoneAdvice'),
-        });
-
-    /** Every field of these work rows, for checking them by their own paths. */
-    const workPaths = (keys: string[]) =>
-        keys.flatMap((key) => [
-            `stoneWork.${key}.serviceId` as const,
-            `stoneWork.${key}.furnitureType` as const,
-        ]);
-
-    /** Once Next has been refused, each change re-checks the rows. */
-    const recheckWork = () => {
-        if (hasWorkContinued.current) {
-            void triggerDraft(workPaths(currentWorkKeys()));
-        }
+    /** Another type offers other services, so the one chosen under this one goes. */
+    const chooseServiceType = (serviceTypeId: string) => {
+        setDraftValue('serviceTypeId', serviceTypeId, { shouldDirty: true });
+        setDraftValue('serviceId', '', { shouldDirty: true });
+        draftMethods.clearErrors('serviceId');
     };
 
-    /** A stone taken off takes its work row with it. */
+    const chooseService = (serviceId: string) => {
+        setDraftValue('serviceId', serviceId, { shouldDirty: true });
+        draftMethods.clearErrors('serviceId');
+    };
+
     const setStones = (ids: string[]) => {
         setDraftValue('stoneIds', ids, {
             shouldDirty: true,
             shouldValidate: hasDraftContinued.current,
         });
         setDraftValue('stoneAdvice', false, { shouldDirty: true });
-        setDraftValue(
-            'stoneWork',
-            keepWorkFor(ids, getDraftValues('stoneWork')),
-            {
-                shouldDirty: true,
-            },
-        );
     };
 
     const toggleStone = (id: string) => setStones(toggleIn(draftStoneIds, id));
@@ -771,41 +874,7 @@ const InquireFlow = ({
         setDraftValue('stones', [], { shouldDirty: true });
         setDraftValue('stoneAdvice', true, { shouldDirty: true });
         draftMethods.clearErrors('stoneIds');
-        setDraftValue(
-            'stoneWork',
-            keepWorkFor(currentWorkKeys(), getDraftValues('stoneWork')),
-            { shouldDirty: true },
-        );
-        setStep(WORK_STEP);
-    };
-
-    /** One stone's kind of work, clearing what the new option no longer offers. */
-    const setWorkOption = (key: string, serviceId: string) => {
-        setDraftValue(
-            'stoneWork',
-            chooseWorkService(
-                getDraftValues('stoneWork'),
-                key,
-                serviceId,
-                catalog.services,
-            ),
-            { shouldDirty: true },
-        );
-        recheckWork();
-    };
-
-    const setWorkFurnitureType = (key: string, furnitureType: string) => {
-        const work = getDraftValues('stoneWork');
-        const entry = work[key];
-
-        if (entry !== undefined) {
-            setDraftValue(
-                'stoneWork',
-                { ...work, [key]: { ...entry, furnitureType } },
-                { shouldDirty: true },
-            );
-            recheckWork();
-        }
+        setStep(nextQuestion(STONES_STEP));
     };
 
     /**
@@ -818,7 +887,6 @@ const InquireFlow = ({
     const clearDraft = () => {
         draftMethods.reset(draftDefaults);
         hasDraftContinued.current = false;
-        hasWorkContinued.current = false;
         setEditingProjectId(null);
     };
 
@@ -854,6 +922,8 @@ const InquireFlow = ({
 
         draftMethods.reset({
             name: project.name,
+            serviceTypeId: project.serviceTypeId,
+            serviceId: project.serviceId,
             stoneAdvice: project.stoneAdvice,
             // Once each: a stone added again with another finish has two rows.
             stoneIds: [
@@ -862,7 +932,6 @@ const InquireFlow = ({
                 ),
             ],
             stones: project.stones.map((selection) => ({ ...selection })),
-            stoneWork: copyStoneWork(project.stoneWork),
             deliveryMethod: project.deliveryMethod || DELIVERY,
             location: project.location,
             landmark: project.landmark,
@@ -874,7 +943,6 @@ const InquireFlow = ({
             })),
         });
         hasDraftContinued.current = false;
-        hasWorkContinued.current = false;
         setEditingProjectId(id);
         setStep(startAt);
     };
@@ -899,7 +967,7 @@ const InquireFlow = ({
         }
 
         hasOpenedEditRef.current = true;
-        openProject(project.id, STONES_STEP);
+        openProject(project.id, SERVICE_STEP);
     });
 
     /**
@@ -944,8 +1012,17 @@ const InquireFlow = ({
         setStep(question);
     };
 
+    /** The stones onward. Needs a service, and says so beside its dropdown. */
+    const continueFromService = async () => {
+        const valid = await triggerDraft('serviceId', { shouldFocus: true });
+
+        if (valid) {
+            setStep(nextQuestion(SERVICE_STEP));
+        }
+    };
+
     /**
-     * Step 2 onward. Needs a stone, or the reader asking for a recommendation.
+     * The details onward. Needs a stone, or the reader asking for a recommendation.
      *
      * The objection is spoken by the bar rather than by refusing the button,
      * because a grid of cards is not a field and there is nothing to send the
@@ -962,42 +1039,12 @@ const InquireFlow = ({
         }
     };
 
-    /**
-     * The Work question onward. Every stone needs its work, and a furniture type
-     * where the work asks for one. Refused rows say so beside themselves.
-     */
-    const continueFromWork = async () => {
-        hasWorkContinued.current = true;
-
-        const keys = currentWorkKeys();
-        const valid = await triggerDraft(workPaths(keys), {
-            shouldFocus: true,
-        });
-
-        if (
-            valid &&
-            workProblems(
-                keys,
-                getDraftValues('stoneWork'),
-                catalog.services,
-                furnitureTypeIds,
-            ).length === 0
-        ) {
-            seedDraftStones();
-            setStep(nextQuestion(WORK_STEP));
-        }
-    };
-
-    /** What a project is called unless the reader names it on Review: its first service. */
-    const projectNameFor = (work: StoneWorkMap): string =>
+    /** What a project is called unless the reader names it on Review: its service. */
+    const projectNameFor = (serviceId: string): string =>
         autoProjectName(
-            Object.values(work).flatMap(({ serviceId }) => {
-                const option = catalog.services.find(
-                    ({ id }) => id === serviceId,
-                );
-
-                return option === undefined ? [] : [option.name];
-            }),
+            catalog.serviceTypes
+                .flatMap(({ services }) => services)
+                .find(({ id }) => id === serviceId)?.name ?? '',
             PROJECT_NAME_MAX,
         );
 
@@ -1012,13 +1059,13 @@ const InquireFlow = ({
         );
         const hasOwnName =
             reopened !== undefined &&
-            reopened.name !== projectNameFor(reopened.stoneWork);
+            reopened.name !== projectNameFor(reopened.serviceId);
 
         setDraftValue(
             'name',
             hasOwnName
                 ? reopened.name
-                : projectNameFor(getDraftValues('stoneWork')),
+                : projectNameFor(getDraftValues('serviceId')),
         );
     };
 
@@ -1053,11 +1100,10 @@ const InquireFlow = ({
              * the reader is taken to where it can be answered.
              */
             (errors) => {
-                if (errors.stoneIds !== undefined) {
+                if (errors.serviceId !== undefined) {
+                    setStep(SERVICE_STEP);
+                } else if (errors.stoneIds !== undefined) {
                     setStep(STONES_STEP);
-                } else if (errors.stoneWork !== undefined) {
-                    hasWorkContinued.current = true;
-                    setStep(WORK_STEP);
                 } else if (errors.deliveryMethod !== undefined) {
                     document
                         .getElementById(INQUIRY_DELIVERY_METHOD_ID)
@@ -1293,10 +1339,12 @@ const InquireFlow = ({
         discardDraft();
         setSearch('');
         setFilter('all');
+        setStoneType(ALL_STONE_TYPES);
+        loadStones({ tab: 'all', stoneType: ALL_STONE_TYPES, search: '' });
         setValidationAlertErrors([]);
         setSectionMessages({});
         setProjectMessages({});
-        setStep(STONES_STEP);
+        setStep(SERVICE_STEP);
         setResult({ status: 'success', title, reference });
     };
 
@@ -1352,18 +1400,15 @@ const InquireFlow = ({
      */
     const inquireAgain = () => {
         setResult(null);
-        setStep(STONES_STEP);
+        setStep(SERVICE_STEP);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    if (isLoading) {
+    if (isLoading || isResolvingDraft) {
         return <InquireSkeleton />;
     }
 
     const hasSelection = draftStoneIds.length > 0;
-    // A stone that stands alone is read under Saved, so that is what opens
-    // one in a new tab.
-    const canSeeStoneProfile = can(permissions.savedView);
     const canChat = can(permissions.messagesView);
     const canSeeQuotation = can(permissions.quotationsView);
     const canSeeInquiry = can(permissions.inquiriesView);
@@ -1402,32 +1447,18 @@ const InquireFlow = ({
     const showDraftBanner = edit === null && editingProjectNumber > 0;
 
     /*
-     * A finished request is past every step, so the rail shows them all done. A
-     * failure is not a step of its own, so it leaves the reader where they were:
-     * they are looking at the request that failed, not at a new question.
-     */
-    const stepperCurrent =
-        result?.status === 'success' ? STEPS.length + 1 : stepperPosition(step);
-
-    /*
      * The questions this draft is asked, in order. One waiting for an answer is
      * not drawn until the reader reaches it.
      */
-    const questions = [STONES_STEP, WORK_STEP, REQUIREMENTS_STEP];
+    const questions = [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP];
 
-    const workRows = workRowKeys({
-        stoneIds: draftStoneIds,
-        stoneAdvice: draftStoneAdvice,
-    });
     const deliveryMethodName =
         DELIVERY_METHODS.find(({ value }) => value === draftDeliveryMethod)
             ?.title ?? '';
     const isPickup = draftDeliveryMethod === PICKUP;
     const isAnswered: Record<number, boolean> = {
+        [SERVICE_STEP]: draftServiceId !== '',
         [STONES_STEP]: hasSelection || draftStoneAdvice,
-        [WORK_STEP]: workRows.some(
-            (key) => (draftStoneWork[key]?.serviceId ?? '') !== '',
-        ),
         [REQUIREMENTS_STEP]:
             (isPickup || draftLocation !== '') && draftNeededBy !== '',
     };
@@ -1443,10 +1474,21 @@ const InquireFlow = ({
               }
             : null;
 
-    const namesOf = (names: string[], limit = 3, separator = ', '): string =>
+    const namesOf = (names: string[], limit = 3): string =>
         names.length > limit
-            ? `${names.slice(0, limit).join(separator)} and ${names.length - limit} more`
-            : names.join(separator);
+            ? `${names.slice(0, limit).join(', ')} and ${names.length - limit} more`
+            : names.join(', ');
+
+    const draftServiceType = catalog.serviceTypes.find(
+        ({ id }) => id === draftServiceTypeId,
+    );
+    const serviceSummary = [
+        draftServiceType?.name,
+        draftServiceType?.services.find(({ id }) => id === draftServiceId)
+            ?.name,
+    ]
+        .filter(Boolean)
+        .join(' - ');
 
     const stonesSummary = draftStoneAdvice
         ? STONE_ADVICE_LABEL
@@ -1455,27 +1497,6 @@ const InquireFlow = ({
                   (id) => stones.find((stone) => stone.slug === id)?.name ?? id,
               ),
           );
-
-    /* Semicolons, because the names of the options have commas of their own. */
-    const workSummary = namesOf(
-        workRows.map((key) => {
-            const entry = draftStoneWork[key];
-            const work =
-                catalog.services.find(({ id }) => id === entry?.serviceId)
-                    ?.name ?? 'not chosen yet';
-            const furnitureType = catalog.furnitureTypes.find(
-                ({ id }) => id === entry?.furnitureType,
-            )?.name;
-
-            return `${workRowLabel(key, stones)}: ${
-                furnitureType === undefined
-                    ? work
-                    : `${work} - ${furnitureType}`
-            }`;
-        }),
-        3,
-        '; ',
-    );
 
     const detailsSummary = [
         deliveryMethodName,
@@ -1487,12 +1508,8 @@ const InquireFlow = ({
         .filter((part) => part !== '')
         .join(', ');
 
-    const stonesQuestion = questions.includes(STONES_STEP)
-        ? question(STONES_STEP)
-        : null;
-    const workQuestion = questions.includes(WORK_STEP)
-        ? question(WORK_STEP)
-        : null;
+    const serviceQuestion = question(SERVICE_STEP);
+    const stonesQuestion = question(STONES_STEP);
     const detailsQuestion = question(REQUIREMENTS_STEP);
 
     return (
@@ -1506,13 +1523,11 @@ const InquireFlow = ({
                                 : `Update ${edit.reference}`
                         }
                         description={
-                            result?.status === 'success'
-                                ? 'Your request has been sent'
-                                : edit !== null && step === REVIEW_STEP
-                                  ? 'Choose a project to edit, then save your changes'
-                                  : step === REVIEW_STEP
-                                    ? REVIEW_DESCRIPTION
-                                    : REQUEST_DESCRIPTION
+                            edit !== null && step === REVIEW_STEP
+                                ? 'Choose a project to edit, then save your changes'
+                                : step === REVIEW_STEP
+                                  ? REVIEW_DESCRIPTION
+                                  : REQUEST_DESCRIPTION
                         }
                         action={
                             edit === null ? (
@@ -1550,37 +1565,12 @@ const InquireFlow = ({
                         }
                     />
 
-                    <InquiryStepper steps={STEPS} current={stepperCurrent} />
+                    <InquiryStepper
+                        steps={STEPS}
+                        current={stepperPosition(step)}
+                    />
 
-                    {result !== null ? (
-                        <InquiryResult
-                            status={result.status}
-                            title={
-                                result.status === 'success' ? result.title : ''
-                            }
-                            reference={
-                                result.status === 'success'
-                                    ? result.reference
-                                    : undefined
-                            }
-                            message={
-                                result.status === 'error'
-                                    ? result.message
-                                    : undefined
-                            }
-                            retryAt={
-                                result.status === 'error'
-                                    ? (result.retryAt ?? null)
-                                    : null
-                            }
-                            canChat={canChat}
-                            inquiriesHref={inquiriesHref}
-                            onTryAgain={sendInquiry}
-                            onBackToReview={() => setResult(null)}
-                            onInquireAgain={inquireAgain}
-                            submitting={isSending}
-                        />
-                    ) : step === REVIEW_STEP ? (
+                    {step === REVIEW_STEP ? (
                         <InquiryReview
                             onEditProject={openProject}
                             sectionMessages={sectionMessages}
@@ -1605,10 +1595,24 @@ const InquireFlow = ({
                                 />
                             ) : null}
 
+                            {serviceQuestion !== null ? (
+                                <InquiryQuestion
+                                    {...serviceQuestion}
+                                    title="What do you need?"
+                                    summary={serviceSummary}
+                                >
+                                    <InquiryServiceQuestion
+                                        onServiceType={chooseServiceType}
+                                        onService={chooseService}
+                                        onNext={continueFromService}
+                                    />
+                                </InquiryQuestion>
+                            ) : null}
+
                             {stonesQuestion !== null ? (
                                 <InquiryQuestion
                                     {...stonesQuestion}
-                                    title="Which stones do you like?"
+                                    title="Which stones?"
                                     summary={stonesSummary}
                                 >
                                     <div className="mb-5 flex flex-col gap-3 rounded-md border border-sidebar-border bg-secondary p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1647,7 +1651,7 @@ const InquireFlow = ({
                                                     type="search"
                                                     value={search}
                                                     onChange={(event) =>
-                                                        setSearch(
+                                                        changeSearch(
                                                             event.target.value,
                                                         )
                                                     }
@@ -1658,9 +1662,7 @@ const InquireFlow = ({
                                                 {search ? (
                                                     <button
                                                         type="button"
-                                                        onClick={() =>
-                                                            setSearch('')
-                                                        }
+                                                        onClick={clearSearch}
                                                         aria-label="Clear search"
                                                         className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                                     >
@@ -1673,7 +1675,7 @@ const InquireFlow = ({
                                             </div>
 
                                             <div
-                                                className="hidden items-center gap-5 text-sm sm:ml-auto sm:flex"
+                                                className="hidden shrink-0 items-center gap-5 text-sm whitespace-nowrap sm:ml-auto sm:flex"
                                                 role="tablist"
                                                 aria-label="Filter stones"
                                             >
@@ -1690,7 +1692,7 @@ const InquireFlow = ({
                                                                 isActive
                                                             }
                                                             onClick={() =>
-                                                                setFilter(
+                                                                changeTab(
                                                                     tab.value,
                                                                 )
                                                             }
@@ -1731,7 +1733,7 @@ const InquireFlow = ({
                                                             size="sm"
                                                             className="px-3 py-1.5"
                                                             onClick={() =>
-                                                                setFilter(
+                                                                changeTab(
                                                                     tab.value,
                                                                 )
                                                             }
@@ -1741,20 +1743,36 @@ const InquireFlow = ({
                                                     );
                                                 })}
                                             </div>
+
+                                            <StoneTypeSelect
+                                                options={stoneTypeChoices}
+                                                value={stoneType}
+                                                onChange={changeStoneType}
+                                            />
                                         </div>
+
+                                        <StoneTypePills
+                                            options={stoneTypeChoices}
+                                            value={stoneType}
+                                            onChange={changeStoneType}
+                                        />
                                     </div>
 
-                                    {filter === 'saved' &&
-                                    savedIds.size === 0 ? (
+                                    {isLoadingStones ? (
+                                        <StoneGridSkeleton />
+                                    ) : filter === 'saved' &&
+                                      search.trim() === '' &&
+                                      stoneType === ALL_STONE_TYPES &&
+                                      visibleStones.length === 0 ? (
                                         <EmptyState
                                             title="You haven't saved any stones yet"
-                                            description="Tap the heart on a stone and it will show up here."
+                                            description="Save a stone from a brand's collection and it will show up here."
                                             action={
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     onClick={() =>
-                                                        setFilter('all')
+                                                        changeTab('all')
                                                     }
                                                 >
                                                     Browse all stones
@@ -1764,66 +1782,23 @@ const InquireFlow = ({
                                     ) : visibleStones.length === 0 ? (
                                         <EmptyState
                                             title="No stones found"
-                                            description="No stone in this filter matches that search."
+                                            description="No stone matches these filters."
                                             action={
                                                 <Button
                                                     type="button"
                                                     variant="outline"
-                                                    onClick={() =>
-                                                        setSearch('')
-                                                    }
+                                                    onClick={clearStoneFilters}
                                                 >
-                                                    Clear search
+                                                    Clear filters
                                                 </Button>
                                             }
                                         />
                                     ) : (
-                                        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 md:gap-4.5 xl:grid-cols-5">
-                                            {visibleStones.map((stone) => (
-                                                <ProductCard
-                                                    key={stone.slug}
-                                                    product={{
-                                                        slug: stone.slug,
-                                                        name: stone.name,
-                                                        thumbnail:
-                                                            stone.thumbnail,
-                                                        category:
-                                                            stone.category,
-                                                    }}
-                                                    aspect="aspect-[4/3]"
-                                                    saved={savedIds.has(
-                                                        stone.slug,
-                                                    )}
-                                                    onToggleSave={
-                                                        canSave
-                                                            ? () =>
-                                                                  toggleSave(
-                                                                      stone.slug,
-                                                                  )
-                                                            : undefined
-                                                    }
-                                                    selectable
-                                                    selected={draftStoneIds.includes(
-                                                        stone.slug,
-                                                    )}
-                                                    onSelect={() =>
-                                                        toggleStone(stone.slug)
-                                                    }
-                                                    // A standalone stone profile
-                                                    // lives under Saved, so
-                                                    // without that permission
-                                                    // the new tab would only show
-                                                    // the forbidden page.
-                                                    viewHref={
-                                                        canSeeStoneProfile
-                                                            ? savedShow.url({
-                                                                  stone: stone.slug,
-                                                              })
-                                                            : undefined
-                                                    }
-                                                />
-                                            ))}
-                                        </div>
+                                        <InquiryStoneGrid
+                                            stones={visibleStones}
+                                            selectedIds={draftStoneIds}
+                                            onToggle={toggleStone}
+                                        />
                                     )}
 
                                     {/*
@@ -1885,21 +1860,6 @@ const InquireFlow = ({
                                 </InquiryQuestion>
                             ) : null}
 
-                            {workQuestion !== null ? (
-                                <InquiryQuestion
-                                    {...workQuestion}
-                                    title="What work does each stone need?"
-                                    summary={workSummary}
-                                >
-                                    <InquiryStoneWork
-                                        rowKeys={workRows}
-                                        onOption={setWorkOption}
-                                        onFurnitureType={setWorkFurnitureType}
-                                        onNext={continueFromWork}
-                                    />
-                                </InquiryQuestion>
-                            ) : null}
-
                             {detailsQuestion !== null ? (
                                 <InquiryQuestion
                                     {...detailsQuestion}
@@ -1936,6 +1896,16 @@ const InquireFlow = ({
                 </div>
             </InquiryActionBarSlot.Provider>
 
+            <InquiryResult
+                result={result}
+                canChat={canChat}
+                inquiriesHref={inquiriesHref}
+                onTryAgain={sendInquiry}
+                onClose={() => setResult(null)}
+                onInquireAgain={inquireAgain}
+                submitting={isSending}
+            />
+
             <ConfirmDialog
                 open={lostAttachments > 0}
                 onOpenChange={() => setLostAttachments(0)}
@@ -1954,12 +1924,7 @@ const InquireFlow = ({
 
 const Inquire = (props: InquirePageProps) => {
     const {
-        services,
-        furnitureTypes,
         stones,
-        edgeProfiles,
-        finishes,
-        locations,
         mode,
         reference,
         projects,
@@ -2021,6 +1986,33 @@ const Inquire = (props: InquirePageProps) => {
         keepInUrl(next.kind, next.kind === 'platform' ? next.detail : null);
     };
 
+    /*
+     * Every stone the page has been sent, under whichever filter: a stone stays
+     * picked, and has to be drawn on Review, after the page it came on has gone.
+     */
+    const [knownStones, setKnownStones] = useState(
+        () =>
+            new Map(
+                (projects ?? []).flatMap((project) =>
+                    project.heldStones.map(
+                        (stone) =>
+                            [stone.slug, stone as InquiryStoneOption] as const,
+                    ),
+                ),
+            ),
+    );
+    const rememberStones = useCallback((found: InquiryStoneOption[]) => {
+        setKnownStones((current) => {
+            const next = new Map(current);
+
+            found.forEach((stone) => next.set(stone.slug, stone));
+
+            return next;
+        });
+    }, []);
+
+    useEffect(() => rememberStones(stones.data), [rememberStones, stones.data]);
+
     const edit = useMemo(
         () =>
             mode === 'edit' && reference !== undefined
@@ -2049,25 +2041,8 @@ const Inquire = (props: InquirePageProps) => {
     );
 
     const catalog = useMemo(
-        () =>
-            createInquiryCatalog({
-                services,
-                furnitureTypes,
-                stones,
-                edgeProfiles,
-                finishes,
-                locations,
-                projects,
-            }),
-        [
-            services,
-            furnitureTypes,
-            stones,
-            edgeProfiles,
-            finishes,
-            locations,
-            projects,
-        ],
+        () => createInquiryCatalog(props, [...knownStones.values()]),
+        [props, knownStones],
     );
 
     if (edit === null && leads !== null && target === null) {
@@ -2087,6 +2062,7 @@ const Inquire = (props: InquirePageProps) => {
                 edit={edit}
                 target={edit === null ? target : null}
                 onChangeTarget={() => chooseKind(kind)}
+                rememberStones={rememberStones}
             />
         </InquiryCatalogProvider>
     );

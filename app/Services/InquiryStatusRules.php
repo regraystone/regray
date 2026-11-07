@@ -48,7 +48,7 @@ final class InquiryStatusRules
 {
     public const NOTE_MAX_LENGTH = 500;
 
-    public const LOCKED_AFTER_APPROVAL = 'The client approved the quotation, so only an admin can change this project now.';
+    public const LOCKED_AFTER_APPROVAL = 'The client approved the quotation, so this project can no longer be changed.';
 
     public const QUOTED_TOTAL = 'quotedTotal';
 
@@ -247,15 +247,13 @@ final class InquiryStatusRules
     }
 
     /**
-     * Whether `$user` may change the inquiry's project (Edit): while it is
-     * open and the client has not approved the quotation. Once it is won only
-     * the super-admin may, so a project the client signed off on does not
-     * change under them.
+     * Whether the inquiry's project may still change (Edit): while it is open
+     * and the client has not approved the quotation. Once won it may not, by
+     * anyone, so a project the client signed off on does not change under them.
      */
-    public static function isEditableBy(Inquiry $inquiry, User $user): bool
+    public static function isEditable(Inquiry $inquiry): bool
     {
-        return self::isOpen($inquiry)
-            && (! self::isApproved($inquiry) || $user->hasRole(Role::superAdmin()->value));
+        return self::isOpen($inquiry) && ! self::isApproved($inquiry);
     }
 
     /** The amount a move has to carry, by its request key, or null. */

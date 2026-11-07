@@ -13,7 +13,6 @@ use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
 use App\Models\InquiryStone;
-use App\Models\InquiryWorkItem;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Services\ScheduleService;
@@ -248,25 +247,11 @@ class InquiryDetailsResource extends JsonResource
     private function project(): array
     {
         $arrivalAt = $this->schedule?->arrival_at->setTimezone(ScheduleService::timezone());
-        $workOf = fn (?int $stoneId): array => $this->workItems
-            ->where('stone_id', $stoneId)
-            ->map(fn (InquiryWorkItem $item): array => [
-                'service' => $item->service->name,
-                'furnitureType' => $item->furnitureType?->name,
-            ])
-            ->values()
-            ->all();
 
         return [
             'name' => $this->name,
-            // Each service wanted, once, however many stones want it.
-            'services' => $this->workItems
-                ->unique('service_id')
-                ->map(fn (InquiryWorkItem $item): array => ['name' => $item->service->name])
-                ->values()
-                ->all(),
-            // The work not tied to a chosen stone: Regray is to recommend one.
-            'unassignedWork' => $workOf(null),
+            'serviceType' => $this->service?->serviceType->name,
+            'service' => $this->service?->name,
             'stoneAdviceRequested' => $this->stone_advice_requested,
             'stones' => $this->stones->map(fn (InquiryStone $row): array => [
                 'id' => $row->stone->slug,
@@ -275,7 +260,6 @@ class InquiryDetailsResource extends JsonResource
                 'quantity' => $row->quantity,
                 'edge' => $row->edgeProfile->name,
                 'finish' => $row->finish->name,
-                'work' => $workOf($row->stone_id),
             ])->values()->all(),
             'requirements' => [
                 'deliveryMethod' => $this->delivery_method->value,
