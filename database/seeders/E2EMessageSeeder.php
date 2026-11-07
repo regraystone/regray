@@ -98,7 +98,7 @@ class E2EMessageSeeder extends Seeder
     {
         $support = app(SupportConversationService::class);
 
-        foreach (['claim', 'race', 'release', 'reassign', 'names', 'forbidden'] as $key) {
+        foreach (['claim', 'race', 'release', 'reassign', 'names', 'forbidden', 'common'] as $key) {
             $client = $this->user("e2e.support.{$key}@example.com", 'Support '.ucfirst($key), Role::Client);
             $thread = $support->ensureFor($client);
             $message = $this->text($thread, $client, "Hello from support {$key}");
@@ -332,6 +332,7 @@ class E2EMessageSeeder extends Seeder
             'edge_profile_id' => EdgeProfile::query()->value('id'),
             'finish_id' => Finish::query()->value('id'),
             'quantity' => 1,
+            'slab_size' => '120 x 60 cm',
             'sort_order' => 0,
         ]);
 

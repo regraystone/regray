@@ -14,7 +14,13 @@ import { FIXTURES_FILE, ROOT } from './stack';
 export type Fixtures = {
     users: Record<Actor, string>;
     support: Record<
-        'claim' | 'race' | 'release' | 'reassign' | 'names' | 'forbidden',
+        | 'claim'
+        | 'race'
+        | 'release'
+        | 'reassign'
+        | 'names'
+        | 'forbidden'
+        | 'common',
         { email: string; name: string; conversationId: number }
     >;
     history: {

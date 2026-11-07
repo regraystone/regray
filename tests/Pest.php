@@ -105,6 +105,7 @@ function inquiryProjectInput(array $overrides = []): array
     $stones = $overrides['stones'] ?? [[
         'stoneId' => Stone::query()->active()->orderBy('id')->value('slug'),
         'quantity' => 4,
+        'slabSize' => '120 x 60 cm',
         'edge' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
         'finish' => Finish::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
     ]];
@@ -230,6 +231,7 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
             'edge_profile_id' => $edge,
             'finish_id' => $finish,
             'quantity' => 1,
+            'slab_size' => '120 x 60 cm',
             'sort_order' => $order,
         ]);
     }

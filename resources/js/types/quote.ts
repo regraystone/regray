@@ -102,6 +102,7 @@ export type QuoteInquiryDetails = {
             name: string;
             thumbnail: string;
             quantity: number;
+            slabSize: string;
             edge: string;
             finish: string;
         }>;

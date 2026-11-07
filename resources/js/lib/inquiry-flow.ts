@@ -160,6 +160,7 @@ export const stoneFilterQuery = ({
 export type StoneRow = {
     stoneId: string;
     quantity: number;
+    slabSize: string;
     edge: string;
     finish: string;
 };
@@ -191,6 +192,7 @@ export const seedStoneRows = (
                   {
                       stoneId: id,
                       quantity: 1,
+                      slabSize: '',
                       edge: advisory?.edge ?? '',
                       finish: advisory?.finish ?? '',
                   },
@@ -310,6 +312,7 @@ export const buildInquiryFormData = (
 
             body.append(stone('stoneId'), row.stoneId);
             body.append(stone('quantity'), String(row.quantity));
+            body.append(stone('slabSize'), row.slabSize);
             body.append(stone('edge'), row.edge);
             body.append(stone('finish'), row.finish);
         });

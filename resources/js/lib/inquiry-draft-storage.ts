@@ -110,6 +110,7 @@ const warnWriteFailure = (): void => {
 const storedStoneSchema = z.object({
     stoneId: z.string(),
     quantity: z.number().catch(1),
+    slabSize: z.string().catch(''),
     edge: z.string(),
     finish: z.string(),
 });

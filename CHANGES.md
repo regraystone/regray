@@ -1,3 +1,18 @@
+# The first step is one page, with slab sizes and Installation
+
+- **Step 1 shows every question at once:** What do you need, Which stones and Other details are all open, with no Next or Change buttons. The one way forward is **Continue to review**, which points at whichever question still needs an answer. The stone count and Clear sit above the grid.
+- **The stones are one row that scrolls sideways** (swipe, or the previous and next arrows on every screen, each hidden at its end), two cards to a view on a phone and three from `md`, all as tall as the tallest. The next page loads as the row reaches its end, so the details under it never move.
+- **Other details** has no headings. Slab size, edge profile and finish show on each stone's row; landmark, area, files and notes stay behind **Add more details**. Nothing is labelled "optional".
+- **Slab size:** each stone row has a required free-text size (`inquiry_stones.slab_size`, not null), shown on Review and the inquiry page. The same stone, edge and finish can be asked for in two sizes. "Add it again with another finish" keeps the size, and "Apply to all stones" copies it with the edge and finish. It is in the create migration, so an existing database needs `migrate:fresh --seed`; the seeders give every row `120 x 60 cm`.
+- **Required fields** Service type, Which application/furniture and Slab size are marked with `*`. The service, edge profile and finish dropdowns are the same height as "How would you like to get it?".
+- **Installation** is a new service under Natural Stone & Applications.
+
+# Frequently Asked Questions, and quicker message reminders
+
+- **Frequently Asked Questions:** a client's composer has an icon beside the upload icons, which opens three questions above the input, each sent by its own button. Scrolling or swiping down over them, or pressing outside them, hides them. The list is `COMMON_QUESTIONS` in `resources/js/lib/common-questions.ts`. Staff never see it.
+- **Staff message reminders** now go out after 3 minutes instead of 30 (`MESSAGE_REMINDER_AFTER_MINUTES`), and `messages:send-reminders` runs every minute instead of every five, so the delay holds. This covers the support pool, the staff member handling a thread and staff in group chats.
+- **Clients** are emailed "waiting for your reply" (`AwaitingReplyNotification`) when they have not replied after 30 minutes (`MESSAGE_REMINDER_CLIENT_AFTER_MINUTES`), whether or not they have read the message. It replaces their unread reminder, and goes out once per batch of messages.
+
 # Inquire asks what you need first
 
 The steps are now **1. What do you need?**, **2. Which stones?**, **3. Other details** and **4. Review and send**. An inquiry asks for one service, chosen from two dropdowns, rather than a service per stone.

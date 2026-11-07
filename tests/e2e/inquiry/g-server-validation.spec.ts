@@ -41,6 +41,7 @@ test('29 · a quantity of 10000 and an edge not in the catalogue are refused wit
                     {
                         stoneId: CATALOG.stoneSlug,
                         quantity: 10000,
+                        slabSize: '120 x 60 cm',
                         edge: 'Laser Etched Edge',
                         finish: CATALOG.finishes[0],
                     },

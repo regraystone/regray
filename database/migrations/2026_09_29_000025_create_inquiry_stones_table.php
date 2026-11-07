@@ -16,11 +16,12 @@ return new class extends Migration
             $table->foreignId('edge_profile_id')->constrained()->restrictOnDelete();
             $table->foreignId('finish_id')->constrained()->restrictOnDelete();
             $table->smallInteger('quantity');
+            $table->string('slab_size', 50);
             $table->smallInteger('sort_order');
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
 
-            $table->unique(['inquiry_id', 'stone_id', 'edge_profile_id', 'finish_id'], 'idx_inquiry_stones_unique');
+            $table->unique(['inquiry_id', 'stone_id', 'edge_profile_id', 'finish_id', 'slab_size'], 'idx_inquiry_stones_unique');
             $table->index('stone_id');
         });
 

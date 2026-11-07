@@ -258,6 +258,7 @@ class InquiryDetailsResource extends JsonResource
                 'name' => $row->stone->name,
                 'thumbnail' => ProjectCardResource::resolveThumbnailUrl($row->stone->thumbnail_path),
                 'quantity' => $row->quantity,
+                'slabSize' => $row->slab_size,
                 'edge' => $row->edgeProfile->name,
                 'finish' => $row->finish->name,
             ])->values()->all(),

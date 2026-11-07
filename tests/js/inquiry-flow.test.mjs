@@ -274,8 +274,20 @@ describe('committing a draft', () => {
 describe('seedStoneRows', () => {
     it('makes one blank row per newly picked stone', () => {
         assert.deepEqual(seedStoneRows(['marble', 'onyx'], [], null), [
-            { stoneId: 'marble', quantity: 1, edge: '', finish: '' },
-            { stoneId: 'onyx', quantity: 1, edge: '', finish: '' },
+            {
+                stoneId: 'marble',
+                quantity: 1,
+                slabSize: '',
+                edge: '',
+                finish: '',
+            },
+            {
+                stoneId: 'onyx',
+                quantity: 1,
+                slabSize: '',
+                edge: '',
+                finish: '',
+            },
         ]);
     });
 
@@ -311,6 +323,7 @@ describe('seedStoneRows', () => {
             {
                 stoneId: 'marble',
                 quantity: 1,
+                slabSize: '',
                 edge: 'Advise me',
                 finish: 'Advise me',
             },

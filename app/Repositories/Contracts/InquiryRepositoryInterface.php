@@ -47,7 +47,7 @@ interface InquiryRepositoryInterface
     ): InquiryStatusHistory;
 
     /**
-     * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>  $stones  Stored in the order given.
+     * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>  $stones  Stored in the order given.
      */
     public function addStones(Inquiry $inquiry, array $stones): void;
 
@@ -127,7 +127,7 @@ interface InquiryRepositoryInterface
     /**
      * Replace the inquiry's stone rows with these, in the order given.
      *
-     * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>  $stones
+     * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>  $stones
      */
     public function replaceStones(Inquiry $inquiry, array $stones): void;
 

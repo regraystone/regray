@@ -615,6 +615,7 @@ class InquirySeeder extends Seeder
                 'edge_profile_id' => EdgeProfile::where('name', $stoneSelection['edge'])->firstOrFail()->id,
                 'finish_id' => Finish::where('name', $stoneSelection['finish'])->firstOrFail()->id,
                 'quantity' => $stoneSelection['quantity'],
+                'slab_size' => $stoneSelection['slab_size'] ?? '120 x 60 cm',
                 'sort_order' => $stoneSort,
             ]);
         }

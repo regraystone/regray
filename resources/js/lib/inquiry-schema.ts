@@ -3,6 +3,7 @@ import {
     LANDMARK_MAX,
     NOTES_MAX,
     PROJECT_NAME_MAX,
+    SLAB_SIZE_MAX,
     attachmentMeta,
     type InquiryAttachment,
     type InquirySavedAttachment,
@@ -222,7 +223,12 @@ const attachmentsSchema = z
  * be flagged by the individual field validators.
  */
 const rejectRepeatedStones = (
-    entries: readonly { stoneId: string; edge: string; finish: string }[],
+    entries: readonly {
+        stoneId: string;
+        edge: string;
+        finish: string;
+        slabSize: string;
+    }[],
     ctx: z.RefinementCtx,
 ) => {
     const seen = new Map<string, number>();
@@ -232,14 +238,14 @@ const rejectRepeatedStones = (
             return;
         }
 
-        const key = `${entry.stoneId}::${entry.edge}::${entry.finish}`;
+        const key = `${entry.stoneId}::${entry.edge}::${entry.finish}::${entry.slabSize.trim()}`;
 
         if (seen.has(key)) {
             ctx.addIssue({
                 code: 'custom',
                 path: [index, 'finish'],
                 message:
-                    'Another row of this stone has the same edge profile and finish. Change one of them or remove this row.',
+                    'Another row of this stone has the same edge profile, finish and slab size. Change one of them or remove this row.',
             });
 
             return;
@@ -310,6 +316,15 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             .min(1, { error: 'Enter at least 1 piece.' })
             .max(MAX_STONE_QUANTITY, {
                 error: `Enter ${MAX_STONE_QUANTITY} pieces or fewer.`,
+            }),
+
+        /* Free text: slabs are measured in more than one way. */
+        slabSize: z
+            .string()
+            .trim()
+            .min(1, { error: 'Enter the slab size.' })
+            .max(SLAB_SIZE_MAX, {
+                error: `Keep the slab size to ${SLAB_SIZE_MAX} characters or fewer.`,
             }),
 
         /*

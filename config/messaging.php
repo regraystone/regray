@@ -9,18 +9,21 @@ return [
     |
     | How long a message may wait before an email is sent about it:
     |
-    | - to a member (a client, the staff member handling a Regray Team thread,
-    |   a group member) who has not read a message someone else sent them;
+    | - to a member (the staff member handling a Regray Team thread, a group
+    |   member) who has not read a message someone else sent them;
     | - to the support pool, when a client has written in a Regray Team thread
-    |   that nobody has claimed yet.
+    |   that nobody has claimed yet;
+    | - to a client who has not replied to the team, read or not, after the
+    |   longer `client_after_minutes`.
     |
-    | `messages:send-reminders` runs every five minutes and sends at most one
+    | `messages:send-reminders` runs every minute and sends at most one
     | email per person per run, about every conversation that is due.
     |
     */
 
     'reminders' => [
-        'after_minutes' => (int) env('MESSAGE_REMINDER_AFTER_MINUTES', 30),
+        'after_minutes' => (int) env('MESSAGE_REMINDER_AFTER_MINUTES', 3),
+        'client_after_minutes' => (int) env('MESSAGE_REMINDER_CLIENT_AFTER_MINUTES', 30),
     ],
 
     /*

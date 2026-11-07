@@ -10,7 +10,6 @@ import { fieldMessage } from '@/components/form-field';
 import { INQUIRY_DELIVERY_METHOD_ID } from '@/components/inquiry-project-details';
 import InquiryProjectForm from '@/components/inquiry-project-form';
 import InquiryQuestion, {
-    InquiryActionBar,
     InquiryActionBarSlot,
     inquiryQuestionId,
 } from '@/components/inquiry-question';
@@ -67,15 +66,11 @@ import {
     clampRestoredStep,
     deadlineLocks,
     DELIVERY,
-    DELIVERY_METHODS,
     INQUIRY_STEP_LABELS,
     mapInquiryErrors,
-    nextQuestion,
-    PICKUP,
     readInquiryFlash,
     REVIEW_STEP,
     seedStoneRows,
-    STONE_ADVICE_LABEL,
     stepperPosition,
     stoneFilterQuery,
     stoneTypeOptions,
@@ -126,10 +121,6 @@ const FULL_SCREEN_PAGE =
     'flex min-h-[calc(100svh-5rem)] w-full flex-col -mb-6 sm:min-h-[calc(100svh-5.5rem)] sm:-mb-8 lg:min-h-[calc(100svh-6rem)]';
 
 const BOTTOM_BAR = 'sticky bottom-0 z-10';
-
-const neededByFormatter = new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'long',
-});
 
 /**
  * Which step owns which field, read off `STEP_FIELDS` rather than written out
@@ -394,7 +385,6 @@ const InquireFlow = ({
     rememberStones: (found: InquiryStoneOption[]) => void;
 }) => {
     const catalog = useInquiryCatalog();
-    const { stones } = catalog;
     const { inquirySchema, projectDraftSchema } = useMemo(
         () => createInquirySchemas(catalog),
         [catalog],
@@ -518,18 +508,12 @@ const InquireFlow = ({
 
     const {
         setValue: setDraftValue,
-        trigger: triggerDraft,
         watch: watchDraft,
         getValues: getDraftValues,
     } = draftMethods;
 
-    const draftServiceTypeId = watchDraft('serviceTypeId');
-    const draftServiceId = watchDraft('serviceId');
     const draftStoneIds = watchDraft('stoneIds');
-    const draftDeliveryMethod = watchDraft('deliveryMethod');
     const draftStoneAdvice = watchDraft('stoneAdvice');
-    const draftLocation = watchDraft('location');
-    const draftNeededBy = watchDraft('neededBy');
 
     /*
      * Whether Continue has been pressed at all, once. A card is checked once there
@@ -865,16 +849,22 @@ const InquireFlow = ({
 
     const toggleStone = (id: string) => setStones(toggleIn(draftStoneIds, id));
 
+    /** Every question is on one page, so moving to one is a scroll to it. */
+    const showQuestion = (question: number) =>
+        document
+            .getElementById(inquiryQuestionId(question))
+            ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+
     /**
      * The reader does not know which stone yet, so the team will recommend one.
-     * Nothing else on this question needs answering, so it moves straight on.
+     * Nothing else about the stones needs answering, so the details come next.
      */
     const askForStoneAdvice = () => {
         setDraftValue('stoneIds', [], { shouldDirty: true });
         setDraftValue('stones', [], { shouldDirty: true });
         setDraftValue('stoneAdvice', true, { shouldDirty: true });
         draftMethods.clearErrors('stoneIds');
-        setStep(nextQuestion(STONES_STEP));
+        showQuestion(REQUIREMENTS_STEP);
     };
 
     /**
@@ -1000,44 +990,15 @@ const InquireFlow = ({
         );
     };
 
-    /**
-     * Open another question from its Change button. The stones get their rows on
-     * the way out of their question, however the reader leaves it.
+    /*
+     * Every question is on one page, so a stone gets its row in the details the
+     * moment it is picked, and loses it the moment it is not.
      */
-    const openQuestion = (question: number) => {
-        if (step === STONES_STEP) {
-            seedDraftStones();
-        }
-
-        setStep(question);
-    };
-
-    /** The stones onward. Needs a service, and says so beside its dropdown. */
-    const continueFromService = async () => {
-        const valid = await triggerDraft('serviceId', { shouldFocus: true });
-
-        if (valid) {
-            setStep(nextQuestion(SERVICE_STEP));
-        }
-    };
-
-    /**
-     * The details onward. Needs a stone, or the reader asking for a recommendation.
-     *
-     * The objection is spoken by the bar rather than by refusing the button,
-     * because a grid of cards is not a field and there is nothing to send the
-     * reader's attention to.
-     */
-    const continueFromStones = async () => {
-        hasDraftContinued.current = true;
-
-        const valid = await triggerDraft('stoneIds', { shouldFocus: true });
-
-        if (valid) {
-            seedDraftStones();
-            setStep(nextQuestion(STONES_STEP));
-        }
-    };
+    useEffect(() => {
+        seedDraftStones();
+        // Only a change of stones asks for it.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draftStoneIds, draftStoneAdvice]);
 
     /** What a project is called unless the reader names it on Review: its service. */
     const projectNameFor = (serviceId: string): string =>
@@ -1101,9 +1062,9 @@ const InquireFlow = ({
              */
             (errors) => {
                 if (errors.serviceId !== undefined) {
-                    setStep(SERVICE_STEP);
+                    showQuestion(SERVICE_STEP);
                 } else if (errors.stoneIds !== undefined) {
-                    setStep(STONES_STEP);
+                    showQuestion(STONES_STEP);
                 } else if (errors.deliveryMethod !== undefined) {
                     document
                         .getElementById(INQUIRY_DELIVERY_METHOD_ID)
@@ -1447,66 +1408,17 @@ const InquireFlow = ({
     const showDraftBanner = edit === null && editingProjectNumber > 0;
 
     /*
-     * The questions this draft is asked, in order. One waiting for an answer is
-     * not drawn until the reader reaches it.
+     * The questions this draft is asked, in order, all on the first step.
      */
     const questions = [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP];
 
-    const deliveryMethodName =
-        DELIVERY_METHODS.find(({ value }) => value === draftDeliveryMethod)
-            ?.title ?? '';
-    const isPickup = draftDeliveryMethod === PICKUP;
-    const isAnswered: Record<number, boolean> = {
-        [SERVICE_STEP]: draftServiceId !== '',
-        [STONES_STEP]: hasSelection || draftStoneAdvice,
-        [REQUIREMENTS_STEP]:
-            (isPickup || draftLocation !== '') && draftNeededBy !== '',
-    };
-
-    /** The question's props, or null while it waits for the reader to reach it. */
-    const question = (questionStep: number) =>
-        step === questionStep || isAnswered[questionStep]
-            ? {
-                  step: questionStep,
-                  number: questions.indexOf(questionStep) + 1,
-                  isOpen: step === questionStep,
-                  onChange: () => openQuestion(questionStep),
-              }
-            : null;
-
-    const namesOf = (names: string[], limit = 3): string =>
-        names.length > limit
-            ? `${names.slice(0, limit).join(', ')} and ${names.length - limit} more`
-            : names.join(', ');
-
-    const draftServiceType = catalog.serviceTypes.find(
-        ({ id }) => id === draftServiceTypeId,
-    );
-    const serviceSummary = [
-        draftServiceType?.name,
-        draftServiceType?.services.find(({ id }) => id === draftServiceId)
-            ?.name,
-    ]
-        .filter(Boolean)
-        .join(' - ');
-
-    const stonesSummary = draftStoneAdvice
-        ? STONE_ADVICE_LABEL
-        : namesOf(
-              draftStoneIds.map(
-                  (id) => stones.find((stone) => stone.slug === id)?.name ?? id,
-              ),
-          );
-
-    const detailsSummary = [
-        deliveryMethodName,
-        isPickup ? '' : draftLocation,
-        draftNeededBy === ''
-            ? ''
-            : neededByFormatter.format(new Date(`${draftNeededBy}T00:00`)),
-    ]
-        .filter((part) => part !== '')
-        .join(', ');
+    /** Every question is open at once: the first step is one page. */
+    const question = (questionStep: number) => ({
+        step: questionStep,
+        number: questions.indexOf(questionStep) + 1,
+        isOpen: true,
+        onChange: () => undefined,
+    });
 
     const serviceQuestion = question(SERVICE_STEP);
     const stonesQuestion = question(STONES_STEP);
@@ -1599,12 +1511,11 @@ const InquireFlow = ({
                                 <InquiryQuestion
                                     {...serviceQuestion}
                                     title="What do you need?"
-                                    summary={serviceSummary}
+                                    summary=""
                                 >
                                     <InquiryServiceQuestion
                                         onServiceType={chooseServiceType}
                                         onService={chooseService}
-                                        onNext={continueFromService}
                                     />
                                 </InquiryQuestion>
                             ) : null}
@@ -1613,7 +1524,7 @@ const InquireFlow = ({
                                 <InquiryQuestion
                                     {...stonesQuestion}
                                     title="Which stones?"
-                                    summary={stonesSummary}
+                                    summary=""
                                 >
                                     <div className="mb-5 flex flex-col gap-3 rounded-md border border-sidebar-border bg-secondary p-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="min-w-0">
@@ -1758,6 +1669,43 @@ const InquireFlow = ({
                                         />
                                     </div>
 
+                                    {/*
+                                     * What is picked so far, and why Continue was
+                                     * refused if it was: a grid of cards is not a
+                                     * field, so there is no control to say it on.
+                                     */}
+                                    <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                                        <p
+                                            aria-live="polite"
+                                            className="text-sm font-bold text-foreground"
+                                            data-testid="stones-selected"
+                                        >
+                                            {draftStoneIds.length}{' '}
+                                            {draftStoneIds.length === 1
+                                                ? 'stone'
+                                                : 'stones'}{' '}
+                                            selected
+                                        </p>
+                                        {hasSelection ? (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setStones([])}
+                                                className="h-7 cursor-pointer px-1.5 text-xs"
+                                            >
+                                                Clear
+                                            </Button>
+                                        ) : null}
+                                        <InputError
+                                            message={fieldMessage(
+                                                draftMethods.formState.errors
+                                                    .stoneIds,
+                                            )}
+                                            role="alert"
+                                        />
+                                    </div>
+
                                     {isLoadingStones ? (
                                         <StoneGridSkeleton />
                                     ) : filter === 'saved' &&
@@ -1800,63 +1748,6 @@ const InquireFlow = ({
                                             onToggle={toggleStone}
                                         />
                                     )}
-
-                                    {/*
-                                     * Sticky so the way forward stays reachable
-                                     * while a long grid scrolls past, and opaque so
-                                     * the grid does not read through it.
-                                     */}
-                                    <InquiryActionBar>
-                                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                                            <p
-                                                aria-live="polite"
-                                                className="text-sm font-bold text-foreground"
-                                            >
-                                                {draftStoneIds.length}{' '}
-                                                {draftStoneIds.length === 1
-                                                    ? 'stone'
-                                                    : 'stones'}{' '}
-                                                selected
-                                            </p>
-                                            {hasSelection ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        setStones([])
-                                                    }
-                                                    className="h-7 cursor-pointer px-1.5 text-xs"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            ) : null}
-                                            {/*
-                                             * There is no control here to focus — a
-                                             * grid of cards is not a field — so
-                                             * Next is left enabled and the
-                                             * objection is said here instead of by
-                                             * refusing to let the reader onwards.
-                                             */}
-                                            <InputError
-                                                message={fieldMessage(
-                                                    draftMethods.formState
-                                                        .errors.stoneIds,
-                                                )}
-                                                role="alert"
-                                            />
-                                        </div>
-
-                                        <div className="flex w-full shrink-0 flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
-                                            <Button
-                                                type="button"
-                                                onClick={continueFromStones}
-                                                className="w-full sm:w-auto"
-                                            >
-                                                Next
-                                            </Button>
-                                        </div>
-                                    </InquiryActionBar>
                                 </InquiryQuestion>
                             ) : null}
 
@@ -1864,7 +1755,7 @@ const InquireFlow = ({
                                 <InquiryQuestion
                                     {...detailsQuestion}
                                     title="Other details"
-                                    summary={detailsSummary}
+                                    summary=""
                                 >
                                     <InquiryProjectForm
                                         projectNumber={

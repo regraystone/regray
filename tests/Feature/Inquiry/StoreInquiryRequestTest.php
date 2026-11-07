@@ -113,7 +113,7 @@ describe('projects', function (): void {
 
 describe('stone rows', function (): void {
     /**
-     * @return list<array{stoneId: string, quantity: int, edge: string, finish: string}>
+     * @return list<array{stoneId: string, quantity: int, slabSize: string, edge: string, finish: string}>
      */
     function distinctStoneRows(int $count): array
     {
@@ -121,7 +121,7 @@ describe('stone rows', function (): void {
 
         foreach (Stone::query()->active()->limit(3)->pluck('slug') as $slug) {
             foreach (EdgeProfile::query()->pluck('name') as $edge) {
-                $rows[] = ['stoneId' => $slug, 'quantity' => 1, 'edge' => $edge, 'finish' => Finish::query()->value('name')];
+                $rows[] = ['stoneId' => $slug, 'quantity' => 1, 'slabSize' => '120 x 60 cm', 'edge' => $edge, 'finish' => Finish::query()->value('name')];
             }
         }
 
@@ -141,6 +141,47 @@ describe('stone rows', function (): void {
         $other = Finish::query()->where('name', '!=', $row['finish'])->value('name');
 
         postInquiry($this, [inquiryProjectInput(['stones' => [$row, [...$row, 'finish' => $other]]])])->assertSessionHasNoErrors();
+    });
+
+    it('saves the size of a slab', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => ' 90 x 45 cm ']]])])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->stones()->sole()->slab_size)->toBe('90 x 45 cm');
+    });
+
+    it('refuses a stone row with no slab size', function (string $slabSize): void {
+        $row = inquiryProjectInput()['stones'][0];
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => $slabSize]]])])
+            ->assertSessionHasErrors(['projects.0.stones.0.slabSize' => 'Enter the slab size.']);
+
+        $withoutSize = $row;
+        unset($withoutSize['slabSize']);
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [$withoutSize]])])
+            ->assertSessionHasErrors('projects.0.stones.0.slabSize');
+    })->with(['empty' => [''], 'blank' => ['   ']]);
+
+    it('refuses a slab size that is too long', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => str_repeat('x', 51)]]])])
+            ->assertSessionHasErrors('projects.0.stones.0.slabSize');
+    });
+
+    it('keeps the same stone, edge and finish in two sizes as two rows, and adds up the same size', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+        $small = [...$row, 'quantity' => 2, 'slabSize' => '60 x 60 cm'];
+        $large = [...$row, 'quantity' => 3, 'slabSize' => '120 x 60 cm'];
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [$small, $large, $small]])])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->stones()->orderBy('sort_order')->get(['slab_size', 'quantity'])->toArray())->toBe([
+            ['slab_size' => '60 x 60 cm', 'quantity' => 4],
+            ['slab_size' => '120 x 60 cm', 'quantity' => 3],
+        ]);
     });
 
     it('adds a repeated stone, edge and finish to one row, up to the quantity limit', function (): void {

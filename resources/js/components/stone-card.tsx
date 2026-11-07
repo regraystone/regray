@@ -2,7 +2,9 @@ import { Check } from 'lucide-react';
 
 /**
  * A stone to pick on the Inquire page: its picture, its name and its stone type.
- * The whole card is the checkbox, so there is nothing else on it to press.
+ * The whole card is the checkbox, so there is nothing else on it to press. It
+ * fills the height it is given, so a row of cards is as tall as its tallest,
+ * with the picture and name kept at the top (a button centres them otherwise).
  */
 const StoneCard = ({
     name,
@@ -18,7 +20,7 @@ const StoneCard = ({
     onToggle: () => void;
 }) => (
     <article
-        className={`overflow-hidden rounded-none border bg-background ${
+        className={`h-full overflow-hidden rounded-none border bg-background ${
             selected
                 ? 'border-primary ring-2 ring-primary'
                 : 'border-sidebar-border'
@@ -31,7 +33,7 @@ const StoneCard = ({
             aria-checked={selected}
             aria-label={name}
             onClick={onToggle}
-            className="block w-full cursor-pointer rounded-none bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="flex h-full w-full cursor-pointer flex-col justify-start rounded-none bg-background text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
         >
             <span className="relative block aspect-square w-full overflow-hidden bg-muted">
                 <img

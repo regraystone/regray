@@ -297,6 +297,11 @@ const ReviewProjectCard = ({
                             {row.quantity} pcs
                         </p>
                     </div>
+                    {row.slabSize.trim() === '' ? null : (
+                        <p className="mt-1 text-xs break-words text-secondary-foreground">
+                            Size: {row.slabSize.trim()}
+                        </p>
+                    )}
                     {row.edge === catalog.advisoryEdge &&
                     row.finish === catalog.advisoryFinish ? (
                         <p className="mt-1 text-xs text-secondary-foreground">

@@ -1,6 +1,7 @@
 import {
     Camera,
     Image as ImageIcon,
+    MessageCircleQuestion,
     Paperclip,
     Pencil,
     Reply,
@@ -18,6 +19,9 @@ import {
     type ReactNode,
     type Ref,
 } from 'react';
+import CommonQuestions, {
+    COMMON_QUESTIONS_LIST_ID,
+} from '@/components/conversations/common-questions';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import type { ComposerState } from '@/lib/assignment';
@@ -44,6 +48,10 @@ type ComposerProps = {
     isTouch: boolean;
     replyTo: ChatMessage | null;
     editing: ChatMessage | null;
+    /** Questions to send with one press, above the box. Clients only. */
+    commonQuestions?: readonly string[];
+    commonQuestionsOpen?: boolean;
+    onCommonQuestionsOpenChange?: (open: boolean) => void;
     onSend: (body: string, files: File[]) => void;
     onSaveEdit: (body: string) => Promise<void>;
     onCancelReply: () => void;
@@ -110,6 +118,32 @@ const AttachButton = ({
         className="size-10 shrink-0 cursor-pointer rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
     >
         <Paperclip className="size-5" aria-hidden />
+    </Button>
+);
+
+/** Opens the common questions, above the box. */
+const CommonQuestionsButton = ({
+    isOpen,
+    onClick,
+    disabled,
+}: {
+    isOpen: boolean;
+    onClick: () => void;
+    disabled: boolean;
+}) => (
+    <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label="Frequently Asked Questions"
+        aria-expanded={isOpen}
+        aria-controls={COMMON_QUESTIONS_LIST_ID}
+        className="size-10 shrink-0 cursor-pointer rounded-md p-0 text-secondary-foreground hover:bg-secondary hover:text-foreground"
+        data-testid="common-questions-toggle"
+    >
+        <MessageCircleQuestion className="size-5" aria-hidden />
     </Button>
 );
 
@@ -213,6 +247,9 @@ const Composer = ({
     isTouch,
     replyTo,
     editing,
+    commonQuestions,
+    commonQuestionsOpen = false,
+    onCommonQuestionsOpenChange,
     onSend,
     onSaveEdit,
     onCancelReply,
@@ -287,6 +324,12 @@ const Composer = ({
             : draft.trim() !== '');
 
     const inUse = focused || draft.trim() !== '' || editing !== null || saving;
+
+    const showsCommon =
+        commonQuestions !== undefined &&
+        commonQuestionsOpen &&
+        !isLocked &&
+        editing === null;
 
     const submit = async () => {
         const body = draft.trim();
@@ -406,6 +449,15 @@ const Composer = ({
                 </div>
             ) : null}
 
+            {commonQuestions === undefined ? null : (
+                <CommonQuestions
+                    questions={commonQuestions}
+                    shown={showsCommon}
+                    onSend={(question) => onSend(question, [])}
+                    onHide={() => onCommonQuestionsOpenChange?.(false)}
+                />
+            )}
+
             <div className="flex items-end gap-1.5 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <input
                     ref={cameraInputRef}
@@ -492,6 +544,17 @@ const Composer = ({
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isLocked || editing !== null}
                             />
+                            {commonQuestions === undefined ? null : (
+                                <CommonQuestionsButton
+                                    isOpen={showsCommon}
+                                    onClick={() =>
+                                        onCommonQuestionsOpenChange?.(
+                                            !commonQuestionsOpen,
+                                        )
+                                    }
+                                    disabled={isLocked || editing !== null}
+                                />
+                            )}
                         </div>
                     </RightIconsSlot>
                     <SendSlot shown={inUse}>

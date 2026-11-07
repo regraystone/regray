@@ -17,6 +17,7 @@ const ServiceOptionSelect = ({
     error,
     options,
     describedBy,
+    required = false,
 }: {
     id: string;
     label?: string;
@@ -29,6 +30,8 @@ const ServiceOptionSelect = ({
     options: Array<{ id: string; name: string }>;
     /** The id of what explains the entry picked, for a screen reader. */
     describedBy?: string;
+    /** Marked with an asterisk, the way `FormField` marks one. */
+    required?: boolean;
 }) => (
     <>
         <label
@@ -38,6 +41,15 @@ const ServiceOptionSelect = ({
             {label}
             {labelContext ? (
                 <span className="sr-only"> for {labelContext}</span>
+            ) : null}
+            {required ? (
+                <>
+                    {/* Announced as "required" rather than read as a stray asterisk. */}
+                    <span className="text-destructive" aria-hidden>
+                        {' *'}
+                    </span>
+                    <span className="sr-only"> (required)</span>
+                </>
             ) : null}
         </label>
         <Select value={value} onValueChange={onChange}>
@@ -49,7 +61,7 @@ const ServiceOptionSelect = ({
                         .filter(Boolean)
                         .join(' ') || undefined
                 }
-                className="mt-2 w-full rounded-none bg-background sm:max-w-md"
+                className="mt-2 w-full rounded-none bg-background text-base data-[size=default]:h-11 sm:max-w-md"
                 data-testid="service-option"
             >
                 <SelectValue placeholder="Choose one" />

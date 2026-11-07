@@ -1,8 +1,6 @@
 import { useFormContext, useWatch } from 'react-hook-form';
 import { fieldMessage } from '@/components/form-field';
-import { InquiryActionBar } from '@/components/inquiry-question';
 import ServiceOptionSelect from '@/components/service-option-select';
-import { Button } from '@/components/ui/button';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import { serviceChoiceLabel } from '@/lib/inquiry-flow';
 import type {
@@ -20,11 +18,9 @@ const SERVICE_INFO_ID = 'inquiry-service-info';
 const InquiryServiceQuestion = ({
     onServiceType,
     onService,
-    onNext,
 }: {
     onServiceType: (serviceTypeId: string) => void;
     onService: (serviceId: string) => void;
-    onNext: () => void;
 }) => {
     const { serviceTypes } = useInquiryCatalog();
     const {
@@ -44,6 +40,7 @@ const InquiryServiceQuestion = ({
                 <ServiceOptionSelect
                     id="inquiry-service-type"
                     label="Service type"
+                    required
                     value={serviceTypeId}
                     onChange={onServiceType}
                     // With no type chosen, this is the only place to say so.
@@ -57,6 +54,7 @@ const InquiryServiceQuestion = ({
                     <ServiceOptionSelect
                         id="inquiry-service"
                         label={serviceChoiceLabel(serviceType.id)}
+                        required
                         value={serviceId}
                         onChange={onService}
                         error={error}
@@ -82,21 +80,6 @@ const InquiryServiceQuestion = ({
                     </ul>
                 </div>
             )}
-
-            <InquiryActionBar>
-                <span className="min-w-0 flex-1" />
-                {/*
-                 * Left enabled, like the other questions: a press that is refused
-                 * says what is missing, which a greyed-out button cannot.
-                 */}
-                <Button
-                    type="button"
-                    onClick={onNext}
-                    className="w-full sm:w-auto"
-                >
-                    Next
-                </Button>
-            </InquiryActionBar>
         </div>
     );
 };

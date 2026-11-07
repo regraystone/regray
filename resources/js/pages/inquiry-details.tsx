@@ -47,6 +47,7 @@ type ResolvedStone = {
     name: string;
     thumbnail: string;
     quantity: number;
+    slabSize: string;
     edge: string;
     finish: string;
 };
@@ -584,6 +585,9 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                                             {stone.quantity} pcs
                                         </p>
                                     </div>
+                                    <p className="mt-1 text-xs break-words text-secondary-foreground">
+                                        Size: {stone.slabSize}
+                                    </p>
                                     <p className="mt-1 truncate text-xs text-secondary-foreground">
                                         {stone.edge}
                                     </p>
