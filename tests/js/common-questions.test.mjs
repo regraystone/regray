@@ -3,17 +3,15 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     COMMON_QUESTIONS,
-    showsCommonQuestions,
+    wheelPull,
 } from '../../resources/js/lib/common-questions.ts';
 
-const shows = (overrides = {}) =>
-    showsCommonQuestions({
-        isClient: true,
-        composerMode: 'enabled',
-        isEditing: false,
-        unseen: 0,
-        ...overrides,
-    });
+const list = (overrides = {}) => ({
+    scrollTop: 0,
+    clientHeight: 100,
+    scrollHeight: 100,
+    ...overrides,
+});
 
 describe('the common questions', () => {
     it('are these three', () => {
@@ -23,24 +21,21 @@ describe('the common questions', () => {
             'How do I request a quotation?',
         ]);
     });
+});
 
-    it('are offered to a client who can write', () => {
-        assert.equal(shows(), true);
+describe('scrolling down to hide them', () => {
+    it('adds up what is scrolled down', () => {
+        assert.equal(wheelPull(10, 25, list()), 35);
     });
 
-    it('are never offered to staff', () => {
-        assert.equal(shows({ isClient: false }), false);
+    it('starts again when scrolled up', () => {
+        assert.equal(wheelPull(30, -5, list()), 0);
     });
 
-    it('are not offered while the composer is locked', () => {
-        assert.equal(shows({ composerMode: 'locked' }), false);
-    });
+    it('lets a list that overflows scroll to its end first', () => {
+        const tall = { clientHeight: 100, scrollHeight: 300 };
 
-    it('are not offered while editing a message', () => {
-        assert.equal(shows({ isEditing: true }), false);
-    });
-
-    it('give way to the new-messages pill', () => {
-        assert.equal(shows({ unseen: 2 }), false);
+        assert.equal(wheelPull(30, 50, list(tall)), 0);
+        assert.equal(wheelPull(0, 50, list({ ...tall, scrollTop: 200 })), 50);
     });
 });

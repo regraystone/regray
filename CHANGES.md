@@ -1,6 +1,6 @@
-# Common Questions, and quicker message reminders
+# Frequently Asked Questions, and quicker message reminders
 
-- **Common Questions:** a client's thread has a button on the left of the quotation pill, which opens three questions under the composer, each sent by its own button. The list is `COMMON_QUESTIONS` in `resources/js/lib/common-questions.ts`. The button is only its icon where its label would collide with the quotation pill. Staff never see it.
+- **Frequently Asked Questions:** a client's composer has an icon beside the upload icons, which opens three questions above the input, each sent by its own button. Scrolling or swiping down over them, or pressing outside them, hides them. The list is `COMMON_QUESTIONS` in `resources/js/lib/common-questions.ts`. Staff never see it.
 - **Staff message reminders** now go out after 3 minutes instead of 30 (`MESSAGE_REMINDER_AFTER_MINUTES`), and `messages:send-reminders` runs every minute instead of every five, so the delay holds. This covers the support pool, the staff member handling a thread and staff in group chats.
 - **Clients** are emailed "waiting for your reply" (`AwaitingReplyNotification`) when they have not replied after 30 minutes (`MESSAGE_REMINDER_CLIENT_AFTER_MINUTES`), whether or not they have read the message. It replaces their unread reminder, and goes out once per batch of messages.
 

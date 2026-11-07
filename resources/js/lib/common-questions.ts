@@ -1,6 +1,6 @@
 /*
- * The questions a client can send with one press, from the Common Questions button
- * in the thread. Pure, with no imports, for tests/js.
+ * The questions a client can send with one press, from the Frequently Asked Questions icon
+ * in the composer. Pure, with no imports, for tests/js.
  */
 export const COMMON_QUESTIONS: readonly string[] = [
     'How long does an order take?',
@@ -8,19 +8,18 @@ export const COMMON_QUESTIONS: readonly string[] = [
     'How do I request a quotation?',
 ];
 
+/** How far, in pixels, a scroll or a swipe down has to go to hide them. */
+export const HIDE_DISTANCE_PX = 40;
+
 /**
- * Whether a thread offers them: to a client who can write here, and not while
- * editing a message or while the new-messages pill has that spot.
+ * How far a mouse or trackpad scroll has pulled at the list so far: only scrolling
+ * down counts, and only once the list has no more of itself to scroll through.
  */
-export const showsCommonQuestions = ({
-    isClient,
-    composerMode,
-    isEditing,
-    unseen,
-}: {
-    isClient: boolean;
-    composerMode: 'enabled' | 'locked';
-    isEditing: boolean;
-    unseen: number;
-}): boolean =>
-    isClient && composerMode === 'enabled' && !isEditing && unseen === 0;
+export const wheelPull = (
+    pulled: number,
+    deltaY: number,
+    list: { scrollTop: number; clientHeight: number; scrollHeight: number },
+): number =>
+    deltaY <= 0 || list.scrollTop + list.clientHeight < list.scrollHeight - 1
+        ? 0
+        : pulled + deltaY;

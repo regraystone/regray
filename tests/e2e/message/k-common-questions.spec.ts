@@ -2,9 +2,9 @@ import type { Page } from '@playwright/test';
 import { expect, fixtures, openConversation, test } from './support/fixtures';
 
 /*
- * K. The Common Questions button in a client's thread, and the list it opens under
- * the composer. "Support Common" has a Regray Team thread of its own that nobody
- * claims, so it stays locked for staff.
+ * K. The Frequently Asked Questions icon in a client's composer, and the list it opens above
+ * the box. "Support Common" has a Regray Team thread of its own that nobody claims,
+ * so it stays locked for staff.
  */
 
 const FIRST_QUESTION = 'How long does an order take?';
@@ -37,20 +37,22 @@ const openAsClient = async (sessions: {
     return page;
 };
 
-test('K1 · the button opens the three questions under the input and closes them; the input alone does not', async ({
+test('K1 · the icon sits with the upload icons and opens the questions above the input, and closes them', async ({
     sessions,
 }) => {
     const page = await openAsClient(sessions);
-    const quote = page.getByTestId('quote-prompt');
+    const attach = await page
+        .getByRole('button', { name: 'Attach a file' })
+        .boundingBox();
+    const icon = await toggle(page).boundingBox();
 
-    await expect(quote).toBeVisible();
-    const button = await toggle(page).boundingBox();
-    const prompt = await quote.boundingBox();
+    expect(icon?.y).toBe(attach?.y);
+    expect(icon?.x ?? 0).toBeGreaterThan(attach?.x ?? 0);
+    await expect(toggle(page)).toHaveAccessibleName(
+        'Frequently Asked Questions',
+    );
+    await expect(toggle(page)).not.toContainText('Frequently Asked Questions');
 
-    expect(button?.x ?? 0).toBeLessThan(prompt?.x ?? 0);
-
-    await expect(block(page)).toBeHidden();
-    await input(page).focus();
     await expect(block(page)).toBeHidden();
 
     await toggle(page).click();
@@ -58,7 +60,7 @@ test('K1 · the button opens the three questions under the input and closes them
     await expect(block(page)).toBeVisible();
     await expect(
         page
-            .getByRole('list', { name: 'Common Questions' })
+            .getByRole('list', { name: 'Frequently Asked Questions' })
             .getByRole('listitem'),
     ).toHaveText([
         FIRST_QUESTION,
@@ -66,11 +68,66 @@ test('K1 · the button opens the three questions under the input and closes them
         'How do I request a quotation?',
     ]);
 
-    const inputBox = await input(page).boundingBox();
-    const blockBox = await block(page).boundingBox();
+    await expect
+        .poll(async () => {
+            const list = await block(page).boundingBox();
+            const box = await input(page).boundingBox();
 
-    expect(blockBox?.y ?? 0).toBeGreaterThan(inputBox?.y ?? 0);
+            return (list?.y ?? 0) + (list?.height ?? 0) <= (box?.y ?? 0);
+        }, 'the list sits above the input')
+        .toBe(true);
 
+    await toggle(page).click();
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(block(page)).toBeHidden();
+});
+
+test('K1a · scrolling down over the list hides it, and scrolling up does not', async ({
+    sessions,
+}) => {
+    const page = await openAsClient(sessions);
+
+    await toggle(page).click();
+    await expect(block(page)).toBeVisible();
+    await page.waitForTimeout(300);
+    await block(page).hover();
+
+    await page.mouse.wheel(0, -200);
+    await page.waitForTimeout(300);
+    await expect(block(page)).toBeVisible();
+
+    await page.mouse.wheel(0, 200);
+    await expect(block(page)).toBeHidden();
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+
+    // And it opens again from the icon.
+    await toggle(page).click();
+    await expect(block(page)).toBeVisible();
+});
+
+test('K1b · pressing outside hides the list; inside it does not, and the icon still toggles', async ({
+    sessions,
+}) => {
+    const page = await openAsClient(sessions);
+
+    await toggle(page).click();
+    await expect(block(page)).toBeVisible();
+
+    await block(page).getByText(FIRST_QUESTION).click();
+    await page.waitForTimeout(300);
+    await expect(block(page)).toBeVisible();
+
+    await page.getByTestId('message-bubble').first().click();
+    await expect(block(page)).toBeHidden();
+
+    await toggle(page).click();
+    await expect(block(page)).toBeVisible();
+    await input(page).click();
+    await expect(block(page)).toBeHidden();
+    await input(page).blur();
+
+    await toggle(page).click();
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
     await toggle(page).click();
     await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
     await expect(block(page)).toBeHidden();
@@ -82,8 +139,8 @@ test('K2 · a question sends its exact text, leaves the draft alone, and the lis
     const page = await openAsClient(sessions);
     const before = await bubbles(page, FIRST_QUESTION).count();
 
-    await input(page).fill('My own draft');
     await toggle(page).click();
+    await input(page).fill('My own draft');
 
     const sent = sendResponse(page);
     await sendQuestion(page, 0).click();
@@ -131,6 +188,7 @@ test('K4 · a question sends a pending reply with it', async ({ sessions }) => {
     await target.getByRole('button', { name: 'Reply' }).click();
     await expect(page.getByTestId('reply-bar')).toBeVisible();
 
+    await input(page).blur();
     await toggle(page).click();
 
     const sent = sendResponse(page);
@@ -170,60 +228,14 @@ test('K5 · the keyboard opens it and reaches each button, and Enter and Space s
     await expect(sendQuestion(page, 2)).toBeFocused();
 });
 
-test('K5a · the button is only its icon where it would collide with the quotation pill, and gets its label back without it @layout', async ({
+test('K6 · on a touch screen a tap opens it and sends, a swipe down hides it, and nothing scrolls sideways @mobile', async ({
     sessions,
 }) => {
     const page = await openAsClient(sessions);
-    const quote = page.getByTestId('quote-prompt');
-    const label = page.getByTestId('common-questions-label');
-
-    // Polled, because the pills are still settling just after a resize.
-    const sideBySide = () =>
-        expect(async () => {
-            const button = await toggle(page).boundingBox();
-            const prompt = await quote.boundingBox();
-
-            expect(button?.y ?? 0).toBeGreaterThan((prompt?.y ?? 0) - 12);
-            expect((button?.x ?? 0) + (button?.width ?? 0)).toBeLessThan(
-                prompt?.x ?? 0,
-            );
-        }).toPass({ timeout: 5000 });
-
-    for (const width of [375, 768]) {
-        await page.setViewportSize({ width, height: 800 });
-        await expect(label, `at ${width}px`).toBeHidden();
-        await expect(toggle(page)).toHaveAccessibleName('Common Questions');
-        await sideBySide();
-    }
-
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await expect(label).toBeVisible();
-    await sideBySide();
-
-    await page.setViewportSize({ width: 375, height: 800 });
-    await expect(label).toBeHidden();
-    await page
-        .getByRole('button', { name: 'Hide the quotation button' })
-        .click();
-    await expect(quote).toHaveCount(0);
-    await expect(label).toBeVisible();
-});
-
-test('K6 · on a touch screen a tap opens it and sends, the pills do not collide, and nothing scrolls sideways @mobile', async ({
-    sessions,
-}) => {
-    const page = await openAsClient(sessions);
-    const button = await toggle(page).boundingBox();
-    const prompt = await page.getByTestId('quote-prompt').boundingBox();
-
-    expect(
-        (button?.y ?? 0) + (button?.height ?? 0) <= (prompt?.y ?? 0) ||
-            (button?.x ?? 0) + (button?.width ?? 0) <= (prompt?.x ?? 0),
-        'the two pills overlap',
-    ).toBe(true);
 
     await toggle(page).tap();
     await expect(block(page)).toBeVisible();
+    await page.waitForTimeout(300);
     expect(
         await page.evaluate(
             () =>
@@ -239,14 +251,33 @@ test('K6 · on a touch screen a tap opens it and sends, the pills do not collide
         bubbles(page, 'How do I request a quotation?').first(),
     ).toBeVisible();
 
-    // With the box focused too, a tap on a question still lands.
-    await input(page).tap();
-    await expect(input(page)).toBeFocused();
-
-    const whileFocused = sendResponse(page);
-    await sendQuestion(page, 1).tap();
-    expect((await whileFocused).ok()).toBe(true);
     await expect(block(page)).toBeVisible();
+
+    // A real finger, through the browser's own touch input.
+    const box = await block(page)
+        .getByText('Frequently Asked Questions')
+        .boundingBox();
+    const x = (box?.x ?? 0) + 40;
+    const y = (box?.y ?? 0) + 4;
+    const touch = await page.context().newCDPSession(page);
+
+    await touch.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x, y }],
+    });
+
+    for (const distance of [20, 40, 60, 80]) {
+        await touch.send('Input.dispatchTouchEvent', {
+            type: 'touchMove',
+            touchPoints: [{ x, y: y + distance }],
+        });
+    }
+
+    await touch.send('Input.dispatchTouchEvent', {
+        type: 'touchEnd',
+        touchPoints: [],
+    });
+    await expect(block(page)).toBeHidden();
 });
 
 test('K7 · staff never see it, on a thread they can write in or one locked for them', async ({
@@ -257,7 +288,6 @@ test('K7 · staff never see it, on a thread they can write in or one locked for 
 
     await openConversation(page, chat.conversationId);
     await expect(input(page)).toBeEnabled();
-    await input(page).focus();
     await expect(toggle(page)).toHaveCount(0);
     await expect(block(page)).toHaveCount(0);
 
@@ -268,7 +298,7 @@ test('K7 · staff never see it, on a thread they can write in or one locked for 
     await expect(block(page)).toHaveCount(0);
 });
 
-test('K8 · it hides while editing a message, and comes back after', async ({
+test('K8 · it hides while editing a message, and the icon waits until that is done', async ({
     sessions,
 }) => {
     const page = await openAsClient(sessions);
@@ -276,6 +306,7 @@ test('K8 · it hides while editing a message, and comes back after', async ({
 
     await input(page).fill(text);
     await page.getByRole('button', { name: 'Send message' }).click();
+    await input(page).blur();
     await toggle(page).click();
     await expect(block(page)).toBeVisible();
 
@@ -283,11 +314,12 @@ test('K8 · it hides while editing a message, and comes back after', async ({
     await target.hover();
     await target.getByRole('button', { name: 'Edit' }).click();
     await expect(page.getByTestId('editing-bar')).toBeVisible();
-    await expect(toggle(page)).toHaveCount(0);
     await expect(block(page)).toBeHidden();
+    await expect(sendQuestion(page, 0)).not.toBeFocused();
 
     await page.getByRole('button', { name: 'Cancel editing' }).click();
-    await expect(toggle(page)).toBeVisible();
+    await input(page).blur();
+    await toggle(page).click();
     await expect(block(page)).toBeVisible();
 });
 
