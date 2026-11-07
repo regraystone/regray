@@ -1,27 +1,21 @@
 import type {
     InquiryEditProject,
     InquiryMode,
-    WorkService,
+    ServiceTypeOption,
+    StoneFilter,
 } from '@/lib/inquiry-flow';
 import type { LeadTally } from '@/lib/lead-statuses';
 import type { StoneCardData } from '@/types/stone';
 
-/** A furniture type the Inquire page offers. `id` is its slug. */
-export type InquiryFurnitureType = {
-    id: string;
-    name: string;
-};
+/** A stone the Inquire page offers. */
+export type InquiryStoneOption = StoneCardData;
 
-/** A stone the Inquire page offers, with what its search runs over. */
-export type InquiryStoneOption = StoneCardData & {
-    bestSeller: boolean;
-    description: string;
-    specifications: {
-        stoneType: string;
-        origin: string;
-        size: string;
-        thicknessMm: number;
-    };
+/** Which page of stones the server answered with. */
+export type InquiryStoneFilters = {
+    tab: StoneFilter;
+    type: string | null;
+    search: string | null;
+    perPage: number;
 };
 
 /** An edge profile or a finish. `isAdvisory` is the "advise me" answer. */
@@ -37,9 +31,13 @@ export type InquiryFinishingOption = {
  * its projects as `InquiryEditResource` describes them).
  */
 export type InquirePageProps = {
-    services: WorkService[];
-    furnitureTypes: InquiryFurnitureType[];
-    stones: InquiryStoneOption[];
+    serviceTypes: ServiceTypeOption[];
+    /** One page of stones at a time, added to as the reader scrolls. */
+    stones: { data: InquiryStoneOption[] };
+    stoneTypes: Array<{ value: string; label: string }>;
+    stoneFilters: InquiryStoneFilters;
+    /** The stones of a restored draft, when asked for by slug. */
+    pickedStones?: InquiryStoneOption[];
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
     locations: string[];
@@ -92,8 +90,8 @@ export type InquiryLeadOption = {
  */
 export type InquiryCatalog = {
     /** What the page offers, and any an inquiry being edited already has. */
-    services: WorkService[];
-    furnitureTypes: InquiryFurnitureType[];
+    serviceTypes: ServiceTypeOption[];
+    /** The stones the page has been sent so far. */
     stones: InquiryStoneOption[];
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];

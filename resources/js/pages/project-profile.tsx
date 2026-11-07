@@ -128,7 +128,7 @@ const ProjectProfile = ({
                                 slug: stone.slug,
                                 name: stone.name,
                                 thumbnail: stone.thumbnail,
-                                category: stone.category,
+                                category: stone.type,
                             }}
                             aspect="aspect-[4/3]"
                             href={homeShow.url({

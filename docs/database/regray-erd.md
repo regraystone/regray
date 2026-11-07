@@ -152,7 +152,7 @@ erDiagram
 
 Every product belongs to exactly one brand: `stones.brand_id` and `furniture.brand_id` are required and `RESTRICT`, so a brand with products cannot be removed. Slugs stay globally unique; a product is scoped to its brand in the route lookup (`/brands/{brand}/stones/{stone}`, `/brands/{brand}/furniture/{furniture}`), not by its slug. `brands` is created before `stones` for this. `projects.brand_id` is separate and optional (section 3).
 
-The catalogue has three levels: nine `stone_categories` (Granite, Marble and the other former stone types), individual named `stones`, and their `stone_images`. Description, origin, applications, care tips and finishes belong to the category and are shared by its stones. The legacy category thumbnail is retained; each individual stone has its own thumbnail, size, thickness and recommendation flag.
+The catalogue has three levels: nine `stone_types` (Granite, Marble and the others), individual named `stones`, and their `stone_images`. Description, origin, applications, care tips and finishes belong to the stone type and are shared by its stones. The stone type's thumbnail is retained; each individual stone has its own thumbnail, size, thickness and recommendation flag.
 
 The 75 former image entries seed the individual stones, with one gallery image each. Sizes are placeholder data, rotated deterministically through `20x120`, `60x60`, `60x120`, and `80x80`; replace them with measured dimensions. Thickness and recommendation flags initially inherit their category's former values. Duplicate Monumental names are qualified with `(Monumental)` and their slugs with `-monumental` to preserve global name and slug uniqueness.
 
@@ -199,7 +199,7 @@ erDiagram
         bigint furniture_id PK, FK "cascade"
         timestamptz created_at
     }
-    stone_categories {
+    stone_types {
         bigint id PK
         varchar(100) slug UK "partial unique, not deleted"
         varchar(150) name UK "partial unique, not deleted"
@@ -214,7 +214,7 @@ erDiagram
     stones {
         bigint id PK
         bigint brand_id FK "restrict"
-        bigint stone_category_id FK "restrict"
+        bigint stone_type_id FK "restrict"
         varchar(100) slug UK "partial unique, not deleted"
         varchar(150) name UK "partial unique, not deleted"
         varchar(255) thumbnail_path
@@ -243,8 +243,8 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    application_stone_category {
-        bigint stone_category_id PK, FK "cascade"
+    application_stone_type {
+        bigint stone_type_id PK, FK "cascade"
         bigint application_id PK, FK "restrict"
         smallint sort_order
     }
@@ -254,8 +254,8 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    care_tip_stone_category {
-        bigint stone_category_id PK, FK "cascade"
+    care_tip_stone_type {
+        bigint stone_type_id PK, FK "cascade"
         bigint care_tip_id PK, FK "restrict"
         smallint sort_order
     }
@@ -266,8 +266,8 @@ erDiagram
         boolean is_active
         smallint sort_order
     }
-    finish_stone_category {
-        bigint stone_category_id PK, FK "cascade"
+    finish_stone_type {
+        bigint stone_type_id PK, FK "cascade"
         bigint finish_id PK, FK "restrict"
         smallint sort_order
     }
@@ -285,25 +285,25 @@ erDiagram
     users ||--o{ saved_furniture : "saves"
     furniture ||--o{ saved_furniture : "saved by"
     furniture_types ||--o{ furniture : "types"
-    stone_categories ||--o{ stones : "categorises"
+    stone_types ||--o{ stones : "types"
     stones ||--o{ stone_images : "has gallery"
-    stone_categories ||--o{ application_stone_category : "suited to"
-    applications ||--o{ application_stone_category : "applies to"
-    stone_categories ||--o{ care_tip_stone_category : "cared for with"
-    care_tips ||--o{ care_tip_stone_category : "advised for"
-    stone_categories ||--o{ finish_stone_category : "available in"
-    finishes ||--o{ finish_stone_category : "offered on"
+    stone_types ||--o{ application_stone_type : "suited to"
+    applications ||--o{ application_stone_type : "applies to"
+    stone_types ||--o{ care_tip_stone_type : "cared for with"
+    care_tips ||--o{ care_tip_stone_type : "advised for"
+    stone_types ||--o{ finish_stone_type : "available in"
+    finishes ||--o{ finish_stone_type : "offered on"
     users ||--o{ saved_stones : "saves"
     stones ||--o{ saved_stones : "saved by"
 ```
 
-| Table                                                                                                     | Indexes and rules                                                                                                                                                                                                                                                               |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stone_categories`                                                                                        | Partial unique `lower(slug)` and `lower(name)` where `deleted_at IS NULL`, named `idx_stone_categories_*`. Index `(is_active, sort_order)`.                                                                                                                                     |
-| `stones`                                                                                                  | Partial unique `lower(slug)` and `lower(name)` where `deleted_at IS NULL`. Index `(is_active, sort_order)`, `stone_category_id`, `size`, and `thickness_mm`. CHECK `size ~ '^[0-9]+x[0-9]+$'` and `thickness_mm > 0`. Category deletion is restricted while stones refer to it. |
-| `stone_images`                                                                                            | Unique `(stone_id, sort_order)`.                                                                                                                                                                                                                                                |
-| Pivots (`application_stone_category`, `care_tip_stone_category`, `finish_stone_category`, `saved_stones`) | Composite primary key as shown, plus a reverse index on the second column (`application_id`, `care_tip_id`, `finish_id`, `stone_id`). Shared facts refer to categories; saved stones refer to individual stones.                                                                |
-| `finishes`                                                                                                | Unique `lower(name)`. Seed it from the current list (Leather, Honed, Polished, Advise me). Never hard delete a row an inquiry used: set `is_active = false`. Edge profiles are not tied to stones, so they are defined in the inquiries diagram.                                |
+| Table                                                                                         | Indexes and rules                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stone_types`                                                                                 | Partial unique `lower(slug)` and `lower(name)` where `deleted_at IS NULL`, named `idx_stone_types_*`. Index `(is_active, sort_order)`.                                                                                                                                      |
+| `stones`                                                                                      | Partial unique `lower(slug)` and `lower(name)` where `deleted_at IS NULL`. Index `(is_active, sort_order)`, `stone_type_id`, `size`, and `thickness_mm`. CHECK `size ~ '^[0-9]+x[0-9]+$'` and `thickness_mm > 0`. Category deletion is restricted while stones refer to it. |
+| `stone_images`                                                                                | Unique `(stone_id, sort_order)`.                                                                                                                                                                                                                                            |
+| Pivots (`application_stone_type`, `care_tip_stone_type`, `finish_stone_type`, `saved_stones`) | Composite primary key as shown, plus a reverse index on the second column (`application_id`, `care_tip_id`, `finish_id`, `stone_id`). Shared facts refer to categories; saved stones refer to individual stones.                                                            |
+| `finishes`                                                                                    | Unique `lower(name)`. Seed it from the current list (Leather, Honed, Polished, Advise me). Never hard delete a row an inquiry used: set `is_active = false`. Edge profiles are not tied to stones, so they are defined in the inquiries diagram.                            |
 
 ---
 
@@ -357,13 +357,24 @@ erDiagram
         bigint project_id PK, FK "cascade"
         bigint project_category_id PK, FK "restrict"
     }
-    services {
+    service_types {
         bigint id PK
         varchar(100) slug UK
         varchar(150) name UK
-        boolean needs_furniture "also asks for a furniture type"
-        boolean is_active
         smallint sort_order
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    services {
+        bigint id PK
+        bigint service_type_id FK "restrict"
+        varchar(100) slug UK
+        varchar(150) name
+        text description
+        json features "list of strings"
+        smallint sort_order
+        boolean is_active
         timestamptz created_at
         timestamptz updated_at
     }
@@ -384,7 +395,8 @@ erDiagram
 | `project_images`     | Unique `(project_id, sort_order)`. The thumbnail lives in `projects.thumbnail_path` and is never repeated in the gallery.                                                                              |
 | Pivots               | Composite primary key plus a reverse index on `stone_id` and `project_category_id`.                                                                                                                    |
 | `project_categories` | Unique `slug` and `lower(name)`. Seeded with the nine categories.                                                                                                                                      |
-| `services`           | Partial unique `slug` and `lower(name)` where `deleted_at IS NULL`. Index `(is_active, sort_order)`.                                                                                                   |
+| `service_types`      | Unique `slug` and `name`. Index `(is_active, sort_order)`.                                                                                                                                             |
+| `services`           | Unique `slug`. Index `(service_type_id, is_active, sort_order)`. One no longer offered is made inactive, because sent inquiries reference it.                                                          |
 
 ---
 
@@ -404,6 +416,7 @@ erDiagram
         bigint client_id FK "null for a direct client, restrict, user with the client role"
         bigint client_record_id FK "restrict, the client in clients, always set by the app"
         bigint lead_id FK "null until the thread is claimed, restrict"
+        bigint service_id FK "null, restrict, what was asked for"
         varchar(20) marketing_status "null while waiting for marketing: won, lost"
         timestamptz marketing_status_changed_at "null"
         varchar(100) name
@@ -458,15 +471,6 @@ erDiagram
         varchar(500) note "null"
         timestamptz changed_at
     }
-    inquiry_work_items {
-        bigint id PK
-        bigint inquiry_id FK "cascade"
-        bigint stone_id FK "null when Regray is to recommend one, restrict"
-        bigint service_id FK "restrict"
-        bigint furniture_type_id FK "null unless the option needs one, restrict"
-        timestamptz created_at
-        timestamptz updated_at
-    }
     inquiry_stones {
         bigint id PK
         bigint inquiry_id FK "cascade"
@@ -510,11 +514,12 @@ erDiagram
     stones {
         bigint id PK
     }
-    services {
+    service_types {
         bigint id PK
     }
-    furniture_types {
+    services {
         bigint id PK
+        bigint service_type_id FK
     }
     edge_profiles {
         bigint id PK
@@ -548,10 +553,8 @@ erDiagram
     inquiries ||--o{ inquiry_handlers : "assigned to"
     users ||--o{ inquiry_handlers : "handles"
     inquiries ||--|{ inquiry_status_history : "timeline, per track"
-    inquiries ||--|{ inquiry_work_items : "wants"
-    stones |o--o{ inquiry_work_items : "worked in"
-    services ||--o{ inquiry_work_items : "requested in"
-    furniture_types |o--o{ inquiry_work_items : "made as"
+    service_types ||--o{ services : "groups"
+    services |o--o{ inquiries : "requested in"
     inquiries ||--o{ inquiry_stones : "specifies"
     stones ||--o{ inquiry_stones : "picked in"
     edge_profiles ||--o{ inquiry_stones : "cut with"
@@ -573,7 +576,6 @@ erDiagram
 | `inquiry_stones`         | **Unique `(inquiry_id, stone_id, edge_profile_id, finish_id)`** (`idx_inquiry_stones_unique`): the same stone twice is fine only when cut or finished differently. Index `stone_id`. CHECK `quantity BETWEEN 1 AND 9999`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `inquiry_files`          | Index `(inquiry_id, document_type)`, index `status_history_id`. CHECK `document_type IN ('client_attachment','quotation','job_order','billing_statement','receipt','invoice')`, `revision >= 1`. **Files are grouped per status update**: `status_history_id` is the history row of the update a file came with (a quote's quotation and job order; payment's billing statement; a payment's receipts and invoice), and NULL for the client's attachments. A quotation file carries the `quote_revision` it was issued as. **Who uploads which** is the app's rule (`App\Policies\InquiryFileUploads`), not the database's: the inquiry's client uploads `client_attachment`; whoever may move sales (`inquiries.status.sales`) uploads `quotation` and `job_order`; whoever may move payment (`inquiries.status.payment`) uploads `billing_statement`, `receipt` and `invoice`. **Who sees which**: the quotation, billing statement, receipts and invoice are shared with the client, grouped by update ("Partial payment · June 22, 2020"); the job order is internal and is never sent, to anyone. Per inquiry limits (count and size) on client attachments are enforced in validation; an edit by the client only ever keeps or drops client attachments, and staff never touch them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `payment_transactions`   | Index `(inquiry_id, received_at)`. CHECK `kind IN ('payment','refund')`, `amount > 0`. The ledger behind the payment status, which accounting sets **by hand**: it is not derived from these rows. The `payment` rows never add up to more than `quoted_total`; `awaiting` has none, `partial` has some, `fully_paid` adds up to `quoted_total`. A refund has no payment status of its own.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `inquiry_work_items`     | Unique `(inquiry_id, stone_id, service_id)`, and `(inquiry_id, service_id)` where `stone_id` is NULL. Index each FK. One row is one fact: this inquiry wants this service for this stone. It is not on `inquiry_stones` because a stone has a row there per edge and finish, and the work depends on the stone alone. That `furniture_type_id` is set only for a service with `needs_furniture` spans two tables, so the request holds it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `edge_profiles`          | Unique `lower(name)`. Seed it with the 7 profiles plus Advise me. Never hard delete a row an inquiry used: set `is_active = false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 When the project is wanted is not a column: sending the inquiry books one schedule for it (`schedules.inquiry_id`, at most one per inquiry), and the target deadline is that schedule's `arrival_at`, read in Asia/Manila.
@@ -732,11 +734,11 @@ An inquiry card is posted when an inquiry is sent, on any change to sales, payme
 
 ## Foreign key actions
 
-| Action     | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's stones, files, status history and payment transactions, a lead's status history, a client's contacts, message attachments, conversation members and messages.                                                                                                                                                                                                                                                                                                   |
-| `RESTRICT` | A brand's products (`stones.brand_id`, `furniture.brand_id`). Anything history depends on: `inquiry_stones` to stones, edge profiles and finishes, `inquiry_work_items` to its catalog rows, inquiries and schedules to the client's user, `inquiry_handlers` to users, leads to their client and marketing user, `inquiries.lead_id` to leads, `conversations.inquiry_id` to inquiries, `clients.user_id` to users, `inquiries.client_record_id` to clients. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
-| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `recorded_by`, `sender_id`, `last_read_message_id`), the link from a schedule to an inquiry, and from a card message to what it announces.                                                                                                                                                                                                                                                                                                       |
+| Action     | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CASCADE`  | Rows a parent owns: images, features, all pivots, a client's profile, an inquiry's stones, files, status history and payment transactions, a lead's status history, a client's contacts, message attachments, conversation members and messages.                                                                                                                                                                                                                                                                                                                                          |
+| `RESTRICT` | A brand's products (`stones.brand_id`, `furniture.brand_id`). Anything history depends on: `inquiry_stones` to stones, edge profiles and finishes, `inquiries.service_id` to services, `services.service_type_id` to service types, inquiries and schedules to the client's user, `inquiry_handlers` to users, leads to their client and marketing user, `inquiries.lead_id` to leads, `conversations.inquiry_id` to inquiries, `clients.user_id` to users, `inquiries.client_record_id` to clients. Retire a catalog row with `is_active = false` or `deleted_at`, never by deleting it. |
+| `SET NULL` | Every "who did it" column (`created_by`, `uploaded_by`, `changed_by`, `approved_by`, `booked_by`, `recorded_by`, `sender_id`, `last_read_message_id`), the link from a schedule to an inquiry, and from a card message to what it announces.                                                                                                                                                                                                                                                                                                                                              |
 
 ---
 
@@ -745,7 +747,7 @@ An inquiry card is posted when an inquiry is sent, on any change to sales, payme
 1. **Real types and sizes** on every column, `timestamptz` everywhere, and the precision for area.
 2. **Soft deletes and partial unique indexes** on everything that can be retired, so slugs and names stay unique among live rows only.
 3. **Every foreign key has an explicit action**, and "who did it" columns are nullable with `SET NULL`.
-4. **Stones:** category → individual stone → gallery. Origin and shared facts belong to `stone_categories`; size and positive thickness in millimetres belong to `stones`. Project, saved and inquiry stone references now identify individual stones. "Advise me" is an `is_advisory` flag on finishes and edge profiles.
+4. **Stones:** category → individual stone → gallery. Origin and shared facts belong to `stone_types`; size and positive thickness in millimetres belong to `stones`. Project, saved and inquiry stone references now identify individual stones. "Advise me" is an `is_advisory` flag on finishes and edge profiles.
 5. **Clients.** A client with an account is a user with the `client` role, with contact fields in `user_profiles`, so `users` stays untouched. `clients` records every client, `platform` (with an account) or `direct` (a walk-in with none, whose contacts are `client_contacts`).
 6. **Status history is complete**: `track`, `from_status`, `changed_by`, `note`, plus a `*_status_changed_at` for each role status.
 7. **Schedules** separate who the visit is for (`client_id`) from who made the booking (`booked_by`, `booked_by_type`), and record cancellation.

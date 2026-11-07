@@ -59,14 +59,14 @@ class UpdateInquiryRequest extends StoreInquiryRequest
     }
 
     /**
-     * An edit keeps the services its inquiry already has, offered or not.
+     * An edit keeps the service its inquiry already has, offered or not.
      *
      * @return list<string>
      */
     protected function heldServiceSlugs(): array
     {
         return array_values(Service::query()
-            ->whereHas('workItems.inquiry', fn ($inquiry) => $inquiry->where('reference', $this->route('reference')))
+            ->whereHas('inquiries', fn ($inquiry) => $inquiry->where('reference', $this->route('reference')))
             ->pluck('slug')
             ->all());
     }

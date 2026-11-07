@@ -30,9 +30,8 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * @phpstan-type WorkItemInput array{stone_id: int|null, service_id: int, furniture_type_id: int|null}
- * @phpstan-type ProjectInput array{name: string, work: list<WorkItemInput>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, work: list<WorkItemInput>, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type ProjectInput array{name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -120,7 +119,7 @@ class InquiryService
      * because it may have moved on since the page was opened.
      *
      * The edit form still sends a list of projects; it must be exactly this
-     * inquiry, by id. Its fields, work and stones are replaced, its visit is moved when the deadline changed (refused once the
+     * inquiry, by id. Its fields, service and stones are replaced, its visit is moved when the deadline changed (refused once the
      * visit is no longer pending), its attachments are kept by id and new
      * uploads added. No status changes and no history row is written; an audit
      * row records the change instead.
@@ -179,10 +178,10 @@ class InquiryService
 
     /**
      * Staff change an inquiry's project from the Inquiry list (Edit): its
-     * name, delivery method, location, landmark, area, notes, work, stones and
+     * name, service, delivery method, location, landmark, area, notes, stones and
      * deadline. Never its client, its statuses or the client's files.
-     * Refused once the inquiry is closed or cancelled. An audit row records
-     * the change under the staff member.
+     * Refused once the inquiry is closed or cancelled, or the client has
+     * approved it. An audit row records the change under the staff member.
      *
      * Has to run inside a transaction: the inquiry row is locked until it ends.
      *
@@ -200,7 +199,7 @@ class InquiryService
             throw ValidationException::withMessages(['status' => 'This inquiry is closed or cancelled, so it can no longer be changed.']);
         }
 
-        if (! InquiryStatusRules::isEditableBy($inquiry, $staff)) {
+        if (! InquiryStatusRules::isEditable($inquiry)) {
             throw ValidationException::withMessages(['status' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
         }
 
@@ -263,6 +262,7 @@ class InquiryService
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
             'name' => $project['name'],
+            'service_id' => $project['service_id'],
             'delivery_method' => $project['delivery_method'],
             'location' => $project['location'],
             'landmark' => $project['landmark'],
@@ -279,7 +279,6 @@ class InquiryService
             $by,
         );
 
-        $this->inquiryRepository->addWorkItems($inquiry, $project['work']);
         $this->inquiryRepository->addStones($inquiry, $project['stones']);
 
         if ($client !== null) {
@@ -300,7 +299,7 @@ class InquiryService
     }
 
     /**
-     * The project's fields, work and stones, and its visit
+     * The project's fields, service and stones, and its visit
      * moved to the edited deadline. `$bookedBy` is the staff member when staff
      * edit, for a visit booked afresh.
      *
@@ -310,6 +309,7 @@ class InquiryService
     {
         $this->inquiryRepository->updateDetails($inquiry, [
             'name' => $project['name'],
+            'service_id' => $project['service_id'],
             'delivery_method' => $project['delivery_method'],
             'location' => $project['location'],
             'landmark' => $project['landmark'],
@@ -319,7 +319,6 @@ class InquiryService
         ]);
 
         $this->moveVisit($inquiry, $client, $project, $bookedBy);
-        $this->inquiryRepository->replaceWorkItems($inquiry, $project['work']);
         $this->inquiryRepository->replaceStones($inquiry, $project['stones']);
     }
 
@@ -374,13 +373,13 @@ class InquiryService
     {
         return [
             'name' => $inquiry->name,
+            'service_id' => $inquiry->service_id,
             'delivery_method' => $inquiry->delivery_method->value,
             'location' => $inquiry->location,
             'landmark' => $inquiry->landmark,
             'area_sqm' => $inquiry->area_sqm === null ? null : (float) $inquiry->area_sqm,
             'notes' => $inquiry->notes,
             'stone_advice_requested' => $inquiry->stone_advice_requested,
-            'work' => $inquiry->workItems()->get(['stone_id', 'service_id', 'furniture_type_id'])->toArray(),
             'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity'])->toArray(),
             'file_ids' => $inquiry->files()->where('document_type', DocumentType::ClientAttachment)->orderBy('id')->pluck('id')->all(),
             'arrival_at' => $inquiry->schedule()->value('arrival_at'),

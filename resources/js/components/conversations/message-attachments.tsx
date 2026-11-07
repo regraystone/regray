@@ -77,7 +77,7 @@ export const MessageAttachments = ({
                     href={`${file.url}?download=1`}
                     className={cn(
                         'flex min-w-0 items-center gap-2 rounded-sm px-2 py-1.5 text-xs focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
-                        isOwn ? 'bg-primary-foreground/15' : 'bg-background/60',
+                        isOwn ? 'bg-secondary' : 'bg-background/60',
                     )}
                     data-testid="attachment-file"
                 >

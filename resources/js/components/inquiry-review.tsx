@@ -23,14 +23,13 @@ import {
     DELIVERY_METHODS,
     PICKUP,
     reviewActions,
-    workRowKeys,
-    workRowLabel,
+    STONE_ADVICE_LABEL,
     type InquiryMode,
 } from '@/lib/inquiry-flow';
 import {
     REQUIREMENTS_STEP,
+    SERVICE_STEP,
     STONES_STEP,
-    WORK_STEP,
     type InquiryFormInput,
     type InquiryFormValues,
 } from '@/lib/inquiry-schema';
@@ -209,8 +208,7 @@ const SectionHeader = ({
 type ReviewProject = InquiryFormValues['projects'][number];
 
 /**
- * One project, whole: each stone with its work, furniture and reference files,
- * then the details. Each section's Edit returns to the question that asked it. A
+ * One project, whole: what is needed, the stones, then the details. Each section's Edit returns to the question that asked it. A
  * visit, which only an inquiry already sent can be, has no stones to choose and
  * says so.
  *
@@ -256,20 +254,15 @@ const ReviewProjectCard = ({
 
     const pieces = stones.reduce((total, row) => total + row.quantity, 0);
     const stoneTypes = new Set(stones.map((row) => row.stoneId)).size;
-    const work = project.stoneWork;
-    const wanted = [
-        ...new Set(Object.values(work).map(({ serviceId }) => serviceId)),
-    ].flatMap((id) => {
-        const option = catalog.services.find((entry) => entry.id === id);
-
-        return option === undefined ? [] : [option];
-    });
-    const serviceCount = wanted.length;
-    const workKeys = workRowKeys({
-        stoneIds: [...new Set(project.stones.map((row) => row.stoneId))],
-        stoneAdvice: project.stoneAdvice,
-    });
-    const labelOf = (key: string) => workRowLabel(key, catalog.stones);
+    const serviceType = catalog.serviceTypes.find(
+        ({ id }) => id === project.serviceTypeId,
+    );
+    const service = serviceType?.services.find(
+        ({ id }) => id === project.serviceId,
+    );
+    const chosenStones = [
+        ...new Map(stones.map((row) => [row.stoneId, row.stone])).values(),
+    ];
     const deliveryMethodName =
         DELIVERY_METHODS.find(({ value }) => value === project.deliveryMethod)
             ?.title ?? '';
@@ -277,10 +270,14 @@ const ReviewProjectCard = ({
     const plural = (count: number, one: string, many: string): string =>
         `${count} ${count === 1 ? one : many}`;
 
-    const footer =
+    const footer = [
+        service?.name,
         stoneTypes > 0
-            ? `${plural(serviceCount, 'service', 'services')} · ${plural(pieces, 'piece', 'pieces')} of ${plural(stoneTypes, 'stone', 'stones')}`
-            : plural(serviceCount, 'service', 'services');
+            ? `${plural(pieces, 'piece', 'pieces')} of ${plural(stoneTypes, 'stone', 'stones')}`
+            : undefined,
+    ]
+        .filter(Boolean)
+        .join(' · ');
 
     const stoneTiles = (
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
@@ -416,82 +413,72 @@ const ReviewProjectCard = ({
                 <CollapsibleContent>
                     <div className="border-t border-sidebar-border p-4 sm:p-5">
                         <div className="space-y-7">
-                            <section data-testid="review-stones-and-work">
+                            <section data-testid="review-service">
+                                <SectionHeader label="What you need">
+                                    <EditSection
+                                        label="Edit service"
+                                        locked={locked}
+                                        onClick={() => onEdit(SERVICE_STEP)}
+                                    />
+                                </SectionHeader>
+
+                                <dl className="mt-3">
+                                    <SummaryRow
+                                        label="Service type"
+                                        value={serviceType?.name ?? ''}
+                                    />
+                                    <SummaryRow
+                                        label="Service"
+                                        value={service?.name ?? ''}
+                                    />
+                                </dl>
+                            </section>
+
+                            <section data-testid="review-stones">
                                 <SectionHeader
-                                    label="Stones and work"
-                                    count={workKeys.length}
+                                    label="Stones"
+                                    count={chosenStones.length}
                                 >
                                     <EditSection
                                         label="Edit stones"
                                         locked={locked}
                                         onClick={() => onEdit(STONES_STEP)}
                                     />
-                                    <EditSection
-                                        label="Edit work"
-                                        locked={locked}
-                                        onClick={() => onEdit(WORK_STEP)}
-                                    />
                                 </SectionHeader>
 
-                                <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                                    {workKeys.map((key) => {
-                                        const entry = work[key];
-                                        const stone = catalog.stones.find(
-                                            ({ slug }) => slug === key,
-                                        );
-                                        const option = catalog.services.find(
-                                            ({ id }) => id === entry?.serviceId,
-                                        );
-                                        const furnitureType =
-                                            catalog.furnitureTypes.find(
-                                                ({ id }) =>
-                                                    id === entry?.furnitureType,
-                                            )?.name;
-
-                                        return (
+                                {chosenStones.length > 0 ? (
+                                    <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
+                                        {chosenStones.map((stone) => (
                                             <li
-                                                key={key}
-                                                className="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
-                                                data-testid="review-stone-work"
+                                                key={stone.slug}
+                                                className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                                                data-testid="review-stone"
                                             >
-                                                {stone?.thumbnail ? (
-                                                    <img
-                                                        src={stone.thumbnail}
-                                                        alt=""
-                                                        loading="lazy"
-                                                        className="size-14 shrink-0 rounded-md object-cover"
-                                                    />
-                                                ) : (
-                                                    <span
-                                                        aria-hidden
-                                                        className="grid size-14 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground"
-                                                    >
-                                                        <Sparkles className="size-5" />
-                                                    </span>
-                                                )}
-
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-bold break-words">
-                                                        {labelOf(key)}
-                                                    </p>
-                                                    <p className="mt-0.5 text-sm break-words text-secondary-foreground">
-                                                        {option?.name ??
-                                                            'Not chosen yet'}
-                                                    </p>
-
-                                                    {furnitureType ? (
-                                                        <p className="mt-1 text-sm break-words text-secondary-foreground">
-                                                            Furniture type:{' '}
-                                                            <span className="font-bold text-foreground">
-                                                                {furnitureType}
-                                                            </span>
-                                                        </p>
-                                                    ) : null}
-                                                </div>
+                                                <img
+                                                    src={stone.thumbnail}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    className="size-14 shrink-0 rounded-md object-cover"
+                                                />
+                                                <p className="min-w-0 flex-1 text-sm font-bold break-words">
+                                                    {stone.name}
+                                                </p>
                                             </li>
-                                        );
-                                    })}
-                                </ul>
+                                        ))}
+                                    </ul>
+                                ) : project.stoneAdvice ? (
+                                    <div className="mt-3 flex items-center gap-4">
+                                        <span
+                                            aria-hidden
+                                            className="grid size-14 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground"
+                                        >
+                                            <Sparkles className="size-5" />
+                                        </span>
+                                        <p className="min-w-0 flex-1 text-sm font-bold break-words">
+                                            {STONE_ADVICE_LABEL}
+                                        </p>
+                                    </div>
+                                ) : null}
                             </section>
 
                             <SectionHeader label="Details">

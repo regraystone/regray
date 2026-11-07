@@ -1,3 +1,18 @@
+# Inquire asks what you need first
+
+The steps are now **1. What do you need?**, **2. Which stones?**, **3. Other details** and **4. Review and send**. An inquiry asks for one service, chosen from two dropdowns, rather than a service per stone.
+
+- **Stone type replaces the old stone grouping's name everywhere**: model `StoneType`, table `stone_types`, column `stones.stone_type_id`, the `*_stone_type` pivots, the `type` field on stone payloads, and the brand page's `type` query param. Project categories and furniture types keep their names. `specifications.stoneType` is gone: read `type.name`.
+- **`service_types` and `services`**: ten services under Natural Stone & Applications and Custom Stone Furniture, each with a description and features. `inquiries.service_id` holds the choice, and the per-stone work table is gone. `furniture_types` is down to Tables, Seating, Storage and Decorative Furniture, with no link to services.
+- **The request** requires `projects[i][serviceId]`, refused when the service or its type is no longer offered, unless an edit already has it. Help me choose still needs a service. A row repeating a stone, edge and finish is added to the first, up to the quantity limit, rather than refused; the page still points the repeat out before it is sent.
+- **Editing**: nobody may edit an approved inquiry, the super-admin included. Staff can change the service, and still never the client's files.
+- **The stone grid** uses `StoneCard` (picture, name, type; no save or view control) and `StoneTypeSelect` from `md` up or `StoneTypePills` below it. The type combines with the tab and the search.
+- **The stones come from the server a page at a time** as the reader scrolls, 16 on a phone and 24 from a tablet up, like Our Collection. The tab, stone type and search are server filters (`stone_tab`, `stone_type`, `stone_search`), so the page no longer holds the whole catalogue. Whether a picked stone is still on offer is the request's to say; a restored draft asks for its own stones by slug (`pickedStones`), and an edit is sent its own (`heldStones`).
+- **The result of sending is a dialog**, `ResultDialog`, over the page rather than in place of it, so the stepper no longer counts it as a step. Booking an appointment uses the same one.
+- **Stored drafts** moved to version 8, so a draft from the old order is discarded.
+
+These edits are in the create migrations, so an existing database needs `migrate:fresh --seed`.
+
 # Confirmation popups
 
 `ConfirmDialog` is the app's one way to ask before doing something. Cancelling an inquiry (it was the browser's `confirm()`), logging out and removing a message all use it.

@@ -6,7 +6,6 @@ import {
     buildInquiryFormData,
     mapInquiryErrors,
     readInquiryFlash,
-    STONE_ADVICE_KEY,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
 const file = (name, contents = 'x') =>
@@ -14,10 +13,8 @@ const file = (name, contents = 'x') =>
 
 const project = (overrides = {}) => ({
     name: 'Kitchen counters',
-    stoneWork: {
-        marble: { serviceId: 'installation-supply', furnitureType: '' },
-        onyx: { serviceId: 'furniture-only', furnitureType: 'tables' },
-    },
+    serviceTypeId: 'natural-stone-applications',
+    serviceId: 'countertop',
     stoneAdvice: false,
     stones: [
         {
@@ -51,12 +48,7 @@ describe('buildInquiryFormData', () => {
 
         assert.deepEqual(Object.fromEntries(body.entries()), {
             'projects[0][name]': 'Kitchen counters',
-            'projects[0][work][0][stoneId]': 'marble',
-            'projects[0][work][0][serviceId]': 'installation-supply',
-            'projects[0][work][0][furnitureType]': '',
-            'projects[0][work][1][stoneId]': 'onyx',
-            'projects[0][work][1][serviceId]': 'furniture-only',
-            'projects[0][work][1][furnitureType]': 'tables',
+            'projects[0][serviceId]': 'countertop',
             'projects[0][stoneAdvice]': '0',
             'projects[0][stones][0][stoneId]': 'marble',
             'projects[0][stones][0][quantity]': '4',
@@ -81,33 +73,27 @@ describe('buildInquiryFormData', () => {
                 project({
                     stoneAdvice: true,
                     stones: [],
-                    stoneWork: {
-                        [STONE_ADVICE_KEY]: {
-                            serviceId: 'supply-only',
-                            furnitureType: '',
-                        },
-                    },
                 }),
             ],
         });
 
         assert.equal(body.get('projects[0][stoneAdvice]'), '1');
-        assert.equal(body.get('projects[0][work][0][stoneId]'), '');
-        assert.equal(
-            body.get('projects[0][work][0][serviceId]'),
-            'supply-only',
-        );
+        assert.equal(body.get('projects[0][serviceId]'), 'countertop');
         assert.equal(
             keys(body).some((name) => name.includes('[stones]')),
             false,
         );
     });
 
-    it('sends the services only as the work of each stone', () => {
+    it('sends one service for the project, and no work per stone', () => {
         const names = keys(buildInquiryFormData({ projects: [project()] }));
 
         assert.equal(
-            names.some((name) => /serviceIds|application|categor/i.test(name)),
+            names.some((name) =>
+                /\[work\]|serviceIds|serviceTypeId|application|categor/i.test(
+                    name,
+                ),
+            ),
             false,
         );
     });

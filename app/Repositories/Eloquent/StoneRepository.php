@@ -6,7 +6,7 @@ use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStone;
 use App\Models\Stone;
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -21,26 +21,26 @@ class StoneRepository implements StoneRepositoryInterface
     }
 
     /**
-     * Ranked with RANK() so categories level on count share a place, and every
-     * category placed within `$count` is kept.
+     * Ranked with RANK() so types level on count share a place, and every
+     * type placed within `$count` is kept.
      *
      * @return list<int>
      */
-    public function bestSellerCategoryIds(int $count): array
+    public function bestSellerTypeIds(int $count): array
     {
         $ranked = InquiryStone::query()
-            ->joinSub(Stone::query()->active()->select(['id', 'stone_category_id']), 'active_stones', 'active_stones.id', '=', 'inquiry_stones.stone_id')
+            ->joinSub(Stone::query()->active()->select(['id', 'stone_type_id']), 'active_stones', 'active_stones.id', '=', 'inquiry_stones.stone_id')
             ->whereIn('inquiry_stones.inquiry_id', Inquiry::query()->whereDisplayStatus(InquiryStatus::Closed)->select('id'))
-            ->whereIn('active_stones.stone_category_id', StoneCategory::query()->active()->select('id'))
-            ->groupBy('active_stones.stone_category_id')
-            ->select('active_stones.stone_category_id')
+            ->whereIn('active_stones.stone_type_id', StoneType::query()->active()->select('id'))
+            ->groupBy('active_stones.stone_type_id')
+            ->select('active_stones.stone_type_id')
             ->selectRaw('RANK() OVER (ORDER BY COUNT(DISTINCT inquiry_stones.inquiry_id) DESC) AS position');
 
         return array_values(DB::query()
             ->fromSub($ranked, 'ranked')
             ->where('position', '<=', $count)
-            ->pluck('stone_category_id')
-            ->map(fn (mixed $categoryId): int => (int) $categoryId)
+            ->pluck('stone_type_id')
+            ->map(fn (mixed $typeId): int => (int) $typeId)
             ->all());
     }
 
@@ -66,12 +66,12 @@ class StoneRepository implements StoneRepositoryInterface
             'images' => fn (Relation $images) => $images->getQuery()
                 ->select(['id', 'stone_id', 'alt_text', 'path'])
                 ->orderBy('sort_order'),
-            'category',
-            'category.applications' => fn (Relation $applications) => $applications->getQuery()
+            'type',
+            'type.applications' => fn (Relation $applications) => $applications->getQuery()
                 ->select(['applications.id', 'name']),
-            'category.careTips' => fn (Relation $careTips) => $careTips->getQuery()
+            'type.careTips' => fn (Relation $careTips) => $careTips->getQuery()
                 ->select(['care_tips.id', 'tip']),
-            'category.finishes' => fn (Relation $finishes) => $finishes->getQuery()
+            'type.finishes' => fn (Relation $finishes) => $finishes->getQuery()
                 ->select(['finishes.id', 'name'])
                 ->where('is_active', true)
                 ->where('is_advisory', false),
@@ -79,16 +79,16 @@ class StoneRepository implements StoneRepositoryInterface
     }
 
     /**
-     * @return array{categories: SupportCollection<int, array{value: string, label: string, bestSeller: bool}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
+     * @return array{types: SupportCollection<int, array{value: string, label: string, bestSeller: bool}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
      */
     public function filterOptions(): array
     {
-        $categories = StoneCategory::query()
+        $types = StoneType::query()
             ->active()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'slug', 'name'])
-            ->map(fn (StoneCategory $stone): array => [
+            ->map(fn (StoneType $stone): array => [
                 'value' => $stone->slug,
                 'label' => $stone->name,
                 'bestSeller' => $stone->is_best_seller,
@@ -104,6 +104,6 @@ class StoneRepository implements StoneRepositoryInterface
         $thicknesses = Stone::query()->active()->distinct()->orderBy('thickness_mm')->pluck('thickness_mm')
             ->map(fn (int $millimetres): array => ['value' => (string) $millimetres, 'label' => "{$millimetres} mm"]);
 
-        return ['categories' => $categories, 'sizes' => $sizes, 'thicknesses' => $thicknesses];
+        return ['types' => $types, 'sizes' => $sizes, 'thicknesses' => $thicknesses];
     }
 }

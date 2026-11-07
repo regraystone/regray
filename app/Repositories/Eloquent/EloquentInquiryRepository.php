@@ -16,7 +16,6 @@ use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
 use App\Models\Lead;
 use App\Models\PaymentTransaction;
-use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
@@ -56,11 +55,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             'note' => $note,
             'changed_at' => $changedAt,
         ]);
-    }
-
-    public function addWorkItems(Inquiry $inquiry, array $items): void
-    {
-        $inquiry->workItems()->createMany($items);
     }
 
     public function addStones(Inquiry $inquiry, array $stones): void
@@ -134,12 +128,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         $inquiry->forceFill($attributes)->save();
     }
 
-    public function replaceWorkItems(Inquiry $inquiry, array $items): void
-    {
-        $inquiry->workItems()->delete();
-        $this->addWorkItems($inquiry, $items);
-    }
-
     public function replaceStones(Inquiry $inquiry, array $stones): void
     {
         $inquiry->stones()->delete();
@@ -182,6 +170,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                         ->orWhereHas('stones.stone', fn (Builder $stone) => $stone->where('name', 'ILIKE', $pattern));
                 });
             })
+            ->with('service:id,slug,name')
             ->withJobOrderFlag()
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
@@ -203,23 +192,6 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->orderBy('ist.inquiry_id')
             ->orderBy('first_position')
             ->orderBy('stones.id')
-            ->get();
-    }
-
-    public function distinctServicesFor(array $inquiryIds): Collection
-    {
-        if ($inquiryIds === []) {
-            return new Collection;
-        }
-
-        return Service::query()
-            ->join('inquiry_work_items as work', 'work.service_id', '=', 'services.id')
-            ->whereIn('work.inquiry_id', $inquiryIds)
-            ->select(['services.id', 'services.slug', 'services.name', 'services.sort_order', 'work.inquiry_id'])
-            ->distinct()
-            ->orderBy('work.inquiry_id')
-            ->orderBy('services.sort_order')
-            ->orderBy('services.slug')
             ->get();
     }
 
@@ -329,12 +301,12 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     {
         return $query
             ->with([
-                'workItems.service',
-                'workItems.stone' => fn ($stone) => $stone->withTrashed(),
-                'workItems.furnitureType',
+                'service.serviceType',
                 'schedule:id,inquiry_id,arrival_at,status',
                 'stones' => fn ($stones) => $stones->orderBy('sort_order'),
                 'stones.stone' => fn ($stone) => $stone->withTrashed(),
+                'stones.stone.type' => fn ($type) => $type->withTrashed(),
+                'stones.stone.brand',
                 'stones.edgeProfile',
                 'stones.finish',
                 'files' => fn ($files) => $files->orderBy('id'),

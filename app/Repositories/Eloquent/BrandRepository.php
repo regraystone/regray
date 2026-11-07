@@ -76,11 +76,11 @@ class BrandRepository implements BrandRepositoryInterface
         if ($filters->search !== null) {
             $query->where(function (Builder $query) use ($filters): void {
                 $query->where('name', 'ILIKE', "%{$filters->search}%")
-                    ->orWhereHas('categories', fn (Builder $category) => $category->where('name', 'ILIKE', "%{$filters->search}%"));
+                    ->orWhereHas('types', fn (Builder $type) => $type->where('name', 'ILIKE', "%{$filters->search}%"));
             });
         }
-        if ($filters->category !== null) {
-            $query->whereHas('categories', fn (Builder $category) => $category->where('slug', $filters->category)->where('is_active', true));
+        if ($filters->type !== null) {
+            $query->whereHas('types', fn (Builder $type) => $type->where('slug', $filters->type)->where('is_active', true));
         }
         if ($filters->size !== null) {
             $query->where('size', $filters->size);
@@ -122,7 +122,7 @@ class BrandRepository implements BrandRepositoryInterface
         $rows = $page->getCollection();
         $idsOf = fn (string $kind): array => $rows->where('kind', $kind)->pluck('id')->all();
 
-        $stones = Stone::query()->with('category:id,slug,name')->findMany($idsOf('stone'))->keyBy('id');
+        $stones = Stone::query()->with('type:id,slug,name')->findMany($idsOf('stone'))->keyBy('id');
         $furniture = Furniture::query()->with('furnitureType:id,slug,name')->findMany($idsOf('furniture'))->keyBy('id');
 
         /** @var LengthAwarePaginator<int, Stone|Furniture> $page */

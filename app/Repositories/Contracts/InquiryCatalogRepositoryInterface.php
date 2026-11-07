@@ -2,35 +2,47 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Data\InquiryStoneFilterData;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
-use App\Models\FurnitureType;
-use App\Models\Service;
+use App\Models\ServiceType;
 use App\Models\Stone;
+use App\Models\StoneType;
+use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
 interface InquiryCatalogRepositoryInterface
 {
     /**
-     * The services the page offers, in the order it lists them.
+     * The service types the page offers, each with its active services, both in
+     * the order it lists them. A type with no active service is left out.
      *
-     * @return Collection<int, Service>
+     * @return Collection<int, ServiceType>
      */
-    public function services(): Collection;
+    public function serviceTypes(): Collection;
 
     /**
-     * The furniture types the page offers.
+     * One page of the active stones, with what their cards show.
      *
-     * @return Collection<int, FurnitureType>
+     * @return LengthAwarePaginator<int, Stone>
      */
-    public function furnitureTypes(): Collection;
+    public function paginateStones(User $user, InquiryStoneFilterData $filters): LengthAwarePaginator;
 
     /**
-     * Active stones with the category facts the Inquire page shows.
+     * The stone types the active stones have.
      *
+     * @return Collection<int, StoneType>
+     */
+    public function stoneTypes(): Collection;
+
+    /**
+     * The active stones among these slugs, with what their cards show.
+     *
+     * @param  list<string>  $slugs
      * @return Collection<int, Stone>
      */
-    public function stones(): Collection;
+    public function stonesBySlugs(array $slugs): Collection;
 
     /** @return Collection<int, EdgeProfile> */
     public function activeEdgeProfiles(): Collection;

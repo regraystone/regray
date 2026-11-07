@@ -21,7 +21,8 @@ test('1 · a client opens /quote/inquire and lands on "Step 1 of 2 · Your reque
     await expect(stepper(page).locator('[aria-current="step"]')).toContainText(
         'Your request',
     );
-    await expect(page.getByRole('checkbox').first()).toBeVisible();
+    await expect(page.locator('#inquiry-service-type')).toBeVisible();
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
 });
 
 test("2 · a marketing user opens a lead's inquiry on /inquiry/inquire and lands on step 1", async ({

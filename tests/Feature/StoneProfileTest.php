@@ -7,7 +7,7 @@ use App\Models\Application;
 use App\Models\CareTip;
 use App\Models\Finish;
 use App\Models\Stone;
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use App\Models\User;
 use Database\Seeders\ProjectCategorySeeder;
 use Database\Seeders\ProjectSeeder;
@@ -31,8 +31,8 @@ beforeEach(function (): void {
 
 test('a client reads the full database stone profile through either door', function (string $door): void {
     $stone = Stone::query()->where('slug', 'cosmic-black')->firstOrFail();
-    $category = $stone->category;
-    $category->update(['description' => 'Database description']);
+    $type = $stone->type;
+    $type->update(['description' => 'Database description']);
     $stone->update([
         'name' => 'Database Granite',
         'size' => '60x120',
@@ -47,13 +47,13 @@ test('a client reads the full database stone profile through either door', funct
 
     $lastApplication = Application::create(['name' => 'Last application']);
     $firstApplication = Application::create(['name' => 'First application']);
-    $category->applications()->sync([
+    $type->applications()->sync([
         $lastApplication->id => ['sort_order' => 9],
         $firstApplication->id => ['sort_order' => 1],
     ]);
     $lastTip = CareTip::create(['tip' => 'Last care tip']);
     $firstTip = CareTip::create(['tip' => 'First care tip']);
-    $category->careTips()->sync([
+    $type->careTips()->sync([
         $lastTip->id => ['sort_order' => 9],
         $firstTip->id => ['sort_order' => 1],
     ]);
@@ -61,7 +61,7 @@ test('a client reads the full database stone profile through either door', funct
     $firstFinish = Finish::create(['name' => 'First finish', 'is_active' => true, 'is_advisory' => false, 'sort_order' => 9]);
     $inactiveFinish = Finish::create(['name' => 'Inactive finish', 'is_active' => false, 'is_advisory' => false, 'sort_order' => 0]);
     $advisoryFinish = Finish::query()->where('is_advisory', true)->firstOrFail();
-    $category->finishes()->sync([
+    $type->finishes()->sync([
         $lastFinish->id => ['sort_order' => 9],
         $firstFinish->id => ['sort_order' => 1],
         $inactiveFinish->id => ['sort_order' => 0],
@@ -83,9 +83,9 @@ test('a client reads the full database stone profile through either door', funct
                 ->where('thumbnail', '/storage/stones/hero.jpg')
                 ->where('bestSeller', false)
                 ->where('brand', ['slug' => 'regray-stone', 'name' => 'Regray Stone'])
-                ->where('category', ['slug' => 'granite', 'name' => 'Granite'])
+                ->where('type', ['slug' => 'granite', 'name' => 'Granite'])
                 ->where('description', 'Database description')
-                ->where('specifications', ['stoneType' => 'Granite', 'origin' => 'Database origin', 'size' => '60x120', 'thicknessMm' => 75])
+                ->where('specifications', ['origin' => 'Database origin', 'size' => '60x120', 'thicknessMm' => 75])
                 ->where('finishes', ['First finish', 'Last finish'])
                 ->where('applications', ['First application', 'Last application'])
                 ->where('care', ['First care tip', 'Last care tip'])
@@ -136,22 +136,22 @@ test('answers a malformed stone or project slug with 404 without looking it up',
     }
 });
 
-test('stones in one category share its facts but have their own galleries', function (): void {
-    $category = StoneCategory::query()->where('slug', 'granite')->firstOrFail();
-    $category->update(['description' => 'Shared category description']);
+test('stones in one type share its facts but have their own galleries', function (): void {
+    $type = StoneType::query()->where('slug', 'granite')->firstOrFail();
+    $type->update(['description' => 'Shared type description']);
     $user = User::factory()->role(Role::Client)->create();
 
     foreach (['cosmic-black', 'golden-fusion'] as $slug) {
         $this->actingAs($user)->get(route('dashboard.brands.stones.show', ['brand' => 'regray-stone', 'stone' => $slug]))->assertInertia(fn (Assert $page) => $page
             ->where('stone.data.slug', $slug)
-            ->where('stone.data.description', 'Shared category description')
-            ->where('stone.data.category', ['slug' => 'granite', 'name' => 'Granite'])
+            ->where('stone.data.description', 'Shared type description')
+            ->where('stone.data.type', ['slug' => 'granite', 'name' => 'Granite'])
             ->has('stone.data.gallery', 1)
         );
     }
 });
 
-test('saving and unsaving uses the individual stone and exposes its category', function (): void {
+test('saving and unsaving uses the individual stone and exposes its type', function (): void {
     $user = User::factory()->role(Role::Client)->create();
     $stone = Stone::query()->where('slug', 'cosmic-black')->firstOrFail();
 
@@ -161,7 +161,7 @@ test('saving and unsaving uses the individual stone and exposes its category', f
     $this->actingAs($user)->get(route('saved.index'))->assertInertia(fn (Assert $page) => $page
         ->has('savedStones.data', 1)
         ->where('savedStones.data.0.slug', 'cosmic-black')
-        ->where('savedStones.data.0.category', ['slug' => 'granite', 'name' => 'Granite'])
+        ->where('savedStones.data.0.type', ['slug' => 'granite', 'name' => 'Granite'])
     );
     $this->actingAs($user)->delete(route('saved.destroy', $stone->slug))->assertRedirect();
     $this->assertDatabaseMissing('saved_stones', ['user_id' => $user->id, 'stone_id' => $stone->id]);

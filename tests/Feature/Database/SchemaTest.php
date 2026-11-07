@@ -4,8 +4,8 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Furniture;
 use App\Models\Stone;
-use App\Models\StoneCategory;
 use App\Models\StoneImage;
+use App\Models\StoneType;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -270,17 +270,17 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
         $stone->images()->create(['path' => 'stones/a.jpg', 'sort_order' => 0]);
         $stone->images()->create(['path' => 'stones/b.jpg', 'sort_order' => 0]);
     }],
-    'category: a slug in another case' => ['idx_stone_categories_slug_not_deleted', function () {
-        StoneCategory::factory()->create(['slug' => 'granite']);
-        StoneCategory::factory()->create(['slug' => 'GRANITE']);
+    'type: a slug in another case' => ['idx_stone_types_slug_not_deleted', function () {
+        StoneType::factory()->create(['slug' => 'granite']);
+        StoneType::factory()->create(['slug' => 'GRANITE']);
     }],
-    'category: a name in another case' => ['idx_stone_categories_name_unique_not_deleted', function () {
-        StoneCategory::factory()->create(['name' => 'Granite']);
-        StoneCategory::factory()->create(['name' => 'GRANITE']);
+    'type: a name in another case' => ['idx_stone_types_name_unique_not_deleted', function () {
+        StoneType::factory()->create(['name' => 'Granite']);
+        StoneType::factory()->create(['name' => 'GRANITE']);
     }],
     'removing a brand its stones use' => ['stones_brand_id_foreign', fn () => Stone::factory()->create()->brand->delete()],
     'removing a brand its furniture uses' => ['furniture_brand_id_foreign', fn () => Furniture::factory()->create()->brand->delete()],
-    'removing a category its stones use' => ['stones_stone_category_id_foreign', fn () => Stone::factory()->create()->category->forceDelete()],
+    'removing a type its stones use' => ['stones_stone_type_id_foreign', fn () => Stone::factory()->create()->type->forceDelete()],
 ]);
 
 test('starts an inquiry with no lead and no stage, and takes every role value or NULL', function () {
@@ -359,16 +359,16 @@ test('allows as many inquiries on a lead, bookings, unbound groups and new snaps
         ->and(DB::table('client_contacts')->count())->toBe(2);
 });
 
-test('frees a stone or category identifier when it is soft-deleted, and drops a stone\'s gallery with it', function () {
-    $category = StoneCategory::factory()->create(['slug' => 'granite', 'name' => 'Granite']);
-    $stone = Stone::factory()->for($category, 'category')->create(['slug' => 'test-stone', 'name' => 'Test Stone']);
+test('frees a stone or type identifier when it is soft-deleted, and drops a stone\'s gallery with it', function () {
+    $type = StoneType::factory()->create(['slug' => 'granite', 'name' => 'Granite']);
+    $stone = Stone::factory()->for($type, 'type')->create(['slug' => 'test-stone', 'name' => 'Test Stone']);
     $image = $stone->images()->create(['path' => 'stones/gallery.jpg', 'sort_order' => 0]);
 
     $stone->delete();
-    $category->delete();
+    $type->delete();
 
-    $newCategory = StoneCategory::factory()->create(['slug' => 'granite', 'name' => 'Granite']);
-    Stone::factory()->for($newCategory, 'category')->create(['slug' => 'test-stone', 'name' => 'Test Stone']);
+    $newType = StoneType::factory()->create(['slug' => 'granite', 'name' => 'Granite']);
+    Stone::factory()->for($newType, 'type')->create(['slug' => 'test-stone', 'name' => 'Test Stone']);
 
     $stone->forceDelete();
     expect(StoneImage::query()->find($image->id))->toBeNull();

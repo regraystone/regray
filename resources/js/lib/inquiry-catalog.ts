@@ -1,4 +1,8 @@
-import type { InquiryCatalog, InquirePageProps } from '@/types/inquiry';
+import type {
+    InquiryCatalog,
+    InquirePageProps,
+    InquiryStoneOption,
+} from '@/types/inquiry';
 
 /**
  * The answer a stone picked as extra information is given for its edge or finish.
@@ -14,22 +18,48 @@ const placeholderAnswer = (
 ): string | null =>
     (options.find((option) => option.isAdvisory) ?? options[0])?.name ?? null;
 
-/** Turn the page's props into what the flow reads. */
+/**
+ * Turn the page's props into what the flow reads. `stones` are the ones the page
+ * has been sent so far, which is what lets a stone picked under one filter still
+ * be drawn under another.
+ */
 export const createInquiryCatalog = (
     props: InquirePageProps,
+    stones: InquiryStoneOption[],
 ): InquiryCatalog => ({
     // A service no longer offered still reads back on the inquiry that has it.
-    services: [
-        ...props.services,
-        ...(props.projects ?? []).flatMap((project) =>
-            project.heldServices.filter(
-                (held) =>
-                    !props.services.some((service) => service.id === held.id),
-            ),
-        ),
-    ],
-    furnitureTypes: props.furnitureTypes,
-    stones: props.stones,
+    serviceTypes: (props.projects ?? []).reduce(
+        (types, { heldServiceType: held }) => {
+            if (held === null) {
+                return types;
+            }
+
+            const known = types.find((type) => type.id === held.id);
+
+            if (known === undefined) {
+                return [...types, held];
+            }
+
+            return types.map((type) =>
+                type === known
+                    ? {
+                          ...type,
+                          services: [
+                              ...type.services,
+                              ...held.services.filter(
+                                  (service) =>
+                                      !type.services.some(
+                                          ({ id }) => id === service.id,
+                                      ),
+                              ),
+                          ],
+                      }
+                    : type,
+            );
+        },
+        props.serviceTypes,
+    ),
+    stones,
     edgeProfiles: props.edgeProfiles,
     finishes: props.finishes,
     locations: props.locations,

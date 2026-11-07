@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Schema;
  *
  * - `client_id`: the client's account. NULL for a direct (walk-in) client,
  *   who has none; `client_record_id` is the client either way (`clients`).
+ * - `service_id`: what the client asked for. The request requires it; a row
+ *   written outside the form may have none.
  * - `delivery_method`: how the project reaches the client. A pickup has no site
  *   to name, so its `location` is NULL, and a CHECK holds the two facts together.
  *   A landmark is optional on either.
@@ -61,6 +63,7 @@ return new class extends Migration
             $table->string('marketing_status', 20)->nullable();
             $table->timestampTz('marketing_status_changed_at')->nullable();
             $table->string('name', 100);
+            $table->foreignId('service_id')->nullable()->constrained()->restrictOnDelete();
             $table->string('delivery_method', 20)->default('delivery');
             $table->string('location', 255)->nullable();
             $table->string('landmark', 150)->nullable();
@@ -83,6 +86,7 @@ return new class extends Migration
             $table->index('client_id');
             $table->index('client_record_id');
             $table->index('lead_id');
+            $table->index('service_id');
             $table->index('sales_status');
             $table->index('payment_status');
             $table->index('process_status');

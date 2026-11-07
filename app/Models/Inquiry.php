@@ -35,6 +35,7 @@ use Illuminate\Support\Facades\DB;
  * @property LeadStatus|null $marketing_status Marketing's decision, won or lost; null while it waits for one.
  * @property Carbon|null $marketing_status_changed_at
  * @property string $name
+ * @property int|null $service_id What the client asked for.
  * @property string $location
  * @property string|null $landmark
  * @property string|null $area_sqm
@@ -60,7 +61,7 @@ use Illuminate\Support\Facades\DB;
  */
 #[Fillable([
     'reference', 'client_id', 'client_record_id', 'lead_id', 'marketing_status', 'marketing_status_changed_at',
-    'name', 'delivery_method', 'location', 'landmark', 'area_sqm', 'notes', 'stone_advice_requested',
+    'name', 'service_id', 'delivery_method', 'location', 'landmark', 'area_sqm', 'notes', 'stone_advice_requested',
     'sales_status', 'sales_status_changed_at',
     'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
     'quoted_total', 'quote_revision', 'contract_total',
@@ -203,14 +204,10 @@ class Inquiry extends Model
         return $this->hasMany(InquiryStatusHistory::class)->orderBy('changed_at')->orderBy('id');
     }
 
-    /**
-     * What is wanted of each stone. The inquiry's services are read through these.
-     *
-     * @return HasMany<InquiryWorkItem, $this>
-     */
-    public function workItems(): HasMany
+    /** @return BelongsTo<Service, $this> */
+    public function service(): BelongsTo
     {
-        return $this->hasMany(InquiryWorkItem::class)->orderBy('id');
+        return $this->belongsTo(Service::class);
     }
 
     /** @return HasMany<InquiryStone, $this> */

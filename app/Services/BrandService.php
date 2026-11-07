@@ -23,7 +23,7 @@ class BrandService
     }
 
     /**
-     * @return array{products: LengthAwarePaginator<int, Stone|Furniture>, hasProducts: bool, filters: array{collection: string, search: string|null, category: string|null, size: string|null, thickness: string|null, furnitureType: string|null, perPage: int}}
+     * @return array{products: LengthAwarePaginator<int, Stone|Furniture>, hasProducts: bool, filters: array{collection: string, search: string|null, type: string|null, size: string|null, thickness: string|null, furnitureType: string|null, perPage: int}}
      */
     public function listProducts(Brand $brand, BrandProductFilterData $filters): array
     {
@@ -33,7 +33,7 @@ class BrandService
             'filters' => [
                 'collection' => $filters->collection,
                 'search' => $filters->search,
-                'category' => $filters->category,
+                'type' => $filters->type,
                 'size' => $filters->size,
                 'thickness' => $filters->thickness,
                 'furnitureType' => $filters->furnitureType,
@@ -48,7 +48,7 @@ class BrandService
         return new BrandProductFilterData(
             $filters->collection,
             $filters->search === null ? null : str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $filters->search),
-            $filters->category,
+            $filters->type,
             $filters->size,
             $filters->thickness,
             $filters->furnitureType,

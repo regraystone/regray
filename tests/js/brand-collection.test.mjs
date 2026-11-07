@@ -10,7 +10,7 @@ import {
 import { catalogueCrumbs } from '../../resources/js/lib/catalogue-breadcrumbs.ts';
 
 const OPTIONS = {
-    categories: [{ value: 'granite', label: 'Granite' }],
+    types: [{ value: 'granite', label: 'Granite' }],
     furnitureTypes: [{ value: 'Tables', label: 'Tables' }],
 };
 
@@ -35,12 +35,12 @@ describe('the second select', () => {
         assert.equal(secondFilter('all', OPTIONS), null);
     });
 
-    it('lists the stone categories under Natural Stones, by the category param', () => {
+    it('lists the stone types under Natural Stones, by the type param', () => {
         const second = secondFilter('stones', OPTIONS);
 
-        assert.equal(second.param, 'category');
+        assert.equal(second.param, 'type');
         assert.equal(second.defaultLabel, 'All Product Type');
-        assert.deepEqual(second.options, OPTIONS.categories);
+        assert.deepEqual(second.options, OPTIONS.types);
     });
 
     it('lists the furniture types under Furniture, by the furniture_type param', () => {
@@ -82,7 +82,7 @@ describe('the query', () => {
                 search: '',
                 filter: 'granite',
             }),
-            { collection: 'stones', category: 'granite' },
+            { collection: 'stones', type: 'granite' },
         );
         assert.deepEqual(
             collectionQuery({

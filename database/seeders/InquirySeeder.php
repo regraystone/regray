@@ -20,7 +20,6 @@ use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
-use App\Models\FurnitureType;
 use App\Models\Inquiry;
 use App\Models\InquiryStatusHistory;
 use App\Models\Lead;
@@ -559,7 +558,7 @@ class InquirySeeder extends Seeder
 
     /**
      * The inquiry at its final statuses, on its lead, with the project it is:
-     * its stones, services and the client's attachments.
+     * its service, its stones and the client's attachments.
      *
      * @param  array<string, mixed>  $inquiryData
      * @param  array{marketing: ?LeadStatus, marketing_at: ?string, marketing_by: ?string, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, contract_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}  $final
@@ -577,6 +576,7 @@ class InquirySeeder extends Seeder
             'marketing_status' => $final['marketing'],
             'marketing_status_changed_at' => $this->time($final['marketing_at']),
             'name' => $project['name'],
+            'service_id' => Service::query()->where('slug', $project['service'])->firstOrFail()->id,
             'location' => $project['location'],
             'landmark' => $project['landmark'],
             'area_sqm' => $project['area_sqm'],
@@ -607,7 +607,7 @@ class InquirySeeder extends Seeder
 
         foreach ($project['stones'] as $stoneSort => $stoneSelection) {
             $stone = Stone::query()
-                ->whereHas('category', fn ($query) => $query->where('slug', $stoneSelection['stone_slug']))
+                ->whereHas('type', fn ($query) => $query->where('slug', $stoneSelection['stone_slug']))
                 ->orderBy('sort_order')->orderBy('id')->firstOrFail();
 
             $inquiry->stones()->create([
@@ -619,40 +619,11 @@ class InquirySeeder extends Seeder
             ]);
         }
 
-        $this->seedWork($inquiry, $project['services']);
-
         foreach ($client === null ? [] : $project['attachments'] as $fileData) {
             $this->seedFile($fileUploads, $inquiry, $client, DocumentType::ClientAttachment, $fileData, $createdAt);
         }
 
         return $inquiry;
-    }
-
-    /**
-     * What the demo inquiry wants of its stones: each stone takes the next of
-     * its services, and any service left
-     * over goes on the first stone too. With no stones, the work has no stone.
-     *
-     * @param  list<string>  $serviceNames
-     */
-    private function seedWork(Inquiry $inquiry, array $serviceNames): void
-    {
-        $stoneIds = array_values(array_unique($inquiry->stones()->orderBy('sort_order')->pluck('stone_id')->all()));
-        $services = array_map(
-            fn (string $name): Service => Service::where('name', $name)->firstOrFail(),
-            $serviceNames,
-        );
-        $slots = max(count($stoneIds), count($services));
-
-        for ($slot = 0; $slot < $slots; $slot++) {
-            $service = $services[$slot % count($services)];
-
-            $inquiry->workItems()->create([
-                'stone_id' => $stoneIds === [] ? null : ($stoneIds[$slot] ?? $stoneIds[0]),
-                'service_id' => $service->id,
-                'furniture_type_id' => $service->needs_furniture ? FurnitureType::query()->where('name', 'Tables')->value('id') : null,
-            ]);
-        }
     }
 
     /**

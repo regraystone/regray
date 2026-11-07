@@ -13,12 +13,14 @@ import {
     expectStep,
     openInquire,
     pickStone,
+    SERVICE_TYPE_ID,
+    walkToStones,
 } from '../support/inquiry-flow';
 
 /* F. The draft kept in this browser between visits. */
 
 const draftKey = (userId: number): string =>
-    `regray.inquiry-draft.v7:${userId}`;
+    `regray.inquiry-draft.v8:${userId}`;
 
 const storedDraft = (page: Page, userId: number) =>
     page.evaluate((key) => window.localStorage.getItem(key), draftKey(userId));
@@ -63,13 +65,14 @@ test('25 · after a reload the draft is back, on a step its answers justify', as
     const { page } = await actors.open('client');
     await openInquire(page);
 
+    await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
     await continueButton(page).click();
-    await expectStep(page, 2);
+    await expectStep(page, 3);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
     await page.reload();
-    await expectStep(page, 2);
+    await expectStep(page, 3);
 
     // A stored step further on than the answers allow is pulled back.
     await page.evaluate((key) => {
@@ -80,10 +83,10 @@ test('25 · after a reload the draft is back, on a step its answers justify', as
         );
     }, draftKey(clientAId));
     await page.reload();
-    await expectStep(page, 2);
+    await expectStep(page, 3);
 
-    await changeQuestion(page, 1).click();
-    await expectStep(page, 1);
+    await changeQuestion(page, 2).click();
+    await expectStep(page, 2);
     await expect(checkbox(page, CATALOG.stones[0])).toHaveAttribute(
         'aria-checked',
         'true',
@@ -96,9 +99,10 @@ test('26 · "Start new" clears the draft, and a reload stays empty', async ({
     const { clientAId } = inquiryFixtures();
     const { page } = await actors.open('client');
     await openInquire(page);
+    await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
     await continueButton(page).click();
-    await expectStep(page, 2);
+    await expectStep(page, 3);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
     await page.goto('/dashboard/quote');
@@ -112,14 +116,15 @@ test('26 · "Start new" clears the draft, and a reload stays empty', async ({
 
     await expect(page).toHaveURL(/\/quote\/inquire$/);
     await expectStep(page, 1);
-    await expect(checkbox(page, CATALOG.stones[0])).toHaveAttribute(
-        'aria-checked',
-        'false',
+    await expect(page.locator(`#${SERVICE_TYPE_ID}`)).toContainText(
+        'Choose one',
     );
 
     await page.reload();
     await expectStep(page, 1);
-    await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(0);
+    await expect(page.locator(`#${SERVICE_TYPE_ID}`)).toContainText(
+        'Choose one',
+    );
     expect(await storedDraft(page, clientAId)).toBeNull();
 });
 
@@ -131,9 +136,10 @@ test("27 · on a shared browser, client B never sees client A's draft", async ({
 
     await signInThroughForm(page, 'client');
     await openInquire(page);
+    await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
     await continueButton(page).click();
-    await expectStep(page, 2);
+    await expectStep(page, 3);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
     await signOut(page);
@@ -141,6 +147,8 @@ test("27 · on a shared browser, client B never sees client A's draft", async ({
     await openInquire(page);
 
     await expectStep(page, 1);
-    await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(0);
+    await expect(page.locator(`#${SERVICE_TYPE_ID}`)).toContainText(
+        'Choose one',
+    );
     expect(await storedDraft(page, clientBId)).toBeNull();
 });

@@ -19,7 +19,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $brand_id
- * @property int $stone_category_id
+ * @property int $stone_type_id
  * @property string $slug
  * @property string $name
  * @property string $thumbnail_path
@@ -34,11 +34,11 @@ use Illuminate\Support\Carbon;
  * @property-read bool $is_best_seller
  * @property-read Collection<int, StoneImage> $images
  * @property-read Brand $brand
- * @property-read StoneCategory $category
+ * @property-read StoneType $type
  * @property-read Collection<int, Project> $projects
- * @property-read Collection<int, StoneCategory> $categories
+ * @property-read Collection<int, StoneType> $types
  */
-#[Fillable(['brand_id', 'stone_category_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'origin', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'stone_type_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'origin', 'is_active', 'sort_order'])]
 class Stone extends Model
 {
     /** @use HasFactory<StoneFactory> */
@@ -68,14 +68,14 @@ class Stone extends Model
     }
 
     /**
-     * Whether the stone's category is a best seller. Asked of the request's one
+     * Whether the stone's type is a best seller. Asked of the request's one
      * ranking, never stored.
      *
      * @return Attribute<bool, never>
      */
     protected function isBestSeller(): Attribute
     {
-        return Attribute::get(fn (): bool => app(BestSellerService::class)->isBestSeller($this->stone_category_id));
+        return Attribute::get(fn (): bool => app(BestSellerService::class)->isBestSeller($this->stone_type_id));
     }
 
     /** @return HasMany<StoneImage, $this> */
@@ -90,22 +90,22 @@ class Stone extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    /** @return BelongsTo<StoneCategory, $this> */
-    public function category(): BelongsTo
+    /** @return BelongsTo<StoneType, $this> */
+    public function type(): BelongsTo
     {
-        return $this->belongsTo(StoneCategory::class, 'stone_category_id');
+        return $this->belongsTo(StoneType::class, 'stone_type_id');
     }
 
-    /** @return BelongsToMany<StoneCategory, $this> */
-    public function categories(): BelongsToMany
+    /** @return BelongsToMany<StoneType, $this> */
+    public function types(): BelongsToMany
     {
-        return $this->belongsToMany(StoneCategory::class, 'stone_stone_category');
+        return $this->belongsToMany(StoneType::class, 'stone_stone_type');
     }
 
-    /** List the stone under its primary category when importing, without removing additional ones. */
+    /** List the stone under its primary type when importing, without removing additional ones. */
     public function attachPrimaryFilterOptions(): void
     {
-        $this->categories()->syncWithoutDetaching([$this->stone_category_id]);
+        $this->types()->syncWithoutDetaching([$this->stone_type_id]);
     }
 
     /** @return BelongsToMany<User, $this> */

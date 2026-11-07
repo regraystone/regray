@@ -8,22 +8,21 @@ export type StoneImage = {
     created_at: string;
 };
 
-type StoneCategory = {
+type StoneType = {
     id: string;
     name: string;
     thumbnail: string;
     recommended: boolean;
 };
 
-export type Stone = StoneCategory & {
-    category: { slug: string; name: string };
+export type Stone = StoneType & {
+    type: { slug: string; name: string };
 };
 
 export type StoneProfile = Stone & {
     description: string;
     gallery: StoneImage[];
     specifications: {
-        stoneType: string;
         origin: string;
         thickness: string;
     };
@@ -32,7 +31,7 @@ export type StoneProfile = Stone & {
     care: string[];
 };
 
-const stoneCategories: StoneCategory[] = [
+const stoneTypes: StoneType[] = [
     {
         id: 'cobblestone',
         name: 'Cobblestone',
@@ -630,7 +629,7 @@ const getStoneGallery = (stoneId: string): StoneImage[] =>
         .filter((image) => image.stoneId === stoneId)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
+const typeProfiles: Record<string, Omit<StoneProfile, 'type'>> = {
     cobblestone: {
         id: 'cobblestone',
         name: 'Cobblestone',
@@ -640,7 +639,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'Granite cut into cubes and setts, the oldest paving material still in daily use. A flamed or brushed face grips underfoot in the wet, and because the stone is hard-wearing rather than soft, a laid courtyard keeps its pattern for decades.',
         gallery: getStoneGallery('cobblestone'),
         specifications: {
-            stoneType: 'Cobblestone',
             origin: 'Brazil, India',
             thickness: '50-100 mm per cube',
         },
@@ -671,7 +669,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'Irregular flagstone pieces split and shaped to follow the ground instead of a saw line. No two pieces repeat, so a laid surface has a looser, more natural character than a rectangular tile ever will. Cut from granite, marble and limestone.',
         gallery: getStoneGallery('crazy-cut'),
         specifications: {
-            stoneType: 'Crazy Cut',
             origin: 'Brazil, Italy, Turkey',
             thickness: '20-30 mm per piece',
         },
@@ -702,7 +699,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'The workhorse of natural stone, granite is a dense igneous rock prized for its exceptional hardness, heat resistance, and stone-deep durability. A broad palette of speckles, veins, and tones makes it a safe, lasting choice for busy kitchens.',
         gallery: getStoneGallery('granite'),
         specifications: {
-            stoneType: 'Granite',
             origin: 'Brazil, India',
             thickness: '20 mm per slab',
         },
@@ -732,7 +728,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'A classic metamorphic stone celebrated for its luminous surface and elegant, dramatic veining. Each slab is unique, bringing quiet luxury to vanities, counters, and walls.',
         gallery: getStoneGallery('marble'),
         specifications: {
-            stoneType: 'Marble',
             origin: 'Italy, Turkey',
             thickness: '18 mm per slab',
         },
@@ -762,7 +757,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'The densest and hardest natural stone available, cut for a glass-like, mirror-polished finish. Its extreme durability and scratch resistance make it ideal for high-traffic surfaces that must stay beautiful.',
         gallery: getStoneGallery('monumental'),
         specifications: {
-            stoneType: 'Monumental',
             origin: 'South Africa',
             thickness: '20 mm per slab',
         },
@@ -793,7 +787,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'A translucent, banded stone that literally glows when lit from behind. Prized for statement backlit features, onyx turns any surface into a piece of art.',
         gallery: getStoneGallery('onyx'),
         specifications: {
-            stoneType: 'Onyx',
             origin: 'Iran, Turkey',
             thickness: '18 mm per slab',
         },
@@ -824,7 +817,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'A show-stopping quartzite defined by sweeping cream, grey, and copper veining on a luminous white base. It pairs the beauty of marble with granite-grade toughness, performing beautifully in kitchens and on clad features.',
         gallery: getStoneGallery('patagonia-quartzite'),
         specifications: {
-            stoneType: 'Patagonia Quartzite',
             origin: 'Brazil',
             thickness: '18 mm per slab',
         },
@@ -855,7 +847,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'A naturally metamorphosed, quartz-rich stone that pairs marble-like movement with granite-grade strength. Its low porosity and heat resistance make it a favorite for high-traffic kitchen counters.',
         gallery: getStoneGallery('quartzite'),
         specifications: {
-            stoneType: 'Quartzite',
             origin: 'Brazil, Norway',
             thickness: '18 mm per slab',
         },
@@ -886,7 +877,6 @@ const categoryProfiles: Record<string, Omit<StoneProfile, 'category'>> = {
             'A warm, porous sedimentary stone with soft, earthy tones and a naturally pitted texture. Its time-honored character brings old-world warmth to bathrooms, patios, and feature walls.',
         gallery: getStoneGallery('travertine'),
         specifications: {
-            stoneType: 'Travertine',
             origin: 'Turkey, Italy',
             thickness: '20 mm per slab',
         },
@@ -914,19 +904,17 @@ const usedStoneNames = new Set<string>();
 
 /** The picker uses the same individual stones and collision rules as StoneSeeder. */
 export const stones: Stone[] = stoneImages.map((image) => {
-    const category = stoneCategories.find(
-        (entry) => entry.id === image.stoneId,
-    )!;
+    const type = stoneTypes.find((entry) => entry.id === image.stoneId)!;
     let id = image.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
     let name = image.name;
     if (usedStoneSlugs.has(id)) {
-        id += `-${category.id}`;
+        id += `-${type.id}`;
     }
     if (usedStoneNames.has(name.toLowerCase())) {
-        name += ` (${category.name})`;
+        name += ` (${type.name})`;
     }
     usedStoneSlugs.add(id);
     usedStoneNames.add(name.toLowerCase());
@@ -935,8 +923,8 @@ export const stones: Stone[] = stoneImages.map((image) => {
         id,
         name,
         thumbnail: image.src,
-        recommended: category.recommended,
-        category: { slug: category.id, name: category.name },
+        recommended: type.recommended,
+        type: { slug: type.id, name: type.name },
     };
 });
 
@@ -944,7 +932,7 @@ export const stoneProfiles: Record<string, StoneProfile> = Object.fromEntries(
     stones.map((stone, index) => [
         stone.id,
         {
-            ...categoryProfiles[stone.category.slug],
+            ...typeProfiles[stone.type.slug],
             ...stone,
             gallery: [{ ...stoneImages[index], stoneId: stone.id }],
         },

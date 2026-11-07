@@ -27,7 +27,7 @@ it('creates the whole row graph for each inquiry sent', function (): void {
         ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [], 'stoneAdvice' => '1'])]])
         ->assertSessionHasNoErrors();
 
-    [$first, $advice] = Inquiry::query()->with(['workItems.service', 'stones', 'files', 'schedule', 'statusHistory'])->orderBy('id')->get()->all();
+    [$first, $advice] = Inquiry::query()->with(['service', 'stones', 'files', 'schedule', 'statusHistory'])->orderBy('id')->get()->all();
 
     foreach ([$first, $advice] as $inquiry) {
         expect($inquiry->reference)->toStartWith('INQ-')
@@ -43,7 +43,7 @@ it('creates the whole row graph for each inquiry sent', function (): void {
         ->and((float) $first->area_sqm)->toBe(12.5)
         ->and($first->notes)->toBe('Ground floor.')
         ->and($first->delivery_method)->toBe(DeliveryMethod::Delivery)
-        ->and($first->workItems->pluck('service.slug')->all())->toBe(['supply-only'])
+        ->and($first->service->slug)->toBe('slab-supply-only')
         ->and($first->stones)->toHaveCount(1)
         ->and($first->stones->first()->quantity)->toBe(4)
         ->and($first->files)->toHaveCount(1)

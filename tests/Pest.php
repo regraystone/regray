@@ -22,7 +22,6 @@ use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Services\Message\SupportConversationService;
 use Database\Seeders\EdgeProfileSeeder;
-use Database\Seeders\FurnitureTypeSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\StoneSeeder;
@@ -76,15 +75,14 @@ function something()
 }
 
 /**
- * The rows an inquiry is made from: roles, services, edge profiles, and the
- * stones and finishes the stone seeder brings with it, and the furniture types.
+ * The rows an inquiry is made from: roles, service types and services, edge
+ * profiles, and the stones and finishes the stone seeder brings with it.
  */
 function seedInquiryCatalog(): void
 {
     test()->seed([
         RolePermissionSeeder::class,
         ServiceSeeder::class,
-        FurnitureTypeSeeder::class,
         EdgeProfileSeeder::class,
         StoneSeeder::class,
     ]);
@@ -97,9 +95,7 @@ function inquiryClient(Role $role = Role::Client): User
 
 /**
  * One valid project in the shape the Inquire page posts, with `$overrides`
- * laid over it: one stone, with one service for it. Stones given without work get
- * "Stone supply only" each; none at all is one row with no stone, for a
- * recommendation.
+ * laid over it: one service and one stone.
  *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
@@ -115,10 +111,7 @@ function inquiryProjectInput(array $overrides = []): array
 
     return [
         'name' => 'Kitchen counters',
-        'work' => array_map(
-            fn (string $stoneId): array => ['stoneId' => $stoneId, 'serviceId' => 'supply-only', 'furnitureType' => ''],
-            array_values(array_unique(array_column($stones, 'stoneId'))) ?: [''],
-        ),
+        'serviceId' => 'slab-supply-only',
         'stones' => $stones,
         'deliveryMethod' => 'delivery',
         'location' => 'Makati',
@@ -178,8 +171,8 @@ function makeLead(User $client, ?User $marketing = null): Lead
 /**
  * An inquiry in the database for `$client`, without going through the form.
  * One inquiry is one project: `$project` is `['name' => ..., 'stones' =>
- * [stone slugs], 'services' => [service slugs]]`, its stones stored in the
- * order given.
+ * [stone slugs], 'service' => service slug]`, its stones stored in the order
+ * given.
  *
  * `$attributes` may set `reference` and `created_at`, `lead` (the lead it is
  * linked to), `marketing_status` (marketing's decision; on a lead it defaults
@@ -188,7 +181,7 @@ function makeLead(User $client, ?User $marketing = null): Lead
  * role statuses, and `job_order` (whether sales has uploaded the job order
  * file). Without them it has no lead and no role status has started.
  *
- * @param  array{name?: string, stones?: list<string>, services?: list<string>}  $project
+ * @param  array{name?: string, stones?: list<string>, service?: string}  $project
  * @param  array{reference?: string, created_at?: mixed, lead?: Lead, marketing_status?: LeadStatus|null, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, completed_at?: mixed, job_order?: bool}  $attributes
  */
 function makeInquiry(User $client, array $project = [], array $attributes = []): Inquiry
@@ -211,6 +204,7 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
             : (isset($attributes['lead'], $statuses['sales_status']) ? LeadStatus::Won : null),
         'marketing_status_changed_at' => $marketing === null ? null : now(),
         'name' => $project['name'] ?? 'Project '.$sequence,
+        'service_id' => Service::query()->where('slug', $project['service'] ?? 'slab-supply-only')->value('id'),
         'location' => 'Makati',
         'sales_status' => $statuses['sales_status'] ?? null,
         'sales_status_changed_at' => isset($statuses['sales_status']) ? now() : null,
@@ -229,15 +223,6 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
     $edge = EdgeProfile::query()->value('id');
     $finish = Finish::query()->value('id');
     $stones = $project['stones'] ?? [Stone::query()->orderBy('id')->value('slug')];
-
-    foreach ($project['services'] ?? ['supply-only'] as $serviceSlug) {
-        foreach ($stones === [] ? [null] : $stones as $slug) {
-            $inquiry->workItems()->create([
-                'stone_id' => $slug === null ? null : Stone::query()->where('slug', $slug)->value('id'),
-                'service_id' => Service::query()->where('slug', $serviceSlug)->value('id'),
-            ]);
-        }
-    }
 
     foreach (array_values($stones) as $order => $slug) {
         $inquiry->stones()->create([

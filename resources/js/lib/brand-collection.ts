@@ -32,11 +32,11 @@ export const toCollection = (
 export const secondFilter = (
     collection: BrandCollectionKind,
     options: {
-        categories?: BrandFilterOption[];
+        types?: BrandFilterOption[];
         furnitureTypes?: BrandFilterOption[];
     },
 ): {
-    param: 'category' | 'furniture_type';
+    param: 'type' | 'furniture_type';
     ariaLabel: string;
     defaultLabel: string;
     options: BrandFilterOption[];
@@ -53,10 +53,10 @@ export const secondFilter = (
               options: options.furnitureTypes ?? [],
           }
         : {
-              param: 'category',
-              ariaLabel: 'Stone category',
+              param: 'type',
+              ariaLabel: 'Stone type',
               defaultLabel: SECOND_FILTER_DEFAULT_LABEL,
-              options: options.categories ?? [],
+              options: options.types ?? [],
           };
 };
 

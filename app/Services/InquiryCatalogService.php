@@ -2,12 +2,15 @@
 
 namespace App\Services;
 
+use App\Data\InquiryStoneFilterData;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
-use App\Models\FurnitureType;
-use App\Models\Service;
+use App\Models\ServiceType;
 use App\Models\Stone;
+use App\Models\StoneType;
+use App\Models\User;
 use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
 class InquiryCatalogService
@@ -17,22 +20,47 @@ class InquiryCatalogService
     ) {}
 
     /**
-     * Everything the Inquire page offers, read once.
+     * Everything the Inquire page offers but its stones, read once.
      *
      * Locations come from config rather than the database: validation reads the
      * same list, so the two cannot disagree about where a project may be.
      *
-     * @return array{services: Collection<int, Service>, furnitureTypes: Collection<int, FurnitureType>, stones: Collection<int, Stone>, edgeProfiles: Collection<int, EdgeProfile>, finishes: Collection<int, Finish>, locations: list<string>}
+     * @return array{serviceTypes: Collection<int, ServiceType>, edgeProfiles: Collection<int, EdgeProfile>, finishes: Collection<int, Finish>, locations: list<string>}
      */
     public function options(): array
     {
         return [
-            'services' => $this->catalogRepository->services(),
-            'furnitureTypes' => $this->catalogRepository->furnitureTypes(),
-            'stones' => $this->catalogRepository->stones(),
+            'serviceTypes' => $this->catalogRepository->serviceTypes(),
             'edgeProfiles' => $this->catalogRepository->activeEdgeProfiles(),
             'finishes' => $this->catalogRepository->activeFinishes(),
             'locations' => config('inquiry.locations'),
         ];
+    }
+
+    /**
+     * One page of the stones the Inquire page offers.
+     *
+     * @return LengthAwarePaginator<int, Stone>
+     */
+    public function stones(User $user, InquiryStoneFilterData $filters): LengthAwarePaginator
+    {
+        return $this->catalogRepository->paginateStones($user, $filters);
+    }
+
+    /** @return Collection<int, StoneType> */
+    public function stoneTypes(): Collection
+    {
+        return $this->catalogRepository->stoneTypes();
+    }
+
+    /**
+     * The stones of a restored draft, those still on offer.
+     *
+     * @param  list<string>  $slugs
+     * @return Collection<int, Stone>
+     */
+    public function stonesBySlugs(array $slugs): Collection
+    {
+        return $this->catalogRepository->stonesBySlugs($slugs);
     }
 }

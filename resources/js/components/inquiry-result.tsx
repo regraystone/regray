@@ -1,30 +1,48 @@
 import { Link } from '@inertiajs/react';
 import { ArrowLeft, MessageCircle, RotateCcw } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
 import Countdown from '@/components/countdown';
+import ResultDialog from '@/components/result-dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { retryLabel } from '@/lib/rate-limit';
 import { index as inboxIndex } from '@/routes/inbox';
-import { ResultBadge } from './result-badge';
 
-type InquiryResultProps = {
-    status: 'success' | 'error';
-    /**
-     * What the request is known by, so the reader can recognise it in the list
-     * they are about to be sent to. The name of the first project, which is what
-     * the whole request is called everywhere else.
-     */
-    title: string;
-    /** The reference the backend gave the inquiry, shown on success. */
-    reference?: string;
-    /** What went wrong, in the backend's words, shown on error. */
-    message?: string;
-    /**
-     * When a 429 lets the request go again (a Date.now() timestamp), or null.
-     * Try again is held until then, so a retry cannot extend the wait.
-     */
-    retryAt?: number | null;
+export type InquiryResultState =
+    | {
+          status: 'success';
+          /** What the request is known by, so the reader can recognise it. */
+          title: string;
+          /** The reference the backend gave the inquiry. */
+          reference: string;
+      }
+    | {
+          status: 'error';
+          /** What went wrong, in the backend's words. */
+          message?: string;
+          /**
+           * When a 429 lets the request go again (a Date.now() timestamp), or
+           * null. Try again is held until then, so a retry cannot extend the wait.
+           */
+          retryAt?: number | null;
+      };
+
+/**
+ * What happened to the request, in a dialog over the page.
+ *
+ * Success has already emptied the form behind it, so closing it leaves a fresh
+ * inquiry. Failure leaves every answer on Review, which is what the wording
+ * promises before it offers a retry.
+ */
+const InquiryResult = ({
+    result,
+    canChat,
+    inquiriesHref,
+    onTryAgain,
+    onClose,
+    onInquireAgain,
+    submitting,
+}: {
+    result: InquiryResultState | null;
     /** The chat is only offered to someone allowed to open it. */
     canChat: boolean;
     /**
@@ -33,181 +51,119 @@ type InquiryResultProps = {
      */
     inquiriesHref: string | null;
     onTryAgain: () => void;
-    onBackToReview: () => void;
+    onClose: () => void;
     onInquireAgain: () => void;
-    /** True while a retry is in flight, which locks the panel's buttons. */
+    /** True while a retry is in flight, which locks the dialog. */
     submitting: boolean;
-};
+}) => {
+    const success =
+        result?.status === 'success'
+            ? {
+                  status: 'success' as const,
+                  title: 'Quote requested',
+                  description: (
+                      <>
+                          We&apos;ve received your request for {result.title}.
+                          <span className="mt-1 block">
+                              Your reference is{' '}
+                              <span className="font-bold text-foreground">
+                                  {result.reference}
+                              </span>
+                              .
+                          </span>
+                      </>
+                  ),
+                  actions: (
+                      <>
+                          {/*
+                           * Chat first, because a sent request is most useful as
+                           * a conversation. A reader without the chat gets the
+                           * list they can open, and a reader with neither gets no
+                           * link rather than one that would refuse them.
+                           */}
+                          {canChat ? (
+                              <Button asChild>
+                                  <Link
+                                      href={inboxIndex.url({
+                                          query: { conversation: 'support' },
+                                      })}
+                                  >
+                                      <MessageCircle aria-hidden />
+                                      Message us
+                                  </Link>
+                              </Button>
+                          ) : inquiriesHref ? (
+                              <Button asChild>
+                                  <Link href={inquiriesHref}>My inquiries</Link>
+                              </Button>
+                          ) : null}
+                          <Button
+                              type="button"
+                              variant="outline"
+                              onClick={onInquireAgain}
+                          >
+                              Start over
+                          </Button>
+                      </>
+                  ),
+              }
+            : null;
 
-/**
- * What happened to the request, in place of the Review sheet.
- *
- * The badge, the copy and the two buttons are the same shape either way, so the
- * panel is read as one thing that has failed rather than as a different screen:
- * the black square and the white glyph are the only difference, and they sit in
- * the same box at the same size.
- *
- * Success empties the form, which is why the sheet and the stepper cannot stay
- * behind this. Failure leaves every answer exactly where it was, which is what
- * the wording has to promise before it offers a retry.
- *
- * Focus lands on the heading because this panel is not somewhere the reader
- * asked to go: a keyboard user who pressed "Request a Quote" would otherwise
- * be left on a button that no longer exists.
- */
-const InquiryResult = ({
-    status,
-    title,
-    reference,
-    message,
-    retryAt = null,
-    canChat,
-    inquiriesHref,
-    onTryAgain,
-    onBackToReview,
-    onInquireAgain,
-    submitting,
-}: InquiryResultProps) => {
-    const headingRef = useRef<HTMLHeadingElement>(null);
-    const isSuccess = status === 'success';
-
-    useEffect(() => {
-        headingRef.current?.focus();
-    }, []);
-
-    const badge = <ResultBadge status={status} />;
-
-    /*
-     * The two buttons, stacked on a phone and side by side from `sm`: there is
-     * no third column to divide, and the sheet's bar is already the place for
-     * the way back.
-     *
-     * Both labels are kept short because the panel is read once, at the end, and
-     * the sentence above it has already said what each button leads to. Long
-     * labels only made the pair an uneven wall of text where two plain verbs sit
-     * better.
-     */
-    const actions: ReactNode[] = isSuccess
-        ? [
-              /*
-               * Chat first, because a sent request is most useful as a
-               * conversation. A reader without the chat gets the list they can
-               * actually open, and a reader with neither gets no link rather
-               * than one that would refuse them.
-               */
-              canChat ? (
-                  <Button key="chat" asChild>
-                      <Link
-                          href={inboxIndex.url({
-                              query: { conversation: 'support' },
-                          })}
-                      >
-                          <MessageCircle aria-hidden />
-                          Message us
-                      </Link>
-                  </Button>
-              ) : inquiriesHref ? (
-                  <Button key="inquiries" asChild>
-                      <Link href={inquiriesHref}>My inquiries</Link>
-                  </Button>
-              ) : null,
-              <Button
-                  key="again"
-                  type="button"
-                  variant="outline"
-                  onClick={onInquireAgain}
-              >
-                  Start over
-              </Button>,
-          ]
-        : [
-              <Countdown key={`retry-${retryAt ?? 'now'}`} until={retryAt}>
-                  {(retryIn) => (
-                      <Button
-                          type="button"
-                          onClick={onTryAgain}
-                          disabled={submitting || retryIn > 0}
-                      >
-                          {submitting ? (
-                              <>
-                                  <Spinner />
-                                  Sending...
-                              </>
-                          ) : (
-                              <>
-                                  <RotateCcw aria-hidden />
-                                  {retryLabel(retryIn)}
-                              </>
-                          )}
-                      </Button>
-                  )}
-              </Countdown>,
-              <Button
-                  key="back"
-                  type="button"
-                  variant="outline"
-                  onClick={onBackToReview}
-                  disabled={submitting}
-              >
-                  <ArrowLeft aria-hidden />
-                  Back to review
-              </Button>,
-          ];
+    const failure =
+        result?.status === 'error'
+            ? {
+                  status: 'error' as const,
+                  title: "We couldn't send your request",
+                  // The same sentence the server flashes when the save itself fails.
+                  description:
+                      result.message ??
+                      'We could not save your inquiry. Your answers are still here, so you can try again.',
+                  actions: (
+                      <>
+                          <Countdown
+                              key={result.retryAt ?? 'now'}
+                              until={result.retryAt ?? null}
+                          >
+                              {(retryIn) => (
+                                  <Button
+                                      type="button"
+                                      onClick={onTryAgain}
+                                      disabled={submitting || retryIn > 0}
+                                  >
+                                      {submitting ? (
+                                          <>
+                                              <Spinner />
+                                              Sending...
+                                          </>
+                                      ) : (
+                                          <>
+                                              <RotateCcw aria-hidden />
+                                              {retryLabel(retryIn)}
+                                          </>
+                                      )}
+                                  </Button>
+                              )}
+                          </Countdown>
+                          <Button
+                              type="button"
+                              variant="outline"
+                              onClick={onClose}
+                              disabled={submitting}
+                          >
+                              <ArrowLeft aria-hidden />
+                              Back to review
+                          </Button>
+                      </>
+                  ),
+              }
+            : null;
 
     return (
-        <section
-            role={isSuccess ? 'status' : 'alert'}
-            className="mx-auto flex w-full max-w-xl flex-col items-center rounded-md border border-sidebar-border bg-background px-6 py-16 text-center"
-        >
-            {badge}
-
-            {isSuccess ? (
-                <>
-                    <h3
-                        ref={headingRef}
-                        tabIndex={-1}
-                        className="mt-6 text-lg font-bold tracking-[-0.03em] outline-none"
-                    >
-                        Quote requested
-                    </h3>
-                    <p className="mt-2 max-w-sm text-sm text-foreground">
-                        We&apos;ve received your request for {title}.
-                    </p>
-                    {reference ? (
-                        <p className="mt-1 text-sm text-secondary-foreground">
-                            Your reference is{' '}
-                            <span className="font-bold text-foreground">
-                                {reference}
-                            </span>
-                            .
-                        </p>
-                    ) : null}
-                </>
-            ) : (
-                <>
-                    <h3
-                        ref={headingRef}
-                        tabIndex={-1}
-                        className="mt-6 text-lg font-bold tracking-[-0.03em] outline-none"
-                    >
-                        We couldn&apos;t send your request
-                    </h3>
-                    <p className="mt-2 max-w-sm text-sm text-secondary-foreground">
-                        {/*
-                         * The same sentence the server flashes when the save
-                         * itself fails, so the reader hears one promise
-                         * whichever side the failure was on.
-                         */}
-                        {message ??
-                            'We could not save your inquiry. Your answers are still here, so you can try again.'}
-                    </p>
-                </>
-            )}
-
-            <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
-                {actions}
-            </div>
-        </section>
+        <ResultDialog
+            result={success ?? failure}
+            onClose={onClose}
+            locked={submitting}
+        />
     );
 };
 

@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Data\ClientInquiryCard;
 use App\Data\InquiryListFilters;
 use App\Models\Inquiry;
-use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use App\Policies\InquiryActions;
@@ -24,9 +23,8 @@ class ClientInquiryService
     /**
      * One page of the client's own inquiries, as cards.
      *
-     * The stones and services of the whole page are read in one query each, then
-     * dealt out to their inquiry, so the cost of a page does not grow with the
-     * number of cards on it.
+     * The stones of the whole page are read in one query, then dealt out to their
+     * inquiry, so the cost of a page does not grow with the number of cards on it.
      *
      * @return array{inquiries: LengthAwarePaginator<int, ClientInquiryCard>, hasMore: bool}
      */
@@ -42,7 +40,6 @@ class ClientInquiryService
         $ids = array_values($page->getCollection()->map(fn (Inquiry $inquiry): int => $inquiry->id)->all());
 
         $stones = $this->inquiryRepository->distinctStonesFor($ids)->groupBy('inquiry_id');
-        $services = $this->inquiryRepository->distinctServicesFor($ids)->groupBy('inquiry_id');
 
         $cards = $page->through(fn (Inquiry $inquiry): ClientInquiryCard => new ClientInquiryCard(
             reference: $inquiry->reference,
@@ -56,12 +53,10 @@ class ClientInquiryService
                     'name' => $stone->name,
                     'thumbnail_path' => $stone->thumbnail_path,
                 ])->all()),
-            services: array_values(($services->get($inquiry->id) ?? collect())
-                ->map(fn (Service $service): array => [
-                    'id' => $service->slug,
-                    'name' => $service->name,
-                ])
-                ->all()),
+            services: $inquiry->service === null ? [] : [[
+                'id' => $inquiry->service->slug,
+                'name' => $inquiry->service->name,
+            ]],
             actions: $this->inquiryActions->for($inquiry),
         ));
 

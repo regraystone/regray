@@ -9,7 +9,7 @@ export type StoneCardData = {
     name: string;
     thumbnail: string;
     brand: { slug: string; name: string };
-    category: { slug: string; name: string };
+    type: { slug: string; name: string };
 };
 
 export type StoneProfile = {
@@ -18,10 +18,9 @@ export type StoneProfile = {
     thumbnail: string;
     bestSeller: boolean;
     brand: { slug: string; name: string };
-    category: { slug: string; name: string };
+    type: { slug: string; name: string };
     description: string;
     specifications: {
-        stoneType: string;
         origin: string;
         size: string;
         thicknessMm: number;

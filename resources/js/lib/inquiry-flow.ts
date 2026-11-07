@@ -10,11 +10,11 @@
 
 /*
  * The reader sees two steps: Your request and Review and send. The first is
- * questions on one page, one open at a time: the stones, the work each one needs,
- * then the details. Stored drafts hold the same numbers.
+ * questions on one page, one open at a time: what they need, the stones, then the
+ * details. Stored drafts hold the same numbers.
  */
-export const STONES_STEP = 1;
-export const WORK_STEP = 2;
+export const SERVICE_STEP = 1;
+export const STONES_STEP = 2;
 export const REQUIREMENTS_STEP = 3;
 
 /** Review is the last step, and owns no fields of its own to validate. */
@@ -42,30 +42,30 @@ export const nextQuestion = (step: number): number =>
     Math.min(step + 1, REVIEW_STEP);
 
 /**
- * A project's name, made from the first service the reader picked, capped at the
- * name's own limit, which the caller passes because this file imports nothing. It
- * can be changed on Review.
+ * A project's name, made from the service the reader picked, capped at the name's
+ * own limit, which the caller passes because this file imports nothing. It can be
+ * changed on Review.
  */
 export const autoProjectName = (
-    serviceNames: string[],
+    serviceName: string,
     maxLength: number,
-): string => (serviceNames[0] ?? '').slice(0, maxLength).trim();
+): string => serviceName.slice(0, maxLength).trim();
 
 /**
  * Where a restored draft is allowed to land.
  *
  * The stored step is a number the draft behind it may no longer justify: a
- * Review with no projects left to review, a Work question whose stones were never
- * picked, details whose work is unfinished. So the stored step is held to the
- * furthest step the draft still justifies, and Stones is the floor.
+ * Review with no projects left to review, a Stones question with no service
+ * chosen, details with no stones. So the stored step is held to the furthest step
+ * the draft still justifies, and What do you need? is the floor.
  */
 export const clampRestoredStep = (
     stored: number,
     projectCount: number,
     draft: {
+        serviceId: string;
         stoneIds: string[];
         stoneAdvice?: boolean;
-        workIsComplete?: boolean;
     },
 ): number => {
     if (stored >= REVIEW_STEP && projectCount > 0) {
@@ -73,121 +73,81 @@ export const clampRestoredStep = (
     }
 
     const hasStones = draft.stoneIds.length > 0 || draft.stoneAdvice === true;
-    const furthest = !hasStones
-        ? STONES_STEP
-        : draft.workIsComplete === true
-          ? REQUIREMENTS_STEP
-          : WORK_STEP;
+    const furthest =
+        draft.serviceId === ''
+            ? SERVICE_STEP
+            : hasStones
+              ? REQUIREMENTS_STEP
+              : STONES_STEP;
     const requested = Number.isFinite(stored)
         ? Math.trunc(stored)
-        : STONES_STEP;
+        : SERVICE_STEP;
 
-    return Math.min(Math.max(requested, STONES_STEP), furthest);
+    return Math.min(Math.max(requested, SERVICE_STEP), furthest);
 };
 
 /* ------------------------------------------------------------------ */
-/* The work per stone                                                   */
+/* What the reader needs                                                */
 /* ------------------------------------------------------------------ */
-
-/** The key of the work with no stone: what "Help me choose" makes. */
-export const STONE_ADVICE_KEY = '__recommended__';
 
 export const STONE_ADVICE_LABEL = 'Stone to be recommended by Regray';
 
-/** One kind of work a stone can be given, as InquiryServiceResource sends it. */
-export type WorkService = {
+/** One entry of the second dropdown, as InquiryServiceResource sends it. */
+export type ServiceOption = {
     id: string;
     name: string;
-    needsFurniture: boolean;
+    description: string;
+    features: string[];
 };
 
-/** What was chosen for one stone. `''` is not chosen yet; both are slugs. */
-export type StoneWorkEntry = {
-    serviceId: string;
-    furnitureType: string;
+/** One entry of the first dropdown, as InquiryServiceTypeResource sends it. */
+export type ServiceTypeOption = {
+    id: string;
+    name: string;
+    services: ServiceOption[];
 };
 
-/** The work of a draft, keyed by stone slug or by `STONE_ADVICE_KEY`. */
-export type StoneWorkMap = Record<string, StoneWorkEntry>;
+export const CUSTOM_STONE_FURNITURE = 'custom-stone-furniture';
 
-/** Which work rows the draft has: one per stone, or the one for a recommendation. */
-export const workRowKeys = (draft: {
-    stoneIds: string[];
-    stoneAdvice: boolean;
-}): string[] => (draft.stoneAdvice ? [STONE_ADVICE_KEY] : [...draft.stoneIds]);
+/** What the second dropdown asks, which depends on the type chosen in the first. */
+export const serviceChoiceLabel = (serviceTypeId: string): string =>
+    serviceTypeId === CUSTOM_STONE_FURNITURE
+        ? 'Which furniture?'
+        : 'Which application?';
 
-/** What one work row is called. */
-export const workRowLabel = (
-    key: string,
-    stones: ReadonlyArray<{ slug: string; name: string }>,
-): string =>
-    key === STONE_ADVICE_KEY
-        ? STONE_ADVICE_LABEL
-        : (stones.find((stone) => stone.slug === key)?.name ?? key);
+/* ------------------------------------------------------------------ */
+/* Finding a stone                                                      */
+/* ------------------------------------------------------------------ */
 
-/** The work of just these rows: a stone taken off takes its work with it. */
-export const keepWorkFor = (
-    keys: readonly string[],
-    work: StoneWorkMap,
-): StoneWorkMap =>
-    Object.fromEntries(
-        Object.entries(work).filter(([key]) => keys.includes(key)),
-    );
+export type StoneFilter = 'all' | 'bestSellers' | 'saved';
 
-/**
- * One row's option changed. An option that asks for no furniture type clears it,
- * so nothing it no longer offers stays on Review.
- */
-export const chooseWorkService = (
-    work: StoneWorkMap,
-    key: string,
-    serviceId: string,
-    options: readonly WorkService[],
-): StoneWorkMap => ({
-    ...work,
-    [key]: {
-        serviceId,
-        furnitureType: options.find((entry) => entry.id === serviceId)
-            ?.needsFurniture
-            ? (work[key]?.furnitureType ?? '')
-            : '',
-    },
+/** The value of "All Type", which no stone type's slug can be mistaken for. */
+export const ALL_STONE_TYPES = '__all__';
+
+/** "All Type", then the types the server says the stones on offer have. */
+export const stoneTypeOptions = (
+    types: ReadonlyArray<{ value: string; label: string }>,
+): Array<{ value: string; label: string }> => [
+    { value: ALL_STONE_TYPES, label: 'All Type' },
+    ...types,
+];
+
+export type StoneQuery = {
+    tab: StoneFilter;
+    stoneType: string;
+    search: string;
+};
+
+/** The filters as the query the server reads, leaving out what is no filter. */
+export const stoneFilterQuery = ({
+    tab,
+    stoneType,
+    search,
+}: StoneQuery): Record<string, string> => ({
+    ...(tab === 'all' ? {} : { stone_tab: tab }),
+    ...(stoneType === ALL_STONE_TYPES ? {} : { stone_type: stoneType }),
+    ...(search.trim() === '' ? {} : { stone_search: search.trim() }),
 });
-
-export type WorkProblem = {
-    key: string;
-    field: 'serviceId' | 'furnitureType';
-};
-
-/**
- * What still stops the reader leaving the Work question: a row with no option, or
- * an option that needs a furniture type with none picked.
- */
-export const workProblems = (
-    keys: readonly string[],
-    work: StoneWorkMap,
-    options: readonly WorkService[],
-    furnitureTypes: readonly string[],
-): WorkProblem[] =>
-    keys.flatMap((key): WorkProblem[] => {
-        const entry = work[key];
-        const option = options.find(({ id }) => id === entry?.serviceId);
-
-        if (option === undefined) {
-            return [{ key, field: 'serviceId' }];
-        }
-
-        return option.needsFurniture &&
-            !furnitureTypes.includes(entry.furnitureType)
-            ? [{ key, field: 'furnitureType' }]
-            : [];
-    });
-
-/** A copy that shares no rows with the one it came from. */
-export const copyStoneWork = (work: StoneWorkMap): StoneWorkMap =>
-    Object.fromEntries(
-        Object.entries(work).map(([key, entry]) => [key, { ...entry }]),
-    );
 
 /**
  * The stone rows for the picks.
@@ -241,11 +201,12 @@ export const seedStoneRows = (
 /** The draft, as far as committing it goes. */
 export type CommitDraft = {
     name: string;
+    serviceTypeId: string;
+    serviceId: string;
     stoneIds: string[];
     /** The reader asked Regray to recommend a stone instead of choosing one. */
     stoneAdvice: boolean;
     stones: StoneRow[];
-    stoneWork: StoneWorkMap;
     deliveryMethod: string;
     location: string;
     landmark: string;
@@ -256,9 +217,8 @@ export type CommitDraft = {
 };
 
 /**
- * One committed project. A stone taken off has taken its work with it, and a
- * pickup keeps no location: what was typed before changing to it stays on the
- * draft, in case they change back.
+ * One committed project. A pickup keeps no location: what was typed before changing
+ * to it stays on the draft, in case they change back.
  */
 export const buildCommittedProject = <T extends CommitDraft>(
     draft: T,
@@ -269,11 +229,10 @@ export const buildCommittedProject = <T extends CommitDraft>(
     return {
         id: context.id,
         name: draft.name,
+        serviceTypeId: draft.serviceTypeId,
+        serviceId: draft.serviceId,
         stoneAdvice: draft.stoneAdvice,
         stones: draft.stones.map((row) => ({ ...row })),
-        stoneWork: copyStoneWork(
-            keepWorkFor(workRowKeys(draft), draft.stoneWork),
-        ),
         deliveryMethod: draft.deliveryMethod,
         location: isPickup ? '' : draft.location,
         landmark: draft.landmark,
@@ -304,9 +263,9 @@ export type RequestProject = {
     /** The project's id; sent only when editing, where it is the database id. */
     id?: string;
     name: string;
+    serviceId: string;
     stoneAdvice: boolean;
     stones: StoneRow[];
-    stoneWork: StoneWorkMap;
     deliveryMethod: string;
     location: string;
     landmark: string;
@@ -318,8 +277,8 @@ export type RequestProject = {
 
 /**
  * The inquiry as multipart form data, in the field names the backend's form
- * request validates: `projects[i][name]`, `projects[i][stones][k][quantity]`
- * and, for each file in the order it was attached,
+ * request validates: `projects[i][name]`, `projects[i][serviceId]`,
+ * `projects[i][stones][k][quantity]` and, for each file in the order it was attached,
  * `projects[i][attachments][j]`.
  *
  * Multipart rather than JSON because the attachments are `File` objects.
@@ -342,17 +301,7 @@ export const buildInquiryFormData = (
         }
 
         body.append(field('name'), project.name);
-
-        // What is wanted of each stone; the work with no stone sends none.
-        Object.entries(project.stoneWork).forEach(([key, entry], k) => {
-            const work = (name: string): string =>
-                `${field('work')}[${k}][${name}]`;
-
-            body.append(work('stoneId'), key === STONE_ADVICE_KEY ? '' : key);
-            body.append(work('serviceId'), entry.serviceId);
-            body.append(work('furnitureType'), entry.furnitureType);
-        });
-
+        body.append(field('serviceId'), project.serviceId);
         body.append(field('stoneAdvice'), project.stoneAdvice ? '1' : '0');
 
         project.stones.forEach((row, k) => {
@@ -496,13 +445,12 @@ export const readInquiryFlash = (flash: unknown): InquiryFlash | null => {
 export type InquiryEditProject = {
     id: number;
     name: string;
-    work: Array<{
-        stoneId: string | null;
-        serviceId: string;
-        furnitureType: string | null;
-    }>;
-    /** The options it already has, which may no longer be offered to new inquiries. */
-    heldServices: WorkService[];
+    serviceTypeId: string | null;
+    serviceId: string | null;
+    /** The service it already has, which may no longer be offered to new inquiries. */
+    heldServiceType: ServiceTypeOption | null;
+    /** Its stones as cards, which may be on no page of stones reached yet. */
+    heldStones: Array<{ slug: string; name: string; thumbnail: string }>;
     stoneAdviceRequested: boolean;
     stones: StoneRow[];
     deliveryMethod: string;
@@ -526,9 +474,10 @@ export type InquiryEditProject = {
 export type EditFormProject = {
     id: string;
     name: string;
+    serviceTypeId: string;
+    serviceId: string;
     stoneAdvice: boolean;
     stones: StoneRow[];
-    stoneWork: StoneWorkMap;
     deliveryMethod: string;
     location: string;
     landmark: string;
@@ -551,44 +500,32 @@ export type EditFormProject = {
  *
  * The project's id becomes the form id, as a string, which is also what is
  * sent back as `projects[i][id]`. Missing answers become the form's blank `''`.
- *
- * One service per stone, so the first row of a stone is the one the form holds.
  */
 export const toEditFormProjects = (
     projects: InquiryEditProject[],
 ): EditFormProject[] =>
-    projects.map((project) => {
-        const stoneWork: StoneWorkMap = {};
-
-        for (const row of project.work) {
-            stoneWork[row.stoneId ?? STONE_ADVICE_KEY] ??= {
-                serviceId: row.serviceId,
-                furnitureType: row.furnitureType ?? '',
-            };
-        }
-
-        return {
-            id: String(project.id),
-            name: project.name,
-            stoneAdvice: project.stoneAdviceRequested,
-            stones: project.stones.map((row) => ({ ...row })),
-            stoneWork,
-            deliveryMethod: project.deliveryMethod,
-            location: project.location ?? '',
-            landmark: project.landmark ?? '',
-            areaSqm: project.areaSqm === null ? '' : String(project.areaSqm),
-            neededBy: project.neededBy ?? '',
-            notes: project.notes ?? '',
-            attachments: project.attachments.map((file) => ({
-                id: `saved-${file.id}`,
-                status: 'saved' as const,
-                fileId: file.id,
-                name: file.name,
-                sizeBytes: file.sizeBytes,
-                mimeType: file.mimeType,
-            })),
-        };
-    });
+    projects.map((project) => ({
+        id: String(project.id),
+        name: project.name,
+        serviceTypeId: project.serviceTypeId ?? '',
+        serviceId: project.serviceId ?? '',
+        stoneAdvice: project.stoneAdviceRequested,
+        stones: project.stones.map((row) => ({ ...row })),
+        deliveryMethod: project.deliveryMethod,
+        location: project.location ?? '',
+        landmark: project.landmark ?? '',
+        areaSqm: project.areaSqm === null ? '' : String(project.areaSqm),
+        neededBy: project.neededBy ?? '',
+        notes: project.notes ?? '',
+        attachments: project.attachments.map((file) => ({
+            id: `saved-${file.id}`,
+            status: 'saved' as const,
+            fileId: file.id,
+            name: file.name,
+            sizeBytes: file.sizeBytes,
+            mimeType: file.mimeType,
+        })),
+    }));
 
 /**
  * Why each project's date and time can no longer be changed, keyed by the form

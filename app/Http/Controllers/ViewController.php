@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Inquiry\ListInquiryOptionsAction;
+use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Schedule\ListSchedulesAction;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
@@ -153,9 +154,9 @@ class ViewController extends Controller
     }
 
     /**
-     * The Inquire page and everything it offers: the services, the furniture
-     * types, the stones, the edge profiles and finishes still in use, and the
-     * locations. All of it is read here rather than imported by the page, so
+     * The Inquire page and everything it offers: the service types and their
+     * services, the stones a page at a time, the edge profiles and finishes still in
+     * use, and the locations. All of it is read here rather than imported by the page, so
      * the flow and the validation behind it start from the same rows.
      *
      * Staff open an inquiry for a lead's client, so they are also given the
@@ -164,7 +165,7 @@ class ViewController extends Controller
      * super-admin every open lead. A client's `leads` is null: they send their
      * own.
      */
-    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, LeadRepositoryInterface $leads): Response
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -172,6 +173,7 @@ class ViewController extends Controller
 
         return Inertia::render('inquire', [
             ...InquiryCatalogResource::make($listInquiryOptions->execute())->resolve($request),
+            ...$listInquiryStones->execute($request),
             'mode' => 'create',
             'leads' => $pickable === null ? null : LeadOptionResource::collection($pickable)->resolve($request),
             'lead' => $pickable?->firstWhere('reference', $request->query('lead'))?->reference,

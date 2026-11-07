@@ -5,7 +5,7 @@ use App\Enums\Role;
 use App\Models\Brand;
 use App\Models\Furniture;
 use App\Models\Stone;
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use App\Models\User;
 use Database\Seeders\FurnitureSeeder;
 use Database\Seeders\FurnitureTypeSeeder;
@@ -30,8 +30,8 @@ function brandPage(array $query = []): string
 }
 
 test('offers what active stones hold in both collections, matched or not, and nothing inactive', function (): void {
-    $category = StoneCategory::factory()->create();
-    $inactive = StoneCategory::factory()->create(['is_active' => false]);
+    $type = StoneType::factory()->create();
+    $inactive = StoneType::factory()->create(['is_active' => false]);
     Stone::factory()->for($this->brand)->create(['size' => '90x90', 'thickness_mm' => 12]);
     Stone::factory()->for($this->brand)->create(['size' => '95x95', 'thickness_mm' => 99, 'is_active' => false]);
 
@@ -39,7 +39,7 @@ test('offers what active stones hold in both collections, matched or not, and no
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
-            ->where('filterOptions.categories', fn ($options) => $options->pluck('value')->contains($category->slug) && ! $options->pluck('value')->contains($inactive->slug))
+            ->where('filterOptions.types', fn ($options) => $options->pluck('value')->contains($type->slug) && ! $options->pluck('value')->contains($inactive->slug))
             ->where('filterOptions.sizes', fn ($options) => $options->pluck('value')->contains('90x90') && ! $options->pluck('value')->contains('95x95'))
             ->where('filterOptions.thicknesses', fn ($options) => $options->contains(['value' => '12', 'label' => '12 mm']) && ! $options->pluck('value')->contains('99'))
         );
@@ -48,38 +48,38 @@ test('offers what active stones hold in both collections, matched or not, and no
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
-            ->has('filterOptions.furnitureTypes', 8)
-            ->where('filterOptions.furnitureTypes.0', ['value' => 'Seating', 'label' => 'Seating'])
-            ->where('filterOptions.furnitureTypes.1', ['value' => 'Tables', 'label' => 'Tables'])
+            ->has('filterOptions.furnitureTypes', 4)
+            ->where('filterOptions.furnitureTypes.0', ['value' => 'Tables', 'label' => 'Tables'])
+            ->where('filterOptions.furnitureTypes.1', ['value' => 'Seating', 'label' => 'Seating'])
         );
 });
 
-test('stones match an additional category, and their own size and thickness', function (): void {
+test('stones match an additional type, and their own size and thickness', function (): void {
     $stone = Stone::factory()->for($this->brand)->create(['size' => '90x90', 'thickness_mm' => 12]);
     Stone::factory()->for($this->brand)->create();
-    $category = StoneCategory::factory()->create();
-    $stone->categories()->attach($category);
+    $type = StoneType::factory()->create();
+    $stone->types()->attach($type);
 
-    $this->get(brandPage(['collection' => 'stones', 'category' => $category->slug, 'size' => '90x90', 'thickness' => '12']))
+    $this->get(brandPage(['collection' => 'stones', 'type' => $type->slug, 'size' => '90x90', 'thickness' => '12']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
             ->where('products.data.0.slug', $stone->slug)
         );
 
-    expect($stone->categories()->count())->toBe(2);
+    expect($stone->types()->count())->toBe(2);
 });
 
 test('a size and thickness of another brand are valid filters even with no stone here matching them', function (): void {
     Stone::factory()->for($this->brand)->create();
     Stone::factory()->create(['size' => '90x90', 'thickness_mm' => 12]);
-    $category = StoneCategory::factory()->create();
+    $type = StoneType::factory()->create();
 
-    $this->get(brandPage(['collection' => 'stones', 'category' => $category->slug, 'size' => '90x90', 'thickness' => '12']))
+    $this->get(brandPage(['collection' => 'stones', 'type' => $type->slug, 'size' => '90x90', 'thickness' => '12']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
             ->where('hasProducts', true)
-            ->where('filters.category', $category->slug)
+            ->where('filters.type', $type->slug)
             ->where('filters.size', '90x90')
             ->where('filters.thickness', '12')
         );
@@ -185,13 +185,13 @@ test('a percent sign in a search is searched for, not treated as a wildcard', fu
 
 test('the second param is ignored under All Categories, and a param from the other collection is too', function (): void {
     $stone = Stone::factory()->for($this->brand)->create();
-    $furniture = Furniture::factory()->for($this->brand)->ofType('Beds')->create();
+    $furniture = Furniture::factory()->for($this->brand)->ofType('Seating')->create();
 
-    $this->get(brandPage(['collection' => 'all', 'category' => 'no-such-category', 'furniture_type' => 'Tables']))
+    $this->get(brandPage(['collection' => 'all', 'type' => 'no-such-type', 'furniture_type' => 'Tables']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('products.meta.total', 2)
-            ->where('filters.category', null)
+            ->where('filters.type', null)
             ->where('filters.furnitureType', null)
         );
 
@@ -199,7 +199,7 @@ test('the second param is ignored under All Categories, and a param from the oth
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('products.data', 1)->where('products.data.0.slug', $stone->slug));
 
-    $this->get(brandPage(['collection' => 'furniture', 'category' => 'no-such-category']))
+    $this->get(brandPage(['collection' => 'furniture', 'type' => 'no-such-type']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('products.data', 1)->where('products.data.0.slug', $furniture->slug));
 });

@@ -1,10 +1,6 @@
 import { toast } from 'sonner';
 import { z } from 'zod';
-import type {
-    DELIVERY,
-    STONE_ADVICE_KEY,
-    StoneWorkMap,
-} from '@/lib/inquiry-flow';
+import type { DELIVERY } from '@/lib/inquiry-flow';
 import type { InquiryDraftInput, InquiryFormInput } from '@/lib/inquiry-schema';
 import type { InquiryCatalog } from '@/types/inquiry';
 
@@ -14,14 +10,11 @@ import type { InquiryCatalog } from '@/types/inquiry';
  */
 export type StoredInquiryProject = Omit<
     InquiryFormInput['projects'][number],
-    'attachments' | 'stoneWork'
-> & { stoneWork: StoneWorkMap };
+    'attachments'
+>;
 
 /** The project in progress, likewise reduced to what a record can hold. */
-export type StoredInquiryDraftValues = Omit<
-    InquiryDraftInput,
-    'attachments' | 'stoneWork'
-> & { stoneWork: StoneWorkMap };
+export type StoredInquiryDraftValues = Omit<InquiryDraftInput, 'attachments'>;
 
 /**
  * Everything one autosave writes, other than the bookkeeping the storage adds.
@@ -47,28 +40,23 @@ export type InquiryDraftState = {
 };
 
 export type StoredInquiryDraft = InquiryDraftState & {
-    version: 7;
+    version: 8;
     /** When the autosave wrote it, as it is shown back to the reader. */
     savedAt: string;
 };
 
 /**
- * Bumped from 4 when the order became Stones, work per stone, details. A version
- * 4 record holds its services as the first answer, with no work per stone and a
- * step number that now means another question, so it is discarded instead of
- * mis-restored. Versions 5 and 6 only ever existed in development, with answers
- * nothing asks any more.
+ * Bumped from 7 when the order became What do you need?, Stones, details. A version
+ * 7 record holds a service per stone and a step number that now means another
+ * question, so it is discarded instead of mis-restored.
  */
-const DRAFT_VERSION = 7;
+const DRAFT_VERSION = 8;
 
 /**
- * The key of a work row with no stone. Written out because a runtime import of
- * `inquiry-flow` through the alias would keep this file from running under the
- * Node tests; the annotation fails the type check if the two ever differ.
+ * The delivery method a fresh stepper starts on. Written out because a runtime
+ * import of `inquiry-flow` through the alias would keep this file from running
+ * under the Node tests; the annotation fails the type check if the two ever differ.
  */
-const ADVICE_ROW_KEY: typeof STONE_ADVICE_KEY = '__recommended__';
-
-/** The delivery method a fresh stepper starts on, written out for the same reason. */
 const DEFAULT_DELIVERY_METHOD: typeof DELIVERY = 'delivery';
 
 /**
@@ -79,7 +67,7 @@ const DEFAULT_DELIVERY_METHOD: typeof DELIVERY = 'delivery';
  * an old record outright rather than half-understand it.
  */
 const storageKey = (userId: number): string =>
-    `regray.inquiry-draft.v7:${userId}`;
+    `regray.inquiry-draft.v8:${userId}`;
 
 /** The keys older versions wrote under, forgotten the first time a read runs. */
 const legacyStorageKeys = (userId: number): string[] => [
@@ -87,6 +75,7 @@ const legacyStorageKeys = (userId: number): string[] => [
     `regray.inquiry-draft.v4:${userId}`,
     `regray.inquiry-draft.v5:${userId}`,
     `regray.inquiry-draft.v6:${userId}`,
+    `regray.inquiry-draft.v7:${userId}`,
 ];
 
 /**
@@ -131,23 +120,13 @@ const storedDeliveryMethodSchema = z
     .catch('')
     .transform((value) => (value === '' ? DEFAULT_DELIVERY_METHOD : value));
 
-/** The work per stone. */
-const storedStoneWorkSchema = z
-    .record(
-        z.string(),
-        z.object({
-            serviceId: z.string(),
-            furnitureType: z.string().catch(''),
-        }),
-    )
-    .catch({});
-
 const storedProjectSchema = z.object({
     id: z.string(),
     name: z.string(),
+    serviceTypeId: z.string().catch(''),
+    serviceId: z.string().catch(''),
     stoneAdvice: z.boolean().catch(false),
     stones: z.array(storedStoneSchema),
-    stoneWork: storedStoneWorkSchema,
     deliveryMethod: storedDeliveryMethodSchema,
     location: z.string(),
     landmark: z.string(),
@@ -158,10 +137,11 @@ const storedProjectSchema = z.object({
 
 const storedDraftSchema = z.object({
     name: z.string(),
+    serviceTypeId: z.string().catch(''),
+    serviceId: z.string().catch(''),
     stoneAdvice: z.boolean().catch(false),
     stoneIds: z.array(z.string()),
     stones: z.array(storedStoneSchema),
-    stoneWork: storedStoneWorkSchema,
     deliveryMethod: storedDeliveryMethodSchema,
     location: z.string(),
     landmark: z.string(),
@@ -194,10 +174,10 @@ const storedRecordSchema = z.object({
  * Read the stored draft back, with anything the catalogue has since dropped
  * silently taken out of it.
  *
- * A stone or kind of work that no longer exists cannot be rendered, so its id is
- * simply gone: the reader is not asked about a material they cannot see, and the
- * send's own validation is what says a stone has lost its work. Everything else is
- * kept as it stands.
+ * A service that no longer exists cannot be rendered, so its id is simply gone: the
+ * reader is not asked about something they cannot see, and the send's own validation
+ * is what asks for it again. Everything else is kept as it stands. Stones are checked
+ * by keepKnownStones, since the page has to ask the server about them.
  *
  * Without a catalogue nothing is filtered, which is what the callers that only
  * ask whether a draft exists want.
@@ -210,39 +190,59 @@ const sanitize = (
         return record;
     }
 
-    const stoneIds = new Set(catalog.stones.map((stone) => stone.slug));
-
-    const known = (ids: string[], allowed: Set<string>): string[] =>
-        ids.filter((id) => allowed.has(id));
-    const knownRows = <T extends { stoneId: string }>(rows: T[]): T[] =>
-        rows.filter((row) => stoneIds.has(row.stoneId));
-    // A stone's work survives while the stone and the option both do.
-    const knownWork = (work: StoneWorkMap): StoneWorkMap =>
-        Object.fromEntries(
-            Object.entries(work).filter(
-                ([key, entry]) =>
-                    (key === ADVICE_ROW_KEY || stoneIds.has(key)) &&
-                    catalog.services.some(
-                        (option) => option.id === entry.serviceId,
-                    ),
-            ),
+    // A service survives only under its own type, and a type while it is offered.
+    const knownService = <
+        T extends { serviceTypeId: string; serviceId: string },
+    >(
+        entry: T,
+    ): T => {
+        const type = catalog.serviceTypes.find(
+            ({ id }) => id === entry.serviceTypeId,
         );
+
+        return {
+            ...entry,
+            serviceTypeId: type === undefined ? '' : entry.serviceTypeId,
+            serviceId: type?.services.some(({ id }) => id === entry.serviceId)
+                ? entry.serviceId
+                : '',
+        };
+    };
 
     return {
         ...record,
-        projects: record.projects.map((project) => ({
-            ...project,
-            stones: knownRows(project.stones),
-            stoneWork: knownWork(project.stoneWork),
-        })),
-        draft: {
-            ...record.draft,
-            stoneIds: known(record.draft.stoneIds, stoneIds),
-            stones: knownRows(record.draft.stones),
-            stoneWork: knownWork(record.draft.stoneWork),
-        },
+        projects: record.projects.map(knownService),
+        draft: knownService(record.draft),
     };
 };
+
+/** Every stone a stored draft names, once each, to ask the server about. */
+export const draftStoneSlugs = (record: StoredInquiryDraft): string[] => [
+    ...new Set([
+        ...record.draft.stoneIds,
+        ...record.draft.stones.map((row) => row.stoneId),
+        ...record.projects.flatMap((project) =>
+            project.stones.map((row) => row.stoneId),
+        ),
+    ]),
+];
+
+/** A stored draft without the stones the server no longer offers. */
+export const keepKnownStones = (
+    record: StoredInquiryDraft,
+    known: ReadonlySet<string>,
+): StoredInquiryDraft => ({
+    ...record,
+    projects: record.projects.map((project) => ({
+        ...project,
+        stones: project.stones.filter((row) => known.has(row.stoneId)),
+    })),
+    draft: {
+        ...record.draft,
+        stoneIds: record.draft.stoneIds.filter((id) => known.has(id)),
+        stones: record.draft.stones.filter((row) => known.has(row.stoneId)),
+    },
+});
 
 /**
  * Take the attachments off both forms and count what that cost.
@@ -257,21 +257,14 @@ export const inquiryDraftState = (values: {
     projects: InquiryFormInput['projects'];
     draft: InquiryDraftInput;
 }): InquiryDraftState => {
-    const strip = <
-        T extends { attachments: unknown; stoneWork?: StoneWorkMap },
-    >(
+    const strip = <T extends { attachments: unknown }>(
         entry: T,
-    ): Omit<T, 'attachments' | 'stoneWork'> & {
-        stoneWork: StoneWorkMap;
-    } => {
+    ): Omit<T, 'attachments'> => {
         const copy = { ...entry } as Partial<T>;
 
         delete copy.attachments;
 
-        return {
-            ...(copy as Omit<T, 'attachments' | 'stoneWork'>),
-            stoneWork: entry.stoneWork ?? {},
-        };
+        return copy as Omit<T, 'attachments'>;
     };
 
     const droppedAttachments =
@@ -302,7 +295,8 @@ const isBlank = (state: InquiryDraftState): boolean =>
     !state.draft.stoneAdvice &&
     (state.draft.deliveryMethod === '' ||
         state.draft.deliveryMethod === DEFAULT_DELIVERY_METHOD) &&
-    Object.keys(state.draft.stoneWork).length === 0 &&
+    state.draft.serviceTypeId === '' &&
+    state.draft.serviceId === '' &&
     state.draft.stoneIds.length === 0 &&
     state.draft.stones.length === 0 &&
     state.draft.location === '' &&

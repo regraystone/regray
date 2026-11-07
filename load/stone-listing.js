@@ -56,7 +56,7 @@ const randomQuery = () => {
     }
 
     for (const [key, options] of [
-        ['category', filterOptions.categories],
+        ['type', filterOptions.types],
         ['size', filterOptions.sizes],
         ['thickness', filterOptions.thicknesses],
     ]) {

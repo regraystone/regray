@@ -40,7 +40,7 @@ type InquiryDetailsProps = {
  * The project the inquiry is, as the page draws it. One inquiry is one project.
  *
  * The server sends it already resolved — stones with their names and pictures,
- * services with theirs — so the page looks nothing up.
+ * the service with its name — so the page looks nothing up.
  */
 type ResolvedStone = {
     id: string;
@@ -49,23 +49,15 @@ type ResolvedStone = {
     quantity: number;
     edge: string;
     finish: string;
-    work: WorkDone[];
 };
-
-/** What was asked of a stone. */
-type WorkDone = { service: string; furnitureType: string | null };
-
-const workLine = ({ service, furnitureType }: WorkDone): string =>
-    furnitureType === null ? service : `${service} - ${furnitureType}`;
 
 type ResolvedProject = {
     name: string;
     /** The client asked Regray to recommend a stone instead of choosing one. */
     stoneAdviceRequested: boolean;
-    services: Array<{ name: string }>;
+    serviceType: string | null;
+    service: string | null;
     stones: ResolvedStone[];
-    /** What was asked for with no stone chosen: Regray is to recommend one. */
-    unassignedWork: WorkDone[];
     /** Application names, on inquiries sent while the client was asked for them. */
     requirements: InquiryRequirementsRecord;
 };
@@ -525,16 +517,17 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
     const stoneTypes = new Set(project.stones.map((stone) => stone.id)).size;
     const files = project.requirements.attachments;
     const neededBy = formatNeededBy(project.requirements);
-    const serviceCount = project.services.length;
 
-    const footer =
+    const footer = [
+        project.service,
         stoneTypes > 0
-            ? `${serviceCount} ${
-                  serviceCount === 1 ? 'service' : 'services'
-              } · ${pieces} ${pieces === 1 ? 'piece' : 'pieces'} of ${stoneTypes} ${
+            ? `${pieces} ${pieces === 1 ? 'piece' : 'pieces'} of ${stoneTypes} ${
                   stoneTypes === 1 ? 'stone' : 'stones'
               }`
-            : `${serviceCount} ${serviceCount === 1 ? 'service' : 'services'}`;
+            : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
 
     return (
         <section
@@ -597,14 +590,6 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                                     <p className="truncate text-xs text-secondary-foreground">
                                         {stone.finish}
                                     </p>
-                                    {stone.work.map((work) => (
-                                        <p
-                                            key={workLine(work)}
-                                            className="mt-1 text-xs font-bold break-words"
-                                        >
-                                            {workLine(work)}
-                                        </p>
-                                    ))}
                                 </div>
                             ))}
                         </div>
@@ -622,39 +607,23 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                             {project.stoneAdviceRequested
                                 ? 'Stone to be recommended by Regray.'
                                 : 'Nothing to supply or install — this project is a visit.'}
-                            {project.stoneAdviceRequested
-                                ? project.unassignedWork.map((work) => (
-                                      <span
-                                          key={workLine(work)}
-                                          className="mt-1 block text-xs font-bold text-foreground"
-                                      >
-                                          {workLine(work)}
-                                      </span>
-                                  ))
-                                : null}
                         </p>
                     )}
                 </section>
 
                 <section>
-                    <SectionLabel count={serviceCount}>Services</SectionLabel>
+                    <SectionLabel>What you need</SectionLabel>
 
-                    {project.services.length > 0 ? (
-                        <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                            {project.services.map(({ name }) => (
-                                <li
-                                    key={name}
-                                    className="py-4 text-sm font-bold break-words first:pt-0 last:pb-0"
-                                >
-                                    {name}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="mt-2 text-sm text-secondary-foreground">
-                            No services were asked for on this project.
-                        </p>
-                    )}
+                    <dl>
+                        <SummaryRow
+                            label="Service type"
+                            value={project.serviceType ?? undefined}
+                        />
+                        <SummaryRow
+                            label="Service"
+                            value={project.service ?? undefined}
+                        />
+                    </dl>
                 </section>
 
                 <section>
@@ -769,9 +738,9 @@ const InquiryDetails = () => {
     const project: ResolvedProject = {
         name: inquiry.project.name,
         stoneAdviceRequested: inquiry.project.stoneAdviceRequested,
-        services: inquiry.project.services,
+        serviceType: inquiry.project.serviceType,
+        service: inquiry.project.service,
         stones: inquiry.project.stones,
-        unassignedWork: inquiry.project.unassignedWork,
         requirements: toRequirements(inquiry.project.requirements),
     };
 

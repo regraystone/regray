@@ -4,7 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Brand;
 use App\Models\Stone;
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -26,7 +26,7 @@ class StoneFactory extends Factory
     {
         return [
             'brand_id' => Brand::factory(),
-            'stone_category_id' => StoneCategory::factory(),
+            'stone_type_id' => StoneType::factory(),
             'slug' => fake()->unique()->slug(3),
             'name' => fake()->unique()->words(3, true),
             'thumbnail_path' => 'stones/stone.jpg',

@@ -5,7 +5,6 @@ namespace App\Http\Requests\Inquiry;
 use App\Enums\DeliveryMethod;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
-use App\Models\FurnitureType;
 use App\Models\Service;
 use App\Models\Stone;
 use Closure;
@@ -18,7 +17,7 @@ use Illuminate\Validation\Validator;
 
 /**
  * Mirrors `inquirySchema` in resources/js/lib/inquiry-schema.ts, field for
- * field: the keys are the form's own (`work.*.serviceId`, `stones.*.stoneId`,
+ * field: the keys are the form's own (`serviceId`, `stones.*.stoneId`,
  * `neededBy`), so an error at `projects.0.stones.1.quantity` is the same path
  * the page already knows how to point at.
  *
@@ -41,11 +40,8 @@ class StoreInquiryRequest extends FormRequest
             'projects' => ['required', 'array', 'min:1', 'max:'.$limits['projects']],
             'projects.*.name' => ['required', 'string', 'max:'.$limits['name']],
 
-            // What is wanted of each stone; after() checks they fit together.
-            'projects.*.work' => ['required', 'array', 'min:1'],
-            'projects.*.work.*.stoneId' => ['nullable', 'string', Rule::exists('stones', 'slug')],
-            'projects.*.work.*.serviceId' => ['required', 'string', Rule::exists('services', 'slug')],
-            'projects.*.work.*.furnitureType' => ['nullable', 'string', Rule::exists('furniture_types', 'slug')->where('is_active', true)],
+            // Whether it is still offered is after()'s, since an edit may keep its own.
+            'projects.*.serviceId' => ['required', 'string', Rule::exists('services', 'slug')],
 
             'projects.*.stoneAdvice' => ['nullable', 'boolean'],
             'projects.*.stones' => ['nullable', 'array', 'max:'.$limits['stone_rows']],
@@ -84,12 +80,8 @@ class StoreInquiryRequest extends FormRequest
             'projects.max' => 'An inquiry can only have one project.',
             'projects.*.name.required' => 'Give this project a name.',
             'projects.*.name.max' => "Keep the project name to {$limits['name']} characters or fewer.",
-            'projects.*.work.required' => 'Choose the work for each stone.',
-            'projects.*.work.min' => 'Choose the work for each stone.',
-            'projects.*.work.*.stoneId.exists' => 'That stone is no longer available.',
-            'projects.*.work.*.serviceId.required' => 'Choose the work for each stone.',
-            'projects.*.work.*.serviceId.exists' => 'That choice is no longer available.',
-            'projects.*.work.*.furnitureType.exists' => 'That furniture type is no longer available.',
+            'projects.*.serviceId.required' => 'Choose what you need.',
+            'projects.*.serviceId.exists' => 'That choice is no longer available.',
             'projects.*.stones.max' => "A project can have up to {$limits['stone_rows']} stone rows.",
             'projects.*.stones.*.stoneId.exists' => 'That stone is no longer available.',
             'projects.*.stones.*.quantity.required' => 'Enter how many pieces you need.',
@@ -118,10 +110,9 @@ class StoreInquiryRequest extends FormRequest
     /**
      * The rules that depend on what the project is for.
      *
-     * A project needs one service per stone, or a stone left to Regray to recommend
-     * and the service for that. A service that needs a furniture type needs one. A
-     * service no longer offered is refused, unless this inquiry already has it
-     * (heldServiceSlugs()).
+     * A project needs a stone, or a stone left to Regray to recommend. A service
+     * no longer offered, or whose service type is not, is refused unless this
+     * inquiry already has it (heldServiceSlugs()).
      *
      * Every project needs a date, because sending the inquiry books it as a
      * schedule, for 10:00, when the showroom opens.
@@ -142,25 +133,20 @@ class StoreInquiryRequest extends FormRequest
                 $held = $this->heldServiceSlugs();
 
                 foreach ($projects as $index => $project) {
-                    foreach ($project['work'] as $row => $work) {
-                        /** @var Service $service */
-                        $service = $services[$work['serviceId']];
+                    /** @var Service $service */
+                    $service = $services[$project['serviceId']];
 
-                        if (! $service->is_active && ! in_array($service->slug, $held, true)) {
-                            $validator->errors()->add("projects.{$index}.work.{$row}.serviceId", 'That choice is no longer available.');
-                        }
-
-                        if ($service->needs_furniture && empty($work['furnitureType'])) {
-                            $validator->errors()->add("projects.{$index}.work.{$row}.furnitureType", 'Choose the furniture type.');
-                        }
+                    if (! $service->isOffered() && ! in_array($service->slug, $held, true)) {
+                        $validator->errors()->add("projects.{$index}.serviceId", 'That choice is no longer available.');
                     }
 
                     if (empty($project['neededBy'])) {
                         $validator->errors()->add("projects.{$index}.neededBy", 'Say when this is needed.');
                     }
 
-                    $this->requireWorkForEachStone($validator, $index, $project);
-                    $this->rejectRepeatedStones($validator, $index, $project['stones'] ?? []);
+                    if (empty($project['stones']) && ! filter_var($project['stoneAdvice'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                        $validator->errors()->add("projects.{$index}.stones", 'Select at least one stone.');
+                    }
                 }
             },
         ];
@@ -185,71 +171,11 @@ class StoreInquiryRequest extends FormRequest
      */
     private function servicesFor(array $projects): Collection
     {
-        $slugs = [];
-
-        foreach ($projects as $project) {
-            foreach ($project['work'] as $work) {
-                $slugs[] = $work['serviceId'];
-            }
-        }
-
         return Service::query()
-            ->whereIn('slug', array_unique($slugs))
+            ->with('serviceType')
+            ->whereIn('slug', array_unique(array_column($projects, 'serviceId')))
             ->get()
             ->keyBy('slug');
-    }
-
-    /**
-     * Each stone has exactly one service, and work is only for its stones. A
-     * stone left to Regray has one row with no stone.
-     *
-     * @param  array<string, mixed>  $project
-     */
-    private function requireWorkForEachStone(Validator $validator, int $index, array $project): void
-    {
-        $stones = array_values(array_unique(array_column($project['stones'] ?? [], 'stoneId')));
-        $advice = $stones === [] && filter_var($project['stoneAdvice'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-        if ($stones === [] && ! $advice) {
-            $validator->errors()->add("projects.{$index}.stones", 'Select at least one stone.');
-
-            return;
-        }
-
-        $worked = array_map(fn (array $work): ?string => $work['stoneId'] ?? null, $project['work']);
-        $expected = $advice ? [null] : $stones;
-
-        sort($worked);
-        sort($expected);
-
-        if ($worked !== $expected) {
-            $validator->errors()->add("projects.{$index}.work", 'Choose the work for each stone.');
-        }
-    }
-
-    /**
-     * The same stone may repeat only with a different edge or finish.
-     *
-     * @param  list<array{stoneId: string, edge: string, finish: string}>  $rows
-     */
-    private function rejectRepeatedStones(Validator $validator, int $index, array $rows): void
-    {
-        $seen = [];
-
-        foreach ($rows as $row => $stone) {
-            $key = "{$stone['stoneId']}::{$stone['edge']}::{$stone['finish']}";
-
-            if (isset($seen[$key])) {
-                $validator->errors()->add(
-                    "projects.{$index}.stones.{$row}.finish",
-                    'Another row of this stone has the same edge profile and finish. Change one of them or remove this row.',
-                );
-
-                continue;
-            }
-
-            $seen[$key] = true;
-        }
     }
 
     /**
@@ -270,47 +196,30 @@ class StoreInquiryRequest extends FormRequest
             foreach ($project['stones'] ?? [] as $stone) {
                 $stoneSlugs[] = $stone['stoneId'];
             }
-
-            foreach ($project['work'] as $work) {
-                if (! empty($work['stoneId'])) {
-                    $stoneSlugs[] = $work['stoneId'];
-                }
-            }
         }
 
         $stoneIds = Stone::query()->withTrashed()->whereIn('slug', array_unique($stoneSlugs))->pluck('id', 'slug');
         $edgeProfileIds = EdgeProfile::query()->pluck('id', 'name');
         $finishIds = Finish::query()->pluck('id', 'name');
-        $furnitureTypeIds = FurnitureType::query()->pluck('id', 'slug');
+        $quantityLimit = (int) config('inquiry.limits.quantity_max');
 
         $input = [];
 
         foreach ($projects as $project) {
-            $work = [];
-
-            foreach ($project['work'] as $row) {
-                /** @var Service $service */
-                $service = $services[$row['serviceId']];
-
-                $work[] = [
-                    'stone_id' => empty($row['stoneId']) ? null : $stoneIds[$row['stoneId']],
-                    'service_id' => $service->id,
-                    // Only the work that asks for a furniture type keeps one.
-                    'furniture_type_id' => $service->needs_furniture ? $furnitureTypeIds[$row['furnitureType']] : null,
-                ];
-            }
-
             $deliveryMethod = DeliveryMethod::from($project['deliveryMethod']);
             $isDelivery = $deliveryMethod === DeliveryMethod::Delivery;
 
             $stones = [];
 
+            // A stone holds one row per edge and finish, so a repeated row adds to it.
             foreach ($project['stones'] ?? [] as $stone) {
-                $stones[] = [
+                $row = "{$stone['stoneId']}::{$stone['edge']}::{$stone['finish']}";
+
+                $stones[$row] = [
                     'stone_id' => $stoneIds[$stone['stoneId']],
                     'edge_profile_id' => $edgeProfileIds[$stone['edge']],
                     'finish_id' => $finishIds[$stone['finish']],
-                    'quantity' => (int) $stone['quantity'],
+                    'quantity' => min(($stones[$row]['quantity'] ?? 0) + (int) $stone['quantity'], $quantityLimit),
                 ];
             }
 
@@ -324,8 +233,8 @@ class StoreInquiryRequest extends FormRequest
 
             $input[] = [
                 'name' => $project['name'],
-                'work' => $work,
-                'stones' => $stones,
+                'service_id' => $services[$project['serviceId']]->id,
+                'stones' => array_values($stones),
                 'delivery_method' => $deliveryMethod,
                 // A pickup has no site to name.
                 'location' => $isDelivery ? $project['location'] : null,

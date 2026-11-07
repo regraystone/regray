@@ -10,7 +10,7 @@ export type ProjectProfileStone = {
     slug: string;
     name: string;
     thumbnail: string;
-    category: { slug: string; name: string };
+    type: { slug: string; name: string };
 };
 
 export type ProjectProfileImage = {
@@ -75,7 +75,7 @@ export type FilterOption = {
 };
 
 export type FilterOptions = {
-    categories: FilterOption[];
+    types: FilterOption[];
     sizes?: FilterOption[];
     thicknesses?: FilterOption[];
     furnitureTypes?: FilterOption[];
@@ -84,7 +84,7 @@ export type FilterOptions = {
 export type BrandFilters = {
     collection: BrandCollectionKind;
     search: string | null;
-    category: string | null;
+    type: string | null;
     size: string | null;
     thickness: string | null;
     furnitureType: string | null;

@@ -2,13 +2,16 @@ import { expect, test } from '../support/fixtures';
 import {
     CATALOG,
     REVIEW,
+    SERVICE_ID,
+    SERVICE_TYPE_ID,
     addStoneProject,
+    checkbox,
+    chooseInSelect,
     continueButton,
     expectStep,
     openInquire,
     renameProject,
     sendAndReadReference,
-    workRow,
 } from '../support/inquiry-flow';
 
 /* L. Editing a sent inquiry through its edit page. */
@@ -34,9 +37,18 @@ test("42 · the edit page opens the inquiry's project at step 1, it is edited th
         page.getByRole('link', { name: 'Back to Quote' }),
     ).toHaveAttribute('href', /\/quote$/);
 
+    await expect(page.locator(`#${SERVICE_TYPE_ID}`)).toContainText(
+        CATALOG.serviceType,
+    );
+    await expect(page.locator(`#${SERVICE_ID}`)).toContainText(CATALOG.service);
+    await chooseInSelect(page, SERVICE_ID, 'Flooring');
+
     await continueButton(page).click();
     await expectStep(page, 2);
-    await expect(workRow(page, CATALOG.stones[0])).toContainText(CATALOG.work);
+    await expect(checkbox(page, CATALOG.stones[0])).toHaveAttribute(
+        'aria-checked',
+        'true',
+    );
 
     await continueButton(page).click();
     await expectStep(page, 3);
@@ -59,4 +71,5 @@ test("42 · the edit page opens the inquiry's project at step 1, it is edited th
 
     await expect(page).toHaveURL(new RegExp(`/quote/${reference}$`));
     await expect(page.getByText('Kitchen and island').first()).toBeVisible();
+    await expect(page.locator('main')).toContainText('Flooring');
 });

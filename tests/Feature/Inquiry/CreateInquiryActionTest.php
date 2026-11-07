@@ -41,7 +41,7 @@ it('leaves no rows and no files when a write fails after files are on disk', fun
     $input = [
         'projects' => [[
             'name' => 'Counters',
-            'work' => [['stone_id' => null, 'service_id' => Service::query()->value('id'), 'furniture_type_id' => null]],
+            'service_id' => Service::query()->value('id'),
             'stones' => [],
             'delivery_method' => DeliveryMethod::Delivery,
             'location' => 'Makati',

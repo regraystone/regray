@@ -4,7 +4,7 @@ use App\Enums\HomeGridPageSize;
 use App\Enums\InquiryStatus;
 use App\Enums\Role;
 use App\Models\Stone;
-use App\Models\StoneCategory;
+use App\Models\StoneType;
 use App\Models\User;
 use Database\Seeders\EdgeProfileSeeder;
 use Database\Seeders\FurnitureTypeSeeder;
@@ -43,18 +43,18 @@ test('no parameters returns the first page of active individual stones', functio
             ->where('products.meta.total', 75)
             ->has('filters', fn (Assert $filters) => $filters
                 ->where('search', null)
-                ->where('category', null)
+                ->where('type', null)
                 ->where('size', null)
                 ->where('thickness', null)
                 ->where('furnitureType', null)
                 ->where('perPage', 24)
                 ->where('collection', 'stones')
             )
-            ->has('filterOptions.categories')
-            ->has('filterOptions.furnitureTypes', 8)
+            ->has('filterOptions.types')
+            ->has('filterOptions.furnitureTypes', 4)
             ->has('filterOptions.sizes', 4)
             ->has('filterOptions.thicknesses', 4)
-            ->where('products.data.0.category', ['slug' => 'cobblestone', 'name' => 'Cobblestone'])
+            ->where('products.data.0.type', ['slug' => 'cobblestone', 'name' => 'Cobblestone'])
         );
 });
 
@@ -88,18 +88,18 @@ test('search filters stones case-insensitively by name', function (): void {
         );
 });
 
-test('multi-filter narrows results down correctly across categories, sizes, and thicknesses', function (): void {
+test('multi-filter narrows results down correctly across types, sizes, and thicknesses', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(stoneCollection(['search' => 'COSMIC', 'category' => 'granite', 'size' => '80x80', 'thickness' => '20']))
+        ->get(stoneCollection(['search' => 'COSMIC', 'type' => 'granite', 'size' => '80x80', 'thickness' => '20']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
             ->where('products.data.0.slug', 'cosmic-black')
             ->has('filters', fn (Assert $filters) => $filters
                 ->where('search', 'COSMIC')
-                ->where('category', 'granite')
+                ->where('type', 'granite')
                 ->where('size', '80x80')
                 ->where('thickness', '20')
                 ->where('furnitureType', null)
@@ -115,7 +115,7 @@ test('invalid query parameters are dropped and redirect with valid ones kept', f
     $this->actingAs($user)
         ->get(stoneCollection([
             'search' => 'cosmic',
-            'category' => 'no-such-category',
+            'type' => 'no-such-type',
             'size' => '99x99',
             'thickness' => '99-mm',
         ]))
@@ -178,12 +178,12 @@ test('filters reflect the URL exactly after refresh', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(stoneCollection(['search' => 'test', 'category' => 'marble', 'size' => '80x80', 'thickness' => '20', 'page' => 2]))
+        ->get(stoneCollection(['search' => 'test', 'type' => 'marble', 'size' => '80x80', 'thickness' => '20', 'page' => 2]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('filters', fn (Assert $filters) => $filters
                 ->where('search', 'test')
-                ->where('category', 'marble')
+                ->where('type', 'marble')
                 ->where('size', '80x80')
                 ->where('thickness', '20')
                 ->where('furnitureType', null)
@@ -193,24 +193,24 @@ test('filters reflect the URL exactly after refresh', function (): void {
         );
 });
 
-test('new and soft-deleted category options are handled correctly in filter options', function (): void {
+test('new and soft-deleted type options are handled correctly in filter options', function (): void {
     $user = User::factory()->role(Role::Client)->create();
-    $newCategory = StoneCategory::factory()->create(['is_active' => true]);
+    $newType = StoneType::factory()->create(['is_active' => true]);
 
     $this->actingAs($user)
         ->get(stoneCollection())
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('filterOptions.categories', fn ($categories) => $categories->pluck('value')->contains($newCategory->slug))
+            ->where('filterOptions.types', fn ($types) => $types->pluck('value')->contains($newType->slug))
         );
 
-    $newCategory->delete();
+    $newType->delete();
 
     $this->actingAs($user)
         ->get(stoneCollection())
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('filterOptions.categories', fn ($categories) => ! $categories->pluck('value')->contains($newCategory->slug))
+            ->where('filterOptions.types', fn ($types) => ! $types->pluck('value')->contains($newType->slug))
         );
 });
 
@@ -225,11 +225,11 @@ test('the stones collection ignores a furniture type', function (): void {
         );
 });
 
-test('a best-selling category is starred in the filter and its stones say so on their page, not on their cards', function (): void {
+test('a best-selling type is starred in the filter and its stones say so on their page, not on their cards', function (): void {
     $this->seed([ServiceSeeder::class, EdgeProfileSeeder::class]);
     $sold = Stone::query()->orderBy('sort_order')->orderBy('id')->firstOrFail();
-    $sibling = Stone::query()->where('stone_category_id', $sold->stone_category_id)->whereKeyNot($sold->id)->firstOrFail();
-    $other = Stone::query()->where('stone_category_id', '!=', $sold->stone_category_id)->firstOrFail();
+    $sibling = Stone::query()->where('stone_type_id', $sold->stone_type_id)->whereKeyNot($sold->id)->firstOrFail();
+    $other = Stone::query()->where('stone_type_id', '!=', $sold->stone_type_id)->firstOrFail();
     makeInquiry(User::factory()->role(Role::Client)->create(), ['stones' => [$sold->slug]], ['status' => InquiryStatus::Closed]);
     $user = User::factory()->role(Role::Client)->create();
     $profile = fn (Stone $stone) => route('dashboard.brands.stones.show', ['brand' => 'regray-stone', 'stone' => $stone->slug]);
@@ -237,7 +237,7 @@ test('a best-selling category is starred in the filter and its stones say so on 
     $this->actingAs($user)->get(stoneCollection())
         ->assertInertia(fn (Assert $page) => $page
             ->missing('products.data.0.bestSeller')
-            ->where('filterOptions.categories', fn ($categories) => $categories->where('bestSeller', true)->pluck('value')->all() === [$sold->category->slug])
+            ->where('filterOptions.types', fn ($types) => $types->where('bestSeller', true)->pluck('value')->all() === [$sold->type->slug])
         );
 
     $this->actingAs($user)->get($profile($sibling))

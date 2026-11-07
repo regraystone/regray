@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-    STONE_ADVICE_KEY,
     buildInquiryFormData,
     deadlineLocks,
     reviewActions,
@@ -13,10 +12,10 @@ import {
 const payload = (overrides = {}) => ({
     id: 42,
     name: 'Kitchen counters',
-    work: [
-        { stoneId: 'marble', serviceId: 'supply-only', furnitureType: null },
-    ],
-    heldServices: [],
+    serviceTypeId: 'natural-stone-applications',
+    serviceId: 'countertop',
+    heldServiceType: null,
+    heldStones: [],
     stoneAdviceRequested: false,
     stones: [
         { stoneId: 'marble', quantity: 4, edge: 'Half Bevel', finish: 'Honed' },
@@ -47,6 +46,8 @@ describe('toEditFormProjects', () => {
             {
                 id: '42',
                 name: 'Kitchen counters',
+                serviceTypeId: 'natural-stone-applications',
+                serviceId: 'countertop',
                 stoneAdvice: false,
                 stones: [
                     {
@@ -56,9 +57,6 @@ describe('toEditFormProjects', () => {
                         finish: 'Honed',
                     },
                 ],
-                stoneWork: {
-                    marble: { serviceId: 'supply-only', furnitureType: '' },
-                },
                 deliveryMethod: 'delivery',
                 location: 'Makati',
                 landmark: '',
@@ -79,48 +77,22 @@ describe('toEditFormProjects', () => {
         ]);
     });
 
-    it('keeps the furniture type, and puts work with no stone on its own row', () => {
+    it('keeps the service of a project with no stone chosen', () => {
         const [project] = toEditFormProjects([
-            payload({
-                stoneAdviceRequested: true,
-                stones: [],
-                work: [
-                    {
-                        stoneId: null,
-                        serviceId: 'furniture-only',
-                        furnitureType: 'tables',
-                    },
-                ],
-            }),
+            payload({ stoneAdviceRequested: true, stones: [] }),
         ]);
 
-        assert.deepEqual(project.stoneWork, {
-            [STONE_ADVICE_KEY]: {
-                serviceId: 'furniture-only',
-                furnitureType: 'tables',
-            },
-        });
+        assert.equal(project.serviceId, 'countertop');
+        assert.equal(project.stoneAdvice, true);
     });
 
-    it('holds the first service of a stone that has several rows', () => {
+    it('reads a project with no service as blanks', () => {
         const [project] = toEditFormProjects([
-            payload({
-                work: [
-                    {
-                        stoneId: 'marble',
-                        serviceId: 'supply-only',
-                        furnitureType: null,
-                    },
-                    {
-                        stoneId: 'marble',
-                        serviceId: 'fabrication-supply',
-                        furnitureType: null,
-                    },
-                ],
-            }),
+            payload({ serviceTypeId: null, serviceId: null }),
         ]);
 
-        assert.equal(project.stoneWork.marble.serviceId, 'supply-only');
+        assert.equal(project.serviceTypeId, '');
+        assert.equal(project.serviceId, '');
     });
 
     it('reads a pickup, which holds no location, as blanks', () => {

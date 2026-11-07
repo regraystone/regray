@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Services\BestSellerService;
-use Database\Factories\StoneCategoryFactory;
+use Database\Factories\StoneTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,9 +30,9 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, CareTip> $careTips
  */
 #[Fillable(['slug', 'name', 'thumbnail_path', 'description', 'is_active', 'sort_order'])]
-class StoneCategory extends Model
+class StoneType extends Model
 {
-    /** @use HasFactory<StoneCategoryFactory> */
+    /** @use HasFactory<StoneTypeFactory> */
     use HasFactory;
 
     use SoftDeletes;
@@ -43,7 +43,7 @@ class StoneCategory extends Model
     }
 
     /**
-     * Whether the category is a best seller. Asked of the request's one
+     * Whether the type is a best seller. Asked of the request's one
      * ranking, never stored.
      *
      * @return Attribute<bool, never>
@@ -63,27 +63,27 @@ class StoneCategory extends Model
     /** @return BelongsToMany<Stone, $this> */
     public function stones(): BelongsToMany
     {
-        return $this->belongsToMany(Stone::class, 'stone_stone_category');
+        return $this->belongsToMany(Stone::class, 'stone_stone_type');
     }
 
     /** @return BelongsToMany<Application, $this> */
     public function applications(): BelongsToMany
     {
-        return $this->belongsToMany(Application::class, 'application_stone_category')
+        return $this->belongsToMany(Application::class, 'application_stone_type')
             ->withPivot('sort_order')->orderByPivot('sort_order');
     }
 
     /** @return BelongsToMany<Finish, $this> */
     public function finishes(): BelongsToMany
     {
-        return $this->belongsToMany(Finish::class, 'finish_stone_category')
+        return $this->belongsToMany(Finish::class, 'finish_stone_type')
             ->withPivot('sort_order')->orderByPivot('sort_order');
     }
 
     /** @return BelongsToMany<CareTip, $this> */
     public function careTips(): BelongsToMany
     {
-        return $this->belongsToMany(CareTip::class, 'care_tip_stone_category')
+        return $this->belongsToMany(CareTip::class, 'care_tip_stone_type')
             ->withPivot('sort_order')->orderByPivot('sort_order');
     }
 }
