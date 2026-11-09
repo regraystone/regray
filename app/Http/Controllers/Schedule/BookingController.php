@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Schedule;
 use App\Actions\Schedule\BookScheduleAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Schedule\StoreBookingRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Throwable;
@@ -16,7 +17,8 @@ class BookingController extends Controller
     ) {}
 
     /**
-     * Save the booking the Book an appointment page built.
+     * Save the booking the Book an appointment page built: a client's own,
+     * pending, or one staff made for the client they chose, confirmed at once.
      *
      * Validation failures are the form request's and come back as Inertia
      * errors. Anything else is reported once and flashed as an error, and the
@@ -24,27 +26,23 @@ class BookingController extends Controller
      */
     public function store(StoreBookingRequest $request): RedirectResponse
     {
+        /** @var User $user */
         $user = $request->user();
 
-        if (! $user->isClient()) {
-            // TODO(staff-booking): staff book on a client's behalf. The page
-            // will send the client's id; check it names a client, then:
-            //
-            // $client = User::query()->findOrFail($request->integer('clientId'));
-            // $this->bookSchedule->executeForStaff($user, $client, $request->purpose(), $request->arrivalAt(), $request->notes());
-            //
-            // with booked_by = the staff member and booked_by_type = staff.
-            return back();
-        }
-
         try {
-            $this->bookSchedule->execute($user, $request->purpose(), $request->arrivalAt(), $request->notes());
+            if ($request->isStaffBooking()) {
+                /** @var User $client after() refused a request naming no client account. */
+                $client = $request->client();
+                $this->bookSchedule->executeForStaff($user, $client, $request->purpose(), $request->arrivalAt(), $request->notes());
+            } else {
+                $this->bookSchedule->execute($user, $request->purpose(), $request->arrivalAt(), $request->notes());
+            }
         } catch (Throwable $exception) {
             report($exception);
 
             Inertia::flash('booking', [
                 'status' => 'error',
-                'message' => __('We could not save your appointment. Your answers are still here, so you can try again.'),
+                'message' => __('We could not save the appointment. Your answers are still here, so you can try again.'),
             ]);
 
             return back();

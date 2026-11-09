@@ -35,7 +35,15 @@ const ScheduleCard = ({
     const headline = scheduleHeadline(card.announcedStatus, card.bookedByType);
     const arrival = new Date(card.arrivalAt);
     const href = isStaff ? scheduleIndex.url() : profileSchedule.url();
-    const cancelled = card.announcedStatus === 'cancelled';
+    const cancelled =
+        card.announcedStatus === 'cancelled' ||
+        card.announcedStatus === 'expired';
+    const reason =
+        card.announcedStatus === 'cancelled'
+            ? card.cancelReason
+            : card.announcedStatus === 'rescheduled'
+              ? card.changeReason
+              : null;
 
     return (
         <div
@@ -101,8 +109,8 @@ const ScheduleCard = ({
                             className="truncate"
                             data-testid="schedule-card-footer"
                         >
-                            {cancelled && card.cancelReason ? (
-                                <>Reason: {card.cancelReason}</>
+                            {reason ? (
+                                <>Reason: {reason}</>
                             ) : card.inquiryReference ? (
                                 <>
                                     Inquiry No:{' '}

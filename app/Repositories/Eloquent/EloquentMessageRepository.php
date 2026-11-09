@@ -142,13 +142,16 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         return Message::query()->where($snapshot)->first();
     }
 
-    public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus): ?Message
+    public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus, int $revision, CarbonInterface $arrivalAt, ?string $reason): ?Message
     {
         $inserted = Message::query()->insertOrIgnore([
             'conversation_id' => $conversationId,
             'type' => MessageType::ScheduleCard->value,
             'schedule_id' => $scheduleId,
             'announced_status' => $announcedStatus,
+            'schedule_revision' => $revision,
+            'announced_arrival_at' => $arrivalAt,
+            'announced_reason' => $reason,
             'created_at' => Date::now(),
         ]);
 
@@ -161,6 +164,7 @@ class EloquentMessageRepository implements MessageRepositoryInterface
             ->where('type', MessageType::ScheduleCard->value)
             ->where('schedule_id', $scheduleId)
             ->where('announced_status', $announcedStatus)
+            ->where('schedule_revision', $revision)
             ->first();
     }
 

@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 export const STATUS_LABELS: Record<ScheduleStatus, string> = {
     pending: 'Pending',
     confirmed: 'Confirmed',
-    completed: 'Completed',
+    served: 'Served',
+    expired: 'Expired',
     cancelled: 'Cancelled',
 };
 
@@ -17,9 +18,13 @@ const STATUS_STYLES: Record<ScheduleStatus, { bg: string; text: string }> = {
         bg: 'bg-primary',
         text: 'text-primary-foreground',
     },
-    completed: {
+    served: {
         bg: 'bg-primary',
         text: 'text-primary-foreground',
+    },
+    expired: {
+        bg: 'bg-transparent',
+        text: 'text-secondary-foreground line-through',
     },
     cancelled: {
         bg: 'bg-transparent',

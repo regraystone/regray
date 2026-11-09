@@ -27,6 +27,8 @@ function scheduledVisit(User $client, string $at, ScheduleStatus $status = Sched
         'title' => "Visit at {$at}",
         'arrival_at' => CarbonImmutable::parse($at, 'Asia/Manila')->utc(),
         'status' => $status,
+        'cancelled_at' => $status === ScheduleStatus::Cancelled ? now() : null,
+        'cancel_reason' => $status === ScheduleStatus::Cancelled ? 'Client asked to move it' : null,
     ])->save();
 
     return $schedule;
@@ -77,7 +79,7 @@ it('lists every status inside the range, ordered by arrival, with `to` excluded'
     $client = inquiryClient();
     scheduledVisit($client, '2026-09-30 23:59');
     $cancelled = scheduledVisit($client, '2026-10-20 09:00', ScheduleStatus::Cancelled);
-    $first = scheduledVisit($client, '2026-10-01 00:00', ScheduleStatus::Completed);
+    $first = scheduledVisit($client, '2026-10-01 00:00', ScheduleStatus::Served);
     $confirmed = scheduledVisit($client, '2026-10-31 23:00', ScheduleStatus::Confirmed);
     scheduledVisit($client, '2026-11-01 00:00');
 
@@ -119,7 +121,7 @@ describe('upcoming', function (): void {
     it('lists the next three pending or confirmed visits from an hour ago on, soonest first', function (): void {
         $client = inquiryClient();
         scheduledVisit($client, '2026-10-14 08:59');
-        scheduledVisit($client, '2026-10-14 09:30', ScheduleStatus::Completed);
+        scheduledVisit($client, '2026-10-14 09:30', ScheduleStatus::Served);
         scheduledVisit($client, '2026-10-14 09:45', ScheduleStatus::Cancelled);
         $later = scheduledVisit($client, '2026-11-20 10:00');
         $tomorrowConfirmed = scheduledVisit($client, '2026-10-15 10:00', ScheduleStatus::Confirmed);
@@ -162,7 +164,7 @@ it('shows a booking without an inquiry, and an inquiry visit with its reference'
         ->get(route('profile.schedule', octoberRange()))
         ->viewData('page')['props']['schedules'];
 
-    expect($schedules[0])->toBe([
+    expect($schedules[0])->toMatchArray([
         'id' => $booking->id,
         'title' => 'Visit at 2026-10-15 10:00',
         // The same instant, shown in Manila.
@@ -170,5 +172,11 @@ it('shows a booking without an inquiry, and an inquiry visit with its reference'
         'status' => 'pending',
         'notes' => null,
         'inquiryReference' => null,
+        'bookedByType' => 'client',
+        'bookedByName' => null,
+        // A client reader is never told a client's name, not even their own.
+        'clientName' => null,
+        'cancelReason' => null,
+        'changeReason' => null,
     ])->and($schedules[1]['inquiryReference'])->toBe('INQ-S1');
 });

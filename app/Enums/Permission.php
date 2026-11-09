@@ -143,7 +143,29 @@ enum Permission: string
     /** Moving an inquiry's logistics (process) status: logistics'. */
     case InquiriesStatusProcess = 'inquiries.status.process';
 
+    /**
+     * Booking an appointment: a client for themselves, staff for a client of
+     * their choosing (auto-approved).
+     */
     case ScheduleCreate = 'schedule.create';
+
+    /**
+     * Updating an appointment (date, time, purpose, notes, with a reason), and,
+     * for staff only, marking a confirmed one as attended or not attended. A
+     * client holds it for their own bookings alone (SchedulePolicy); among staff
+     * only marketing and sales do. Never an inquiry's visit, which follows its
+     * inquiry.
+     */
+    case ScheduleUpdate = 'schedule.update';
+
+    /**
+     * Cancelling an appointment, with a reason. A client's own bookings only
+     * (SchedulePolicy); among staff, marketing's and sales'.
+     */
+    case ScheduleCancel = 'schedule.cancel';
+
+    /** Approving a pending appointment: marketing's and sales', never a client's. */
+    case ScheduleApprove = 'schedule.approve';
 
     /**
      * Saving and unsaving a stone.

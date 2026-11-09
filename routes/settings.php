@@ -59,4 +59,13 @@ Route::middleware(['auth', 'verified', Permission::ProfileView->middleware()])->
             Permission::ScheduleCreate->middleware(),
         ])
         ->name('profile.schedule.book');
+    // A client updates their own appointment on the same page, from this door.
+    Route::get('profile/schedule/{schedule}/edit', [ViewController::class, 'scheduleEdit'])
+        ->whereNumber('schedule')
+        ->middleware([
+            Permission::ProfileView->middleware(),
+            Permission::ProfileScheduleView->middleware(),
+            Permission::ScheduleUpdate->middleware(),
+        ])
+        ->name('profile.schedule.edit');
 });

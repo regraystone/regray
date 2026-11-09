@@ -2,7 +2,11 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, router, usePage } from '@inertiajs/react';
-import EventDialog from '@/components/schedule/event-dialog';
+import ConfirmDialog from '@/components/confirm-dialog';
+import CancelScheduleDialog from '@/components/schedule/cancel-schedule-dialog';
+import EventDialog, {
+    type ScheduleDialogAction,
+} from '@/components/schedule/event-dialog';
 import MiniCalendar from '@/components/schedule/mini-calendar';
 import UpcomingList from '@/components/schedule/upcoming-list';
 import WeekGrid from '@/components/schedule/week-grid';
@@ -27,6 +31,14 @@ import {
     type ScheduleData,
     type ScheduleItem,
 } from '@/lib/schedule';
+import { sendScheduleChange } from '@/lib/schedule-changes';
+import { edit as profileScheduleEdit } from '@/routes/profile/schedule';
+import {
+    approve as approveSchedule,
+    edit as scheduleEdit,
+    noShow as noShowSchedule,
+    serve as serveSchedule,
+} from '@/routes/schedule';
 
 /**
  * How many days the week grid shows.
@@ -222,11 +234,90 @@ const Schedule = () => {
         );
     };
 
-    const reschedule = (item: ScheduleItem) =>
-        toast.info(`Rescheduling ${item.title} is not available yet.`);
+    /*
+     * Changing a visit, from its dialog or the Upcoming menu. Update opens the
+     * Book an appointment page filled in with it, from this reader's door;
+     * Cancel asks for a reason here; Approve, Mark as attended and Did not
+     * attend only ask to be sure. The server answers with the page's schedules
+     * again, already changed.
+     */
+    const isClient = !can(permissions.scheduleView);
+    const [cancelling, setCancelling] = useState<ScheduleItem | null>(null);
+    const [confirming, setConfirming] = useState<{
+        action: 'approve' | 'serve' | 'noShow';
+        item: ScheduleItem;
+    } | null>(null);
+    const [isConfirming, setIsConfirming] = useState(false);
 
-    const cancel = (item: ScheduleItem) =>
-        toast.info(`Cancelling ${item.title} is not available yet.`);
+    const startAction = (action: ScheduleDialogAction, item: ScheduleItem) => {
+        setSelected(null);
+
+        if (action === 'update') {
+            router.visit(
+                isClient
+                    ? profileScheduleEdit.url(item.id)
+                    : scheduleEdit.url(item.id),
+            );
+        } else if (action === 'cancel') {
+            setCancelling(item);
+        } else {
+            setConfirming({ action, item });
+        }
+    };
+
+    const CONFIRMS = {
+        approve: {
+            title: 'Approve appointment',
+            description: (item: ScheduleItem) =>
+                `${item.title}. The client is told in their Regray chat that it is approved.`,
+            label: 'Approve',
+            route: approveSchedule,
+            done: 'Appointment approved',
+        },
+        serve: {
+            title: 'Mark as attended',
+            description: (item: ScheduleItem) =>
+                `${item.title}. The client came, so the appointment is served.`,
+            label: 'Mark as attended',
+            route: serveSchedule,
+            done: 'Marked as served',
+        },
+        noShow: {
+            title: 'Did not attend',
+            description: (item: ScheduleItem) =>
+                `${item.title}. The client did not come, so the appointment is cancelled with the reason "Did not attend".`,
+            label: 'Did not attend',
+            route: noShowSchedule,
+            done: 'Marked as not attended',
+        },
+    } as const;
+
+    const confirm = async () => {
+        if (confirming === null) {
+            return;
+        }
+
+        const step = CONFIRMS[confirming.action];
+
+        setIsConfirming(true);
+        const outcome = await sendScheduleChange(
+            'post',
+            step.route.url(confirming.item.id),
+        );
+        setIsConfirming(false);
+        setConfirming(null);
+
+        if (outcome.kind === 'saved') {
+            toast.success(step.done);
+        } else if (outcome.kind === 'invalid') {
+            toast.error(
+                outcome.errors.schedule ??
+                    'This appointment could not be changed.',
+            );
+        } else {
+            toast.error('This appointment could not be changed. Try again.');
+        }
+    };
 
     return (
         <div className="w-full min-w-0">
@@ -360,15 +451,50 @@ const Schedule = () => {
                         <UpcomingList
                             items={upcoming}
                             onSelect={setSelected}
-                            onReschedule={reschedule}
-                            onCancel={cancel}
+                            onAction={startAction}
                             emptyAction={bookButton('outline')}
                         />
                     </div>
                 </aside>
             </div>
 
-            <EventDialog item={selected} onClose={() => setSelected(null)} />
+            <EventDialog
+                item={selected}
+                onClose={() => setSelected(null)}
+                onAction={startAction}
+            />
+
+            <CancelScheduleDialog
+                item={cancelling}
+                onClose={() => setCancelling(null)}
+                onSaved={() => {
+                    setCancelling(null);
+                    toast.success('Appointment cancelled');
+                }}
+            />
+
+            <ConfirmDialog
+                open={confirming !== null}
+                onOpenChange={(open) => {
+                    if (!open && !isConfirming) {
+                        setConfirming(null);
+                    }
+                }}
+                title={confirming ? CONFIRMS[confirming.action].title : ''}
+                description={
+                    confirming
+                        ? CONFIRMS[confirming.action].description(
+                              confirming.item,
+                          )
+                        : ''
+                }
+                confirmLabel={
+                    confirming ? CONFIRMS[confirming.action].label : ''
+                }
+                cancelLabel="Not now"
+                onConfirm={confirm}
+                processing={isConfirming}
+            />
         </div>
     );
 };

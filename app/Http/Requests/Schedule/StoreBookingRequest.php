@@ -2,31 +2,22 @@
 
 namespace App\Http\Requests\Schedule;
 
-use App\Services\ScheduleService;
-use Carbon\CarbonImmutable;
+use App\Models\User;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Date;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
- * Mirrors `bookingSchema` in resources/js/lib/booking-schema.ts, plus the time
- * window the browser cannot be trusted with. Dates and times are read in the
- * studio's zone. A client books from tomorrow on, staff from today on; see
- * ScheduleService::earliestBookableDate().
+ * Book an appointment: the date, arrival time, purpose and notes
+ * (BookingFieldRules), and, when staff book, the client it is for.
  *
- * Only these four fields are read. A client or user id in the payload is
- * ignored: the booking is always the signed-in client's.
+ * A client always books for themselves: a client or user id in their payload is
+ * ignored. Staff send `clientId`, which must name a client account; the
+ * booking is that client's and is confirmed at once (BookScheduleAction).
  */
 class StoreBookingRequest extends FormRequest
 {
-    /** Same as BOOKING_OPEN_HOUR, BOOKING_CLOSE_HOUR and SLOT_MINUTES in lib/booking-slots.ts. */
-    public const OPEN_HOUR = 10;
-
-    public const CLOSE_HOUR = 18;
-
-    public const SLOT_MINUTES = 30;
+    use BookingFieldRules;
 
     /** The route middleware decides access before this request is resolved. */
     public function authorize(): bool
@@ -37,13 +28,9 @@ class StoreBookingRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
-        $earliest = ScheduleService::earliestBookableDate($this->user())->toDateString();
-
         return [
-            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$earliest],
-            'arrivalTime' => ['required', 'date_format:H:i', Rule::in(self::slots())],
-            'purpose' => ['required', 'string', 'max:80'],
-            'notes' => ['nullable', 'string', 'max:500'],
+            ...$this->bookingFieldRules(),
+            ...($this->isStaffBooking() ? ['clientId' => ['required', 'integer']] : []),
         ];
     }
 
@@ -51,70 +38,40 @@ class StoreBookingRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'date.required' => 'Choose a day',
-            'date.date_format' => 'Choose a day',
-            'date.after_or_equal' => $this->user()->isClient() ? 'Choose a day from tomorrow on' : 'Choose a day from today on',
-            'arrivalTime.required' => 'Choose a time',
-            'arrivalTime.date_format' => 'Choose a time',
-            'arrivalTime.in' => 'Choose a time between 10:00 AM and 6:00 PM',
-            'purpose.required' => 'Purpose is required',
-            'purpose.max' => 'Purpose is too long',
-            'notes.max' => 'Notes are too long',
+            ...$this->bookingFieldMessages(),
+            'clientId.required' => 'Choose the client this appointment is for',
+            'clientId.integer' => 'Choose the client this appointment is for',
         ];
     }
 
-    /**
-     * The arrival must still be ahead, as StoreInquiryRequest asks of a visit.
-     *
-     * @return list<Closure(Validator): void>
-     */
+    /** @return list<Closure(Validator): void> */
     public function after(): array
     {
         return [
+            $this->arrivalStillAhead(),
             function (Validator $validator): void {
-                if ($validator->errors()->hasAny(['date', 'arrivalTime'])) {
+                if (! $this->isStaffBooking() || $validator->errors()->has('clientId')) {
                     return;
                 }
 
-                if ($this->arrivalAt()->lessThanOrEqualTo(Date::now())) {
-                    $validator->errors()->add('arrivalTime', 'That time has already passed');
+                if ($this->client() === null) {
+                    $validator->errors()->add('clientId', 'Choose a client with a Regray account');
                 }
             },
         ];
     }
 
-    /**
-     * Every bookable arrival as `H:i`: from the opening hour to the closing
-     * hour inclusive, every SLOT_MINUTES.
-     *
-     * @return list<string>
-     */
-    public static function slots(): array
+    /** Whether staff are booking for a client, rather than a client for themselves. */
+    public function isStaffBooking(): bool
     {
-        $slots = [];
-
-        for ($minutes = self::OPEN_HOUR * 60; $minutes <= self::CLOSE_HOUR * 60; $minutes += self::SLOT_MINUTES) {
-            $slots[] = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
-        }
-
-        return $slots;
+        return ! $this->user()->isClient();
     }
 
-    /** When the client will arrive, in the studio's zone. */
-    public function arrivalAt(): CarbonImmutable
+    /** The client account a staff booking is for, or null when it names none. */
+    public function client(): ?User
     {
-        return ScheduleService::arrivalAt($this->string('date')->value(), $this->string('arrivalTime')->value());
-    }
+        $client = User::query()->find($this->integer('clientId'));
 
-    public function purpose(): string
-    {
-        return $this->string('purpose')->trim()->value();
-    }
-
-    public function notes(): ?string
-    {
-        $notes = $this->string('notes')->trim()->value();
-
-        return $notes === '' ? null : $notes;
+        return $client?->isClient() ? $client : null;
     }
 }

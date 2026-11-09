@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import BookingCalendar from '@/components/schedule/booking-calendar';
+import BookingClientPicker from '@/components/schedule/booking-client-picker';
 import Countdown from '@/components/countdown';
 import PageHeading from '@/components/page-heading';
 import FormField from '@/components/form-field';
@@ -28,25 +29,58 @@ import {
 } from '@/routes/profile';
 import { usePermissions } from '@/hooks/use-permissions';
 import { formatFullDate, dayKey } from '@/lib/date';
-import { bookingSchema } from '@/lib/booking-schema';
+import { staffBookingSchema, updateScheduleSchema } from '@/lib/booking-schema';
+import { sendScheduleChange } from '@/lib/schedule-changes';
+import { update as updateSchedule } from '@/routes/schedule';
+import type { ClientAccount } from '@/lib/staff-clients-api';
 import { openSlotsOn, slotLabel } from '@/lib/booking-slots';
 import { rateLimitFrom, retryLabel } from '@/lib/rate-limit';
 import type { RateLimit } from '@/lib/rate-limit';
 import type { StudioNow } from '@/lib/booking-slots';
 import type { z } from 'zod';
 
-type BookingFormValues = z.infer<typeof bookingSchema>;
+/*
+ * One form for booking and updating: a client's booking has no client to
+ * choose, so `clientId` is only checked (and sent) when staff book; updating
+ * keeps the client and asks for the reason for the change instead. See
+ * `staffBookingSchema` and `updateScheduleSchema`.
+ */
+type BookingFormValues = Omit<
+    z.infer<typeof staffBookingSchema>,
+    'date' | 'clientId'
+> & { date: Date | null; clientId: number | null; reason: string };
+
+/** The appointment being updated, as ViewController::scheduleEdit() sends it. */
+type UpdatingSchedule = {
+    id: number;
+    title: string;
+    /** `YYYY-MM-DD` in the studio's zone. */
+    date: string;
+    /** `HH:mm` in the studio's zone. */
+    arrivalTime: string;
+    notes: string | null;
+    status: string;
+    /** Whose it is: staff readers only. */
+    clientName: string | null;
+};
 
 type BookingResult =
-    | { status: 'success'; date: Date; arrivalTime: string }
+    | {
+          status: 'success';
+          date: Date;
+          arrivalTime: string;
+          clientName: string | null;
+      }
     | { status: 'error'; message?: string; retryAt?: number | null }
     | null;
 
 const BOOKING_FIELDS: Array<keyof BookingFormValues> = [
+    'clientId',
     'date',
     'arrivalTime',
     'purpose',
     'notes',
+    'reason',
 ];
 
 /**
@@ -84,6 +118,9 @@ const sendBooking = (
                 arrivalTime: values.arrivalTime,
                 purpose: values.purpose,
                 notes: values.notes ?? '',
+                ...(values.clientId === null
+                    ? {}
+                    : { clientId: values.clientId }),
             },
             {
                 preserveScroll: true,
@@ -116,24 +153,59 @@ const fromDayKey = (day: string): Date => {
 };
 
 /**
+ * Send the update of an appointment, answered the way a booking is: saved,
+ * refused with field errors (or `schedule`, the appointment itself no longer
+ * changing), or failed.
+ */
+const sendUpdate = async (
+    scheduleId: number,
+    values: BookingFormValues & { date: Date },
+): Promise<SendOutcome> => {
+    const outcome = await sendScheduleChange(
+        'patch',
+        updateSchedule.url(scheduleId),
+        {
+            date: dayKey(values.date),
+            arrivalTime: values.arrivalTime,
+            purpose: values.purpose,
+            notes: values.notes ?? '',
+            reason: values.reason,
+        },
+    );
+
+    return outcome.kind === 'saved'
+        ? { kind: 'flashed', succeeded: true }
+        : outcome.kind === 'invalid'
+          ? outcome
+          : { kind: 'failed' };
+};
+
+/**
  * `studioNow` is Manila's date and time when the page was served, so which
  * days and slots are already past is decided by the studio's clock, not the
  * browser's. `earliestBookableDate` is the first day the signed-in user may
  * book: tomorrow for a client, today for staff.
  *
- * TODO(staff-booking): staff will pick the client the appointment is for, and
- * the form will send that client's id. Until then the form books for the
- * signed-in client only.
+ * Staff (who read the schedule from the sidebar, `schedule.view`) first choose
+ * the client the appointment is for; theirs is confirmed at once. A client
+ * books for themselves, and theirs waits for the team to approve it.
+ *
+ * With `schedule`, the page updates that appointment instead: the same fields,
+ * filled in with it, the client kept, and the reason for the change asked.
  */
 const Page = ({
     studioNow,
     earliestBookableDate,
+    schedule = null,
 }: {
     studioNow: StudioNow;
     earliestBookableDate: string;
+    schedule?: UpdatingSchedule | null;
 }) => {
+    const isUpdate = schedule !== null;
     const { url } = usePage();
     const { can } = usePermissions();
+    const isStaff = can(permissions.scheduleView);
     const isProfile = url.startsWith(showProfile.url());
     const scheduleHref = isProfile
         ? profileSchedule.url()
@@ -143,20 +215,31 @@ const Page = ({
         [studioNow.date],
     );
 
-    const [month, setMonth] = useState(studioToday);
+    const [month, setMonth] = useState(() =>
+        schedule === null ? studioToday : fromDayKey(schedule.date),
+    );
     const [result, setResult] = useState<BookingResult>(null);
     const [isSending, setIsSending] = useState(false);
     const isSendingRef = useRef(false);
+    const [client, setClient] = useState<ClientAccount | null>(null);
 
     const methods = useForm<BookingFormValues>({
-        resolver: zodResolver(bookingSchema) as any,
+        resolver: zodResolver(
+            isUpdate
+                ? updateScheduleSchema
+                : isStaff
+                  ? staffBookingSchema
+                  : staffBookingSchema.omit({ clientId: true }),
+        ) as any,
         mode: 'onTouched',
         reValidateMode: 'onChange',
         defaultValues: {
-            date: null as any,
-            arrivalTime: '',
-            purpose: '',
-            notes: '',
+            date: schedule === null ? (null as any) : fromDayKey(schedule.date),
+            arrivalTime: schedule?.arrivalTime ?? '',
+            purpose: schedule?.title ?? '',
+            notes: schedule?.notes ?? '',
+            clientId: null,
+            reason: '',
         },
     });
 
@@ -196,7 +279,13 @@ const Page = ({
         isSendingRef.current = true;
         setIsSending(true);
 
-        const outcome = await sendBooking({ ...values, date: values.date });
+        const outcome =
+            schedule === null
+                ? await sendBooking({ ...values, date: values.date })
+                : await sendUpdate(schedule.id, {
+                      ...values,
+                      date: values.date,
+                  });
 
         isSendingRef.current = false;
         setIsSending(false);
@@ -210,6 +299,14 @@ const Page = ({
                 if (message) {
                     setError(field, { type: 'server', message });
                 }
+            }
+
+            // The appointment itself can no longer change (approved, moved or cancelled meanwhile).
+            if (outcome.errors.schedule) {
+                setResult({
+                    status: 'error',
+                    message: outcome.errors.schedule,
+                });
             }
 
             return;
@@ -232,12 +329,20 @@ const Page = ({
             status: 'success',
             date: values.date,
             arrivalTime: values.arrivalTime,
+            clientName: client?.name ?? null,
         });
     };
 
     const handleSuccessClose = () => {
+        if (isUpdate) {
+            router.visit(scheduleHref);
+
+            return;
+        }
+
         setResult(null);
         reset();
+        setClient(null);
         setMonth(studioToday);
     };
 
@@ -247,17 +352,25 @@ const Page = ({
 
     const dateError = formState.errors.date?.message;
 
-    if (!can(permissions.scheduleCreate)) {
+    if (
+        !can(isUpdate ? permissions.scheduleUpdate : permissions.scheduleCreate)
+    ) {
         return null;
     }
 
+    const heading = isUpdate ? 'Update appointment' : 'Book an appointment';
+    const description = isUpdate
+        ? !isStaff && schedule.status === 'confirmed'
+            ? 'Change the day, time or details, and say why. A new time goes back to the team to approve.'
+            : 'Change the day, time or details, and say why.'
+        : isStaff
+          ? 'Choose the client, then the day and time. It is confirmed at once.'
+          : 'Pick a day and tell us when to expect you';
+
     return (
         <div className="w-full">
-            <Head title="Book an appointment" />
-            <PageHeading
-                title="Book an appointment"
-                description="Pick a day and tell us when to expect you"
-            />
+            <Head title={heading} />
+            <PageHeading title={heading} description={description} />
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-8">
                 <div className="order-2 space-y-6 lg:order-1">
@@ -266,6 +379,35 @@ const Page = ({
                             onSubmit={handleSubmit(onSubmit)}
                             className="space-y-6"
                         >
+                            {isUpdate && schedule.clientName ? (
+                                <div data-testid="updating-client">
+                                    <p className="text-sm font-medium text-foreground">
+                                        Client
+                                    </p>
+                                    <p className="mt-1 text-sm font-bold">
+                                        {schedule.clientName}
+                                    </p>
+                                </div>
+                            ) : null}
+
+                            {isStaff && !isUpdate ? (
+                                <BookingClientPicker
+                                    value={client}
+                                    onChange={(account) => {
+                                        setClient(account);
+                                        setValue(
+                                            'clientId',
+                                            account?.id ?? null,
+                                            {
+                                                shouldValidate:
+                                                    account !== null,
+                                            },
+                                        );
+                                    }}
+                                    error={formState.errors.clientId?.message}
+                                />
+                            ) : null}
+
                             <div>
                                 <p className="text-sm font-medium text-foreground">
                                     {date
@@ -355,6 +497,26 @@ const Page = ({
                                 )}
                             </FormField>
 
+                            {isUpdate ? (
+                                <FormField
+                                    id="reason"
+                                    label="Reason for change *"
+                                    error={formState.errors.reason?.message}
+                                >
+                                    {({ describedBy, invalid }) => (
+                                        <Textarea
+                                            id="reason"
+                                            {...methods.register('reason')}
+                                            rows={3}
+                                            className="rounded-none"
+                                            placeholder="e.g. The client asked for a later time"
+                                            aria-invalid={invalid}
+                                            aria-describedby={describedBy}
+                                        />
+                                    )}
+                                </FormField>
+                            ) : null}
+
                             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                                 <Button
                                     asChild
@@ -376,6 +538,10 @@ const Page = ({
                                             <Spinner />
                                             Sending...
                                         </>
+                                    ) : isUpdate ? (
+                                        'Update appointment'
+                                    ) : isStaff ? (
+                                        'Book appointment'
                                     ) : (
                                         'Request appointment'
                                     )}
@@ -405,8 +571,27 @@ const Page = ({
                     result?.status === 'success'
                         ? {
                               status: 'success',
-                              title: 'Appointment requested',
-                              description: (
+                              title: isUpdate
+                                  ? 'Appointment updated'
+                                  : isStaff
+                                    ? 'Appointment booked'
+                                    : 'Appointment requested',
+                              description: isUpdate ? (
+                                  <>
+                                      It is now on{' '}
+                                      {formatFullDate.format(result.date)} at{' '}
+                                      {slotLabel(result.arrivalTime)}. The
+                                      client is told in their Regray chat.
+                                  </>
+                              ) : isStaff ? (
+                                  <>
+                                      {result.clientName} is expected on{' '}
+                                      {formatFullDate.format(result.date)} at{' '}
+                                      {slotLabel(result.arrivalTime)}. It is
+                                      confirmed, and they have been told in
+                                      their Regray chat.
+                                  </>
+                              ) : (
                                   <>
                                       We&apos;ll expect you on{' '}
                                       {formatFullDate.format(result.date)} at{' '}
@@ -420,19 +605,23 @@ const Page = ({
                                               Back to schedule
                                           </Link>
                                       </Button>
-                                      <Button
-                                          variant="outline"
-                                          onClick={handleSuccessClose}
-                                      >
-                                          Book another
-                                      </Button>
+                                      {isUpdate ? null : (
+                                          <Button
+                                              variant="outline"
+                                              onClick={handleSuccessClose}
+                                          >
+                                              Book another
+                                          </Button>
+                                      )}
                                   </>
                               ),
                           }
                         : result?.status === 'error'
                           ? {
                                 status: 'error',
-                                title: "We couldn't book your appointment",
+                                title: isUpdate
+                                    ? "We couldn't update the appointment"
+                                    : "We couldn't book your appointment",
                                 description:
                                     result.message ??
                                     'Something went wrong on our side. Your answers are still here, so you can try again.',

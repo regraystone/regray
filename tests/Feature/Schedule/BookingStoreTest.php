@@ -133,7 +133,8 @@ it('takes a client booking from tomorrow on, and nothing for today', function ()
 // Staff saving is still a stub, so this asserts on validation only.
 it('lets staff book a slot still ahead today, up to the last one, and not one already past or yesterday', function (): void {
     $staff = inquiryClient(Role::Marketing);
-    $book = fn (array $overrides) => $this->actingAs($staff)->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', ...$overrides]));
+    $client = inquiryClient();
+    $book = fn (array $overrides) => $this->actingAs($staff)->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', 'clientId' => $client->id, ...$overrides]));
 
     $book(['arrivalTime' => '13:30'])->assertSessionHasNoErrors();
     $book(['arrivalTime' => '18:00'])->assertSessionHasNoErrors();
@@ -143,5 +144,68 @@ it('lets staff book a slot still ahead today, up to the last one, and not one al
     $book(['date' => '2026-10-13'])->assertSessionHasErrors(['date' => 'Choose a day from today on']);
 });
 
-// TODO(staff-booking): when staff can book for a client, cover it here: the
-// schedule is the picked client's, booked by the staff member.
+it('books for the client staff chose, confirmed at once with the staff member as its approver, and tells the client', function (Role $role): void {
+    $staff = inquiryClient($role);
+    $client = inquiryClient();
+
+    $this->actingAs($staff)
+        ->post(route('schedule.book.store'), bookingInput(['clientId' => $client->id]))
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas(SessionKey::FLASH_DATA.'.booking.status', 'success');
+
+    $schedule = Schedule::query()->sole();
+
+    expect($schedule->client_id)->toBe($client->id)
+        ->and($schedule->booked_by)->toBe($staff->id)
+        ->and($schedule->booked_by_type)->toBe(BookedByType::Staff)
+        ->and($schedule->status)->toBe(ScheduleStatus::Confirmed)
+        ->and($schedule->approved_by)->toBe($staff->id)
+        ->and($schedule->approved_at)->not->toBeNull();
+
+    $card = Message::query()->where('type', MessageType::ScheduleCard)->sole();
+    $thread = Conversation::query()->find($card->conversation_id);
+
+    expect($card->announced_status)->toBe('confirmed')
+        ->and($thread->type)->toBe(ConversationType::Support)
+        ->and($thread->support_client_id)->toBe($client->id);
+})->with([Role::Marketing, Role::Sales]);
+
+it('keeps booking from the staff who only view the schedule', function (Role $role): void {
+    $staff = inquiryClient($role);
+
+    $this->actingAs($staff)->get(route('schedule.index'))->assertOk();
+    $this->actingAs($staff)->get(route('schedule.book'))->assertForbidden();
+    $this->actingAs($staff)
+        ->post(route('schedule.book.store'), bookingInput(['clientId' => inquiryClient()->id]))
+        ->assertForbidden();
+
+    expect(Schedule::query()->count())->toBe(0);
+})->with([Role::Owner, Role::Technical, Role::Logistics]);
+
+it('refuses a staff booking with no client, or one naming staff instead of a client account', function (): void {
+    $staff = inquiryClient(Role::Sales);
+
+    $this->actingAs($staff)
+        ->post(route('schedule.book.store'), bookingInput())
+        ->assertSessionHasErrors(['clientId' => 'Choose the client this appointment is for']);
+
+    $this->actingAs($staff)
+        ->post(route('schedule.book.store'), bookingInput(['clientId' => inquiryClient(Role::Marketing)->id]))
+        ->assertSessionHasErrors(['clientId' => 'Choose a client with a Regray account']);
+
+    expect(Schedule::query()->count())->toBe(0);
+});
+
+it('finds the client accounts for staff booking, and keeps a client out', function (): void {
+    $client = inquiryClient();
+    $client->update(['name' => 'Ramona Booker']);
+
+    $this->actingAs(inquiryClient(Role::Sales))
+        ->getJson(route('schedule.book.accounts', ['search' => 'Ramona']))
+        ->assertOk()
+        ->assertJsonPath('accounts.0.id', $client->id);
+
+    $this->actingAs($client)
+        ->getJson(route('schedule.book.accounts', ['search' => 'Ramona']))
+        ->assertForbidden();
+});

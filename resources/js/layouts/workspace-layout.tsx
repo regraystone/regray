@@ -108,6 +108,9 @@ export const permissions = {
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
     scheduleCreate: 'schedule.create',
+    scheduleUpdate: 'schedule.update',
+    scheduleCancel: 'schedule.cancel',
+    scheduleApprove: 'schedule.approve',
     conversationsCreate: 'conversations.create',
     supportClaim: 'support.claim',
 } as const;

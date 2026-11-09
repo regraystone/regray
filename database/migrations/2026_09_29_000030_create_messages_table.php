@@ -18,7 +18,12 @@ use Illuminate\Support\Facades\Schema;
  *   its stage has started. It is posted once per conversation, inquiry and snapshot (a
  *   NULL counting as equal to a NULL), so a retried listener cannot post the
  *   same change twice.
- * - A schedule card announces a visit's status in `announced_status`.
+ * - A schedule card announces a visit's status in `announced_status`, as it
+ *   stood at that change: its arrival (`announced_arrival_at`) and the reason
+ *   given (`announced_reason`), so an older card keeps its own time after the
+ *   visit moves. It is posted once per conversation, visit, status and
+ *   revision (`schedule_revision`, the visit's `revision` at the change), so a
+ *   retried listener posts it once while a second adjustment posts a second.
  *
  * `conversations.pool_notified_message_id` points at this table while this
  * table points at `conversations`, so that one foreign key is added here, once
@@ -40,6 +45,9 @@ return new class extends Migration
             $table->string('announced_sales_status', 20)->nullable();
             $table->string('announced_payment_status', 20)->nullable();
             $table->string('announced_process_status', 20)->nullable();
+            $table->unsignedInteger('schedule_revision')->nullable();
+            $table->timestampTz('announced_arrival_at')->nullable();
+            $table->string('announced_reason', 255)->nullable();
             $table->foreignId('reply_to_id')->nullable()->constrained('messages')->nullOnDelete();
             $table->uuid('client_key')->nullable();
             $table->string('system_event', 30)->nullable();
@@ -55,18 +63,22 @@ return new class extends Migration
         });
 
         $noSnapshot = 'announced_sales_status IS NULL AND announced_payment_status IS NULL AND announced_process_status IS NULL';
+        $noScheduleSnapshot = 'schedule_revision IS NULL AND announced_arrival_at IS NULL AND announced_reason IS NULL';
 
         DB::statement("
             ALTER TABLE messages ADD CONSTRAINT chk_messages_type CHECK (
                 (type = 'text' AND body IS NOT NULL AND system_event IS NULL AND system_user_id IS NULL AND inquiry_id IS NULL AND schedule_id IS NULL AND announced_status IS NULL
-                    AND {$noSnapshot})
+                    AND {$noSnapshot} AND {$noScheduleSnapshot})
                 OR (type = 'inquiry_card' AND body IS NULL AND inquiry_id IS NOT NULL AND schedule_id IS NULL AND system_event IS NULL AND system_user_id IS NULL
                     AND announced_status IS NOT NULL
-                    AND announced_status IN ('pending','cancelled','closed','negotiation','site_visited','on_hold','quoted','revision','won','order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','delayed','for_refund','refunded'))
+                    AND announced_status IN ('pending','cancelled','closed','negotiation','site_visited','on_hold','quoted','revision','won','order_received','measure','sourcing','production','quality_check','ready','dispatched','installation','delayed','for_refund','refunded')
+                    AND {$noScheduleSnapshot})
                 OR (type = 'schedule_card' AND body IS NULL AND schedule_id IS NOT NULL AND announced_status IS NOT NULL AND inquiry_id IS NULL AND system_event IS NULL AND system_user_id IS NULL
-                    AND {$noSnapshot})
+                    AND {$noSnapshot}
+                    AND announced_status IN ('pending','confirmed','rescheduled','served','cancelled','expired')
+                    AND schedule_revision IS NOT NULL AND announced_arrival_at IS NOT NULL)
                 OR (type = 'system' AND body IS NULL AND system_event IS NOT NULL AND inquiry_id IS NULL AND schedule_id IS NULL AND announced_status IS NULL
-                    AND {$noSnapshot})
+                    AND {$noSnapshot} AND {$noScheduleSnapshot})
             )
         ");
         DB::statement("ALTER TABLE messages ADD CONSTRAINT chk_messages_system_event CHECK (system_event IS NULL OR system_event IN ('assigned','released','reassigned'))");
@@ -79,7 +91,7 @@ return new class extends Migration
                 (COALESCE(announced_sales_status, '')), (COALESCE(announced_payment_status, '')), (COALESCE(announced_process_status, ''))
             ) WHERE type = 'inquiry_card'
         ");
-        DB::statement("CREATE UNIQUE INDEX idx_messages_schedule_card_once ON messages (conversation_id, schedule_id, announced_status) WHERE type = 'schedule_card'");
+        DB::statement("CREATE UNIQUE INDEX idx_messages_schedule_card_once ON messages (conversation_id, schedule_id, announced_status, schedule_revision) WHERE type = 'schedule_card'");
 
         Schema::table('conversations', function (Blueprint $table) {
             $table->foreign('pool_notified_message_id')->references('id')->on('messages')->nullOnDelete();

@@ -64,10 +64,12 @@ interface MessageRepositoryInterface
     ): ?Message;
 
     /**
-     * Post a schedule card once. Returns null when the same card is already in
-     * the conversation, which is what a retried listener will find.
+     * Post a schedule card once per status and revision, with the appointment's
+     * arrival and reason as that change left them. Returns null when the same
+     * card is already in the conversation, which is what a retried listener
+     * will find.
      */
-    public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus): ?Message;
+    public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus, int $revision, CarbonInterface $arrivalAt, ?string $reason): ?Message;
 
     /** Whether the message belongs to the conversation. */
     public function belongsTo(int $messageId, int $conversationId): bool;

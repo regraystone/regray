@@ -189,6 +189,13 @@ test('guards every route with exactly these permissions', function () {
         'schedule.index' => $p(Permission::ScheduleView),
         'schedule.book' => $p(Permission::ScheduleView, Permission::ScheduleCreate),
         'schedule.book.store' => $p(Permission::ScheduleCreate),
+        'schedule.book.accounts' => $p(Permission::ScheduleView, Permission::ScheduleCreate),
+        'schedule.edit' => $p(Permission::ScheduleView, Permission::ScheduleUpdate),
+        'schedule.update' => $p(Permission::ScheduleUpdate),
+        'schedule.cancel' => $p(Permission::ScheduleCancel),
+        'schedule.approve' => $p(Permission::ScheduleApprove),
+        'schedule.serve' => $p(Permission::ScheduleUpdate),
+        'schedule.no-show' => $p(Permission::ScheduleUpdate),
         'inbox.index' => $messages,
         'inbox.people' => $p(Permission::MessagesView, Permission::ConversationsCreate),
         'inbox.groups.store' => $p(Permission::MessagesView, Permission::ConversationsCreate),
@@ -216,6 +223,7 @@ test('guards every route with exactly these permissions', function () {
         'user-password.update' => $p(Permission::ProfileView),
         'profile.schedule' => $p(Permission::ProfileView, Permission::ProfileScheduleView),
         'profile.schedule.book' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate),
+        'profile.schedule.edit' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleUpdate),
     ];
 
     expect(pageRoutes()->mapWithKeys(fn (RoutingRoute $route) => [$route->getName() => guardsFor($route->getName())])->all())

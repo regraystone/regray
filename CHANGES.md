@@ -1,3 +1,27 @@
+# Staff booking, and updating, cancelling and approving appointments
+
+**Who may do what** (the server enforces every row; the super-admin passes every check, but is still held to the status rules):
+
+|                                                       | Client                   | Marketing                         | Sales                    | Owner, accounting, technical, logistics |
+| ----------------------------------------------------- | ------------------------ | --------------------------------- | ------------------------ | --------------------------------------- |
+| Book                                                  | for themselves (pending) | for a client (confirmed)          | for a client (confirmed) | no (they view the schedule only)        |
+| Update (`schedule.update`)                            | own bookings only        | any                               | any                      | no                                      |
+| Cancel (`schedule.cancel`)                            | own bookings only        | any                               | any                      | no                                      |
+| Approve (`schedule.approve`)                          | no                       | pending only                      | pending only             | no                                      |
+| Mark as attended / Did not attend (`schedule.update`) | no                       | confirmed, once its time has come | same                     | no                                      |
+
+- **Staff booking:** on Book an appointment, staff first choose the client account (searched by name or email). The booking is the client's, booked by the staff member, and **confirmed at once** with that staff member as its approver. A client's own booking stays **pending** until marketing or sales approve it.
+- **Update** opens the Book an appointment page filled in with the appointment (`schedule/{id}/edit`, or `profile/schedule/{id}/edit` for a client), where the day, time, purpose and notes change under the same rules as booking (a client from tomorrow on, staff from today on), and a **Reason for change** is required (3 to 255 characters). A client who moves a confirmed appointment sends it back to **pending**; a staff update keeps it confirmed.
+- **Cancel** needs a reason. **Approve** needs none. Neither works once the appointment's time has passed.
+- **Mark as attended** turns a confirmed appointment whose time has come into **served** (the status formerly called `completed`, renamed everywhere a schedule uses it). **Did not attend** cancels it with the reason "Did not attend".
+- **Expired:** an appointment still pending when its time passes becomes **expired**, by `schedules:expire` every five minutes.
+- **Inquiry visits** are confirmed from the start and follow their inquiry: none of these actions apply to them, they post no schedule cards, and their date can be changed from the inquiry until the client approves the quotation (a confirmed visit no longer locks it).
+- **Cards:** booking, updating, cancelling, approving, served and expired each post a card in the client's Regray chat ("Appointment rescheduled", "Booking cancelled" with its reason, and so on). Each card keeps the time and reason of its own change (`messages.schedule_revision`, `announced_arrival_at`, `announced_reason`), so an older card does not move when the appointment does.
+- **Every change** is in the audit log with the actor, the values before and after, and the reason. The appointment keeps the latest reason for change (`schedules.change_reason`).
+- **The Schedule page** offers each reader only the buttons that would succeed (`can` on each visit), shows the reasons, and shows staff whose appointment it is.
+
+The schema changes are in the create migrations, and the seed data changed, so an existing database needs `migrate:fresh --seed`.
+
 # Stones follow the service, and the questions appear one by one
 
 - **Stone types are linked to services** in a new table, `service_stone_type` (`Service::stoneTypes()`, `StoneType::services()`), separate from `stone_stone_type`, which still holds the collection filters. Each stone type in `database/seeders/data/stones.php` lists the services it is offered for, and `ServiceStoneTypeSeeder` links them after `ServiceSeeder` and `StoneSeeder`. A stone fits a service when its **primary** type (`stones.stone_type_id`) is linked to it (`Stone::offeredFor()`).

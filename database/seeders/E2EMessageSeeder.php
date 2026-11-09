@@ -185,8 +185,18 @@ class E2EMessageSeeder extends Seeder
                     'arrival_at' => Carbon::now()->addDays(5)->setTime(10, 30),
                     'status' => $status,
                     'cancel_reason' => $status === ScheduleStatus::Cancelled ? 'Client asked to move it' : null,
+                    'cancelled_at' => $status === ScheduleStatus::Cancelled ? Carbon::now() : null,
+                    'approved_by' => in_array($status, [ScheduleStatus::Confirmed, ScheduleStatus::Served], true) ? $sales->id : null,
+                    'approved_at' => in_array($status, [ScheduleStatus::Confirmed, ScheduleStatus::Served], true) ? Carbon::now() : null,
                 ])->save();
-                $this->card($group, ['type' => MessageType::ScheduleCard, 'schedule_id' => $schedule->id, 'announced_status' => $status->value]);
+                $this->card($group, [
+                    'type' => MessageType::ScheduleCard,
+                    'schedule_id' => $schedule->id,
+                    'announced_status' => $status->value,
+                    'schedule_revision' => 0,
+                    'announced_arrival_at' => $schedule->arrival_at,
+                    'announced_reason' => $schedule->cancel_reason,
+                ]);
                 $schedules[] = ['status' => $status->value, 'bookedByType' => $type->value, 'title' => $schedule->title];
             }
         }
@@ -200,8 +210,10 @@ class E2EMessageSeeder extends Seeder
             'title' => $longTitle,
             'arrival_at' => Carbon::now()->addDays(6)->setTime(9, 0),
             'status' => ScheduleStatus::Confirmed,
+            'approved_by' => $sales->id,
+            'approved_at' => Carbon::now(),
         ])->save();
-        $this->card($group, ['type' => MessageType::ScheduleCard, 'schedule_id' => $longSchedule->id, 'announced_status' => 'confirmed']);
+        $this->card($group, ['type' => MessageType::ScheduleCard, 'schedule_id' => $longSchedule->id, 'announced_status' => 'confirmed', 'schedule_revision' => 0, 'announced_arrival_at' => $longSchedule->arrival_at]);
 
         $this->fixtures['cards'] = [
             'conversationId' => $group->id,
