@@ -30,6 +30,20 @@ function schemaInquiry(): int
     ]);
 }
 
+/** A service under a service type of its own, linked to no stone type. */
+function schemaService(): int
+{
+    $suffix = random_int(100000, 999999);
+    $typeId = DB::table('service_types')->insertGetId([
+        'slug' => "type-{$suffix}", 'name' => "Type {$suffix}", 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    return DB::table('services')->insertGetId([
+        'service_type_id' => $typeId, 'slug' => "service-{$suffix}", 'name' => "Service {$suffix}",
+        'description' => 'Test', 'features' => '[]', 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+}
+
 /** A lead for a client of its own unless one is given. A lead has no status. */
 function schemaLead(?int $clientId = null, ?string $reference = null): int
 {
@@ -283,6 +297,13 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     'removing a brand its stones use' => ['stones_brand_id_foreign', fn () => Stone::factory()->create()->brand->delete()],
     'removing a brand its furniture uses' => ['furniture_brand_id_foreign', fn () => Furniture::factory()->create()->brand->delete()],
     'removing a type its stones use' => ['stones_stone_type_id_foreign', fn () => Stone::factory()->create()->type->forceDelete()],
+    'service stone type: the same pair twice' => ['service_stone_type_pkey', function () {
+        $serviceId = schemaService();
+        $typeId = StoneType::factory()->create()->id;
+        DB::table('service_stone_type')->insert(['service_id' => $serviceId, 'stone_type_id' => $typeId]);
+        DB::table('service_stone_type')->insert(['service_id' => $serviceId, 'stone_type_id' => $typeId]);
+    }],
+    'service stone type: a service that does not exist' => ['service_stone_type_service_id_foreign', fn () => DB::table('service_stone_type')->insert(['service_id' => 999999, 'stone_type_id' => StoneType::factory()->create()->id])],
 ]);
 
 test('starts an inquiry with no lead and no stage, and takes every role value or NULL', function () {
@@ -374,4 +395,23 @@ test('frees a stone or type identifier when it is soft-deleted, and drops a ston
 
     $stone->forceDelete();
     expect(StoneImage::query()->find($image->id))->toBeNull();
+});
+
+test('drops a service\'s stone type links with the service or the type, and keeps the collection filters apart', function () {
+    $type = StoneType::factory()->create();
+    $other = StoneType::factory()->create();
+    $stone = Stone::factory()->for($type, 'type')->create();
+    $stone->attachPrimaryFilterOptions();
+    $serviceId = schemaService();
+    DB::table('service_stone_type')->insert([
+        ['service_id' => $serviceId, 'stone_type_id' => $type->id],
+        ['service_id' => $serviceId, 'stone_type_id' => $other->id],
+    ]);
+
+    $other->forceDelete();
+    expect(DB::table('service_stone_type')->where('service_id', $serviceId)->pluck('stone_type_id')->all())->toBe([$type->id]);
+
+    DB::table('services')->where('id', $serviceId)->delete();
+    expect(DB::table('service_stone_type')->count())->toBe(0)
+        ->and(DB::table('stone_stone_type')->where('stone_id', $stone->id)->pluck('stone_type_id')->all())->toBe([$type->id]);
 });

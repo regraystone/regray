@@ -123,7 +123,7 @@ describe('the edit page', function (): void {
 describe('saving the edit', function (): void {
     it('changes the fields and the service, replaces the stones, moves the visit, and writes an audit row', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
-        $otherStone = Stone::query()->active()->orderByDesc('id')->value('slug');
+        $otherStone = offeredStoneSlug('countertop', 1);
         $historyRows = InquiryStatusHistory::query()->count();
 
         $this->actingAs($this->client)
@@ -176,6 +176,51 @@ describe('saving the edit', function (): void {
         expect($inquiry->fresh()->service_id)->toBe($flooring)
             ->and(AuditLog::query()->sole()->old_values['service_id'])->toBe($before)
             ->and(AuditLog::query()->sole()->new_values['service_id'])->toBe($flooring);
+    });
+
+    it('keeps the inquiry\'s own stone only while it still fits the service', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['notes' => 'Second floor.'])]])
+            ->assertSessionHasNoErrors();
+
+        $stone = $inquiry->stones()->sole()->stone;
+        Service::query()->where('slug', 'slab-supply-only')->firstOrFail()->stoneTypes()->detach($stone->stone_type_id);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['notes' => 'Third floor.'])]])
+            ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
+
+        expect($inquiry->fresh()->notes)->toBe('Second floor.');
+    });
+
+    it('refuses a change of service that leaves a stone the new service does not offer, for the client and for staff', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'stones' => [[...$row, 'stoneId' => unofferedStoneSlug('countertop')]]])]);
+        $edit = projectEdit($inquiry, ['serviceId' => 'countertop', 'stones' => [[...$row, 'stoneId' => unofferedStoneSlug('countertop')]]]);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [$edit]])
+            ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
+
+        $this->actingAs(User::factory()->role(Role::Sales)->create())
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [[...$edit, 'keepFileIds' => []]]])
+            ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
+
+        expect($inquiry->fresh()->service->slug)->toBe('slab-supply-only');
+    });
+
+    it('opens the edit on the stones and stone types of the inquiry\'s service', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'storage', 'stones' => [[...$row, 'stoneId' => offeredStoneSlug('storage')]]])]);
+        $storage = Service::query()->where('slug', 'storage')->firstOrFail();
+
+        $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stoneFilters.service', 'storage')
+                ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === $storage->stoneTypes->pluck('slug')->sort()->values()->all())
+                ->where('stones.data', fn ($stones) => collect($stones)->every(fn ($stone) => in_array($stone['type']['slug'], $storage->stoneTypes->pluck('slug')->all(), true))));
     });
 
     it('needs a service on an edit too', function (): void {
@@ -350,10 +395,10 @@ describe('staff editing', function (): void {
 
         // No keepFileIds: the stored file stays anyway, as it is not staff's to remove.
         $this->actingAs($staff)
-            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['serviceId' => 'tables', 'keepFileIds' => []])]])
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['serviceId' => 'staircase', 'keepFileIds' => []])]])
             ->assertSessionHasNoErrors();
 
-        expect($inquiry->fresh()->service->slug)->toBe('tables')
+        expect($inquiry->fresh()->service->slug)->toBe('staircase')
             ->and($inquiry->files()->pluck('id')->all())->toBe([$file->id])
             ->and(Storage::disk(config('inquiry.disk'))->exists($file->path))->toBeTrue();
 
@@ -374,7 +419,7 @@ describe('staff editing', function (): void {
         $this->actingAs($staff)->get(route('inquiry.edit', $inquiry->reference))
             ->assertRedirect(route('inquiry.index'));
         $this->actingAs($staff)
-            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed', 'serviceId' => 'tables'])]])
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed', 'serviceId' => 'staircase'])]])
             ->assertSessionHasErrors(['status' => InquiryStatusRules::LOCKED_AFTER_APPROVAL]);
 
         expect($inquiry->fresh()->name)->toBe('Kitchen')

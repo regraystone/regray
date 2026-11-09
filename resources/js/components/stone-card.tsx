@@ -5,6 +5,10 @@ import { Check } from 'lucide-react';
  * The whole card is the checkbox, so there is nothing else on it to press. It
  * fills the height it is given, so a row of cards is as tall as its tallest,
  * with the picture and name kept at the top (a button centres them otherwise).
+ *
+ * Picked, its frame thickens inward (an outline inset just inside the border,
+ * drawn over the picture) rather than outward, so a card at the end of the
+ * scrolling row is not cut off and the row needs no room beyond its own width.
  */
 const StoneCard = ({
     name,
@@ -22,7 +26,7 @@ const StoneCard = ({
     <article
         className={`h-full overflow-hidden rounded-none border bg-background ${
             selected
-                ? 'border-primary ring-2 ring-primary'
+                ? 'border-primary outline-2 -outline-offset-3 outline-primary'
                 : 'border-sidebar-border'
         }`}
         data-testid="stone-card"

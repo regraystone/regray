@@ -2,6 +2,7 @@
 
 use App\Enums\HomeGridPageSize;
 use App\Enums\InquiryStatus;
+use App\Models\Service;
 use App\Models\Stone;
 use App\Models\StoneType;
 use App\Models\User;
@@ -14,14 +15,15 @@ beforeEach(function (): void {
 });
 
 /**
- * The slugs of one page of stones on the Inquire page.
+ * The slugs of one page of stones on the Inquire page, for Slab Supply Only
+ * (which every stone type is offered for) unless `$query` names a service.
  *
  * @param  array<string, mixed>  $query
  * @return list<string>
  */
 function inquireStones(mixed $test, array $query = []): array
 {
-    return collect($test->actingAs($test->client)->get(route('quote.inquire', $query))
+    return collect($test->actingAs($test->client)->get(route('quote.inquire', ['stone_service' => 'slab-supply-only', ...$query]))
         ->assertOk()
         ->viewData('page')['props']['stones']['data'])
         ->pluck('slug')
@@ -34,7 +36,7 @@ it('sends one page of stones, not all of them', function (): void {
 
     $this->actingAs($this->client)
         ->withUnencryptedCookie(HomeGridPageSize::COOKIE, '16')
-        ->get(route('quote.inquire'))
+        ->get(route('quote.inquire', ['stone_service' => 'slab-supply-only']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('stones.data', 16)
             ->where('stoneFilters.perPage', 16));
@@ -50,12 +52,64 @@ it('sends the next page, with no stone twice', function (): void {
 
 it('offers the stone types of the active stones', function (): void {
     $empty = StoneType::factory()->create();
+    Service::query()->where('slug', 'slab-supply-only')->firstOrFail()->stoneTypes()->attach($empty);
 
-    $types = $this->actingAs($this->client)->get(route('quote.inquire'))->viewData('page')['props']['stoneTypes'];
+    $types = $this->actingAs($this->client)->get(route('quote.inquire', ['stone_service' => 'slab-supply-only']))->viewData('page')['props']['stoneTypes'];
 
     expect(collect($types)->pluck('value'))
         ->toContain(Stone::query()->active()->first()->type->slug)
         ->not->toContain($empty->slug);
+});
+
+it('sends no stones and no stone types until a service is chosen', function (): void {
+    foreach ([[], ['stone_service' => 'no-such-service']] as $query) {
+        $this->actingAs($this->client)
+            ->get(route('quote.inquire', $query))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('stones.data', 0)
+                ->where('stoneTypes', [])
+                ->where('stoneFilters.service', null));
+    }
+});
+
+it('sends only the stones whose primary type is linked to the service', function (): void {
+    $countertop = Service::query()->where('slug', 'countertop')->firstOrFail();
+    $linked = $countertop->stoneTypes->modelKeys();
+    $offered = Stone::query()->active()->whereIn('stone_type_id', $linked)->pluck('slug')->all();
+
+    $slugs = inquireStones($this, ['stone_service' => 'countertop']);
+
+    expect($slugs)->not->toBeEmpty()
+        ->each->toBeIn($offered)
+        ->and($slugs)->not->toContain(unofferedStoneSlug('countertop'));
+});
+
+it('lists only the stone types linked to the service that have an active stone for it', function (): void {
+    $flooring = Service::query()->where('slug', 'flooring')->firstOrFail();
+    $linked = $flooring->stoneTypes()->orderBy('sort_order')->get();
+    [$emptied] = $linked->all();
+    Stone::query()->where('stone_type_id', $emptied->id)->update(['is_active' => false]);
+
+    $types = collect($this->actingAs($this->client)->get(route('quote.inquire', ['stone_service' => 'flooring']))->viewData('page')['props']['stoneTypes'])->pluck('value');
+
+    expect($types->all())->toBe($linked->skip(1)->pluck('slug')->values()->all())
+        ->and(StoneType::query()->whereNotIn('id', $linked->modelKeys())->pluck('slug')->intersect($types))->toBeEmpty();
+});
+
+it('sends the stone types again on a partial reload for another service', function (): void {
+    $this->actingAs($this->client)
+        ->get(route('quote.inquire', ['stone_service' => 'storage']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === Service::query()->where('slug', 'storage')->firstOrFail()->stoneTypes->pluck('slug')->sort()->values()->all())
+            ->reloadOnly(['stones', 'stoneFilters', 'stoneTypes'], fn (Assert $reload) => $reload->has('stoneTypes')));
+});
+
+it('keeps Saved and Best Seller within the service', function (): void {
+    $unoffered = Stone::query()->where('slug', unofferedStoneSlug('countertop'))->firstOrFail();
+    $offered = Stone::query()->where('slug', offeredStoneSlug('countertop'))->firstOrFail();
+    $this->client->savedStones()->attach([$unoffered->id => ['created_at' => now()], $offered->id => ['created_at' => now()]]);
+
+    expect(inquireStones($this, ['stone_service' => 'countertop', 'stone_tab' => 'saved']))->toBe([$offered->slug]);
 });
 
 it('filters by stone type', function (): void {
@@ -116,9 +170,35 @@ it('sends the stones of a restored draft only when asked, and only those still o
         ->assertInertia(fn (Assert $page) => $page->missing('pickedStones'));
 
     $this->actingAs($this->client)
-        ->get(route('quote.inquire', ['picked' => [$kept->slug, $inactive->slug, 'no-such-stone']]))
+        ->get(route('quote.inquire', ['stone_service' => 'slab-supply-only', 'picked' => [$kept->slug, $inactive->slug, 'no-such-stone']]))
         ->assertInertia(fn (Assert $page) => $page->reloadOnly('pickedStones', fn (Assert $reload) => $reload
             ->has('pickedStones', 1)
             ->where('pickedStones.0.slug', $kept->slug)
             ->where('pickedStones.0.type.slug', $kept->type->slug)));
+});
+
+it('sends the stones of a restored draft only when they fit its service', function (): void {
+    $fits = offeredStoneSlug('countertop');
+    $misfit = unofferedStoneSlug('countertop');
+
+    $this->actingAs($this->client)
+        ->get(route('quote.inquire', ['stone_service' => 'countertop', 'picked' => [$fits, $misfit]]))
+        ->assertInertia(fn (Assert $page) => $page->reloadOnly('pickedStones', fn (Assert $reload) => $reload
+            ->has('pickedStones', 1)
+            ->where('pickedStones.0.slug', $fits)));
+
+    $this->actingAs($this->client)
+        ->get(route('quote.inquire', ['picked' => [$fits]]))
+        ->assertInertia(fn (Assert $page) => $page->reloadOnly('pickedStones', fn (Assert $reload) => $reload->has('pickedStones', 0)));
+});
+
+it('does not offer a service made from no stone type, and tells the page which types each service takes', function (): void {
+    Service::query()->where('slug', 'storage')->firstOrFail()->stoneTypes()->detach();
+
+    $serviceTypes = collect($this->actingAs($this->client)->get(route('quote.inquire'))->viewData('page')['props']['serviceTypes']);
+    $services = $serviceTypes->flatMap(fn (array $type) => $type['services'])->keyBy('id');
+
+    expect($services->has('storage'))->toBeFalse()
+        ->and($services->has('tables'))->toBeTrue()
+        ->and($services['tables']['stoneTypes'])->toEqualCanonicalizing(Service::query()->where('slug', 'tables')->firstOrFail()->stoneTypes->pluck('slug')->all());
 });

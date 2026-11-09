@@ -1,6 +1,7 @@
 import { expect, test } from '../support/fixtures';
 import {
     expectStep,
+    nextButton,
     openInquire,
     openStaffInquire,
     stepper,
@@ -22,12 +23,11 @@ test('1 · a client opens /quote/inquire and lands on "Step 1 of 2 · Your reque
         'Your request',
     );
     await expect(page.locator('#inquiry-service-type')).toBeVisible();
+    // The stones and the details wait for Next.
     await expect(
         page.getByRole('heading', { name: 'Which stones?' }),
-    ).toBeVisible();
-    await expect(
-        page.getByRole('button', { name: 'Continue to review' }),
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await expect(nextButton(page)).toBeVisible();
 });
 
 test("2 · a marketing user opens a lead's inquiry on /inquiry/inquire and lands on step 1", async ({

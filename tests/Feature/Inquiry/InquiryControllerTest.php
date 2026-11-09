@@ -4,6 +4,7 @@ use App\Actions\Inquiry\CreateInquiryAction;
 use App\Enums\Role;
 use App\Models\EdgeProfile;
 use App\Models\Inquiry;
+use App\Models\Service;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Support\SessionKey;
 
@@ -48,8 +49,12 @@ it('flashes an error and keeps the page when the write fails', function (): void
 });
 
 it('sends the Inquire page its options', function (): void {
+    $slabSupplyTypes = Service::query()->where('slug', 'slab-supply-only')->firstOrFail()
+        ->stoneTypes()->orderBy('sort_order')->orderBy('stone_types.id')->pluck('slug')->all();
+
+    // The stones are the chosen service's, so one is named to have a card to check.
     $this->actingAs(inquiryClient())
-        ->get(route('quote.inquire'))
+        ->get(route('quote.inquire', ['stone_service' => 'slab-supply-only']))
         ->assertInertia(fn ($page) => $page
             ->component('inquire')
             ->has('serviceTypes', 2)
@@ -63,6 +68,7 @@ it('sends the Inquire page its options', function (): void {
                 'name' => 'Slab Supply Only',
                 'description' => 'Premium natural stone slabs supplied for your project.',
                 'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'],
+                'stoneTypes' => $slabSupplyTypes,
             ])
             ->missing('services')
             ->missing('furnitureTypes')

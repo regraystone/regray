@@ -68,6 +68,20 @@ class Stone extends Model
     }
 
     /**
+     * The active stones offered for this service: those whose primary type is
+     * linked to it. The extra types in `stone_stone_type` are the collection
+     * filters' and play no part.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function offeredFor(Builder $query, Service $service): void
+    {
+        $query->where('stones.is_active', true)
+            ->whereIn('stones.stone_type_id', $service->stoneTypes()->getQuery()->select('stone_types.id'));
+    }
+
+    /**
      * Whether the stone's type is a best seller. Asked of the request's one
      * ranking, never stored.
      *

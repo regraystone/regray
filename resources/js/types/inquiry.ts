@@ -12,6 +12,8 @@ export type InquiryStoneOption = StoneCardData;
 
 /** Which page of stones the server answered with. */
 export type InquiryStoneFilters = {
+    /** The service the stones are for; null sends none. */
+    service: string | null;
     tab: StoneFilter;
     type: string | null;
     search: string | null;
@@ -93,6 +95,15 @@ export type InquiryCatalog = {
     serviceTypes: ServiceTypeOption[];
     /** The stones the page has been sent so far. */
     stones: InquiryStoneOption[];
+    /**
+     * The picked stones this service does not offer, by the rule the server
+     * uses: a stone fits when its primary type is one the service is made from.
+     * Restored drafts, held stones and service changes all ask this.
+     */
+    stonesNotOfferedFor: (
+        stoneIds: readonly string[],
+        serviceId: string,
+    ) => InquiryStoneOption[];
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
     locations: string[];

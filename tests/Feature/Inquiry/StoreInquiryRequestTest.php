@@ -218,8 +218,13 @@ describe('stones and services', function (): void {
     });
 
     it('saves the one service of the request, however many stones it has', function (): void {
+        [$row] = twoStoneRows();
+
         postInquiry($this, [inquiryProjectInput([
-            'stones' => twoStoneRows(),
+            'stones' => [
+                [...$row, 'stoneId' => offeredStoneSlug('wall-cladding')],
+                [...$row, 'stoneId' => offeredStoneSlug('wall-cladding', 1)],
+            ],
             'serviceId' => 'wall-cladding',
         ])])->assertSessionHasNoErrors();
 
@@ -255,7 +260,52 @@ describe('stones and services', function (): void {
 
         expect(Inquiry::query()->count())->toBe(0);
 
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'tables'])])->assertSessionHasNoErrors();
+        $row = inquiryProjectInput()['stones'][0];
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'tables', 'stones' => [[...$row, 'stoneId' => offeredStoneSlug('tables')]]])])
+            ->assertSessionHasNoErrors();
+    });
+
+    it('refuses a stone whose type is not linked to the service, on that stone\'s row', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+
+        postInquiry($this, [inquiryProjectInput([
+            'serviceId' => 'countertop',
+            'stones' => [
+                [...$row, 'stoneId' => offeredStoneSlug('countertop')],
+                [...$row, 'stoneId' => unofferedStoneSlug('countertop')],
+            ],
+        ])])
+            ->assertSessionHasErrors(['projects.0.stones.1.stoneId' => 'That stone is not offered for this service.'])
+            ->assertSessionDoesntHaveErrors('projects.0.stones.0.stoneId');
+
+        expect(Inquiry::query()->count())->toBe(0);
+    });
+
+    it('accepts a stone whose type is linked to the service', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+        $stone = Stone::query()->where('slug', offeredStoneSlug('countertop'))->firstOrFail();
+
+        expect(Service::query()->where('slug', 'countertop')->firstOrFail()->stoneTypes->modelKeys())->toContain($stone->stone_type_id);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop', 'stones' => [[...$row, 'stoneId' => $stone->slug]]])])
+            ->assertSessionHasNoErrors();
+    });
+
+    it('decides the fit by the primary type alone, not the collection filter types', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+        $stone = Stone::query()->where('slug', unofferedStoneSlug('countertop'))->firstOrFail();
+        $stone->types()->syncWithoutDetaching(Service::query()->where('slug', 'countertop')->firstOrFail()->stoneTypes->modelKeys());
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop', 'stones' => [[...$row, 'stoneId' => $stone->slug]]])])
+            ->assertSessionHasErrors('projects.0.stones.0.stoneId');
+    });
+
+    it('refuses a service made from no stone type, which is not offered', function (): void {
+        Service::query()->where('slug', 'storage')->firstOrFail()->stoneTypes()->detach();
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'storage', 'stoneAdvice' => true, 'stones' => []])])
+            ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
     });
 });
 

@@ -1,6 +1,12 @@
 <?php
 
 return [
+    /*
+     * `services` are the slugs of the services in data/services.php the type is
+     * offered for: the Inquire page lists a type's stones only under them.
+     * ServiceStoneTypeSeeder links them; every service needs at least one type,
+     * or it is not offered.
+     */
     'types' => [
         [
             'slug' => 'cobblestone',
@@ -9,6 +15,7 @@ return [
             'description' => 'Granite cut into cubes and setts, the oldest paving material still in daily use. A flamed or brushed face grips underfoot in the wet, and because the stone is hard-wearing rather than soft, a laid courtyard keeps its pattern for decades.',
             'origin' => 'Brazil, India',
             'thickness_mm' => 75,
+            'services' => ['slab-supply-only', 'flooring', 'staircase', 'installation', 'other-applications'],
         ],
         [
             'slug' => 'crazy-cut',
@@ -17,6 +24,7 @@ return [
             'description' => 'Irregular flagstone pieces split and shaped to follow the ground instead of a saw line. No two pieces repeat, so a laid surface has a looser, more natural character than a rectangular tile ever will. Cut from granite, marble and limestone.',
             'origin' => 'Brazil, Italy, Turkey',
             'thickness_mm' => 25,
+            'services' => ['slab-supply-only', 'wall-cladding', 'flooring', 'installation', 'other-applications'],
         ],
         [
             'slug' => 'granite',
@@ -25,6 +33,7 @@ return [
             'description' => 'The workhorse of natural stone, granite is a dense igneous rock prized for its exceptional hardness, heat resistance, and stone-deep durability. A broad palette of speckles, veins, and tones makes it a safe, lasting choice for busy kitchens.',
             'origin' => 'Brazil, India',
             'thickness_mm' => 20,
+            'services' => ['slab-supply-only', 'countertop', 'wall-cladding', 'flooring', 'staircase', 'installation', 'other-applications', 'tables', 'seating', 'storage'],
         ],
         [
             'slug' => 'marble',
@@ -33,6 +42,7 @@ return [
             'description' => 'A classic metamorphic stone celebrated for its luminous surface and elegant, dramatic veining. Each slab is unique, bringing quiet luxury to vanities, counters, and walls.',
             'origin' => 'Italy, Turkey',
             'thickness_mm' => 18,
+            'services' => ['slab-supply-only', 'countertop', 'wall-cladding', 'flooring', 'staircase', 'installation', 'other-applications', 'tables', 'seating', 'decorative-furniture'],
         ],
         [
             'slug' => 'monumental',
@@ -41,6 +51,7 @@ return [
             'description' => 'The densest and hardest natural stone available, cut for a glass-like, mirror-polished finish. Its extreme durability and scratch resistance make it ideal for high-traffic surfaces that must stay beautiful.',
             'origin' => 'South Africa',
             'thickness_mm' => 20,
+            'services' => ['slab-supply-only', 'countertop', 'flooring', 'staircase', 'installation', 'tables', 'seating'],
         ],
         [
             'slug' => 'onyx',
@@ -49,6 +60,7 @@ return [
             'description' => 'A translucent, banded stone that literally glows when lit from behind. Prized for statement backlit features, onyx turns any surface into a piece of art.',
             'origin' => 'Iran, Turkey',
             'thickness_mm' => 18,
+            'services' => ['slab-supply-only', 'countertop', 'wall-cladding', 'installation', 'other-applications', 'tables', 'decorative-furniture'],
         ],
         [
             'slug' => 'patagonia-quartzite',
@@ -57,6 +69,7 @@ return [
             'description' => 'A show-stopping quartzite defined by sweeping cream, grey, and copper veining on a luminous white base. It pairs the beauty of marble with granite-grade toughness, performing beautifully in kitchens and on clad features.',
             'origin' => 'Brazil',
             'thickness_mm' => 18,
+            'services' => ['slab-supply-only', 'countertop', 'wall-cladding', 'installation', 'tables', 'decorative-furniture'],
         ],
         [
             'slug' => 'quartzite',
@@ -65,6 +78,7 @@ return [
             'description' => 'A naturally metamorphosed, quartz-rich stone that pairs marble-like movement with granite-grade strength. Its low porosity and heat resistance make it a favorite for high-traffic kitchen counters.',
             'origin' => 'Brazil, Norway',
             'thickness_mm' => 18,
+            'services' => ['slab-supply-only', 'countertop', 'wall-cladding', 'flooring', 'installation', 'tables', 'seating', 'storage', 'decorative-furniture'],
         ],
         [
             'slug' => 'travertine',
@@ -73,6 +87,7 @@ return [
             'description' => 'A warm, porous sedimentary stone with soft, earthy tones and a naturally pitted texture. Its time-honored character brings old-world warmth to bathrooms, patios, and feature walls.',
             'origin' => 'Turkey, Italy',
             'thickness_mm' => 20,
+            'services' => ['slab-supply-only', 'wall-cladding', 'flooring', 'staircase', 'installation', 'other-applications', 'decorative-furniture'],
         ],
     ],
     'stones' => [

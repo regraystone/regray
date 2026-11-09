@@ -11,6 +11,7 @@ import {
     expectStep,
     openInquire,
     pickStone,
+    pressNext,
     SERVICE_TYPE_ID,
     walkToStones,
 } from '../support/inquiry-flow';
@@ -65,11 +66,13 @@ test('25 · after a reload the draft is back, and never on Review unless its ans
 
     await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
+    // Every question the draft reaches comes back, all open.
     await page.reload();
     await expectStep(page, 3);
+    await expect(page.locator('#inquiry-service')).toBeVisible();
 
     // A stored step further on than the answers allow is pulled back.
     await page.evaluate((key) => {
@@ -97,7 +100,7 @@ test('26 · "Start new" clears the draft, and a reload stays empty', async ({
     await openInquire(page);
     await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
     await page.goto('/dashboard/quote');
@@ -133,7 +136,7 @@ test("27 · on a shared browser, client B never sees client A's draft", async ({
     await openInquire(page);
     await walkToStones(page);
     await pickStone(page, CATALOG.stones[0]);
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await expect.poll(() => storedDraft(page, clientAId)).not.toBeNull();
 
     await signOut(page);

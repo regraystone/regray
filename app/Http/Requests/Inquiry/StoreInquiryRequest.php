@@ -117,6 +117,11 @@ class StoreInquiryRequest extends FormRequest
      * no longer offered, or whose service type is not, is refused unless this
      * inquiry already has it (heldServiceSlugs()).
      *
+     * Every stone has to be offered for the project's service: its primary type
+     * linked to the service. The error is on the stone's row. This holds for an
+     * edit too, for the stones the inquiry already has as much as for new ones,
+     * since the page removes the stones that no longer fit before it sends.
+     *
      * Every project needs a date, because sending the inquiry books it as a
      * schedule, for 10:00, when the showroom opens.
      *
@@ -134,6 +139,7 @@ class StoreInquiryRequest extends FormRequest
                 $projects = $this->input('projects', []);
                 $services = $this->servicesFor($projects);
                 $held = $this->heldServiceSlugs();
+                $stoneTypeIds = $this->stoneTypeIdsFor($projects);
 
                 foreach ($projects as $index => $project) {
                     /** @var Service $service */
@@ -141,6 +147,14 @@ class StoreInquiryRequest extends FormRequest
 
                     if (! $service->isOffered() && ! in_array($service->slug, $held, true)) {
                         $validator->errors()->add("projects.{$index}.serviceId", 'That choice is no longer available.');
+                    }
+
+                    $linked = $service->stoneTypes->modelKeys();
+
+                    foreach ($project['stones'] ?? [] as $row => $stone) {
+                        if (! in_array($stoneTypeIds[$stone['stoneId']] ?? null, $linked, true)) {
+                            $validator->errors()->add("projects.{$index}.stones.{$row}.stoneId", 'That stone is not offered for this service.');
+                        }
                     }
 
                     if (empty($project['neededBy'])) {
@@ -175,10 +189,30 @@ class StoreInquiryRequest extends FormRequest
     private function servicesFor(array $projects): Collection
     {
         return Service::query()
-            ->with('serviceType')
+            ->with(['serviceType', 'stoneTypes:stone_types.id'])
             ->whereIn('slug', array_unique(array_column($projects, 'serviceId')))
             ->get()
             ->keyBy('slug');
+    }
+
+    /**
+     * The primary stone type of every stone the projects name, by slug.
+     *
+     * @param  array<int, array<string, mixed>>  $projects
+     * @return array<string, int>
+     */
+    private function stoneTypeIdsFor(array $projects): array
+    {
+        $slugs = [];
+
+        foreach ($projects as $project) {
+            foreach ($project['stones'] ?? [] as $stone) {
+                $slugs[] = $stone['stoneId'];
+            }
+        }
+
+        /** @var array<string, int> */
+        return Stone::query()->whereIn('slug', array_unique($slugs))->pluck('stone_type_id', 'slug')->all();
     }
 
     /**

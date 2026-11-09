@@ -106,7 +106,7 @@ return [
                 'service' => 'countertop',
                 'stones' => [
                     ['stone_slug' => 'onyx', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
-                    ['stone_slug' => 'cobblestone', 'quantity' => 10, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
+                    ['stone_slug' => 'granite', 'quantity' => 10, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
                 ],
                 'location' => 'Quezon City',
                 'landmark' => null,
@@ -318,7 +318,7 @@ return [
                 'name' => 'Brightleaf Studio — Feature Wall',
                 'service' => 'seating',
                 'stones' => [
-                    ['stone_slug' => 'onyx', 'quantity' => 6, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                    ['stone_slug' => 'marble', 'quantity' => 6, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
                 'location' => 'Pasig',
                 'landmark' => null,
@@ -353,7 +353,7 @@ return [
                     ['stone_slug' => 'quartzite', 'quantity' => 7, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
                     ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                     ['stone_slug' => 'granite', 'quantity' => 4, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
-                    ['stone_slug' => 'crazy-cut', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
+                    ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'location' => 'Makati',
                 'landmark' => 'Second floor, beside the mezzanine staircase',

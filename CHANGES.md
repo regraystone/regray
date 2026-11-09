@@ -1,4 +1,19 @@
+# Stones follow the service, and the questions appear one by one
+
+- **Stone types are linked to services** in a new table, `service_stone_type` (`Service::stoneTypes()`, `StoneType::services()`), separate from `stone_stone_type`, which still holds the collection filters. Each stone type in `database/seeders/data/stones.php` lists the services it is offered for, and `ServiceStoneTypeSeeder` links them after `ServiceSeeder` and `StoneSeeder`. A stone fits a service when its **primary** type (`stones.stone_type_id`) is linked to it (`Stone::offeredFor()`).
+- **A service made from no stone type is not offered**: `Service::isOffered()` needs a linked type, step 1 leaves it out, and the request refuses it.
+- **Which stones?** lists only the stones offered for the chosen service (`stone_service`, a service slug; with none, no stones). The stone type filter, the dropdown from `md` up and the pills below it, lists only the service's types that have a stone for it. `stoneTypes` is no longer an `Inertia::once` prop: a once prop is left out of later full visits, so the page would show the previous service's types. It is reloaded with the stones. Saved and Best Seller stay within the service. A restored draft's `pickedStones` and an edit's stones are checked against the same service.
+- **Changing the service** starts the search and the type again, and takes off the picked stones the new service does not offer, saying which on step 2 ("Removed Carrara for this service; it is not offered for Countertop."). A restored draft, and an edit whose stones no longer fit, are treated the same way.
+- **The request refuses a stone its service does not offer**, on that stone's row (`projects.{i}.stones.{j}.stoneId`, "That stone is not offered for this service."). An edit is held to the same rule, for the inquiry's own stones too, whether the service changed or not.
+- **Other details, with no stone picked**, says "Choose the stones you want in step 2 first. Their edge, finish and slab size will show here." with a button that scrolls back up to the stones, and step 2 says "Choose what you need first" until a service is chosen. With Help me choose that area is empty. The rest of the details stay as they are.
+- **The questions appear one by one.** On first open only **1. What do you need?** is shown, with **Next** in the footer. Next checks that question alone ("Choose what you need." inline) and shows **2. Which stones?** under it; its Next, once a stone is picked, shows **3. Other details**, whose footer keeps **Continue to review**. **Help me choose** shows Other details at once. Every question shown stays open with all its fields, with no summaries and no Change button, so an earlier answer is changed where it was given. A restored draft shows every question its answers reach, and an edit or a project reopened from Review shows all three.
+- Stored drafts keep version 8: their shape did not change.
+
+The table is a new create migration and the seed data changed (three seeded inquiries now use stones their service offers), so an existing database needs `migrate:fresh --seed`.
+
 # The first step is one page, with slab sizes and Installation
+
+_Its first point is superseded by "Stones follow the service, and the questions appear one by one" above: the questions now appear one at a time with Next, and stay open once shown._
 
 - **Step 1 shows every question at once:** What do you need, Which stones and Other details are all open, with no Next or Change buttons. The one way forward is **Continue to review**, which points at whichever question still needs an answer. The stone count and Clear sit above the grid.
 - **The stones are one row that scrolls sideways** (swipe, or the previous and next arrows on every screen, each hidden at its end), two cards to a view on a phone and three from `md`, all as tall as the tallest. The next page loads as the row reaches its end, so the details under it never move.
@@ -14,6 +29,8 @@
 - **Clients** are emailed "waiting for your reply" (`AwaitingReplyNotification`) when they have not replied after 30 minutes (`MESSAGE_REMINDER_CLIENT_AFTER_MINUTES`), whether or not they have read the message. It replaces their unread reminder, and goes out once per batch of messages.
 
 # Inquire asks what you need first
+
+_Partly superseded by "Stones follow the service, and the questions appear one by one" above: the stones and the type filter follow the service, and `stoneTypes` is no longer a once prop._
 
 The steps are now **1. What do you need?**, **2. Which stones?**, **3. Other details** and **4. Review and send**. An inquiry asks for one service, chosen from two dropdowns, rather than a service per stone.
 
