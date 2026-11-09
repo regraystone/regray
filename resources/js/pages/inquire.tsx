@@ -10,6 +10,7 @@ import { fieldMessage } from '@/components/form-field';
 import { INQUIRY_DELIVERY_METHOD_ID } from '@/components/inquiry-project-details';
 import InquiryProjectForm from '@/components/inquiry-project-form';
 import InquiryQuestion, {
+    InquiryActionBar,
     InquiryActionBarSlot,
     inquiryQuestionId,
 } from '@/components/inquiry-question';
@@ -61,6 +62,7 @@ import type { RateLimit } from '@/lib/rate-limit';
 import {
     ALL_STONE_TYPES,
     autoProjectName,
+    furthestQuestion,
     buildCommittedProject,
     buildInquiryFormData,
     clampRestoredStep,
@@ -68,7 +70,10 @@ import {
     DELIVERY,
     INQUIRY_STEP_LABELS,
     mapInquiryErrors,
+    nextQuestion,
+    questionProblem,
     readInquiryFlash,
+    removedStonesNotice,
     REVIEW_STEP,
     seedStoneRows,
     stepperPosition,
@@ -106,6 +111,30 @@ import type {
 } from '@/types/inquiry';
 
 const STEPS = [...INQUIRY_STEP_LABELS];
+
+/**
+ * The way on from the last question shown, drawn into the page's bar like
+ * every other footer. Its name says which question it shows next.
+ */
+const NextBar = ({
+    nextTitle,
+    onNext,
+}: {
+    nextTitle: string;
+    onNext: () => void;
+}) => (
+    <InquiryActionBar>
+        <span className="min-w-0 flex-1" />
+        <Button
+            type="button"
+            onClick={onNext}
+            aria-label={`Next: ${nextTitle}`}
+            className="w-full shrink-0 sm:w-auto"
+        >
+            Next
+        </Button>
+    </InquiryActionBar>
+);
 
 const REQUEST_DESCRIPTION =
     'Answer a few simple questions. We save your answers as you go.';
@@ -392,17 +421,49 @@ const InquireFlow = ({
     const ownStoreUrl = useInquireStoreUrl();
     const inquireStoreUrl = target === null ? ownStoreUrl : target.storeUrl;
 
+    /** A service's name, for the notices about stones it does not offer. */
+    const serviceName = useCallback(
+        (serviceId: string): string =>
+            catalog.serviceTypes
+                .flatMap(({ services }) => services)
+                .find(({ id }) => id === serviceId)?.name ?? '',
+        [catalog],
+    );
+
+    /** What the first question's Next accepts, including a service an edit holds. */
+    const offeredServiceIds = useMemo(
+        () =>
+            new Set(
+                catalog.serviceTypes.flatMap(({ services }) =>
+                    services.map(({ id }) => id),
+                ),
+            ),
+        [catalog],
+    );
+
     const [isLoading, setIsLoading] = useState(true);
     /**
      * Both start on the first step. An edit opens the inquiry's one project
      * there as soon as it is loaded (see the effect after `openProject`).
      */
     const [step, setStep] = useState<number>(SERVICE_STEP);
+    /**
+     * How many questions are shown: the first alone at the start, and one more
+     * each time Next is pressed under the last. Every question shown stays open
+     * with all its fields, so an earlier answer is changed where it was given.
+     */
+    const [shownQuestions, setShownQuestions] = useState<number>(SERVICE_STEP);
+    /** The question Next has just shown, brought into view once it is drawn. */
+    const revealedQuestionRef = useRef<number | null>(null);
     const {
         stones: stonePage,
         stoneTypes,
         stoneFilters,
     } = usePage<InquirePageProps>().props;
+    /** Which stones a change of service, a restore or an edit took off, said on step 2. */
+    const [stoneNotice, setStoneNotice] = useState<string | null>(null);
+    /** The service the stones were last asked for, so each change asks once. */
+    const requestedServiceRef = useRef(stoneFilters.service ?? '');
     const [filter, setFilter] = useState<StoneFilter>(stoneFilters.tab);
     const [stoneType, setStoneType] = useState(
         stoneFilters.type ?? ALL_STONE_TYPES,
@@ -574,7 +635,45 @@ const InquireFlow = ({
          * server rather than from anything kept in the browser.
          */
         if (edit !== null) {
-            reset({ projects: toEditFormProjects(edit.projects) });
+            /*
+             * A stone the inquiry has whose type its service no longer takes is
+             * taken off here, with the notice, rather than refused on save.
+             */
+            const removed: string[] = [];
+            const projects = toEditFormProjects(edit.projects).map(
+                (project) => {
+                    const misfits = new Set(
+                        catalog
+                            .stonesNotOfferedFor(
+                                project.stones.map(({ stoneId }) => stoneId),
+                                project.serviceId,
+                            )
+                            .map((stone) => {
+                                removed.push(stone.name);
+
+                                return stone.slug;
+                            }),
+                    );
+
+                    return {
+                        ...project,
+                        stones: project.stones.filter(
+                            ({ stoneId }) => !misfits.has(stoneId),
+                        ),
+                    };
+                },
+            );
+
+            reset({ projects });
+
+            if (removed.length > 0) {
+                setStoneNotice(
+                    removedStonesNotice(
+                        [...new Set(removed)],
+                        serviceName(projects[0]?.serviceId ?? ''),
+                    ),
+                );
+            }
 
             return;
         }
@@ -609,6 +708,8 @@ const InquireFlow = ({
                     stored.draft,
                 ),
             );
+            // Every question the draft's answers reach comes back on show.
+            setShownQuestions(furthestQuestion(stored.draft));
             hasDraftContinued.current = false;
 
             setLostAttachments(stored.droppedAttachments);
@@ -637,26 +738,41 @@ const InquireFlow = ({
          * the question fails the draft still comes back as it was.
          */
         let answered = false;
+        /*
+         * Asked for under the draft's service, so a stone its service no longer
+         * offers comes back missing, and goes the way a stone no longer sold does.
+         */
+        const draftService =
+            stored.draft.serviceId || stored.projects[0]?.serviceId || '';
 
         setIsResolvingDraft(true);
         router.reload({
             only: ['pickedStones'],
-            data: { picked: slugs },
+            data: { picked: slugs, stone_service: draftService },
             async: true,
             preserveUrl: true,
             onSuccess: (page) => {
                 const found =
                     (page.props as unknown as InquirePageProps).pickedStones ??
                     [];
+                const known = new Set(found.map(({ slug }) => slug));
+                const dropped = stored.draft.stoneIds.filter(
+                    (slug) => !known.has(slug),
+                ).length;
 
                 answered = true;
                 rememberStones(found);
-                restore(
-                    keepKnownStones(
-                        stored,
-                        new Set(found.map(({ slug }) => slug)),
-                    ),
-                );
+                restore(keepKnownStones(stored, known));
+
+                if (dropped > 0 && draftService !== '') {
+                    setStoneNotice(
+                        removedStonesNotice(
+                            [dropped === 1 ? '1 stone' : `${dropped} stones`],
+                            serviceName(draftService),
+                            dropped,
+                        ),
+                    );
+                }
             },
             onHttpException: () => false,
             onFinish: () => {
@@ -667,7 +783,15 @@ const InquireFlow = ({
                 setIsResolvingDraft(false);
             },
         });
-    }, [userId, catalog, reset, draftMethods, edit, rememberStones]);
+    }, [
+        userId,
+        catalog,
+        reset,
+        draftMethods,
+        edit,
+        rememberStones,
+        serviceName,
+    ]);
 
     /*
      * The draft's own life support: a write a couple of seconds after the last
@@ -737,20 +861,32 @@ const InquireFlow = ({
      * lives in this page's state, so unlike Our Collection it has to survive the
      * answer. They stay in the address, because each further page reads them there.
      */
-    const loadStones = (query: StoneQuery) => {
+    const loadStones = (query: Omit<StoneQuery, 'service'>) => {
         clearSearchTimer();
 
+        const service = getDraftValues('serviceId');
         const url = new URL(window.location.href);
 
-        ['stone_tab', 'stone_type', 'stone_search', 'page'].forEach((name) =>
-            url.searchParams.delete(name),
-        );
-        Object.entries(stoneFilterQuery(query)).forEach(([name, value]) =>
-            url.searchParams.set(name, value),
+        requestedServiceRef.current = service;
+
+        [
+            'stone_service',
+            'stone_tab',
+            'stone_type',
+            'stone_search',
+            'page',
+        ].forEach((name) => url.searchParams.delete(name));
+        Object.entries(stoneFilterQuery({ ...query, service })).forEach(
+            ([name, value]) => url.searchParams.set(name, value),
         );
 
+        /*
+         * `stoneTypes` comes back with the stones because it is the service's:
+         * it is no longer a once prop, so a later visit cannot show the types
+         * of the service before.
+         */
         router.get(`${url.pathname}${url.search}`, undefined, {
-            only: ['stones', 'stoneFilters'],
+            only: ['stones', 'stoneFilters', 'stoneTypes'],
             reset: ['stones'],
             preserveState: true,
             preserveScroll: true,
@@ -822,6 +958,52 @@ const InquireFlow = ({
 
     useEffect(() => clearSearchTimer, []);
 
+    /*
+     * The stones are the chosen service's. A new service, and a draft or an
+     * edit put back with its own, asks for that service's first page, with the
+     * search and the type started again; the tab is kept.
+     */
+    const draftServiceId = watchDraft('serviceId');
+    const hasWatchedServiceRef = useRef(false);
+
+    useEffect(() => {
+        /*
+         * Not on mount: the draft is still blank then, and the stones the page
+         * was sent are the address's, which a restore or an edit corrects next.
+         */
+        if (!hasWatchedServiceRef.current) {
+            hasWatchedServiceRef.current = true;
+
+            return;
+        }
+
+        if (draftServiceId === requestedServiceRef.current) {
+            return;
+        }
+
+        setSearch('');
+        setStoneType(ALL_STONE_TYPES);
+        loadStones({ tab: filter, stoneType: ALL_STONE_TYPES, search: '' });
+        // Only a change of service asks again; the filters ask for themselves.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draftServiceId]);
+
+    /*
+     * A type the service does not list, from an address kept from another
+     * service, is no filter: back to All Type.
+     */
+    useEffect(() => {
+        if (
+            stoneType !== ALL_STONE_TYPES &&
+            !stoneTypes.some(({ value }) => value === stoneType)
+        ) {
+            setStoneType(ALL_STONE_TYPES);
+            loadStones({ tab: filter, stoneType: ALL_STONE_TYPES, search });
+        }
+        // Only the service's list of types decides it.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [stoneTypes]);
+
     const toggleIn = (chosen: string[], id: string): string[] =>
         chosen.includes(id)
             ? chosen.filter((entry) => entry !== id)
@@ -834,9 +1016,37 @@ const InquireFlow = ({
         draftMethods.clearErrors('serviceId');
     };
 
+    /**
+     * A new service keeps the picked stones it offers and takes off the rest,
+     * saying which on step 2. Its stones are then asked for (the effect on
+     * `draftServiceId` above).
+     */
     const chooseService = (serviceId: string) => {
+        const misfits = catalog.stonesNotOfferedFor(
+            getDraftValues('stoneIds'),
+            serviceId,
+        );
+
         setDraftValue('serviceId', serviceId, { shouldDirty: true });
         draftMethods.clearErrors('serviceId');
+
+        if (misfits.length > 0) {
+            const gone = new Set(misfits.map(({ slug }) => slug));
+
+            setDraftValue(
+                'stoneIds',
+                getDraftValues('stoneIds').filter((id) => !gone.has(id)),
+                { shouldDirty: true },
+            );
+            setStoneNotice(
+                removedStonesNotice(
+                    misfits.map(({ name }) => name),
+                    serviceName(serviceId),
+                ),
+            );
+        } else {
+            setStoneNotice(null);
+        }
     };
 
     const setStones = (ids: string[]) => {
@@ -845,6 +1055,10 @@ const InquireFlow = ({
             shouldValidate: hasDraftContinued.current,
         });
         setDraftValue('stoneAdvice', false, { shouldDirty: true });
+
+        if (ids.length > 0) {
+            draftMethods.clearErrors('stoneIds');
+        }
     };
 
     const toggleStone = (id: string) => setStones(toggleIn(draftStoneIds, id));
@@ -856,15 +1070,76 @@ const InquireFlow = ({
             ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
     /**
-     * The reader does not know which stone yet, so the team will recommend one.
-     * Nothing else about the stones needs answering, so the details come next.
+     * Show a question that is not on the page yet, under the ones that are,
+     * and take the reader to it; one already shown is only scrolled to.
      */
-    const askForStoneAdvice = () => {
+    const revealQuestion = (question: number) => {
+        if (question <= shownQuestions) {
+            showQuestion(question);
+
+            return;
+        }
+
+        revealedQuestionRef.current = question;
+        setShownQuestions(question);
+    };
+
+    /*
+     * A question Next has just shown is brought into view, and its heading takes
+     * focus, once it is on the page.
+     */
+    useEffect(() => {
+        const question = revealedQuestionRef.current;
+
+        if (question === null || question > shownQuestions) {
+            return;
+        }
+
+        revealedQuestionRef.current = null;
+        const section = document.getElementById(inquiryQuestionId(question));
+
+        section?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        section?.querySelector('h2')?.focus({ preventScroll: true });
+    }, [shownQuestions]);
+
+    /**
+     * Next, under the last question shown: check that question alone, and keep
+     * the reader on it with its complaint inline until it is answered; then
+     * show the next one. The questions above stay as they are.
+     */
+    const goToNextQuestion = (question: number) => {
+        const problem = questionProblem(
+            question,
+            getDraftValues(),
+            offeredServiceIds,
+        );
+
+        if (problem !== null) {
+            draftMethods.setError(problem.field, {
+                type: 'manual',
+                message: problem.message,
+            });
+
+            return;
+        }
+
+        draftMethods.clearErrors(
+            question === SERVICE_STEP ? 'serviceId' : 'stoneIds',
+        );
+        revealQuestion(nextQuestion(question));
+    };
+
+    /**
+     * The reader does not know which stone yet, so the team will recommend one.
+     * Nothing else about the stones needs answering, so the details are shown
+     * and taken to, as Next would.
+     */ const askForStoneAdvice = () => {
         setDraftValue('stoneIds', [], { shouldDirty: true });
         setDraftValue('stones', [], { shouldDirty: true });
         setDraftValue('stoneAdvice', true, { shouldDirty: true });
         draftMethods.clearErrors('stoneIds');
-        showQuestion(REQUIREMENTS_STEP);
+        setStoneNotice(null);
+        revealQuestion(REQUIREMENTS_STEP);
     };
 
     /**
@@ -878,6 +1153,8 @@ const InquireFlow = ({
         draftMethods.reset(draftDefaults);
         hasDraftContinued.current = false;
         setEditingProjectId(null);
+        setStoneNotice(null);
+        setShownQuestions(SERVICE_STEP);
     };
 
     /**
@@ -935,6 +1212,8 @@ const InquireFlow = ({
         hasDraftContinued.current = false;
         setEditingProjectId(id);
         setStep(startAt);
+        // A committed project has every question answered, so all are shown.
+        setShownQuestions(REQUIREMENTS_STEP);
     };
 
     /*
@@ -1412,13 +1691,19 @@ const InquireFlow = ({
      */
     const questions = [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP];
 
-    /** Every question is open at once: the first step is one page. */
-    const question = (questionStep: number) => ({
-        step: questionStep,
-        number: questions.indexOf(questionStep) + 1,
-        isOpen: true,
-        onChange: () => undefined,
-    });
+    /**
+     * The questions shown so far, every one open with all its fields; the rest
+     * wait for Next.
+     */
+    const question = (questionStep: number) =>
+        questionStep > shownQuestions
+            ? null
+            : {
+                  step: questionStep,
+                  number: questions.indexOf(questionStep) + 1,
+                  isOpen: true,
+                  onChange: () => undefined,
+              };
 
     const serviceQuestion = question(SERVICE_STEP);
     const stonesQuestion = question(STONES_STEP);
@@ -1517,6 +1802,14 @@ const InquireFlow = ({
                                         onServiceType={chooseServiceType}
                                         onService={chooseService}
                                     />
+                                    {shownQuestions === SERVICE_STEP ? (
+                                        <NextBar
+                                            nextTitle="Which stones?"
+                                            onNext={() =>
+                                                goToNextQuestion(SERVICE_STEP)
+                                            }
+                                        />
+                                    ) : null}
                                 </InquiryQuestion>
                             ) : null}
 
@@ -1655,19 +1948,34 @@ const InquireFlow = ({
                                                 })}
                                             </div>
 
-                                            <StoneTypeSelect
+                                            {/* The service's own types; with none there is nothing to filter by. */}
+                                            {stoneTypes.length > 0 ? (
+                                                <StoneTypeSelect
+                                                    options={stoneTypeChoices}
+                                                    value={stoneType}
+                                                    onChange={changeStoneType}
+                                                />
+                                            ) : null}
+                                        </div>
+
+                                        {stoneTypes.length > 0 ? (
+                                            <StoneTypePills
                                                 options={stoneTypeChoices}
                                                 value={stoneType}
                                                 onChange={changeStoneType}
                                             />
-                                        </div>
-
-                                        <StoneTypePills
-                                            options={stoneTypeChoices}
-                                            value={stoneType}
-                                            onChange={changeStoneType}
-                                        />
+                                        ) : null}
                                     </div>
+
+                                    {stoneNotice !== null ? (
+                                        <p
+                                            role="status"
+                                            className="mb-4 rounded-md border border-sidebar-border bg-secondary px-3 py-2 text-sm"
+                                            data-testid="stone-notice"
+                                        >
+                                            {stoneNotice}
+                                        </p>
+                                    ) : null}
 
                                     {/*
                                      * What is picked so far, and why Continue was
@@ -1708,6 +2016,11 @@ const InquireFlow = ({
 
                                     {isLoadingStones ? (
                                         <StoneGridSkeleton />
+                                    ) : draftServiceId === '' ? (
+                                        <EmptyState
+                                            title="Choose what you need first"
+                                            description="The stones for that service will show here."
+                                        />
                                     ) : filter === 'saved' &&
                                       search.trim() === '' &&
                                       stoneType === ALL_STONE_TYPES &&
@@ -1726,6 +2039,12 @@ const InquireFlow = ({
                                                     Browse all stones
                                                 </Button>
                                             }
+                                        />
+                                    ) : visibleStones.length === 0 &&
+                                      stoneTypes.length === 0 ? (
+                                        <EmptyState
+                                            title="No stones listed for this service yet"
+                                            description="Press Help me choose and Regray will recommend one."
                                         />
                                     ) : visibleStones.length === 0 ? (
                                         <EmptyState
@@ -1748,6 +2067,15 @@ const InquireFlow = ({
                                             onToggle={toggleStone}
                                         />
                                     )}
+
+                                    {shownQuestions === STONES_STEP ? (
+                                        <NextBar
+                                            nextTitle="Other details"
+                                            onNext={() =>
+                                                goToNextQuestion(STONES_STEP)
+                                            }
+                                        />
+                                    ) : null}
                                 </InquiryQuestion>
                             ) : null}
 
@@ -1758,6 +2086,9 @@ const InquireFlow = ({
                                     summary=""
                                 >
                                     <InquiryProjectForm
+                                        onChooseStones={() =>
+                                            showQuestion(STONES_STEP)
+                                        }
                                         projectNumber={
                                             editingProjectNumber > 0
                                                 ? editingProjectNumber

@@ -47,20 +47,25 @@ class InquiryCatalogService
         return $this->catalogRepository->paginateStones($user, $filters);
     }
 
-    /** @return Collection<int, StoneType> */
-    public function stoneTypes(): Collection
+    /**
+     * The stone types the Inquire page filters by under this service.
+     *
+     * @return Collection<int, StoneType>
+     */
+    public function stoneTypes(?string $serviceSlug): Collection
     {
-        return $this->catalogRepository->stoneTypes();
+        return $this->catalogRepository->stoneTypes($serviceSlug);
     }
 
     /**
-     * The stones of a restored draft, those still on offer.
+     * The stones of a restored draft or an edit, those still offered for its
+     * service.
      *
      * @param  list<string>  $slugs
      * @return Collection<int, Stone>
      */
-    public function stonesBySlugs(array $slugs): Collection
+    public function stonesBySlugs(array $slugs, ?string $serviceSlug): Collection
     {
-        return $this->catalogRepository->stonesBySlugs($slugs);
+        return $this->catalogRepository->stonesBySlugs($slugs, $serviceSlug);
     }
 }

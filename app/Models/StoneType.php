@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Application> $applications
  * @property-read Collection<int, Finish> $finishes
  * @property-read Collection<int, CareTip> $careTips
+ * @property-read Collection<int, Service> $services
  */
 #[Fillable(['slug', 'name', 'thumbnail_path', 'description', 'is_active', 'sort_order'])]
 class StoneType extends Model
@@ -64,6 +65,17 @@ class StoneType extends Model
     public function stones(): BelongsToMany
     {
         return $this->belongsToMany(Stone::class, 'stone_stone_type');
+    }
+
+    /**
+     * The services made from it, which list its stones on the Inquire page.
+     * Not the collection filters, which are `stones()`.
+     *
+     * @return BelongsToMany<Service, $this>
+     */
+    public function services(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'service_stone_type');
     }
 
     /** @return BelongsToMany<Application, $this> */

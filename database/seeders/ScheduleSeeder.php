@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Role;
 use App\Models\Schedule;
 use App\Models\User;
 use Carbon\Carbon;
@@ -26,17 +27,20 @@ class ScheduleSeeder extends Seeder
 
         $clientEmail = 'rafael.doming@thenorthgatecafe.example';
         $client = User::where('email', $clientEmail)->first();
+        $approver = User::role(Role::Sales->value)->first() ?? $client;
 
         foreach ($data['items'] as $itemData) {
             $dayOffset = $itemData['week'] === 'next' ? 7 + $itemData['day'] : min(max($todayIndex + $itemData['day'], 0), 6);
             $arrivalAt = $monday->copy()->addDays($dayOffset)->setHour($itemData['hour'])->setMinute(0);
 
+            // Approved by staff, before the visit: a client never approves their own.
             $approvedAt = null;
             $approvedBy = null;
-            if ($itemData['status'] === 'confirmed' || $itemData['status'] === 'completed') {
-                $approvedAt = $arrivalAt->copy()->addHours(1);
-                $approvedBy = $client->id;
+            if ($itemData['status'] === 'confirmed' || $itemData['status'] === 'served') {
+                $approvedAt = $arrivalAt->copy()->subDay();
+                $approvedBy = $approver->id;
             }
+            $isCancelled = $itemData['status'] === 'cancelled';
 
             Schedule::query()->firstOrCreate(
                 ['title' => $itemData['title'], 'arrival_at' => $arrivalAt, 'inquiry_id' => null],
@@ -48,6 +52,8 @@ class ScheduleSeeder extends Seeder
                     'notes' => $itemData['notes'],
                     'approved_by' => $approvedBy,
                     'approved_at' => $approvedAt,
+                    'cancelled_at' => $isCancelled ? $arrivalAt->copy()->subDay() : null,
+                    'cancel_reason' => $isCancelled ? $itemData['notes'] : null,
                     'created_at' => $arrivalAt,
                     'updated_at' => $arrivalAt,
                 ]

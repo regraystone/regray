@@ -24,6 +24,7 @@ use App\Http\Controllers\Saved\SavedFurnitureController;
 use App\Http\Controllers\Saved\SavedStoneController;
 use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
 use App\Http\Controllers\Schedule\BookingController;
+use App\Http\Controllers\Schedule\ScheduleChangeController;
 use App\Http\Controllers\ViewController;
 use App\Http\Middleware\RedirectSignedInToDashboard;
 use Illuminate\Support\Facades\Route;
@@ -311,6 +312,44 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('schedule/book', [BookingController::class, 'store'])
             ->middleware([Permission::ScheduleCreate->middleware(), 'throttle:booking'])
             ->name('schedule.book.store');
+        /*
+         * The client accounts staff may book for, as the staff Inquire start
+         * finds them. `schedule.view` keeps a client out: they book for
+         * themselves from the Profile door.
+         */
+        // Updating an appointment reuses the Book an appointment page.
+        Route::get('schedule/{schedule}/edit', [ViewController::class, 'scheduleEdit'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleView->middleware(), Permission::ScheduleUpdate->middleware()])
+            ->name('schedule.edit');
+        Route::get('schedule/book/accounts', [StaffClientController::class, 'accounts'])
+            ->middleware([Permission::ScheduleView->middleware(), Permission::ScheduleCreate->middleware(), 'throttle:message-people'])
+            ->name('schedule.book.accounts');
+        /*
+         * Changing an appointment, from both doors: the staff Schedule page and
+         * the client's Profile one. The permission is checked here, and who may
+         * act on this appointment by SchedulePolicy in the controller.
+         */
+        Route::patch('schedule/{schedule}', [ScheduleChangeController::class, 'update'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleUpdate->middleware(), 'throttle:booking'])
+            ->name('schedule.update');
+        Route::post('schedule/{schedule}/cancel', [ScheduleChangeController::class, 'cancel'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleCancel->middleware(), 'throttle:booking'])
+            ->name('schedule.cancel');
+        Route::post('schedule/{schedule}/approve', [ScheduleChangeController::class, 'approve'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleApprove->middleware(), 'throttle:booking'])
+            ->name('schedule.approve');
+        Route::post('schedule/{schedule}/serve', [ScheduleChangeController::class, 'serve'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleUpdate->middleware(), 'throttle:booking'])
+            ->name('schedule.serve');
+        Route::post('schedule/{schedule}/no-show', [ScheduleChangeController::class, 'noShow'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleUpdate->middleware(), 'throttle:booking'])
+            ->name('schedule.no-show');
         /*
          * The Inbox page. Everything under it needs `messages.view`; the
          * conversation routes then ask ConversationPolicy whether this user may

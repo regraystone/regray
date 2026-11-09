@@ -114,6 +114,10 @@ class ConversationSeeder extends Seeder
                     'body' => $kind === 'text' ? ($messageData['body'] ?? null) : null,
                     'schedule_id' => $scheduleId,
                     'announced_status' => $kind === 'text' ? null : ($messageData['announced_status'] ?? null),
+                    // A schedule card keeps the visit's arrival as it was announced.
+                    'schedule_revision' => $kind === 'schedule' ? 0 : null,
+                    'announced_arrival_at' => $kind === 'schedule' ? Schedule::query()->find($scheduleId)?->arrival_at : null,
+                    'announced_reason' => $kind === 'schedule' && ($messageData['announced_status'] ?? null) === 'cancelled' ? Schedule::query()->find($scheduleId)?->cancel_reason : null,
                     'created_at' => Carbon::parse($messageData['sent_at']),
                 ]);
 

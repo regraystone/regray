@@ -28,6 +28,7 @@ class LoadTestSeeder extends Seeder
             StoneSeeder::class,
             ProjectCategorySeeder::class,
             ServiceSeeder::class,
+            ServiceStoneTypeSeeder::class,
             BrandSeeder::class,
             ProjectSeeder::class,
             FurnitureSeeder::class,

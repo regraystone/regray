@@ -4,12 +4,14 @@ import { expect } from './fixtures';
 
 /*
  * The Inquire page through the controls a reader uses: two steps, the first being
- * three questions all on one page. The service type, the service and the delivery
+ * three questions on one page, shown one by one: Next under the last one shown
+ * adds the next, and every question shown stays open. The service type, the service and the delivery
  * method are selects, the stone cards are checkboxes named after the stone, the
  * location is a combobox, and slab size, edge and finish sit on each stone's row.
  * Landmark, area, files and notes stay folded away behind "Add more details".
  *
- * The names below are the catalogue that DatabaseSeeder writes.
+ * The names below are the catalogue that DatabaseSeeder writes. Both stones are
+ * offered for Slab Supply Only and for Tables: a granite and a marble.
  */
 
 export const CATALOG = {
@@ -19,8 +21,8 @@ export const CATALOG = {
     furnitureType: 'Custom Stone Furniture',
     furniture: 'Tables',
     furnitureSlug: 'tables',
-    stones: ['Warm Beige Granite', 'Flamed - Gray'],
-    stoneSlug: 'warm-beige-granite',
+    stones: ['Cosmic Black', 'Arabescato White'],
+    stoneSlug: 'cosmic-black',
     edges: ['Straight Edge', 'Full Bevel'],
     adviseEdge: 'Not sure yet, advise me',
     finishes: ['Polished', 'Honed'],
@@ -103,6 +105,16 @@ export const checkbox = (page: Page, name: string): Locator =>
 export const continueToReview = (page: Page): Locator =>
     page.getByRole('button', { name: 'Continue to review' });
 
+/** Next, under the last question shown, named after the question it shows. */
+export const nextButton = (page: Page): Locator =>
+    page.getByRole('button', { name: /^Next: / });
+
+/** Press Next under question `from` and see the one after it appear. */
+export const pressNext = async (page: Page, from: number): Promise<void> => {
+    await nextButton(page).click();
+    await expectStep(page, from + 1);
+};
+
 export const SERVICE_TYPE_ID = 'inquiry-service-type';
 export const SERVICE_ID = 'inquiry-service';
 
@@ -116,14 +128,14 @@ export const pickService = async (
     await chooseInSelect(page, SERVICE_ID, service);
 };
 
-/** The first question answered; the stones are under it on the same page. */
+/** The first question answered and Next pressed; the stones are under it. */
 export const walkToStones = async (
     page: Page,
     serviceType?: string,
     service?: string,
 ): Promise<void> => {
     await pickService(page, serviceType, service);
-    await expectStep(page, 2);
+    await pressNext(page, 1);
 };
 
 export const pickStone = async (page: Page, name: string): Promise<void> => {
@@ -245,7 +257,7 @@ export const walkToRequirements = async (
         await pickStone(page, stone);
     }
 
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await fillSlabSizes(page);
 };
 

@@ -8,8 +8,18 @@
 export type ScheduleStatus =
     | 'pending'
     | 'confirmed'
-    | 'completed'
-    | 'cancelled';
+    | 'served'
+    | 'cancelled'
+    | 'expired';
+
+/** What this reader may do to a visit now, as ScheduleResource works it out. */
+export type ScheduleAbilities = {
+    update: boolean;
+    cancel: boolean;
+    approve: boolean;
+    serve: boolean;
+    noShow: boolean;
+};
 
 /** One visit as ScheduleResource sends it. */
 export type ScheduleData = {
@@ -21,6 +31,14 @@ export type ScheduleData = {
     notes: string | null;
     /** Set when the visit was created by sending an inquiry. */
     inquiryReference: string | null;
+    bookedByType: 'client' | 'staff';
+    /** The staff member who booked it, when staff did. */
+    bookedByName: string | null;
+    /** Whose appointment it is: staff readers only. */
+    clientName: string | null;
+    cancelReason: string | null;
+    changeReason: string | null;
+    can: ScheduleAbilities;
 };
 
 /** One visit, as the grid, the list and the dialog read it. */
@@ -32,6 +50,12 @@ export type ScheduleItem = {
     status: ScheduleStatus;
     notes: string | null;
     inquiryReference: string | null;
+    bookedByType: 'client' | 'staff';
+    bookedByName: string | null;
+    clientName: string | null;
+    cancelReason: string | null;
+    changeReason: string | null;
+    can: ScheduleAbilities;
 };
 
 /** The most days one request may cover. Mirrors `schedule.max_range_days`. */
@@ -46,6 +70,12 @@ export const toScheduleItem = (data: ScheduleData): ScheduleItem => ({
     status: data.status,
     notes: data.notes,
     inquiryReference: data.inquiryReference,
+    bookedByType: data.bookedByType,
+    bookedByName: data.bookedByName,
+    clientName: data.clientName,
+    cancelReason: data.cancelReason,
+    changeReason: data.changeReason,
+    can: data.can,
 });
 
 export const toScheduleItems = (list: ScheduleData[]): ScheduleItem[] =>

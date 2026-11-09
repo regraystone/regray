@@ -23,6 +23,22 @@ const item = (id, arrival) => ({
     inquiryReference: null,
 });
 
+const can = {
+    update: true,
+    cancel: true,
+    approve: false,
+    serve: false,
+    noShow: false,
+};
+const rest = {
+    bookedByType: 'staff',
+    bookedByName: 'Sam',
+    clientName: 'Rafa',
+    cancelReason: null,
+    changeReason: 'Client asked for later',
+    can,
+};
+
 describe('toScheduleItem', () => {
     it('turns arrivalAt into a Date and keeps the rest', () => {
         const mapped = toScheduleItem({
@@ -32,6 +48,7 @@ describe('toScheduleItem', () => {
             status: 'confirmed',
             notes: 'Inquiry INQ-1 · Kitchen · Makati',
             inquiryReference: 'INQ-1',
+            ...rest,
         });
 
         assert.equal(mapped.arrival.getTime(), Date.UTC(2026, 9, 15, 2, 0));
@@ -44,6 +61,7 @@ describe('toScheduleItem', () => {
                 status: 'confirmed',
                 notes: 'Inquiry INQ-1 · Kitchen · Makati',
                 inquiryReference: 'INQ-1',
+                ...rest,
             },
         );
     });

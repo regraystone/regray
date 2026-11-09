@@ -42,8 +42,10 @@ class ConversationResource extends JsonResource
     private const SCHEDULE_HEADLINES = [
         'pending' => 'Booking pending',
         'confirmed' => 'Booking approved',
-        'completed' => 'Appointment completed',
+        'rescheduled' => 'Appointment rescheduled',
+        'served' => 'Appointment served',
         'cancelled' => 'Booking cancelled',
+        'expired' => 'Booking expired',
     ];
 
     /** Who is reading: set with `viewedBy()`, otherwise the signed-in user. */

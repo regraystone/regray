@@ -23,6 +23,7 @@ import {
     openMoreDetails,
     pickService,
     pickStone,
+    pressNext,
     renameProject,
     projectPayload,
     sendAndReadReference,
@@ -42,11 +43,11 @@ test('6 · a pickup asks for no location, keeps its landmark, and sends @layout'
     await pickService(page);
     await shot(page, name('1-service'), testInfo);
 
-    await expectStep(page, 2);
+    await pressNext(page, 1);
     await pickStone(page, CATALOG.stones[0]);
     await shot(page, name('2-stones'), testInfo);
 
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await expect(locationField(page)).toBeVisible();
     await fillSlabSizes(page);
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
@@ -92,12 +93,12 @@ test('7 · two stones under one furniture service send, and Review shows the typ
     await pickService(page, CATALOG.furnitureType, CATALOG.furniture);
     await shot(page, name('1-service'), testInfo);
 
-    await expectStep(page, 2);
+    await pressNext(page, 1);
     await pickStone(page, CATALOG.stones[0]);
     await pickStone(page, CATALOG.stones[1]);
     await shot(page, name('2-stones'), testInfo);
 
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await answerStoneRow(page, 0, {
         quantity: 3,
         edge: CATALOG.edges[0],

@@ -29,6 +29,8 @@ dataset('the permission matrix', function () {
             Permission::QuotationsView, Permission::InquiriesCreate,
             Permission::MessagesView,
             Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate,
+            // Their own bookings only (SchedulePolicy); never approve.
+            Permission::ScheduleUpdate, Permission::ScheduleCancel,
         )],
         // The super-admin holds every permission.
         'admin' => [Role::Admin->value, Permission::names()],
@@ -40,6 +42,7 @@ dataset('the permission matrix', function () {
             Permission::OverviewView, Permission::InquiriesView, Permission::InquiriesCreate, Permission::InquiriesEdit,
             Permission::LeadsView, Permission::LeadsUpdate,
             Permission::ScheduleView, Permission::ScheduleCreate,
+            Permission::ScheduleUpdate, Permission::ScheduleCancel, Permission::ScheduleApprove,
             Permission::MessagesView, Permission::ConversationsCreate, Permission::SupportClaim,
             Permission::ProfileView,
         )],
@@ -47,6 +50,7 @@ dataset('the permission matrix', function () {
             Permission::OverviewView, Permission::InquiriesView, Permission::InquiriesCreate, Permission::InquiriesEdit,
             Permission::InquiriesStatusSales,
             Permission::ScheduleView, Permission::ScheduleCreate,
+            Permission::ScheduleUpdate, Permission::ScheduleCancel, Permission::ScheduleApprove,
             Permission::MessagesView, Permission::ProfileView,
         )],
         'accounting' => [Role::Accounting->value, $p(
@@ -55,12 +59,13 @@ dataset('the permission matrix', function () {
         )],
         'technical' => [Role::Technical->value, $p(
             Permission::OverviewView, Permission::InquiriesView,
-            Permission::ScheduleView, Permission::ScheduleCreate,
+            // They view the schedule; booking is marketing's and sales'.
+            Permission::ScheduleView,
             Permission::MessagesView, Permission::ProfileView,
         )],
         'logistics' => [Role::Logistics->value, $p(
             Permission::OverviewView, Permission::InquiriesView, Permission::InquiriesStatusProcess,
-            Permission::ScheduleView, Permission::ScheduleCreate,
+            Permission::ScheduleView,
             Permission::MessagesView, Permission::ProfileView,
         )],
     ];

@@ -18,6 +18,10 @@ use Illuminate\Validation\Validator;
  *   `projects.*.attachments` are new uploads only, and the two together may not
  *   exceed the per-project file limit.
  *
+ * The stone rule of the create applies as it is: every stone, the inquiry's
+ * own included, has to be offered for the service sent, whether the service
+ * changed or not. Unlike the service, a stone is never held.
+ *
  * @phpstan-import-type ProjectUpdateInput from \App\Services\InquiryService
  */
 class UpdateInquiryRequest extends StoreInquiryRequest

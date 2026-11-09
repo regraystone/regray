@@ -56,6 +56,14 @@ class RolePermissionSeeder extends Seeder
      * door. The client keeps `schedule.create` either way, because booking a visit
      * is allowed from the appropriate door depending on which URL they use.
      *
+     * Changing an appointment: `schedule.update` (adjust, and for staff, mark
+     * as attended or not attended) and `schedule.cancel` go to the client, for
+     * their own bookings only (SchedulePolicy), and among staff to marketing and
+     * sales alone; `schedule.approve` to marketing and sales alone. Owner,
+     * accounting, technical and logistics hold none of them, nor
+     * `schedule.create`: they view the schedule, and marketing and sales book
+     * and change appointments.
+     *
      * `leads.view` and `leads.update` are marketing's alone (and the
      * super-admin's, listed like every other permission). On the Inquiry list,
      * `inquiries.edit` is marketing's and sales'; each status track is its
@@ -88,6 +96,8 @@ class RolePermissionSeeder extends Seeder
             Permission::ProfileScheduleView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
+            Permission::ScheduleUpdate->value,
+            Permission::ScheduleCancel->value,
             Permission::SavedManage->value,
         ],
         Role::Admin->value => [
@@ -112,6 +122,9 @@ class RolePermissionSeeder extends Seeder
             Permission::ProfileScheduleView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
+            Permission::ScheduleUpdate->value,
+            Permission::ScheduleCancel->value,
+            Permission::ScheduleApprove->value,
             Permission::SavedManage->value,
             Permission::ConversationsCreate->value,
             Permission::SupportClaim->value,
@@ -138,6 +151,9 @@ class RolePermissionSeeder extends Seeder
             Permission::LeadsView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
+            Permission::ScheduleUpdate->value,
+            Permission::ScheduleCancel->value,
+            Permission::ScheduleApprove->value,
             Permission::ConversationsCreate->value,
             Permission::SupportClaim->value,
             Permission::LeadsUpdate->value,
@@ -151,6 +167,9 @@ class RolePermissionSeeder extends Seeder
             Permission::ProfileView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
+            Permission::ScheduleUpdate->value,
+            Permission::ScheduleCancel->value,
+            Permission::ScheduleApprove->value,
             Permission::InquiriesEdit->value,
             Permission::InquiriesStatusSales->value,
         ],
@@ -168,7 +187,6 @@ class RolePermissionSeeder extends Seeder
             Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
-            Permission::ScheduleCreate->value,
         ],
         Role::Logistics->value => [
             Permission::OverviewView->value,
@@ -176,7 +194,6 @@ class RolePermissionSeeder extends Seeder
             Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
-            Permission::ScheduleCreate->value,
             Permission::InquiriesStatusProcess->value,
         ],
     ];

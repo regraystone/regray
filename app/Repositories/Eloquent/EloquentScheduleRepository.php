@@ -32,7 +32,7 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
     public function between(?User $client, CarbonInterface $from, CarbonInterface $to): Collection
     {
         return $this->visibleTo($client)
-            ->with('inquiry:id,reference')
+            ->with(['inquiry:id,reference', 'client:id,name', 'bookedBy:id,name'])
             ->where('arrival_at', '>=', $from)
             ->where('arrival_at', '<', $to)
             ->orderBy('arrival_at')
@@ -43,7 +43,7 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
     public function nextOpenSince(?User $client, CarbonInterface $since, int $limit): Collection
     {
         return $this->visibleTo($client)
-            ->with('inquiry:id,reference')
+            ->with(['inquiry:id,reference', 'client:id,name', 'bookedBy:id,name'])
             ->whereIn('status', self::OPEN_STATUSES)
             ->where('arrival_at', '>=', $since)
             ->orderBy('arrival_at')
@@ -63,6 +63,23 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
                 'cancel_reason' => $reason,
                 'updated_at' => $cancelledAt,
             ]);
+    }
+
+    public function findForUpdate(int $id): Schedule
+    {
+        return Schedule::query()->lockForUpdate()->findOrFail($id);
+    }
+
+    public function pendingPastIds(CarbonInterface $now): array
+    {
+        /** @var list<int> */
+        return Schedule::query()
+            ->whereNull('inquiry_id')
+            ->where('status', ScheduleStatus::Pending)
+            ->where('arrival_at', '<=', $now)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
     }
 
     /**

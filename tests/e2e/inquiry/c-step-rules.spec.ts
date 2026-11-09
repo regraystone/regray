@@ -13,18 +13,22 @@ import {
     REVIEW,
     SERVICE_ID,
     SERVICE_TYPE_ID,
+    SLAB_SIZE,
     answerStoneRow,
     checkbox,
+    continueToReview,
     answerDeadline,
     chooseInSelect,
     chooseLocation,
     expectStep,
+    nextButton,
     landmarkField,
     locationField,
     notesField,
     openInquire,
     openMoreDetails,
     pickStone,
+    pressNext,
     projectPayload,
     sendAndReadReference,
     walkToRequirements,
@@ -48,7 +52,7 @@ test('11 · What do you need: a type, then its services, then what the service i
 
     const info = page.getByTestId('service-info');
 
-    await addToInquiry(page).click();
+    await nextButton(page).click();
     await expect(pageError(page, 'Choose what you need.')).toBeVisible();
     await expectStep(page, 1);
 
@@ -81,7 +85,7 @@ test('11 · What do you need: a type, then its services, then what the service i
     ]);
     await page.keyboard.press('Escape');
 
-    await addToInquiry(page).click();
+    await nextButton(page).click();
     await expect(pageError(page, 'Choose what you need.')).toBeVisible();
     await expectStep(page, 1);
 
@@ -116,7 +120,7 @@ test('11 · What do you need: a type, then its services, then what the service i
 
     await chooseInSelect(page, SERVICE_ID, CATALOG.furniture);
     await expect(pageError(page, 'Choose what you need.')).toHaveCount(0);
-    await expectStep(page, 2);
+    await pressNext(page, 1);
 });
 
 test('11a · the stone card has no save or view control, and the type filter combines with the search and the tabs @layout', async ({
@@ -249,9 +253,9 @@ test('11c · the server sends the stones a page at a time as the row is scrolled
     await expect(back).toHaveCount(0);
 
     // Scrolling the page past the row loads nothing; reaching its end does.
-    await page
-        .getByRole('heading', { name: 'Other details' })
-        .scrollIntoViewIfNeeded();
+    await page.evaluate(() =>
+        window.scrollTo(0, document.documentElement.scrollHeight),
+    );
     await page.waitForTimeout(500);
     expect(pageRequests).toEqual([]);
 
@@ -279,7 +283,7 @@ test('11c · the server sends the stones a page at a time as the row is scrolled
     await expect(page.getByText('1 stone selected')).toBeVisible();
 
     // The picked stone is on no page in view now, and is still drawn further on.
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await expect(
         page.getByText(picked ?? '', { exact: true }).first(),
     ).toBeVisible();
@@ -298,7 +302,7 @@ test('11d · a restored draft gets its stones back from the server, whichever pa
     );
 
     await pickStone(page, stoneName);
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await page.waitForTimeout(2500);
 
     await page.reload();
@@ -327,6 +331,7 @@ test('11b · the same stone, edge and finish sent twice are added together, and 
     const row = {
         stoneId: CATALOG.stoneSlug,
         quantity: 2,
+        slabSize: SLAB_SIZE,
         edge: CATALOG.edges[0],
         finish: CATALOG.finishes[0],
     };
@@ -352,13 +357,13 @@ test('12 · Stones: no stone or no slab size blocks Continue to review; quantity
     await openInquire(page);
     await walkToStones(page);
 
-    await addToInquiry(page).click();
+    await nextButton(page).click();
     await expect(pageError(page, 'Select at least one stone.')).toBeVisible();
     await expectStep(page, 2);
 
     await pickStone(page, CATALOG.stones[0]);
     await expect(pageError(page, 'Select at least one stone.')).toHaveCount(0);
-    await expectStep(page, 3);
+    await pressNext(page, 2);
 
     const quantity = page.locator('#requirements-quantity-0');
     const quantityError = page.locator('#requirements-quantity-0-error');
@@ -629,6 +634,8 @@ test('17a · Help me choose moves on with no stone, and picking a stone takes it
     await expect(
         page.getByText('Stone to be recommended by Regray').first(),
     ).toBeVisible();
+    // No stones to ask about, and no prompt to pick one either.
+    await expect(page.getByTestId('stones-empty-state')).toHaveCount(0);
 
     await pickStone(page, CATALOG.stones[0]);
     await expectStep(page, 3);
@@ -638,6 +645,151 @@ test('17a · Help me choose moves on with no stone, and picking a stone takes it
     await expect(
         page.getByText(CATALOG.stones[0], { exact: true }).first(),
     ).toBeVisible();
+});
+
+test('17e · the questions appear one by one with Next, and every question shown keeps all its fields @layout', async ({
+    actors,
+}) => {
+    const { page } = await actors.open('client');
+    await openInquire(page);
+
+    const stonesHeading = page.getByRole('heading', { name: 'Which stones?' });
+    const detailsHeading = page.getByRole('heading', { name: 'Other details' });
+
+    // Only the first question, with Next as its way on.
+    await expect(stonesHeading).toHaveCount(0);
+    await expect(detailsHeading).toHaveCount(0);
+    await expect(nextButton(page)).toHaveAccessibleName('Next: Which stones?');
+    await expect(continueToReview(page)).toHaveCount(0);
+
+    await nextButton(page).click();
+    await expect(pageError(page, 'Choose what you need.')).toBeVisible();
+    await expect(stonesHeading).toHaveCount(0);
+
+    await chooseInSelect(page, SERVICE_TYPE_ID, CATALOG.serviceType);
+    await chooseInSelect(page, SERVICE_ID, CATALOG.service);
+    await pressNext(page, 1);
+
+    // The first question stays open with its fields, and there is no Change.
+    await expect(page.locator(`#${SERVICE_TYPE_ID}`)).toContainText(
+        CATALOG.serviceType,
+    );
+    await expect(page.locator(`#${SERVICE_ID}`)).toContainText(CATALOG.service);
+    await expect(page.getByRole('button', { name: /^Change/ })).toHaveCount(0);
+    await expect(detailsHeading).toHaveCount(0);
+    await expect(nextButton(page)).toHaveAccessibleName('Next: Other details');
+
+    await nextButton(page).click();
+    await expect(pageError(page, 'Select at least one stone.')).toBeVisible();
+    await expect(detailsHeading).toHaveCount(0);
+
+    await pickStone(page, CATALOG.stones[0]);
+    await pressNext(page, 2);
+
+    // All three open at once, and the way on is Continue to review.
+    await expect(nextButton(page)).toHaveCount(0);
+    await expect(continueToReview(page)).toBeVisible();
+    await expect(page.locator(`#${SERVICE_ID}`)).toBeVisible();
+    await expect(checkbox(page, CATALOG.stones[0])).toHaveAttribute(
+        'aria-checked',
+        'true',
+    );
+    await expect(page.locator('#requirements-quantity-0')).toBeVisible();
+
+    // An earlier answer is changed where it was given.
+    await chooseInSelect(page, SERVICE_ID, 'Flooring');
+    await expect(checkbox(page, CATALOG.stones[0])).toHaveAttribute(
+        'aria-checked',
+        'true',
+    );
+    await expect(detailsHeading).toBeVisible();
+});
+
+test('17c · with no stone picked, the details ask for stones first and point back to them', async ({
+    actors,
+}) => {
+    const { page } = await actors.open('client');
+    await openInquire(page);
+    await walkToRequirements(page);
+
+    const prompt = page.getByTestId('stones-empty-state');
+
+    await expect(prompt).toHaveCount(0);
+    await expect(page.locator('#requirements-quantity-0')).toBeVisible();
+
+    // Taken away again, the stones' rows give way to the prompt.
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(prompt).toContainText(
+        'Choose the stones you want in step 2 first. Their edge, finish and slab size will show here.',
+    );
+    await expect(
+        page.locator('input[id^="requirements-quantity-"]'),
+    ).toHaveCount(0);
+    await expect(
+        page.getByRole('button', { name: 'Add more details' }),
+    ).toBeVisible();
+
+    await prompt
+        .getByRole('button', { name: 'Choose stones in step 2' })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: 'Which stones?' }),
+    ).toBeInViewport();
+
+    // Left to Regray, there is nothing about stones to ask: no rows, no prompt.
+    await page.getByRole('button', { name: 'Help me choose' }).click();
+    await expect(prompt).toHaveCount(0);
+    await expect(
+        page.locator('input[id^="requirements-quantity-"]'),
+    ).toHaveCount(0);
+});
+
+test('17d · the stone type filter and the stones follow the service, and a stone the new service does not offer is taken off with a notice @layout', async ({
+    actors,
+}) => {
+    const { page } = await actors.open('client');
+    await openInquire(page);
+    await walkToStones(page, CATALOG.serviceType, 'Flooring');
+
+    const pills = page.getByTestId('stone-type-pills');
+    const isPhone = await pills.isVisible();
+    const typeOptions = async (): Promise<string[]> => {
+        if (isPhone) {
+            return pills.getByRole('button').allInnerTexts();
+        }
+
+        await page.getByTestId('stone-type-select').click();
+        const options = await page.getByRole('option').allInnerTexts();
+        await page.keyboard.press('Escape');
+
+        return options;
+    };
+
+    const flooring = await typeOptions();
+    expect(flooring).toContain('Cobblestone');
+    expect(flooring).not.toContain('Onyx');
+
+    const cobblestone = 'Flamed + Brushed - Black';
+    await pickStone(page, cobblestone);
+    await pickStone(page, CATALOG.stones[0]);
+
+    await chooseInSelect(page, SERVICE_ID, 'Countertop');
+
+    await expect(page.getByTestId('stone-notice')).toHaveText(
+        `Removed ${cobblestone} for this service; it is not offered for Countertop.`,
+    );
+    await expect(page.getByTestId('stones-selected')).toHaveText(
+        '1 stone selected',
+    );
+    await expect(page).toHaveURL(/stone_service=countertop/);
+
+    const countertop = await typeOptions();
+    expect(countertop).toContain('Onyx');
+    expect(countertop).not.toContain('Cobblestone');
+
+    for (const text of await page.getByTestId('stone-card').allInnerTexts()) {
+        expect(text).not.toContain('Cobblestone');
+    }
 });
 
 test('17b · a press that fixes a refused answer is not lost when the complaint goes', async ({

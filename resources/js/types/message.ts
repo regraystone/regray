@@ -59,11 +59,14 @@ export type InquiryCard = {
     occurredAt: string;
 };
 
+/** What a schedule card announces: a visit's status, or that it moved. */
 export type ScheduleStatus =
     | 'pending'
     | 'confirmed'
-    | 'completed'
-    | 'cancelled';
+    | 'rescheduled'
+    | 'served'
+    | 'cancelled'
+    | 'expired';
 
 export type BookedByType = 'client' | 'staff';
 
@@ -76,6 +79,8 @@ export type ScheduleCard = {
     bookedByName: string | null;
     inquiryReference: string | null;
     cancelReason: string | null;
+    /** Why it was moved, on a rescheduled card. */
+    changeReason: string | null;
     occurredAt: string;
 };
 

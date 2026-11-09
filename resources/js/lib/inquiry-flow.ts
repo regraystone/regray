@@ -41,6 +41,49 @@ export const DELIVERY_METHODS = [
 export const nextQuestion = (step: number): number =>
     Math.min(step + 1, REVIEW_STEP);
 
+/** The answers that decide how far the questions go. */
+export type DraftProgress = {
+    serviceId: string;
+    stoneIds: string[];
+    stoneAdvice?: boolean;
+};
+
+/**
+ * The furthest question the draft's answers reach: What do you need? until a
+ * service is chosen, the stones until one is picked or left to Regray, then
+ * the details. A restored draft shows every question up to it.
+ */
+export const furthestQuestion = (draft: DraftProgress): number =>
+    draft.serviceId === ''
+        ? SERVICE_STEP
+        : draft.stoneIds.length > 0 || draft.stoneAdvice === true
+          ? REQUIREMENTS_STEP
+          : STONES_STEP;
+
+/**
+ * Why Next cannot show the question after this one yet, or null when it can.
+ * Only the question Next sits under is checked.
+ */
+export const questionProblem = (
+    question: number,
+    draft: DraftProgress,
+    offeredServiceIds: ReadonlySet<string>,
+): { field: 'serviceId' | 'stoneIds'; message: string } | null => {
+    if (question === SERVICE_STEP && !offeredServiceIds.has(draft.serviceId)) {
+        return { field: 'serviceId', message: 'Choose what you need.' };
+    }
+
+    if (
+        question === STONES_STEP &&
+        draft.stoneIds.length === 0 &&
+        draft.stoneAdvice !== true
+    ) {
+        return { field: 'stoneIds', message: 'Select at least one stone.' };
+    }
+
+    return null;
+};
+
 /**
  * A project's name, made from the service the reader picked, capped at the name's
  * own limit, which the caller passes because this file imports nothing. It can be
@@ -92,12 +135,68 @@ export const clampRestoredStep = (
 
 export const STONE_ADVICE_LABEL = 'Stone to be recommended by Regray';
 
-/** One entry of the second dropdown, as InquiryServiceResource sends it. */
+/**
+ * One entry of the second dropdown, as InquiryServiceResource sends it.
+ * `stoneTypes` are the slugs of the stone types it is made from.
+ */
 export type ServiceOption = {
     id: string;
     name: string;
     description: string;
     features: string[];
+    stoneTypes: string[];
+};
+
+/**
+ * Whether a stone is offered for the service: its primary type is one the
+ * service is made from. The same rule as Stone::offeredFor() on the server.
+ */
+export const stoneFitsService = (
+    stone: { type: { slug: string } },
+    service: Pick<ServiceOption, 'stoneTypes'> | undefined,
+): boolean =>
+    service !== undefined && service.stoneTypes.includes(stone.type.slug);
+
+/**
+ * The picked stones a service does not offer, in the order they were picked.
+ * A stone the page knows nothing about is left alone: whether it is still
+ * offered at all is the server's to say.
+ */
+export const stonesNotOffered = <
+    Stone extends { slug: string; type: { slug: string } },
+>(
+    stoneIds: readonly string[],
+    known: readonly Stone[],
+    service: Pick<ServiceOption, 'stoneTypes'> | undefined,
+): Stone[] =>
+    stoneIds.flatMap((id) => {
+        const stone = known.find(({ slug }) => slug === id);
+
+        return stone === undefined || stoneFitsService(stone, service)
+            ? []
+            : [stone];
+    });
+
+/**
+ * What step 2 says after removing stones a service does not offer. `count` is
+ * how many stones the names stand for, when one name is a count ("2 stones")
+ * because a restored draft only knows how many the server left out.
+ */
+export const removedStonesNotice = (
+    names: readonly string[],
+    serviceName: string,
+    count: number = names.length,
+): string => {
+    if (names.length === 0) {
+        return '';
+    }
+
+    const listed =
+        names.length === 1
+            ? names[0]
+            : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+    return `Removed ${listed} for this service; ${count === 1 ? 'it is' : 'they are'} not offered for ${serviceName}.`;
 };
 
 /** One entry of the first dropdown, as InquiryServiceTypeResource sends it. */
@@ -133,6 +232,8 @@ export const stoneTypeOptions = (
 ];
 
 export type StoneQuery = {
+    /** The chosen service's slug; with none, the server sends no stones. */
+    service: string;
     tab: StoneFilter;
     stoneType: string;
     search: string;
@@ -140,10 +241,12 @@ export type StoneQuery = {
 
 /** The filters as the query the server reads, leaving out what is no filter. */
 export const stoneFilterQuery = ({
+    service,
     tab,
     stoneType,
     search,
 }: StoneQuery): Record<string, string> => ({
+    ...(!service ? {} : { stone_service: service }),
     ...(tab === 'all' ? {} : { stone_tab: tab }),
     ...(stoneType === ALL_STONE_TYPES ? {} : { stone_type: stoneType }),
     ...(search.trim() === '' ? {} : { stone_search: search.trim() }),

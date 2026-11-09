@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BookedByType;
+use App\Enums\ScheduleAction;
 use App\Enums\ScheduleStatus;
 use App\Models\Inquiry;
 use App\Models\Schedule;
@@ -57,9 +58,10 @@ class ScheduleService
      * The client made it by sending the inquiry, so it is theirs and booked by
      * them; an inquiry staff opened for the client from a lead is booked by
      * that staff member (`$bookedBy`), and a direct (walk-in) client's has no
-     * account to be for (`$client` null). It starts as pending until Marketing or
-     * Sales approve it. The date and time are what was typed, read in the
-     * studio's zone. Only a
+     * account to be for (`$client` null). It is confirmed from the start, with no
+     * staff approver: an inquiry's visit needs no approval, and it follows its
+     * inquiry rather than the schedule actions. The date and time are what was
+     * typed, read in the studio's zone. Only a
      * visit asks for a time; any other project is booked for
      * DEFAULT_ARRIVAL_TIME on its date. The title and notes are the inquiry's
      * project name and location.
@@ -73,8 +75,9 @@ class ScheduleService
             'inquiry_id' => $inquiry->id,
             'title' => $inquiry->name,
             'arrival_at' => self::arrivalAt($date, $time ?? self::DEFAULT_ARRIVAL_TIME)->setTimezone(config('app.timezone')),
-            'status' => ScheduleStatus::Pending,
+            'status' => ScheduleStatus::Confirmed,
             'notes' => self::inquiryNotes($inquiry),
+            'approved_at' => Date::now(),
         ]);
     }
 
@@ -96,6 +99,27 @@ class ScheduleService
             'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
             'status' => ScheduleStatus::Pending,
             'notes' => $notes,
+        ]);
+    }
+
+    /**
+     * An appointment staff book for a client they chose: the client's, booked by
+     * the staff member, and confirmed at once with that staff member as its
+     * approver, since staff booking it is the studio agreeing to it.
+     */
+    public function createForStaffBooking(User $staff, User $client, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
+    {
+        return $this->scheduleRepository->create([
+            'client_id' => $client->id,
+            'booked_by' => $staff->id,
+            'booked_by_type' => BookedByType::Staff,
+            'inquiry_id' => null,
+            'title' => $purpose,
+            'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
+            'status' => ScheduleStatus::Confirmed,
+            'notes' => $notes,
+            'approved_by' => $staff->id,
+            'approved_at' => Date::now(),
         ]);
     }
 
@@ -136,15 +160,65 @@ class ScheduleService
 
     /**
      * Why this visit's date and time can no longer be changed from the inquiry,
-     * or null while it still waits for approval.
+     * or null while they still can.
+     *
+     * An inquiry's visit is confirmed from the start and follows its inquiry, so
+     * pending or confirmed never locks it: the inquiry's own rule does, once the
+     * client approves the quotation (InquiryStatusRules::isEditable()).
      */
     public function deadlineLockedReason(Schedule $schedule): ?string
     {
         return match ($schedule->status) {
-            ScheduleStatus::Pending => null,
-            ScheduleStatus::Confirmed => 'This visit is already confirmed, so its date and time can no longer be changed here. Message the team to move it.',
-            ScheduleStatus::Completed => 'This visit has already taken place, so its date and time can no longer be changed.',
+            ScheduleStatus::Pending, ScheduleStatus::Confirmed, ScheduleStatus::Expired => null,
+            ScheduleStatus::Served => 'This visit has already taken place, so its date and time can no longer be changed.',
             ScheduleStatus::Cancelled => 'This visit was cancelled, so its date and time can no longer be changed here.',
+        };
+    }
+
+    /**
+     * Why `$action` cannot be done to this appointment now, or null when it can.
+     *
+     * The appointment's state alone, for every actor: who may act at all is
+     * SchedulePolicy's, and the super-admin, who passes the policy, is still held
+     * to this. ScheduleResource asks it for the buttons, and ScheduleChangeService
+     * again under the row lock, so a button never offers what the save refuses.
+     */
+    public function refusalFor(Schedule $schedule, ScheduleAction $action, ?CarbonInterface $now = null): ?string
+    {
+        if ($schedule->isInquiryVisit()) {
+            return 'This visit belongs to an inquiry, so it changes with the inquiry.';
+        }
+
+        $hasArrived = $schedule->arrival_at->lessThanOrEqualTo($now ?? Date::now());
+
+        return match ($action) {
+            ScheduleAction::Update, ScheduleAction::Cancel => match (true) {
+                ! $schedule->status->isOpen() => self::closedReason($schedule->status),
+                $hasArrived => 'This appointment\'s time has passed, so it can no longer be changed.',
+                default => null,
+            },
+            ScheduleAction::Approve => match (true) {
+                $schedule->status === ScheduleStatus::Confirmed => 'This appointment is already approved.',
+                $schedule->status !== ScheduleStatus::Pending => self::closedReason($schedule->status),
+                $hasArrived => 'This appointment\'s time has passed, so it can no longer be approved.',
+                default => null,
+            },
+            ScheduleAction::Serve, ScheduleAction::NoShow => match (true) {
+                $schedule->status === ScheduleStatus::Pending => 'Approve this appointment before marking whether the client came.',
+                $schedule->status !== ScheduleStatus::Confirmed => self::closedReason($schedule->status),
+                ! $hasArrived => 'You can mark this once its time has come.',
+                default => null,
+            },
+        };
+    }
+
+    private static function closedReason(ScheduleStatus $status): string
+    {
+        return match ($status) {
+            ScheduleStatus::Served => 'This appointment has already been served, so it can no longer be changed.',
+            ScheduleStatus::Cancelled => 'This appointment was cancelled, so it can no longer be changed.',
+            ScheduleStatus::Expired => 'This appointment expired before it was approved, so it can no longer be changed. Book a new one instead.',
+            default => 'This appointment can no longer be changed.',
         };
     }
 

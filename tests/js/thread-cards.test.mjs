@@ -51,8 +51,10 @@ describe('schedule card', () => {
     it('says the same for every other status whoever booked it', () => {
         for (const [status, headline] of [
             ['pending', 'Booking pending'],
-            ['completed', 'Appointment completed'],
+            ['rescheduled', 'Appointment rescheduled'],
+            ['served', 'Appointment served'],
             ['cancelled', 'Booking cancelled'],
+            ['expired', 'Booking expired'],
         ]) {
             assert.equal(scheduleHeadline(status, 'client'), headline);
             assert.equal(scheduleHeadline(status, 'staff'), headline);

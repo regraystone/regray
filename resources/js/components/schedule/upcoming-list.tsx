@@ -1,5 +1,6 @@
 import { MoreHorizontal } from 'lucide-react';
 import type { ReactNode } from 'react';
+import type { ScheduleDialogAction } from '@/components/schedule/event-dialog';
 import { ScheduleStatusBadge } from '@/components/schedule/schedule-status-badge';
 import {
     DropdownMenu,
@@ -16,20 +17,20 @@ const formatMonth = new Intl.DateTimeFormat(undefined, { month: 'short' });
  * The next visits, soonest first.
  *
  * Draws exactly the `upcoming` prop: the server has already picked the next
- * three pending or confirmed visits and left out completed and cancelled ones.
+ * three pending or confirmed visits and left out served, cancelled and expired ones.
  * One flat list, each row carrying its own date, so there are no day headings.
+ * Its menu offers the changes this reader may make to the visit now
+ * (`item.can`), the same ones its dialog does.
  */
 const UpcomingList = ({
     items,
     onSelect,
-    onReschedule,
-    onCancel,
+    onAction,
     emptyAction,
 }: {
     items: ScheduleItem[];
     onSelect: (item: ScheduleItem) => void;
-    onReschedule: (item: ScheduleItem) => void;
-    onCancel: (item: ScheduleItem) => void;
+    onAction: (action: ScheduleDialogAction, item: ScheduleItem) => void;
     emptyAction: ReactNode;
 }) => {
     if (items.length === 0) {
@@ -115,16 +116,33 @@ const UpcomingList = ({
                                 >
                                     View details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onSelect={() => onReschedule(item)}
-                                >
-                                    Reschedule
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onSelect={() => onCancel(item)}
-                                >
-                                    Cancel visit
-                                </DropdownMenuItem>
+                                {item.can.approve ? (
+                                    <DropdownMenuItem
+                                        onSelect={() =>
+                                            onAction('approve', item)
+                                        }
+                                    >
+                                        Approve
+                                    </DropdownMenuItem>
+                                ) : null}
+                                {item.can.update ? (
+                                    <DropdownMenuItem
+                                        onSelect={() =>
+                                            onAction('update', item)
+                                        }
+                                    >
+                                        Update
+                                    </DropdownMenuItem>
+                                ) : null}
+                                {item.can.cancel ? (
+                                    <DropdownMenuItem
+                                        onSelect={() =>
+                                            onAction('cancel', item)
+                                        }
+                                    >
+                                        Cancel appointment
+                                    </DropdownMenuItem>
+                                ) : null}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </li>

@@ -156,6 +156,15 @@ const StoneSpecRow = ({
                     <p className="text-base font-bold break-words">
                         {stone.name}
                     </p>
+                    {/* The server's word that the stone does not fit the service. */}
+                    {fieldMessage(rowErrors?.stoneId) === undefined ? null : (
+                        <p
+                            role="alert"
+                            className="mt-1 text-sm text-destructive"
+                        >
+                            {fieldMessage(rowErrors?.stoneId)}
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -438,11 +447,18 @@ type InquiryProjectFormProps = {
     deadlineLockReason?: string | null;
     /** Whether files can be attached: not when staff open an inquiry for a lead's client. */
     allowAttachments?: boolean;
+    /** Back to the stones question, from the prompt shown while none is picked. */
+    onChooseStones: () => void;
 };
 
 /**
  * The last question of the request: where and when the work is, how many of each
  * stone, and anything else. A visit has no stones, so it is not asked about them.
+ *
+ * With no stone picked, the rows give way to a prompt that sends the reader back
+ * to the stones. When Regray is to choose (Help me choose), there are no stones
+ * to ask about, so that area is left empty. The rest of the details stay as
+ * they are either way.
  *
  * One form, so pressing Enter in any field is the same answer as pressing the
  * button. `noValidate` because the browser's own bubbles are the wrong voice for
@@ -453,6 +469,7 @@ const InquiryProjectForm = ({
     onCommit,
     deadlineLockReason = null,
     allowAttachments = true,
+    onChooseStones,
 }: InquiryProjectFormProps) => {
     const {
         setValue,
@@ -469,6 +486,7 @@ const InquiryProjectForm = ({
 
     const { stones } = useInquiryCatalog();
     const rows = watch('stones');
+    const stoneAdvice = useWatch({ control, name: 'stoneAdvice' });
 
     const pieceCount = rows.reduce(
         (total, row) =>
@@ -620,7 +638,26 @@ const InquiryProjectForm = ({
                             })}
                         </ul>
                     </>
-                ) : null}
+                ) : stoneAdvice ? null : (
+                    <div
+                        className="flex flex-col gap-3 rounded-md border border-dashed border-sidebar-border p-4 sm:flex-row sm:items-center sm:justify-between"
+                        data-testid="stones-empty-state"
+                    >
+                        <p className="text-sm text-secondary-foreground">
+                            Choose the stones you want in step 2 first. Their
+                            edge, finish and slab size will show here.
+                        </p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onChooseStones}
+                            aria-label="Choose stones in step 2"
+                            className="w-full shrink-0 sm:w-auto"
+                        >
+                            Choose stones
+                        </Button>
+                    </div>
+                )}
 
                 {/*
                  * `stoneIds` is where the reader is sent back to when the
@@ -642,7 +679,7 @@ const InquiryProjectForm = ({
              * and date cost nothing if the reader walks away from it, and a
              * finished one carries its own onto the sheet.
              */}
-            <div className={rows.length === 0 ? '' : 'mt-3'}>
+            <div className={rows.length === 0 && stoneAdvice ? '' : 'mt-3'}>
                 <InquiryProjectDetails
                     projectNumber={projectNumber}
                     allowAttachments={allowAttachments}

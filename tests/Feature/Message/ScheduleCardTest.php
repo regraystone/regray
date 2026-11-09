@@ -25,6 +25,7 @@ function scheduleCard(Conversation $conversation, User $client, ?User $bookedBy,
         'title' => 'Site visit',
         'arrival_at' => now()->addDays(3),
         'status' => ScheduleStatus::from($announced),
+        'cancelled_at' => $announced === 'cancelled' ? now() : null,
         'cancel_reason' => 'Rain',
     ])->save();
 
@@ -33,6 +34,9 @@ function scheduleCard(Conversation $conversation, User $client, ?User $bookedBy,
         'type' => MessageType::ScheduleCard,
         'schedule_id' => $schedule->id,
         'announced_status' => $announced,
+        'schedule_revision' => 0,
+        'announced_arrival_at' => $schedule->arrival_at,
+        'announced_reason' => $announced === 'cancelled' ? 'Rain' : null,
     ]);
 }
 
@@ -91,6 +95,6 @@ it('sends a card exactly the fields the thread draws', function (): void {
     $card = $this->actingAs($client)->getJson(route('inbox.thread', $group))->json('messages.0.scheduleCard');
 
     expect(array_keys($card))->toBe([
-        'id', 'title', 'arrivalAt', 'announcedStatus', 'bookedByType', 'bookedByName', 'inquiryReference', 'cancelReason', 'occurredAt',
+        'id', 'title', 'arrivalAt', 'announcedStatus', 'bookedByType', 'bookedByName', 'inquiryReference', 'cancelReason', 'changeReason', 'occurredAt',
     ]);
 });

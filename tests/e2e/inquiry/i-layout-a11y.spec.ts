@@ -15,6 +15,7 @@ import {
     openInquire,
     pickService,
     pickStone,
+    pressNext,
     sendAndReadReference,
     stepper,
     walkToStones,
@@ -34,11 +35,11 @@ const walkEveryStep = async (
     await pickService(page);
     await check(QUESTIONS[0]);
 
-    await expectStep(page, 2);
+    await pressNext(page, 1);
     await check(QUESTIONS[1]);
     await pickStone(page, CATALOG.stones[0]);
 
-    await expectStep(page, 3);
+    await pressNext(page, 2);
     await answerStoneRow(page, 0, {
         quantity: 2,
         edge: CATALOG.edges[0],
@@ -149,7 +150,13 @@ test('36 · keyboard only: choose the service, pick a stone, fill the details an
         await expect(page.getByRole('option')).toHaveCount(0);
     }
 
+    // Next shows the stones and moves focus to their heading.
+    await tabTo(page, (t) => t.name === 'Next: Which stones?', 'Next');
+    await page.keyboard.press('Enter');
     await expectStep(page, 2);
+    await expect(
+        page.getByRole('heading', { name: QUESTIONS[1] }),
+    ).toBeFocused();
 
     await tabTo(page, (t) => t.name === CATALOG.stones[0], 'the first stone');
     await page.keyboard.press('Space');
@@ -157,6 +164,8 @@ test('36 · keyboard only: choose the service, pick a stone, fill the details an
         page.getByRole('checkbox', { name: CATALOG.stones[0], exact: true }),
     ).toHaveAttribute('aria-checked', 'true');
 
+    await tabTo(page, (t) => t.name === 'Next: Other details', 'Next');
+    await page.keyboard.press('Enter');
     await expectStep(page, 3);
 
     await tabTo(page, (t) => t.id === 'requirements-slab-size-0', 'Slab size');

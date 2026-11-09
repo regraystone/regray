@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
         $this->call(ProjectCategorySeeder::class);
         $this->call(ServiceTypeSeeder::class);
         $this->call(ServiceSeeder::class);
+        $this->call(ServiceStoneTypeSeeder::class);
         $this->call(ProjectSeeder::class);
         $this->call(FurnitureSeeder::class);
 

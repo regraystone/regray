@@ -13,11 +13,16 @@ import {
     autoProjectName,
     buildCommittedProject,
     clampRestoredStep,
+    furthestQuestion,
     nextQuestion,
+    questionProblem,
     seedStoneRows,
     serviceChoiceLabel,
     stepperPosition,
+    removedStonesNotice,
     stoneFilterQuery,
+    stoneFitsService,
+    stonesNotOffered,
     stoneTypeOptions,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
@@ -201,6 +206,123 @@ describe('clampRestoredStep', () => {
     });
 });
 
+describe('stones and the service', () => {
+    const marble = {
+        slug: 'carrara',
+        name: 'Carrara',
+        type: { slug: 'marble' },
+    };
+    const granite = {
+        slug: 'absolute',
+        name: 'Absolute',
+        type: { slug: 'granite' },
+    };
+    const countertop = { stoneTypes: ['granite'] };
+
+    it('fits a stone by its primary type alone', () => {
+        assert.equal(stoneFitsService(granite, countertop), true);
+        assert.equal(stoneFitsService(marble, countertop), false);
+        assert.equal(stoneFitsService(granite, undefined), false);
+    });
+
+    it('lists the picked stones a service does not offer, leaving unknown ones to the server', () => {
+        assert.deepEqual(
+            stonesNotOffered(
+                ['carrara', 'absolute', 'unknown'],
+                [marble, granite],
+                countertop,
+            ),
+            [marble],
+        );
+    });
+
+    it('names the stones it removed', () => {
+        assert.equal(
+            removedStonesNotice(['Carrara'], 'Countertop'),
+            'Removed Carrara for this service; it is not offered for Countertop.',
+        );
+        assert.equal(
+            removedStonesNotice(['Carrara', 'Onyx', 'Nero'], 'Countertop'),
+            'Removed Carrara, Onyx and Nero for this service; they are not offered for Countertop.',
+        );
+        assert.equal(
+            removedStonesNotice(['2 stones'], 'Countertop', 2),
+            'Removed 2 stones for this service; they are not offered for Countertop.',
+        );
+        assert.equal(removedStonesNotice([], 'Countertop'), '');
+    });
+
+    it('asks the server for the chosen service with the filters', () => {
+        assert.deepEqual(
+            stoneFilterQuery({
+                service: 'countertop',
+                tab: 'all',
+                stoneType: ALL_STONE_TYPES,
+                search: '',
+            }),
+            { stone_service: 'countertop' },
+        );
+    });
+});
+
+describe('showing the questions one by one', () => {
+    const offered = new Set(['countertop']);
+
+    it('reaches as far as the answers do', () => {
+        assert.equal(furthestQuestion(draft()), SERVICE_STEP);
+        assert.equal(
+            furthestQuestion(draft({ serviceId: 'countertop' })),
+            STONES_STEP,
+        );
+        assert.equal(furthestQuestion(regular), REQUIREMENTS_STEP);
+        assert.equal(
+            furthestQuestion(
+                draft({ serviceId: 'countertop', stoneAdvice: true }),
+            ),
+            REQUIREMENTS_STEP,
+        );
+    });
+
+    it('lets Next under the first question go on only with a service on offer', () => {
+        assert.deepEqual(questionProblem(SERVICE_STEP, draft(), offered), {
+            field: 'serviceId',
+            message: 'Choose what you need.',
+        });
+        assert.equal(
+            questionProblem(SERVICE_STEP, draft({ serviceId: 'gone' }), offered)
+                ?.field,
+            'serviceId',
+        );
+        assert.equal(
+            questionProblem(
+                SERVICE_STEP,
+                draft({ serviceId: 'countertop' }),
+                offered,
+            ),
+            null,
+        );
+    });
+
+    it('lets Next under the stones go on with a stone or Help me choose', () => {
+        assert.deepEqual(
+            questionProblem(
+                STONES_STEP,
+                draft({ serviceId: 'countertop' }),
+                offered,
+            ),
+            { field: 'stoneIds', message: 'Select at least one stone.' },
+        );
+        assert.equal(questionProblem(STONES_STEP, regular, offered), null);
+        assert.equal(
+            questionProblem(
+                STONES_STEP,
+                draft({ serviceId: 'countertop', stoneAdvice: true }),
+                offered,
+            ),
+            null,
+        );
+    });
+});
 describe('committing a draft', () => {
     const filled = (overrides = {}) => ({
         name: 'Kitchen counters',

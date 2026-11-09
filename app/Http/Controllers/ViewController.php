@@ -11,6 +11,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\Permission;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
+use App\Enums\ScheduleAction;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\InquiryCatalogResource;
@@ -19,16 +20,19 @@ use App\Http\Resources\LeadOptionResource;
 use App\Http\Resources\LeadResource;
 use App\Http\Resources\ScheduleResource;
 use App\Models\Lead;
+use App\Models\Schedule;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -264,6 +268,49 @@ class ViewController extends Controller
             'upcoming' => fn (): array => ScheduleResource::collection(
                 $listSchedules->upcoming($viewer),
             )->resolve($request),
+        ]);
+    }
+
+    /**
+     * Update an appointment: the Book an appointment page, filled in with it,
+     * asking for the reason for the change. One page at two URLs like the
+     * schedule itself, the staff one and the client's Profile one.
+     *
+     * Who may update it is SchedulePolicy's (a client only their own); an
+     * appointment whose state no longer allows it (served, cancelled, expired,
+     * its time passed, or an inquiry's visit) sends the reader back to the
+     * schedule with the reason.
+     */
+    public function scheduleEdit(Request $request, Schedule $schedule, ScheduleService $scheduleService): Response|RedirectResponse
+    {
+        Gate::authorize('update', $schedule);
+
+        /** @var User $viewer */
+        $viewer = $request->user();
+        $back = $viewer->isClient() ? route('profile.schedule') : route('schedule.index');
+        $refusal = $scheduleService->refusalFor($schedule, ScheduleAction::Update);
+
+        if ($refusal !== null) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $refusal]);
+
+            return redirect($back);
+        }
+
+        $now = Date::now(ScheduleService::timezone());
+        $arrival = $schedule->arrival_at->setTimezone(ScheduleService::timezone());
+
+        return Inertia::render('schedule-book', [
+            'studioNow' => ['date' => $now->toDateString(), 'time' => $now->format('H:i')],
+            'earliestBookableDate' => ScheduleService::earliestBookableDate($viewer)->toDateString(),
+            'schedule' => [
+                'id' => $schedule->id,
+                'title' => $schedule->title,
+                'date' => $arrival->toDateString(),
+                'arrivalTime' => $arrival->format('H:i'),
+                'notes' => $schedule->notes,
+                'status' => $schedule->status->value,
+                'clientName' => $viewer->isClient() ? null : $schedule->client?->name,
+            ],
         ]);
     }
 

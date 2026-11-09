@@ -24,6 +24,7 @@ use App\Services\Message\SupportConversationService;
 use Database\Seeders\EdgeProfileSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ServiceSeeder;
+use Database\Seeders\ServiceStoneTypeSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -85,12 +86,32 @@ function seedInquiryCatalog(): void
         ServiceSeeder::class,
         EdgeProfileSeeder::class,
         StoneSeeder::class,
+        ServiceStoneTypeSeeder::class,
     ]);
 }
 
 function inquiryClient(Role $role = Role::Client): User
 {
     return User::factory()->role($role)->create();
+}
+
+/** The slug of an active stone offered for this service, the `$skip`th in id order. */
+function offeredStoneSlug(string $service, int $skip = 0): string
+{
+    return Stone::query()
+        ->offeredFor(Service::query()->where('slug', $service)->firstOrFail())
+        ->orderBy('id')
+        ->skip($skip)
+        ->firstOrFail()
+        ->slug;
+}
+
+/** The slug of an active stone that is not offered for this service. */
+function unofferedStoneSlug(string $service): string
+{
+    $offered = Stone::query()->offeredFor(Service::query()->where('slug', $service)->firstOrFail())->select('id');
+
+    return Stone::query()->active()->whereNotIn('id', $offered)->orderBy('id')->firstOrFail()->slug;
 }
 
 /**

@@ -193,15 +193,18 @@ const InquiryStoneGrid = ({
     return (
         <div className="relative min-w-0">
             {/*
-             * Padded so a picked card's ring is not clipped by the scroll, and
-             * pulled back out by as much so the cards line up with the filters.
-             * InfiniteScroll puts its own start and end markers beside the
-             * cards, so the gap is on the cards, not on this row.
+             * As wide as the filters above it and no wider, so the cards start
+             * where the filters do and are cut off at the content's edge rather
+             * than in the page's padding: a picked card draws its ring inside
+             * itself (StoneCard), so nothing needs room at the sides. Above and
+             * below it keeps a little, for the focus ring. InfiniteScroll puts
+             * its own start and end markers beside the cards, so the gap is on
+             * the cards, not on this row.
              */}
             <div
                 ref={rowRef}
                 onScroll={readScroll}
-                className="@container -m-1 flex max-w-[calc(100%+0.5rem)] snap-x snap-mandatory overflow-x-auto overscroll-x-contain p-1 pb-3"
+                className="@container -my-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain pt-1 pb-3"
                 data-testid="stones-row"
             >
                 <InfiniteScroll

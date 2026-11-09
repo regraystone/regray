@@ -216,7 +216,7 @@ return [
                     'kind' => 'schedule',
                     'sent_at' => '2026-09-26T09:00:00Z',
                     'schedule_id' => 'apt-03',
-                    'announced_status' => 'completed',
+                    'announced_status' => 'served',
                     'sender_id' => 'sofia',
                 ],
                 [

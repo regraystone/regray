@@ -16,7 +16,7 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
-it('gives each inquiry sent one pending schedule, at 10:00', function (): void {
+it('gives each inquiry sent one confirmed schedule, at 10:00', function (): void {
     foreach ([
         inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04']),
         inquiryProjectInput(['name' => 'Survey', 'location' => 'Taguig', 'neededBy' => '2030-03-05']),
@@ -38,7 +38,8 @@ it('gives each inquiry sent one pending schedule, at 10:00', function (): void {
             'booked_by' => $this->client->id,
             'booked_by_type' => BookedByType::Client->value,
             'inquiry_id' => $kitchen->id,
-            'status' => ScheduleStatus::Pending->value,
+            // An inquiry's visit needs no approval: it is confirmed from the start.
+            'status' => ScheduleStatus::Confirmed->value,
             'title' => 'Kitchen',
             'notes' => "Inquiry {$kitchen->reference} · Kitchen · Makati",
         ])
@@ -68,21 +69,21 @@ it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leav
         ])
         ->and($open->fresh()->cancelled_at)->not->toBeNull()
         ->and($other->fresh()->status)->toBe(InquiryStatus::Pending)
-        ->and($untouched->fresh()->status)->toBe(ScheduleStatus::Pending);
+        ->and($untouched->fresh()->status)->toBe(ScheduleStatus::Confirmed);
 });
 
-it('leaves a completed schedule alone when the inquiry is cancelled', function (): void {
+it('leaves a served schedule alone when the inquiry is cancelled', function (): void {
     $this->actingAs($this->client)
         ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
         ->assertSessionHasNoErrors();
 
     $inquiry = Inquiry::query()->sole();
     $completed = Schedule::query()->sole();
-    $completed->forceFill(['status' => ScheduleStatus::Completed])->save();
+    $completed->forceFill(['status' => ScheduleStatus::Served])->save();
 
     $this->actingAs($this->client)->patch(route('quote.cancel', $inquiry->reference))->assertRedirect();
 
-    expect($completed->fresh()->status)->toBe(ScheduleStatus::Completed);
+    expect($completed->fresh()->status)->toBe(ScheduleStatus::Served);
 });
 
 it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the Schedule page', function (): void {
@@ -108,16 +109,18 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
         'id' => $schedule->id,
         'title' => 'Kitchen',
         'arrivalAt' => CarbonImmutable::parse('2026-10-20 10:00', 'Asia/Manila')->toIso8601String(),
-        'status' => ScheduleStatus::Pending->value,
+        'status' => ScheduleStatus::Confirmed->value,
         'notes' => "Inquiry {$inquiry->reference} · Kitchen · Makati",
         'inquiryReference' => $inquiry->reference,
+        // An inquiry's visit follows its inquiry: no schedule action applies.
+        'can' => ['update' => false, 'cancel' => false, 'approve' => false, 'serve' => false, 'noShow' => false],
     ];
 
     $clientPage = $this->actingAs($this->client)->get(route('profile.schedule'))->assertOk()->viewData('page')['props'];
     $staffPage = $this->actingAs(messagingStaff(Role::Marketing))->get(route('schedule.index'))->assertOk()->viewData('page')['props'];
 
     foreach ([$clientPage, $staffPage] as $props) {
-        expect($props['schedules'])->toContain($expected)
-            ->and($props['upcoming'])->toContain($expected);
+        expect(collect($props['schedules'])->firstWhere('id', $schedule->id))->toMatchArray($expected)
+            ->and(collect($props['upcoming'])->firstWhere('id', $schedule->id))->toMatchArray($expected);
     }
 });

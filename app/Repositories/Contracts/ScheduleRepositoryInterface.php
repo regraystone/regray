@@ -13,12 +13,12 @@ use Illuminate\Database\Eloquent\Collection;
 interface ScheduleRepositoryInterface
 {
     /**
-     * @param  array{client_id: ?int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string}  $attributes
+     * @param  array{client_id: ?int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string, approved_by?: ?int, approved_at?: ?CarbonInterface}  $attributes
      */
     public function create(array $attributes): Schedule;
 
     /**
-     * @param  array{title?: string, arrival_at?: CarbonInterface, notes?: ?string}  $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function update(Schedule $schedule, array $attributes): void;
 
@@ -41,10 +41,24 @@ interface ScheduleRepositoryInterface
     public function nextOpenSince(?User $client, CarbonInterface $since, int $limit): Collection;
 
     /**
-     * Cancel the inquiry's pending and confirmed schedules. Completed and
+     * Cancel the inquiry's pending and confirmed schedules. Served, expired and
      * already cancelled ones are left as they are.
      *
      * @return int How many were cancelled.
      */
     public function cancelOpenForInquiry(Inquiry $inquiry, CarbonInterface $cancelledAt, string $reason): int;
+
+    /**
+     * The schedule, its row locked until the transaction ends, so two changes to
+     * one appointment are made one after the other.
+     */
+    public function findForUpdate(int $id): Schedule;
+
+    /**
+     * The ids of the appointments still pending at `$now`, their time passed.
+     * Never an inquiry's visit.
+     *
+     * @return list<int>
+     */
+    public function pendingPastIds(CarbonInterface $now): array;
 }

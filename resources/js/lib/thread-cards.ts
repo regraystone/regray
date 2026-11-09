@@ -32,8 +32,10 @@ export type CardInquiryStatus =
 export type CardScheduleStatus =
     | 'pending'
     | 'confirmed'
-    | 'completed'
-    | 'cancelled';
+    | 'rescheduled'
+    | 'served'
+    | 'cancelled'
+    | 'expired';
 
 export type CardBookedByType = 'client' | 'staff';
 
@@ -83,11 +85,13 @@ const SCHEDULE_HEADLINES: Record<
 > = {
     pending: { client: 'Booking pending', staff: 'Booking pending' },
     confirmed: { client: 'Booking approved', staff: 'Appointment booked' },
-    completed: {
-        client: 'Appointment completed',
-        staff: 'Appointment completed',
+    rescheduled: {
+        client: 'Appointment rescheduled',
+        staff: 'Appointment rescheduled',
     },
+    served: { client: 'Appointment served', staff: 'Appointment served' },
     cancelled: { client: 'Booking cancelled', staff: 'Booking cancelled' },
+    expired: { client: 'Booking expired', staff: 'Booking expired' },
 };
 
 /**

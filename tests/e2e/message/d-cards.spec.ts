@@ -16,11 +16,9 @@ import {
 const HEADLINES: Record<string, Record<'client' | 'staff', string>> = {
     pending: { client: 'Booking pending', staff: 'Booking pending' },
     confirmed: { client: 'Booking approved', staff: 'Appointment booked' },
-    completed: {
-        client: 'Appointment completed',
-        staff: 'Appointment completed',
-    },
+    served: { client: 'Appointment served', staff: 'Appointment served' },
     cancelled: { client: 'Booking cancelled', staff: 'Booking cancelled' },
+    expired: { client: 'Booking expired', staff: 'Booking expired' },
 };
 
 /** Load every message of the thread, so all cards are in the DOM. */

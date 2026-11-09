@@ -54,7 +54,7 @@ class InquiryEditController extends Controller
 
         return Inertia::render('inquire', [
             ...InquiryCatalogResource::make($this->listInquiryOptions->execute())->resolve($request),
-            ...$this->listInquiryStones->execute($request),
+            ...$this->listInquiryStones->execute($request, $result['inquiry']->service?->slug),
             'mode' => 'edit',
             'reference' => $result['inquiry']->reference,
             'projects' => [InquiryEditResource::make($result['inquiry'])->resolve($request)],
@@ -84,7 +84,7 @@ class InquiryEditController extends Controller
 
         return Inertia::render('inquire', [
             ...InquiryCatalogResource::make($this->listInquiryOptions->execute())->resolve($request),
-            ...$this->listInquiryStones->execute($request),
+            ...$this->listInquiryStones->execute($request, $inquiry->service?->slug),
             'mode' => 'edit',
             'editor' => 'staff',
             'reference' => $inquiry->reference,

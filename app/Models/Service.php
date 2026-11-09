@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -21,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property bool $is_active
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property-read ServiceType $serviceType
+ * @property-read Collection<int, StoneType> $stoneTypes
  */
 #[Fillable(['service_type_id', 'slug', 'name', 'description', 'features', 'sort_order', 'is_active'])]
 class Service extends Model
@@ -50,9 +54,25 @@ class Service extends Model
         return $this->hasMany(Inquiry::class);
     }
 
-    /** Whether new inquiries may ask for it: it and its type are both still offered. */
+    /**
+     * The stone types it is made from: the Inquire page lists the stones whose
+     * primary type is one of them.
+     *
+     * @return BelongsToMany<StoneType, $this>
+     */
+    public function stoneTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(StoneType::class, 'service_stone_type');
+    }
+
+    /**
+     * Whether new inquiries may ask for it: it and its type are both still
+     * offered, and it is made from at least one stone type.
+     */
     public function isOffered(): bool
     {
-        return $this->is_active && $this->serviceType->is_active;
+        return $this->is_active
+            && $this->serviceType->is_active
+            && ($this->relationLoaded('stoneTypes') ? $this->stoneTypes->isNotEmpty() : $this->stoneTypes()->exists());
     }
 }

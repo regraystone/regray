@@ -2,6 +2,7 @@ import { ApiError } from '@/lib/message-api';
 import { readXsrfToken } from '@/lib/xsrf';
 import { accounts as accountsRoute } from '@/routes/inquiry/inquire';
 import { store as storeDirectClient } from '@/routes/inquiry/direct-clients';
+import { accounts as bookingAccountsRoute } from '@/routes/schedule/book';
 import type { ContactKind } from '@/lib/staff-inquire';
 
 /**
@@ -77,6 +78,21 @@ export const searchClientAccounts = (
     request(
         'GET',
         accountsRoute.url({
+            query: search.trim() === '' ? {} : { search },
+        }),
+    );
+
+/**
+ * The same search, for staff booking an appointment: its own route, guarded
+ * by the schedule permissions, so a staff role that books but opens no
+ * inquiries can still find the client.
+ */
+export const searchBookingClientAccounts = (
+    search: string,
+): Promise<{ accounts: ClientAccount[] }> =>
+    request(
+        'GET',
+        bookingAccountsRoute.url({
             query: search.trim() === '' ? {} : { search },
         }),
     );

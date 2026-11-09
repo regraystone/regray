@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Check, CircleDashed, X } from 'lucide-react';
+import { CalendarClock, Check, CircleDashed, Clock, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { ScheduleStatus } from '@/lib/schedule';
 
@@ -13,8 +13,9 @@ import type { ScheduleStatus } from '@/lib/schedule';
 export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
     pending: 'Pending',
     confirmed: 'Confirmed',
-    completed: 'Completed',
+    served: 'Served',
     cancelled: 'Cancelled',
+    expired: 'Expired',
 };
 
 /**
@@ -30,14 +31,16 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
 export const STATUS_BLOCK_STYLES: Record<ScheduleStatus, string> = {
     confirmed: 'border-l-2 border-l-foreground bg-muted',
     pending: 'border border-dashed border-sidebar-border bg-background',
-    completed: 'border-l-2 border-l-border bg-muted/60 text-muted-foreground',
+    served: 'border-l-2 border-l-border bg-muted/60 text-muted-foreground',
     cancelled:
         'border border-dashed border-sidebar-border bg-background text-muted-foreground',
+    expired:
+        'border border-dashed border-sidebar-border bg-muted/40 text-muted-foreground',
 };
 
-/** Whether a block strikes its own title through, which only a cancellation does. */
+/** Whether a block strikes its own title through: a visit that will not happen. */
 export const isStruck = (status: ScheduleStatus): boolean =>
-    status === 'cancelled';
+    status === 'cancelled' || status === 'expired';
 
 /**
  * The icon that says a status without its word.
@@ -49,8 +52,9 @@ export const isStruck = (status: ScheduleStatus): boolean =>
 const STATUS_ICONS: Record<ScheduleStatus, LucideIcon> = {
     pending: CircleDashed,
     confirmed: Check,
-    completed: Check,
+    served: Check,
     cancelled: X,
+    expired: Clock,
 };
 
 /**
@@ -62,13 +66,23 @@ const STATUS_ICONS: Record<ScheduleStatus, LucideIcon> = {
  * cancellation strikes its own label through so the word does not have to be
  * argued with.
  */
-export const ScheduleStatusBadge = ({ status }: { status: ScheduleStatus }) => {
-    const Icon = STATUS_ICONS[status];
+export const ScheduleStatusBadge = ({
+    status,
+}: {
+    /** A visit's status, or, on a thread card, that it was rescheduled. */
+    status: ScheduleStatus | 'rescheduled';
+}) => {
+    const Icon =
+        status === 'rescheduled' ? CalendarClock : STATUS_ICONS[status];
+    const label =
+        status === 'rescheduled'
+            ? 'Rescheduled'
+            : SCHEDULE_STATUS_LABELS[status];
 
     const variant =
-        status === 'confirmed' || status === 'completed'
+        status === 'confirmed' || status === 'served'
             ? 'default'
-            : status === 'cancelled'
+            : status === 'cancelled' || status === 'expired'
               ? 'secondary'
               : 'outline';
 
@@ -80,8 +94,14 @@ export const ScheduleStatusBadge = ({ status }: { status: ScheduleStatus }) => {
             }`}
         >
             <Icon className="size-3" aria-hidden />
-            <span className={isStruck(status) ? 'line-through' : undefined}>
-                {SCHEDULE_STATUS_LABELS[status]}
+            <span
+                className={
+                    status !== 'rescheduled' && isStruck(status)
+                        ? 'line-through'
+                        : undefined
+                }
+            >
+                {label}
             </span>
         </Badge>
     );
