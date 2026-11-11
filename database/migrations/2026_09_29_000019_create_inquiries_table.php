@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Schema;
  * - `lead_id`: marketing's lead for the client (`leads`). NULL until the
  *   client's Regray Team thread is claimed, which links it, and for a direct
  *   client, who has no lead.
+ * - `created_by`: the staff member who opened the inquiry for the client,
+ *   NULL when the client sent it. Marketing and sales read the inquiries they
+ *   opened (Inquiry::scopeVisibleTo()).
  * - `marketing_status`: marketing's decision on this inquiry, won or lost,
  *   NULL while it waits for one. Won starts its sales; lost shows it
  *   cancelled. The lead's own status is the tally of its inquiries'.
@@ -60,6 +63,7 @@ return new class extends Migration
             $table->foreignId('client_id')->nullable()->constrained('users')->restrictOnDelete();
             $table->foreignId('client_record_id')->nullable()->constrained('clients')->restrictOnDelete();
             $table->foreignId('lead_id')->nullable()->constrained()->restrictOnDelete();
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('marketing_status', 20)->nullable();
             $table->timestampTz('marketing_status_changed_at')->nullable();
             $table->string('name', 100);
@@ -86,6 +90,7 @@ return new class extends Migration
             $table->index('client_id');
             $table->index('client_record_id');
             $table->index('lead_id');
+            $table->index('created_by');
             $table->index('service_id');
             $table->index('sales_status');
             $table->index('payment_status');

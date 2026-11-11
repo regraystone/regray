@@ -12,6 +12,7 @@ use App\Http\Requests\Quote\UpdateInquiryRequest;
 use App\Http\Requests\Quote\UpdateStaffInquiryRequest;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryEditResource;
+use App\Models\User;
 use App\Services\InquiryDetailsService;
 use App\Services\InquiryService;
 use App\Services\InquiryStatusRules;
@@ -64,11 +65,13 @@ class InquiryEditController extends Controller
     /**
      * Staff edit an inquiry's project from the Inquiry list: the same page in
      * edit mode, for an inquiry that is still open and not yet approved by the
-     * client, with no files.
+     * client, with no files. One the staff member does not read is a 404.
      */
     public function staffEdit(Request $request, string $reference): Response|RedirectResponse
     {
-        $inquiry = $this->inquiryDetailsService->forStaff($reference);
+        /** @var User $staff */
+        $staff = $request->user();
+        $inquiry = $this->inquiryDetailsService->forStaff($staff, $reference);
 
         if (! InquiryStatusRules::isOpen($inquiry)) {
             Inertia::flash('toast', ['type' => 'error', 'message' => 'This inquiry is closed or cancelled, so it can no longer be changed.']);

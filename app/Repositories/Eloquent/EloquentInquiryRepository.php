@@ -13,6 +13,7 @@ use App\Enums\Role;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
+use App\Models\InquiryHandler;
 use App\Models\InquiryStatusHistory;
 use App\Models\Lead;
 use App\Models\PaymentTransaction;
@@ -72,6 +73,21 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
     public function findByReferenceForUpdate(string $reference): ?Inquiry
     {
         return Inquiry::query()->where('reference', $reference)->lockForUpdate()->first();
+    }
+
+    public function findVisibleByReferenceForUpdate(User $viewer, string $reference): ?Inquiry
+    {
+        return Inquiry::query()->visibleTo($viewer)->where('reference', $reference)->lockForUpdate()->first();
+    }
+
+    public function addHandlers(Inquiry $inquiry, array $userIds, int $assignedBy, CarbonInterface $assignedAt): void
+    {
+        InquiryHandler::query()->insertOrIgnore(array_map(fn (int $userId): array => [
+            'inquiry_id' => $inquiry->id,
+            'user_id' => $userId,
+            'assigned_by' => $assignedBy,
+            'assigned_at' => $assignedAt,
+        ], $userIds));
     }
 
     public function addPayment(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $receivedAt): PaymentTransaction
@@ -235,19 +251,20 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->first();
     }
 
-    public function findByReferenceWithDetails(string $reference): ?Inquiry
+    public function findByReferenceWithDetails(User $viewer, string $reference): ?Inquiry
     {
-        return $this->withDetails(Inquiry::query())
+        return $this->withDetails(Inquiry::query()->visibleTo($viewer))
             ->where('reference', $reference)
             ->first();
     }
 
-    public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator
+    public function paginateForStaff(?string $escapedSearch, User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator
     {
-        $role = $user?->primaryRole();
+        $role = $user->primaryRole();
         $seesPending = InquiryStatusRules::seesPending($user);
 
         return Inquiry::query()
+            ->visibleTo($user)
             ->when(! $seesPending, fn (Builder $query) => $query->whereNot(fn (Builder $query) => $query->whereDisplayStatus(InquiryStatus::Pending)))
             // Accounting has the approved ones, and keeps those it refunded in full, which that cancelled.
             ->when($role === Role::Accounting, fn (Builder $query) => $query->where(fn (Builder $query) => $query
@@ -284,6 +301,9 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'client:id,name,email',
                 'client.profile:user_id,phone',
                 'schedule:id,inquiry_id,arrival_at',
+                // What InquiryPolicy reads of each row (Inquiry::isVisibleTo()), so it asks nothing more.
+                'lead:id,marketing_user_id',
+                'handlers:inquiry_id,user_id',
             ])
             ->withJobOrderFlag()
             ->orderByDesc('created_at')
@@ -312,7 +332,8 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'files' => fn ($files) => $files->orderBy('id'),
                 'statusHistory',
                 'paymentTransactions',
-                'lead:id,reference',
+                'lead:id,reference,marketing_user_id',
+                'handlers:inquiry_id,user_id',
             ]);
     }
 }

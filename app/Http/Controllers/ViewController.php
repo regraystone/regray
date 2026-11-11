@@ -276,7 +276,8 @@ class ViewController extends Controller
      * asking for the reason for the change. One page at two URLs like the
      * schedule itself, the staff one and the client's Profile one.
      *
-     * Who may update it is SchedulePolicy's (a client only their own); an
+     * Who may update it is SchedulePolicy's (a client only their own, staff
+     * only one they read: any other is a 404); an
      * appointment whose state no longer allows it (served, cancelled, expired,
      * its time passed, or an inquiry's visit) sends the reader back to the
      * schedule with the reason.

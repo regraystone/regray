@@ -183,7 +183,15 @@ export const reassignConversation = (
 ): Promise<AssignmentResponse> =>
     request('POST', reassignRoute.url(conversationId), { userId });
 
-export type Person = { id: number; name: string };
+export type Person = {
+    id: number;
+    name: string;
+    /**
+     * Staff in a picker only: the open inquiries they are assigned to (not
+     * closed or cancelled). Informational: the server enforces the limits.
+     */
+    activeInquiryCount?: number;
+};
 
 /** One of the chosen client's inquiries, as a group can be bound to it. */
 export type GroupInquiryOption = {
@@ -195,11 +203,13 @@ export type GroupInquiryOption = {
 };
 
 export type GroupPeople = {
-    /** The staff the reader may pick: sales and technical for marketing. */
+    /** Not for a group: the staff the super-admin's Reassign dialog offers. */
     staff: Person[];
+    /** Sales staff: a group takes exactly one. */
+    sales: Person[];
+    /** Technical staff: a group takes exactly one. */
+    technical: Person[];
     clients: Person[];
-    /** Every owner, who is always added. */
-    owners: Person[];
     /** The chosen client's inquiries; empty until a client is chosen. */
     inquiries: GroupInquiryOption[];
 };
@@ -226,11 +236,14 @@ export const createGroup = (payload: {
 }): Promise<{ conversation: ConversationSummary }> =>
     request('POST', storeGroup.url(), payload);
 
-/** Accounting and logistics users not in the group yet, for a sales member to add. */
+/**
+ * Accounting and logistics users not in the group yet, for a sales member to
+ * add one of each. A role whose place in the group is taken lists nobody.
+ */
 export const searchAddableMembers = (
     conversationId: number,
     search: string,
-): Promise<{ people: Person[] }> =>
+): Promise<{ accounting: Person[]; logistics: Person[] }> =>
     request(
         'GET',
         membersRoute.url(conversationId, {
@@ -240,9 +253,9 @@ export const searchAddableMembers = (
 
 export const addGroupMembers = (
     conversationId: number,
-    userIds: number[],
+    payload: { accountingId: number; logisticsId: number },
 ): Promise<{ conversation: ConversationSummary }> =>
-    request('POST', storeMembersRoute.url(conversationId), { userIds });
+    request('POST', storeMembersRoute.url(conversationId), payload);
 
 /** A random id for a send, so a retry is recognised as the same send. */
 export const newClientKey = (): string => {

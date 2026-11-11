@@ -1,3 +1,35 @@
+# Who sees which inquiries, visits and group chats
+
+Staff no longer see every inquiry, visit and group chat their permission allows: each reads only those they are part of. Clients are unchanged: their own inquiries, visits and chats. Visibility is a filter on top of the existing rules, so the per-role status filters on the Inquiry list (pending hidden from technical, accounting and logistics; accounting's won ones; logistics once a payment started it) still apply.
+
+**Inquiries** (`Inquiry::scopeVisibleTo()`, `Inquiry::isVisibleTo()` for one loaded row; the clauses per role are on `Role`, combined by `App\Data\StaffVisibility`):
+
+| Role                              | Reads                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------- |
+| Admin                             | every inquiry                                                                 |
+| Owner                             | every inquiry, read-only                                                      |
+| Marketing                         | the inquiries of the leads it holds (`leads.marketing_user_id`), and those it opened |
+| Sales                             | the inquiries it opened, and those it is assigned to (`inquiry_handlers`)    |
+| Technical, accounting, logistics  | the inquiries they are assigned to                                            |
+
+A user with several roles reads what any of them would. A staff user with none of these roles reads nothing.
+
+- **Who opened it:** `inquiries.created_by` (in the create migration), set by `InquiryService::createOne()` to the staff member who opens an inquiry for a client; NULL when the client sends their own. The seeders record it for the walk-in clients' inquiries.
+- **Everywhere staff read or write one:** the Inquiry list, the details page, the staff edit page and its save, Update Status and the job order upload. One a user does not read is a **404**, the same as a reference that does not exist. `InquiryPolicy` (`view`, `update`, `uploadJobOrder`, `updateStatus`) also asks for it, and keeps a client's own `view`.
+- **Visits** (`Schedule::scopeVisibleTo()`): an inquiry's visit follows its inquiry. A visit booked outside an inquiry is read by every marketing and sales user, and by the admin and the owner; technical, accounting and logistics do not see one. The Schedule page and its Upcoming panel list only these, and updating, cancelling, approving, served and did not attend (and the update page) are a 404 for any other visit (`SchedulePolicy` answers "not found").
+
+**Group chats, and who is assigned:**
+
+- **Being in an inquiry's group assigns staff to the inquiry.** `GroupConversationService::assign()` writes the membership rows and the `inquiry_handlers` rows together, in one transaction, so a later reassignment can change both in one place. Reassigning a group's staff is not part of this change.
+- **Making a group** takes **exactly one sales and one technical member**, refused otherwise ("Choose one sales member and one technical member."), and only an inquiry the creator reads: the inquiry list of the dialog (`inbox.people`) shows only those. The two are assigned by the creator. Every group is bound to an inquiry when it is made.
+- **Adding later**, by a sales member of the group who reads its inquiry, takes **exactly one accounting and one logistics member, in one request** (`accountingId`, `logisticsId`), refused otherwise, and refused once the group has someone from accounting or from logistics. The two are assigned by that sales member.
+- **Owners are never members and never assigned.** The step that added every owner to a new group is gone, and so is the owners list of `inbox.people`. An owner reads every group and **sends in none**, even in a group made before this change that still lists them. Marketing is not assigned either: it reads the inquiry through its lead.
+- **Reading an inquiry's group:** whoever reads its inquiry, in its member list or not; the admin and the owner read every one. **Sending** needs a member who is not a viewer and reads the inquiry; the admin sends in any group. A group bound to no inquiry (made before the binding) keeps the membership rule. The Inbox list follows the same rule (`Conversation::scopeVisibleToStaff()`), and a group the user only reads, not being in it, adds nothing to their unread badge. "Message the team" on the details page shows for whoever may open the group.
+
+**Assignment counts in the pickers:** wherever staff are listed for a group, each person shows how many **active inquiries** they are assigned to: those not closed or cancelled (`InquiryStatusRules::isOpen()`), counted in the database with the display-status SQL (`User::scopeWithActiveInquiryCount()`), as `activeInquiryCount` ("2 active inquiries"). The New group dialog now has a Sales and a Technical picker; the Add accounting and logistics dialog an Accounting and a Logistics picker (`StaffPicker`). The counts only inform the choice: the server enforces the one-per-role limits. `inbox.people` returns `sales`, `technical`, `clients` and `inquiries` (and `staff`, now only for the super-admin's Reassign dialog); `inbox.members.index` returns `accounting` and `logistics`.
+
+The new column is in the create migration and the seed data changed (group staff are assigned, no owners in groups), so an existing database needs `migrate:fresh --seed`.
+
 # Staff booking, and updating, cancelling and approving appointments
 
 **Who may do what** (the server enforces every row; the super-admin passes every check, but is still held to the status rules):
@@ -253,6 +285,8 @@ The walk-in and direct clients prompt and the assign-to-account addendum this bu
 - `tests/js/staff-inquire.test.mjs`: exactly two options. e2e: `m-staff-modal.spec.ts` (the modal, the client never seeing it, the duplicate offer), and the staff stepper specs now enter past the modal.
 
 # Marketing works leads; group chats belong to an inquiry
+
+_Its group chat rules are superseded by "Who sees which inquiries, visits and group chats" above: owners are no longer added, a group takes exactly one sales and one technical member and later one accounting and one logistics member, and being in the group assigns them to the inquiry._
 
 Marketing's status moves off the inquiry onto a **lead**: marketing's record of one client, created when a marketing user is given the client's Regray Team thread, with its own status (`idle`, `won`, `lost`). Every inquiry points to its client's lead. A won lead starts sales on its inquiries; a lost lead shows them cancelled. Marketing gets a **Leads** page, staff open inquiries for a lead's client, and a group chat is now made for one client's inquiry, with its status cards posted there. Clients see only the inquiry status and the payment status. Run `php artisan migrate:fresh --seed`.
 
@@ -719,11 +753,9 @@ These migrations were later folded into the create migrations (see the top secti
 
 ## TODO list
 
-- **`TODO(inquiry-binding)`:** groups are not bound to inquiries yet.
-    - Until they are, no real inquiry has a group, so status cards are not posted for real data and "Message the team" stays hidden.
-    - Marked in `ConversationPolicy`, `PostInquiryStatusCard`, `InquiryStatusService`, `InquiryDetailsService`, `InquiryDetailsResource`, `GroupConversationService`, `ConversationSeeder` and `pages/inquiry-details.tsx`.
+- ~~**`TODO(inquiry-binding)`:** groups are not bound to inquiries yet.~~ Done: every new group is bound to an inquiry when it is made, and membership in it is what assigns staff to that inquiry (see "Who sees which inquiries, visits and group chats" above). Only groups made before the binding have no inquiry; they keep the membership rule.
 - **`TODO(booking)`:** post a `schedule_card` when a client books and on every later status change. It goes where inquiry cards go: the inquiry's group chat when there is one, otherwise the client's Regray Team thread. The card's rendering is already built. Marked in `Schedule`, `PostInquiryStatusCard` and `pages/schedule-book.tsx`.
-- **`TODO(staff-inquiry-scope)`:** the inquiry details page only finds the viewer's own inquiries (`InquiryDetailsService::forClient`), so a staff member who clicks an inquiry card gets a 404. Marked in `components/conversations/inquiry-card.tsx`.
+- ~~**`TODO(staff-inquiry-scope)`:** the inquiry details page only finds the viewer's own inquiries.~~ Done: staff open the details of every inquiry they read (`InquiryDetailsService::forStaff()`, `Inquiry::scopeVisibleTo()`), so an inquiry card in a group chat they read opens; one they do not read is a 404. See "Who sees which inquiries, visits and group chats" above.
 
 ## Tests
 

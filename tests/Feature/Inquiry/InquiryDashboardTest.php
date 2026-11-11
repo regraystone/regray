@@ -46,8 +46,10 @@ function movableInquiry(User $client): Inquiry
 
 it('gives each role its header and row actions on the Inquiry list', function (Role $role, bool $canAdd, array $actions): void {
     // Won, partly paid, so logistics has received it: every track can move.
-    movableInquiry($this->client)->forceFill(['payment_status' => PaymentStatus::Partial, 'payment_status_changed_at' => now(), 'process_status' => ProcessStatus::OrderReceived, 'process_status_changed_at' => now()])->save();
+    $inquiry = movableInquiry($this->client);
+    $inquiry->forceFill(['payment_status' => PaymentStatus::Partial, 'payment_status_changed_at' => now(), 'process_status' => ProcessStatus::OrderReceived, 'process_status_changed_at' => now()])->save();
     $user = User::factory()->role($role)->create();
+    letStaffRead($inquiry, $user);
 
     $page = $this->actingAs($user)->get(route('inquiry.index'))->assertOk()->viewData('page')['props'];
 
@@ -75,8 +77,11 @@ it('lists to each role only its own share of the inquiries', function (Role $rol
     makeInquiry($this->client, attributes: ['reference' => 'INQ-W1', 'status' => InquiryStatus::Won])->forceFill(['quote_revision' => 1])->save();
     // Partly paid, so logistics has received it.
     makeInquiry($this->client, attributes: ['reference' => 'INQ-L1', 'status' => InquiryStatus::Measure])->forceFill(['quote_revision' => 1, 'payment_status' => PaymentStatus::Partial])->save();
+    // Each reads every one of them, so what is left out is the role's own filter.
+    $user = User::factory()->role($role)->create();
+    Inquiry::query()->each(fn (Inquiry $inquiry) => letStaffRead($inquiry, $user));
 
-    $page = $this->actingAs(User::factory()->role($role)->create())->get(route('inquiry.index'))->viewData('page')['props'];
+    $page = $this->actingAs($user)->get(route('inquiry.index'))->viewData('page')['props'];
 
     expect(collect($page['inquiries']['data'])->pluck('reference')->sort()->values()->all())->toBe($references);
 })->with([
@@ -94,8 +99,10 @@ it('filters accounting by payment, logistics by process, and everyone else by th
     makeInquiry($this->client, attributes: ['reference' => 'INQ-Q1', 'status' => InquiryStatus::Quoted])->forceFill(['quote_revision' => 1])->save();
     makeInquiry($this->client, attributes: ['reference' => 'INQ-W1', 'status' => InquiryStatus::Won])->forceFill(['quote_revision' => 1])->save();
     makeInquiry($this->client, attributes: ['reference' => 'INQ-M1', 'status' => InquiryStatus::Measure])->forceFill(['quote_revision' => 1, 'payment_status' => PaymentStatus::Partial])->save();
+    $user = User::factory()->role($role)->create();
+    Inquiry::query()->each(fn (Inquiry $inquiry) => letStaffRead($inquiry, $user));
 
-    $page = fn (array $query) => $this->actingAs(User::factory()->role($role)->create())->get(route('inquiry.index', $query))->viewData('page')['props'];
+    $page = fn (array $query) => $this->actingAs($user)->get(route('inquiry.index', $query))->viewData('page')['props'];
     $filtered = $page(['status' => $filter]);
 
     expect(array_column($page([])['statusOptions'], 'value'))->toBe(['all', ...$options])
@@ -121,6 +128,7 @@ describe('Update Status', function (): void {
     beforeEach(function (): void {
         $this->sales = User::factory()->role(Role::Sales)->create();
         $this->inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-S1', 'status' => InquiryStatus::Negotiation]);
+        letStaffRead($this->inquiry, $this->sales);
         $this->quote = fn (array $overrides = []) => [
             'track' => 'sales',
             'to' => 'quoted',
@@ -233,8 +241,10 @@ describe('Update Status', function (): void {
 
     it('starts payment only once the client has approved the quotation', function (): void {
         ($this->move)('quoted')->assertRedirect();
+        $accounting = User::factory()->role(Role::Accounting)->create();
+        letStaffRead($this->inquiry, $accounting);
 
-        $this->actingAs(User::factory()->role(Role::Accounting)->create())
+        $this->actingAs($accounting)
             ->postJson(route('inquiries.status', 'INQ-S1'), ['track' => 'payment', 'to' => 'awaiting', 'note' => 'Deposit billed.', 'files' => ['billing_statement' => [pdf('billing.pdf')]]])
             ->assertJsonValidationErrors(['to' => 'Payment starts once the client has approved the quotation.']);
     });
@@ -242,6 +252,7 @@ describe('Update Status', function (): void {
     it('refuses a payment that does not add up to the contract total', function (): void {
         $accounting = User::factory()->role(Role::Accounting)->create();
         $inquiry = movableInquiry($this->client);
+        letStaffRead($inquiry, $accounting);
         // Quoted at 1,000, contracted at 1,200: payments count against the contract.
         $inquiry->forceFill(['payment_status' => PaymentStatus::Awaiting, 'payment_status_changed_at' => now(), 'contract_total' => '1200.00'])->save();
         $payment = fn (string $to, string $amount) => $this->actingAs($accounting)->postJson(route('inquiries.status', 'INQ-R1'), [
@@ -265,6 +276,7 @@ describe('Update Status', function (): void {
     it('starts payment from nothing only with a billing statement and the total contract amount', function (): void {
         $accounting = User::factory()->role(Role::Accounting)->create();
         $inquiry = movableInquiry($this->client);
+        letStaffRead($inquiry, $accounting);
         $awaiting = ['track' => 'payment', 'to' => 'awaiting', 'note' => 'Deposit billed.'];
         $billing = ['files' => ['billing_statement' => [pdf('billing.pdf')]]];
 
@@ -289,7 +301,11 @@ describe('Update Status', function (): void {
     });
 
     it('lets each track be moved only with its own permission', function (): void {
-        $this->actingAs(User::factory()->role(Role::Accounting)->create())
+        // Accounting reads the inquiry, so what refuses it is the track's permission.
+        $accounting = User::factory()->role(Role::Accounting)->create();
+        letStaffRead($this->inquiry, $accounting);
+
+        $this->actingAs($accounting)
             ->postJson(route('inquiries.status', 'INQ-S1'), ($this->quote)())
             ->assertForbidden();
     });
@@ -299,6 +315,7 @@ it('shows the job order on the details page to staff, never to the client', func
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-J1', 'status' => InquiryStatus::Negotiation]);
 
     $sales = User::factory()->role(Role::Sales)->create();
+    letStaffRead($inquiry, $sales);
 
     $this->actingAs($sales)->post(route('inquiries.status', 'INQ-J1'), [
         'track' => 'sales',
@@ -330,8 +347,9 @@ it('shows the job order on the details page to staff, never to the client', func
 });
 
 it('shows sales and the admin every quotation revision on the details page and everyone else only the latest', function (): void {
-    makeInquiry($this->client, attributes: ['reference' => 'INQ-L1', 'status' => InquiryStatus::Negotiation]);
+    $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-L1', 'status' => InquiryStatus::Negotiation]);
     $sales = User::factory()->role(Role::Sales)->create();
+    letStaffRead($inquiry, $sales);
     $move = fn (string $to, string $total, string $file) => $this->actingAs($sales)->post(route('inquiries.status', 'INQ-L1'), [
         'track' => 'sales', 'to' => $to, 'note' => 'Sent.', 'quotedTotal' => $total, 'files' => ['quotation' => [pdf($file)]],
     ])->assertRedirect();
@@ -407,7 +425,10 @@ it('records when logistics completes the project', function (): void {
 
     expect($inquiry->completed_at)->toBeNull();
 
-    $this->actingAs(User::factory()->role(Role::Logistics)->create())->post(route('inquiries.status', 'INQ-C1'), [
+    $logistics = User::factory()->role(Role::Logistics)->create();
+    letStaffRead($inquiry, $logistics);
+
+    $this->actingAs($logistics)->post(route('inquiries.status', 'INQ-C1'), [
         'track' => 'process', 'to' => 'completed', 'note' => 'Installed.',
     ])->assertRedirect();
 
@@ -416,8 +437,8 @@ it('records when logistics completes the project', function (): void {
 });
 
 it('lists the payment records on the details page: the contract total, then each payment with what is paid and the balance', function (): void {
-    movableInquiry($this->client);
     $accounting = User::factory()->role(Role::Accounting)->create();
+    letStaffRead(movableInquiry($this->client), $accounting);
     $move = function (CarbonImmutable $at, array $data) use ($accounting): void {
         $this->travelTo($at);
         $this->actingAs($accounting)->post(route('inquiries.status', 'INQ-R1'), ['track' => 'payment', 'note' => 'Recorded.', ...$data])->assertRedirect();
@@ -458,6 +479,7 @@ it('hands an inquiry to logistics only once it has the job order and a payment',
     $accounting = User::factory()->role(Role::Accounting)->create();
     $logistics = User::factory()->role(Role::Logistics)->create();
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-G1', 'status' => InquiryStatus::Negotiation]);
+    letStaffRead($inquiry, $sales, $accounting, $logistics);
     $listedFor = fn (User $user): bool => collect($this->actingAs($user)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->contains('reference', 'INQ-G1');
     $move = fn (User $by, array $data) => $this->actingAs($by)->post(route('inquiries.status', 'INQ-G1'), ['note' => 'Moved.', ...$data])->assertRedirect();
 
@@ -490,6 +512,7 @@ describe('refunds', function (): void {
         $this->inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-RF1', 'status' => InquiryStatus::OrderReceived]);
         $this->inquiry->forceFill(['quoted_total' => '1000.00', 'quote_revision' => 1, 'contract_total' => '1000.00', 'payment_status' => PaymentStatus::Partial])->save();
         app(InquiryRepositoryInterface::class)->addPayment($this->inquiry, '600.00', $this->accounting->id, now());
+        letStaffRead($this->inquiry, $this->sales, $this->accounting);
         $this->move = fn (User $by, array $data) => $this->actingAs($by)->postJson(route('inquiries.status', 'INQ-RF1'), ['note' => 'Refund.', ...$data]);
         $this->askRefund = fn () => ($this->move)($this->sales, ['track' => 'sales', 'to' => 'for_refund', 'files' => ['refund_request' => [pdf('refund-request.pdf')]]]);
         $this->refund = fn (string $to, string $amount) => ($this->move)($this->accounting, ['track' => 'payment', 'to' => $to, 'amountRefunded' => $amount, 'files' => ['refund_settlement' => [pdf('refund-settled.pdf')]]]);
@@ -510,13 +533,16 @@ describe('refunds', function (): void {
 
         // For refund is final for sales, and logistics stops.
         ($this->move)($this->sales, ['track' => 'sales', 'to' => 'rejected'])->assertJsonValidationErrors('to');
-        $this->actingAs(User::factory()->role(Role::Logistics)->create())->postJson(route('inquiries.status', 'INQ-RF1'), ['track' => 'process', 'to' => 'measure', 'note' => 'Go.'])
+        $logistics = User::factory()->role(Role::Logistics)->create();
+        letStaffRead($this->inquiry, $logistics);
+        $this->actingAs($logistics)->postJson(route('inquiries.status', 'INQ-RF1'), ['track' => 'process', 'to' => 'measure', 'note' => 'Go.'])
             ->assertJsonValidationErrors('to');
     });
 
     it('never offers a refund before the inquiry is won', function (): void {
         $quoted = makeInquiry($this->client, attributes: ['reference' => 'INQ-RF2', 'status' => InquiryStatus::Quoted]);
         $quoted->forceFill(['quote_revision' => 1, 'quoted_total' => '1000.00'])->save();
+        letStaffRead($quoted, $this->sales);
 
         $this->actingAs($this->sales)->postJson(route('inquiries.status', 'INQ-RF2'), ['track' => 'sales', 'to' => 'for_refund', 'note' => 'Refund.', 'files' => ['refund_request' => [pdf('r.pdf')]]])
             ->assertJsonValidationErrors('to');

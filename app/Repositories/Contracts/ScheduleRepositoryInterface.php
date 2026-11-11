@@ -9,6 +9,7 @@ use App\Models\Schedule;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 interface ScheduleRepositoryInterface
 {
@@ -24,12 +25,12 @@ interface ScheduleRepositoryInterface
 
     /**
      * Every schedule arriving in `[$from, $to)`, whatever its status, ordered by
-     * arrival, with its inquiry loaded. Only `$client`'s when a client is given,
-     * everyone's when it is null.
+     * arrival, with its inquiry loaded, that `$viewer` reads: a client's own,
+     * and for staff those Schedule::scopeVisibleTo() gives them.
      *
      * @return Collection<int, Schedule>
      */
-    public function between(?User $client, CarbonInterface $from, CarbonInterface $to): Collection;
+    public function between(User $viewer, CarbonInterface $from, CarbonInterface $to): Collection;
 
     /**
      * The first `$limit` pending or confirmed schedules arriving on or after
@@ -38,7 +39,7 @@ interface ScheduleRepositoryInterface
      *
      * @return Collection<int, Schedule>
      */
-    public function nextOpenSince(?User $client, CarbonInterface $since, int $limit): Collection;
+    public function nextOpenSince(User $viewer, CarbonInterface $since, int $limit): Collection;
 
     /**
      * Cancel the inquiry's pending and confirmed schedules. Served, expired and
@@ -50,9 +51,12 @@ interface ScheduleRepositoryInterface
 
     /**
      * The schedule, its row locked until the transaction ends, so two changes to
-     * one appointment are made one after the other.
+     * one appointment are made one after the other. With a staff `$viewer`, only
+     * one they read (Schedule::scopeVisibleTo()); any other is not found.
+     *
+     * @throws ModelNotFoundException
      */
-    public function findForUpdate(int $id): Schedule;
+    public function findForUpdate(int $id, ?User $viewer = null): Schedule;
 
     /**
      * The ids of the appointments still pending at `$now`, their time passed.

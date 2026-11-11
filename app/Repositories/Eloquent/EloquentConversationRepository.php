@@ -26,14 +26,17 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
 
     /**
      * Messages from others the user has not read. System notices and removed
-     * messages do not count. Two bindings: the user id, twice.
+     * messages do not count, and neither does a group the user only reads
+     * (staff reading an inquiry's group chat they are not in): it has no read
+     * pointer to count from. Three bindings: the user id, three times.
      */
     private const UNREAD_SQL = 'SELECT COUNT(*) FROM messages um'
         .' WHERE um.conversation_id = conversations.id'
         .' AND um.deleted_at IS NULL'
         ." AND um.type <> 'system'"
         .' AND (um.sender_id IS NULL OR um.sender_id <> ?)'
-        .' AND um.id > COALESCE((SELECT ucm.last_read_message_id FROM conversation_members ucm WHERE ucm.conversation_id = conversations.id AND ucm.user_id = ?), 0)';
+        .' AND um.id > COALESCE((SELECT ucm.last_read_message_id FROM conversation_members ucm WHERE ucm.conversation_id = conversations.id AND ucm.user_id = ?), 0)'
+        ." AND (conversations.type <> 'group' OR EXISTS (SELECT 1 FROM conversation_members ugm WHERE ugm.conversation_id = conversations.id AND ugm.user_id = ?))";
 
     public function unreadTotalFor(User $user, bool $includeSupportPool, bool $includeAllSupport): int
     {
@@ -53,7 +56,7 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
         return $this->listQuery($user, $includeSupportPool, $includeAllSupport)
             ->when($filters->onlyUnread(), fn (Builder $query) => $query->whereRaw(
                 '('.self::UNREAD_SQL.') > 0',
-                [$user->id, $user->id],
+                [$user->id, $user->id, $user->id],
             ))
             ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch, $user): void {
                 $pattern = "%{$escapedSearch}%";
@@ -182,6 +185,12 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
     /**
      * The conversations a user may see, with the columns a list row needs.
      *
+     * A client sees the conversations they are a member of. Staff see those
+     * too, except that an inquiry's group chat is listed by its inquiry, not
+     * its member list: every one whose inquiry they read
+     * (Conversation::scopeVisibleToStaff()), member or not, and no other. A
+     * group bound to no inquiry keeps the membership rule.
+     *
      * `$restrict` false skips the visibility clause, for looking up one row the
      * policy has already admitted.
      *
@@ -193,7 +202,7 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
             ->select('conversations.*')
             ->selectRaw('(SELECT MAX(m.id) FROM messages m WHERE m.conversation_id = conversations.id) AS last_message_id')
             ->selectRaw('COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id = conversations.id), conversations.created_at) AS last_activity_at')
-            ->selectRaw('('.self::UNREAD_SQL.') AS unread_count', [$user->id, $user->id])
+            ->selectRaw('('.self::UNREAD_SQL.') AS unread_count', [$user->id, $user->id, $user->id])
             ->with([
                 'supportClient:id,name',
                 'assignee:id,name',
@@ -209,6 +218,13 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
                     ->where('vcm.user_id', $user->id)
                     ->whereIn('vcm.role', [ConversationMemberRole::Member->value, ConversationMemberRole::Admin->value]));
 
+                if (! $user->isClient()) {
+                    // Which of these staff read is scopeVisibleToStaff()'s, below.
+                    $query->orWhere(fn (Builder $group) => $group
+                        ->where('conversations.type', ConversationType::Group->value)
+                        ->whereNotNull('conversations.inquiry_id'));
+                }
+
                 if ($includeAllSupport) {
                     $query->orWhere('conversations.type', ConversationType::Support->value);
                 } elseif ($includeSupportPool) {
@@ -216,6 +232,7 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
                         ->where('conversations.type', ConversationType::Support->value)
                         ->whereNull('conversations.assigned_to'));
                 }
-            }));
+            }))
+            ->when($restrict && ! $user->isClient(), fn (Builder $query) => $query->visibleToStaff($user));
     }
 }

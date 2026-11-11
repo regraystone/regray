@@ -369,8 +369,8 @@ describe('the seeded leads and group chats', function (): void {
         expect(LeadStatusHistory::query()->count())->toBe($leads->sum(fn (Lead $lead): int => $lead->history->count()));
     });
 
-    it('bind each group chat to one inquiry, with sales and technical staff, every owner, the client and its marketing admin, and accounting and logistics only added later', function (): void {
-        $groups = Conversation::query()->where('type', ConversationType::Group)->whereNotNull('inquiry_id')->with(['members.user.roles', 'inquiry.lead'])->get();
+    it('bind each group chat to one inquiry, with one sales and one technical member, the client and its marketing admin, no owner, and at most one accounting and one logistics member, each staff member assigned to the inquiry', function (): void {
+        $groups = Conversation::query()->where('type', ConversationType::Group)->whereNotNull('inquiry_id')->with(['members.user.roles', 'inquiry.lead', 'inquiry.handlers'])->get();
         $owners = User::role(Role::Owner->value)->pluck('id')->all();
 
         expect($groups)->not->toBeEmpty();
@@ -378,17 +378,27 @@ describe('the seeded leads and group chats', function (): void {
         foreach ($groups as $group) {
             $members = $group->members;
             $admin = $members->firstWhere('role', ConversationMemberRole::Admin);
-            $staffRoles = $members
-                ->reject(fn (ConversationMember $member): bool => in_array($member->user_id, [...$owners, $group->inquiry->client_id, $admin->user_id], true))
-                ->map(fn (ConversationMember $member): string => $member->user->roles->sole()->name)
-                ->unique()
-                ->all();
+            $staff = $members->reject(fn (ConversationMember $member): bool => in_array($member->user_id, [$group->inquiry->client_id, $admin->user_id], true));
+            $staffRoles = $staff->map(fn (ConversationMember $member): string => $member->user->roles->sole()->name)->countBy()->all();
 
             expect($admin->user_id)->toBe($group->inquiry->lead->marketing_user_id, $group->name)
-                ->and($members->pluck('user_id')->all())->toContain($group->inquiry->client_id, ...$owners)
-                ->and(array_diff($staffRoles, [Role::Sales->value, Role::Technical->value, Role::Accounting->value, Role::Logistics->value]))->toBe([], $group->name)
-                ->and($staffRoles)->toContain(Role::Sales->value);
+                ->and($members->pluck('user_id')->all())->toContain($group->inquiry->client_id)
+                ->and(array_intersect($members->pluck('user_id')->all(), $owners))->toBe([], $group->name)
+                ->and(array_diff(array_keys($staffRoles), [Role::Sales->value, Role::Technical->value, Role::Accounting->value, Role::Logistics->value]))->toBe([], $group->name)
+                ->and($staffRoles[Role::Sales->value] ?? 0)->toBe(1, $group->name)
+                ->and($staffRoles[Role::Technical->value] ?? 0)->toBe(1, $group->name)
+                ->and($staffRoles[Role::Accounting->value] ?? 0)->toBeLessThanOrEqual(1)
+                ->and($staffRoles[Role::Logistics->value] ?? 0)->toBeLessThanOrEqual(1)
+                ->and($group->inquiry->handlers->pluck('user_id')->all())->toContain(...$staff->pluck('user_id')->all());
         }
+    });
+
+    it('record who opened each walk-in client\'s inquiry, and nobody for a client\'s own', function (): void {
+        $inquiries = Inquiry::query()->get();
+
+        expect($inquiries->whereNull('client_id'))->not->toBeEmpty()
+            ->and($inquiries->whereNull('client_id')->whereNull('created_by'))->toBeEmpty()
+            ->and($inquiries->whereNotNull('client_id')->whereNotNull('created_by'))->toBeEmpty();
     });
 });
 

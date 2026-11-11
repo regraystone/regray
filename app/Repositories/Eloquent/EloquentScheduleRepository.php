@@ -29,9 +29,9 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
         $schedule->forceFill($attributes)->save();
     }
 
-    public function between(?User $client, CarbonInterface $from, CarbonInterface $to): Collection
+    public function between(User $viewer, CarbonInterface $from, CarbonInterface $to): Collection
     {
-        return $this->visibleTo($client)
+        return $this->visibleTo($viewer)
             ->with(['inquiry:id,reference', 'client:id,name', 'bookedBy:id,name'])
             ->where('arrival_at', '>=', $from)
             ->where('arrival_at', '<', $to)
@@ -40,9 +40,9 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
             ->get();
     }
 
-    public function nextOpenSince(?User $client, CarbonInterface $since, int $limit): Collection
+    public function nextOpenSince(User $viewer, CarbonInterface $since, int $limit): Collection
     {
-        return $this->visibleTo($client)
+        return $this->visibleTo($viewer)
             ->with(['inquiry:id,reference', 'client:id,name', 'bookedBy:id,name'])
             ->whereIn('status', self::OPEN_STATUSES)
             ->where('arrival_at', '>=', $since)
@@ -65,9 +65,12 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
             ]);
     }
 
-    public function findForUpdate(int $id): Schedule
+    public function findForUpdate(int $id, ?User $viewer = null): Schedule
     {
-        return Schedule::query()->lockForUpdate()->findOrFail($id);
+        return Schedule::query()
+            ->when($viewer !== null && ! $viewer->isClient(), fn (Builder $query) => $query->visibleTo($viewer))
+            ->lockForUpdate()
+            ->findOrFail($id);
     }
 
     public function pendingPastIds(CarbonInterface $now): array
@@ -83,15 +86,16 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
     }
 
     /**
-     * Only the client's own schedules when a client is given, every schedule
-     * when it is null. The caller decides which from the signed-in user, never
-     * from the request.
+     * A client's own schedules; for staff, those they read
+     * (Schedule::scopeVisibleTo()). Decided from the signed-in user the caller
+     * passes, never from the request.
      *
      * @return Builder<Schedule>
      */
-    private function visibleTo(?User $client): Builder
+    private function visibleTo(User $viewer): Builder
     {
-        return Schedule::query()
-            ->when($client !== null, fn (Builder $query): Builder => $query->where('client_id', $client?->id));
+        return $viewer->isClient()
+            ? Schedule::query()->where('client_id', $viewer->id)
+            : Schedule::query()->visibleTo($viewer);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\ScheduleAction;
 use App\Models\Schedule;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 /**
  * Who may change an appointment.
@@ -20,41 +21,41 @@ use App\Models\User;
  */
 class SchedulePolicy
 {
-    public function update(User $user, Schedule $schedule): bool
+    public function update(User $user, Schedule $schedule): Response
     {
         return $this->allows($user, $schedule, ScheduleAction::Update);
     }
 
-    public function cancel(User $user, Schedule $schedule): bool
+    public function cancel(User $user, Schedule $schedule): Response
     {
         return $this->allows($user, $schedule, ScheduleAction::Cancel);
     }
 
-    public function approve(User $user, Schedule $schedule): bool
+    public function approve(User $user, Schedule $schedule): Response
     {
         return $this->allows($user, $schedule, ScheduleAction::Approve);
     }
 
-    public function serve(User $user, Schedule $schedule): bool
+    public function serve(User $user, Schedule $schedule): Response
     {
         return $this->allows($user, $schedule, ScheduleAction::Serve);
     }
 
-    public function noShow(User $user, Schedule $schedule): bool
+    public function noShow(User $user, Schedule $schedule): Response
     {
         return $this->allows($user, $schedule, ScheduleAction::NoShow);
     }
 
-    private function allows(User $user, Schedule $schedule, ScheduleAction $action): bool
+    private function allows(User $user, Schedule $schedule, ScheduleAction $action): Response
     {
         if (! $user->can($action->permission()->value)) {
-            return false;
+            return Response::deny();
         }
 
         if ($user->isClient()) {
-            return $action->isOpenToClients() && $schedule->client_id === $user->id;
+            return $action->isOpenToClients() && $schedule->client_id === $user->id ? Response::allow() : Response::deny();
         }
 
-        return true;
+        return $schedule->isVisibleTo($user) ? Response::allow() : Response::denyAsNotFound();
     }
 }

@@ -5,9 +5,11 @@ namespace App\Enums;
 /**
  * Who a user is, so they may be granted a bundle of permissions.
  *
- * A role is only a bundle: nothing authorizes against one. Access is always
- * checked against a Permission, so a role may be renamed, split or merged
- * without a single route or view having to know.
+ * A role is mostly a bundle: access to a page or an action is checked against
+ * a Permission, so a role may be renamed, split or merged without a single
+ * route or view having to know. The one exception is which inquiries, visits
+ * and group chats a staff member reads (StaffVisibility): that follows the
+ * staff member's part in the inquiry, so it is said here, role by role.
  */
 enum Role: string
 {
@@ -59,6 +61,36 @@ enum Role: string
     public function isSuperAdmin(): bool
     {
         return $this === self::superAdmin();
+    }
+
+    /** Reads every inquiry, visit and group chat: the admin, and the owner, read-only. */
+    public function seesEveryInquiry(): bool
+    {
+        return $this === self::Admin || $this === self::Owner;
+    }
+
+    /** Reads the inquiries of the leads it holds (`leads.marketing_user_id`). */
+    public function seesLeadInquiries(): bool
+    {
+        return $this === self::Marketing;
+    }
+
+    /** Reads the inquiries it opened for a client (`inquiries.created_by`). */
+    public function seesCreatedInquiries(): bool
+    {
+        return $this === self::Marketing || $this === self::Sales;
+    }
+
+    /** Reads the inquiries it is assigned to (`inquiry_handlers`). */
+    public function seesAssignedInquiries(): bool
+    {
+        return in_array($this, [self::Sales, self::Technical, self::Accounting, self::Logistics], true);
+    }
+
+    /** Reads every visit booked outside an inquiry. */
+    public function seesStandaloneVisits(): bool
+    {
+        return $this === self::Marketing || $this === self::Sales;
     }
 
     /**

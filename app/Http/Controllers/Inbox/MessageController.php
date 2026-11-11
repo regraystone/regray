@@ -58,8 +58,9 @@ class MessageController extends Controller
 
         return response()->json([
             'staff' => PersonResource::collection($people['staff'])->resolve($request),
+            'sales' => PersonResource::collection($people['sales'])->resolve($request),
+            'technical' => PersonResource::collection($people['technical'])->resolve($request),
             'clients' => PersonResource::collection($people['clients'])->resolve($request),
-            'owners' => PersonResource::collection($people['owners'])->resolve($request),
             'inquiries' => $people['inquiries'],
         ]);
     }

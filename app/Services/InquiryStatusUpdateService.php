@@ -62,7 +62,7 @@ class InquiryStatusUpdateService
     /**
      * @param  array<string, list<UploadedFile>>  $files  By document type.
      *
-     * @throws ModelNotFoundException When there is no such inquiry.
+     * @throws ModelNotFoundException When there is no such inquiry, or `$by` does not read it.
      * @throws ValidationException When the move or what it carries is refused.
      */
     public function update(
@@ -75,7 +75,7 @@ class InquiryStatusUpdateService
         ?string $amount,
         WrittenFiles $written,
     ): Inquiry {
-        $inquiry = $this->inquiryRepository->findByReferenceForUpdate($reference)
+        $inquiry = $this->inquiryRepository->findVisibleByReferenceForUpdate($by, $reference)
             ?? throw (new ModelNotFoundException)->setModel(Inquiry::class, [$reference]);
 
         $this->assertMove($inquiry, $track, $to);
@@ -132,12 +132,12 @@ class InquiryStatusUpdateService
      *
      * @param  list<UploadedFile>  $files
      *
-     * @throws ModelNotFoundException When there is no such inquiry.
+     * @throws ModelNotFoundException When there is no such inquiry, or `$by` does not read it.
      * @throws ValidationException When the job order cannot be uploaded now, or is not one file.
      */
     public function attachJobOrder(User $by, string $reference, string $note, array $files, WrittenFiles $written): Inquiry
     {
-        $inquiry = $this->inquiryRepository->findByReferenceForUpdate($reference)
+        $inquiry = $this->inquiryRepository->findVisibleByReferenceForUpdate($by, $reference)
             ?? throw (new ModelNotFoundException)->setModel(Inquiry::class, [$reference]);
 
         if (! InquiryStatusRules::canUploadJobOrder($inquiry)) {
