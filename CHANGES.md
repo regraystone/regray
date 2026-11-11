@@ -4,13 +4,13 @@ Staff no longer see every inquiry, visit and group chat their permission allows:
 
 **Inquiries** (`Inquiry::scopeVisibleTo()`, `Inquiry::isVisibleTo()` for one loaded row; the clauses per role are on `Role`, combined by `App\Data\StaffVisibility`):
 
-| Role                              | Reads                                                                         |
-| --------------------------------- | ----------------------------------------------------------------------------- |
-| Admin                             | every inquiry                                                                 |
-| Owner                             | every inquiry, read-only                                                      |
-| Marketing                         | the inquiries of the leads it holds (`leads.marketing_user_id`), and those it opened |
-| Sales                             | the inquiries it opened, and those it is assigned to (`inquiry_handlers`)    |
-| Technical, accounting, logistics  | the inquiries they are assigned to                                            |
+| Role                             | Reads                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| Admin                            | every inquiry                                                                        |
+| Owner                            | every inquiry, read-only                                                             |
+| Marketing                        | the inquiries of the leads it holds (`leads.marketing_user_id`), and those it opened |
+| Sales                            | the inquiries it opened, and those it is assigned to (`inquiry_handlers`)            |
+| Technical, accounting, logistics | the inquiries they are assigned to                                                   |
 
 A user with several roles reads what any of them would. A staff user with none of these roles reads nothing.
 
