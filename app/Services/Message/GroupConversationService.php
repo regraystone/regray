@@ -77,6 +77,10 @@ class GroupConversationService
             throw ValidationException::withMessages(['inquiryId' => "Choose one of {$client->name}'s inquiries."]);
         }
 
+        if (! $inquiry->isWonByMarketing()) {
+            throw ValidationException::withMessages(['inquiryId' => "{$inquiry->reference} is not won yet. Mark it won before making its group chat."]);
+        }
+
         if ($this->conversations->groupForInquiry($inquiry->id) !== null) {
             throw ValidationException::withMessages(['inquiryId' => "{$inquiry->reference} already has a group chat."]);
         }
@@ -173,7 +177,7 @@ class GroupConversationService
      * client, that client's inquiries `$creator` reads too, each saying
      * whether it has a group already.
      *
-     * @return array{sales: Collection<int, User>, technical: Collection<int, User>, clients: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool}>}
+     * @return array{sales: Collection<int, User>, technical: Collection<int, User>, clients: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool, isWon: bool}>}
      */
     public function people(User $creator, ?string $search, ?int $clientId = null): array
     {
@@ -235,7 +239,7 @@ class GroupConversationService
             ->exists();
     }
 
-    /** @return list<array{id: int, reference: string, name: string, hasGroup: bool}> */
+    /** @return list<array{id: int, reference: string, name: string, hasGroup: bool, isWon: bool}> */
     private function inquiriesOf(User $creator, int $clientId): array
     {
         return array_values(Inquiry::query()
@@ -244,12 +248,14 @@ class GroupConversationService
             ->withExists('conversation as has_group')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get(['id', 'reference', 'name'])
+            ->get(['id', 'reference', 'name', 'marketing_status'])
             ->map(fn (Inquiry $inquiry): array => [
                 'id' => $inquiry->id,
                 'reference' => $inquiry->reference,
                 'name' => $inquiry->name,
                 'hasGroup' => (bool) $inquiry->getAttribute('has_group'),
+                // A group chat waits for marketing to win the inquiry.
+                'isWon' => $inquiry->isWonByMarketing(),
             ])
             ->all());
     }

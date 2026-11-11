@@ -46,12 +46,12 @@ it('opens for marketing with its own leads, newest first, each with its phone, e
             'actions' => ['view', 'edit'],
             'canCreateInquiry' => true,
         ])
-        ->and($rows[$idle->reference]['inquiries'][0])->toMatchArray(['reference' => 'INQ-P1', 'marketingStatus' => 'idle', 'canDecide' => true])
-        // Won and Lost only on an inquiry still waiting.
+        ->and($rows[$idle->reference]['inquiries'][0])->toMatchArray(['reference' => 'INQ-P1', 'marketingStatus' => 'idle', 'canDecide' => true, 'canCreateGroup' => false])
+        // Won and Lost only on an inquiry still waiting; a group chat only on a won one.
         ->and($rows[$won->reference]['tally'])->toBe(['won' => 1, 'lost' => 1, 'idle' => 0])
-        ->and(collect($rows[$won->reference]['inquiries'])->map(fn (array $inquiry): array => array_intersect_key($inquiry, array_flip(['reference', 'marketingStatus', 'canDecide'])))->all())->toBe([
-            ['reference' => 'INQ-P2', 'marketingStatus' => 'won', 'canDecide' => false],
-            ['reference' => 'INQ-P3', 'marketingStatus' => 'lost', 'canDecide' => false],
+        ->and(collect($rows[$won->reference]['inquiries'])->map(fn (array $inquiry): array => array_intersect_key($inquiry, array_flip(['reference', 'marketingStatus', 'canDecide', 'canCreateGroup'])))->all())->toBe([
+            ['reference' => 'INQ-P2', 'marketingStatus' => 'won', 'canDecide' => false, 'canCreateGroup' => true],
+            ['reference' => 'INQ-P3', 'marketingStatus' => 'lost', 'canDecide' => false, 'canCreateGroup' => false],
         ]);
 
     $searched = $this->actingAs($this->marketing)->get(route('leads.index', ['search' => $this->client->name, 'perPage' => 25]))->viewData('page')['props'];

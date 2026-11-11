@@ -810,6 +810,11 @@ class InquirySeeder extends Seeder
                 throw new RuntimeException("Group {$groupData['name']} is older than {$inquiry->reference}.");
             }
 
+            // As GroupConversationService::create(): a group chat waits for marketing to win the inquiry.
+            if (! $inquiry->refresh()->isWonByMarketing()) {
+                throw new RuntimeException("Group {$groupData['name']}: {$inquiry->reference} is not won.");
+            }
+
             $conversation = Conversation::query()->forceCreate([
                 'type' => ConversationType::Group,
                 'name' => $groupData['name'],

@@ -187,6 +187,8 @@ export type GroupInquiryOption = {
     name: string;
     /** It has a group chat already, and an inquiry has at most one. */
     hasGroup: boolean;
+    /** Marketing has won it: only then may it have a group chat. */
+    isWon: boolean;
 };
 
 export type GroupPeople = {

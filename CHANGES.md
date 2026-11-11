@@ -1,3 +1,9 @@
+# A group chat waits for the inquiry to be won
+
+- **New permission, `InquiryPolicy::createGroup()`:** making an inquiry's group chat needs `conversations.create`, an inquiry the user reads, and marketing's decision on it to be **won**. An inquiry still waiting for marketing, or lost, has no group chat.
+- **The server enforces it** for everyone, the admin included: `GroupConversationService::create()` refuses one that is not won ("INQ-1001 is not won yet. Mark it won before making its group chat."). The seeders refuse it too.
+- **The Leads page** shows the Create group chat icon only on an inquiry the reader may make one for (`canCreateGroup` on each of a lead's inquiries): won, and with no group yet. **The New group dialog** lists a client's other inquiries greyed out, "(not won yet)" (`isWon` on `inbox.people`'s inquiries).
+
 # Notifications: the workspace bell, message notifications and emails
 
 **The bell** sits in the workspace header, before the account menu (not on the guest landing). Its red badge counts unread notifications, shows **9+** above nine and hides at none. Opening the list reads nothing: the badge clears only when every notification is read, one by one or with **Mark all as read**. The list is newest first, 10 at a time, loading more as it scrolls; an unread line is bold with a dot, and each says how long ago ("5 min ago"). Opening one reads it and goes to what it is about: a message to its thread, an inquiry to its details page (the client's Quote page, the staff Inquiry page), an appointment to `/profile/schedule` for a client or `/schedule` for staff. Where it leads is worked out when it is opened, against what the reader may open by then; one they no longer can stays in the list and says **"This item is no longer available"**. Marketing opening an inquiry nobody has claimed yet is taken to the client's Regray thread, where its card is.
