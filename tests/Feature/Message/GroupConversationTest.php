@@ -25,7 +25,8 @@ beforeEach(function (): void {
     $this->technical = messagingStaff(Role::Technical, 'Technical');
     $this->owner = messagingStaff(Role::Owner, 'Owner');
     $this->client = inquiryClient();
-    $this->inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-G1', 'lead' => makeLead($this->client, $this->marketing)]);
+    // Won by marketing: a group chat waits for that.
+    $this->inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-G1', 'lead' => makeLead($this->client, $this->marketing), 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
 });
 
 /** @param  array<string, mixed>  $overrides */
@@ -127,6 +128,32 @@ describe('making a group', function (): void {
 
         expect(Conversation::query()->where('type', ConversationType::Group)->count())->toBe(1);
     });
+
+    it('refuses an inquiry marketing has not won yet', function (LeadStatus $decision): void {
+        $waiting = makeInquiry($this->client, attributes: [
+            'reference' => 'INQ-G5',
+            'lead' => $this->inquiry->lead,
+            'marketing_status' => $decision === LeadStatus::Idle ? null : $decision,
+        ]);
+
+        $this->actingAs($this->marketing)
+            ->postJson(route('inbox.groups.store'), groupInput($this, ['inquiryId' => $waiting->id]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['inquiryId' => 'INQ-G5 is not won yet. Mark it won before making its group chat.']);
+
+        expect(Conversation::query()->where('inquiry_id', $waiting->id)->exists())->toBeFalse()
+            ->and($this->marketing->can('createGroup', $waiting))->toBeFalse()
+            ->and($this->marketing->can('createGroup', $this->inquiry))->toBeTrue();
+    })->with([LeadStatus::Idle, LeadStatus::Lost]);
+
+    it('refuses the admin too, who passes every permission', function (): void {
+        $waiting = makeInquiry($this->client, attributes: ['reference' => 'INQ-G6', 'lead' => $this->inquiry->lead]);
+
+        $this->actingAs(messagingStaff(Role::Admin))
+            ->postJson(route('inbox.groups.store'), groupInput($this, ['inquiryId' => $waiting->id]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['inquiryId']);
+    });
 });
 
 describe('the people to make it with', function (): void {
@@ -142,7 +169,7 @@ describe('the people to make it with', function (): void {
         expect($people->json('sales'))->toBe([['id' => $this->sales->id, 'name' => 'Sales', 'activeInquiryCount' => 2]])
             ->and($people->json('technical'))->toBe([['id' => $this->technical->id, 'name' => 'Technical', 'activeInquiryCount' => 0]])
             ->and($people->json())->not->toHaveKey('owners')
-            ->and($people->json('inquiries'))->toBe([['id' => $this->inquiry->id, 'reference' => 'INQ-G1', 'name' => $this->inquiry->name, 'hasGroup' => false]]);
+            ->and($people->json('inquiries'))->toBe([['id' => $this->inquiry->id, 'reference' => 'INQ-G1', 'name' => $this->inquiry->name, 'hasGroup' => false, 'isWon' => true]]);
     });
 
     it('counts only the assigned inquiries that are not closed or cancelled', function (): void {

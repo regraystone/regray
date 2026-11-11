@@ -40,6 +40,20 @@ class InquiryPolicy
         return $user->can(Permission::InquiriesStatusSales->value) && $inquiry->isVisibleTo($user);
     }
 
+    /**
+     * Make its group chat: whoever may start group chats
+     * (`conversations.create`) and reads the inquiry, once marketing has won
+     * it. An inquiry still waiting for marketing, or lost, has none. The
+     * super-admin passes here through `Gate::before`, and is still held to the
+     * won rule by GroupConversationService::create().
+     */
+    public function createGroup(User $user, Inquiry $inquiry): bool
+    {
+        return $user->can(Permission::ConversationsCreate->value)
+            && $inquiry->isWonByMarketing()
+            && $inquiry->isVisibleTo($user);
+    }
+
     /** Move one of its status tracks: sales, accounting or logistics. */
     public function updateStatus(User $user, Inquiry $inquiry, InquiryStatusTrack $track): bool
     {

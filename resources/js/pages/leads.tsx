@@ -53,6 +53,8 @@ type LeadInquiry = {
     hasGroup: boolean;
     /** Whether this reader may mark it won or lost now. */
     canDecide: boolean;
+    /** Whether this reader may make its group chat: only once it is won, and while it has none. */
+    canCreateGroup: boolean;
 };
 
 /** One lead as a row of the Leads page, as `LeadResource` sends it. */
@@ -321,7 +323,7 @@ const Leads = () => {
                                                             ))}
                                                         </>
                                                     ) : null}
-                                                    {!inquiry.hasGroup && (
+                                                    {inquiry.canCreateGroup && (
                                                         <Tooltip>
                                                             <TooltipTrigger
                                                                 asChild

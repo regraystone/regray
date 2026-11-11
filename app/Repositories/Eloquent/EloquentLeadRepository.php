@@ -77,7 +77,7 @@ class EloquentLeadRepository implements LeadRepositoryInterface
                 'client:id,name,email',
                 'client.profile:user_id,phone',
                 'marketingUser:id,name',
-                'inquiries' => fn ($inquiries) => $inquiries->select(['id', 'lead_id', 'reference', 'name', 'marketing_status', 'sales_status'])->orderBy('id'),
+                'inquiries' => fn ($inquiries) => $inquiries->select(['id', 'lead_id', 'created_by', 'reference', 'name', 'marketing_status', 'sales_status'])->orderBy('id'),
                 'inquiries.conversation:id,inquiry_id,type',
                 'history.inquiry:id,reference',
             ])

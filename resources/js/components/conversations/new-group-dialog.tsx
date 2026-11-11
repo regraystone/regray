@@ -214,7 +214,10 @@ const NewGroupDialog = ({
                                                 checked={
                                                     inquiryId === inquiry.id
                                                 }
-                                                disabled={inquiry.hasGroup}
+                                                disabled={
+                                                    inquiry.hasGroup ||
+                                                    !inquiry.isWon
+                                                }
                                                 onChange={() =>
                                                     setInquiryId(inquiry.id)
                                                 }
@@ -224,7 +227,9 @@ const NewGroupDialog = ({
                                                 {inquiry.name}
                                                 {inquiry.hasGroup
                                                     ? ' (has a group)'
-                                                    : ''}
+                                                    : !inquiry.isWon
+                                                      ? ' (not won yet)'
+                                                      : ''}
                                             </span>
                                         </label>
                                     </li>

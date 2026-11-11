@@ -16,9 +16,10 @@ use Illuminate\Support\Facades\Gate;
  * A lead as a row of the Leads page, and what its View shows: its client and
  * how to reach them, the tally of its inquiries' decisions, its log (with the
  * notes and the inquiry each decision was on), the inquiries linked to it
- * (each with marketing's decision, whether it has a group chat, and whether
- * this reader may decide it now), and the actions this reader has. Staff
- * only; nothing here ever reaches a client.
+ * (each with marketing's decision, whether it has a group chat, whether this
+ * reader may decide it now, and whether they may make its group chat: only
+ * once it is won, InquiryPolicy::createGroup()), and the actions this reader
+ * has. Staff only; nothing here ever reaches a client.
  *
  * Expects the client and their profile, the marketing user, the inquiries with
  * their group chats, and the history loaded
@@ -29,7 +30,7 @@ use Illuminate\Support\Facades\Gate;
 class LeadResource extends JsonResource
 {
     /**
-     * @return array{reference: string, tally: array{won: int, lost: int, idle: int}, createdAt: string, client: array{id: int, name: string}, contact: string|null, email: string|null, marketingUser: string, inquiries: list<array{id: int, reference: string, name: string, marketingStatus: string, hasGroup: bool, canDecide: bool}>, history: list<array{status: string, inquiry: string|null, note: string|null, at: string}>, actions: list<string>, canCreateInquiry: bool}
+     * @return array{reference: string, tally: array{won: int, lost: int, idle: int}, createdAt: string, client: array{id: int, name: string}, contact: string|null, email: string|null, marketingUser: string, inquiries: list<array{id: int, reference: string, name: string, marketingStatus: string, hasGroup: bool, canDecide: bool, canCreateGroup: bool}>, history: list<array{status: string, inquiry: string|null, note: string|null, at: string}>, actions: list<string>, canCreateInquiry: bool}
      */
     public function toArray(Request $request): array
     {
@@ -53,6 +54,8 @@ class LeadResource extends JsonResource
                 'hasGroup' => $inquiry->conversation !== null,
                 // Waiting for marketing, and this reader holds the lead.
                 'canDecide' => $inquiry->marketing_status === null && $inquiry->sales_status === null && $mayDecide,
+                'canCreateGroup' => $inquiry->conversation === null
+                    && Gate::forUser($viewer)->allows('createGroup', $inquiry->setRelation('lead', $this->resource)),
             ])->all()),
             'history' => array_values($this->history->map(fn (LeadStatusHistory $entry): array => [
                 'status' => $entry->to_status->value,

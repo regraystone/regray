@@ -247,6 +247,16 @@ class Inquiry extends Model
             && $this->loadMissing('handlers')->handlers->contains(fn (InquiryHandler $handler): bool => $handler->user_id === $user->id);
     }
 
+    /**
+     * Whether marketing has won it, which a group chat waits for
+     * (InquiryPolicy::createGroup()). Sales opening one on a lead wins it as
+     * it is sent.
+     */
+    public function isWonByMarketing(): bool
+    {
+        return $this->marketing_status === LeadStatus::Won;
+    }
+
     /** The marketing user of the inquiry's lead, from the loaded lead when it holds the column. */
     private function leadMarketingUserId(): ?int
     {
