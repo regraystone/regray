@@ -11,7 +11,9 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Events\InquiryChangedByClient;
 use App\Events\InquiryStatusChanged;
+use App\Events\InquirySubmitted;
 use App\Models\Client;
 use App\Models\Inquiry;
 use App\Models\Lead;
@@ -173,6 +175,8 @@ class InquiryService
             $userAgent,
         );
 
+        event(new InquiryChangedByClient($inquiry, InquiryChangedByClient::UPDATED));
+
         return ['inquiry' => $inquiry, 'removedFiles' => $removedFiles];
     }
 
@@ -187,12 +191,12 @@ class InquiryService
      *
      * @param  array{projects: list<ProjectUpdateInput>}  $input
      *
-     * @throws ModelNotFoundException When there is no such inquiry.
+     * @throws ModelNotFoundException When there is no such inquiry, or the staff member does not read it.
      * @throws ValidationException When the inquiry may no longer be changed, or the input does not fit it.
      */
     public function updateByStaff(User $staff, string $reference, array $input, ?string $ipAddress, ?string $userAgent): Inquiry
     {
-        $inquiry = $this->inquiryRepository->findByReferenceForUpdate($reference)
+        $inquiry = $this->inquiryRepository->findVisibleByReferenceForUpdate($staff, $reference)
             ?? throw (new ModelNotFoundException)->setModel(Inquiry::class, [$reference]);
 
         if (! InquiryStatusRules::isOpen($inquiry)) {
@@ -261,6 +265,7 @@ class InquiryService
             'client_id' => $client?->id,
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
+            'created_by' => $by?->id,
             'name' => $project['name'],
             'service_id' => $project['service_id'],
             'delivery_method' => $project['delivery_method'],
@@ -287,13 +292,15 @@ class InquiryService
             }
         }
 
-        event(new InquiryStatusChanged($inquiry, null, null, null, $actor->id));
+        event(new InquiryStatusChanged($inquiry, null, null, null, $actor->id, opening: true));
 
         if ($client === null) {
-            $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $actor);
+            $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $actor, opening: true);
         } elseif ($lead !== null && $by?->hasRole(Role::Sales->value)) {
-            $this->inquiryStatusService->decide($inquiry, LeadStatus::Won, $by, 'Opened by sales.');
+            $this->inquiryStatusService->decide($inquiry, LeadStatus::Won, $by, 'Opened by sales.', opening: true);
         }
+
+        event(new InquirySubmitted($inquiry, $by?->id));
 
         return $inquiry;
     }

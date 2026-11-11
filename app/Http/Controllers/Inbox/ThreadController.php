@@ -9,7 +9,6 @@ use App\Actions\Message\SendMessageAction;
 use App\Actions\Message\ShowThreadAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\MovePointerRequest;
-use App\Http\Requests\Message\ReassignConversationRequest;
 use App\Http\Requests\Message\SendMessageRequest;
 use App\Http\Requests\Message\ThreadMessagesRequest;
 use App\Http\Requests\Message\UpdateMessageRequest;
@@ -23,8 +22,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * One thread, as JSON: its messages, writing in it, the receipts, and handing a
- * Regray Team thread from one staff member to another.
+ * One thread, as JSON: its messages, writing in it, the receipts, and claiming
+ * a Regray Team thread.
  *
  * Access is settled by the route's `can:` middleware against ConversationPolicy
  * before any of these run.
@@ -46,7 +45,7 @@ class ThreadController extends Controller
         $thread = $this->showThread->execute($user, $conversation, $request->beforeId(), $request->afterId(), $request->limitValue());
 
         return response()->json([
-            'conversation' => (ConversationResource::make($thread['conversation'])->viewedBy($user))->resolve($request),
+            'conversation' => ConversationResource::make($thread['conversation'])->viewedBy($user)->withSendAbility()->resolve($request),
             'messages' => $this->resolveMessages($thread['messages'], $conversation, $user, $request),
             'hasMore' => $thread['hasMore'],
             'pointers' => $thread['pointers'],
@@ -97,24 +96,12 @@ class ThreadController extends Controller
         return $this->assignment($request, $this->assignSupport->claim($request->user(), $conversation));
     }
 
-    public function release(Request $request, Conversation $conversation): JsonResponse
-    {
-        return $this->assignment($request, $this->assignSupport->release($request->user(), $conversation));
-    }
-
-    public function reassign(ReassignConversationRequest $request, Conversation $conversation): JsonResponse
-    {
-        $target = User::query()->findOrFail($request->userId());
-
-        return $this->assignment($request, $this->assignSupport->reassign($request->user(), $conversation, $target));
-    }
-
     private function assignment(Request $request, Conversation $conversation): JsonResponse
     {
         $user = $request->user();
 
         return response()->json([
-            'conversation' => ConversationResource::make($this->conversationService->summary($user, $conversation))->viewedBy($user)->resolve($request),
+            'conversation' => ConversationResource::make($this->conversationService->summary($user, $conversation))->viewedBy($user)->withSendAbility()->resolve($request),
             'assignment' => $this->conversationService->assignmentFor($user, $conversation),
         ]);
     }

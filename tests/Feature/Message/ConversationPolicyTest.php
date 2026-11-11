@@ -5,6 +5,7 @@ use App\Enums\Role;
 use App\Models\Conversation;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Support\Facades\Route;
 
 beforeEach(function (): void {
     $this->seed(RolePermissionSeeder::class);
@@ -77,30 +78,19 @@ it('lets only holders of support.claim and the admin claim a Regray Team thread'
     ]);
 });
 
-it('lets the assignee and the admin release a claimed thread', function (): void {
+it('keeps a claim for good: a claimed thread can be neither released nor reassigned', function (): void {
     $cast = supportCast();
     $cast['thread']->forceFill(['assigned_to' => $cast['marketing']->id, 'assigned_at' => now()])->save();
 
-    expectAbility('release', $cast['thread'], $cast, [
-        'owner' => false,
-        'marketing' => true,
-        'otherMarketing' => false,
-        'sales' => false,
-        'admin' => true,
-    ]);
-});
+    expect(Route::has('inbox.release'))->toBeFalse()
+        ->and(Route::has('inbox.reassign'))->toBeFalse();
 
-it('lets nobody but the admin reassign a thread', function (): void {
-    $cast = supportCast();
-    $cast['thread']->forceFill(['assigned_to' => $cast['marketing']->id, 'assigned_at' => now()])->save();
+    foreach (['marketing', 'admin'] as $who) {
+        $this->actingAs($cast[$who])->postJson("/dashboard/inbox/{$cast['thread']->id}/release")->assertNotFound();
+        $this->actingAs($cast[$who])->postJson("/dashboard/inbox/{$cast['thread']->id}/reassign", ['userId' => $cast['otherMarketing']->id])->assertNotFound();
+    }
 
-    expectAbility('reassign', $cast['thread'], $cast, [
-        'owner' => false,
-        'marketing' => false,
-        'otherMarketing' => false,
-        'sales' => false,
-        'admin' => true,
-    ]);
+    expect($cast['thread']->fresh()->assigned_to)->toBe($cast['marketing']->id);
 });
 
 it('lets group members read, and only non-viewers write', function (): void {

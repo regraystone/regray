@@ -141,7 +141,8 @@ class ScheduleChangeService
     private function change(Schedule $schedule, ScheduleAction $action, User $by, ?string $ipAddress, ?string $userAgent, Closure $decide): Schedule
     {
         return DB::transaction(function () use ($schedule, $action, $by, $ipAddress, $userAgent, $decide): Schedule {
-            $locked = $this->scheduleRepository->findForUpdate($schedule->id);
+            // A visit this staff member does not read is not found: a 404, as if it did not exist.
+            $locked = $this->scheduleRepository->findForUpdate($schedule->id, $by);
             $refusal = $this->scheduleService->refusalFor($locked, $action);
 
             if ($refusal !== null) {
@@ -176,7 +177,7 @@ class ScheduleChangeService
             $userAgent,
         );
 
-        event(new ScheduleChanged($locked, $card, $locked->revision, $locked->arrival_at->toIso8601String(), $reason));
+        event(new ScheduleChanged($locked, $card, $locked->revision, $locked->arrival_at->toIso8601String(), $reason, $by?->id));
     }
 
     /** @return array<string, mixed> */

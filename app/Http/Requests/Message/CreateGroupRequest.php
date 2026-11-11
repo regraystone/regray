@@ -17,7 +17,7 @@ class CreateGroupRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:150'],
-            'staffIds' => ['required', 'array', 'min:1', 'max:50'],
+            'staffIds' => ['required', 'array', 'size:2'],
             'staffIds.*' => ['integer', 'distinct', 'exists:users,id'],
             'clientId' => ['required', 'integer', 'exists:users,id'],
             'inquiryId' => ['required', 'integer', 'exists:inquiries,id'],
@@ -29,8 +29,8 @@ class CreateGroupRequest extends FormRequest
     {
         return [
             'name.required' => 'Give the group a name.',
-            'staffIds.required' => 'Add at least one staff member.',
-            'staffIds.min' => 'Add at least one staff member.',
+            'staffIds.required' => 'Choose one sales member and one technical member.',
+            'staffIds.size' => 'Choose one sales member and one technical member.',
             'clientId.required' => 'Choose one client.',
             'inquiryId.required' => 'Choose the inquiry this group is for.',
         ];

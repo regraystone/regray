@@ -67,6 +67,7 @@ class AppServiceProvider extends ServiceProvider
         'message-assignment',
         'message-people',
         'message-attachments',
+        'notifications',
         'inquiry-submit',
         'inquiry-edit',
         'booking',
@@ -200,8 +201,10 @@ class AppServiceProvider extends ServiceProvider
      * - `message-receipts`, read and delivered pointers: the page sends one
      *   per incoming message and per thread opened, so this is the highest,
      *   and only a loop reaches it.
-     * - `message-assignment`, claim, release and reassign: a person does these
+     * - `message-assignment`, claiming a Regray Team thread: a person does this
      *   a few times an hour.
+     * - `notifications`, the bell: a page as the list scrolls, opening one,
+     *   marking all read.
      * - `message-people`, the people search behind "New group": one request
      *   per pause in typing.
      * - `message-attachments`, opening a file: a thread shows every photo in

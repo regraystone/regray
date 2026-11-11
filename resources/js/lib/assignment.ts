@@ -1,20 +1,24 @@
 /*
- * What a Regray Team thread shows a viewer, from who they are and whether the
- * thread is assigned. Pure, with no imports, for tests/js.
+ * What a thread shows a viewer, from who they are, whether a Regray Team
+ * thread is assigned, and whether they may write in it at all. Pure, with no
+ * imports, for tests/js.
  *
- * - Before anyone claims it, every pool member sees the assignment card, which
- *   has the only "Assign to me" button, and a disabled composer.
- * - After a claim, only the assignee may write; the client always may.
+ * - Before anyone claims a Regray Team thread, every pool member sees the
+ *   assignment card, which has the only "Assign to me" button, and a disabled
+ *   composer.
+ * - After a claim, only the assignee may write; the client always may. A claim
+ *   is for good: it is never released or reassigned.
  * - The client never sees the card.
  * - Groups and direct chats have no assignment at all.
+ * - A reader who may not write here (`canSend` false: the owner, or staff
+ *   reading an inquiry's group they are not in) sees the composer disabled,
+ *   whatever the rest says.
  */
 
 export type AssignmentInput = {
     canClaim: boolean;
     assignee: { id: number; name: string } | null;
     isMine: boolean;
-    canRelease: boolean;
-    canReassign: boolean;
 };
 
 export type ComposerState =
@@ -29,13 +33,13 @@ export type AssignmentView = {
     subtitle: string | null;
     /** Whether staff names may label messages in this thread. */
     showStaffNames: boolean;
-    canRelease: boolean;
-    canReassign: boolean;
 };
 
 export const ASSIGN_TO_REPLY = 'Assign to yourself to reply';
 
-export const assignmentView = ({
+export const READ_ONLY = 'You can read this conversation but not reply.';
+
+const assignmentOnly = ({
     isSupport,
     isClient,
     assignment,
@@ -43,9 +47,7 @@ export const assignmentView = ({
 }: {
     isSupport: boolean;
     isClient: boolean;
-    /** The staff-only payload; always null for a client. */
     assignment: AssignmentInput | null;
-    /** Who handles the thread, as the conversation summary says (any viewer). */
     assignee: { id: number; name: string } | null;
 }): AssignmentView => {
     if (!isSupport) {
@@ -54,8 +56,6 @@ export const assignmentView = ({
             composer: { mode: 'enabled' },
             subtitle: null,
             showStaffNames: true,
-            canRelease: false,
-            canReassign: false,
         };
     }
 
@@ -68,8 +68,6 @@ export const assignmentView = ({
             composer: { mode: 'enabled' },
             subtitle,
             showStaffNames: handledBy !== null,
-            canRelease: false,
-            canReassign: false,
         };
     }
 
@@ -84,8 +82,6 @@ export const assignmentView = ({
             },
             subtitle: null,
             showStaffNames: false,
-            canRelease: false,
-            canReassign: assignment.canReassign,
         };
     }
 
@@ -99,7 +95,25 @@ export const assignmentView = ({
               },
         subtitle,
         showStaffNames: true,
-        canRelease: assignment.canRelease,
-        canReassign: assignment.canReassign,
     };
+};
+
+export const assignmentView = ({
+    canSend,
+    ...input
+}: {
+    isSupport: boolean;
+    isClient: boolean;
+    /** The staff-only payload; always null for a client. */
+    assignment: AssignmentInput | null;
+    /** Who handles the thread, as the conversation summary says (any viewer). */
+    assignee: { id: number; name: string } | null;
+    /** Whether the reader may write here at all; unknown until the thread loads. */
+    canSend?: boolean;
+}): AssignmentView => {
+    const view = assignmentOnly(input);
+
+    return canSend === false
+        ? { ...view, composer: { mode: 'locked', note: READ_ONLY } }
+        : view;
 };

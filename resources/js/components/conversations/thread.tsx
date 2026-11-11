@@ -19,7 +19,6 @@ import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
 import QuotePrompt from '@/components/conversations/quote-prompt';
 import AddMembersDialog from '@/components/conversations/add-members-dialog';
-import ReassignDialog from '@/components/conversations/reassign-dialog';
 import Receipts from '@/components/conversations/receipts';
 import ScheduleCard from '@/components/conversations/schedule-card';
 import SystemEvent from '@/components/conversations/system-event';
@@ -110,7 +109,6 @@ const Thread = ({
     const [removeTarget, setRemoveTarget] = useState<ChatMessage | null>(null);
     const [removing, setRemoving] = useState(false);
     const [claiming, setClaiming] = useState(false);
-    const [reassignOpen, setReassignOpen] = useState(false);
     const [addMembersOpen, setAddMembersOpen] = useState(false);
     const [highlighted, setHighlighted] = useState<number | null>(null);
     const composerRef = useRef<ComposerHandle>(null);
@@ -284,6 +282,7 @@ const Thread = ({
         isClient,
         assignment: state.assignment,
         assignee: conversation?.assignee ?? null,
+        canSend: state.conversation?.canSend,
     });
 
     const items = useMemo(
@@ -314,19 +313,6 @@ const Thread = ({
             void thread.catchUp();
         } finally {
             setClaiming(false);
-        }
-    };
-
-    const release = async () => {
-        try {
-            await thread.release();
-            toast.success('Released to the team');
-        } catch (error) {
-            toast.error(
-                error instanceof ApiError
-                    ? error.message
-                    : 'This conversation could not be released.',
-            );
         }
     };
 
@@ -486,11 +472,7 @@ const Thread = ({
             <ThreadHeader
                 conversation={conversation}
                 subtitle={view.subtitle}
-                canRelease={view.canRelease}
-                canReassign={view.canReassign && conversation.isSupport}
                 onBack={onBack}
-                onRelease={() => void release()}
-                onReassign={() => setReassignOpen(true)}
                 onAddMembers={() => setAddMembersOpen(true)}
             />
 
@@ -712,26 +694,6 @@ const Thread = ({
                 processing={removing}
                 onConfirm={() => void confirmRemove()}
             />
-
-            {view.canReassign ? (
-                <ReassignDialog
-                    open={reassignOpen}
-                    onOpenChange={setReassignOpen}
-                    onReassign={async (userId) => {
-                        try {
-                            await thread.reassign(userId);
-                            setReassignOpen(false);
-                            toast.success('Conversation reassigned');
-                        } catch (error) {
-                            toast.error(
-                                error instanceof ApiError
-                                    ? error.message
-                                    : 'The conversation could not be reassigned.',
-                            );
-                        }
-                    }}
-                />
-            ) : null}
 
             {conversation.canAddMembers ? (
                 <AddMembersDialog

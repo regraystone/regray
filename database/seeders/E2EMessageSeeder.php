@@ -13,6 +13,7 @@ use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\InquiryHandler;
 use App\Models\Message;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -259,13 +260,16 @@ class E2EMessageSeeder extends Seeder
 
     /**
      * Pending inquiries bound to their own group, for "Message the team" and the
-     * status card automation, and one with no group at all.
+     * status card automation, and one with no group at all. The group's sales
+     * member is assigned to its inquiry, as a group's staff always are, so they
+     * read it.
      */
     private function seedBoundInquiries(User $client, User $sales): void
     {
         foreach (['shown' => 'INQ-E2E-B1', 'cancel' => 'INQ-E2E-B2', 'queue' => 'INQ-E2E-B3'] as $key => $reference) {
             $inquiry = $this->inquiry($client, $reference, "Bound project {$key}");
             $group = $this->group("E2E Bound {$key}", [$sales, $client], ['inquiry_id' => $inquiry->id]);
+            InquiryHandler::query()->insertOrIgnore(['inquiry_id' => $inquiry->id, 'user_id' => $sales->id, 'assigned_by' => $sales->id, 'assigned_at' => Carbon::now()]);
 
             $this->fixtures['bound'][$key] = ['reference' => $reference, 'conversationId' => $group->id, 'name' => $group->name];
         }

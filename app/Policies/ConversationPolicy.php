@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Enums\ConversationMemberRole;
-use App\Enums\ConversationType;
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Conversation;
@@ -32,6 +31,11 @@ class ConversationPolicy
      * A member reads a group or direct conversation. A Regray Team thread is
      * read by its client, by whoever is handling it, and — while nobody is —
      * by everyone in the support pool.
+     *
+     * An inquiry's group chat is read by the staff who read its inquiry
+     * (Inquiry::isVisibleTo()), whether or not they are in its member list:
+     * the admin and the owner read every one. Its client reads it as a
+     * member. A group bound to no inquiry keeps the membership rule.
      */
     public function view(User $user, Conversation $conversation): bool
     {
@@ -41,13 +45,19 @@ class ConversationPolicy
                 || ($conversation->assigned_to === null && $user->can(Permission::SupportClaim->value));
         }
 
+        if ($conversation->isInquiryGroup() && ! $user->isClient()) {
+            return $this->readsInquiry($user, $conversation);
+        }
+
         return $this->members->isActiveMember($conversation->id, $user->id);
     }
 
     /**
-     * Writing needs access first. In a group, a member who reads and sends;
-     * on a Regray Team thread, whoever may view it, with the assignment rules
-     * applied by the service.
+     * Writing needs access first. In a group, a member who reads and sends,
+     * who in an inquiry's group must also read the inquiry; on a Regray Team
+     * thread, whoever may view it, with the assignment rules applied by the
+     * service. The super-admin sends in any group through `Gate::before`. The
+     * owner reads and never writes, in any conversation.
      *
      * The support pool also passes here after someone else has claimed the
      * thread, though it can no longer read it: a pool member whose send lost
@@ -57,6 +67,10 @@ class ConversationPolicy
      */
     public function send(User $user, Conversation $conversation): bool
     {
+        if ($user->hasRole(Role::Owner->value)) {
+            return false;
+        }
+
         if ($conversation->isSupport()) {
             return $this->view($user, $conversation)
                 || $user->can(Permission::SupportClaim->value);
@@ -64,7 +78,15 @@ class ConversationPolicy
 
         $member = $this->members->find($conversation->id, $user->id);
 
-        return $member !== null && $member->role !== ConversationMemberRole::Viewer;
+        if ($member === null || $member->role === ConversationMemberRole::Viewer) {
+            return false;
+        }
+
+        if ($conversation->isInquiryGroup() && ! $user->isClient()) {
+            return $this->readsInquiry($user, $conversation);
+        }
+
+        return true;
     }
 
     /**
@@ -79,29 +101,24 @@ class ConversationPolicy
             && $user->can(Permission::SupportClaim->value);
     }
 
-    /** Hand the thread back to the pool: the assignee, or the super-admin. */
-    public function release(User $user, Conversation $conversation): bool
-    {
-        return $conversation->isSupport()
-            && $conversation->assigned_to !== null
-            && $conversation->assigned_to === $user->id;
-    }
-
     /**
-     * Add accounting or logistics to an inquiry's group chat: a sales member of
-     * the group. Who may be added is GroupConversationService::addMembers().
+     * Add accounting and logistics to an inquiry's group chat: a sales member
+     * of the group who reads its inquiry. Who may be added is
+     * GroupConversationService::addMembers().
      */
     public function addMembers(User $user, Conversation $conversation): bool
     {
-        return $conversation->type === ConversationType::Group
-            && $conversation->inquiry_id !== null
+        return $conversation->isInquiryGroup()
             && $user->hasRole(Role::Sales->value)
-            && $this->members->isActiveMember($conversation->id, $user->id);
+            && $this->members->isActiveMember($conversation->id, $user->id)
+            && $this->readsInquiry($user, $conversation);
     }
 
-    /** Give the thread to someone else: the super-admin only. */
-    public function reassign(User $user, Conversation $conversation): bool
+    /** Whether this staff member reads the inquiry the group chat is bound to. */
+    private function readsInquiry(User $user, Conversation $conversation): bool
     {
-        return false;
+        $inquiry = $conversation->inquiry;
+
+        return $inquiry !== null && $inquiry->isVisibleTo($user);
     }
 }

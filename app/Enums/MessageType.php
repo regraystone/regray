@@ -11,6 +11,6 @@ enum MessageType: string
 
     case ScheduleCard = 'schedule_card';
 
-    /** A claim, release or reassignment of a Regray Team thread. */
+    /** A claim of a Regray Team thread (and, on older threads, a release or reassignment). */
     case System = 'system';
 }

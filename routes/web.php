@@ -15,6 +15,7 @@ use App\Http\Controllers\Inquiry\InquiryController;
 use App\Http\Controllers\Inquiry\InquiryStatusController;
 use App\Http\Controllers\Inquiry\StaffClientController;
 use App\Http\Controllers\Lead\LeadController;
+use App\Http\Controllers\Notification\NotificationController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\QuoteController;
@@ -61,6 +62,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [RedirectController::class, 'dashboard'])->name('dashboard');
 
     Route::prefix('dashboard')->group(function () {
+        /*
+         * The bell in the workspace header, for every signed-in user. A
+         * notification is only its recipient's (NotificationController).
+         */
+        Route::middleware('throttle:notifications')->group(function () {
+            Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+            Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+            Route::post('notifications/{notification}/open', [NotificationController::class, 'open'])
+                ->whereNumber('notification')
+                ->name('notifications.open');
+        });
+
         Route::get('home', [StoneController::class, 'index'])
             ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
             ->name('home.index');
@@ -392,12 +405,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('claim', [ThreadController::class, 'claim'])
                     ->middleware(['can:claim,conversation', 'throttle:message-assignment'])
                     ->name('inbox.claim');
-                Route::post('release', [ThreadController::class, 'release'])
-                    ->middleware(['can:release,conversation', 'throttle:message-assignment'])
-                    ->name('inbox.release');
-                Route::post('reassign', [ThreadController::class, 'reassign'])
-                    ->middleware(['can:reassign,conversation', 'throttle:message-assignment'])
-                    ->name('inbox.reassign');
 
                 /*
                  * A sales member of an inquiry's group chat adds accounting and

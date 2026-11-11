@@ -7,6 +7,7 @@ use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
+use App\Events\InquiryChangedByClient;
 use App\Events\InquiryStatusChanged;
 use App\Models\Inquiry;
 use App\Models\InquiryStatusHistory;
@@ -74,11 +75,11 @@ class InquiryStatusService
 
         if ($inquiry->sales_status !== null || $inquiry->lead_id === null) {
             $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Rejected, $client);
-
-            return $inquiry;
+        } else {
+            $this->decide($inquiry, LeadStatus::Lost, $client, 'Cancelled by the client.');
         }
 
-        $this->decide($inquiry, LeadStatus::Lost, $client, 'Cancelled by the client.');
+        event(new InquiryChangedByClient($inquiry, InquiryChangedByClient::CANCELLED));
 
         return $inquiry;
     }
@@ -94,9 +95,12 @@ class InquiryStatusService
      * lead, undecided, and its sales has not started. Expects the inquiry to be
      * locked already, by whoever decided the change is allowed.
      *
+     * `$opening` is true when the decision is made as the inquiry is opened
+     * (sales opening one on a lead), which its InquirySubmitted announces.
+     *
      * @throws ValidationException When the inquiry is not waiting for a decision, or `$to` is idle.
      */
-    public function decide(Inquiry $inquiry, LeadStatus $to, ?User $by, ?string $note = null): void
+    public function decide(Inquiry $inquiry, LeadStatus $to, ?User $by, ?string $note = null, bool $opening = false): void
     {
         if ($to === LeadStatus::Idle) {
             throw ValidationException::withMessages(['to' => 'An inquiry can only be marked won or lost.']);
@@ -116,14 +120,14 @@ class InquiryStatusService
         $this->leads->createHistory($this->leads->lockForUpdate($inquiry->lead_id), null, $to, $by?->id, $now, $note, $inquiry->id);
 
         if ($to === LeadStatus::Won) {
-            $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $by);
+            $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $by, decision: LeadStatus::Won, opening: $opening);
 
             return;
         }
 
         $this->scheduleService->cancelForInquiry($inquiry, $now);
 
-        event(new InquiryStatusChanged($inquiry, null, null, null, $by?->id));
+        event(new InquiryStatusChanged($inquiry, null, null, null, $by?->id, LeadStatus::Lost, $opening));
     }
 
     /**
@@ -139,6 +143,10 @@ class InquiryStatusService
      * Expects the inquiry to be locked already, by whoever decided the change
      * is allowed. Sales rejected cancels the inquiry's open visits in the same
      * transaction.
+     *
+     * `$decision` is marketing's when the move is the start of sales a won
+     * decision makes; `$opening` marks a move made as the inquiry is opened.
+     * Both only go on the event.
      */
     public function transition(
         Inquiry $inquiry,
@@ -146,6 +154,8 @@ class InquiryStatusService
         SalesStatus|PaymentStatus|ProcessStatus $to,
         ?User $by,
         ?string $note = null,
+        ?LeadStatus $decision = null,
+        bool $opening = false,
     ): InquiryStatusHistory {
         if (! $to instanceof ($track->enum())) {
             throw new InvalidArgumentException("{$to->value} is not a {$track->value} status.");
@@ -161,7 +171,7 @@ class InquiryStatusService
             $this->scheduleService->cancelForInquiry($inquiry, $now);
         }
 
-        event(new InquiryStatusChanged($inquiry, $track, $from, $to, $by?->id));
+        event(new InquiryStatusChanged($inquiry, $track, $from, $to, $by?->id, $decision, $opening));
 
         return $history;
     }

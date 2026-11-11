@@ -32,13 +32,14 @@ class ScheduleService
     ) {}
 
     /**
-     * Every visit the viewer may see arriving in `[$from, $to)`, any status.
+     * Every visit the viewer may see arriving in `[$from, $to)`, any status: a
+     * client's own, and for staff those Schedule::scopeVisibleTo() gives them.
      *
      * @return Collection<int, Schedule>
      */
     public function between(User $viewer, CarbonInterface $from, CarbonInterface $to): Collection
     {
-        return $this->scheduleRepository->between($this->clientScope($viewer), $from, $to);
+        return $this->scheduleRepository->between($viewer, $from, $to);
     }
 
     /**
@@ -49,7 +50,7 @@ class ScheduleService
      */
     public function nextOpenSince(User $viewer, CarbonInterface $since, int $limit): Collection
     {
-        return $this->scheduleRepository->nextOpenSince($this->clientScope($viewer), $since, $limit);
+        return $this->scheduleRepository->nextOpenSince($viewer, $since, $limit);
     }
 
     /**
@@ -260,11 +261,5 @@ class ScheduleService
     public static function timezone(): string
     {
         return config('schedule.timezone');
-    }
-
-    /** The client whose visits the viewer is limited to, or null for staff. */
-    private function clientScope(User $viewer): ?User
-    {
-        return $viewer->isClient() ? $viewer : null;
     }
 }

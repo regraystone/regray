@@ -14,11 +14,13 @@ use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
+use App\Models\UserNotification;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Services\Message\SupportConversationService;
 use Database\Seeders\EdgeProfileSeeder;
@@ -196,15 +198,15 @@ function makeLead(User $client, ?User $marketing = null): Lead
  * [stone slugs], 'service' => service slug]`, its stones stored in the order
  * given.
  *
- * `$attributes` may set `reference` and `created_at`, `lead` (the lead it is
- * linked to), `marketing_status` (marketing's decision; on a lead it defaults
+ * `$attributes` may set `reference` and `created_at`, `created_by` (the staff
+ * member who opened it), `lead` (the lead it is linked to), `marketing_status` (marketing's decision; on a lead it defaults
  * to won once sales has started, as only a win starts it), `status` (a
  * display status, reached through roleStatusesShowing()), any of the three
  * role statuses, and `job_order` (whether sales has uploaded the job order
  * file). Without them it has no lead and no role status has started.
  *
  * @param  array{name?: string, stones?: list<string>, service?: string}  $project
- * @param  array{reference?: string, created_at?: mixed, lead?: Lead, marketing_status?: LeadStatus|null, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, completed_at?: mixed, job_order?: bool}  $attributes
+ * @param  array{reference?: string, created_at?: mixed, created_by?: User, lead?: Lead, marketing_status?: LeadStatus|null, status?: InquiryStatus, sales_status?: SalesStatus, payment_status?: PaymentStatus, process_status?: ProcessStatus, completed_at?: mixed, job_order?: bool}  $attributes
  */
 function makeInquiry(User $client, array $project = [], array $attributes = []): Inquiry
 {
@@ -221,6 +223,7 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
         'reference' => $attributes['reference'] ?? sprintf('INQ-T%04d', $sequence),
         'client_id' => $client->id,
         'lead_id' => $attributes['lead']->id ?? null,
+        'created_by' => $attributes['created_by']->id ?? null,
         'marketing_status' => $marketing = array_key_exists('marketing_status', $attributes)
             ? $attributes['marketing_status']
             : (isset($attributes['lead'], $statuses['sales_status']) ? LeadStatus::Won : null),
@@ -335,6 +338,40 @@ function expectedAction(?array $expectation): array
 }
 
 /**
+ * Assign staff to the inquiry (`inquiry_handlers`), as putting them in its
+ * group chat does, so they read it.
+ */
+function assignInquiry(Inquiry $inquiry, User ...$staff): void
+{
+    foreach ($staff as $member) {
+        InquiryHandler::query()->insertOrIgnore([
+            'inquiry_id' => $inquiry->id,
+            'user_id' => $member->id,
+            'assigned_by' => null,
+            'assigned_at' => now(),
+        ]);
+    }
+}
+
+/**
+ * Let each staff member read the inquiry by the relation their role reads by:
+ * marketing as the one who opened it (`created_by`), sales, technical,
+ * accounting and logistics as assigned. The admin and the owner read every
+ * inquiry already, and a client reads their own. For the tests whose subject
+ * is not who reads what.
+ */
+function letStaffRead(Inquiry $inquiry, User ...$staff): void
+{
+    foreach ($staff as $member) {
+        if ($member->hasRole(Role::Marketing->value)) {
+            $inquiry->forceFill(['created_by' => $member->id])->save();
+        } elseif (! $member->hasAnyRole([Role::Admin->value, Role::Owner->value, Role::Client->value])) {
+            assignInquiry($inquiry, $member);
+        }
+    }
+}
+
+/**
  * A member of staff for the Message tests. Marketing holds the support pool's
  * `support.claim`; sales holds neither it nor `conversations.create`.
  */
@@ -383,4 +420,63 @@ function textMessage(Conversation $conversation, User $sender, string $body = 'H
         'type' => MessageType::Text,
         'body' => $body,
     ]);
+}
+
+/**
+ * One staff member per role and an inquiry for each way of reading one, all
+ * at production, which every role's list filters let through:
+ *
+ * - lead: on a lead the marketer holds;
+ * - created: opened by the marketer, on another marketer's lead;
+ * - foreign: on another marketer's lead, nobody's otherwise;
+ * - salesCreated: opened by sales;
+ * - salesAssigned: sales is assigned;
+ * - assigned: technical, accounting and logistics are assigned.
+ *
+ * @return array{users: array<string, User>, inquiries: array<string, Inquiry>}
+ */
+function visibilityWorld(): array
+{
+    $users = [];
+
+    foreach (Role::cases() as $role) {
+        if ($role !== Role::Client) {
+            $users[$role->value] = User::factory()->role($role)->create(['name' => ucfirst($role->value)]);
+        }
+    }
+
+    $otherMarketing = User::factory()->role(Role::Marketing)->create();
+    $production = ['status' => InquiryStatus::Production];
+    $ownLead = makeLead(inquiryClient(), $users['marketing']);
+    $otherLead = makeLead(inquiryClient(), $otherMarketing);
+
+    $inquiries = [
+        'lead' => makeInquiry($ownLead->client, attributes: ['reference' => 'INQ-V1', 'lead' => $ownLead, ...$production]),
+        'created' => makeInquiry($otherLead->client, attributes: ['reference' => 'INQ-V2', 'lead' => $otherLead, 'created_by' => $users['marketing'], ...$production]),
+        'foreign' => makeInquiry($otherLead->client, attributes: ['reference' => 'INQ-V3', 'lead' => $otherLead, ...$production]),
+        'salesCreated' => makeInquiry($otherLead->client, attributes: ['reference' => 'INQ-V4', 'lead' => $otherLead, 'created_by' => $users['sales'], ...$production]),
+        'salesAssigned' => makeInquiry($otherLead->client, attributes: ['reference' => 'INQ-V5', 'lead' => $otherLead, ...$production]),
+        'assigned' => makeInquiry($otherLead->client, attributes: ['reference' => 'INQ-V6', 'lead' => $otherLead, ...$production]),
+    ];
+
+    assignInquiry($inquiries['salesAssigned'], $users['sales']);
+    assignInquiry($inquiries['assigned'], $users['technical'], $users['accounting'], $users['logistics']);
+
+    return ['users' => $users, 'inquiries' => $inquiries];
+}
+
+/** @param  list<string>  $keys */
+function referencesOf(array $world, array $keys): array
+{
+    return array_map(fn (string $key): string => $world['inquiries'][$key]->reference, $keys);
+}
+
+/**
+ * The bell lines `$user` has been sent, oldest first.
+ *
+ * @return list<string>
+ */
+function notificationBodies(User $user): array
+{
+    return array_values(UserNotification::query()->where('user_id', $user->id)->orderBy('id')->pluck('body')->all());
 }

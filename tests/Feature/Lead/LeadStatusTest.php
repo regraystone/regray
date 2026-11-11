@@ -50,15 +50,16 @@ it('creates the client\'s lead when marketing claims their thread, and links the
         ->and($lead->tally())->toBe(['won' => 0, 'lost' => 0, 'idle' => 2]);
 });
 
-it('moves the lead with the thread on every reassignment, whatever its inquiries\' decisions', function (): void {
+it('keeps the lead with whoever claimed the thread, for good', function (): void {
     $this->actingAs($this->marketing)->postJson(route('inbox.claim', $this->thread))->assertOk();
     $lead = Lead::query()->sole();
     makeInquiry($this->client, attributes: ['lead' => $lead, 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
     $other = messagingStaff(Role::Marketing, 'Other');
 
-    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.reassign', $this->thread), ['userId' => $other->id])->assertOk();
+    $this->actingAs($other)->postJson(route('inbox.claim', $this->thread))->assertConflict();
+    $this->actingAs(messagingStaff(Role::Admin))->postJson("/dashboard/inbox/{$this->thread->id}/reassign", ['userId' => $other->id])->assertNotFound();
 
-    expect(Lead::query()->sole()->marketing_user_id)->toBe($other->id);
+    expect(Lead::query()->sole()->marketing_user_id)->toBe($this->marketing->id);
 });
 
 it('wins one inquiry: its sales starts at negotiation with a history row and a card, and the others keep waiting', function (): void {

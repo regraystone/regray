@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import StaffPicker from '@/components/conversations/staff-picker';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -20,9 +21,9 @@ import {
 import type { ConversationSummary } from '@/types/message';
 
 const NO_PEOPLE: GroupPeople = {
-    staff: [],
+    sales: [],
+    technical: [],
     clients: [],
-    owners: [],
     inquiries: [],
 };
 
@@ -34,9 +35,11 @@ export type GroupPreset = {
 
 /**
  * Start a group chat for one client's inquiry: a name, the client, the
- * inquiry the group is bound to, and the staff who work on it. Marketing is
- * offered sales and technical only; every owner is always added, and shown as
- * such. The creator is added as the group's admin by the server.
+ * inquiry the group is bound to (only those the creator reads), and the staff
+ * who work on it: exactly one sales and one technical member, each shown with
+ * their active inquiry count. Putting them in the group assigns them to the
+ * inquiry. Owners are never added. The creator is added as the group's admin
+ * by the server.
  *
  * `preset` fills in the client and the inquiry (the Leads page's "Create
  * group chat"), and they cannot be changed there.
@@ -55,7 +58,8 @@ const NewGroupDialog = ({
     const [name, setName] = useState('');
     const [search, setSearch] = useState('');
     const [people, setPeople] = useState<GroupPeople>(NO_PEOPLE);
-    const [staffIds, setStaffIds] = useState<number[]>([]);
+    const [salesId, setSalesId] = useState<number | null>(null);
+    const [technicalId, setTechnicalId] = useState<number | null>(null);
     const [clientId, setClientId] = useState<number | null>(null);
     const [inquiryId, setInquiryId] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
@@ -83,19 +87,13 @@ const NewGroupDialog = ({
         } else {
             setName('');
             setSearch('');
-            setStaffIds([]);
+            setSalesId(null);
+            setTechnicalId(null);
             setClientId(null);
             setInquiryId(null);
             setErrors({});
         }
     }, [open, preset]);
-
-    const toggleStaff = (id: number) =>
-        setStaffIds((current) =>
-            current.includes(id)
-                ? current.filter((item) => item !== id)
-                : [...current, id],
-        );
 
     const chooseClient = (id: number) => {
         setClientId(id);
@@ -109,7 +107,9 @@ const NewGroupDialog = ({
         try {
             const { conversation } = await createGroup({
                 name,
-                staffIds,
+                staffIds: [salesId, technicalId].filter(
+                    (id): id is number => id !== null,
+                ),
                 clientId: clientId ?? 0,
                 inquiryId: inquiryId ?? 0,
             });
@@ -235,56 +235,33 @@ const NewGroupDialog = ({
                 ) : null}
                 {error('inquiryId')}
 
-                <fieldset className="space-y-1">
-                    <legend className="text-sm font-bold">Staff</legend>
-                    {preset !== null ? (
-                        <Input
-                            type="search"
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search staff"
-                            aria-label="Search staff"
-                            className="mb-1 rounded-none"
-                        />
-                    ) : null}
-                    <ul className="max-h-40 overflow-y-auto">
-                        {people.staff.map((person) => (
-                            <li key={person.id}>
-                                <label className="flex cursor-pointer items-center gap-2 py-1.5 text-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={staffIds.includes(person.id)}
-                                        onChange={() => toggleStaff(person.id)}
-                                    />
-                                    {person.name}
-                                </label>
-                            </li>
-                        ))}
-                    </ul>
-                    {error('staffIds')}
-                </fieldset>
-
-                {people.owners.length > 0 ? (
-                    <div className="space-y-1" data-testid="group-owners">
-                        <p className="text-sm font-bold">Always included</p>
-                        <ul>
-                            {people.owners.map((owner) => (
-                                <li
-                                    key={owner.id}
-                                    className="flex items-center gap-2 py-1 text-sm text-secondary-foreground"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked
-                                        disabled
-                                        aria-label={`${owner.name} is always included`}
-                                    />
-                                    {owner.name} (owner)
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                {preset !== null ? (
+                    <Input
+                        type="search"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search staff"
+                        aria-label="Search staff"
+                        className="rounded-none"
+                    />
                 ) : null}
+                <StaffPicker
+                    name="group-sales"
+                    legend="Sales"
+                    people={people.sales}
+                    selected={salesId}
+                    onSelect={setSalesId}
+                    empty="Nobody from sales matches."
+                />
+                <StaffPicker
+                    name="group-technical"
+                    legend="Technical"
+                    people={people.technical}
+                    selected={technicalId}
+                    onSelect={setTechnicalId}
+                    empty="Nobody from technical matches."
+                />
+                {error('staffIds')}
 
                 <DialogFooter>
                     <Button
@@ -301,7 +278,8 @@ const NewGroupDialog = ({
                         disabled={
                             saving ||
                             name.trim() === '' ||
-                            staffIds.length === 0 ||
+                            salesId === null ||
+                            technicalId === null ||
                             clientId === null ||
                             inquiryId === null
                         }

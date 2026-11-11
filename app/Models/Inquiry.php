@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Data\StaffVisibility;
 use App\Enums\ConversationType;
 use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
@@ -32,6 +33,7 @@ use Illuminate\Support\Facades\DB;
  * @property int|null $client_id The client's account; null for a direct (walk-in) client.
  * @property int|null $client_record_id The client's record (`clients`), with or without an account.
  * @property int|null $lead_id Null until the client's Regray Team thread is claimed.
+ * @property int|null $created_by The staff member who opened it for the client; null when the client sent it.
  * @property LeadStatus|null $marketing_status Marketing's decision, won or lost; null while it waits for one.
  * @property Carbon|null $marketing_status_changed_at
  * @property string $name
@@ -60,7 +62,7 @@ use Illuminate\Support\Facades\DB;
  * the inquiry's schedule.
  */
 #[Fillable([
-    'reference', 'client_id', 'client_record_id', 'lead_id', 'marketing_status', 'marketing_status_changed_at',
+    'reference', 'client_id', 'client_record_id', 'lead_id', 'created_by', 'marketing_status', 'marketing_status_changed_at',
     'name', 'service_id', 'delivery_method', 'location', 'landmark', 'area_sqm', 'notes', 'stone_advice_requested',
     'sales_status', 'sales_status_changed_at',
     'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
@@ -174,6 +176,91 @@ class Inquiry extends Model
         $query->whereDisplayStatus(...$group->statuses());
     }
 
+    /**
+     * Only the inquiries this staff member reads (StaffVisibility): every one
+     * for the admin and the owner; otherwise those of a lead marketing holds,
+     * those marketing or sales opened, and those sales, technical, accounting
+     * or logistics are assigned to, whichever of these the user's roles give.
+     * A user with none of them reads none. Not for clients, who read their own.
+     *
+     * isVisibleTo() is the same rule for one loaded inquiry.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        $visibility = StaffVisibility::for($user);
+
+        if ($visibility->everything) {
+            return;
+        }
+
+        if ($visibility->seesNoInquiry()) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where(function (Builder $query) use ($visibility, $user): void {
+            if ($visibility->leadInquiries) {
+                $query->orWhereHas('lead', fn (Builder $lead) => $lead->where('marketing_user_id', $user->id));
+            }
+
+            if ($visibility->assignedInquiries) {
+                $query->orWhereHas('handlers', fn (Builder $handler) => $handler->where('user_id', $user->id));
+            }
+
+            if ($visibility->createdInquiries) {
+                $query->orWhere($this->qualifyColumn('created_by'), $user->id);
+            }
+        });
+    }
+
+    /**
+     * Whether this staff member reads this inquiry: scopeVisibleTo() for one
+     * row, read from its lead and handlers (loaded when they are not), so a
+     * list already holding them asks the database nothing more.
+     */
+    public function isVisibleTo(User $user): bool
+    {
+        $visibility = StaffVisibility::for($user);
+
+        if ($visibility->everything) {
+            return true;
+        }
+
+        // Loaded without the columns the rule reads (`inquiry:id,reference`): ask the database.
+        if (! array_key_exists('created_by', $this->attributes) || ! array_key_exists('lead_id', $this->attributes)) {
+            return static::query()->visibleTo($user)->whereKey($this->getKey())->exists();
+        }
+
+        if ($visibility->createdInquiries && $this->created_by === $user->id) {
+            return true;
+        }
+
+        if ($visibility->leadInquiries && $this->lead_id !== null && $this->leadMarketingUserId() === $user->id) {
+            return true;
+        }
+
+        return $visibility->assignedInquiries
+            && $this->loadMissing('handlers')->handlers->contains(fn (InquiryHandler $handler): bool => $handler->user_id === $user->id);
+    }
+
+    /** The marketing user of the inquiry's lead, from the loaded lead when it holds the column. */
+    private function leadMarketingUserId(): ?int
+    {
+        $lead = $this->relationLoaded('lead') ? $this->lead : null;
+
+        if ($lead !== null && array_key_exists('marketing_user_id', $lead->getAttributes())) {
+            return $lead->marketing_user_id;
+        }
+
+        $marketingUserId = Lead::query()->whereKey($this->lead_id)->value('marketing_user_id');
+
+        return $marketingUserId === null ? null : (int) $marketingUserId;
+    }
+
     /** @return BelongsTo<User, $this> */
     public function client(): BelongsTo
     {
@@ -190,6 +277,12 @@ class Inquiry extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /** @return HasMany<InquiryHandler, $this> */

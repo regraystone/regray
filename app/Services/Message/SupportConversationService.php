@@ -4,7 +4,6 @@ namespace App\Services\Message;
 
 use App\Enums\ConversationMemberRole;
 use App\Enums\MessageType;
-use App\Enums\Permission;
 use App\Enums\SystemEvent;
 use App\Models\Conversation;
 use App\Models\Inquiry;
@@ -18,11 +17,11 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 /**
  * The Regray Team thread: one per client, global to the support pool until one
- * of them claims it, and then that person's alone.
+ * of them claims it, and then that person's alone, for good: a claim is never
+ * released or reassigned.
  *
  * Every method that changes the assignment expects to run inside a transaction,
  * which the calling action owns: the row is locked first, so two claims at once
@@ -131,57 +130,6 @@ class SupportConversationService
         $this->members->deleteViewers($locked->id);
 
         return $this->systemMessage($locked->id, SystemEvent::Assigned, $user);
-    }
-
-    /**
-     * Hand the thread back to the pool. The former assignee keeps a viewer row,
-     * so their read pointer survives if they pick it up again.
-     */
-    public function release(User $user, Conversation $conversation): Message
-    {
-        $locked = $this->conversations->lockForUpdate($conversation->id);
-
-        if ($locked->assigned_to === null) {
-            throw new ConflictHttpException('Nobody is handling this conversation.');
-        }
-
-        $formerId = $locked->assigned_to;
-        $former = $locked->assignee;
-
-        $this->conversations->setAssignee($locked->id, null, null);
-        $this->members->setRole($locked->id, $formerId, ConversationMemberRole::Viewer);
-
-        return $this->systemMessage($locked->id, SystemEvent::Released, $former ?? $user);
-    }
-
-    /** Give the thread to another member of the pool. */
-    public function reassign(User $admin, Conversation $conversation, User $target): Message
-    {
-        if (! $conversation->isSupport()) {
-            throw new UnprocessableEntityHttpException('Only a Regray thread can be reassigned.');
-        }
-
-        if ($target->isClient() || ! $target->can(Permission::SupportClaim->value)) {
-            throw new UnprocessableEntityHttpException("{$target->name} cannot handle Regray conversations.");
-        }
-
-        $locked = $this->conversations->lockForUpdate($conversation->id);
-        $formerId = $locked->assigned_to;
-
-        if ($formerId === $target->id) {
-            throw new ConflictHttpException("{$target->name} is already handling this conversation.");
-        }
-
-        $this->conversations->setAssignee($locked->id, $target->id, Date::now());
-
-        if ($formerId !== null) {
-            $this->members->delete($locked->id, $formerId);
-        }
-
-        $this->members->upsert($locked->id, $target->id, ConversationMemberRole::Member);
-        $this->members->deleteViewers($locked->id);
-
-        return $this->systemMessage($locked->id, SystemEvent::Reassigned, $target);
     }
 
     private function systemMessage(int $conversationId, SystemEvent $event, User $about): Message

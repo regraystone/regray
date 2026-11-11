@@ -15,7 +15,8 @@ use Illuminate\Queue\SerializesModels;
  *
  * `$revision`, `$arrivalAt` and `$reason` are the appointment as this change
  * left it, so the card keeps them even if a later change lands before the
- * queued listener runs.
+ * queued listener runs. `$changedBy` is who made it: null when nobody did (it
+ * expired). SendScheduleNotifications tells everyone concerned.
  */
 class ScheduleChanged implements ShouldDispatchAfterCommit
 {
@@ -27,5 +28,6 @@ class ScheduleChanged implements ShouldDispatchAfterCommit
         public int $revision,
         public string $arrivalAt,
         public ?string $reason,
+        public ?int $changedBy = null,
     ) {}
 }

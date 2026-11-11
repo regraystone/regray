@@ -31,8 +31,9 @@ interface InquiryRepositoryInterface
      * The inquiry has no deadline of its own: its schedule holds the date and
      * time. No role status has started: each stays NULL until its stage does.
      * `lead_id` is the client's open lead, or NULL when they have none yet.
+     * `created_by` is the staff member who opened it, NULL when the client sent it.
      *
-     * @param  array{reference: string, client_id: ?int, client_record_id: int, lead_id: ?int, name: string, location: string, landmark: ?string, area_sqm: ?float, notes: ?string}  $attributes
+     * @param  array{reference: string, client_id: ?int, client_record_id: int, lead_id: ?int, created_by: ?int, name: string, location: string, landmark: ?string, area_sqm: ?float, notes: ?string}  $attributes
      */
     public function create(array $attributes): Inquiry;
 
@@ -58,6 +59,21 @@ interface InquiryRepositoryInterface
 
     /** The inquiry by its reference, whoever's it is, locked until the transaction ends. */
     public function findByReferenceForUpdate(string $reference): ?Inquiry;
+
+    /**
+     * The inquiry by its reference, locked until the transaction ends, only
+     * when this staff member reads it (Inquiry::scopeVisibleTo()). Null for one
+     * they do not read, the same as for one that does not exist.
+     */
+    public function findVisibleByReferenceForUpdate(User $viewer, string $reference): ?Inquiry;
+
+    /**
+     * Assign these staff to the inquiry (`inquiry_handlers`), by `$assignedBy`.
+     * Somebody already assigned stays as they were.
+     *
+     * @param  list<int>  $userIds
+     */
+    public function addHandlers(Inquiry $inquiry, array $userIds, int $assignedBy, CarbonInterface $assignedAt): void;
 
     /** A payment received, as accounting recorded it. */
     public function addPayment(Inquiry $inquiry, string $amount, ?int $recordedBy, CarbonInterface $receivedAt): PaymentTransaction;
@@ -147,11 +163,16 @@ interface InquiryRepositoryInterface
      */
     public function findForClientByReferenceWithDetails(User $client, string $reference): ?Inquiry;
 
-    /** Any inquiry by its reference, with what the details page reads: for staff. */
-    public function findByReferenceWithDetails(string $reference): ?Inquiry;
+    /**
+     * An inquiry this staff member reads (Inquiry::scopeVisibleTo()), by its
+     * reference, with what the details page reads. Null for one they do not
+     * read, the same as for one that does not exist.
+     */
+    public function findByReferenceWithDetails(User $viewer, string $reference): ?Inquiry;
 
     /**
-     * One page of every inquiry, newest first, for the Inquiry list, with
+     * One page of the inquiries `$user` reads (Inquiry::scopeVisibleTo()),
+     * newest first, for the Inquiry list, with
      * each one's client record, contacts and account. `$escapedSearch`
      * matches the reference, the project name, the client's name and their
      * contacts.
@@ -163,5 +184,5 @@ interface InquiryRepositoryInterface
      *
      * @return LengthAwarePaginator<int, Inquiry>
      */
-    public function paginateForStaff(?string $escapedSearch, ?User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator;
+    public function paginateForStaff(?string $escapedSearch, User $user, ?string $statusFilter, int $perPage, int $page): LengthAwarePaginator;
 }

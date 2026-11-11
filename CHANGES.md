@@ -1,3 +1,78 @@
+# Notifications: the workspace bell, message notifications and emails
+
+**The bell** sits in the workspace header, before the account menu (not on the guest landing). Its red badge counts unread notifications, shows **9+** above nine and hides at none. Opening the list reads nothing: the badge clears only when every notification is read, one by one or with **Mark all as read**. The list is newest first, 10 at a time, loading more as it scrolls; an unread line is bold with a dot, and each says how long ago ("5 min ago"). Opening one reads it and goes to what it is about: a message to its thread, an inquiry to its details page (the client's Quote page, the staff Inquiry page), an appointment to `/profile/schedule` for a client or `/schedule` for staff. Where it leads is worked out when it is opened, against what the reader may open by then; one they no longer can stays in the list and says **"This item is no longer available"**. Marketing opening an inquiry nobody has claimed yet is taken to the client's Regray thread, where its card is.
+
+- **Storage and delivery:** every notification is a row in the new `notifications` table (`UserNotification`: recipient, `type` message, inquiry or schedule, `body`, `target_id`, `read_at`, `created_at`), pushed to its recipient over their `user.{id}` channel (`.notification.created`, with their unread count). `NotificationService` writes and reads them; `NotificationController` serves the bell (`notifications.index`, `notifications.open`, `notifications.read-all`, behind the new `notifications` limiter, 120 a minute); the badge's first count is the shared `unreadNotificationCount` prop. Rows older than 30 days are pruned daily (`model:prune`).
+- **In-app only** for now: no browser push and no sound. Schedule and inquiry emails come later.
+
+**Message notifications and their emails** (`MessageNotificationService`) go together after a delay: **3 minutes for staff, 1 hour for clients**, from the first message the recipient has not seen (`messaging.notifications.*_delay_minutes`).
+
+| Thread                             | Message from | Who is told                                                             | Line                                             |
+| ---------------------------------- | ------------ | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| Regray Team, nobody claimed it     | the client   | every marketing user                                                    | {client} sent a new message.                     |
+| Regray Team, claimed               | the client   | the marketer who claimed it                                             | {client} sent a new message.                     |
+| An inquiry's group                 | the client   | the staff assigned on the inquiry (`inquiry_handlers`); never marketing | {client} sent a new message in {group}.          |
+| Any                                | staff        | the client; in a group, no other staff                                  | {sender} sent you a new message.                 |
+| Direct, or a group with no inquiry | anyone       | the other members                                                       | {sender} sent you a new message. / … in {group}. |
+
+- **One per thread:** a recipient has at most one open timer per thread (`pending_notifications`, one open row per recipient and thread). Later messages add nothing until they open the thread, which cancels a timer still running; the next message after that starts a new one. A cancelled one is never sent.
+- **Delayed and idempotent:** a queued `DeliverMessageNotification` sends it at the due time, and `notifications:deliver-due` runs every minute for any the queue missed (or ran early, as the `sync` driver does). Delivery locks the row and sends nothing that is not due, already went or was cancelled, and cancels one whose recipient no longer qualifies (they lost the assignment, someone else claimed the thread, they can no longer read it). The queue is whatever `QUEUE_CONNECTION` says: set it to `redis` in production for Horizon.
+- **Never** the sender, a member who muted the thread, the owner or the admin.
+- **Replaces the reminder emails:** `messages:send-reminders` and its three emails are gone; the email is `MessageWaitingNotification`, with the bell's line as its subject and a link to the thread, never the message text. The old marker columns (`conversation_members.last_notified_message_id`, `conversations.pool_notified_message_id`) are no longer used.
+
+**Appointment notifications** (`ScheduleNotificationService`, on `ScheduleBooked` and `ScheduleChanged`, which now carries who made the change). "The team" is every marketing and sales user, with the owner and the admin.
+
+Every line is a short sentence: "you" to whoever it is about, a name to everyone else. Dates read "Oct 16, 2026 at 10:00 AM", in the studio's zone.
+
+- **A client books, updates or cancels:** the client is sent a confirmation ("Your appointment request for {date} has been sent.", "You have successfully updated/cancelled your appointment on {date}."), and the team is told ("{client} has booked an appointment for {date}.", "{client} has updated/cancelled their appointment on {date}.").
+- **Staff book for a client:** the booker gets "You have successfully booked an appointment with {client} for {date}.", the client "An appointment has been booked for you on {date}.", and the team, the booker included, "{booker} has booked an appointment with {client} for {date}."
+- **Staff update or cancel:** the staff member gets "You have successfully updated/cancelled the appointment with {client}."; the client "Your appointment on {date} has been updated/cancelled."; the team, that staff member included, "{staff} has updated/cancelled the appointment with {client} on {date}."
+- **Approved** ("Your appointment on {date} has been confirmed." to the client, "{staff} has approved the appointment with {client} on {date}." to the team), **served** ("… has been marked as served.") and **expired** ("Your appointment request for {date} has expired.", "The appointment with {client} on {date} has expired.") go to the client and the team, never to whoever did it. **Did not attend** is announced as a cancel.
+
+**Inquiry notifications** (`InquiryNotificationService`, on the new `InquirySubmitted` and `InquiryChangedByClient` events and on `InquiryStatusChanged`, which now carries marketing's decision and whether the move came with opening the inquiry). The owner and the admin hear about every one, in the staff's words. An inquiry's **assigned staff** are the marketer holding its lead and its handlers, as they stand when the notification is sent: someone who lost the assignment hears nothing new, and keeps what they had.
+
+- **The client sends, updates or cancels one:** "You have successfully submitted/updated/cancelled inquiry {ref}." to the client; the assigned staff are told ("{client} has submitted/updated/cancelled inquiry {ref}."), or, while nobody has claimed it, every marketing and sales user.
+- **Staff open one:** "You have successfully created inquiry {ref} for {client}." to them ("{staff} has created inquiry {ref} for {client}." to the owner and the admin), and "Inquiry {ref} has been created for you." to the client when it is for a client account; nothing to anyone as a client for a walk-in.
+- **A status moves:** the assigned staff get the raw status, with whose it is ("{staff} has moved inquiry {ref} to on hold (logistics).", "… to won (marketing)."); the client "Your inquiry {ref} is now {status}." The client gets the status they see (`InquiryStatusCalculator`, the badge's words), only when the move changed it: marketing won shows as Negotiation, sales won as Quoted, logistics only once the job order is in, completed as Closed, lost, rejected and refunded as Cancelled. A payment move always reaches the client, in the payment's words ("Your inquiry {ref} is now partially paid.", "… awaiting payment."). Never whoever moved it; the client's own cancel is announced as a cancel.
+
+**Regray Team claims are for good.** Release and the admin's Reassign are gone (`inbox.release`, `inbox.reassign`, their dialog and menu, `SupportThreadReleased`, the `staff` list of `inbox.people`). Only the staff assigned on an inquiry are reassigned. Older threads keep their released and reassigned lines.
+
+**The owner writes in no conversation.** `ConversationPolicy::send` refuses the owner everywhere; the admin still sends. An open thread now says whether the reader may write (`conversation.canSend`), and a reader who may not, the owner or staff reading an inquiry's group they are not in, sees the composer disabled with "You can read this conversation but not reply."
+
+Two new tables (`notifications`, `pending_notifications`) in their own create migrations: run `php artisan migrate`. Production needs the scheduler and a queue worker running, as before.
+
+# Who sees which inquiries, visits and group chats
+
+Staff no longer see every inquiry, visit and group chat their permission allows: each reads only those they are part of. Clients are unchanged: their own inquiries, visits and chats. Visibility is a filter on top of the existing rules, so the per-role status filters on the Inquiry list (pending hidden from technical, accounting and logistics; accounting's won ones; logistics once a payment started it) still apply.
+
+**Inquiries** (`Inquiry::scopeVisibleTo()`, `Inquiry::isVisibleTo()` for one loaded row; the clauses per role are on `Role`, combined by `App\Data\StaffVisibility`):
+
+| Role                             | Reads                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| Admin                            | every inquiry                                                                        |
+| Owner                            | every inquiry, read-only                                                             |
+| Marketing                        | the inquiries of the leads it holds (`leads.marketing_user_id`), and those it opened |
+| Sales                            | the inquiries it opened, and those it is assigned to (`inquiry_handlers`)            |
+| Technical, accounting, logistics | the inquiries they are assigned to                                                   |
+
+A user with several roles reads what any of them would. A staff user with none of these roles reads nothing.
+
+- **Who opened it:** `inquiries.created_by` (in the create migration), set by `InquiryService::createOne()` to the staff member who opens an inquiry for a client; NULL when the client sends their own. The seeders record it for the walk-in clients' inquiries.
+- **Everywhere staff read or write one:** the Inquiry list, the details page, the staff edit page and its save, Update Status and the job order upload. One a user does not read is a **404**, the same as a reference that does not exist. `InquiryPolicy` (`view`, `update`, `uploadJobOrder`, `updateStatus`) also asks for it, and keeps a client's own `view`.
+- **Visits** (`Schedule::scopeVisibleTo()`): an inquiry's visit follows its inquiry. A visit booked outside an inquiry is read by every marketing and sales user, and by the admin and the owner; technical, accounting and logistics do not see one. The Schedule page and its Upcoming panel list only these, and updating, cancelling, approving, served and did not attend (and the update page) are a 404 for any other visit (`SchedulePolicy` answers "not found").
+
+**Group chats, and who is assigned:**
+
+- **Being in an inquiry's group assigns staff to the inquiry.** `GroupConversationService::assign()` writes the membership rows and the `inquiry_handlers` rows together, in one transaction, so a later reassignment can change both in one place. Reassigning a group's staff is not part of this change.
+- **Making a group** takes **exactly one sales and one technical member**, refused otherwise ("Choose one sales member and one technical member."), and only an inquiry the creator reads: the inquiry list of the dialog (`inbox.people`) shows only those. The two are assigned by the creator. Every group is bound to an inquiry when it is made.
+- **Adding later**, by a sales member of the group who reads its inquiry, takes **exactly one accounting and one logistics member, in one request** (`accountingId`, `logisticsId`), refused otherwise, and refused once the group has someone from accounting or from logistics. The two are assigned by that sales member.
+- **Owners are never members and never assigned.** The step that added every owner to a new group is gone, and so is the owners list of `inbox.people`. An owner reads every group and **sends in none**, even in a group made before this change that still lists them. Marketing is not assigned either: it reads the inquiry through its lead.
+- **Reading an inquiry's group:** whoever reads its inquiry, in its member list or not; the admin and the owner read every one. **Sending** needs a member who is not a viewer and reads the inquiry; the admin sends in any group. A group bound to no inquiry (made before the binding) keeps the membership rule. The Inbox list follows the same rule (`Conversation::scopeVisibleToStaff()`), and a group the user only reads, not being in it, adds nothing to their unread badge. "Message the team" on the details page shows for whoever may open the group.
+
+**Assignment counts in the pickers:** wherever staff are listed for a group, each person shows how many **active inquiries** they are assigned to: those not closed or cancelled (`InquiryStatusRules::isOpen()`), counted in the database with the display-status SQL (`User::scopeWithActiveInquiryCount()`), as `activeInquiryCount` ("2 active inquiries"). The New group dialog now has a Sales and a Technical picker; the Add accounting and logistics dialog an Accounting and a Logistics picker (`StaffPicker`). The counts only inform the choice: the server enforces the one-per-role limits. `inbox.people` returns `sales`, `technical`, `clients` and `inquiries`; `inbox.members.index` returns `accounting` and `logistics`.
+
+The new column is in the create migration and the seed data changed (group staff are assigned, no owners in groups), so an existing database needs `migrate:fresh --seed`.
+
 # Staff booking, and updating, cancelling and approving appointments
 
 **Who may do what** (the server enforces every row; the super-admin passes every check, but is still held to the status rules):
@@ -253,6 +328,8 @@ The walk-in and direct clients prompt and the assign-to-account addendum this bu
 - `tests/js/staff-inquire.test.mjs`: exactly two options. e2e: `m-staff-modal.spec.ts` (the modal, the client never seeing it, the duplicate offer), and the staff stepper specs now enter past the modal.
 
 # Marketing works leads; group chats belong to an inquiry
+
+_Its group chat rules are superseded by "Who sees which inquiries, visits and group chats" above: owners are no longer added, a group takes exactly one sales and one technical member and later one accounting and one logistics member, and being in the group assigns them to the inquiry._
 
 Marketing's status moves off the inquiry onto a **lead**: marketing's record of one client, created when a marketing user is given the client's Regray Team thread, with its own status (`idle`, `won`, `lost`). Every inquiry points to its client's lead. A won lead starts sales on its inquiries; a lost lead shows them cancelled. Marketing gets a **Leads** page, staff open inquiries for a lead's client, and a group chat is now made for one client's inquiry, with its status cards posted there. Clients see only the inquiry status and the payment status. Run `php artisan migrate:fresh --seed`.
 
@@ -719,11 +796,9 @@ These migrations were later folded into the create migrations (see the top secti
 
 ## TODO list
 
-- **`TODO(inquiry-binding)`:** groups are not bound to inquiries yet.
-    - Until they are, no real inquiry has a group, so status cards are not posted for real data and "Message the team" stays hidden.
-    - Marked in `ConversationPolicy`, `PostInquiryStatusCard`, `InquiryStatusService`, `InquiryDetailsService`, `InquiryDetailsResource`, `GroupConversationService`, `ConversationSeeder` and `pages/inquiry-details.tsx`.
+- ~~**`TODO(inquiry-binding)`:** groups are not bound to inquiries yet.~~ Done: every new group is bound to an inquiry when it is made, and membership in it is what assigns staff to that inquiry (see "Who sees which inquiries, visits and group chats" above). Only groups made before the binding have no inquiry; they keep the membership rule.
 - **`TODO(booking)`:** post a `schedule_card` when a client books and on every later status change. It goes where inquiry cards go: the inquiry's group chat when there is one, otherwise the client's Regray Team thread. The card's rendering is already built. Marked in `Schedule`, `PostInquiryStatusCard` and `pages/schedule-book.tsx`.
-- **`TODO(staff-inquiry-scope)`:** the inquiry details page only finds the viewer's own inquiries (`InquiryDetailsService::forClient`), so a staff member who clicks an inquiry card gets a 404. Marked in `components/conversations/inquiry-card.tsx`.
+- ~~**`TODO(staff-inquiry-scope)`:** the inquiry details page only finds the viewer's own inquiries.~~ Done: staff open the details of every inquiry they read (`InquiryDetailsService::forStaff()`, `Inquiry::scopeVisibleTo()`), so an inquiry card in a group chat they read opens; one they do not read is a 404. See "Who sees which inquiries, visits and group chats" above.
 
 ## Tests
 

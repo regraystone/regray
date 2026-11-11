@@ -55,4 +55,30 @@ enum InquiryStatus: string
     {
         return array_map(fn (self $status): string => $status->value, self::cases());
     }
+
+    /** The badge's words, as INQUIRY_STATUS_LABELS in lib/inquiry-statuses.ts. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Pending => 'Pending',
+            self::Cancelled => 'Cancelled',
+            self::Closed => 'Closed',
+            self::Negotiation => 'Negotiation',
+            self::SiteVisited => 'Site visited',
+            self::OnHold => 'On hold',
+            self::Quoted => 'Quoted',
+            self::Revision => 'Revision',
+            self::Won => 'Won',
+            self::OrderReceived => 'Order received',
+            self::Measure => 'Measure',
+            self::Sourcing => 'Sourcing',
+            self::Production => 'Production',
+            self::QualityCheck => 'Quality check',
+            self::Ready => 'Ready',
+            self::Dispatched => 'Dispatched',
+            self::Installation => 'Installation',
+            self::Delayed => 'Delayed',
+            self::ForRefund => 'For refund',
+        };
+    }
 }

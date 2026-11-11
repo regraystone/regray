@@ -28,9 +28,12 @@ const HERO_COLUMNS = ['grid-cols-1', 'grid-cols-2'] as const;
  * (once accounting's stage had started), are the snapshot the card was posted
  * for, not whatever the inquiry is now: a card is a record of a change.
  *
- * TODO(staff-inquiry-scope): the details page only finds inquiries the viewer
- * owns (InquiryDetailsService::forClient), so for staff this
- * link ends in a 404 until staff access to inquiry details is built.
+ * The link opens the details page: a client's own inquiry on Quote, and for
+ * staff the inquiry on the Inquiry list (InquiryDetailsService::forStaff()),
+ * which finds it when they read it (Inquiry::scopeVisibleTo()). Staff who read
+ * the group chat read its inquiry by the same rule, so the link works for
+ * them; a card for an inquiry they do not read (one posted in a client's
+ * Regray Team thread) ends in a 404.
  */
 const InquiryCard = ({ card }: { card: InquiryCardData }) => {
     const { can } = usePermissions();

@@ -383,6 +383,7 @@ describe('staff editing', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
         showInquiryAs($inquiry, InquiryStatus::Quoted);
         $staff = User::factory()->role($role)->create();
+        letStaffRead($inquiry, $staff);
 
         $this->actingAs($staff)->get(route('inquiry.edit', $inquiry->reference))->assertOk();
         $this->actingAs($staff)
@@ -401,6 +402,7 @@ describe('staff editing', function (): void {
         ])]);
         $file = $inquiry->files()->sole();
         $staff = User::factory()->role(Role::Sales)->create();
+        letStaffRead($inquiry, $staff);
 
         // No keepFileIds: the stored file stays anyway, as it is not staff's to remove.
         $this->actingAs($staff)
@@ -424,6 +426,7 @@ describe('staff editing', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
         showInquiryAs($inquiry, InquiryStatus::Won);
         $staff = User::factory()->role($role)->create();
+        letStaffRead($inquiry, $staff);
 
         $this->actingAs($staff)->get(route('inquiry.edit', $inquiry->reference))
             ->assertRedirect(route('inquiry.index'));

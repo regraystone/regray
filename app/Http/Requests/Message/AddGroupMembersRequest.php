@@ -12,12 +12,17 @@ class AddGroupMembersRequest extends FormRequest
         return true;
     }
 
-    /** @return array<string, array<int, string>> */
+    /**
+     * One accounting user and one logistics user, always together: a group
+     * takes exactly one of each.
+     *
+     * @return array<string, array<int, string>>
+     */
     public function rules(): array
     {
         return [
-            'userIds' => ['required', 'array', 'min:1', 'max:20'],
-            'userIds.*' => ['integer', 'distinct', 'exists:users,id'],
+            'accountingId' => ['required', 'integer', 'exists:users,id'],
+            'logisticsId' => ['required', 'integer', 'exists:users,id'],
         ];
     }
 
@@ -25,14 +30,18 @@ class AddGroupMembersRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'userIds.required' => 'Choose at least one person.',
-            'userIds.min' => 'Choose at least one person.',
+            'accountingId.required' => 'Choose one person from accounting.',
+            'logisticsId.required' => 'Choose one person from logistics.',
         ];
     }
 
-    /** @return list<int> */
-    public function userIds(): array
+    public function accountingId(): int
     {
-        return array_values(array_map(fn ($id): int => (int) $id, $this->validated('userIds')));
+        return (int) $this->validated('accountingId');
+    }
+
+    public function logisticsId(): int
+    {
+        return (int) $this->validated('logisticsId');
     }
 }

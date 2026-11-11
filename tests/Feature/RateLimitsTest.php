@@ -33,6 +33,7 @@ it('starts from the agreed limits', function (): void {
         'message-assignment' => 10,
         'message-people' => 60,
         'message-attachments' => 300,
+        'notifications' => 120,
     ]);
 });
 
@@ -55,8 +56,9 @@ it('puts each write and heavy read behind its limiter', function (string $route,
     ['inbox.read', 'message-receipts'],
     ['inbox.delivered', 'message-receipts'],
     ['inbox.claim', 'message-assignment'],
-    ['inbox.release', 'message-assignment'],
-    ['inbox.reassign', 'message-assignment'],
+    ['notifications.index', 'notifications'],
+    ['notifications.open', 'notifications'],
+    ['notifications.read-all', 'notifications'],
     ['inbox.people', 'message-people'],
     ['inbox.attachments.show', 'message-attachments'],
     ['register.store', 'register'],
