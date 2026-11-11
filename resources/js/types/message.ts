@@ -32,6 +32,11 @@ export type ConversationSummary = {
     memberCount: number | null;
     /** Whether the reader may add accounting or logistics: a sales member of an inquiry's group chat. */
     canAddMembers: boolean;
+    /**
+     * Whether the reader may write here at all. Only on the open thread's
+     * summary; a list row leaves it out.
+     */
+    canSend?: boolean;
 };
 
 export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
@@ -131,8 +136,6 @@ export type Assignment = {
     canClaim: boolean;
     assignee: { id: number; name: string } | null;
     isMine: boolean;
-    canRelease: boolean;
-    canReassign: boolean;
 };
 
 export type ThreadPayload = {

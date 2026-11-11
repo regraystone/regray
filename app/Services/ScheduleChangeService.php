@@ -177,7 +177,7 @@ class ScheduleChangeService
             $userAgent,
         );
 
-        event(new ScheduleChanged($locked, $card, $locked->revision, $locked->arrival_at->toIso8601String(), $reason));
+        event(new ScheduleChanged($locked, $card, $locked->revision, $locked->arrival_at->toIso8601String(), $reason, $by?->id));
     }
 
     /** @return array<string, mixed> */

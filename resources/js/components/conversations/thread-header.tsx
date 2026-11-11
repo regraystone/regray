@@ -1,38 +1,23 @@
-import { ArrowLeft, MoreVertical, UserPlus } from 'lucide-react';
+import { ArrowLeft, UserPlus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useInitials } from '@/hooks/use-initials';
 import type { ConversationSummary } from '@/types/message';
 
 /**
  * The thread's header: who it is with, what the thread is ("Handled by …" on
- * a Regray Team thread, the member count of a group), the staff actions on a
- * Regray Team thread, and, for a sales member of an inquiry's group chat,
- * adding accounting or logistics.
+ * a Regray Team thread, the member count of a group), and, for a sales member
+ * of an inquiry's group chat, adding accounting or logistics.
  */
 const ThreadHeader = ({
     conversation,
     subtitle,
-    canRelease,
-    canReassign,
     onBack,
-    onRelease,
-    onReassign,
     onAddMembers,
 }: {
     conversation: ConversationSummary;
     subtitle: string | null;
-    canRelease: boolean;
-    canReassign: boolean;
     onBack: () => void;
-    onRelease: () => void;
-    onReassign: () => void;
     onAddMembers: () => void;
 }) => {
     const getInitials = useInitials();
@@ -93,33 +78,6 @@ const ThreadHeader = ({
                     >
                         <UserPlus className="size-5" aria-hidden />
                     </Button>
-                ) : null}
-                {canRelease || canReassign ? (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label="Assignment"
-                                className="cursor-pointer rounded-md"
-                            >
-                                <MoreVertical className="size-5" aria-hidden />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            {canRelease ? (
-                                <DropdownMenuItem onSelect={onRelease}>
-                                    Release to the team
-                                </DropdownMenuItem>
-                            ) : null}
-                            {canReassign ? (
-                                <DropdownMenuItem onSelect={onReassign}>
-                                    Reassign…
-                                </DropdownMenuItem>
-                            ) : null}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 ) : null}
             </div>
         </header>

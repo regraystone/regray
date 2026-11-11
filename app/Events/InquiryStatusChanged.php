@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Enums\InquiryStatusTrack;
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
@@ -19,6 +20,10 @@ use Illuminate\Queue\SerializesModels;
  * transition through InquiryStatusService::transition(). `$track`, `$from` and
  * `$to` are all null when no role status moved: the inquiry was just sent, or
  * its lead was lost.
+ *
+ * `$decision` is marketing's, when the change is one (won, which starts
+ * sales, or lost). `$opening` marks the moves made while the inquiry is being
+ * opened, which SendInquiryNotifications leaves to InquirySubmitted.
  */
 class InquiryStatusChanged implements ShouldDispatchAfterCommit
 {
@@ -30,5 +35,7 @@ class InquiryStatusChanged implements ShouldDispatchAfterCommit
         public SalesStatus|PaymentStatus|ProcessStatus|null $from,
         public SalesStatus|PaymentStatus|ProcessStatus|null $to,
         public ?int $changedBy,
+        public ?LeadStatus $decision = null,
+        public bool $opening = false,
     ) {}
 }

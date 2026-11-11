@@ -183,7 +183,7 @@ class ConversationService
      * client and for every other kind of conversation, so nothing about the
      * pool ever reaches a client.
      *
-     * @return array{canClaim: bool, assignee: array{id: int, name: string}|null, isMine: bool, canRelease: bool, canReassign: bool}|null
+     * @return array{canClaim: bool, assignee: array{id: int, name: string}|null, isMine: bool}|null
      */
     public function assignmentFor(User $user, Conversation $conversation): ?array
     {
@@ -192,15 +192,12 @@ class ConversationService
         }
 
         $conversation->loadMissing('assignee:id,name');
-        $isAdmin = $user->hasRole(Role::superAdmin()->value);
         $assignee = $conversation->assignee;
 
         return [
             'canClaim' => $assignee === null && $user->can(Permission::SupportClaim->value),
             'assignee' => $assignee === null ? null : ['id' => $assignee->id, 'name' => $assignee->name],
             'isMine' => $assignee !== null && $assignee->id === $user->id,
-            'canRelease' => $assignee !== null && ($assignee->id === $user->id || $isAdmin),
-            'canReassign' => $isAdmin,
         ];
     }
 

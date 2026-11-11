@@ -41,4 +41,14 @@ enum InquiryStatusTrack: string
     {
         return ($this->enum())::from($value);
     }
+
+    /** The team that moves this track, as staff notifications name it. */
+    public function team(): string
+    {
+        return match ($this) {
+            self::Sales => 'sales',
+            self::Payment => 'accounting',
+            self::Process => 'logistics',
+        };
+    }
 }

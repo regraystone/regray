@@ -56,7 +56,8 @@ class ConversationPolicy
      * Writing needs access first. In a group, a member who reads and sends,
      * who in an inquiry's group must also read the inquiry; on a Regray Team
      * thread, whoever may view it, with the assignment rules applied by the
-     * service. The super-admin sends in any group through `Gate::before`.
+     * service. The super-admin sends in any group through `Gate::before`. The
+     * owner reads and never writes, in any conversation.
      *
      * The support pool also passes here after someone else has claimed the
      * thread, though it can no longer read it: a pool member whose send lost
@@ -66,6 +67,10 @@ class ConversationPolicy
      */
     public function send(User $user, Conversation $conversation): bool
     {
+        if ($user->hasRole(Role::Owner->value)) {
+            return false;
+        }
+
         if ($conversation->isSupport()) {
             return $this->view($user, $conversation)
                 || $user->can(Permission::SupportClaim->value);
@@ -78,8 +83,7 @@ class ConversationPolicy
         }
 
         if ($conversation->isInquiryGroup() && ! $user->isClient()) {
-            // The owner reads every inquiry's group and writes in none, whatever an older membership row says.
-            return ! $user->hasRole(Role::Owner->value) && $this->readsInquiry($user, $conversation);
+            return $this->readsInquiry($user, $conversation);
         }
 
         return true;
@@ -97,14 +101,6 @@ class ConversationPolicy
             && $user->can(Permission::SupportClaim->value);
     }
 
-    /** Hand the thread back to the pool: the assignee, or the super-admin. */
-    public function release(User $user, Conversation $conversation): bool
-    {
-        return $conversation->isSupport()
-            && $conversation->assigned_to !== null
-            && $conversation->assigned_to === $user->id;
-    }
-
     /**
      * Add accounting and logistics to an inquiry's group chat: a sales member
      * of the group who reads its inquiry. Who may be added is
@@ -116,12 +112,6 @@ class ConversationPolicy
             && $user->hasRole(Role::Sales->value)
             && $this->members->isActiveMember($conversation->id, $user->id)
             && $this->readsInquiry($user, $conversation);
-    }
-
-    /** Give the thread to someone else: the super-admin only. */
-    public function reassign(User $user, Conversation $conversation): bool
-    {
-        return false;
     }
 
     /** Whether this staff member reads the inquiry the group chat is bound to. */

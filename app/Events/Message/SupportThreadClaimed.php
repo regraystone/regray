@@ -9,8 +9,8 @@ use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
- * A Regray Team thread now belongs to one staff member, by a claim or by the
- * super-admin reassigning it.
+ * A Regray Team thread now belongs, for good, to the staff member who claimed
+ * it.
  *
  * Goes to the thread and to the whole support pool: every pool member who is
  * not the assignee drops the thread from their list, and closes it if it is

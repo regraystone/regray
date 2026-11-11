@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Message\ConversationService;
+use App\Services\Notification\NotificationService;
 use App\Services\SavedFurnitureService;
 use App\Services\SavedStoneService;
 use Illuminate\Http\Request;
@@ -61,6 +62,8 @@ class HandleInertiaRequests extends Middleware
             'unreadMessageCount' => fn (): int => $user !== null && Gate::forUser($user)->allows('messages.view')
                 ? app(ConversationService::class)->unreadTotal($user)
                 : 0,
+            // The bell's badge, a closure for the same reason.
+            'unreadNotificationCount' => fn (): int => $user === null ? 0 : app(NotificationService::class)->unreadCount($user),
             'realtime' => $user === null || config('broadcasting.default') !== 'reverb'
                 ? null
                 : [

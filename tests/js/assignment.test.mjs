@@ -3,24 +3,17 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     ASSIGN_TO_REPLY,
+    READ_ONLY,
     assignmentView,
 } from '../../resources/js/lib/assignment.ts';
 
 const MARA = { id: 5, name: 'Mara' };
 
 /** The staff-only payload the server sends, as ConversationService builds it. */
-const staff = ({
-    assignee = null,
-    isMine = false,
-    canClaim,
-    canRelease = false,
-    canReassign = false,
-}) => ({
+const staff = ({ assignee = null, isMine = false, canClaim }) => ({
     canClaim: canClaim ?? assignee === null,
     assignee,
     isMine,
-    canRelease,
-    canReassign,
 });
 
 describe('assignmentView', () => {
@@ -65,34 +58,24 @@ describe('assignmentView', () => {
         assert.equal(view.composer.mode, 'locked');
     });
 
-    it('lets the assignee write and release', () => {
+    it('lets the assignee write', () => {
         const view = assignmentView({
             isSupport: true,
             isClient: false,
-            assignment: staff({
-                assignee: MARA,
-                isMine: true,
-                canRelease: true,
-            }),
+            assignment: staff({ assignee: MARA, isMine: true }),
             assignee: MARA,
         });
 
         assert.equal(view.showCard, false);
         assert.deepEqual(view.composer, { mode: 'enabled' });
         assert.equal(view.subtitle, 'Handled by Mara');
-        assert.equal(view.canRelease, true);
-        assert.equal(view.canReassign, false);
     });
 
-    it('tells the admin who handles a thread they do not, and offers reassign', () => {
+    it('tells other staff who handles the thread', () => {
         const view = assignmentView({
             isSupport: true,
             isClient: false,
-            assignment: staff({
-                assignee: MARA,
-                canRelease: true,
-                canReassign: true,
-            }),
+            assignment: staff({ assignee: MARA }),
             assignee: MARA,
         });
 
@@ -100,8 +83,37 @@ describe('assignmentView', () => {
             mode: 'locked',
             note: 'Mara is handling this conversation.',
         });
-        assert.equal(view.canRelease, true);
-        assert.equal(view.canReassign, true);
+    });
+
+    it('disables the composer for a reader who may not write, in any conversation', () => {
+        for (const isSupport of [false, true]) {
+            const view = assignmentView({
+                isSupport,
+                isClient: false,
+                assignment: isSupport
+                    ? staff({ assignee: MARA, isMine: true })
+                    : null,
+                assignee: isSupport ? MARA : null,
+                canSend: false,
+            });
+
+            assert.deepEqual(view.composer, {
+                mode: 'locked',
+                note: READ_ONLY,
+            });
+        }
+    });
+
+    it('leaves the composer to the assignment until the thread says whether the reader may write', () => {
+        const view = assignmentView({
+            isSupport: false,
+            isClient: false,
+            assignment: null,
+            assignee: null,
+            canSend: undefined,
+        });
+
+        assert.deepEqual(view.composer, { mode: 'enabled' });
     });
 
     it('never shows the client the card, and lets them always write', () => {
@@ -115,8 +127,6 @@ describe('assignmentView', () => {
 
             assert.equal(view.showCard, false);
             assert.deepEqual(view.composer, { mode: 'enabled' });
-            assert.equal(view.canRelease, false);
-            assert.equal(view.canReassign, false);
         }
     });
 

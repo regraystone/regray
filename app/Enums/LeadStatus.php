@@ -19,4 +19,14 @@ enum LeadStatus: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    /** The badge's words, as in lib/lead-statuses.ts. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Idle => 'Idle',
+            self::Won => 'Won',
+            self::Lost => 'Lost',
+        };
+    }
 }

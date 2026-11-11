@@ -20,6 +20,7 @@ use App\Models\Message;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
+use App\Models\UserNotification;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Services\Message\SupportConversationService;
 use Database\Seeders\EdgeProfileSeeder;
@@ -468,4 +469,14 @@ function visibilityWorld(): array
 function referencesOf(array $world, array $keys): array
 {
     return array_map(fn (string $key): string => $world['inquiries'][$key]->reference, $keys);
+}
+
+/**
+ * The bell lines `$user` has been sent, oldest first.
+ *
+ * @return list<string>
+ */
+function notificationBodies(User $user): array
+{
+    return array_values(UserNotification::query()->where('user_id', $user->id)->orderBy('id')->pluck('body')->all());
 }

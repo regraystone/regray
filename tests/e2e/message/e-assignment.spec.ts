@@ -254,15 +254,11 @@ test('23 · two simultaneous claims: exactly one wins and the other is told it w
     lostAccess.forEach((counts) => expectAtMostOneEach(counts()));
 });
 
-test('24 · A releases: the thread is back in both marketing lists without a reload', async ({
+test('24 · a claim is for good: the assignee and the admin have no Release or Reassign', async ({
     sessions,
 }) => {
     const thread = fixtures().support.release;
     const a = await sessions.open('marketingA');
-    const b = await sessions.open('marketingB');
-
-    await searchList(b.page, thread.name);
-    await expect(rowNamed(b.page, thread.name)).toHaveCount(1);
 
     await openConversation(a.page, thread.conversationId);
     await a.page
@@ -270,58 +266,21 @@ test('24 · A releases: the thread is back in both marketing lists without a rel
         .getByRole('button', { name: 'Assign to me' })
         .click();
     await expect(a.page.getByTestId('composer-input')).toBeEnabled();
-    await expect(rowNamed(b.page, thread.name)).toHaveCount(0);
-
-    const released = a.page.waitForResponse((response) =>
-        response.url().endsWith('/release'),
-    );
-    await a.page.getByRole('button', { name: 'Assignment' }).click();
-    await a.page.getByRole('menuitem', { name: 'Release to the team' }).click();
-    expect((await released).status()).toBe(200);
-
-    await expect(rowNamed(b.page, thread.name)).toHaveCount(1);
-    await expect(rowNamed(a.page, thread.name)).toHaveCount(1);
-    await expect(a.page.getByTestId('assignment-card')).toBeVisible();
-});
-
-test('25 · the admin reassigns to B: B gets the thread and A loses access', async ({
-    sessions,
-}) => {
-    const thread = fixtures().support.reassign;
-    const a = await sessions.open('marketingA');
-    await openConversation(a.page, thread.conversationId);
-    await a.page
-        .getByTestId('assignment-card')
-        .getByRole('button', { name: 'Assign to me' })
-        .click();
-    await expect(a.page.getByTestId('composer-input')).toBeEnabled();
-
-    const b = await sessions.open('marketingB');
-    await searchList(b.page, thread.name);
-    await expect(rowNamed(b.page, thread.name)).toHaveCount(0);
+    await expect(
+        a.page.getByRole('button', { name: 'Assignment' }),
+    ).toHaveCount(0);
 
     const admin = await sessions.open('admin');
     await openConversation(admin.page, thread.conversationId);
-    await admin.page.getByRole('button', { name: 'Assignment' }).click();
-    await admin.page.getByRole('menuitem', { name: 'Reassign…' }).click();
-    const dialog = admin.page.getByRole('dialog');
-    await dialog.getByLabel('Search staff').fill('Marketing B');
-    await dialog.getByRole('radio', { name: 'Marketing B' }).check();
-    const reassigned = admin.page.waitForResponse((response) =>
-        response.url().endsWith('/reassign'),
-    );
-    await dialog.getByRole('button', { name: 'Reassign', exact: true }).click();
-    expect((await reassigned).status()).toBe(200);
+    await expect(
+        admin.page.getByRole('button', { name: 'Assignment' }),
+    ).toHaveCount(0);
 
-    await expect(rowNamed(b.page, thread.name)).toHaveCount(1);
-    await rowNamed(b.page, thread.name).click();
-    await expect(b.page.getByTestId('composer-input')).toBeEnabled();
-
-    sessions.allowConsole(/status of 403/);
-    const read = await api(
+    sessions.allowConsole(/status of 404/);
+    const release = await api(
         a.page,
-        'GET',
-        `/dashboard/inbox/${thread.conversationId}/messages`,
+        'POST',
+        `/dashboard/inbox/${thread.conversationId}/release`,
     );
-    expect(read.status).toBe(403);
+    expect(release.status).toBe(404);
 });

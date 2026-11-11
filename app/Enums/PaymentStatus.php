@@ -19,4 +19,22 @@ enum PaymentStatus: string
     case FullyPaid = 'fully_paid';
     case PartiallyRefunded = 'partially_refunded';
     case Refunded = 'refunded';
+
+    /** The badge's words, as PAYMENT_STATUS_LABELS in lib/inquiry-statuses.ts. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Awaiting => 'Awaiting',
+            self::Partial => 'Partially paid',
+            self::FullyPaid => 'Fully paid',
+            self::PartiallyRefunded => 'Partially refunded',
+            self::Refunded => 'Refunded',
+        };
+    }
+
+    /** What the client is told the payment is at: the badge's words, with awaiting spelled out. */
+    public function clientLabel(): string
+    {
+        return $this === self::Awaiting ? 'Awaiting payment' : $this->label();
+    }
 }

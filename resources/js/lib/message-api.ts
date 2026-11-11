@@ -11,8 +11,6 @@ import {
     delivered as deliveredRoute,
     people as peopleRoute,
     read as readRoute,
-    reassign as reassignRoute,
-    release as releaseRoute,
     send as sendRoute,
     thread as threadRoute,
 } from '@/routes/inbox';
@@ -172,17 +170,6 @@ export const claimConversation = (
 ): Promise<AssignmentResponse> =>
     request('POST', claimRoute.url(conversationId));
 
-export const releaseConversation = (
-    conversationId: number,
-): Promise<AssignmentResponse> =>
-    request('POST', releaseRoute.url(conversationId));
-
-export const reassignConversation = (
-    conversationId: number,
-    userId: number,
-): Promise<AssignmentResponse> =>
-    request('POST', reassignRoute.url(conversationId), { userId });
-
 export type Person = {
     id: number;
     name: string;
@@ -203,8 +190,6 @@ export type GroupInquiryOption = {
 };
 
 export type GroupPeople = {
-    /** Not for a group: the staff the super-admin's Reassign dialog offers. */
-    staff: Person[];
     /** Sales staff: a group takes exactly one. */
     sales: Person[];
     /** Technical staff: a group takes exactly one. */

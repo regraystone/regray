@@ -207,8 +207,6 @@ test('guards every route with exactly these permissions', function () {
         'inbox.read' => $messages,
         'inbox.delivered' => $messages,
         'inbox.claim' => $messages,
-        'inbox.release' => $messages,
-        'inbox.reassign' => $messages,
         'inbox.members.index' => $messages,
         'inbox.members.store' => $messages,
         'stones.index' => $p(Permission::StonesView),
@@ -224,6 +222,10 @@ test('guards every route with exactly these permissions', function () {
         'profile.schedule' => $p(Permission::ProfileView, Permission::ProfileScheduleView),
         'profile.schedule.book' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate),
         'profile.schedule.edit' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleUpdate),
+        // The bell: every signed-in user has one.
+        'notifications.index' => [],
+        'notifications.read-all' => [],
+        'notifications.open' => [],
     ];
 
     expect(pageRoutes()->mapWithKeys(fn (RoutingRoute $route) => [$route->getName() => guardsFor($route->getName())])->all())

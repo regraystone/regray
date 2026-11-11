@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
 use App\Enums\MessageType;
 use App\Enums\Role;
@@ -214,48 +213,6 @@ it('lets the assignee write once they have claimed the thread', function (): voi
         ->assertJsonPath('message.body', 'On it');
 });
 
-it('hands a released thread back to the pool, keeps the former assignee as a viewer and writes a system row', function (): void {
-    $thread = supportThreadFor(inquiryClient());
-    $marketing = messagingStaff(Role::Marketing, 'Mara');
-    $this->actingAs($marketing)->postJson(route('inbox.claim', $thread))->assertOk();
-
-    $this->actingAs($marketing)->postJson(route('inbox.release', $thread))->assertOk();
-
-    $thread->refresh();
-    $released = Message::query()->where('system_event', SystemEvent::Released->value)->sole();
-
-    expect($thread->assigned_to)->toBeNull()
-        ->and($thread->assigned_at)->toBeNull()
-        ->and($released->system_user_id)->toBe($marketing->id)
-        ->and(ConversationMember::query()->where('conversation_id', $thread->id)->where('user_id', $marketing->id)->value('role'))
-        ->toBe(ConversationMemberRole::Viewer);
-});
-
-it('lets the admin reassign a thread to another pool member', function (): void {
-    $thread = supportThreadFor(inquiryClient());
-    $from = messagingStaff(Role::Marketing, 'Mara');
-    $to = messagingStaff(Role::Marketing, 'Mike');
-    $this->actingAs($from)->postJson(route('inbox.claim', $thread))->assertOk();
-
-    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.reassign', $thread), ['userId' => $to->id])->assertOk();
-
-    expect($thread->refresh()->assigned_to)->toBe($to->id)
-        ->and(Message::query()->where('system_event', SystemEvent::Reassigned->value)->value('system_user_id'))->toBe($to->id)
-        ->and(ConversationMember::query()->where('conversation_id', $thread->id)->pluck('user_id')->sort()->values()->all())
-        ->toBe(collect([$thread->support_client_id, $to->id])->sort()->values()->all());
-});
-
-it('refuses to reassign a thread to someone outside the pool with 422', function (): void {
-    $thread = supportThreadFor(inquiryClient());
-    $sales = messagingStaff(Role::Sales, 'Sam');
-
-    $this->actingAs(messagingStaff(Role::Admin))->postJson(route('inbox.reassign', $thread), ['userId' => $sales->id])
-        ->assertUnprocessable()
-        ->assertJsonPath('message', 'Sam cannot handle Regray conversations.');
-
-    expect($thread->refresh()->assigned_to)->toBeNull();
-});
-
 it('sends the assignment state to staff only, and only for a Regray Team thread', function (): void {
     $client = inquiryClient();
     $thread = supportThreadFor($client);
@@ -278,7 +235,8 @@ it('shows the client "Regray" for staff messages while nobody handles the thread
 
     $this->actingAs($client)->getJson(route('inbox.thread', $thread))->assertJsonPath('messages.1.sender.name', 'Mara');
 
-    $this->actingAs($marketing)->postJson(route('inbox.release', $thread))->assertOk();
+    // Nobody handles it again, as when the assignee's account is deleted.
+    $thread->forceFill(['assigned_to' => null, 'assigned_at' => null])->save();
 
     $this->actingAs($client)->getJson(route('inbox.thread', $thread))
         ->assertJsonPath('messages.1.sender.name', 'Regray')

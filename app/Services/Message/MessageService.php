@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
+use App\Services\Notification\MessageNotificationService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Date;
@@ -36,6 +37,7 @@ class MessageService
         public readonly ConversationMemberRepositoryInterface $members,
         public readonly MessageRepositoryInterface $messages,
         public readonly SupportConversationService $support,
+        public readonly MessageNotificationService $messageNotifications,
     ) {}
 
     /**
@@ -97,6 +99,7 @@ class MessageService
 
         broadcast(new MessageCreated($message, $conversation))->toOthers();
         $this->announceActivity($conversation, 'message', $message->id);
+        $this->messageNotifications->messageSent($message, $conversation, $sender);
 
         return ['message' => $message, 'created' => true];
     }
@@ -131,9 +134,11 @@ class MessageService
     /**
      * Move the user's read pointer, and the delivered one with it: a message
      * that has been read has been delivered. Pointers only move forward.
+     * Reading the thread cancels the user's message notification for it.
      */
     public function markRead(User $user, Conversation $conversation, int $messageId): void
     {
+        $this->messageNotifications->closeFor($user, $conversation);
         $this->ensurePointerRow($user, $conversation);
 
         $delivered = $this->members->moveDeliveredPointer($conversation->id, $user->id, $messageId);

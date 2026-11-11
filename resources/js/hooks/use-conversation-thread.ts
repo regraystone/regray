@@ -9,8 +9,6 @@ import {
     fetchThread,
     markRead,
     newClientKey,
-    reassignConversation,
-    releaseConversation,
     removeMessage,
     sendMessage,
 } from '@/lib/message-api';
@@ -284,7 +282,6 @@ export function useConversationThread(
             // client and the super-admin keep it. The catch-up settles which,
             // by answering or by a 403.
             '.support.claimed': () => void catchUp(),
-            '.support.released': () => void catchUp(),
             // The `typing` whisper.
             '.client-typing': (event: { userId: number; name: string }) => {
                 if (event.userId === currentUserId) {
@@ -552,23 +549,6 @@ export function useConversationThread(
         }
     }, [conversationId, applyAssignment]);
 
-    const release = useCallback(async () => {
-        if (conversationId !== null) {
-            applyAssignment(await releaseConversation(conversationId));
-        }
-    }, [conversationId, applyAssignment]);
-
-    const reassign = useCallback(
-        async (userId: number) => {
-            if (conversationId !== null) {
-                applyAssignment(
-                    await reassignConversation(conversationId, userId),
-                );
-            }
-        },
-        [conversationId, applyAssignment],
-    );
-
     /** Let the others know the viewer is typing, at most every 1.5 s. */
     const signalTyping = useCallback(
         (name: string) => {
@@ -603,8 +583,6 @@ export function useConversationThread(
         remove,
         read,
         claim,
-        release,
-        reassign,
         signalTyping,
         catchUp,
     };
