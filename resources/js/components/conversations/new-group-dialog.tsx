@@ -21,7 +21,6 @@ import {
 import type { ConversationSummary } from '@/types/message';
 
 const NO_PEOPLE: GroupPeople = {
-    staff: [],
     sales: [],
     technical: [],
     clients: [],

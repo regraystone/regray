@@ -12,8 +12,8 @@ use Illuminate\Support\Str;
  * Who reads and writes in an inquiry's group chat. Staff who read the inquiry
  * read the group, in its member list or not; the admin and the owner read
  * every one. Writing takes a member who is not a viewer and who reads the
- * inquiry. The owner writes in none. A group bound to no inquiry keeps the
- * membership rule.
+ * inquiry. The owner writes in no conversation at all. A group bound to no
+ * inquiry keeps the membership rule.
  */
 
 beforeEach(function (): void {
@@ -119,7 +119,7 @@ it('keeps the membership rule for a group bound to no inquiry', function (): voi
 
     expect($world['users']['sales']->can('view', $legacy))->toBeTrue()
         ->and($world['users']['sales']->can('send', $legacy))->toBeTrue()
-        ->and($world['users']['owner']->can('send', $legacy))->toBeTrue()
+        ->and($world['users']['owner']->can('send', $legacy))->toBeFalse('the owner writes in no conversation, whatever its membership')
         ->and($world['users']['accounting']->can('view', $legacy))->toBeFalse()
         ->and(listedGroupNames($world['users']['sales']))->toContain('Legacy group')
         ->and(listedGroupNames($world['users']['accounting']))->not->toContain('Legacy group');

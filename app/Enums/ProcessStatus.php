@@ -21,4 +21,22 @@ enum ProcessStatus: string
     case Completed = 'completed';
     case OnHold = 'on_hold';
     case Delayed = 'delayed';
+
+    /** The badge's words, as PROCESS_STATUS_LABELS in lib/inquiry-statuses.ts. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::OrderReceived => 'Order received',
+            self::Measure => 'Measure',
+            self::Sourcing => 'Sourcing',
+            self::Production => 'Production',
+            self::QualityCheck => 'Quality check',
+            self::Ready => 'Ready',
+            self::Dispatched => 'Dispatched',
+            self::Installation => 'Installation',
+            self::Completed => 'Completed',
+            self::OnHold => 'On hold',
+            self::Delayed => 'Delayed',
+        };
+    }
 }

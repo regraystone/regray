@@ -23,4 +23,19 @@ enum SalesStatus: string
     case Won = 'won';
     case Rejected = 'rejected';
     case ForRefund = 'for_refund';
+
+    /** The badge's words, as SALES_STATUS_LABELS in lib/inquiry-statuses.ts. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Negotiation => 'Negotiation',
+            self::SiteVisited => 'Site visited',
+            self::OnHold => 'On hold',
+            self::Quoted => 'Quoted',
+            self::Revision => 'Revision',
+            self::Won => 'Won',
+            self::Rejected => 'Rejected',
+            self::ForRefund => 'For refund',
+        };
+    }
 }

@@ -13,7 +13,7 @@ class SearchPeopleAction
     ) {}
 
     /**
-     * @return array{staff: Collection<int, User>, sales: Collection<int, User>, technical: Collection<int, User>, clients: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool}>}
+     * @return array{sales: Collection<int, User>, technical: Collection<int, User>, clients: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool}>}
      */
     public function execute(User $creator, ?string $search, ?int $clientId = null): array
     {

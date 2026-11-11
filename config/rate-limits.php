@@ -53,6 +53,9 @@ return [
         'message-people' => (int) env('RATE_LIMIT_MESSAGE_PEOPLE', 60),
         'message-attachments' => (int) env('RATE_LIMIT_MESSAGE_ATTACHMENTS', 300),
 
+        // The bell: its pages, opening a notification, and marking all read.
+        'notifications' => (int) env('RATE_LIMIT_NOTIFICATIONS', 120),
+
     ],
 
 ];

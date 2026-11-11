@@ -4,26 +4,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Unread message reminders
+    | Message notifications
     |--------------------------------------------------------------------------
     |
-    | How long a message may wait before an email is sent about it:
-    |
-    | - to a member (the staff member handling a Regray Team thread, a group
-    |   member) who has not read a message someone else sent them;
-    | - to the support pool, when a client has written in a Regray Team thread
-    |   that nobody has claimed yet;
-    | - to a client who has not replied to the team, read or not, after the
-    |   longer `client_after_minutes`.
-    |
-    | `messages:send-reminders` runs every minute and sends at most one
-    | email per person per run, about every conversation that is due.
+    | How long after the first message a recipient has not seen their
+    | notification and its email go (MessageNotificationService): staff after
+    | `staff_delay_minutes`, clients after `client_delay_minutes`. Opening the
+    | thread before then cancels both. A queued job sends them at the due
+    | time, and `notifications:deliver-due` runs every minute for any it missed.
     |
     */
 
-    'reminders' => [
-        'after_minutes' => (int) env('MESSAGE_REMINDER_AFTER_MINUTES', 3),
-        'client_after_minutes' => (int) env('MESSAGE_REMINDER_CLIENT_AFTER_MINUTES', 30),
+    'notifications' => [
+        'staff_delay_minutes' => (int) env('MESSAGE_NOTIFICATION_STAFF_DELAY_MINUTES', 3),
+        'client_delay_minutes' => (int) env('MESSAGE_NOTIFICATION_CLIENT_DELAY_MINUTES', 60),
     ],
 
     /*

@@ -186,7 +186,7 @@ enum Permission: string
     /**
      * Being in the Regray Team pool: seeing every unassigned client thread and
      * claiming one. Whoever claims a thread is the only staff member who may
-     * answer it until they release it.
+     * answer it, for good: a claim is never released or reassigned.
      */
     case SupportClaim = 'support.claim';
 

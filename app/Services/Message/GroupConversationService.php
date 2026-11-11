@@ -3,7 +3,6 @@
 namespace App\Services\Message;
 
 use App\Enums\ConversationMemberRole;
-use App\Enums\Permission;
 use App\Enums\Role;
 use App\Events\Message\GroupCreated;
 use App\Models\Conversation;
@@ -174,17 +173,13 @@ class GroupConversationService
      * client, that client's inquiries `$creator` reads too, each saying
      * whether it has a group already.
      *
-     * `staff` is not for a group: it is the super-admin's Reassign dialog's
-     * list (staffQuery()).
-     *
-     * @return array{staff: Collection<int, User>, sales: Collection<int, User>, technical: Collection<int, User>, clients: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool}>}
+     * @return array{sales: Collection<int, User>, technical: Collection<int, User>, clients: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool}>}
      */
     public function people(User $creator, ?string $search, ?int $clientId = null): array
     {
         $search = $search === null ? '' : trim($search);
 
         return [
-            'staff' => $this->matching($this->staffQuery($creator), $search)->get(['id', 'name']),
             'sales' => $this->pickable($this->withRoles([Role::Sales]), $search)->get(),
             'technical' => $this->pickable($this->withRoles([Role::Technical]), $search)->get(),
             'clients' => $this->matching($this->clientQuery(), $search)->get(['id', 'name']),
@@ -300,27 +295,6 @@ class GroupConversationService
         return User::query()
             ->whereHas('roles', fn (Builder $role) => $role->whereIn('name', array_map(fn (Role $role): string => $role->value, $roles)))
             ->whereDoesntHave('roles', fn (Builder $role) => $role->where('name', Role::Client->value));
-    }
-
-    /**
-     * The staff the Reassign dialog offers the super-admin: every non-client
-     * who may use the Inbox page, owners aside; for marketing, sales and
-     * technical. Who may take a Regray Team thread is the reassignment's to
-     * check.
-     *
-     * @return Builder<User>
-     */
-    private function staffQuery(User $creator): Builder
-    {
-        if ($creator->hasRole(Role::Marketing->value)) {
-            return $this->withRoles(self::GROUP_STAFF_ROLES);
-        }
-
-        return User::query()
-            ->whereDoesntHave('roles', fn (Builder $role) => $role->whereIn('name', [Role::Client->value, Role::Owner->value]))
-            ->where(fn (Builder $query) => $query
-                ->whereHas('roles.permissions', fn (Builder $permission) => $permission->where('name', Permission::MessagesView->value))
-                ->orWhereHas('roles', fn (Builder $role) => $role->where('name', Role::superAdmin()->value)));
     }
 
     /** @return Builder<User> */

@@ -243,7 +243,6 @@ const Inbox = () => {
                   // A claimed thread leaves every other pool member's list. If it
                   // is open here, the thread's own catch-up gets a 403 and closes it.
                   '.support.claimed': () => refreshList(),
-                  '.support.released': () => refreshList(),
               })
             : null;
 

@@ -26,6 +26,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Logo from '@/components/logo';
 import LogoutDialog from '@/components/logout-dialog';
+import NotificationBell from '@/components/notification-bell';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
     DropdownMenu,
@@ -484,7 +485,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 ? listenTo(echo.private('support.pool'), {
                       '.conversation.activity': refresh,
                       '.support.claimed': refresh,
-                      '.support.released': refresh,
                   })
                 : null;
         const stopReconnect = echo === null ? null : onReconnect(echo, refresh);
@@ -776,6 +776,15 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
+                        {userId !== undefined ? (
+                            <NotificationBell
+                                unreadCount={
+                                    page.props.unreadNotificationCount ?? 0
+                                }
+                                realtime={realtime}
+                                userId={userId}
+                            />
+                        ) : null}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button
@@ -801,7 +810,12 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                 </button>
                             </DropdownMenuTrigger>
 
-                            <DropdownMenuContent align="end" className="w-48">
+                            {/* Centred under the avatar, as the bell's list is; kept 16px inside a narrow screen. */}
+                            <DropdownMenuContent
+                                align="center"
+                                collisionPadding={16}
+                                className="w-48"
+                            >
                                 <DropdownMenuItem asChild>
                                     <Link
                                         href={showProfile()}

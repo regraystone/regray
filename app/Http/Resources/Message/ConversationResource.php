@@ -51,9 +51,26 @@ class ConversationResource extends JsonResource
     /** Who is reading: set with `viewedBy()`, otherwise the signed-in user. */
     private ?User $viewer = null;
 
+    /** Whether to say if the reader may write here, which costs a policy check, so only for an open thread. */
+    private bool $withSendAbility = false;
+
     public function viewedBy(User $viewer): static
     {
         $this->viewer = $viewer;
+
+        return $this;
+    }
+
+    /**
+     * Add `canSend`: whether the reader may write in the thread at all
+     * (ConversationPolicy::send). A reader who may not, such as the owner or a
+     * staff member reading an inquiry's group they are not in, sees the
+     * composer disabled. Who is handling a Regray Team thread is the
+     * assignment's to say, not this.
+     */
+    public function withSendAbility(): static
+    {
+        $this->withSendAbility = true;
 
         return $this;
     }
@@ -89,6 +106,7 @@ class ConversationResource extends JsonResource
                 && $this->viewer->can(Permission::SupportClaim->value),
             'memberCount' => $this->type === ConversationType::Group ? $this->members->count() : null,
             'canAddMembers' => $this->canAddMembers($viewerIsClient),
+            'canSend' => $this->when($this->withSendAbility, fn (): bool => $this->viewer->can('send', $this->resource)),
         ];
     }
 
