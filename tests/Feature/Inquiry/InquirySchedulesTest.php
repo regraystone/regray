@@ -117,7 +117,10 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
     ];
 
     $clientPage = $this->actingAs($this->client)->get(route('profile.schedule'))->assertOk()->viewData('page')['props'];
-    $staffPage = $this->actingAs(messagingStaff(Role::Marketing))->get(route('schedule.index'))->assertOk()->viewData('page')['props'];
+    // Staff see an inquiry's visit wherever they read the inquiry.
+    $marketing = messagingStaff(Role::Marketing);
+    letStaffRead($inquiry, $marketing);
+    $staffPage = $this->actingAs($marketing)->get(route('schedule.index'))->assertOk()->viewData('page')['props'];
 
     foreach ([$clientPage, $staffPage] as $props) {
         expect(collect($props['schedules'])->firstWhere('id', $schedule->id))->toMatchArray($expected)

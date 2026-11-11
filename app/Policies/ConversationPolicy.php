@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Enums\ConversationMemberRole;
-use App\Enums\ConversationType;
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Conversation;
@@ -32,6 +31,11 @@ class ConversationPolicy
      * A member reads a group or direct conversation. A Regray Team thread is
      * read by its client, by whoever is handling it, and — while nobody is —
      * by everyone in the support pool.
+     *
+     * An inquiry's group chat is read by the staff who read its inquiry
+     * (Inquiry::isVisibleTo()), whether or not they are in its member list:
+     * the admin and the owner read every one. Its client reads it as a
+     * member. A group bound to no inquiry keeps the membership rule.
      */
     public function view(User $user, Conversation $conversation): bool
     {
@@ -41,13 +45,18 @@ class ConversationPolicy
                 || ($conversation->assigned_to === null && $user->can(Permission::SupportClaim->value));
         }
 
+        if ($conversation->isInquiryGroup() && ! $user->isClient()) {
+            return $this->readsInquiry($user, $conversation);
+        }
+
         return $this->members->isActiveMember($conversation->id, $user->id);
     }
 
     /**
-     * Writing needs access first. In a group, a member who reads and sends;
-     * on a Regray Team thread, whoever may view it, with the assignment rules
-     * applied by the service.
+     * Writing needs access first. In a group, a member who reads and sends,
+     * who in an inquiry's group must also read the inquiry; on a Regray Team
+     * thread, whoever may view it, with the assignment rules applied by the
+     * service. The super-admin sends in any group through `Gate::before`.
      *
      * The support pool also passes here after someone else has claimed the
      * thread, though it can no longer read it: a pool member whose send lost
@@ -64,7 +73,16 @@ class ConversationPolicy
 
         $member = $this->members->find($conversation->id, $user->id);
 
-        return $member !== null && $member->role !== ConversationMemberRole::Viewer;
+        if ($member === null || $member->role === ConversationMemberRole::Viewer) {
+            return false;
+        }
+
+        if ($conversation->isInquiryGroup() && ! $user->isClient()) {
+            // The owner reads every inquiry's group and writes in none, whatever an older membership row says.
+            return ! $user->hasRole(Role::Owner->value) && $this->readsInquiry($user, $conversation);
+        }
+
+        return true;
     }
 
     /**
@@ -88,20 +106,29 @@ class ConversationPolicy
     }
 
     /**
-     * Add accounting or logistics to an inquiry's group chat: a sales member of
-     * the group. Who may be added is GroupConversationService::addMembers().
+     * Add accounting and logistics to an inquiry's group chat: a sales member
+     * of the group who reads its inquiry. Who may be added is
+     * GroupConversationService::addMembers().
      */
     public function addMembers(User $user, Conversation $conversation): bool
     {
-        return $conversation->type === ConversationType::Group
-            && $conversation->inquiry_id !== null
+        return $conversation->isInquiryGroup()
             && $user->hasRole(Role::Sales->value)
-            && $this->members->isActiveMember($conversation->id, $user->id);
+            && $this->members->isActiveMember($conversation->id, $user->id)
+            && $this->readsInquiry($user, $conversation);
     }
 
     /** Give the thread to someone else: the super-admin only. */
     public function reassign(User $user, Conversation $conversation): bool
     {
         return false;
+    }
+
+    /** Whether this staff member reads the inquiry the group chat is bound to. */
+    private function readsInquiry(User $user, Conversation $conversation): bool
+    {
+        $inquiry = $conversation->inquiry;
+
+        return $inquiry !== null && $inquiry->isVisibleTo($user);
     }
 }

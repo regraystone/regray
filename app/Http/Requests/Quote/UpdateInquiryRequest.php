@@ -4,6 +4,7 @@ namespace App\Http\Requests\Quote;
 
 use App\Http\Requests\Inquiry\StoreInquiryRequest;
 use App\Models\Service;
+use App\Models\User;
 use Closure;
 use Illuminate\Validation\Validator;
 
@@ -63,14 +64,21 @@ class UpdateInquiryRequest extends StoreInquiryRequest
     }
 
     /**
-     * An edit keeps the service its inquiry already has, offered or not.
+     * An edit keeps the service its inquiry already has, offered or not. Read
+     * only from an inquiry the editor may edit (a client's own, one staff
+     * read), so the answer says nothing about any other.
      *
      * @return list<string>
      */
     protected function heldServiceSlugs(): array
     {
+        /** @var User $editor */
+        $editor = $this->user();
+
         return array_values(Service::query()
-            ->whereHas('inquiries', fn ($inquiry) => $inquiry->where('reference', $this->route('reference')))
+            ->whereHas('inquiries', fn ($inquiry) => $inquiry
+                ->where('reference', $this->route('reference'))
+                ->when($editor->isClient(), fn ($own) => $own->where('client_id', $editor->id), fn ($visible) => $visible->visibleTo($editor)))
             ->pluck('slug')
             ->all());
     }

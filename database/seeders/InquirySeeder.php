@@ -21,6 +21,7 @@ use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\InquiryHandler;
 use App\Models\InquiryStatusHistory;
 use App\Models\Lead;
 use App\Models\LeadStatusHistory;
@@ -74,10 +75,15 @@ use RuntimeException;
  * inquiry has no lead, starts sales with it, and posts no cards: there is no
  * account to have a Regray Team thread.
  *
+ * A direct client's inquiry records the staff member who opened it
+ * (`created_by`); a client's own records nobody.
+ *
  * Then the group chats marketing made for some inquiries, by the same rules as
- * GroupConversationService: sales and technical staff, every owner, the
- * client, marketing as admin, and accounting and logistics added later by a
- * sales member.
+ * GroupConversationService: one sales and one technical member, the client,
+ * marketing as admin, and one accounting and one logistics member added later
+ * by a sales member. Owners are never members. Every staff member put in a
+ * group is assigned to its inquiry (`inquiry_handlers`) by whoever put them
+ * there, as GroupConversationService::assign() does.
  *
  * Last, the inquiry cards: one per distinct snapshot of each inquiry, posted
  * where they would have gone at the time (the inquiry's group chat once it
@@ -155,7 +161,7 @@ class InquirySeeder extends Seeder
 
             $replay = $this->replay($inquiryData, $lead, $openedBy);
 
-            $inquiry = $this->seedInquiry($fileUploads, $inquiryData, $client, $record, $lead === null ? null : $leads[$lead['reference']], $replay['final']);
+            $inquiry = $this->seedInquiry($fileUploads, $inquiryData, $client, $record, $lead === null ? null : $leads[$lead['reference']], $replay['final'], $openedBy === null ? null : $this->user($openedBy));
 
             foreach ($inquiryData['handlers'] as $handlerName) {
                 $inquiry->handlers()->create([
@@ -563,7 +569,7 @@ class InquirySeeder extends Seeder
      * @param  array<string, mixed>  $inquiryData
      * @param  array{marketing: ?LeadStatus, marketing_at: ?string, marketing_by: ?string, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus, quote_revision: ?int, quoted_total: ?string, contract_total: ?string, changed: array<string, ?string>, sales_start: ?array{at: string, by: string}, cancelled_at: ?string, last_at: string}  $final
      */
-    private function seedInquiry(InquiryFileUploads $fileUploads, array $inquiryData, ?User $client, Client $record, ?Lead $lead, array $final): Inquiry
+    private function seedInquiry(InquiryFileUploads $fileUploads, array $inquiryData, ?User $client, Client $record, ?Lead $lead, array $final, ?User $openedBy): Inquiry
     {
         $project = $inquiryData['project'];
         $createdAt = Carbon::parse($inquiryData['created_at']);
@@ -573,6 +579,7 @@ class InquirySeeder extends Seeder
             'client_id' => $client?->id,
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
+            'created_by' => $openedBy?->id,
             'marketing_status' => $final['marketing'],
             'marketing_status_changed_at' => $this->time($final['marketing_at']),
             'name' => $project['name'],
@@ -792,7 +799,6 @@ class InquirySeeder extends Seeder
      */
     private function seedGroups(ConversationMemberRepositoryInterface $members, array $groupsData, array $inquiries): array
     {
-        $owners = User::role(Role::Owner->value)->get();
         $groups = [];
 
         foreach ($groupsData as $groupData) {
@@ -813,14 +819,13 @@ class InquirySeeder extends Seeder
                 'updated_at' => $createdAt,
             ]);
 
+            $this->requireOneEach($groupData['staff'], GroupConversationService::GROUP_STAFF_ROLES, $groupData['name']);
+
             foreach ($groupData['staff'] as $key) {
-                $this->requireRole($this->user($key), GroupConversationService::MARKETING_STAFF_ROLES, $groupData['name']);
                 $members->upsert($conversation->id, $this->user($key)->id, ConversationMemberRole::Member);
             }
 
-            foreach ($owners as $owner) {
-                $members->upsert($conversation->id, $owner->id, ConversationMemberRole::Member);
-            }
+            $this->assignHandlers($inquiry, $groupData['staff'], $creator, $createdAt);
 
             $members->upsert($conversation->id, $inquiry->client_id, ConversationMemberRole::Member);
             $members->upsert($conversation->id, $creator->id, ConversationMemberRole::Admin);
@@ -832,10 +837,13 @@ class InquirySeeder extends Seeder
                     throw new RuntimeException("Group {$groupData['name']}: only a sales member adds people later.");
                 }
 
+                $this->requireOneEach($groupData['later']['add'], GroupConversationService::LATER_STAFF_ROLES, $groupData['name']);
+
                 foreach ($groupData['later']['add'] as $key) {
-                    $this->requireRole($this->user($key), GroupConversationService::LATER_STAFF_ROLES, $groupData['name']);
                     $members->upsert($conversation->id, $this->user($key)->id, ConversationMemberRole::Member);
                 }
+
+                $this->assignHandlers($inquiry, $groupData['later']['add'], $adder, Carbon::parse($groupData['later']['at']));
             }
 
             $groups[$inquiry->id] = ['conversation' => $conversation, 'created_at' => $groupData['created_at']];
@@ -844,12 +852,43 @@ class InquirySeeder extends Seeder
         return $groups;
     }
 
-    /** @param  list<Role>  $roles */
-    private function requireRole(User $user, array $roles, string $group): void
+    /**
+     * Exactly one person for each of `$roles`, and nobody else.
+     *
+     * @param  list<string>  $keys
+     * @param  list<Role>  $roles
+     */
+    private function requireOneEach(array $keys, array $roles, string $group): void
     {
-        if (! $user->hasRole(array_map(fn (Role $role): string => $role->value, $roles))) {
-            throw new RuntimeException("Group {$group}: {$user->name} may not be added.");
+        $users = array_map(fn (string $key): User => $this->user($key), $keys);
+
+        foreach ($roles as $role) {
+            $holders = array_filter($users, fn (User $user): bool => $user->hasRole($role->value));
+
+            if (count($holders) !== 1) {
+                throw new RuntimeException("Group {$group} takes exactly one {$role->value} member.");
+            }
         }
+
+        if (count($users) !== count($roles)) {
+            throw new RuntimeException("Group {$group}: only one member for each of its roles may be added.");
+        }
+    }
+
+    /**
+     * Assign the group's staff to its inquiry, by whoever put them in it. One
+     * already assigned from the inquiry's own data stays as they were.
+     *
+     * @param  list<string>  $keys
+     */
+    private function assignHandlers(Inquiry $inquiry, array $keys, User $by, Carbon $at): void
+    {
+        InquiryHandler::query()->insertOrIgnore(array_map(fn (string $key): array => [
+            'inquiry_id' => $inquiry->id,
+            'user_id' => $this->user($key)->id,
+            'assigned_by' => $by->id,
+            'assigned_at' => $at,
+        ], $keys));
     }
 
     /**

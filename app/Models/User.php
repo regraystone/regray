@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\InquiryStatus;
 use App\Enums\Role;
 use App\Notifications\QueuedResetPassword;
 use App\Notifications\QueuedVerifyEmail;
@@ -9,6 +10,8 @@ use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -91,6 +94,24 @@ class User extends Authenticatable implements MustVerifyEmail
     public function handledInquiries(): HasMany
     {
         return $this->hasMany(InquiryHandler::class);
+    }
+
+    /**
+     * Select `active_inquiry_count`: how many inquiries the user is assigned to
+     * (`inquiry_handlers`) that are still open, that is not shown closed or
+     * cancelled (InquiryStatusRules::isOpen()). Counted in the database by the
+     * display-status rules (Inquiry::scopeWhereDisplayStatus()), so a picker
+     * listing staff never loads their inquiries.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function withActiveInquiryCount(Builder $query): void
+    {
+        $query->withCount(['handledInquiries as active_inquiry_count' => fn (Builder $handler) => $handler
+            ->whereHas('inquiry', fn (Builder $inquiry) => $inquiry
+                ->whereNot(fn (Builder $inquiry) => $inquiry->whereDisplayStatus(InquiryStatus::Closed, InquiryStatus::Cancelled))),
+        ]);
     }
 
     /** @return BelongsToMany<Stone, $this> */

@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Data\StaffVisibility;
 use App\Enums\ConversationType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -32,6 +35,34 @@ class Conversation extends Model
             'type' => ConversationType::class,
             'assigned_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Keep only the inquiry group chats this staff member reads: those whose
+     * inquiry they read (Inquiry::scopeVisibleTo()), member or not, and every
+     * one for the admin and the owner. Every other conversation passes
+     * untouched: direct chats, Regray Team threads, and groups bound to no
+     * inquiry, which keep their own rules (membership, the support pool).
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function visibleToStaff(Builder $query, User $user): void
+    {
+        if (StaffVisibility::for($user)->everything) {
+            return;
+        }
+
+        $query->where(fn (Builder $query) => $query
+            ->where($this->qualifyColumn('type'), '!=', ConversationType::Group->value)
+            ->orWhereNull($this->qualifyColumn('inquiry_id'))
+            ->orWhereHas('inquiry', fn (Builder $inquiry) => $inquiry->visibleTo($user)));
+    }
+
+    /** A group chat bound to an inquiry, whose staff readers follow the inquiry. */
+    public function isInquiryGroup(): bool
+    {
+        return $this->type === ConversationType::Group && $this->inquiry_id !== null;
     }
 
     /** @return BelongsTo<Inquiry, $this> */

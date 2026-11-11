@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inquiry\UpdateInquiryStatusRequest;
 use App\Http\Requests\Inquiry\UploadJobOrderRequest;
 use App\Models\Inquiry;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
@@ -23,11 +25,12 @@ class InquiryStatusController extends Controller
      * checks the move and what it carries, again, whatever the dialog allowed.
      *
      * The reference stays a plain string, so the permission is checked before
-     * anything says whether the inquiry exists.
+     * anything says whether the inquiry exists. An inquiry this user does not
+     * read (Inquiry::scopeVisibleTo()) is the same 404 as one that does not.
      */
     public function store(UpdateInquiryStatusRequest $request, string $reference): RedirectResponse
     {
-        $inquiry = Inquiry::query()->where('reference', $reference)->first() ?? abort(404);
+        $inquiry = $this->visibleInquiry($request, $reference);
         $track = $request->track();
 
         Gate::authorize('updateStatus', [$inquiry, $track]);
@@ -45,7 +48,7 @@ class InquiryStatusController extends Controller
      */
     public function jobOrder(UploadJobOrderRequest $request, string $reference): RedirectResponse
     {
-        $inquiry = Inquiry::query()->where('reference', $reference)->first() ?? abort(404);
+        $inquiry = $this->visibleInquiry($request, $reference);
 
         Gate::authorize('uploadJobOrder', $inquiry);
 
@@ -54,5 +57,13 @@ class InquiryStatusController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => "{$reference}: job order in, logistics has it."]);
 
         return back();
+    }
+
+    private function visibleInquiry(Request $request, string $reference): Inquiry
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        return Inquiry::query()->visibleTo($user)->where('reference', $reference)->first() ?? abort(404);
     }
 }

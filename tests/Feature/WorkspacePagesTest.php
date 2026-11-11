@@ -251,12 +251,14 @@ test('opens to each role exactly the pages its matrix entry grants', function (s
     $user = User::factory()->role($role)->create();
 
     // The details pages look an inquiry up by reference, scoped to the signed-in
-    // client, so the reader is given one of their own to open.
+    // client or to the inquiries staff read, so the reader is given one they read.
     $reference = null;
 
     if (guardsAllow($role, 'quote.show') || guardsAllow($role, 'inquiry.show')) {
         seedInquiryCatalog();
-        $reference = makeInquiry($user)->reference;
+        $inquiry = makeInquiry($user);
+        letStaffRead($inquiry, $user);
+        $reference = $inquiry->reference;
     }
 
     foreach (workspacePages() as $name => $parameters) {

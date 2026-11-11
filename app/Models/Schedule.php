@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Data\StaffVisibility;
 use App\Enums\BookedByType;
 use App\Enums\ScheduleStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -58,6 +61,52 @@ class Schedule extends Model
     public function isInquiryVisit(): bool
     {
         return $this->inquiry_id !== null;
+    }
+
+    /**
+     * Only the visits this staff member reads: an inquiry's visit wherever its
+     * inquiry is read (Inquiry::scopeVisibleTo()), and a visit booked outside
+     * an inquiry by marketing and sales. The admin and the owner read every
+     * visit. Not for clients, who read their own.
+     *
+     * isVisibleTo() is the same rule for one loaded visit.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        $visibility = StaffVisibility::for($user);
+
+        if ($visibility->everything) {
+            return;
+        }
+
+        $query->where(function (Builder $query) use ($visibility, $user): void {
+            $query->whereHas('inquiry', fn (Builder $inquiry) => $inquiry->visibleTo($user));
+
+            if ($visibility->standaloneVisits) {
+                $query->orWhereNull($this->qualifyColumn('inquiry_id'));
+            }
+        });
+    }
+
+    /** Whether this staff member reads this visit: scopeVisibleTo() for one row. */
+    public function isVisibleTo(User $user): bool
+    {
+        $visibility = StaffVisibility::for($user);
+
+        if ($visibility->everything) {
+            return true;
+        }
+
+        if (! $this->isInquiryVisit()) {
+            return $visibility->standaloneVisits;
+        }
+
+        $inquiry = $this->inquiry;
+
+        return $inquiry !== null && $inquiry->isVisibleTo($user);
     }
 
     /** @return BelongsTo<User, $this> */

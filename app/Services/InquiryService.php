@@ -187,12 +187,12 @@ class InquiryService
      *
      * @param  array{projects: list<ProjectUpdateInput>}  $input
      *
-     * @throws ModelNotFoundException When there is no such inquiry.
+     * @throws ModelNotFoundException When there is no such inquiry, or the staff member does not read it.
      * @throws ValidationException When the inquiry may no longer be changed, or the input does not fit it.
      */
     public function updateByStaff(User $staff, string $reference, array $input, ?string $ipAddress, ?string $userAgent): Inquiry
     {
-        $inquiry = $this->inquiryRepository->findByReferenceForUpdate($reference)
+        $inquiry = $this->inquiryRepository->findVisibleByReferenceForUpdate($staff, $reference)
             ?? throw (new ModelNotFoundException)->setModel(Inquiry::class, [$reference]);
 
         if (! InquiryStatusRules::isOpen($inquiry)) {
@@ -261,6 +261,7 @@ class InquiryService
             'client_id' => $client?->id,
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
+            'created_by' => $by?->id,
             'name' => $project['name'],
             'service_id' => $project['service_id'],
             'delivery_method' => $project['delivery_method'],

@@ -332,8 +332,11 @@ describe('the buttons the page offers', function (): void {
 
         expect($can($client, $pending))->toBe(['update' => true, 'cancel' => true, 'approve' => false, 'serve' => false, 'noShow' => false])
             ->and($can(inquiryClient(Role::Sales), $pending))->toBe(['update' => true, 'cancel' => true, 'approve' => true, 'serve' => false, 'noShow' => false])
-            ->and($can(inquiryClient(Role::Sales), $pastConfirmed))->toBe(['update' => false, 'cancel' => false, 'approve' => false, 'serve' => true, 'noShow' => true])
-            ->and($can(inquiryClient(Role::Technical), $pending))->toBe(['update' => false, 'cancel' => false, 'approve' => false, 'serve' => false, 'noShow' => false]);
+            ->and($can(inquiryClient(Role::Sales), $pastConfirmed))->toBe(['update' => false, 'cancel' => false, 'approve' => false, 'serve' => true, 'noShow' => true]);
+
+        // Technical is offered nothing: it does not even read a visit booked outside an inquiry.
+        $technicalIds = array_column($this->actingAs(inquiryClient(Role::Technical))->get(route('schedule.index', $range))->viewData('page')['props']['schedules'], 'id');
+        expect($technicalIds)->not->toContain($pending->id);
     });
 });
 

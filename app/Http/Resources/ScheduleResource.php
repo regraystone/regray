@@ -59,9 +59,10 @@ class ScheduleResource extends JsonResource
         $abilities = [];
 
         foreach (ScheduleAction::cases() as $action) {
+            // The state first: it asks the database nothing, and refuses an inquiry's visit before the policy reads its inquiry.
             $abilities[$action->value] = $viewer !== null
-                && Gate::forUser($viewer)->allows($action->value, $this->resource)
-                && $scheduleService->refusalFor($this->resource, $action) === null;
+                && $scheduleService->refusalFor($this->resource, $action) === null
+                && Gate::forUser($viewer)->allows($action->value, $this->resource);
         }
 
         return $abilities;
