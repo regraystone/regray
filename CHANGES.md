@@ -1,3 +1,8 @@
+# Logging out forgets the browser's storage
+
+- **On logout**, once it has gone through, `localStorage` and `sessionStorage` are cleared in that browser (`forgetBrowserStorage()`, from `LogoutDialog`): the inquiry draft is gone, and the dismissed "Request a quotation" pill shows again. The next person on the browser starts clean.
+- It runs after the page swap, so the inquiry stepper's save on unmount cannot put the draft back. A logout that fails clears nothing.
+
 # A group chat waits for the inquiry to be won
 
 - **New permission, `InquiryPolicy::createGroup()`:** making an inquiry's group chat needs `conversations.create`, an inquiry the user reads, and marketing's decision on it to be **won**. An inquiry still waiting for marketing, or lost, has no group chat.

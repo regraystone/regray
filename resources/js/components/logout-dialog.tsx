@@ -1,9 +1,13 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import ConfirmDialog from '@/components/confirm-dialog';
+import { forgetBrowserStorage } from '@/lib/browser-storage';
 import { logout } from '@/routes';
 
-/** Asks before logging out, wherever a Log out button is. */
+/**
+ * Asks before logging out, wherever a Log out button is, and once the logout
+ * has gone through forgets what the account kept in this browser.
+ */
 const LogoutDialog = ({
     open,
     onOpenChange,
@@ -28,7 +32,10 @@ const LogoutDialog = ({
                 router.post(
                     logout.url(),
                     {},
-                    { onFinish: () => setIsLoggingOut(false) },
+                    {
+                        onSuccess: () => forgetBrowserStorage(),
+                        onFinish: () => setIsLoggingOut(false),
+                    },
                 );
             }}
         />
