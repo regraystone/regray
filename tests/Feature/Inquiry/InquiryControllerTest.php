@@ -3,6 +3,7 @@
 use App\Actions\Inquiry\CreateInquiryAction;
 use App\Enums\Role;
 use App\Models\EdgeProfile;
+use App\Models\Finish;
 use App\Models\Inquiry;
 use App\Models\Service;
 use Illuminate\Support\Facades\Storage;
@@ -60,16 +61,53 @@ it('sends the Inquire page its options', function (): void {
             ->has('serviceTypes', 2)
             ->where('serviceTypes.0.id', 'natural-stone-applications')
             ->where('serviceTypes.0.name', 'Natural Stone & Applications')
-            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'countertop', 'wall-cladding', 'flooring', 'staircase', 'installation', 'other-applications'])
+            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'slab-supply-and-installation', 'installation-only', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories'])
             ->where('serviceTypes.1.id', 'custom-stone-furniture')
-            ->where('serviceTypes.1.services', fn ($services) => collect($services)->pluck('id')->all() === ['tables', 'seating', 'storage', 'decorative-furniture'])
+            ->where('serviceTypes.1.services', fn ($services) => collect($services)->pluck('id')->all() === ['center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'])
             ->where('serviceTypes.0.services.0', [
                 'id' => 'slab-supply-only',
                 'name' => 'Slab Supply Only',
                 'description' => 'Premium natural stone slabs supplied for your project.',
                 'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'],
                 'stoneTypes' => $slabSupplyTypes,
+                'requiresStones' => true,
+                'fields' => [
+                    [
+                        'slug' => 'quantity', 'label' => 'How many pieces?', 'scope' => 'stone', 'answerType' => 'number', 'required' => true, 'allowsCustom' => true,
+                        'options' => [],
+                        'suggestions' => [],
+                    ],
+                    [
+                        'slug' => 'slab_size', 'label' => 'Slab size', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true,
+                        'options' => [],
+                        'suggestions' => [
+                            ['value' => '120 x 60 cm', 'label' => '120 x 60 cm'],
+                            ['value' => '120 x 240 cm', 'label' => '120 x 240 cm'],
+                            ['value' => '160 x 320 cm', 'label' => '160 x 320 cm'],
+                        ],
+                    ],
+                    [
+                        'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false,
+                        'options' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->get()
+                            ->map(fn (EdgeProfile $edge): array => ['value' => $edge->name, 'label' => $edge->name, 'isAdvisory' => $edge->is_advisory])->all(),
+                        'suggestions' => [],
+                    ],
+                    [
+                        'slug' => 'finish', 'label' => 'Finish', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false,
+                        'options' => Finish::query()->where('is_active', true)->orderBy('sort_order')->get()
+                            ->map(fn (Finish $finish): array => ['value' => $finish->name, 'label' => $finish->name, 'isAdvisory' => $finish->is_advisory])->all(),
+                        'suggestions' => [],
+                    ],
+                ],
             ])
+            ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['seaters', 'edge_profile', 'finish', 'table_base']
+                && collect($fields)->firstWhere('slug', 'table_base')['options'] === [
+                    ['value' => 'wood', 'label' => 'Wood', 'linksToStone' => false],
+                    ['value' => 'steel', 'label' => 'Steel', 'linksToStone' => false],
+                    ['value' => 'same-as-stone', 'label' => 'Same as stone', 'linksToStone' => true],
+                ])
+            ->where('serviceTypes.0.services.2.fields', [])
+            ->where('serviceTypes.0.services.2.requiresStones', false)
             ->missing('services')
             ->missing('furnitureTypes')
             ->has('stones.data.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'brand', 'type']))

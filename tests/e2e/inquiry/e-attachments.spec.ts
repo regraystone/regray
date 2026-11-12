@@ -7,7 +7,6 @@ import {
     chooseLocation,
     expectStep,
     openInquire,
-    openMoreDetails,
     sendAndReadReference,
     walkToRequirements,
 } from '../support/inquiry-flow';
@@ -48,7 +47,6 @@ const attachmentRow = (page: Page, name: string) =>
 const openRequirements = async (page: Page): Promise<void> => {
     await openInquire(page);
     await walkToRequirements(page);
-    await openMoreDetails(page);
 };
 
 const finishRequirements = async (page: Page): Promise<void> => {

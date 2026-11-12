@@ -776,15 +776,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
-                        {userId !== undefined ? (
-                            <NotificationBell
-                                unreadCount={
-                                    page.props.unreadNotificationCount ?? 0
-                                }
-                                realtime={realtime}
-                                userId={userId}
-                            />
-                        ) : null}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button
@@ -841,6 +832,16 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+
+                        {userId !== undefined ? (
+                            <NotificationBell
+                                unreadCount={
+                                    page.props.unreadNotificationCount ?? 0
+                                }
+                                realtime={realtime}
+                                userId={userId}
+                            />
+                        ) : null}
 
                         <LogoutDialog
                             open={isLoggingOut}

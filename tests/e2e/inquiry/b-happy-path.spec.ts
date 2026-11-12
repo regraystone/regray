@@ -13,14 +13,13 @@ import {
     REVIEW,
     addStoneProject,
     answerDeadline,
+    answerQuestion,
     chooseInSelect,
     chooseLocation,
     expectStep,
     fillSlabSizes,
-    landmarkField,
     locationField,
     openInquire,
-    openMoreDetails,
     pickService,
     pickStone,
     pressNext,
@@ -32,7 +31,7 @@ import {
 
 /* B. Happy path: from the first click to the saved inquiry. */
 
-test('6 · a pickup asks for no location, keeps its landmark, and sends @layout', async ({
+test('6 · a pickup asks for no location, and sends @layout', async ({
     actors,
 }, testInfo) => {
     const { page } = await actors.open('client');
@@ -52,17 +51,12 @@ test('6 · a pickup asks for no location, keeps its landmark, and sends @layout'
     await fillSlabSizes(page);
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
     await expect(locationField(page)).toHaveCount(0);
-    await openMoreDetails(page);
-    await landmarkField(page).fill('Near the studio gate');
     await answerDeadline(page);
     await shot(page, name('3-details'), testInfo);
     await page.getByRole('button', { name: 'Continue to review' }).click();
 
     await expectStep(page, REVIEW);
     await expect(page.getByText('Pickup', { exact: true })).toBeVisible();
-    await expect(
-        page.getByText('Near the studio gate', { exact: true }),
-    ).toBeVisible();
     await shot(page, name('4-review'), testInfo);
     const reference = await sendAndReadReference(page);
 
@@ -73,16 +67,15 @@ test('6 · a pickup asks for no location, keeps its landmark, and sends @layout'
 
     expect(
         php<Record<string, string | null>>(
-            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first(['delivery_method', 'location', 'landmark'])->toArray()`,
+            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first(['delivery_method', 'location'])->toArray()`,
         ),
     ).toEqual({
         delivery_method: 'pickup',
         location: null,
-        landmark: 'Near the studio gate',
     });
 });
 
-test('7 · two stones under one furniture service send, and Review shows the type and the service @layout', async ({
+test('7 · two stones under one furniture service send with its own questions, and Review shows the type, the service and the answers @layout', async ({
     actors,
 }, testInfo) => {
     const { page } = await actors.open('client');
@@ -99,26 +92,34 @@ test('7 · two stones under one furniture service send, and Review shows the typ
     await shot(page, name('2-stones'), testInfo);
 
     await pressNext(page, 2);
+    // Dining Tables asks no slab size of a stone.
+    await expect(page.locator('#requirements-slab-size-0')).toHaveCount(0);
     await answerStoneRow(page, 0, {
-        quantity: 3,
         edge: CATALOG.edges[0],
         finish: CATALOG.finishes[0],
     });
-    await page.locator('#requirements-slab-size-0').fill('120 x 60 cm');
     await answerStoneRow(page, 1, {
-        quantity: 5,
         edge: CATALOG.edges[1],
         finish: CATALOG.finishes[1],
     });
-    await page.locator('#requirements-slab-size-1').fill('60 x 60 cm');
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
+    await answerQuestion(page, 'seaters', '7', { own: true });
+    await answerQuestion(page, 'table-base', 'Same as stone');
     await shot(page, name('3-details'), testInfo);
     await page.getByRole('button', { name: 'Continue to review' }).click();
 
     await expectStep(page, REVIEW);
-    await expect(page.getByText(/8 pieces of 2 stones/)).toBeVisible();
-    await expect(page.getByText('Size: 120 x 60 cm')).toBeVisible();
+    // Dining Tables asks no piece count: the footer counts the stones only.
+    await expect(page.getByText(/· 2 stones$/)).toBeVisible();
+    await expect(page.getByText(/ pcs$/)).toHaveCount(0);
+    await expect(
+        page.getByText(`Edge profile: ${CATALOG.edges[0]}`),
+    ).toBeVisible();
+    // "Same as stone" reads as the first stone's name.
+    await expect(page.getByTestId('review-answers')).toContainText(
+        `Number of seaters7Table base${CATALOG.stones[0]}`,
+    );
     await expect(page.getByTestId('review-service')).toContainText(
         CATALOG.furnitureType,
     );
@@ -140,6 +141,11 @@ test('7 · two stones under one furniture service send, and Review shows the typ
             `App\\Models\\Inquiry::query()->with('service')->where('reference', '${reference}')->first()->service->slug`,
         ),
     ).toBe(CATALOG.furnitureSlug);
+    expect(
+        php<Record<string, string | null>>(
+            `App\\Models\\Inquiry::query()->with('detailAnswers.detailField', 'detailAnswers.option')->where('reference', '${reference}')->first()->detailAnswers->mapWithKeys(fn ($answer) => [$answer->detailField->slug => $answer->option?->slug ?? $answer->number_value])`,
+        ),
+    ).toEqual({ seaters: '7.00', table_base: 'same-as-stone' });
     expect(
         php<string[]>(
             `App\\Models\\Inquiry::query()->with('stones.stone')->where('reference', '${reference}')->first()->stones->sortBy('sort_order')->pluck('stone.name')->values()`,
@@ -180,7 +186,6 @@ test('9 · the new inquiry is Pending in the Quote list, and its details show th
             },
         ],
         location: 'Quezon City',
-        landmark: 'Beside the chapel',
         notes: 'Second floor, no lift.',
     });
     const reference = await sendAndReadReference(page);
@@ -201,7 +206,6 @@ test('9 · the new inquiry is Pending in the Quote list, and its details show th
     await expect(main).toContainText(CATALOG.service);
     await expect(main).toContainText('7 pcs');
     await expect(main).toContainText('Quezon City');
-    await expect(main).toContainText('Beside the chapel');
     await expect(main).toContainText('Second floor, no lift.');
 });
 

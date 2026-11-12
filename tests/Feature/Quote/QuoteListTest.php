@@ -34,23 +34,23 @@ describe('a card', function (): void {
     it('lists unique stones in the order picked, and the services', function (): void {
         [$a, $b] = $this->slugs;
 
-        makeInquiry($this->client, ['name' => 'Kitchen', 'stones' => [$b, $a], 'service' => 'countertop']);
+        makeInquiry($this->client, ['name' => 'Kitchen', 'stones' => [$b, $a], 'service' => 'countertop-backsplash']);
 
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
         expect(collect($card['stones'])->pluck('slug')->all())->toBe([$b, $a])
-            ->and(collect($card['services'])->pluck('id')->all())->toBe(['countertop'])
+            ->and(collect($card['services'])->pluck('id')->all())->toBe(['countertop-backsplash'])
             ->and($card['title'])->toBe('Kitchen')
             ->and($card)->not->toHaveKey('projectCount')
             ->and($card['actions']['cancel'])->toBe(['visible' => true, 'enabled' => true]);
     });
 
     it('names the one service wanted, however many stones it has', function (): void {
-        makeInquiry($this->client, ['stones' => $this->slugs, 'service' => 'tables']);
+        makeInquiry($this->client, ['stones' => $this->slugs, 'service' => 'dining-tables']);
 
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
-        expect(array_column($card['services'], 'name', 'id'))->toBe(['tables' => 'Tables']);
+        expect(array_column($card['services'], 'name', 'id'))->toBe(['dining-tables' => 'Dining Tables']);
     });
 
     it('carries the payment status only once the client has approved the quotation', function (InquiryStatus $status, ?string $payment, ?string $shown = null): void {

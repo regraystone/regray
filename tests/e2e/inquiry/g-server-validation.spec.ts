@@ -53,7 +53,7 @@ test('29 · a quantity of 10000 and an edge not in the catalogue are refused wit
     expect(response.status).toBe(422);
     expect(response.json?.errors).toEqual({
         'projects.0.stones.0.quantity': ['Enter 9999 pieces or fewer.'],
-        'projects.0.stones.0.edge': ['Choose an edge profile.'],
+        'projects.0.stones.0.edge': ['Choose the edge profile from the list.'],
     });
     expect(inquiryCount(clientAId)).toBe(before);
 });

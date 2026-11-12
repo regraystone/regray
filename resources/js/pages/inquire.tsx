@@ -68,6 +68,7 @@ import {
     clampRestoredStep,
     deadlineLocks,
     DELIVERY,
+    findService,
     INQUIRY_STEP_LABELS,
     mapInquiryErrors,
     nextQuestion,
@@ -82,6 +83,7 @@ import {
     toEditFormProjects,
     type InquiryEditProject,
     type InquiryFlash,
+    type ServiceTypeOption,
     type StoneFilter,
     type StoneQuery,
 } from '@/lib/inquiry-flow';
@@ -227,11 +229,13 @@ type SendOutcome =
 const sendInquiryRequest = (
     url: string,
     values: InquiryFormValues,
+    serviceTypes: ServiceTypeOption[],
     method: 'post' | 'patch' = 'post',
 ): Promise<SendOutcome> =>
     new Promise((resolve) => {
         const body = buildInquiryFormData(values, {
             withProjectIds: method === 'patch',
+            serviceFor: (serviceId) => findService(serviceTypes, serviceId),
         });
 
         if (method === 'patch') {
@@ -427,6 +431,14 @@ const InquireFlow = ({
             catalog.serviceTypes
                 .flatMap(({ services }) => services)
                 .find(({ id }) => id === serviceId)?.name ?? '',
+        [catalog],
+    );
+
+    /** Whether a service asks for stones; one the page does not know is taken to. */
+    const requiresStones = useCallback(
+        (serviceId: string): boolean =>
+            findService(catalog.serviceTypes, serviceId)?.requiresStones !==
+            false,
         [catalog],
     );
 
@@ -701,15 +713,20 @@ const InquireFlow = ({
                     ? stored.editingProjectId
                     : null,
             );
+            const progress = {
+                ...stored.draft,
+                requiresStones: requiresStones(stored.draft.serviceId),
+            };
+
             setStep(
                 clampRestoredStep(
                     stored.step,
                     stored.projects.length,
-                    stored.draft,
+                    progress,
                 ),
             );
             // Every question the draft's answers reach comes back on show.
-            setShownQuestions(furthestQuestion(stored.draft));
+            setShownQuestions(furthestQuestion(progress));
             hasDraftContinued.current = false;
 
             setLostAttachments(stored.droppedAttachments);
@@ -1030,6 +1047,17 @@ const InquireFlow = ({
         setDraftValue('serviceId', serviceId, { shouldDirty: true });
         draftMethods.clearErrors('serviceId');
 
+        // A service that asks for no stones takes none, and no recommendation either.
+        if (!requiresStones(serviceId)) {
+            setDraftValue('stoneIds', [], { shouldDirty: true });
+            setDraftValue('stones', [], { shouldDirty: true });
+            setDraftValue('stoneAdvice', false, { shouldDirty: true });
+            draftMethods.clearErrors(['stoneIds', 'stones']);
+            setStoneNotice(null);
+
+            return;
+        }
+
         if (misfits.length > 0) {
             const gone = new Set(misfits.map(({ slug }) => slug));
 
@@ -1108,9 +1136,11 @@ const InquireFlow = ({
      * show the next one. The questions above stay as they are.
      */
     const goToNextQuestion = (question: number) => {
+        const draft = getDraftValues();
+        const takesStones = requiresStones(draft.serviceId);
         const problem = questionProblem(
             question,
-            getDraftValues(),
+            { ...draft, requiresStones: takesStones },
             offeredServiceIds,
         );
 
@@ -1126,7 +1156,7 @@ const InquireFlow = ({
         draftMethods.clearErrors(
             question === SERVICE_STEP ? 'serviceId' : 'stoneIds',
         );
-        revealQuestion(nextQuestion(question));
+        revealQuestion(nextQuestion(question, takesStones));
     };
 
     /**
@@ -1199,10 +1229,9 @@ const InquireFlow = ({
                 ),
             ],
             stones: project.stones.map((selection) => ({ ...selection })),
+            answers: { ...project.answers },
             deliveryMethod: project.deliveryMethod || DELIVERY,
             location: project.location,
-            landmark: project.landmark,
-            areaSqm: project.areaSqm,
             neededBy: project.neededBy,
             notes: project.notes,
             attachments: project.attachments.map((attachment) => ({
@@ -1523,7 +1552,11 @@ const InquireFlow = ({
         const outcome: SendOutcome =
             inquireStoreUrl === null
                 ? { kind: 'failed' }
-                : await sendInquiryRequest(inquireStoreUrl, getValues());
+                : await sendInquiryRequest(
+                      inquireStoreUrl,
+                      getValues(),
+                      catalog.serviceTypes,
+                  );
 
         isSendingRef.current = false;
         setIsSending(false);
@@ -1607,6 +1640,7 @@ const InquireFlow = ({
         const outcome = await sendInquiryRequest(
             edit.updateUrl,
             getValues(),
+            catalog.serviceTypes,
             'patch',
         );
 
@@ -1687,16 +1721,21 @@ const InquireFlow = ({
     const showDraftBanner = edit === null && editingProjectNumber > 0;
 
     /*
-     * The questions this draft is asked, in order, all on the first step.
+     * The questions this draft is asked, in order, all on the first step. A
+     * service that asks for no stones skips the stones question, so the
+     * details are its second.
      */
-    const questions = [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP];
+    const draftTakesStones = requiresStones(draftServiceId);
+    const questions = draftTakesStones
+        ? [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP]
+        : [SERVICE_STEP, REQUIREMENTS_STEP];
 
     /**
      * The questions shown so far, every one open with all its fields; the rest
      * wait for Next.
      */
     const question = (questionStep: number) =>
-        questionStep > shownQuestions
+        questionStep > shownQuestions || !questions.includes(questionStep)
             ? null
             : {
                   step: questionStep,
@@ -1804,7 +1843,11 @@ const InquireFlow = ({
                                     />
                                     {shownQuestions === SERVICE_STEP ? (
                                         <NextBar
-                                            nextTitle="Which stones?"
+                                            nextTitle={
+                                                draftTakesStones
+                                                    ? 'Which stones?'
+                                                    : 'Other details'
+                                            }
                                             onNext={() =>
                                                 goToNextQuestion(SERVICE_STEP)
                                             }

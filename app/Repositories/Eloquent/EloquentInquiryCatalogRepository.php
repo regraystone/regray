@@ -16,6 +16,7 @@ use App\Services\BestSellerService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
 class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterface
@@ -31,13 +32,12 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
     {
         return ServiceType::query()
             ->where('is_active', true)
-            ->whereHas('services', fn (Builder $services) => $services->where('is_active', true)->whereHas('stoneTypes'))
-            ->with(['services' => fn (Relation $services) => $services->getQuery()
-                ->where('is_active', true)
-                // A service made from no stone type is not offered (Service::isOffered()).
-                ->whereHas('stoneTypes')
+            ->whereHas('services', fn (Builder $services) => $this->offered($services))
+            ->with(['services' => fn (Relation $services) => $this->offered($services->getQuery())
                 ->orderBy('sort_order')
                 ->orderBy('id'),
+                'services.features',
+                'services.detailFields.options',
                 // In the order the stone types are listed everywhere else.
                 'services.stoneTypes' => fn (Relation $types) => $types->getQuery()
                     ->select(['stone_types.id', 'stone_types.slug'])
@@ -109,6 +109,22 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
     public function serviceBySlug(?string $slug): ?Service
     {
         return $slug === null ? null : Service::query()->where('slug', $slug)->first();
+    }
+
+    /**
+     * The services new inquiries may ask for: active, and, unless one asks for
+     * no stones, made from at least one stone type (Service::isOffered()).
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $services
+     * @return Builder<TModel>
+     */
+    private function offered(Builder $services): Builder
+    {
+        return $services
+            ->where('is_active', true)
+            ->where(fn (Builder $service) => $service->where('requires_stones', false)->orWhereHas('stoneTypes'));
     }
 
     public function activeEdgeProfiles(): Collection

@@ -32,7 +32,7 @@ test('31 · a 500 shows the error and keeps the answers; retrying without it sav
     const { page } = await actors.open('client');
     actors.allowConsole(/status of 500/);
     await openInquire(page);
-    await addStoneProject(page, { location: 'Pasay', landmark: 'Keep me' });
+    await addStoneProject(page, { location: 'Pasay', notes: 'Keep me' });
     const before = inquiryCount(clientAId);
 
     const failOnce = async (route: Route) => {

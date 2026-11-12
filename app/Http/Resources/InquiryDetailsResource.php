@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\DetailFieldScope;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
@@ -9,13 +10,16 @@ use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\Permission;
 use App\Enums\SalesStatus;
+use App\Models\DetailField;
 use App\Models\Inquiry;
+use App\Models\InquiryDetailAnswer;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
 use App\Models\InquiryStone;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Services\ScheduleService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -242,16 +246,26 @@ class InquiryDetailsResource extends JsonResource
      * studio's zone, so it reads back as the date and time the client typed.
      * The files are the client's own attachments; staff documents are not shown.
      *
+     * Each stone carries the stone-scope answers its service asks, labelled,
+     * in the service's order (`details`), and null for the rest. `answers` are
+     * the project-scope ones, labelled and already worded: "Same as stone"
+     * reads as the first stone's name. `requiresStones` is false for a service
+     * that asks for no stones, whose page has no Stones section.
+     *
      * @return array<string, mixed>
      */
     private function project(): array
     {
         $arrivalAt = $this->schedule?->arrival_at->setTimezone(ScheduleService::timezone());
+        $questions = $this->service === null ? new EloquentCollection : $this->service->detailFields;
+        $stoneQuestions = $questions->filter(fn (DetailField $field): bool => $field->scope === DetailFieldScope::Stone);
+        $firstStone = $this->stones->first()?->stone->name;
 
         return [
             'name' => $this->name,
             'serviceType' => $this->service?->serviceType->name,
             'service' => $this->service?->name,
+            'requiresStones' => $this->service === null || $this->service->requires_stones,
             'stoneAdviceRequested' => $this->stone_advice_requested,
             'stones' => $this->stones->map(fn (InquiryStone $row): array => [
                 'id' => $row->stone->slug,
@@ -259,14 +273,28 @@ class InquiryDetailsResource extends JsonResource
                 'thumbnail' => ProjectCardResource::resolveThumbnailUrl($row->stone->thumbnail_path),
                 'quantity' => $row->quantity,
                 'slabSize' => $row->slab_size,
-                'edge' => $row->edgeProfile->name,
-                'finish' => $row->finish->name,
+                'edge' => $row->edgeProfile?->name,
+                'finish' => $row->finish?->name,
+                'details' => array_values($stoneQuestions
+                    ->map(fn (DetailField $field): array => ['label' => $field->name, 'value' => match ($field->slug) {
+                        DetailField::SLAB_SIZE => $row->slab_size,
+                        DetailField::EDGE_PROFILE => $row->edgeProfile?->name,
+                        DetailField::FINISH => $row->finish?->name,
+                        default => null,
+                    }])
+                    ->filter(fn (array $detail): bool => $detail['value'] !== null)
+                    ->all()),
             ])->values()->all(),
+            'answers' => array_values($this->detailAnswers
+                ->sortBy(fn (InquiryDetailAnswer $answer): int => $questions->firstWhere('id', $answer->detail_field_id)?->serviceSortOrder() ?? 0)
+                ->map(fn (InquiryDetailAnswer $answer): array => [
+                    'label' => $answer->detailField->name,
+                    'value' => $answer->displayValue($firstStone),
+                ])
+                ->all()),
             'requirements' => [
                 'deliveryMethod' => $this->delivery_method->value,
                 'location' => $this->location,
-                'landmark' => $this->landmark,
-                'areaSqm' => $this->area_sqm === null ? null : (float) $this->area_sqm,
                 'neededBy' => $arrivalAt?->toDateString(),
                 'notes' => $this->notes,
                 'attachments' => $this->files

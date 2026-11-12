@@ -1,13 +1,12 @@
-﻿import { ChevronDown } from 'lucide-react';
-import { useState, type MouseEvent } from 'react';
+﻿import type { MouseEvent } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import FileUpload from '@/components/file-upload';
 import FormField, {
     chooseFromList,
     fieldMessage,
 } from '@/components/form-field';
+import InquiryDetailField from '@/components/inquiry-detail-field';
 import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,8 +17,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { LANDMARK_MAX, NOTES_MAX } from '@/data/inquiries';
-import { DELIVERY_METHODS, PICKUP } from '@/lib/inquiry-flow';
+import { NOTES_MAX } from '@/data/inquiries';
+import {
+    DELIVERY_METHODS,
+    PICKUP,
+    findService,
+    projectFields,
+    type ServiceField,
+} from '@/lib/inquiry-flow';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import { searchLocations } from '@/lib/inquiry-catalog';
 import {
@@ -110,6 +115,11 @@ const formatLockedDeadline = (date: string): string =>
  * The controls are laid out in columns of two rather than stacked, and the block
  * runs the width of the page: capped at a reading measure the narrowest column was
  * too short to read a label in.
+ *
+ * What is always asked comes first: the questions the project's service has
+ * to have answered (in its order), when, then how it is got and where. Under
+ * them, always on show, is what may be left out: any question the service
+ * marks optional, the files and the notes.
  */
 const InquiryProjectDetails = ({
     projectNumber,
@@ -133,37 +143,41 @@ const InquiryProjectDetails = ({
      */
     deadlineLockReason?: string | null;
 }) => {
-    const { locations } = useInquiryCatalog();
+    const { locations, serviceTypes } = useInquiryCatalog();
     const {
         register,
         control,
         setValue,
-        getValues,
         clearErrors,
         formState: { errors, isSubmitted },
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
-    /*
-     * Everything optional stays folded away until it is wanted. A project that
-     * already holds one of these answers opens with them showing, and so does one
-     * with a complaint about them, because hidden answers can't be checked or fixed.
-     */
-    const [wantsMoreDetails, setWantsMoreDetails] = useState(() => {
-        const { landmark, areaSqm, notes, attachments } = getValues();
+    const serviceId = useWatch({ control, name: 'serviceId' });
+    const questions = projectFields(findService(serviceTypes, serviceId));
+    const requiredQuestions = questions.filter(({ required }) => required);
+    const optionalQuestions = questions.filter(({ required }) => !required);
 
-        return (
-            landmark !== '' ||
-            areaSqm !== '' ||
-            notes !== '' ||
-            attachments.length > 0
-        );
-    });
-    const showsMoreDetails =
-        wantsMoreDetails ||
-        errors.landmark !== undefined ||
-        errors.areaSqm !== undefined ||
-        errors.notes !== undefined ||
-        errors.attachments !== undefined;
+    /** One of the service's project questions, answered once for the project. */
+    const question = (field: ServiceField) => (
+        <Controller
+            key={field.slug}
+            control={control}
+            name={`answers.${field.slug}`}
+            // Unanswered is `''`, as every answer starts, never undefined.
+            defaultValue=""
+            render={({ field: answer }) => (
+                <InquiryDetailField
+                    id={id(field.slug.replaceAll('_', '-'))}
+                    field={field}
+                    value={answer.value ?? ''}
+                    onChange={answer.onChange}
+                    onBlur={answer.onBlur}
+                    fieldRef={answer.ref}
+                    error={fieldMessage(errors.answers?.[field.slug])}
+                />
+            )}
+        />
+    );
 
     /*
      * Scoped to the project rather than the flat `inquiry-*` ids the details step
@@ -203,6 +217,54 @@ const InquiryProjectDetails = ({
     return (
         <div>
             <div className="grid gap-5 md:grid-cols-2">
+                {requiredQuestions.map(question)}
+
+                {deadlineLockReason !== null ? (
+                    /*
+                     * Shown rather than asked: the visit has been confirmed (or
+                     * has happened), so the answer stands as it is. The value
+                     * stays in the draft, so saving sends it back unchanged.
+                     */
+                    <div>
+                        <p className="text-sm font-bold">
+                            When do you need it?
+                        </p>
+                        <p
+                            id={id('needed-by')}
+                            className="mt-2 text-sm"
+                            aria-describedby={id('needed-by-locked')}
+                        >
+                            {formatLockedDeadline(neededBy)}
+                        </p>
+                        <p
+                            id={id('needed-by-locked')}
+                            className="mt-1 text-xs text-secondary-foreground"
+                        >
+                            {deadlineLockReason}
+                        </p>
+                    </div>
+                ) : (
+                    <FormField
+                        id={id('needed-by')}
+                        label="When do you need it?"
+                        required
+                        error={errors.neededBy?.message}
+                    >
+                        {(accessibility) => (
+                            <Input
+                                id={id('needed-by')}
+                                type="date"
+                                min={today}
+                                {...register('neededBy')}
+                                onClick={openPickerOnClick}
+                                aria-describedby={accessibility.describedBy}
+                                aria-invalid={accessibility.invalid}
+                                className="rounded-none [&::-webkit-calendar-picker-indicator]:hidden"
+                            />
+                        )}
+                    </FormField>
+                )}
+
                 <FormField
                     id={INQUIRY_DELIVERY_METHOD_ID}
                     label="How would you like to get it?"
@@ -282,119 +344,21 @@ const InquiryProjectDetails = ({
                         )}
                     </FormField>
                 )}
-
-                {deadlineLockReason !== null ? (
-                    /*
-                     * Shown rather than asked: the visit has been confirmed (or
-                     * has happened), so the answer stands as it is. The value
-                     * stays in the draft, so saving sends it back unchanged.
-                     */
-                    <div>
-                        <p className="text-sm font-bold">
-                            When do you need it?
-                        </p>
-                        <p
-                            id={id('needed-by')}
-                            className="mt-2 text-sm"
-                            aria-describedby={id('needed-by-locked')}
-                        >
-                            {formatLockedDeadline(neededBy)}
-                        </p>
-                        <p
-                            id={id('needed-by-locked')}
-                            className="mt-1 text-xs text-secondary-foreground"
-                        >
-                            {deadlineLockReason}
-                        </p>
-                    </div>
-                ) : (
-                    <FormField
-                        id={id('needed-by')}
-                        label="When do you need it?"
-                        required
-                        error={errors.neededBy?.message}
-                    >
-                        {(accessibility) => (
-                            <Input
-                                id={id('needed-by')}
-                                type="date"
-                                min={today}
-                                {...register('neededBy')}
-                                onClick={openPickerOnClick}
-                                aria-describedby={accessibility.describedBy}
-                                aria-invalid={accessibility.invalid}
-                                className="rounded-none [&::-webkit-calendar-picker-indicator]:hidden"
-                            />
-                        )}
-                    </FormField>
-                )}
             </div>
 
+            {/*
+             * The optional answers sit under the required ones, always on show:
+             * there are few of them, so folding them away only hid them.
+             */}
             <div className="mt-6">
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-expanded={showsMoreDetails}
-                    aria-controls={id('more-details')}
-                    onClick={() => setWantsMoreDetails(!showsMoreDetails)}
-                >
-                    <ChevronDown
-                        aria-hidden
-                        className={showsMoreDetails ? 'rotate-180' : ''}
-                    />
-                    Add more details
-                </Button>
+                <div id={id('more-details')}>
+                    {optionalQuestions.length > 0 ? (
+                        <div className="mb-5 grid gap-5 md:grid-cols-2">
+                            {optionalQuestions.map(question)}
+                        </div>
+                    ) : null}
 
-                {/*
-                 * Hidden rather than taken out, so the fields stay registered and
-                 * an upload in flight is not lost when it is folded away.
-                 */}
-                <div
-                    id={id('more-details')}
-                    className={showsMoreDetails ? 'mt-5' : 'hidden'}
-                >
-                    <div className="grid gap-5 md:grid-cols-2">
-                        <FormField
-                            id={id('landmark')}
-                            label="A nearby landmark"
-                            error={errors.landmark?.message}
-                        >
-                            {(accessibility) => (
-                                <Input
-                                    id={id('landmark')}
-                                    {...register('landmark')}
-                                    maxLength={LANDMARK_MAX}
-                                    placeholder="Near the old railway station"
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="rounded-none"
-                                />
-                            )}
-                        </FormField>
-                        <FormField
-                            id={id('area')}
-                            label="Size of the area in square metres, if you know"
-                            error={errors.areaSqm?.message}
-                        >
-                            {(accessibility) => (
-                                <Input
-                                    id={id('area')}
-                                    type="number"
-                                    inputMode="decimal"
-                                    min="0"
-                                    step="any"
-                                    {...register('areaSqm')}
-                                    placeholder="24"
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="rounded-none"
-                                />
-                            )}
-                        </FormField>
-                    </div>
-
-                    <p className="mt-5 max-w-2xl text-sm text-secondary-foreground">
+                    <p className="max-w-2xl text-sm text-secondary-foreground">
                         {allowAttachments
                             ? 'Plans, sketches or site photos help us quote accurately.'
                             : 'Files are added by the client.'}

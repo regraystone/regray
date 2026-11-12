@@ -14,9 +14,7 @@ export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
 
 /** Limits the details form holds its free text fields to. */
 export const PROJECT_NAME_MAX = 100;
-export const LANDMARK_MAX = 150;
 export const NOTES_MAX = 1000;
-export const SLAB_SIZE_MAX = 50;
 /**
  * An attachment as the details step holds it.
  *
@@ -98,8 +96,6 @@ export type InquiryRequirementsRecord = {
     deliveryMethod?: string;
     /** None on a pickup. */
     location?: string;
-    landmark?: string;
-    areaSqm?: number;
     neededBy?: string;
     /**
      * The hour of the day, asked for alongside the date by the three services the
@@ -196,7 +192,6 @@ export const inquiries: Inquiry[] = [
         ],
         requirements: {
             location: 'Quezon City',
-            areaSqm: 3.2,
             neededBy: '2026-12-05',
             notes: 'The island has a waterfall end on the side facing the dining room.',
             attachments: [],
@@ -224,7 +219,6 @@ export const inquiries: Inquiry[] = [
         ],
         requirements: {
             location: 'Muntinlupa',
-            areaSqm: 2.4,
             neededBy: '2026-11-28',
             attachments: [],
         },
@@ -257,8 +251,6 @@ export const inquiries: Inquiry[] = [
         ],
         requirements: {
             location: 'Makati',
-            landmark: 'Second floor, beside the mezzanine staircase',
-            areaSqm: 18.5,
             neededBy: '2026-11-14',
             notes: 'The bar top has to clear the service window by 60 mm.',
             attachments: [
@@ -293,8 +285,6 @@ export const inquiries: Inquiry[] = [
         ],
         requirements: {
             location: 'Pasig',
-            landmark: 'Second floor, facing the lift lobby',
-            areaSqm: 4.5,
             neededBy: '2026-10-30',
             notes: 'The desk front is one slab, so please keep the veining running across the full width.',
             attachments: [
@@ -333,8 +323,6 @@ export const inquiries: Inquiry[] = [
         ],
         requirements: {
             location: 'Muntinlupa',
-            landmark: 'Under the tree, at the far end of the deck',
-            areaSqm: 11.5,
             neededBy: '2026-09-05',
             attachments: [
                 {

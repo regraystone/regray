@@ -150,6 +150,12 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         $this->addStones($inquiry, $stones);
     }
 
+    public function replaceDetailAnswers(Inquiry $inquiry, array $answers): void
+    {
+        $inquiry->detailAnswers()->delete();
+        $inquiry->detailAnswers()->createMany($answers);
+    }
+
     public function deleteClientAttachmentsExcept(Inquiry $inquiry, array $keepIds): array
     {
         $attachments = fn () => $inquiry->files()->where('document_type', DocumentType::ClientAttachment);
@@ -322,6 +328,11 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         return $query
             ->with([
                 'service.serviceType',
+                'service.features',
+                'service.stoneTypes:stone_types.id,stone_types.slug',
+                'service.detailFields.options',
+                'detailAnswers.detailField',
+                'detailAnswers.option',
                 'schedule:id,inquiry_id,arrival_at,status',
                 'stones' => fn ($stones) => $stones->orderBy('sort_order'),
                 'stones.stone' => fn ($stone) => $stone->withTrashed(),

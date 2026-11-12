@@ -40,7 +40,23 @@ function schemaService(): int
 
     return DB::table('services')->insertGetId([
         'service_type_id' => $typeId, 'slug' => "service-{$suffix}", 'name' => "Service {$suffix}",
-        'description' => 'Test', 'features' => '[]', 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+        'description' => 'Test', 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+}
+
+/** A question of the catalog, with no options. */
+function schemaDetailField(string $scope = 'project', string $answerType = 'text'): int
+{
+    return DB::table('detail_fields')->insertGetId([
+        'slug' => 'field-'.random_int(100000, 999999), 'name' => 'Field', 'scope' => $scope, 'answer_type' => $answerType, 'sort_order' => 0,
+    ]);
+}
+
+/** A listed answer of a question. */
+function schemaDetailOption(int $fieldId, string $slug = 'wood', bool $linksToStone = false): int
+{
+    return DB::table('detail_field_options')->insertGetId([
+        'detail_field_id' => $fieldId, 'slug' => $slug, 'name' => ucfirst($slug), 'sort_order' => 0, 'links_to_stone' => $linksToStone,
     ]);
 }
 
@@ -211,7 +227,54 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
         DB::table('inquiry_stones')->insert([...$row, 'quantity' => 3]);
     }],
     'stone: a quantity of 0' => ['chk_inquiry_stones_quantity', fn () => DB::table('inquiry_stones')->insert(schemaInquiryStone(schemaInquiry(), 0))],
-    'stone: no slab size' => ['not-null', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'slab_size' => null])],
+    'stone: the same stone with no answers twice' => ['idx_inquiry_stones_unique', function () {
+        $row = [...schemaInquiryStone(schemaInquiry()), 'edge_profile_id' => null, 'finish_id' => null, 'slab_size' => null];
+        DB::table('inquiry_stones')->insert($row);
+        DB::table('inquiry_stones')->insert([...$row, 'quantity' => 3]);
+    }],
+
+    // What a service asks, and the answers.
+    'question: an unknown scope' => ['chk_detail_fields_scope', fn () => schemaDetailField('room')],
+    'question: an unknown answer type' => ['chk_detail_fields_answer_type', fn () => schemaDetailField('project', 'date')],
+    'option: the same slug twice for a question' => ['detail_field_options_detail_field_id_slug_unique', function () {
+        $fieldId = schemaDetailField('project', 'choice');
+        schemaDetailOption($fieldId);
+        schemaDetailOption($fieldId);
+    }],
+    'option: two "Same as stone" for a question' => ['idx_detail_field_options_links_to_stone', function () {
+        $fieldId = schemaDetailField('project', 'choice');
+        schemaDetailOption($fieldId, 'same-as-stone', true);
+        schemaDetailOption($fieldId, 'like-the-stone', true);
+    }],
+    'service feature: two at one position' => ['service_features_pkey', function () {
+        $serviceId = schemaService();
+        DB::table('service_features')->insert(['service_id' => $serviceId, 'sort_order' => 0, 'text' => 'One']);
+        DB::table('service_features')->insert(['service_id' => $serviceId, 'sort_order' => 0, 'text' => 'Two']);
+    }],
+    'service question: the same question twice' => ['service_detail_fields_pkey', function () {
+        $serviceId = schemaService();
+        $fieldId = schemaDetailField();
+        DB::table('service_detail_fields')->insert(['service_id' => $serviceId, 'detail_field_id' => $fieldId, 'sort_order' => 0]);
+        DB::table('service_detail_fields')->insert(['service_id' => $serviceId, 'detail_field_id' => $fieldId, 'sort_order' => 1]);
+    }],
+    'removing a question a service asks' => ['service_detail_fields_detail_field_id_foreign', function () {
+        $fieldId = schemaDetailField();
+        DB::table('service_detail_fields')->insert(['service_id' => schemaService(), 'detail_field_id' => $fieldId, 'sort_order' => 0]);
+        DB::table('detail_fields')->where('id', $fieldId)->delete();
+    }],
+    'answer: two values' => ['chk_inquiry_detail_answers_one_value', fn () => DB::table('inquiry_detail_answers')->insert(['inquiry_id' => schemaInquiry(), 'detail_field_id' => schemaDetailField(), 'text_value' => 'Big', 'number_value' => 2])],
+    'answer: no value' => ['chk_inquiry_detail_answers_one_value', fn () => DB::table('inquiry_detail_answers')->insert(['inquiry_id' => schemaInquiry(), 'detail_field_id' => schemaDetailField()])],
+    'answer: the same question twice' => ['inquiry_detail_answers_pkey', function () {
+        $answer = ['inquiry_id' => schemaInquiry(), 'detail_field_id' => schemaDetailField(), 'text_value' => 'Big'];
+        DB::table('inquiry_detail_answers')->insert($answer);
+        DB::table('inquiry_detail_answers')->insert([...$answer, 'text_value' => 'Small']);
+    }],
+    'removing an option an answer holds' => ['inquiry_detail_answers_option_id_foreign', function () {
+        $fieldId = schemaDetailField('project', 'choice');
+        $optionId = schemaDetailOption($fieldId);
+        DB::table('inquiry_detail_answers')->insert(['inquiry_id' => schemaInquiry(), 'detail_field_id' => $fieldId, 'option_id' => $optionId]);
+        DB::table('detail_field_options')->where('id', $optionId)->delete();
+    }],
 
     // Group chats: one per inquiry, and only a group has one.
     'a second group chat for an inquiry' => ['idx_conversations_inquiry_group', function () {
@@ -411,7 +474,14 @@ test('drops a service\'s stone type links with the service or the type, and keep
     $other->forceDelete();
     expect(DB::table('service_stone_type')->where('service_id', $serviceId)->pluck('stone_type_id')->all())->toBe([$type->id]);
 
+    DB::table('service_features')->insert(['service_id' => $serviceId, 'sort_order' => 0, 'text' => 'Nationwide supply']);
+    DB::table('service_detail_fields')->insert(['service_id' => $serviceId, 'detail_field_id' => schemaDetailField(), 'sort_order' => 0]);
+
     DB::table('services')->where('id', $serviceId)->delete();
     expect(DB::table('service_stone_type')->count())->toBe(0)
+        // Its features and its questions go with it; the questions themselves stay.
+        ->and(DB::table('service_features')->count())->toBe(0)
+        ->and(DB::table('service_detail_fields')->count())->toBe(0)
+        ->and(DB::table('detail_fields')->count())->toBe(1)
         ->and(DB::table('stone_stone_type')->where('stone_id', $stone->id)->pluck('stone_type_id')->all())->toBe([$type->id]);
 });

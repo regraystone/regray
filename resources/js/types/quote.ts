@@ -97,21 +97,27 @@ export type QuoteInquiryDetails = {
         stoneAdviceRequested: boolean;
         serviceType: string | null;
         service: string | null;
+        /** False for a service that asks for no stones, which has no Stones section. */
+        requiresStones: boolean;
         stones: Array<{
             id: string;
             name: string;
             thumbnail: string;
-            quantity: number;
-            slabSize: string;
-            edge: string;
-            finish: string;
+            /** Null where the service does not ask how many pieces. */
+            quantity: number | null;
+            /** Null where the service does not ask it. */
+            slabSize: string | null;
+            edge: string | null;
+            finish: string | null;
+            /** The stone-scope answers its service asks, labelled, in order. */
+            details: Array<{ label: string; value: string }>;
         }>;
+        /** The project-scope answers, labelled and already worded. */
+        answers: Array<{ label: string; value: string }>;
         requirements: {
             deliveryMethod: string;
             /** Null on a pickup. */
             location: string | null;
-            landmark: string | null;
-            areaSqm: number | null;
             neededBy: string | null;
             notes: string | null;
             attachments: Array<{

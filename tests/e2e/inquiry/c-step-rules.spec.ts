@@ -14,6 +14,7 @@ import {
     SERVICE_ID,
     SERVICE_TYPE_ID,
     SLAB_SIZE,
+    answerQuestion,
     answerStoneRow,
     checkbox,
     continueToReview,
@@ -22,15 +23,15 @@ import {
     chooseLocation,
     expectStep,
     nextButton,
-    landmarkField,
     locationField,
     notesField,
     openInquire,
-    openMoreDetails,
+    pickService,
     pickStone,
     pressNext,
     projectPayload,
     sendAndReadReference,
+    typeSlabSize,
     walkToRequirements,
     walkToStones,
 } from '../support/inquiry-flow';
@@ -76,12 +77,14 @@ test('11 · What do you need: a type, then its services, then what the service i
     await page.locator(`#${SERVICE_ID}`).click();
     await expect(page.getByRole('option')).toHaveText([
         'Slab Supply Only',
-        'Countertop',
+        'Slab Supply and Installation',
+        'Installation Only',
+        'Countertop and Backsplash',
         'Wall Cladding',
         'Flooring',
         'Staircase',
-        'Installation',
-        'Other Applications',
+        'Kitchen Islands',
+        'Lavatories',
     ]);
     await page.keyboard.press('Escape');
 
@@ -89,7 +92,7 @@ test('11 · What do you need: a type, then its services, then what the service i
     await expect(pageError(page, 'Choose what you need.')).toBeVisible();
     await expectStep(page, 1);
 
-    await chooseInSelect(page, SERVICE_ID, 'Countertop');
+    await chooseInSelect(page, SERVICE_ID, 'Countertop and Backsplash');
     await expect(info).toContainText(
         'Natural stone countertops cut and finished to your dimensions.',
     );
@@ -111,10 +114,11 @@ test('11 · What do you need: a type, then its services, then what the service i
 
     await page.locator(`#${SERVICE_ID}`).click();
     await expect(page.getByRole('option')).toHaveText([
-        'Tables',
-        'Seating',
-        'Storage',
-        'Decorative Furniture',
+        'Center Tables',
+        'Side Tables',
+        'Dining Tables',
+        'Pedestal',
+        'Other Customized Furniture',
     ]);
     await page.keyboard.press('Escape');
 
@@ -382,18 +386,18 @@ test('12 · Stones: no stone or no slab size blocks Continue to review; quantity
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
 
-    const slabSize = page.locator('#requirements-slab-size-0');
     await addToInquiry(page).click();
     await expect(page.locator('#requirements-slab-size-0-error')).toHaveText(
         'Enter the slab size.',
     );
     await expectStep(page, 3);
 
-    await slabSize.fill('120 x 60 cm');
+    // A size of one's own, through Other, beside the suggestions.
+    await typeSlabSize(page, 0, '90 x 45 cm');
     await addToInquiry(page).click();
     await expectStep(page, REVIEW);
     await expect(page.getByText('9999 pcs')).toBeVisible();
-    await expect(page.getByText('Size: 120 x 60 cm')).toBeVisible();
+    await expect(page.getByText('Slab size: 90 x 45 cm')).toBeVisible();
 });
 
 test('13 · Stone rows: edge and finish start as "advise me", a blank row needs answers, and a 21st row is blocked', async ({
@@ -404,18 +408,19 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     await walkToRequirements(page);
 
     // Each stone's slab size (required), edge and finish are on show, with no
-    // "optional"; the rarer answers are folded away until asked for.
+    // "optional"; the notes and files are on show too, with nothing to unfold.
     await expect(page.locator('#requirements-slab-size-0')).toBeVisible();
     await expect(
         page.locator('label[for="requirements-slab-size-0"]'),
     ).toContainText('Slab size *');
-    await expect(page.getByText('Edge profile', { exact: true })).toBeVisible();
+    await expect(
+        page.locator('label[for="requirements-edge-0"]'),
+    ).toContainText('Edge profile *');
     await expect(page.getByText('(optional)')).toHaveCount(0);
-    await expect(landmarkField(page)).toBeHidden();
-    await expect(notesField(page)).toBeHidden();
-    await openMoreDetails(page);
-    await expect(landmarkField(page)).toBeVisible();
     await expect(notesField(page)).toBeVisible();
+    await expect(
+        page.getByRole('button', { name: 'Add more details' }),
+    ).toHaveCount(0);
 
     // The only stone can't be taken away here.
     const removeRow = page.getByRole('button', {
@@ -443,17 +448,20 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
 
     // The new row starts with no edge or finish, and keeps the slab size.
     await expect(page.locator('#requirements-edge-1')).toContainText(
-        'Choose an edge profile',
+        'Choose one',
     );
-    await expect(page.locator('#requirements-slab-size-1')).toHaveValue(
-        await page.locator('#requirements-slab-size-0').inputValue(),
+    await expect(page.locator('#requirements-slab-size-1')).toContainText(
+        SLAB_SIZE,
     );
     await expect(removeRow).toHaveCount(2);
 
     // Left unanswered, it would be the same stone worked the same way twice.
     await addToInquiry(page).click();
     await expect(
-        pageError(page, 'Another row of this stone has the same edge profile'),
+        pageError(
+            page,
+            'Another row of this stone has the same slab size, edge profile and finish',
+        ),
     ).toBeVisible();
     await expectStep(page, 3);
 
@@ -501,7 +509,7 @@ test('14 · Requirements: location is required, and "Parañaque" survives the ro
     ).toBe('Parañaque');
 });
 
-test('15 · Requirements: landmark takes 150 characters and refuses 151; notes take 1000 and refuse 1001', async ({
+test('15 · Requirements: notes take 1000 and refuse 1001, and no landmark or area is asked', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -509,13 +517,11 @@ test('15 · Requirements: landmark takes 150 characters and refuses 151; notes t
     await openInquire(page);
     await walkToRequirements(page);
 
-    await openMoreDetails(page);
-
-    const landmark = landmarkField(page);
     const notes = notesField(page);
 
-    await landmark.fill('L'.repeat(151));
-    await expect(landmark).toHaveValue('L'.repeat(150));
+    // Slab Supply Only asks no area, and nothing asks for a landmark.
+    await expect(page.getByLabel(/landmark/i)).toHaveCount(0);
+    await expect(page.getByLabel(/area/i)).toHaveCount(0);
 
     // The counter under the notes is the limit made visible, so it has to
     // follow what is typed: first five keys by hand, then the whole limit.
@@ -534,15 +540,9 @@ test('15 · Requirements: landmark takes 150 characters and refuses 151; notes t
     await answerDeadline(page);
     await addToInquiry(page).click();
     await expectStep(page, REVIEW);
-    await expect(
-        page.getByText('L'.repeat(150), { exact: true }),
-    ).toBeVisible();
 
     // The server holds the same limits when the field's own cap is bypassed.
-    for (const [field, length] of [
-        ['landmark', 151],
-        ['notes', 1001],
-    ] as const) {
+    for (const [field, length] of [['notes', 1001]] as const) {
         const response = await postAsUser(page, '/dashboard/quote/inquire', {
             projects: [projectPayload({ [field]: 'X'.repeat(length) })],
         });
@@ -554,7 +554,7 @@ test('15 · Requirements: landmark takes 150 characters and refuses 151; notes t
     }
 });
 
-test('16 · a pickup is asked no location, with the landmark kept either way', async ({
+test('16 · a pickup is asked no location, and the location comes back with a delivery', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -566,17 +566,70 @@ test('16 · a pickup is asked no location, with the landmark kept either way', a
     );
 
     await chooseLocation(page, 'Makati');
-    await openMoreDetails(page);
-    await landmarkField(page).fill('Near the church');
 
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
     await expect(locationField(page)).toHaveCount(0);
-    await expect(landmarkField(page)).toHaveValue('Near the church');
 
     // Changing back brings back what was typed.
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Delivery');
     await expect(locationField(page)).toHaveValue('Makati');
-    await expect(landmarkField(page)).toHaveValue('Near the church');
+});
+
+test('16a · Installation Only skips the stones and sends with none; Wall Cladding asks an area and a finish, and no edge', async ({
+    actors,
+}) => {
+    const { clientAId } = inquiryFixtures();
+    const { page } = await actors.open('client');
+    await openInquire(page);
+
+    await pickService(page, CATALOG.serviceType, 'Installation Only');
+    await expect(nextButton(page)).toHaveAccessibleName(/Other details/);
+    await nextButton(page).click();
+
+    // The details are the second question: there is no stones question.
+    await expect(
+        page.getByRole('heading', { name: 'Which stones?' }),
+    ).toHaveCount(0);
+    await expect(
+        page.getByRole('heading', { name: 'Other details' }),
+    ).toBeVisible();
+    await expect(page.getByTestId('stones-empty-state')).toHaveCount(0);
+    await expect(page.locator('[id^="requirements-quantity-"]')).toHaveCount(0);
+
+    await chooseLocation(page, 'Makati');
+    await answerDeadline(page);
+    await addToInquiry(page).click();
+    await expectStep(page, REVIEW);
+    await expect(page.getByTestId('review-stones')).toHaveCount(0);
+
+    const reference = await sendAndReadReference(page);
+    expect(inquiryReferences(clientAId)[0]).toBe(reference);
+    expect(
+        php<number>(
+            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first()->stones()->count()`,
+        ),
+    ).toBe(0);
+
+    await openInquire(page);
+    await walkToRequirements(page, { service: 'Wall Cladding' });
+    await expect(page.locator('#requirements-edge-0')).toHaveCount(0);
+    await expect(page.locator('#requirements-slab-size-0')).toHaveCount(0);
+    await expect(page.locator('#requirements-finish-0')).toBeVisible();
+
+    await chooseLocation(page, 'Makati');
+    await answerDeadline(page);
+    await addToInquiry(page).click();
+    await expect(page.locator('#requirements-area-sqm-1-error')).toHaveText(
+        'Enter the area to cover (sq m).',
+    );
+    await expectStep(page, 3);
+
+    await answerQuestion(page, 'area-sqm', '5');
+    await addToInquiry(page).click();
+    await expectStep(page, REVIEW);
+    await expect(page.getByTestId('review-answers')).toContainText(
+        'Area to cover (sq m)5',
+    );
 });
 
 test('17 · every question is on one page, and filling the details keeps the answers above', async ({
@@ -590,7 +643,6 @@ test('17 · every question is on one page, and filling the details keeps the ans
         service: CATALOG.furniture,
     });
     await answerStoneRow(page, 0, {
-        quantity: 12,
         edge: CATALOG.edges[1],
         finish: CATALOG.finishes[1],
     });
@@ -612,7 +664,8 @@ test('17 · every question is on one page, and filling the details keeps the ans
     );
 
     await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0);
-    await expect(page.locator('#requirements-quantity-0')).toHaveValue('12');
+    // Dining Tables asks no piece count.
+    await expect(page.locator('#requirements-quantity-0')).toHaveCount(0);
     await expect(page.locator('#requirements-edge-0')).toContainText(
         CATALOG.edges[1],
     );
@@ -720,14 +773,12 @@ test('17c · with no stone picked, the details ask for stones first and point ba
     // Taken away again, the stones' rows give way to the prompt.
     await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await expect(prompt).toContainText(
-        'Choose the stones you want in step 2 first. Their edge, finish and slab size will show here.',
+        'Choose the stones you want in step 2 first. What each of them needs will show here.',
     );
     await expect(
         page.locator('input[id^="requirements-quantity-"]'),
     ).toHaveCount(0);
-    await expect(
-        page.getByRole('button', { name: 'Add more details' }),
-    ).toBeVisible();
+    await expect(notesField(page)).toBeVisible();
 
     await prompt
         .getByRole('button', { name: 'Choose stones in step 2' })
@@ -773,10 +824,10 @@ test('17d · the stone type filter and the stones follow the service, and a ston
     await pickStone(page, cobblestone);
     await pickStone(page, CATALOG.stones[0]);
 
-    await chooseInSelect(page, SERVICE_ID, 'Countertop');
+    await chooseInSelect(page, SERVICE_ID, 'Countertop and Backsplash');
 
     await expect(page.getByTestId('stone-notice')).toHaveText(
-        `Removed ${cobblestone} for this service; it is not offered for Countertop.`,
+        `Removed ${cobblestone} for this service; it is not offered for Countertop and Backsplash.`,
     );
     await expect(page.getByTestId('stones-selected')).toHaveText(
         '1 stone selected',

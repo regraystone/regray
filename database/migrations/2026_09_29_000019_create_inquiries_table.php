@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Schema;
  *   written outside the form may have none.
  * - `delivery_method`: how the project reaches the client. A pickup has no site
  *   to name, so its `location` is NULL, and a CHECK holds the two facts together.
- *   A landmark is optional on either.
  * - `lead_id`: marketing's lead for the client (`leads`). NULL until the
  *   client's Regray Team thread is claimed, which links it, and for a direct
  *   client, who has no lead.
@@ -50,6 +49,13 @@ use Illuminate\Support\Facades\Schema;
  * `arrival_at` of the inquiry's schedule. `completed_at` is when logistics
  * moved to `completed` (final), set once and NULL until then; the Inquiry
  * list's Due column reads it against the deadline.
+ *
+ * `inquiry_detail_answers` holds the project-scope answers its service asks
+ * (`service_detail_fields`), one row per question: only the column matching
+ * the question's `answer_type` is set (`text_value`, `number_value`,
+ * `option_id` for a closed option, `boolean_value`), which a CHECK holds to
+ * exactly one. Stone-scope answers stay on `inquiry_stones`, since they vary
+ * per stone row.
  */
 return new class extends Migration
 {
@@ -70,8 +76,6 @@ return new class extends Migration
             $table->foreignId('service_id')->nullable()->constrained()->restrictOnDelete();
             $table->string('delivery_method', 20)->default('delivery');
             $table->string('location', 255)->nullable();
-            $table->string('landmark', 150)->nullable();
-            $table->decimal('area_sqm', 10, 2)->nullable();
             $table->string('notes', 1000)->nullable();
             $table->boolean('stone_advice_requested')->default(false);
             $table->string('sales_status', 20)->nullable();
@@ -105,10 +109,26 @@ return new class extends Migration
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_contract_total CHECK (contract_total > 0)');
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_marketing_status CHECK (marketing_status IN ('won','lost'))");
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_delivery_location CHECK ((delivery_method = 'delivery' AND location IS NOT NULL) OR (delivery_method = 'pickup' AND location IS NULL))");
+
+        Schema::create('inquiry_detail_answers', function (Blueprint $table) {
+            $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('detail_field_id')->constrained()->restrictOnDelete();
+            $table->string('text_value', 255)->nullable();
+            $table->decimal('number_value', 12, 2)->nullable();
+            $table->foreignId('option_id')->nullable()->constrained('detail_field_options')->restrictOnDelete();
+            $table->boolean('boolean_value')->nullable();
+
+            $table->primary(['inquiry_id', 'detail_field_id']);
+            $table->index('detail_field_id');
+            $table->index('option_id');
+        });
+
+        DB::statement('ALTER TABLE inquiry_detail_answers ADD CONSTRAINT chk_inquiry_detail_answers_one_value CHECK (num_nonnulls(text_value, number_value, option_id, boolean_value) = 1)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('inquiry_detail_answers');
         Schema::dropIfExists('inquiries');
         DB::statement('DROP SEQUENCE IF EXISTS inquiry_reference_seq');
     }

@@ -305,6 +305,7 @@ erDiagram
 | Pivots (`application_stone_type`, `care_tip_stone_type`, `finish_stone_type`, `saved_stones`) | Composite primary key as shown, plus a reverse index on the second column (`application_id`, `care_tip_id`, `finish_id`, `stone_id`). Shared facts refer to categories; saved stones refer to individual stones.                                                            |
 | `finishes`                                                                                    | Unique `lower(name)`. Seed it from the current list (Leather, Honed, Polished, Advise me). Never hard delete a row an inquiry used: set `is_active = false`. Edge profiles are not tied to stones, so they are defined in the inquiries diagram.                            |
 
+**Furniture types** are Center & Side Tables, Dining Tables, Pedestal and Other Customized Furniture (FurnitureTypeSeeder); a type no longer listed is made inactive, never deleted. They are not linked to services, though four services share their names.
 ---
 
 ## 3. Portfolio and services
@@ -372,11 +373,41 @@ erDiagram
         varchar(100) slug UK
         varchar(150) name
         text description
-        json features "list of strings"
+        boolean requires_stones "default true; false for Installation Only"
         smallint sort_order
         boolean is_active
         timestamptz created_at
         timestamptz updated_at
+    }
+    service_features {
+        bigint service_id PK, FK "cascade"
+        smallint sort_order PK
+        varchar(255) text
+    }
+    detail_fields {
+        bigint id PK
+        varchar(50) slug UK
+        varchar(100) name
+        varchar(10) scope "stone, project"
+        varchar(10) answer_type "text, number, choice, boolean"
+        boolean allows_custom "default false"
+        smallint sort_order
+    }
+    detail_field_options {
+        bigint id PK
+        bigint detail_field_id FK "cascade"
+        varchar(100) slug "unique per field"
+        varchar(150) name
+        smallint sort_order
+        boolean is_active
+        boolean is_suggestion "a sample value beside a free entry"
+        boolean links_to_stone "Same as stone, at most one per field"
+    }
+    service_detail_fields {
+        bigint service_id PK, FK "cascade"
+        bigint detail_field_id PK, FK "restrict"
+        smallint sort_order
+        boolean is_required "default true"
     }
     stones {
         bigint id PK
@@ -387,16 +418,46 @@ erDiagram
     stones ||--o{ project_stone : "used in"
     projects ||--|{ category_project : "tagged"
     project_categories ||--o{ category_project : "tags"
+    service_types ||--o{ services : "groups"
+    services ||--o{ service_features : "lists"
+    services ||--o{ service_detail_fields : "asks"
+    detail_fields ||--o{ service_detail_fields : "asked by"
+    detail_fields ||--o{ detail_field_options : "lists"
 ```
 
-| Table                | Indexes and rules                                                                                                                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `projects`           | Partial unique `slug` where `deleted_at IS NULL`. Index `(is_published, completed_year DESC)`. CHECK `completed_year BETWEEN 1900 AND 2100`. Only published, non-deleted projects reach the Home page. |
-| `project_images`     | Unique `(project_id, sort_order)`. The thumbnail lives in `projects.thumbnail_path` and is never repeated in the gallery.                                                                              |
-| Pivots               | Composite primary key plus a reverse index on `stone_id` and `project_category_id`.                                                                                                                    |
-| `project_categories` | Unique `slug` and `lower(name)`. Seeded with the nine categories.                                                                                                                                      |
-| `service_types`      | Unique `slug` and `name`. Index `(is_active, sort_order)`.                                                                                                                                             |
-| `services`           | Unique `slug`. Index `(service_type_id, is_active, sort_order)`. One no longer offered is made inactive, because sent inquiries reference it.                                                          |
+**What a service asks is data.** `detail_fields` is the catalog of questions a service can ask besides the stones; `service_detail_fields` says which each service asks, in what order, and whether each has to be answered. A `stone` question is answered on each stone row (`inquiry_stones`, section 4), a `project` question once for the inquiry (`inquiry_detail_answers`). Edge profile and finish take their answers from `edge_profiles` and `finishes`; the other listed answers are `detail_field_options`: a closed option the client must pick (`is_suggestion` false), or a suggestion shown beside the free entry of a question that `allows_custom`, which is never checked against. `links_to_stone` marks "Same as stone". A service that `requires_stones` false (Installation Only) asks for no stones and is offered without stone types. Furniture types (section 2) and services stay unrelated.
+
+| Service (in order)           | Stones | Questions, in order                                                              |
+| ---------------------------- | ------ | -------------------------------------------------------------------------------- |
+| Slab Supply Only             | yes    | how many pieces (stone), slab size (stone), edge profile (stone), finish (stone) |
+| Slab Supply and Installation | yes    | how many pieces (stone), slab size (stone), edge profile (stone), finish (stone) |
+| Installation Only            | no     | none                                                                             |
+| Countertop and Backsplash    | yes    | area to cover (sq m), edge profile (stone), finish (stone)                       |
+| Wall Cladding                | yes    | area to cover (sq m), finish (stone)                                             |
+| Flooring                     | yes    | area to cover (sq m), finish (stone)                                             |
+| Staircase                    | yes    | area to cover (sq m), finish (stone)                                             |
+| Kitchen Islands              | yes    | area to cover (sq m), edge profile (stone), finish (stone), waterfall            |
+| Lavatories                   | yes    | area to cover (sq m), edge profile (stone), finish (stone)                       |
+| Center Tables                | yes    | furniture size, edge profile (stone), finish (stone)                             |
+| Side Tables                  | yes    | furniture size, edge profile (stone), finish (stone)                             |
+| Dining Tables                | yes    | number of seaters, edge profile (stone), finish (stone), table base              |
+| Pedestal                     | yes    | furniture size, edge profile (stone), finish (stone)                             |
+| Other Customized Furniture   | yes    | furniture size, finish (stone)                                                   |
+
+Every listed question is required.
+
+| Table                   | Indexes and rules                                                                                                                                                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`              | Partial unique `slug` where `deleted_at IS NULL`. Index `(is_published, completed_year DESC)`. CHECK `completed_year BETWEEN 1900 AND 2100`. Only published, non-deleted projects reach the Home page.                                             |
+| `project_images`        | Unique `(project_id, sort_order)`. The thumbnail lives in `projects.thumbnail_path` and is never repeated in the gallery.                                                                                                                          |
+| Pivots                  | Composite primary key plus a reverse index on `stone_id` and `project_category_id`.                                                                                                                                                                |
+| `project_categories`    | Unique `slug` and `lower(name)`. Seeded with the nine categories.                                                                                                                                                                                  |
+| `service_types`         | Unique `slug` and `name`. Index `(is_active, sort_order)`.                                                                                                                                                                                         |
+| `services`              | Unique `slug`. Index `(service_type_id, is_active, sort_order)`. One no longer offered is made inactive, because sent inquiries reference it. Offered when it and its type are active and, unless `requires_stones` is false, it has a stone type. |
+| `service_features`      | Primary key `(service_id, sort_order)`. Replaced whole by ServiceSeeder.                                                                                                                                                                           |
+| `detail_fields`         | Unique `slug`. CHECK `scope IN ('stone','project')`, `answer_type IN ('text','number','choice','boolean')`. Seeded by DetailFieldSeeder.                                                                                                           |
+| `detail_field_options`  | Unique `(detail_field_id, slug)`. Partial unique `(detail_field_id) WHERE links_to_stone` (`idx_detail_field_options_links_to_stone`). Never hard delete one an answer holds: set `is_active = false`.                                             |
+| `service_detail_fields` | Primary key `(service_id, detail_field_id)`, index `detail_field_id`. `detail_field_id` is `RESTRICT`.                                                                                                                                             |
 
 ---
 
@@ -422,8 +483,6 @@ erDiagram
         varchar(100) name
         varchar(20) delivery_method "default delivery: delivery, pickup"
         varchar(255) location "null only for a pickup"
-        varchar(150) landmark "null"
-        decimal area_sqm "null, 10,2"
         varchar(1000) notes "null"
         boolean stone_advice_requested "default false"
         varchar(20) sales_status "null until marketing wins it: negotiation, site_visited, on_hold, quoted, revision, won, rejected"
@@ -475,12 +534,27 @@ erDiagram
         bigint id PK
         bigint inquiry_id FK "cascade"
         bigint stone_id FK "restrict, individual stone"
-        bigint edge_profile_id FK "restrict"
-        bigint finish_id FK "restrict"
-        smallint quantity "1 to 9999"
+        bigint edge_profile_id FK "null when not asked, restrict"
+        bigint finish_id FK "null when not asked, restrict"
+        smallint quantity "null when not asked, 1 to 9999"
+        varchar(50) slab_size "null when not asked"
         smallint sort_order
         timestamptz created_at
         timestamptz updated_at
+    }
+    inquiry_detail_answers {
+        bigint inquiry_id PK, FK "cascade"
+        bigint detail_field_id PK, FK "restrict"
+        varchar(255) text_value "null"
+        decimal number_value "null, 12,2"
+        bigint option_id FK "null, restrict, a closed option"
+        boolean boolean_value "null"
+    }
+    detail_fields {
+        bigint id PK
+    }
+    detail_field_options {
+        bigint id PK
     }
     inquiry_files {
         bigint id PK
@@ -559,6 +633,9 @@ erDiagram
     stones ||--o{ inquiry_stones : "picked in"
     edge_profiles ||--o{ inquiry_stones : "cut with"
     finishes ||--o{ inquiry_stones : "finished as"
+    inquiries ||--o{ inquiry_detail_answers : "answers"
+    detail_fields ||--o{ inquiry_detail_answers : "answered in"
+    detail_field_options |o--o{ inquiry_detail_answers : "picked in"
     inquiries ||--o{ inquiry_files : "carries"
     inquiries |o--o| schedules : "is booked as"
     inquiries ||--o{ payment_transactions : "is paid by"
@@ -573,9 +650,10 @@ erDiagram
 | `lead_status_history`    | The lead's log. Index `(lead_id, changed_at)`. Append only. CHECK `to_status IN ('idle','won','lost')`, `from_status` NULL or the same. Its first entry is `idle` from NULL with no `inquiry_id`, by whoever was given the thread (NULL when the client's inquiry opened it). Each decision after names its inquiry (`inquiry_id`) and carries the `note` marketing gave (required in the app, 1 to 500 characters), or "Cancelled by the client."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `inquiry_handlers`       | Index `user_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `inquiry_status_history` | Index `(inquiry_id, track, changed_at)`. Append only. CHECK `track IN ('sales','payment','process')`; `to_status` is in the union of those three roles' values, and `from_status` is NULL or in the same union. The value is **not** tied to its track by the database. A new inquiry has no entry. Each track begins, from NULL, when its stage starts: sales `negotiation` when marketing wins the inquiry (or when sales opens it), payment `awaiting` when accounting bills the approved quotation, and process `order_received` with the first payment. A track has no entries while its column is NULL, and its last entry is its column's current value. A client's cancel of an inquiry with no lead yet is sales `rejected` from NULL.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `inquiry_stones`         | **Unique `(inquiry_id, stone_id, edge_profile_id, finish_id)`** (`idx_inquiry_stones_unique`): the same stone twice is fine only when cut or finished differently. Index `stone_id`. CHECK `quantity BETWEEN 1 AND 9999`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `inquiry_stones`         | **Unique `(inquiry_id, stone_id, edge_profile_id, finish_id, slab_size)` `NULLS NOT DISTINCT`** (`idx_inquiry_stones_unique`): the same stone twice is fine only when one of its answers differs. A row holds only the stone-scope answers its service asks (`service_detail_fields`); the others stay NULL. Index `stone_id`. CHECK `quantity BETWEEN 1 AND 9999`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `inquiry_files`          | Index `(inquiry_id, document_type)`, index `status_history_id`. CHECK `document_type IN ('client_attachment','quotation','job_order','billing_statement','receipt','invoice')`, `revision >= 1`. **Files are grouped per status update**: `status_history_id` is the history row of the update a file came with (a quote's quotation and job order; payment's billing statement; a payment's receipts and invoice), and NULL for the client's attachments. A quotation file carries the `quote_revision` it was issued as. **Who uploads which** is the app's rule (`App\Policies\InquiryFileUploads`), not the database's: the inquiry's client uploads `client_attachment`; whoever may move sales (`inquiries.status.sales`) uploads `quotation` and `job_order`; whoever may move payment (`inquiries.status.payment`) uploads `billing_statement`, `receipt` and `invoice`. **Who sees which**: the quotation, billing statement, receipts and invoice are shared with the client, grouped by update ("Partial payment · June 22, 2020"); the job order is internal and is never sent, to anyone. Per inquiry limits (count and size) on client attachments are enforced in validation; an edit by the client only ever keeps or drops client attachments, and staff never touch them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `payment_transactions`   | Index `(inquiry_id, received_at)`. CHECK `kind IN ('payment','refund')`, `amount > 0`. The ledger behind the payment status, which accounting sets **by hand**: it is not derived from these rows. The `payment` rows never add up to more than `quoted_total`; `awaiting` has none, `partial` has some, `fully_paid` adds up to `quoted_total`. A refund has no payment status of its own.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `inquiry_detail_answers` | Primary key `(inquiry_id, detail_field_id)`, index `detail_field_id`, `option_id`. The project-scope answers its service asks, one per question; landmark and area are no longer columns of `inquiries` (area is the `area_sqm` answer). CHECK `num_nonnulls(text_value, number_value, option_id, boolean_value) = 1` (`chk_inquiry_detail_answers_one_value`); which column matches the question's `answer_type` is the app's rule.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `edge_profiles`          | Unique `lower(name)`. Seed it with the 7 profiles plus Advise me. Never hard delete a row an inquiry used: set `is_active = false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 When the project is wanted is not a column: sending the inquiry books one schedule for it (`schedules.inquiry_id`, at most one per inquiry), and the target deadline is that schedule's `arrival_at`, read in Asia/Manila.
@@ -622,7 +700,7 @@ Built. Staff move each track from the Inquiry list's **Update Status** dialog (`
 9. **Logistics** moves to any value but its current one once the job order has started it: `order_received`, `measure`, `sourcing`, `production`, `quality_check`, `ready`, `dispatched`, `installation`, `completed`, `on_hold`, `delayed`. The forward order (`order_received` → … → `completed`) is the usual path but is not enforced. No files. `completed` is final and closes the inquiry.
 10. **Cancelled.** Sales `rejected`, or marketing's `lost`, shows `cancelled`. The client may cancel only **before the quotation is approved**: Cancel is locked on their Quote card from sales `quoted` on, and the endpoint refuses it. A client's cancel sets `sales_status` to `rejected` if sales has started, and decides that inquiry `lost` if it has not (that inquiry alone); an inquiry with no lead yet has nobody to decide it, so its sales becomes `rejected` from NULL. After approval the way out is a refund (step 11). Either way the inquiry's open schedules are cancelled.
 11. **Refund.** Once won, sales' only move is `for_refund`, offered only while a `partial` or `fully_paid` payment is in and logistics has not completed the project, with the client's **refund request form** (required) and the note; it is final, logistics stops, and the inquiry shows `for_refund`. Accounting then moves payment, from any state, to `partially_refunded` or `refunded`, each with the **refund settled** file, the note and the **amount refunded**, recorded as a `refund` `payment_transactions` row: a partial refund has to leave part of what was paid held, and `refunded` has to return all of it. `refunded` is final, and moves sales on its own from `for_refund` to `rejected` (same user, an automatic note), so the inquiry shows `cancelled` with accounting's `refunded` badge beside it. Both refund files are shared with the client.
-12. **Edit.** Marketing and sales (`inquiries.edit`) may change an open inquiry's project from the Inquiry list: name, delivery method, location, landmark, area, notes, work, stones and deadline. Never its client, its statuses or the client's files.
+12. **Edit.** Marketing and sales (`inquiries.edit`) may change an open inquiry's project from the Inquiry list: name, delivery method, location, notes, service, stones, the service's answers and deadline. Never its client, its statuses or the client's files.
 
 Every change to sales, payment or logistics, a new inquiry, and an inquiry marketing lost post an inquiry card with the new snapshot (section 5). The client sees only the inquiry status and the payment status: nothing about the lead, marketing, or who is in a group chat.
 

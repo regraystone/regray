@@ -32,8 +32,10 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * @phpstan-type ProjectInput array{name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, stones: list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>, delivery_method: DeliveryMethod, location: ?string, landmark: ?string, area_sqm: ?float, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type StoneInput array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_size: ?string}
+ * @phpstan-type AnswerInput array{detail_field_id: int, text_value: ?string, number_value: ?string, option_id: ?int, boolean_value: ?bool}
+ * @phpstan-type ProjectInput array{name: string, service_id: int, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: DeliveryMethod, location: ?string, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: DeliveryMethod, location: ?string, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -182,8 +184,8 @@ class InquiryService
 
     /**
      * Staff change an inquiry's project from the Inquiry list (Edit): its
-     * name, service, delivery method, location, landmark, area, notes, stones and
-     * deadline. Never its client, its statuses or the client's files.
+     * name, service, delivery method, location, notes, stones, the service's
+     * answers and deadline. Never its client, its statuses or the client's files.
      * Refused once the inquiry is closed or cancelled, or the client has
      * approved it. An audit row records the change under the staff member.
      *
@@ -270,8 +272,6 @@ class InquiryService
             'service_id' => $project['service_id'],
             'delivery_method' => $project['delivery_method'],
             'location' => $project['location'],
-            'landmark' => $project['landmark'],
-            'area_sqm' => $project['area_sqm'],
             'notes' => $project['notes'],
             'stone_advice_requested' => $project['stone_advice_requested'] ?? false,
         ]);
@@ -285,6 +285,7 @@ class InquiryService
         );
 
         $this->inquiryRepository->addStones($inquiry, $project['stones']);
+        $this->inquiryRepository->replaceDetailAnswers($inquiry, $project['answers']);
 
         if ($client !== null) {
             foreach ($project['files'] as $file) {
@@ -306,7 +307,7 @@ class InquiryService
     }
 
     /**
-     * The project's fields, service and stones, and its visit
+     * The project's fields, service, stones and answers, and its visit
      * moved to the edited deadline. `$bookedBy` is the staff member when staff
      * edit, for a visit booked afresh.
      *
@@ -319,14 +320,13 @@ class InquiryService
             'service_id' => $project['service_id'],
             'delivery_method' => $project['delivery_method'],
             'location' => $project['location'],
-            'landmark' => $project['landmark'],
-            'area_sqm' => $project['area_sqm'],
             'notes' => $project['notes'],
             'stone_advice_requested' => $project['stone_advice_requested'] ?? false,
         ]);
 
         $this->moveVisit($inquiry, $client, $project, $bookedBy);
         $this->inquiryRepository->replaceStones($inquiry, $project['stones']);
+        $this->inquiryRepository->replaceDetailAnswers($inquiry, $project['answers']);
     }
 
     /**
@@ -383,11 +383,10 @@ class InquiryService
             'service_id' => $inquiry->service_id,
             'delivery_method' => $inquiry->delivery_method->value,
             'location' => $inquiry->location,
-            'landmark' => $inquiry->landmark,
-            'area_sqm' => $inquiry->area_sqm === null ? null : (float) $inquiry->area_sqm,
             'notes' => $inquiry->notes,
             'stone_advice_requested' => $inquiry->stone_advice_requested,
             'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'slab_size'])->toArray(),
+            'answers' => $inquiry->detailAnswers()->orderBy('detail_field_id')->get(['detail_field_id', 'text_value', 'number_value', 'option_id', 'boolean_value'])->toArray(),
             'file_ids' => $inquiry->files()->where('document_type', DocumentType::ClientAttachment)->orderBy('id')->pluck('id')->all(),
             'arrival_at' => $inquiry->schedule()->value('arrival_at'),
         ];

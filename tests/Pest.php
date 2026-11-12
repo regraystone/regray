@@ -2,6 +2,8 @@
 
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\DetailAnswerType;
+use App\Enums\DetailFieldScope;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
@@ -11,6 +13,7 @@ use App\Enums\ProcessStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
 use App\Models\Conversation;
+use App\Models\DetailField;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
@@ -117,30 +120,81 @@ function unofferedStoneSlug(string $service): string
 }
 
 /**
+ * The service by its slug, with the questions it asks. A slug no service has
+ * (a test sending a bad one) stands in as Slab Supply Only, so the rest of the
+ * project is still well formed.
+ */
+function inquiryService(string $slug): Service
+{
+    return Service::query()->with('detailFields.options')->where('slug', $slug)->first()
+        ?? Service::query()->with('detailFields.options')->where('slug', 'slab-supply-only')->firstOrFail();
+}
+
+/**
+ * One stone row in the shape the Inquire page posts for this service: a stone
+ * it offers (or the first active stone when it offers none), and an answer to
+ * each stone-scope question it asks and no other, with `$overrides` laid over
+ * it.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function inquiryStoneRow(string $service = 'slab-supply-only', array $overrides = []): array
+{
+    $asked = inquiryService($service)->detailFields->keyBy('slug');
+    $offered = Stone::query()->offeredFor(inquiryService($service))->orderBy('id')->value('slug');
+
+    return [
+        'stoneId' => $offered ?? Stone::query()->active()->orderBy('id')->value('slug'),
+        ...$asked->has(DetailField::QUANTITY) ? ['quantity' => 4] : [],
+        ...$asked->has(DetailField::SLAB_SIZE) ? ['slabSize' => '120 x 60 cm'] : [],
+        ...$asked->has(DetailField::EDGE_PROFILE) ? ['edge' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name')] : [],
+        ...$asked->has(DetailField::FINISH) ? ['finish' => Finish::query()->where('is_active', true)->orderBy('sort_order')->value('name')] : [],
+        ...$overrides,
+    ];
+}
+
+/**
+ * An answer to each project-scope question the service asks, as the page
+ * sends it: a number, free text, a closed option's slug (never "Same as
+ * stone"), yes.
+ *
+ * @return array<string, string|bool>
+ */
+function inquiryAnswers(string $service): array
+{
+    return inquiryService($service)->detailFields
+        ->filter(fn (DetailField $field): bool => $field->scope === DetailFieldScope::Project)
+        ->mapWithKeys(fn (DetailField $field): array => [$field->slug => match ($field->answer_type) {
+            DetailAnswerType::Number => '12.5',
+            DetailAnswerType::Text => 'Custom size',
+            DetailAnswerType::Choice => $field->closedOptions()->firstWhere('links_to_stone', false)->slug,
+            DetailAnswerType::Boolean => true,
+        }])
+        ->all();
+}
+
+/**
  * One valid project in the shape the Inquire page posts, with `$overrides`
- * laid over it: one service and one stone.
+ * laid over it: one service (`serviceId`, Slab Supply Only unless given), a
+ * stone row it takes (none for a service that asks for no stones) and its
+ * answers.
  *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function inquiryProjectInput(array $overrides = []): array
 {
-    $stones = $overrides['stones'] ?? [[
-        'stoneId' => Stone::query()->active()->orderBy('id')->value('slug'),
-        'quantity' => 4,
-        'slabSize' => '120 x 60 cm',
-        'edge' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
-        'finish' => Finish::query()->where('is_active', true)->orderBy('sort_order')->value('name'),
-    ]];
+    $service = $overrides['serviceId'] ?? 'slab-supply-only';
+    $stones = $overrides['stones'] ?? (inquiryService($service)->requires_stones ? [inquiryStoneRow($service)] : []);
 
     return [
         'name' => 'Kitchen counters',
-        'serviceId' => 'slab-supply-only',
+        'serviceId' => $service,
         'stones' => $stones,
+        'answers' => inquiryAnswers($service),
         'deliveryMethod' => 'delivery',
         'location' => 'Makati',
-        'landmark' => 'Near the church',
-        'areaSqm' => '12.5',
         'neededBy' => now()->addDays(10)->toDateString(),
         'notes' => 'Ground floor.',
         ...$overrides,
@@ -229,7 +283,7 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
             : (isset($attributes['lead'], $statuses['sales_status']) ? LeadStatus::Won : null),
         'marketing_status_changed_at' => $marketing === null ? null : now(),
         'name' => $project['name'] ?? 'Project '.$sequence,
-        'service_id' => Service::query()->where('slug', $project['service'] ?? 'slab-supply-only')->value('id'),
+        'service_id' => ($service = inquiryService($project['service'] ?? 'slab-supply-only'))->id,
         'location' => 'Makati',
         'sales_status' => $statuses['sales_status'] ?? null,
         'sales_status_changed_at' => isset($statuses['sales_status']) ? now() : null,
@@ -245,8 +299,10 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
         addInquiryFile($inquiry, DocumentType::JobOrder);
     }
 
-    $edge = EdgeProfile::query()->value('id');
-    $finish = Finish::query()->value('id');
+    // Only the stone-row answers its service asks for, as the Inquire page sends them.
+    $asked = $service->detailFields->keyBy('slug');
+    $edge = $asked->has(DetailField::EDGE_PROFILE) ? EdgeProfile::query()->value('id') : null;
+    $finish = $asked->has(DetailField::FINISH) ? Finish::query()->value('id') : null;
     $stones = $project['stones'] ?? [Stone::query()->orderBy('id')->value('slug')];
 
     foreach (array_values($stones) as $order => $slug) {
@@ -254,8 +310,8 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
             'stone_id' => Stone::query()->where('slug', $slug)->value('id'),
             'edge_profile_id' => $edge,
             'finish_id' => $finish,
-            'quantity' => 1,
-            'slab_size' => '120 x 60 cm',
+            'quantity' => $asked->has(DetailField::QUANTITY) ? 1 : null,
+            'slab_size' => $asked->has(DetailField::SLAB_SIZE) ? '120 x 60 cm' : null,
             'sort_order' => $order,
         ]);
     }

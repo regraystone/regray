@@ -6,24 +6,22 @@
 } from 'react-hook-form';
 import { Copy, Minus, Plus, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import FormField, {
-    chooseFromList,
-    fieldMessage,
-} from '@/components/form-field';
-import { SLAB_SIZE_MAX } from '@/data/inquiries';
+import { fieldMessage } from '@/components/form-field';
+import InquiryDetailField from '@/components/inquiry-detail-field';
 import InquiryProjectDetails from '@/components/inquiry-project-details';
 import { InquiryActionBar } from '@/components/inquiry-question';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
+import {
+    asksQuantity,
+    findService,
+    stoneFieldKey,
+    stoneFields,
+    type ServiceField,
+    type StoneFieldKey,
+} from '@/lib/inquiry-flow';
 import {
     MAX_STONE_QUANTITY,
     MAX_STONE_ROWS,
@@ -42,9 +40,19 @@ import {
  */
 const stoneIdPath = (index: number) => `stones.${index}.stoneId` as const;
 const quantityPath = (index: number) => `stones.${index}.quantity` as const;
-const edgePath = (index: number) => `stones.${index}.edge` as const;
-const finishPath = (index: number) => `stones.${index}.finish` as const;
-const slabSizePath = (index: number) => `stones.${index}.slabSize` as const;
+const answerPath = (index: number, key: StoneFieldKey) =>
+    `stones.${index}.${key}` as const;
+
+/** The columns a stone row's answers take from tablet width up, by how many there are. */
+const ANSWER_COLUMNS = {
+    1: 'sm:grid-cols-1',
+    2: 'sm:grid-cols-2',
+    3: 'sm:grid-cols-3',
+} as const;
+
+/** The id of a stone row's answer: `requirements-slab-size-0`, `requirements-edge-0`. */
+const stoneAnswerId = (key: StoneFieldKey, index: number): string =>
+    `requirements-${key === 'slabSize' ? 'slab-size' : key}-${index}`;
 
 /**
  * One stone's row: how many, and how it is worked.
@@ -66,6 +74,8 @@ const slabSizePath = (index: number) => `stones.${index}.slabSize` as const;
 const StoneSpecRow = ({
     index,
     rowCount,
+    questions,
+    countsPieces,
     onDuplicate,
     onRemove,
     onApplyToAll,
@@ -74,6 +84,10 @@ const StoneSpecRow = ({
 }: {
     index: number;
     rowCount: number;
+    /** The stone-scope questions the project's service asks, in order. */
+    questions: ServiceField[];
+    /** Whether the service asks how many pieces: only the slab services do. */
+    countsPieces: boolean;
     /** False on the only row: the request needs a stone, or Help me choose. */
     canRemove: boolean;
     onDuplicate: () => void;
@@ -91,7 +105,7 @@ const StoneSpecRow = ({
 
     const stoneId = useWatch({ control, name: stoneIdPath(index) });
     const quantity = useWatch({ control, name: quantityPath(index) });
-    const { stones, edgeProfiles, finishes } = useInquiryCatalog();
+    const { stones } = useInquiryCatalog();
     const stone = stones.find((entry) => entry.slug === stoneId);
     const rowErrors = errors.stones?.[index];
 
@@ -134,9 +148,6 @@ const StoneSpecRow = ({
 
     const ids = {
         quantity: `requirements-quantity-${index}`,
-        edge: `requirements-edge-${index}`,
-        finish: `requirements-finish-${index}`,
-        slabSize: `requirements-slab-size-${index}`,
     };
 
     return (
@@ -144,7 +155,11 @@ const StoneSpecRow = ({
          * Rules between the rows rather than a box around each one: the stones
          * are rows of one list, not separate objects to deal with one at a time.
          */
-        <li className="grid gap-x-6 gap-y-4 py-5 sm:grid-cols-[minmax(0,1fr)_11rem]">
+        <li
+            className={`grid gap-x-6 gap-y-4 py-5 ${
+                countsPieces ? 'sm:grid-cols-[minmax(0,1fr)_11rem]' : ''
+            }`}
+        >
             <div className="flex min-w-0 items-center gap-4">
                 <img
                     src={stone.thumbnail}
@@ -171,203 +186,127 @@ const StoneSpecRow = ({
             {/*
              * Not a `FormField`: the two buttons are part of this control and the
              * label has to name the count for both of them, so the wrapper's
-             * single-child shape would have to be broken anyway.
+             * single-child shape would have to be broken anyway. Only the slab
+             * services ask it; without it the stone takes the whole line.
              */}
-            <div>
-                <Label
-                    htmlFor={ids.quantity}
-                    className="text-sm font-bold text-foreground"
-                >
-                    How many pieces?
-                </Label>
+            {countsPieces ? (
+                <div>
+                    <Label
+                        htmlFor={ids.quantity}
+                        className="text-sm font-bold text-foreground"
+                    >
+                        How many pieces?
+                    </Label>
 
-                <div className="mt-2 flex items-stretch">
-                    {/*
-                     * Native buttons, so Tab reaches them and Space and Enter
-                     * press them without any key handling. The count is still a
-                     * text field between them, so typing it is not a second-class
-                     * way of answering the question.
-                     *
-                     * `size-11 p-0` puts them at exactly the input's height and
-                     * strips the button's own padding, so the three parts read as
-                     * one control and are easy to press.
-                     */}
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => stepBy(-1)}
-                        disabled={quantity <= 1}
-                        aria-label={`Fewer pieces of ${stone.name}`}
-                        className="size-11 shrink-0 cursor-pointer rounded-none border-r-0 p-0"
+                    <div className="mt-2 flex items-stretch">
+                        {/*
+                         * Native buttons, so Tab reaches them and Space and Enter
+                         * press them without any key handling. The count is still a
+                         * text field between them, so typing it is not a second-class
+                         * way of answering the question.
+                         *
+                         * `size-11 p-0` puts them at exactly the input's height and
+                         * strips the button's own padding, so the three parts read as
+                         * one control and are easy to press.
+                         */}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => stepBy(-1)}
+                            disabled={quantity <= 1}
+                            aria-label={`Fewer pieces of ${stone.name}`}
+                            className="size-11 shrink-0 cursor-pointer rounded-none border-r-0 p-0"
+                        >
+                            <Minus aria-hidden />
+                        </Button>
+                        {/*
+                         * `no-stepper` takes away the arrows the browser draws inside
+                         * a number field, which would be a second pair of stepper
+                         * buttons beside these two, and which push the count off
+                         * centre however the field is aligned. It is defined in
+                         * `app.css` rather than spelled out here so the webkit and
+                         * Firefox half of it are written once.
+                         */}
+                        <Input
+                            id={ids.quantity}
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            max={MAX_STONE_QUANTITY}
+                            step={1}
+                            {...register(quantityPath(index), {
+                                valueAsNumber: true,
+                            })}
+                            aria-invalid={
+                                fieldMessage(rowErrors?.quantity) !== undefined
+                            }
+                            className="no-stepper h-11 rounded-none text-center"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => stepBy(1)}
+                            disabled={quantity >= MAX_STONE_QUANTITY}
+                            aria-label={`More pieces of ${stone.name}`}
+                            className="size-11 shrink-0 cursor-pointer rounded-none border-l-0 p-0"
+                        >
+                            <Plus aria-hidden />
+                        </Button>
+                    </div>
+
+                    <p
+                        id={`${ids.quantity}-error`}
+                        role="alert"
+                        className="mt-2 text-sm text-destructive empty:hidden"
                     >
-                        <Minus aria-hidden />
-                    </Button>
-                    {/*
-                     * `no-stepper` takes away the arrows the browser draws inside
-                     * a number field, which would be a second pair of stepper
-                     * buttons beside these two, and which push the count off
-                     * centre however the field is aligned. It is defined in
-                     * `app.css` rather than spelled out here so the webkit and
-                     * Firefox half of it are written once.
-                     */}
-                    <Input
-                        id={ids.quantity}
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                        max={MAX_STONE_QUANTITY}
-                        step={1}
-                        {...register(quantityPath(index), {
-                            valueAsNumber: true,
-                        })}
-                        aria-invalid={
-                            fieldMessage(rowErrors?.quantity) !== undefined
-                        }
-                        className="no-stepper h-11 rounded-none text-center"
-                    />
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => stepBy(1)}
-                        disabled={quantity >= MAX_STONE_QUANTITY}
-                        aria-label={`More pieces of ${stone.name}`}
-                        className="size-11 shrink-0 cursor-pointer rounded-none border-l-0 p-0"
-                    >
-                        <Plus aria-hidden />
-                    </Button>
+                        {fieldMessage(rowErrors?.quantity)}
+                    </p>
                 </div>
-
-                <p
-                    id={`${ids.quantity}-error`}
-                    role="alert"
-                    className="mt-2 text-sm text-destructive empty:hidden"
-                >
-                    {fieldMessage(rowErrors?.quantity)}
-                </p>
-            </div>
+            ) : null}
 
             <div className="col-span-full">
-                <div className="grid gap-4 sm:grid-cols-3">
-                    <FormField
-                        id={ids.slabSize}
-                        label="Slab size"
-                        required
-                        error={fieldMessage(rowErrors?.slabSize)}
+                {questions.length > 0 ? (
+                    /*
+                     * One column per question from tablet width up, so two
+                     * questions share the line rather than leaving a third
+                     * of it empty.
+                     */
+                    <div
+                        className={`grid gap-4 ${
+                            ANSWER_COLUMNS[
+                                Math.min(questions.length, 3) as 1 | 2 | 3
+                            ]
+                        }`}
                     >
-                        {(accessibility) => (
-                            <Input
-                                id={ids.slabSize}
-                                {...register(slabSizePath(index))}
-                                maxLength={SLAB_SIZE_MAX}
-                                placeholder="e.g. 120 x 60 cm"
-                                aria-describedby={accessibility.describedBy}
-                                aria-invalid={accessibility.invalid}
-                                className="rounded-none"
-                            />
-                        )}
-                    </FormField>
+                        {questions.map((question) => {
+                            const key = stoneFieldKey(question);
 
-                    <FormField
-                        id={ids.edge}
-                        label="Edge profile"
-                        error={fieldMessage(rowErrors?.edge)}
-                    >
-                        {(accessibility) => (
-                            <Controller
-                                control={control}
-                                name={edgePath(index)}
-                                render={({ field }) => (
-                                    <Select
-                                        /*
-                                         * The value goes over as it is, empty string and
-                                         * all. An unanswered select is `''`, and Radix shows
-                                         * the placeholder for an empty string exactly as it
-                                         * does for no value at all — but swapping one for
-                                         * the other would move this from uncontrolled to
-                                         * controlled the first time the reader answers, and
-                                         * React says so loudly on the console.
-                                         */
-                                        value={field.value}
-                                        onValueChange={chooseFromList(
-                                            field.onChange,
-                                            field.onBlur,
-                                        )}
-                                    >
-                                        <SelectTrigger
-                                            id={ids.edge}
-                                            ref={field.ref}
-                                            aria-describedby={
-                                                accessibility.describedBy
-                                            }
-                                            aria-invalid={accessibility.invalid}
-                                            className="w-full rounded-none text-base data-[size=default]:h-11"
-                                        >
-                                            <SelectValue placeholder="Choose an edge profile" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {edgeProfiles.map(({ name }) => (
-                                                <SelectItem
-                                                    key={name}
-                                                    value={name}
-                                                    className="rounded-none"
-                                                >
-                                                    {name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                        )}
-                    </FormField>
-
-                    <FormField
-                        id={ids.finish}
-                        label="Finish"
-                        error={fieldMessage(rowErrors?.finish)}
-                    >
-                        {(accessibility) => (
-                            <Controller
-                                control={control}
-                                name={finishPath(index)}
-                                render={({ field }) => (
-                                    <Select
-                                        value={field.value}
-                                        onValueChange={chooseFromList(
-                                            field.onChange,
-                                            field.onBlur,
-                                        )}
-                                    >
-                                        <SelectTrigger
-                                            id={ids.finish}
-                                            ref={field.ref}
-                                            aria-describedby={
-                                                accessibility.describedBy
-                                            }
-                                            aria-invalid={accessibility.invalid}
-                                            className="w-full rounded-none text-base data-[size=default]:h-11"
-                                        >
-                                            <SelectValue placeholder="Choose a finish" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {finishes.map(({ name }) => (
-                                                <SelectItem
-                                                    key={name}
-                                                    value={name}
-                                                    className="rounded-none"
-                                                >
-                                                    {name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                        )}
-                    </FormField>
-                </div>
+                            return key === null ? null : (
+                                <Controller
+                                    key={question.slug}
+                                    control={control}
+                                    name={answerPath(index, key)}
+                                    render={({ field }) => (
+                                        <InquiryDetailField
+                                            id={stoneAnswerId(key, index)}
+                                            field={question}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            onBlur={field.onBlur}
+                                            fieldRef={field.ref}
+                                            labelContext={stone.name}
+                                            error={fieldMessage(
+                                                rowErrors?.[key],
+                                            )}
+                                        />
+                                    )}
+                                />
+                            );
+                        })}
+                    </div>
+                ) : null}
 
                 {showApplyToAll ? (
                     <div className="mt-2 flex flex-col items-end text-end">
@@ -385,8 +324,11 @@ const StoneSpecRow = ({
                             id={`apply-to-all-hint-${index}`}
                             className="mt-1 text-xs text-secondary-foreground"
                         >
-                            Copies this edge profile and finish to every other
-                            row.
+                            Copies this row's{' '}
+                            {questions
+                                .map(({ label }) => label.toLowerCase())
+                                .join(', ')}{' '}
+                            to every other row.
                         </p>
                     </div>
                 ) : null}
@@ -453,7 +395,9 @@ type InquiryProjectFormProps = {
 
 /**
  * The last question of the request: where and when the work is, how many of each
- * stone, and anything else. A visit has no stones, so it is not asked about them.
+ * stone and what each needs (the stone-scope questions the service asks), and
+ * anything else. A service that asks for no stones (Installation Only) has no
+ * stone rows and no prompt to choose them.
  *
  * With no stone picked, the rows give way to a prompt that sends the reader back
  * to the stones. When Regray is to choose (Help me choose), there are no stones
@@ -484,8 +428,12 @@ const InquiryProjectForm = ({
         name: 'stones',
     });
 
-    const { stones } = useInquiryCatalog();
+    const { stones, serviceTypes } = useInquiryCatalog();
     const rows = watch('stones');
+    const serviceId = useWatch({ control, name: 'serviceId' });
+    const service = findService(serviceTypes, serviceId);
+    const questions = stoneFields(service);
+    const countsPieces = asksQuantity(service);
     const stoneAdvice = useWatch({ control, name: 'stoneAdvice' });
 
     const pieceCount = rows.reduce(
@@ -540,15 +488,18 @@ const InquiryProjectForm = ({
                 shouldValidate: true,
             });
 
+            // The new row starts with its lists unanswered: the first is where to go.
             setTimeout(() => {
-                const newEdgeId = `requirements-edge-${insertAtIndex}`;
-                const element = document.getElementById(newEdgeId);
-                if (element) {
-                    element.focus();
-                    element.setAttribute(
-                        'aria-label',
-                        `Added another row for ${stones.find((s) => s.slug === stoneId)?.name ?? 'this stone'}. Choose its edge profile and finish.`,
-                    );
+                const first =
+                    questions.find(
+                        ({ answerType }) => answerType === 'choice',
+                    ) ?? questions[0];
+                const key = first === undefined ? null : stoneFieldKey(first);
+
+                if (key !== null) {
+                    document
+                        .getElementById(stoneAnswerId(key, insertAtIndex))
+                        ?.focus();
                 }
             }, 0);
         }
@@ -586,16 +537,17 @@ const InquiryProjectForm = ({
             return;
         }
 
-        const updated = rows.map((row, idx) => ({
-            ...row,
-            ...(idx === 0
-                ? {}
-                : {
-                      slabSize: first.slabSize,
-                      edge: first.edge,
-                      finish: first.finish,
-                  }),
-        }));
+        // Only the answers this service asks for are copied.
+        const copied = Object.fromEntries(
+            questions.flatMap((question) => {
+                const key = stoneFieldKey(question);
+
+                return key === null ? [] : [[key, first[key]]];
+            }),
+        );
+        const updated = rows.map((row, idx) =>
+            idx === 0 ? row : { ...row, ...copied },
+        );
 
         setValue('stones', updated, {
             shouldDirty: true,
@@ -630,22 +582,26 @@ const InquiryProjectForm = ({
                                         onDuplicate={() => duplicateRow(index)}
                                         onRemove={() => removeRow(index)}
                                         onApplyToAll={applyToAll}
+                                        questions={questions}
+                                        countsPieces={countsPieces}
                                         showApplyToAll={
-                                            index === 0 && rows.length > 1
+                                            index === 0 &&
+                                            rows.length > 1 &&
+                                            questions.length > 0
                                         }
                                     />
                                 );
                             })}
                         </ul>
                     </>
-                ) : stoneAdvice ? null : (
+                ) : stoneAdvice || service?.requiresStones === false ? null : (
                     <div
                         className="flex flex-col gap-3 rounded-md border border-dashed border-sidebar-border p-4 sm:flex-row sm:items-center sm:justify-between"
                         data-testid="stones-empty-state"
                     >
                         <p className="text-sm text-secondary-foreground">
-                            Choose the stones you want in step 2 first. Their
-                            edge, finish and slab size will show here.
+                            Choose the stones you want in step 2 first. What
+                            each of them needs will show here.
                         </p>
                         <Button
                             type="button"
@@ -679,7 +635,14 @@ const InquiryProjectForm = ({
              * and date cost nothing if the reader walks away from it, and a
              * finished one carries its own onto the sheet.
              */}
-            <div className={rows.length === 0 && stoneAdvice ? '' : 'mt-3'}>
+            <div
+                className={
+                    rows.length === 0 &&
+                    (stoneAdvice || service?.requiresStones === false)
+                        ? ''
+                        : 'mt-3'
+                }
+            >
                 <InquiryProjectDetails
                     projectNumber={projectNumber}
                     allowAttachments={allowAttachments}
@@ -697,7 +660,11 @@ const InquiryProjectForm = ({
                 >
                     {rows.length === 0
                         ? ''
-                        : `${countDistinctStones()} ${countDistinctStones() === 1 ? 'stone' : 'stones'}, ${pieceCount} ${pieceCount === 1 ? 'piece' : 'pieces'}`}
+                        : `${countDistinctStones()} ${countDistinctStones() === 1 ? 'stone' : 'stones'}${
+                              countsPieces
+                                  ? `, ${pieceCount} ${pieceCount === 1 ? 'piece' : 'pieces'}`
+                                  : ''
+                          }`}
                 </p>
 
                 <Button

@@ -33,7 +33,7 @@ interface InquiryRepositoryInterface
      * `lead_id` is the client's open lead, or NULL when they have none yet.
      * `created_by` is the staff member who opened it, NULL when the client sent it.
      *
-     * @param  array{reference: string, client_id: ?int, client_record_id: int, lead_id: ?int, created_by: ?int, name: string, location: string, landmark: ?string, area_sqm: ?float, notes: ?string}  $attributes
+     * @param  array{reference: string, client_id: ?int, client_record_id: int, lead_id: ?int, created_by: ?int, name: string, location: string, notes: ?string}  $attributes
      */
     public function create(array $attributes): Inquiry;
 
@@ -48,7 +48,7 @@ interface InquiryRepositoryInterface
     ): InquiryStatusHistory;
 
     /**
-     * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>  $stones  Stored in the order given.
+     * @param  list<array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_size: ?string}>  $stones  Stored in the order given; a NULL answer is one its service does not ask.
      */
     public function addStones(Inquiry $inquiry, array $stones): void;
 
@@ -136,16 +136,23 @@ interface InquiryRepositoryInterface
     ): void;
 
     /**
-     * @param  array{name?: string, delivery_method?: DeliveryMethod, location?: ?string, landmark?: ?string, area_sqm?: ?float, notes?: ?string}  $attributes
+     * @param  array{name?: string, delivery_method?: DeliveryMethod, location?: ?string, notes?: ?string}  $attributes
      */
     public function updateDetails(Inquiry $inquiry, array $attributes): void;
 
     /**
      * Replace the inquiry's stone rows with these, in the order given.
      *
-     * @param  list<array{stone_id: int, edge_profile_id: int, finish_id: int, quantity: int, slab_size: string}>  $stones
+     * @param  list<array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_size: ?string}>  $stones
      */
     public function replaceStones(Inquiry $inquiry, array $stones): void;
+
+    /**
+     * Replace the inquiry's project-scope answers with these, one per question.
+     *
+     * @param  list<array{detail_field_id: int, text_value: ?string, number_value: ?string, option_id: ?int, boolean_value: ?bool}>  $answers
+     */
+    public function replaceDetailAnswers(Inquiry $inquiry, array $answers): void;
 
     /**
      * Delete the client's attachments other than `$keepIds`. Quotations, job

@@ -73,15 +73,15 @@ it('sends no stones and no stone types until a service is chosen', function (): 
 });
 
 it('sends only the stones whose primary type is linked to the service', function (): void {
-    $countertop = Service::query()->where('slug', 'countertop')->firstOrFail();
+    $countertop = Service::query()->where('slug', 'countertop-backsplash')->firstOrFail();
     $linked = $countertop->stoneTypes->modelKeys();
     $offered = Stone::query()->active()->whereIn('stone_type_id', $linked)->pluck('slug')->all();
 
-    $slugs = inquireStones($this, ['stone_service' => 'countertop']);
+    $slugs = inquireStones($this, ['stone_service' => 'countertop-backsplash']);
 
     expect($slugs)->not->toBeEmpty()
         ->each->toBeIn($offered)
-        ->and($slugs)->not->toContain(unofferedStoneSlug('countertop'));
+        ->and($slugs)->not->toContain(unofferedStoneSlug('countertop-backsplash'));
 });
 
 it('lists only the stone types linked to the service that have an active stone for it', function (): void {
@@ -98,18 +98,18 @@ it('lists only the stone types linked to the service that have an active stone f
 
 it('sends the stone types again on a partial reload for another service', function (): void {
     $this->actingAs($this->client)
-        ->get(route('quote.inquire', ['stone_service' => 'storage']))
+        ->get(route('quote.inquire', ['stone_service' => 'pedestal']))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === Service::query()->where('slug', 'storage')->firstOrFail()->stoneTypes->pluck('slug')->sort()->values()->all())
+            ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === Service::query()->where('slug', 'pedestal')->firstOrFail()->stoneTypes->pluck('slug')->sort()->values()->all())
             ->reloadOnly(['stones', 'stoneFilters', 'stoneTypes'], fn (Assert $reload) => $reload->has('stoneTypes')));
 });
 
 it('keeps Saved and Best Seller within the service', function (): void {
-    $unoffered = Stone::query()->where('slug', unofferedStoneSlug('countertop'))->firstOrFail();
-    $offered = Stone::query()->where('slug', offeredStoneSlug('countertop'))->firstOrFail();
+    $unoffered = Stone::query()->where('slug', unofferedStoneSlug('countertop-backsplash'))->firstOrFail();
+    $offered = Stone::query()->where('slug', offeredStoneSlug('countertop-backsplash'))->firstOrFail();
     $this->client->savedStones()->attach([$unoffered->id => ['created_at' => now()], $offered->id => ['created_at' => now()]]);
 
-    expect(inquireStones($this, ['stone_service' => 'countertop', 'stone_tab' => 'saved']))->toBe([$offered->slug]);
+    expect(inquireStones($this, ['stone_service' => 'countertop-backsplash', 'stone_tab' => 'saved']))->toBe([$offered->slug]);
 });
 
 it('filters by stone type', function (): void {
@@ -178,11 +178,11 @@ it('sends the stones of a restored draft only when asked, and only those still o
 });
 
 it('sends the stones of a restored draft only when they fit its service', function (): void {
-    $fits = offeredStoneSlug('countertop');
-    $misfit = unofferedStoneSlug('countertop');
+    $fits = offeredStoneSlug('countertop-backsplash');
+    $misfit = unofferedStoneSlug('countertop-backsplash');
 
     $this->actingAs($this->client)
-        ->get(route('quote.inquire', ['stone_service' => 'countertop', 'picked' => [$fits, $misfit]]))
+        ->get(route('quote.inquire', ['stone_service' => 'countertop-backsplash', 'picked' => [$fits, $misfit]]))
         ->assertInertia(fn (Assert $page) => $page->reloadOnly('pickedStones', fn (Assert $reload) => $reload
             ->has('pickedStones', 1)
             ->where('pickedStones.0.slug', $fits)));
@@ -193,12 +193,15 @@ it('sends the stones of a restored draft only when they fit its service', functi
 });
 
 it('does not offer a service made from no stone type, and tells the page which types each service takes', function (): void {
-    Service::query()->where('slug', 'storage')->firstOrFail()->stoneTypes()->detach();
+    Service::query()->where('slug', 'pedestal')->firstOrFail()->stoneTypes()->detach();
 
     $serviceTypes = collect($this->actingAs($this->client)->get(route('quote.inquire'))->viewData('page')['props']['serviceTypes']);
     $services = $serviceTypes->flatMap(fn (array $type) => $type['services'])->keyBy('id');
 
-    expect($services->has('storage'))->toBeFalse()
-        ->and($services->has('tables'))->toBeTrue()
-        ->and($services['tables']['stoneTypes'])->toEqualCanonicalizing(Service::query()->where('slug', 'tables')->firstOrFail()->stoneTypes->pluck('slug')->all());
+    expect($services->has('pedestal'))->toBeFalse()
+        ->and($services->has('dining-tables'))->toBeTrue()
+        ->and($services['dining-tables']['stoneTypes'])->toEqualCanonicalizing(Service::query()->where('slug', 'dining-tables')->firstOrFail()->stoneTypes->pluck('slug')->all())
+        // It asks for no stones, so it is offered made from none.
+        ->and($services['installation-only']['stoneTypes'])->toBe([])
+        ->and($services['installation-only']['requiresStones'])->toBeFalse();
 });

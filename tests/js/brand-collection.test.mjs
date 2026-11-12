@@ -11,7 +11,7 @@ import { catalogueCrumbs } from '../../resources/js/lib/catalogue-breadcrumbs.ts
 
 const OPTIONS = {
     types: [{ value: 'granite', label: 'Granite' }],
-    furnitureTypes: [{ value: 'Tables', label: 'Tables' }],
+    furnitureTypes: [{ value: 'Dining Tables', label: 'Dining Tables' }],
 };
 
 describe('the first select', () => {
@@ -88,9 +88,9 @@ describe('the query', () => {
             collectionQuery({
                 collection: 'furniture',
                 search: '',
-                filter: 'Tables',
+                filter: 'Dining Tables',
             }),
-            { collection: 'furniture', furniture_type: 'Tables' },
+            { collection: 'furniture', furniture_type: 'Dining Tables' },
         );
     });
 });

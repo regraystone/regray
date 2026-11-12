@@ -11,11 +11,7 @@ import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type {
-    InquiryFile,
-    InquiryRequirementsRecord,
-    InquiryStoneSelection,
-} from '@/data/inquiries';
+import type { InquiryFile, InquiryRequirementsRecord } from '@/data/inquiries';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import {
@@ -46,10 +42,14 @@ type ResolvedStone = {
     id: string;
     name: string;
     thumbnail: string;
-    quantity: number;
-    slabSize: string;
-    edge: string;
-    finish: string;
+    /** Null where the service does not ask how many pieces. */
+    quantity: number | null;
+    /** Null where the service does not ask it. */
+    slabSize: string | null;
+    edge: string | null;
+    finish: string | null;
+    /** The stone-scope answers its service asks, labelled, in order. */
+    details: Array<{ label: string; value: string }>;
 };
 
 type ResolvedProject = {
@@ -58,7 +58,11 @@ type ResolvedProject = {
     stoneAdviceRequested: boolean;
     serviceType: string | null;
     service: string | null;
+    /** False for a service that asks for no stones. */
+    requiresStones: boolean;
     stones: ResolvedStone[];
+    /** The project-scope answers, labelled and worded by the server. */
+    answers: Array<{ label: string; value: string }>;
     /** Application names, on inquiries sent while the client was asked for them. */
     requirements: InquiryRequirementsRecord;
 };
@@ -67,10 +71,16 @@ type ResolvedProject = {
 const inquiryDeliveryMethod = (project: ResolvedProject): string | undefined =>
     project.requirements.deliveryMethod;
 
+/** Null when the service asked no piece count, which only the slab services ask. */
 const countPieces = (
-    selections: Array<Pick<InquiryStoneSelection, 'quantity'>>,
-): number =>
-    selections.reduce((total, selection) => total + selection.quantity, 0);
+    selections: Array<{ quantity: number | null }>,
+): number | null =>
+    selections.some(({ quantity }) => quantity !== null)
+        ? selections.reduce(
+              (total, selection) => total + (selection.quantity ?? 0),
+              0,
+          )
+        : null;
 
 /**
  * When the inquiry was sent, or a status moved, read the way a reader would
@@ -521,11 +531,11 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 
     const footer = [
         project.service,
-        stoneTypes > 0
-            ? `${pieces} ${pieces === 1 ? 'piece' : 'pieces'} of ${stoneTypes} ${
+        stoneTypes === 0
+            ? null
+            : `${pieces === null ? '' : `${pieces} ${pieces === 1 ? 'piece' : 'pieces'} of `}${stoneTypes} ${
                   stoneTypes === 1 ? 'stone' : 'stones'
-              }`
-            : null,
+              }`,
     ]
         .filter(Boolean)
         .join(' · ');
@@ -547,73 +557,77 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
             </h2>
 
             <div className="space-y-7 border-t border-sidebar-border p-4 sm:p-5">
-                <section>
-                    <SectionLabel count={stoneTypes}>Stones</SectionLabel>
+                {project.requiresStones ? (
+                    <section>
+                        <SectionLabel count={stoneTypes}>Stones</SectionLabel>
 
-                    {project.stones.length > 0 ? (
-                        /*
-                         * A stone is the answer to a picture, so the tiles go
-                         * across rather than down. Fewer columns than the
-                         * stepper's, twice over — the card is narrower than the
-                         * stepper's sheet, and the longest name in the catalogue
-                         * needs room beside its count rather than under it.
-                         */
-                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
-                            {project.stones.map((stone, index) => (
-                                <div
-                                    key={`${stone.id}-${index}`}
-                                    className="min-w-0"
-                                >
-                                    <img
-                                        src={stone.thumbnail}
-                                        alt=""
-                                        loading="lazy"
-                                        className="aspect-square w-full rounded-md object-cover"
-                                    />
-                                    {/*
-                                     * The count sits opposite the name rather than
-                                     * under it: how many of a stone is part of
-                                     * which stone, so the two read as one line. It
-                                     * holds its width so a long name truncates
-                                     * instead of pushing the count off the tile.
-                                     */}
-                                    <div className="mt-2 flex items-baseline justify-between gap-x-2">
-                                        <p className="truncate text-sm font-bold">
-                                            {stone.name}
-                                        </p>
-                                        <p className="shrink-0 text-xs font-bold text-secondary-foreground">
-                                            {stone.quantity} pcs
-                                        </p>
+                        {project.stones.length > 0 ? (
+                            /*
+                             * A stone is the answer to a picture, so the tiles go
+                             * across rather than down. Fewer columns than the
+                             * stepper's, twice over — the card is narrower than the
+                             * stepper's sheet, and the longest name in the catalogue
+                             * needs room beside its count rather than under it.
+                             */
+                            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
+                                {project.stones.map((stone, index) => (
+                                    <div
+                                        key={`${stone.id}-${index}`}
+                                        className="min-w-0"
+                                    >
+                                        <img
+                                            src={stone.thumbnail}
+                                            alt=""
+                                            loading="lazy"
+                                            className="aspect-square w-full rounded-md object-cover"
+                                        />
+                                        {/*
+                                         * The count sits opposite the name rather than
+                                         * under it: how many of a stone is part of
+                                         * which stone, so the two read as one line. It
+                                         * holds its width so a long name truncates
+                                         * instead of pushing the count off the tile.
+                                         */}
+                                        <div className="mt-2 flex items-baseline justify-between gap-x-2">
+                                            <p className="truncate text-sm font-bold">
+                                                {stone.name}
+                                            </p>
+                                            {stone.quantity === null ? null : (
+                                                <p className="shrink-0 text-xs font-bold text-secondary-foreground">
+                                                    {stone.quantity} pcs
+                                                </p>
+                                            )}
+                                        </div>
+                                        {/* Only what the service asks of a stone. */}
+                                        {stone.details.map((detail) => (
+                                            <p
+                                                key={detail.label}
+                                                className="mt-1 text-xs break-words text-secondary-foreground"
+                                            >
+                                                {detail.label}: {detail.value}
+                                            </p>
+                                        ))}
                                     </div>
-                                    <p className="mt-1 text-xs break-words text-secondary-foreground">
-                                        Size: {stone.slabSize}
-                                    </p>
-                                    <p className="mt-1 truncate text-xs text-secondary-foreground">
-                                        {stone.edge}
-                                    </p>
-                                    <p className="truncate text-xs text-secondary-foreground">
-                                        {stone.finish}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        /*
-                         * Said plainly rather than treated as a gap. A project with
-                         * no stones is a booked visit rather than a mistake, and a
-                         * reader looking at one needs to be told so rather than
-                         * left to wonder what was left out.
-                         */
-                        <p
-                            className="mt-2 text-sm text-secondary-foreground"
-                            data-testid="project-no-stones"
-                        >
-                            {project.stoneAdviceRequested
-                                ? 'Stone to be recommended by Regray.'
-                                : 'Nothing to supply or install — this project is a visit.'}
-                        </p>
-                    )}
-                </section>
+                                ))}
+                            </div>
+                        ) : (
+                            /*
+                             * Said plainly rather than treated as a gap. A project with
+                             * no stones is a booked visit rather than a mistake, and a
+                             * reader looking at one needs to be told so rather than
+                             * left to wonder what was left out.
+                             */
+                            <p
+                                className="mt-2 text-sm text-secondary-foreground"
+                                data-testid="project-no-stones"
+                            >
+                                {project.stoneAdviceRequested
+                                    ? 'Stone to be recommended by Regray.'
+                                    : 'No stones were chosen for this project.'}
+                            </p>
+                        )}
+                    </section>
+                ) : null}
 
                 <section>
                     <SectionLabel>What you need</SectionLabel>
@@ -630,6 +644,22 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                     </dl>
                 </section>
 
+                {project.answers.length > 0 ? (
+                    <section data-testid="project-answers">
+                        <SectionLabel>Details</SectionLabel>
+
+                        <dl>
+                            {project.answers.map((answer) => (
+                                <SummaryRow
+                                    key={answer.label}
+                                    label={answer.label}
+                                    value={answer.value}
+                                />
+                            ))}
+                        </dl>
+                    </section>
+                ) : null}
+
                 <section>
                     <SectionLabel>Requirements</SectionLabel>
 
@@ -645,25 +675,11 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                             }
                         />
                         {inquiryDeliveryMethod(project) === PICKUP ? null : (
-                            <>
-                                <SummaryRow
-                                    label="Location"
-                                    value={project.requirements.location}
-                                />
-                                <SummaryRow
-                                    label="Landmark"
-                                    value={project.requirements.landmark}
-                                />
-                            </>
+                            <SummaryRow
+                                label="Location"
+                                value={project.requirements.location}
+                            />
                         )}
-                        <SummaryRow
-                            label="Approximate area"
-                            value={
-                                project.requirements.areaSqm === undefined
-                                    ? undefined
-                                    : `${project.requirements.areaSqm} sqm`
-                            }
-                        />
                         <SummaryRow label="Target deadline" value={neededBy} />
                     </dl>
 
@@ -718,8 +734,6 @@ const toRequirements = (
 ): InquiryRequirementsRecord => ({
     deliveryMethod: requirements.deliveryMethod,
     location: requirements.location ?? undefined,
-    landmark: requirements.landmark ?? undefined,
-    areaSqm: requirements.areaSqm ?? undefined,
     neededBy: requirements.neededBy ?? undefined,
     notes: requirements.notes ?? undefined,
     attachments: requirements.attachments as InquiryFile[],
@@ -744,7 +758,9 @@ const InquiryDetails = () => {
         stoneAdviceRequested: inquiry.project.stoneAdviceRequested,
         serviceType: inquiry.project.serviceType,
         service: inquiry.project.service,
+        requiresStones: inquiry.project.requiresStones,
         stones: inquiry.project.stones,
+        answers: inquiry.project.answers,
         requirements: toRequirements(inquiry.project.requirements),
     };
 

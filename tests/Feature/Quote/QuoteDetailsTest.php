@@ -6,6 +6,7 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\Role;
+use App\Models\DetailField;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
@@ -24,11 +25,12 @@ function detailedInquiry(mixed $test): Inquiry
 {
     $inquiry = makeInquiry(
         $test->client,
-        ['name' => 'Kitchen', 'stones' => $test->slugs, 'service' => 'countertop'],
+        ['name' => 'Kitchen', 'stones' => $test->slugs, 'service' => 'countertop-backsplash'],
         ['reference' => 'INQ-D1'],
     );
 
-    $inquiry->update(['landmark' => 'Near the church', 'area_sqm' => 12.5, 'notes' => 'Ground floor']);
+    $inquiry->update(['notes' => 'Ground floor']);
+    $inquiry->detailAnswers()->create(DetailField::query()->with('options')->where('slug', 'area_sqm')->firstOrFail()->answerAttributes('12.5'));
     app(ScheduleService::class)->createForInquiry($inquiry, $test->client, '2030-01-02', '09:30');
     $inquiry->files()->create(['document_type' => DocumentType::ClientAttachment, 'disk' => 'local', 'path' => 'inquiries/INQ-D1/secret-path.pdf', 'original_name' => 'plan.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048, 'sha256' => str_repeat('a', 64), 'uploaded_by' => $test->client->id]);
     addInquiryFile($inquiry, DocumentType::Quotation, revision: 1);
@@ -54,20 +56,28 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
         ->and($inquiry['processStatus'])->toBeNull()
         ->and($inquiry)->not->toHaveKeys(['projects', 'statusHistory'])
         ->and($inquiry['project']['name'])->toBe('Kitchen')
-        ->and($inquiry['project']['service'])->toBe('Countertop');
+        ->and($inquiry['project']['service'])->toBe('Countertop and Backsplash');
 
     $project = $inquiry['project'];
 
     expect(array_column($project['stones'], 'id'))->toBe($this->slugs)
         ->and($project['stones'][0])->toMatchArray([
-            'quantity' => 1,
+            // Only the slab services ask how many pieces.
+            'quantity' => null,
+            'slabSize' => null,
             'edge' => EdgeProfile::query()->value('name'),
             'finish' => Finish::query()->value('name'),
+            // Only what its service asks, labelled, in the service's order.
+            'details' => [
+                ['label' => 'Edge profile', 'value' => EdgeProfile::query()->value('name')],
+                ['label' => 'Finish', 'value' => Finish::query()->value('name')],
+            ],
         ])
+        ->and($project['requiresStones'])->toBeTrue()
+        ->and($project['answers'])->toBe([['label' => 'Area to cover (sq m)', 'value' => '12.5']])
+        ->and($project['requirements'])->not->toHaveKeys(['landmark', 'areaSqm'])
         ->and($project['requirements'])->toMatchArray([
             'location' => 'Makati',
-            'landmark' => 'Near the church',
-            'areaSqm' => 12.5,
             'neededBy' => '2030-01-02',
             'notes' => 'Ground floor',
         ])
@@ -194,7 +204,7 @@ it('shows the service type and the service, and no work per stone', function ():
         ->viewData('page')['props']['inquiry']['project'];
 
     expect($project['serviceType'])->toBe('Natural Stone & Applications')
-        ->and($project['service'])->toBe('Countertop')
+        ->and($project['service'])->toBe('Countertop and Backsplash')
         ->and($project)->not->toHaveKeys(['services', 'unassignedWork'])
         ->and($project['stones'][0])->not->toHaveKey('work');
 });

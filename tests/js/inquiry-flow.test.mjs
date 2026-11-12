@@ -11,10 +11,14 @@ import {
     SERVICE_STEP,
     STONES_STEP,
     autoProjectName,
+    answerProblem,
+    asksQuantity,
     buildCommittedProject,
     clampRestoredStep,
     furthestQuestion,
+    linkedToStoneProblem,
     nextQuestion,
+    quantityProblem,
     questionProblem,
     seedStoneRows,
     serviceChoiceLabel,
@@ -33,7 +37,7 @@ const draft = (overrides = {}) => ({
 });
 
 const regular = draft({
-    serviceId: 'countertop',
+    serviceId: 'countertop-backsplash',
     stoneIds: ['marble'],
 });
 
@@ -174,7 +178,7 @@ describe('clampRestoredStep', () => {
             clampRestoredStep(
                 REQUIREMENTS_STEP,
                 0,
-                draft({ serviceId: 'countertop' }),
+                draft({ serviceId: 'countertop-backsplash' }),
             ),
             STONES_STEP,
         );
@@ -185,7 +189,10 @@ describe('clampRestoredStep', () => {
             clampRestoredStep(
                 REQUIREMENTS_STEP,
                 0,
-                draft({ serviceId: 'countertop', stoneAdvice: true }),
+                draft({
+                    serviceId: 'countertop-backsplash',
+                    stoneAdvice: true,
+                }),
             ),
             REQUIREMENTS_STEP,
         );
@@ -255,29 +262,32 @@ describe('stones and the service', () => {
     it('asks the server for the chosen service with the filters', () => {
         assert.deepEqual(
             stoneFilterQuery({
-                service: 'countertop',
+                service: 'countertop-backsplash',
                 tab: 'all',
                 stoneType: ALL_STONE_TYPES,
                 search: '',
             }),
-            { stone_service: 'countertop' },
+            { stone_service: 'countertop-backsplash' },
         );
     });
 });
 
 describe('showing the questions one by one', () => {
-    const offered = new Set(['countertop']);
+    const offered = new Set(['countertop-backsplash']);
 
     it('reaches as far as the answers do', () => {
         assert.equal(furthestQuestion(draft()), SERVICE_STEP);
         assert.equal(
-            furthestQuestion(draft({ serviceId: 'countertop' })),
+            furthestQuestion(draft({ serviceId: 'countertop-backsplash' })),
             STONES_STEP,
         );
         assert.equal(furthestQuestion(regular), REQUIREMENTS_STEP);
         assert.equal(
             furthestQuestion(
-                draft({ serviceId: 'countertop', stoneAdvice: true }),
+                draft({
+                    serviceId: 'countertop-backsplash',
+                    stoneAdvice: true,
+                }),
             ),
             REQUIREMENTS_STEP,
         );
@@ -296,7 +306,7 @@ describe('showing the questions one by one', () => {
         assert.equal(
             questionProblem(
                 SERVICE_STEP,
-                draft({ serviceId: 'countertop' }),
+                draft({ serviceId: 'countertop-backsplash' }),
                 offered,
             ),
             null,
@@ -307,7 +317,7 @@ describe('showing the questions one by one', () => {
         assert.deepEqual(
             questionProblem(
                 STONES_STEP,
-                draft({ serviceId: 'countertop' }),
+                draft({ serviceId: 'countertop-backsplash' }),
                 offered,
             ),
             { field: 'stoneIds', message: 'Select at least one stone.' },
@@ -316,7 +326,10 @@ describe('showing the questions one by one', () => {
         assert.equal(
             questionProblem(
                 STONES_STEP,
-                draft({ serviceId: 'countertop', stoneAdvice: true }),
+                draft({
+                    serviceId: 'countertop-backsplash',
+                    stoneAdvice: true,
+                }),
                 offered,
             ),
             null,
@@ -327,7 +340,7 @@ describe('committing a draft', () => {
     const filled = (overrides = {}) => ({
         name: 'Kitchen counters',
         serviceTypeId: 'natural-stone-applications',
-        serviceId: 'countertop',
+        serviceId: 'countertop-backsplash',
         stoneAdvice: false,
         stoneIds: ['marble'],
         stones: [
@@ -338,10 +351,9 @@ describe('committing a draft', () => {
                 finish: 'Honed',
             },
         ],
+        answers: { area_sqm: '12.5' },
         deliveryMethod: DELIVERY,
         location: 'Makati',
-        landmark: 'Near the church',
-        areaSqm: '',
         neededBy: '2030-01-02',
         notes: '',
         attachments: [],
@@ -352,7 +364,7 @@ describe('committing a draft', () => {
         const project = buildCommittedProject(filled(), { id: 'p-5' });
 
         assert.equal(project.serviceTypeId, 'natural-stone-applications');
-        assert.equal(project.serviceId, 'countertop');
+        assert.equal(project.serviceId, 'countertop-backsplash');
     });
 
     it('keeps the service of a project left to Regray to recommend a stone', () => {
@@ -361,7 +373,7 @@ describe('committing a draft', () => {
             { id: 'p-2' },
         );
 
-        assert.equal(project.serviceId, 'countertop');
+        assert.equal(project.serviceId, 'countertop-backsplash');
         assert.equal(project.stoneAdvice, true);
     });
 
@@ -370,7 +382,7 @@ describe('committing a draft', () => {
 
         assert.equal(project.deliveryMethod, DELIVERY);
         assert.equal(project.location, 'Makati');
-        assert.equal(project.landmark, 'Near the church');
+        assert.deepEqual(project.answers, { area_sqm: '12.5' });
     });
 
     it('commits no location for a pickup, and leaves the draft holding it', () => {
@@ -379,7 +391,6 @@ describe('committing a draft', () => {
 
         assert.equal(project.deliveryMethod, PICKUP);
         assert.equal(project.location, '');
-        assert.equal(project.landmark, 'Near the church');
         assert.equal(source.location, 'Makati');
     });
 
@@ -388,8 +399,170 @@ describe('committing a draft', () => {
         const project = buildCommittedProject(source, { id: 'p-4' });
 
         project.stones[0].quantity = 99;
+        project.answers.area_sqm = '1';
 
         assert.equal(source.stones[0].quantity, 4);
+        assert.equal(source.answers.area_sqm, '12.5');
+    });
+});
+
+describe('how many pieces', () => {
+    it('is asked only by a service that lists it', () => {
+        assert.equal(
+            asksQuantity({
+                fields: [{ slug: 'quantity' }, { slug: 'finish' }],
+            }),
+            true,
+        );
+        assert.equal(asksQuantity({ fields: [{ slug: 'finish' }] }), false);
+        assert.equal(asksQuantity(undefined), false);
+    });
+
+    it('takes a whole count from 1 to 9999, in the words the server uses', () => {
+        assert.equal(quantityProblem(1), null);
+        assert.equal(quantityProblem(9999), null);
+        assert.equal(quantityProblem(0), 'Enter at least 1 piece.');
+        assert.equal(quantityProblem(10000), 'Enter 9999 pieces or fewer.');
+        assert.equal(
+            quantityProblem(1.5),
+            'Quantity has to be a whole number of pieces.',
+        );
+        assert.equal(
+            quantityProblem(Number.NaN),
+            'Enter how many pieces you need.',
+        );
+    });
+});
+
+describe('a service that asks for no stones', () => {
+    const installation = (overrides = {}) =>
+        draft({
+            serviceId: 'installation-only',
+            requiresStones: false,
+            ...overrides,
+        });
+
+    it('goes from What do you need? straight to the details', () => {
+        assert.equal(nextQuestion(SERVICE_STEP, false), REQUIREMENTS_STEP);
+        assert.equal(nextQuestion(SERVICE_STEP, true), STONES_STEP);
+        assert.equal(furthestQuestion(installation()), REQUIREMENTS_STEP);
+    });
+
+    it('neither shows nor checks the stones question', () => {
+        assert.equal(
+            questionProblem(
+                STONES_STEP,
+                installation(),
+                new Set(['installation-only']),
+            ),
+            null,
+        );
+        assert.equal(
+            clampRestoredStep(STONES_STEP, 0, installation()),
+            REQUIREMENTS_STEP,
+        );
+        assert.equal(
+            clampRestoredStep(REQUIREMENTS_STEP, 0, installation()),
+            REQUIREMENTS_STEP,
+        );
+    });
+});
+
+describe('answering what a service asks', () => {
+    const question = (overrides = {}) => ({
+        slug: 'area_sqm',
+        label: 'Area to cover (sq m)',
+        scope: 'project',
+        answerType: 'number',
+        required: true,
+        allowsCustom: true,
+        options: [],
+        suggestions: [
+            { value: '1', label: '1' },
+            { value: '5', label: '5' },
+        ],
+        ...overrides,
+    });
+    const tableBase = question({
+        slug: 'table_base',
+        label: 'Table base',
+        answerType: 'choice',
+        allowsCustom: false,
+        suggestions: [],
+        options: [
+            { value: 'wood', label: 'Wood', linksToStone: false },
+            {
+                value: 'same-as-stone',
+                label: 'Same as stone',
+                linksToStone: true,
+            },
+        ],
+    });
+
+    it('asks for a required answer in the words the server uses', () => {
+        assert.equal(
+            answerProblem(question(), ''),
+            'Enter the area to cover (sq m).',
+        );
+        assert.equal(
+            answerProblem(tableBase, undefined),
+            'Choose the table base.',
+        );
+        assert.equal(answerProblem(question({ required: false }), ''), null);
+    });
+
+    it('takes a free entry by its type, whatever the suggestions are', () => {
+        assert.equal(answerProblem(question(), '12.5'), null);
+        assert.equal(
+            answerProblem(question(), '0'),
+            'Enter a number greater than 0.',
+        );
+        assert.equal(
+            answerProblem(question(), 'lots'),
+            'Enter a number greater than 0.',
+        );
+        assert.equal(
+            answerProblem(
+                question({
+                    slug: 'size',
+                    label: 'Furniture size',
+                    answerType: 'text',
+                }),
+                '75 x 75 cm',
+            ),
+            null,
+        );
+    });
+
+    it('keeps a closed list to its options, and yes or no to yes or no', () => {
+        assert.equal(answerProblem(tableBase, 'wood'), null);
+        assert.equal(
+            answerProblem(tableBase, 'marble'),
+            'Choose the table base from the list.',
+        );
+        assert.equal(
+            answerProblem(
+                question({ label: 'Waterfall effect', answerType: 'boolean' }),
+                'maybe',
+            ),
+            'Choose yes or no.',
+        );
+        assert.equal(
+            answerProblem(question({ allowsCustom: false }), '7'),
+            'Choose the area to cover (sq m) from the list.',
+        );
+    });
+
+    it('takes "Same as stone" only with a stone to be the same as', () => {
+        assert.equal(
+            linkedToStoneProblem(tableBase, 'same-as-stone', false),
+            'Same as stone needs a stone. Choose another table base.',
+        );
+        assert.equal(
+            linkedToStoneProblem(tableBase, 'same-as-stone', true),
+            null,
+        );
+        assert.equal(linkedToStoneProblem(tableBase, 'wood', false), null);
     });
 });
 

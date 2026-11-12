@@ -39,8 +39,6 @@ it('creates the whole row graph for each inquiry sent', function (): void {
 
     expect($first->name)->toBe('Kitchen counters')
         ->and($first->location)->toBe('Makati')
-        ->and($first->landmark)->toBe('Near the church')
-        ->and((float) $first->area_sqm)->toBe(12.5)
         ->and($first->notes)->toBe('Ground floor.')
         ->and($first->delivery_method)->toBe(DeliveryMethod::Delivery)
         ->and($first->service->slug)->toBe('slab-supply-only')

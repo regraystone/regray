@@ -37,26 +37,39 @@ export const DELIVERY_METHODS = [
     { value: PICKUP, title: 'Pickup' },
 ];
 
-/** The question after this one. */
-export const nextQuestion = (step: number): number =>
-    Math.min(step + 1, REVIEW_STEP);
+/**
+ * The question after this one. A service that asks for no stones (Installation
+ * Only) goes from What do you need? straight to the details.
+ */
+export const nextQuestion = (
+    step: number,
+    requiresStones: boolean = true,
+): number =>
+    step === SERVICE_STEP && !requiresStones
+        ? REQUIREMENTS_STEP
+        : Math.min(step + 1, REVIEW_STEP);
 
 /** The answers that decide how far the questions go. */
 export type DraftProgress = {
     serviceId: string;
     stoneIds: string[];
     stoneAdvice?: boolean;
+    /** False when the chosen service asks for no stones; unknown counts as true. */
+    requiresStones?: boolean;
 };
 
 /**
  * The furthest question the draft's answers reach: What do you need? until a
  * service is chosen, the stones until one is picked or left to Regray, then
- * the details. A restored draft shows every question up to it.
+ * the details. A service that asks for no stones reaches the details as soon
+ * as it is chosen. A restored draft shows every question up to it.
  */
 export const furthestQuestion = (draft: DraftProgress): number =>
     draft.serviceId === ''
         ? SERVICE_STEP
-        : draft.stoneIds.length > 0 || draft.stoneAdvice === true
+        : draft.requiresStones === false ||
+            draft.stoneIds.length > 0 ||
+            draft.stoneAdvice === true
           ? REQUIREMENTS_STEP
           : STONES_STEP;
 
@@ -75,6 +88,7 @@ export const questionProblem = (
 
     if (
         question === STONES_STEP &&
+        draft.requiresStones !== false &&
         draft.stoneIds.length === 0 &&
         draft.stoneAdvice !== true
     ) {
@@ -100,33 +114,28 @@ export const autoProjectName = (
  * The stored step is a number the draft behind it may no longer justify: a
  * Review with no projects left to review, a Stones question with no service
  * chosen, details with no stones. So the stored step is held to the furthest step
- * the draft still justifies, and What do you need? is the floor.
+ * the draft still justifies, and What do you need? is the floor. A service that
+ * asks for no stones justifies the details with none, and never lands on the
+ * stones question it does not ask.
  */
 export const clampRestoredStep = (
     stored: number,
     projectCount: number,
-    draft: {
-        serviceId: string;
-        stoneIds: string[];
-        stoneAdvice?: boolean;
-    },
+    draft: DraftProgress,
 ): number => {
     if (stored >= REVIEW_STEP && projectCount > 0) {
         return REVIEW_STEP;
     }
 
-    const hasStones = draft.stoneIds.length > 0 || draft.stoneAdvice === true;
-    const furthest =
-        draft.serviceId === ''
-            ? SERVICE_STEP
-            : hasStones
-              ? REQUIREMENTS_STEP
-              : STONES_STEP;
+    const furthest = furthestQuestion(draft);
     const requested = Number.isFinite(stored)
         ? Math.trunc(stored)
         : SERVICE_STEP;
+    const landed = Math.min(Math.max(requested, SERVICE_STEP), furthest);
 
-    return Math.min(Math.max(requested, SERVICE_STEP), furthest);
+    return landed === STONES_STEP && draft.requiresStones === false
+        ? REQUIREMENTS_STEP
+        : landed;
 };
 
 /* ------------------------------------------------------------------ */
@@ -135,9 +144,39 @@ export const clampRestoredStep = (
 
 export const STONE_ADVICE_LABEL = 'Stone to be recommended by Regray';
 
+/** One listed answer of a question, as InquiryDetailFieldResource sends it. */
+export type ServiceFieldChoice = {
+    value: string;
+    label: string;
+    /** The "Not sure yet, advise me" edge profile or finish. */
+    isAdvisory?: boolean;
+    /** "Same as stone": only a project with a stone row can take it. */
+    linksToStone?: boolean;
+};
+
+/**
+ * One question a service asks besides the stones, as InquiryDetailFieldResource
+ * sends it. A `stone` one is answered on each stone row, a `project` one once
+ * under Other details. `options` are the closed list to pick from;
+ * `suggestions` are sample values shown beside a free entry, which
+ * `allowsCustom` takes. Nothing about a question is written into the page.
+ */
+export type ServiceField = {
+    slug: string;
+    label: string;
+    scope: 'stone' | 'project';
+    answerType: 'text' | 'number' | 'choice' | 'boolean';
+    required: boolean;
+    allowsCustom: boolean;
+    options: ServiceFieldChoice[];
+    suggestions: ServiceFieldChoice[];
+};
+
 /**
  * One entry of the second dropdown, as InquiryServiceResource sends it.
- * `stoneTypes` are the slugs of the stone types it is made from.
+ * `stoneTypes` are the slugs of the stone types it is made from;
+ * `requiresStones` is false for a service that asks for no stones; `fields`
+ * are the questions it asks besides them, in order.
  */
 export type ServiceOption = {
     id: string;
@@ -145,6 +184,174 @@ export type ServiceOption = {
     description: string;
     features: string[];
     stoneTypes: string[];
+    requiresStones: boolean;
+    fields: ServiceField[];
+};
+
+/**
+ * The key a stone row holds each stone-scope answer under, by question slug.
+ * These are the three columns of a stone row, which is why they are named
+ * here; what each asks, its label and its options all come from the service.
+ */
+export const STONE_FIELD_KEYS = {
+    slab_size: 'slabSize',
+    edge_profile: 'edge',
+    finish: 'finish',
+} as const satisfies Record<string, 'slabSize' | 'edge' | 'finish'>;
+
+export type StoneFieldKey =
+    (typeof STONE_FIELD_KEYS)[keyof typeof STONE_FIELD_KEYS];
+
+/** The key a stone-scope question is answered under on a row, or null. */
+export const stoneFieldKey = (
+    field: Pick<ServiceField, 'slug'>,
+): StoneFieldKey | null =>
+    (STONE_FIELD_KEYS as Record<string, StoneFieldKey>)[field.slug] ?? null;
+
+/** The question that asks how many pieces of a stone: only the slab services ask it. */
+export const QUANTITY_FIELD = 'quantity';
+
+/** Whether a service asks how many pieces of each stone. */
+export const asksQuantity = (
+    service: Pick<ServiceOption, 'fields'> | undefined,
+): boolean =>
+    (service?.fields ?? []).some(({ slug }) => slug === QUANTITY_FIELD);
+
+/** The most pieces of one stone a row may ask for; the server holds the same. */
+export const QUANTITY_MAX = 9999;
+
+/**
+ * Why a piece count is refused, or null, in the words StoreInquiryRequest
+ * uses. An emptied count arrives as `NaN`.
+ */
+export const quantityProblem = (quantity: number): string | null => {
+    if (!Number.isFinite(quantity)) {
+        return 'Enter how many pieces you need.';
+    }
+
+    if (!Number.isInteger(quantity)) {
+        return 'Quantity has to be a whole number of pieces.';
+    }
+
+    if (quantity < 1) {
+        return 'Enter at least 1 piece.';
+    }
+
+    return quantity > QUANTITY_MAX
+        ? `Enter ${QUANTITY_MAX} pieces or fewer.`
+        : null;
+};
+
+/**
+ * A service's stone-scope questions answered with a choice or an entry, in
+ * the order asked. How many pieces is drawn and checked on its own.
+ */
+export const stoneFields = (
+    service: Pick<ServiceOption, 'fields'> | undefined,
+): ServiceField[] =>
+    (service?.fields ?? []).filter(
+        (field) => field.scope === 'stone' && stoneFieldKey(field) !== null,
+    );
+
+/** A service's project-scope questions, in the order asked. */
+export const projectFields = (
+    service: Pick<ServiceOption, 'fields'> | undefined,
+): ServiceField[] =>
+    (service?.fields ?? []).filter((field) => field.scope === 'project');
+
+/** The service of this id, under whichever type offers it. */
+export const findService = <Service extends { id: string }>(
+    serviceTypes: ReadonlyArray<{ services: Service[] }>,
+    serviceId: string,
+): Service | undefined =>
+    serviceTypes
+        .flatMap(({ services }) => services)
+        .find(({ id }) => id === serviceId);
+
+/** What a yes or no question is answered with on the page. */
+export const YES = 'yes';
+export const NO = 'no';
+
+/** The largest number an answer holds, as the server stores it. */
+export const ANSWER_NUMBER_MAX = 9999999999.99;
+
+/** The longest free text an answer holds; a slab size holds less. */
+export const ANSWER_TEXT_MAX = 255;
+export const SLAB_SIZE_TEXT_MAX = 50;
+
+const answerTextMax = (field: Pick<ServiceField, 'slug'>): number =>
+    field.slug === 'slab_size' ? SLAB_SIZE_TEXT_MAX : ANSWER_TEXT_MAX;
+
+/**
+ * Why an answer to a question is refused, or null when it stands, in the
+ * words StoreInquiryRequest uses: an empty required answer, a closed list's
+ * answer that is not on it, and a free entry by its type. A suggestion is
+ * never checked against: a free entry stands wherever the question takes one.
+ */
+export const answerProblem = (
+    field: ServiceField,
+    raw: string | undefined,
+): string | null => {
+    const value = (raw ?? '').trim();
+    const name = field.label.toLowerCase();
+    const fromList = `Choose the ${name} from the list.`;
+
+    if (value === '') {
+        if (!field.required) {
+            return null;
+        }
+
+        return field.answerType === 'text' || field.answerType === 'number'
+            ? `Enter the ${name}.`
+            : `Choose the ${name}.`;
+    }
+
+    if (field.answerType === 'choice') {
+        return field.options.some((option) => option.value === value)
+            ? null
+            : fromList;
+    }
+
+    if (field.answerType === 'boolean') {
+        return value === YES || value === NO ? null : 'Choose yes or no.';
+    }
+
+    if (
+        !field.allowsCustom &&
+        !field.suggestions.some((option) => option.value === value)
+    ) {
+        return fromList;
+    }
+
+    if (field.answerType === 'number') {
+        const number = Number(value);
+
+        if (!Number.isFinite(number) || number <= 0) {
+            return 'Enter a number greater than 0.';
+        }
+
+        return number > ANSWER_NUMBER_MAX ? 'Enter a smaller number.' : null;
+    }
+
+    return value.length > answerTextMax(field)
+        ? `Keep the ${name} to ${answerTextMax(field)} characters or fewer.`
+        : null;
+};
+
+/**
+ * Why "Same as stone" cannot be the answer, or null: it means a stone row's
+ * stone, so a project with none (Help me choose) cannot take it.
+ */
+export const linkedToStoneProblem = (
+    field: ServiceField,
+    value: string | undefined,
+    hasStones: boolean,
+): string | null => {
+    const option = field.options.find((entry) => entry.value === value);
+
+    return option?.linksToStone === true && !hasStones
+        ? `${option.label} needs a stone. Choose another ${field.label.toLowerCase()}.`
+        : null;
 };
 
 /**
@@ -312,10 +519,10 @@ export type CommitDraft = {
     /** The reader asked Regray to recommend a stone instead of choosing one. */
     stoneAdvice: boolean;
     stones: StoneRow[];
+    /** The project-scope answers, by question slug. */
+    answers: Record<string, string>;
     deliveryMethod: string;
     location: string;
-    landmark: string;
-    areaSqm: string;
     neededBy: string;
     notes: string;
     attachments: unknown[];
@@ -338,10 +545,9 @@ export const buildCommittedProject = <T extends CommitDraft>(
         serviceId: draft.serviceId,
         stoneAdvice: draft.stoneAdvice,
         stones: draft.stones.map((row) => ({ ...row })),
+        answers: { ...draft.answers },
         deliveryMethod: draft.deliveryMethod,
         location: isPickup ? '' : draft.location,
-        landmark: draft.landmark,
-        areaSqm: draft.areaSqm,
         neededBy: draft.neededBy,
         notes: draft.notes,
         attachments: draft.attachments.map((attachment) =>
@@ -371,10 +577,9 @@ export type RequestProject = {
     serviceId: string;
     stoneAdvice: boolean;
     stones: StoneRow[];
+    answers: Record<string, string>;
     deliveryMethod: string;
     location: string;
-    landmark: string;
-    areaSqm: string;
     neededBy: string;
     notes: string;
     attachments: RequestAttachment[];
@@ -383,8 +588,14 @@ export type RequestProject = {
 /**
  * The inquiry as multipart form data, in the field names the backend's form
  * request validates: `projects[i][name]`, `projects[i][serviceId]`,
- * `projects[i][stones][k][quantity]` and, for each file in the order it was attached,
- * `projects[i][attachments][j]`.
+ * `projects[i][stones][k][quantity]`, `projects[i][answers][slug]` and, for
+ * each file in the order it was attached, `projects[i][attachments][j]`.
+ *
+ * Only what the project's service asks is sent (`fieldsFor`): a stone row's
+ * answers to its stone-scope questions, and the project answers to the rest,
+ * a yes or no as 1 or 0. A service that asks for no stones sends no stones and
+ * no Help me choose. What the reader typed for a question the service no
+ * longer asks stays on the page but is not sent, since the server refuses it.
  *
  * Multipart rather than JSON because the attachments are `File` objects.
  *
@@ -394,12 +605,22 @@ export type RequestProject = {
  */
 export const buildInquiryFormData = (
     values: { projects: RequestProject[] },
-    { withProjectIds = false }: { withProjectIds?: boolean } = {},
+    {
+        withProjectIds = false,
+        serviceFor,
+    }: {
+        withProjectIds?: boolean;
+        serviceFor: (
+            serviceId: string,
+        ) => Pick<ServiceOption, 'fields' | 'requiresStones'> | undefined;
+    },
 ): FormData => {
     const body = new FormData();
 
     values.projects.forEach((project, i) => {
         const field = (name: string): string => `projects[${i}][${name}]`;
+        const service = serviceFor(project.serviceId);
+        const takesStones = service?.requiresStones !== false;
 
         if (withProjectIds && project.id !== undefined) {
             body.append(field('id'), project.id);
@@ -407,23 +628,49 @@ export const buildInquiryFormData = (
 
         body.append(field('name'), project.name);
         body.append(field('serviceId'), project.serviceId);
-        body.append(field('stoneAdvice'), project.stoneAdvice ? '1' : '0');
+        body.append(
+            field('stoneAdvice'),
+            takesStones && project.stoneAdvice ? '1' : '0',
+        );
 
-        project.stones.forEach((row, k) => {
+        (takesStones ? project.stones : []).forEach((row, k) => {
             const stone = (name: string): string =>
                 `${field('stones')}[${k}][${name}]`;
 
             body.append(stone('stoneId'), row.stoneId);
-            body.append(stone('quantity'), String(row.quantity));
-            body.append(stone('slabSize'), row.slabSize);
-            body.append(stone('edge'), row.edge);
-            body.append(stone('finish'), row.finish);
+
+            if (asksQuantity(service)) {
+                body.append(stone('quantity'), String(row.quantity));
+            }
+
+            for (const question of stoneFields(service)) {
+                const key = stoneFieldKey(question);
+
+                if (key !== null) {
+                    body.append(stone(key), row[key].trim());
+                }
+            }
         });
+
+        for (const question of projectFields(service)) {
+            const value = (project.answers[question.slug] ?? '').trim();
+
+            if (value === '') {
+                continue;
+            }
+
+            body.append(
+                `${field('answers')}[${question.slug}]`,
+                question.answerType === 'boolean'
+                    ? value === YES
+                        ? '1'
+                        : '0'
+                    : value,
+            );
+        }
 
         body.append(field('deliveryMethod'), project.deliveryMethod);
         body.append(field('location'), project.location);
-        body.append(field('landmark'), project.landmark);
-        body.append(field('areaSqm'), project.areaSqm);
         body.append(field('neededBy'), project.neededBy);
         body.append(field('notes'), project.notes);
 
@@ -558,11 +805,19 @@ export type InquiryEditProject = {
     /** Its stones as cards, which may be on no page of stones reached yet. */
     heldStones: Array<{ slug: string; name: string; thumbnail: string }>;
     stoneAdviceRequested: boolean;
-    stones: StoneRow[];
+    /** A stone row's answers are null where its service does not ask them. */
+    stones: Array<{
+        stoneId: string;
+        /** Null where the service does not ask how many pieces. */
+        quantity: number | null;
+        slabSize: string | null;
+        edge: string | null;
+        finish: string | null;
+    }>;
+    /** The project answers by question slug: text, a number, an option's slug, yes or no. */
+    answers: Record<string, string | number | boolean | null>;
     deliveryMethod: string;
     location: string | null;
-    landmark: string | null;
-    areaSqm: number | null;
     notes: string | null;
     neededBy: string | null;
     deadlineLocked: boolean;
@@ -584,10 +839,9 @@ export type EditFormProject = {
     serviceId: string;
     stoneAdvice: boolean;
     stones: StoneRow[];
+    answers: Record<string, string>;
     deliveryMethod: string;
     location: string;
-    landmark: string;
-    areaSqm: string;
     neededBy: string;
     notes: string;
     attachments: Array<{
@@ -599,6 +853,16 @@ export type EditFormProject = {
         mimeType: string;
     }>;
 };
+
+/** An answer as the form holds it: text, a yes or no as `yes` or `no`. */
+const formAnswer = (value: string | number | boolean | null): string =>
+    value === null
+        ? ''
+        : typeof value === 'boolean'
+          ? value
+              ? YES
+              : NO
+          : String(value);
 
 /**
  * The edit payload in the shape the form commits a project in, so Review and
@@ -616,11 +880,21 @@ export const toEditFormProjects = (
         serviceTypeId: project.serviceTypeId ?? '',
         serviceId: project.serviceId ?? '',
         stoneAdvice: project.stoneAdviceRequested,
-        stones: project.stones.map((row) => ({ ...row })),
+        stones: project.stones.map((row) => ({
+            stoneId: row.stoneId,
+            quantity: row.quantity ?? 1,
+            slabSize: row.slabSize ?? '',
+            edge: row.edge ?? '',
+            finish: row.finish ?? '',
+        })),
+        answers: Object.fromEntries(
+            Object.entries(project.answers).map(([slug, value]) => [
+                slug,
+                formAnswer(value),
+            ]),
+        ),
         deliveryMethod: project.deliveryMethod,
         location: project.location ?? '',
-        landmark: project.landmark ?? '',
-        areaSqm: project.areaSqm === null ? '' : String(project.areaSqm),
         neededBy: project.neededBy ?? '',
         notes: project.notes ?? '',
         attachments: project.attachments.map((file) => ({

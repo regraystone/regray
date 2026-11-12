@@ -22,9 +22,15 @@ import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import {
     DELIVERY_METHODS,
     PICKUP,
+    asksQuantity,
+    projectFields,
     reviewActions,
     STONE_ADVICE_LABEL,
+    stoneFieldKey,
+    stoneFields,
+    YES,
     type InquiryMode,
+    type ServiceField,
 } from '@/lib/inquiry-flow';
 import {
     REQUIREMENTS_STEP,
@@ -208,6 +214,30 @@ const SectionHeader = ({
 type ReviewProject = InquiryFormValues['projects'][number];
 
 /**
+ * A project answer as the reader is shown it: an option by its label, yes or
+ * no, a free entry as typed. "Same as stone" reads as the stone it means.
+ */
+const answerLabel = (
+    field: ServiceField,
+    value: string,
+    stoneName: string | undefined,
+): string => {
+    if (field.answerType === 'boolean') {
+        return value === '' ? '' : value === YES ? 'Yes' : 'No';
+    }
+
+    const option = [...field.options, ...field.suggestions].find(
+        (entry) => entry.value === value,
+    );
+
+    if (option?.linksToStone && stoneName !== undefined) {
+        return stoneName;
+    }
+
+    return option?.label ?? value.trim();
+};
+
+/**
  * One project, whole: what is needed, the stones, then the details. Each section's Edit returns to the question that asked it. A
  * visit, which only an inquiry already sent can be, has no stones to choose and
  * says so.
@@ -266,15 +296,39 @@ const ReviewProjectCard = ({
     const deliveryMethodName =
         DELIVERY_METHODS.find(({ value }) => value === project.deliveryMethod)
             ?.title ?? '';
+    const takesStones = service?.requiresStones !== false;
+    const askedOfStones = stoneFields(service);
+    const countsPieces = asksQuantity(service);
+    const askedOfProject = projectFields(service);
+    const choiceQuestions = askedOfStones.filter(
+        ({ answerType }) => answerType === 'choice',
+    );
+
+    /** Whether every list the service asks of a stone is left to Regray on this row. */
+    const isAdvised = (row: ReviewProject['stones'][number]): boolean =>
+        choiceQuestions.length > 0 &&
+        choiceQuestions.every((choice) => {
+            const key = stoneFieldKey(choice);
+
+            return (
+                key !== null &&
+                choice.options.some(
+                    (option) =>
+                        option.isAdvisory === true && option.value === row[key],
+                )
+            );
+        });
     const isPickup = project.deliveryMethod === PICKUP;
     const plural = (count: number, one: string, many: string): string =>
         `${count} ${count === 1 ? one : many}`;
 
     const footer = [
         service?.name,
-        stoneTypes > 0
-            ? `${plural(pieces, 'piece', 'pieces')} of ${plural(stoneTypes, 'stone', 'stones')}`
-            : undefined,
+        stoneTypes === 0
+            ? undefined
+            : countsPieces
+              ? `${plural(pieces, 'piece', 'pieces')} of ${plural(stoneTypes, 'stone', 'stones')}`
+              : plural(stoneTypes, 'stone', 'stones'),
     ]
         .filter(Boolean)
         .join(' · ');
@@ -293,30 +347,44 @@ const ReviewProjectCard = ({
                         <p className="truncate text-sm font-bold">
                             {row.stone.name}
                         </p>
-                        <p className="shrink-0 text-xs font-bold text-secondary-foreground">
-                            {row.quantity} pcs
-                        </p>
+                        {countsPieces ? (
+                            <p className="shrink-0 text-xs font-bold text-secondary-foreground">
+                                {row.quantity} pcs
+                            </p>
+                        ) : null}
                     </div>
-                    {row.slabSize.trim() === '' ? null : (
-                        <p className="mt-1 text-xs break-words text-secondary-foreground">
-                            Size: {row.slabSize.trim()}
-                        </p>
-                    )}
-                    {row.edge === catalog.advisoryEdge &&
-                    row.finish === catalog.advisoryFinish ? (
+                    {/*
+                     * Only what the service asks of a stone. When every list it
+                     * asks is left to Regray, that is said once.
+                     */}
+                    {askedOfStones.map((question) => {
+                        const key = stoneFieldKey(question);
+                        const value = key === null ? '' : row[key].trim();
+
+                        if (
+                            value === '' ||
+                            (question.answerType === 'choice' && isAdvised(row))
+                        ) {
+                            return null;
+                        }
+
+                        return (
+                            <p
+                                key={question.slug}
+                                className="mt-1 truncate text-xs text-secondary-foreground"
+                            >
+                                {question.label}: {value}
+                            </p>
+                        );
+                    })}
+                    {isAdvised(row) ? (
                         <p className="mt-1 text-xs text-secondary-foreground">
-                            We'll advise on edge and finish
+                            We'll advise on{' '}
+                            {choiceQuestions
+                                .map(({ label }) => label.toLowerCase())
+                                .join(' and ')}
                         </p>
-                    ) : (
-                        <>
-                            <p className="mt-1 truncate text-xs text-secondary-foreground">
-                                {row.edge}
-                            </p>
-                            <p className="truncate text-xs text-secondary-foreground">
-                                {row.finish}
-                            </p>
-                        </>
-                    )}
+                    ) : null}
                 </div>
             ))}
         </div>
@@ -439,52 +507,54 @@ const ReviewProjectCard = ({
                                 </dl>
                             </section>
 
-                            <section data-testid="review-stones">
-                                <SectionHeader
-                                    label="Stones"
-                                    count={chosenStones.length}
-                                >
-                                    <EditSection
-                                        label="Edit stones"
-                                        locked={locked}
-                                        onClick={() => onEdit(STONES_STEP)}
-                                    />
-                                </SectionHeader>
+                            {takesStones ? (
+                                <section data-testid="review-stones">
+                                    <SectionHeader
+                                        label="Stones"
+                                        count={chosenStones.length}
+                                    >
+                                        <EditSection
+                                            label="Edit stones"
+                                            locked={locked}
+                                            onClick={() => onEdit(STONES_STEP)}
+                                        />
+                                    </SectionHeader>
 
-                                {chosenStones.length > 0 ? (
-                                    <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
-                                        {chosenStones.map((stone) => (
-                                            <li
-                                                key={stone.slug}
-                                                className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
-                                                data-testid="review-stone"
+                                    {chosenStones.length > 0 ? (
+                                        <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
+                                            {chosenStones.map((stone) => (
+                                                <li
+                                                    key={stone.slug}
+                                                    className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                                                    data-testid="review-stone"
+                                                >
+                                                    <img
+                                                        src={stone.thumbnail}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        className="size-14 shrink-0 rounded-md object-cover"
+                                                    />
+                                                    <p className="min-w-0 flex-1 text-sm font-bold break-words">
+                                                        {stone.name}
+                                                    </p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : project.stoneAdvice ? (
+                                        <div className="mt-3 flex items-center gap-4">
+                                            <span
+                                                aria-hidden
+                                                className="grid size-14 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground"
                                             >
-                                                <img
-                                                    src={stone.thumbnail}
-                                                    alt=""
-                                                    loading="lazy"
-                                                    className="size-14 shrink-0 rounded-md object-cover"
-                                                />
-                                                <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                                    {stone.name}
-                                                </p>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : project.stoneAdvice ? (
-                                    <div className="mt-3 flex items-center gap-4">
-                                        <span
-                                            aria-hidden
-                                            className="grid size-14 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground"
-                                        >
-                                            <Sparkles className="size-5" />
-                                        </span>
-                                        <p className="min-w-0 flex-1 text-sm font-bold break-words">
-                                            {STONE_ADVICE_LABEL}
-                                        </p>
-                                    </div>
-                                ) : null}
-                            </section>
+                                                <Sparkles className="size-5" />
+                                            </span>
+                                            <p className="min-w-0 flex-1 text-sm font-bold break-words">
+                                                {STONE_ADVICE_LABEL}
+                                            </p>
+                                        </div>
+                                    ) : null}
+                                </section>
+                            ) : null}
 
                             <SectionHeader label="Details">
                                 <EditSection
@@ -497,9 +567,39 @@ const ReviewProjectCard = ({
                             {stones.length > 0 ? (
                                 <section>
                                     <SectionLabel count={stones.length}>
-                                        Pieces, edge and finish
+                                        {askedOfStones.length > 0
+                                            ? `Pieces, ${askedOfStones
+                                                  .map(({ label }) =>
+                                                      label.toLowerCase(),
+                                                  )
+                                                  .join(', ')}`
+                                            : 'Pieces'}
                                     </SectionLabel>
                                     {stoneTiles}
+                                </section>
+                            ) : null}
+
+                            {askedOfProject.length > 0 ? (
+                                <section data-testid="review-answers">
+                                    <SectionLabel>
+                                        About the project
+                                    </SectionLabel>
+
+                                    <dl>
+                                        {askedOfProject.map((question) => (
+                                            <SummaryRow
+                                                key={question.slug}
+                                                label={question.label}
+                                                value={answerLabel(
+                                                    question,
+                                                    project.answers[
+                                                        question.slug
+                                                    ] ?? '',
+                                                    stones[0]?.stone.name,
+                                                )}
+                                            />
+                                        ))}
+                                    </dl>
                                 </section>
                             ) : null}
 
@@ -517,18 +617,6 @@ const ReviewProjectCard = ({
                                             value={project.location}
                                         />
                                     )}
-                                    <SummaryRow
-                                        label="A nearby landmark"
-                                        value={project.landmark}
-                                    />
-                                    <SummaryRow
-                                        label="Size of the area"
-                                        value={
-                                            project.areaSqm.trim() === ''
-                                                ? ''
-                                                : `${project.areaSqm.trim()} sqm`
-                                        }
-                                    />
                                     <SummaryRow
                                         label="When you need it"
                                         value={formatNeededBy(project.neededBy)}
