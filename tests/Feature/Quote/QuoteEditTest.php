@@ -6,6 +6,7 @@ use App\Enums\InquiryStatus;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
 use App\Models\AuditLog;
+use App\Models\EdgeProfile;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
@@ -88,6 +89,21 @@ describe('the edit page', function (): void {
                 ->where('projects.0.attachments.0.status', 'saved'));
     });
 
+    it('fills the edit with the answers the service asked, in the shape the page sends them', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput([
+            'serviceId' => 'kitchen-islands',
+            'answers' => ['area_sqm' => '6.5', 'waterfall_effect' => '0'],
+        ])]);
+
+        $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('projects.0.answers', ['area_sqm' => 6.5, 'waterfall_effect' => false])
+                ->where('projects.0.stones.0.slabSize', null)
+                ->where('projects.0.stones.0.edge', EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'))
+                ->missing('projects.0.landmark')
+                ->missing('projects.0.areaSqm'));
+    });
+
     it('sends a client to the details page with the reason when the inquiry can no longer change', function (InquiryStatus $status, string $reason): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput()]);
         showInquiryAs($inquiry, $status);
@@ -123,14 +139,15 @@ describe('the edit page', function (): void {
 describe('saving the edit', function (): void {
     it('changes the fields and the service, replaces the stones, moves the visit, and writes an audit row', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
-        $otherStone = offeredStoneSlug('countertop', 1);
+        $otherStone = offeredStoneSlug('countertop-backsplash', 1);
         $historyRows = InquiryStatusHistory::query()->count();
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
                 'name' => 'Kitchen and island',
-                'stones' => [[...inquiryProjectInput()['stones'][0], 'stoneId' => $otherStone, 'quantity' => 9]],
-                'serviceId' => 'countertop',
+                'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => $otherStone])],
+                'serviceId' => 'countertop-backsplash',
+                'answers' => ['area_sqm' => '20'],
                 'location' => 'Taguig',
                 'neededBy' => '2030-05-06',
             ])]])
@@ -143,8 +160,11 @@ describe('saving the edit', function (): void {
 
         expect($inquiry->name)->toBe('Kitchen and island')
             ->and($inquiry->location)->toBe('Taguig')
-            ->and($inquiry->service->slug)->toBe('countertop')
-            ->and($inquiry->stones()->sole()->quantity)->toBe(9)
+            ->and($inquiry->service->slug)->toBe('countertop-backsplash')
+            // The new service asks no slab size and no pieces, so the row holds neither.
+            ->and($inquiry->stones()->sole()->quantity)->toBeNull()
+            ->and($inquiry->stones()->sole()->slab_size)->toBeNull()
+            ->and($inquiry->detailAnswers()->sole()->number_value)->toBe('20.00')
             ->and($inquiry->stones()->sole()->stone->slug)->toBe($otherStone)
             ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-05-06 10:00', 'Asia/Manila')))->toBeTrue()
             ->and($inquiry->schedule->title)->toBe('Kitchen and island')
@@ -158,7 +178,9 @@ describe('saving the edit', function (): void {
             ->and($audit->auditable_id)->toBe($inquiry->id)
             ->and($audit->user_id)->toBe($this->client->id)
             ->and($audit->old_values['name'])->toBe('Kitchen')
-            ->and($audit->new_values['name'])->toBe('Kitchen and island');
+            ->and($audit->new_values['name'])->toBe('Kitchen and island')
+            ->and($audit->old_values['answers'])->toBe([])
+            ->and($audit->new_values['answers'])->toHaveCount(1);
     });
 
     it('changes the service and records it in the audit row', function (): void {
@@ -189,7 +211,7 @@ describe('saving the edit', function (): void {
         Service::query()->where('slug', 'slab-supply-only')->firstOrFail()->stoneTypes()->detach($stone->stone_type_id);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['notes' => 'Third floor.'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['notes' => 'Third floor.', 'stones' => [inquiryStoneRow(overrides: ['stoneId' => $stone->slug])]])]])
             ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
 
         expect($inquiry->fresh()->notes)->toBe('Second floor.');
@@ -197,8 +219,8 @@ describe('saving the edit', function (): void {
 
     it('refuses a change of service that leaves a stone the new service does not offer, for the client and for staff', function (): void {
         $row = inquiryProjectInput()['stones'][0];
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'stones' => [[...$row, 'stoneId' => unofferedStoneSlug('countertop')]]])]);
-        $edit = projectEdit($inquiry, ['serviceId' => 'countertop', 'stones' => [[...$row, 'stoneId' => unofferedStoneSlug('countertop')]]]);
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'stones' => [[...$row, 'stoneId' => unofferedStoneSlug('countertop-backsplash')]]])]);
+        $edit = projectEdit($inquiry, ['serviceId' => 'countertop-backsplash', 'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => unofferedStoneSlug('countertop-backsplash')])]]);
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [$edit]])
@@ -212,13 +234,12 @@ describe('saving the edit', function (): void {
     });
 
     it('opens the edit on the stones and stone types of the inquiry\'s service', function (): void {
-        $row = inquiryProjectInput()['stones'][0];
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'storage', 'stones' => [[...$row, 'stoneId' => offeredStoneSlug('storage')]]])]);
-        $storage = Service::query()->where('slug', 'storage')->firstOrFail();
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal'])]);
+        $storage = Service::query()->where('slug', 'pedestal')->firstOrFail();
 
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('stoneFilters.service', 'storage')
+                ->where('stoneFilters.service', 'pedestal')
                 ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === $storage->stoneTypes->pluck('slug')->sort()->values()->all())
                 ->where('stones.data', fn ($stones) => collect($stones)->every(fn ($stone) => in_array($stone['type']['slug'], $storage->stoneTypes->pluck('slug')->all(), true))));
     });
@@ -234,7 +255,7 @@ describe('saving the edit', function (): void {
     it('keeps a service no longer offered that the inquiry already has, but offers no other', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
 
-        Service::query()->whereIn('slug', ['slab-supply-only', 'countertop'])->update(['is_active' => false]);
+        Service::query()->whereIn('slug', ['slab-supply-only', 'countertop-backsplash'])->update(['is_active' => false]);
 
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
             ->assertInertia(fn (Assert $page) => $page
@@ -247,7 +268,7 @@ describe('saving the edit', function (): void {
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
-                'serviceId' => 'countertop',
+                'serviceId' => 'countertop-backsplash',
             ])]])
             ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
     });

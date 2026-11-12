@@ -30,7 +30,6 @@ return [
         'quantity_min' => 1,
         'quantity_max' => 9999,
         'name' => 100,
-        'landmark' => 150,
         'slab_size' => 50,
         'notes' => 1000,
         'files' => 10,

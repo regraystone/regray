@@ -18,21 +18,23 @@ use Illuminate\Support\Carbon;
  * @property string $slug
  * @property string $name
  * @property string $description
- * @property list<string> $features
+ * @property bool $requires_stones Whether it asks for stones; Installation Only does not.
  * @property int $sort_order
  * @property bool $is_active
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read ServiceType $serviceType
  * @property-read Collection<int, StoneType> $stoneTypes
+ * @property-read Collection<int, ServiceFeature> $features
+ * @property-read Collection<int, DetailField> $detailFields
  */
-#[Fillable(['service_type_id', 'slug', 'name', 'description', 'features', 'sort_order', 'is_active'])]
+#[Fillable(['service_type_id', 'slug', 'name', 'description', 'requires_stones', 'sort_order', 'is_active'])]
 class Service extends Model
 {
     protected function casts(): array
     {
         return [
-            'features' => 'array',
+            'requires_stones' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -66,13 +68,38 @@ class Service extends Model
     }
 
     /**
+     * What it includes, as the lines shown under it.
+     *
+     * @return HasMany<ServiceFeature, $this>
+     */
+    public function features(): HasMany
+    {
+        return $this->hasMany(ServiceFeature::class)->orderBy('sort_order');
+    }
+
+    /**
+     * The questions it asks besides the stones, in the order they are asked,
+     * each with whether it has to be answered.
+     *
+     * @return BelongsToMany<DetailField, $this, ServiceDetailField, 'pivot'>
+     */
+    public function detailFields(): BelongsToMany
+    {
+        return $this->belongsToMany(DetailField::class, 'service_detail_fields')
+            ->using(ServiceDetailField::class)
+            ->withPivot(['sort_order', 'is_required'])
+            ->orderByPivot('sort_order');
+    }
+
+    /**
      * Whether new inquiries may ask for it: it and its type are both still
-     * offered, and it is made from at least one stone type.
+     * offered, and, unless it asks for no stones, it is made from at least one
+     * stone type.
      */
     public function isOffered(): bool
     {
         return $this->is_active
             && $this->serviceType->is_active
-            && ($this->relationLoaded('stoneTypes') ? $this->stoneTypes->isNotEmpty() : $this->stoneTypes()->exists());
+            && (! $this->requires_stones || ($this->relationLoaded('stoneTypes') ? $this->stoneTypes->isNotEmpty() : $this->stoneTypes()->exists()));
     }
 }

@@ -39,8 +39,6 @@ use Illuminate\Support\Facades\DB;
  * @property string $name
  * @property int|null $service_id What the client asked for.
  * @property string $location
- * @property string|null $landmark
- * @property string|null $area_sqm
  * @property DeliveryMethod $delivery_method
  * @property string|null $notes
  * @property bool $stone_advice_requested Whether the client asked Regray to recommend a stone instead of choosing one.
@@ -63,7 +61,7 @@ use Illuminate\Support\Facades\DB;
  */
 #[Fillable([
     'reference', 'client_id', 'client_record_id', 'lead_id', 'created_by', 'marketing_status', 'marketing_status_changed_at',
-    'name', 'service_id', 'delivery_method', 'location', 'landmark', 'area_sqm', 'notes', 'stone_advice_requested',
+    'name', 'service_id', 'delivery_method', 'location', 'notes', 'stone_advice_requested',
     'sales_status', 'sales_status_changed_at',
     'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
     'quoted_total', 'quote_revision', 'contract_total',
@@ -73,7 +71,6 @@ class Inquiry extends Model
     protected function casts(): array
     {
         return [
-            'area_sqm' => 'decimal:2',
             'delivery_method' => DeliveryMethod::class,
             'stone_advice_requested' => 'boolean',
             'sales_status' => SalesStatus::class,
@@ -317,6 +314,16 @@ class Inquiry extends Model
     public function stones(): HasMany
     {
         return $this->hasMany(InquiryStone::class);
+    }
+
+    /**
+     * The project-scope answers its service asked for, one per question.
+     *
+     * @return HasMany<InquiryDetailAnswer, $this>
+     */
+    public function detailAnswers(): HasMany
+    {
+        return $this->hasMany(InquiryDetailAnswer::class);
     }
 
     /** @return HasMany<InquiryFile, $this> */

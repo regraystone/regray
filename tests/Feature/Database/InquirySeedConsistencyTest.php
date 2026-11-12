@@ -3,6 +3,7 @@
 use App\Enums\ClientKind;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\DetailFieldScope;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
@@ -91,6 +92,23 @@ describe('the seeded inquiries', function (): void {
         foreach ($this->inquiries as $inquiry) {
             expect($inquiry->status)->toBe(expectedDisplayStatus($inquiry), $inquiry->reference)
                 ->and($inquiry->display_status)->toBe($inquiry->status->value, $inquiry->reference);
+        }
+    });
+
+    it('answer what their service asks and nothing else, on the stone rows and for the project', function (): void {
+        foreach ($this->inquiries->load(['service.detailFields', 'stones', 'detailAnswers.detailField']) as $inquiry) {
+            $asked = $inquiry->service->detailFields->keyBy('slug');
+            $required = $asked->filter(fn ($field): bool => $field->scope === DetailFieldScope::Project && $field->isRequiredByService())->keys()->sort()->values()->all();
+            $answered = $inquiry->detailAnswers->map(fn ($answer): string => $answer->detailField->slug)->sort()->values()->all();
+
+            expect($answered)->toBe($required, $inquiry->reference);
+
+            foreach ($inquiry->stones as $row) {
+                expect($row->quantity !== null)->toBe($asked->has('quantity'), $inquiry->reference)
+                    ->and($row->slab_size !== null)->toBe($asked->has('slab_size'), $inquiry->reference)
+                    ->and($row->edge_profile_id !== null)->toBe($asked->has('edge_profile'), $inquiry->reference)
+                    ->and($row->finish_id !== null)->toBe($asked->has('finish'), $inquiry->reference);
+            }
         }
     });
 

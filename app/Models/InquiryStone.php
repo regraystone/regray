@@ -10,10 +10,10 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $inquiry_id
  * @property int $stone_id
- * @property int $edge_profile_id
- * @property int $finish_id
- * @property int $quantity
- * @property string $slab_size
+ * @property int|null $edge_profile_id Null when its service does not ask for an edge profile.
+ * @property int|null $finish_id Null when its service does not ask for a finish.
+ * @property int|null $quantity Null when its service does not ask how many pieces.
+ * @property string|null $slab_size Null when its service does not ask for a slab size.
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at

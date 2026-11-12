@@ -168,8 +168,13 @@ test('36 · keyboard only: choose the service, pick a stone, fill the details an
     await page.keyboard.press('Enter');
     await expectStep(page, 3);
 
+    // A dropdown of suggested sizes: Enter opens it on the first, Enter picks it.
     await tabTo(page, (t) => t.id === 'requirements-slab-size-0', 'Slab size');
-    await page.keyboard.type('120 x 60 cm');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#requirements-slab-size-0')).toContainText(
+        '120 x 60 cm',
+    );
 
     await tabTo(
         page,

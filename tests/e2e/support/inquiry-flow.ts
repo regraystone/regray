@@ -7,11 +7,15 @@ import { expect } from './fixtures';
  * three questions on one page, shown one by one: Next under the last one shown
  * adds the next, and every question shown stays open. The service type, the service and the delivery
  * method are selects, the stone cards are checkboxes named after the stone, the
- * location is a combobox, and slab size, edge and finish sit on each stone's row.
- * Landmark, area, files and notes stay folded away behind "Add more details".
+ * location is a combobox, and what the service asks of each stone sits on its
+ * row (Slab Supply Only: a slab size, edge and finish, each a dropdown; a slab
+ * size also takes Other with an entry of one's own). The service's own
+ * questions sit under Other details, with the optional ones, the files and
+ * the notes always on show under the required ones.
  *
  * The names below are the catalogue that DatabaseSeeder writes. Both stones are
- * offered for Slab Supply Only and for Tables: a granite and a marble.
+ * offered for Slab Supply Only and for Dining Tables: a granite and a marble.
+ * Dining Tables asks for the number of seaters and the table base besides.
  */
 
 export const CATALOG = {
@@ -19,8 +23,8 @@ export const CATALOG = {
     service: 'Slab Supply Only',
     serviceSlug: 'slab-supply-only',
     furnitureType: 'Custom Stone Furniture',
-    furniture: 'Tables',
-    furnitureSlug: 'tables',
+    furniture: 'Dining Tables',
+    furnitureSlug: 'dining-tables',
     stones: ['Cosmic Black', 'Arabescato White'],
     stoneSlug: 'cosmic-black',
     edges: ['Straight Edge', 'Full Bevel'],
@@ -178,35 +182,65 @@ export type StoneRowAnswer = {
     finish: string;
 };
 
-/** Unfold the rarer answers: landmark, area, files and notes. */
-export const openMoreDetails = async (page: Page): Promise<void> => {
-    const toggle = page.getByRole('button', { name: 'Add more details' });
-
-    if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
-        await toggle.click();
-    }
-};
-
-export const landmarkField = (page: Page): Locator =>
-    page.getByLabel('A nearby landmark');
-
 export const notesField = (page: Page): Locator =>
     page.getByLabel('Anything else we should know?');
 
 export const SLAB_SIZE = '120 x 60 cm';
 
-/** Every stone row needs a slab size: give each one still empty `size`. */
+/**
+ * Every stone row of a service that asks for a slab size needs one: pick
+ * `size`, one of the suggestions, on each row still unanswered.
+ */
 export const fillSlabSizes = async (
     page: Page,
     size: string = SLAB_SIZE,
 ): Promise<void> => {
-    const fields = page.locator('input[id^="requirements-slab-size-"]');
+    const triggers = page.locator(
+        'button[id^="requirements-slab-size-"]:not([id$="-custom"])',
+    );
 
-    for (const field of await fields.all()) {
-        if ((await field.inputValue()) === '') {
-            await field.fill(size);
+    for (const trigger of await triggers.all()) {
+        if ((await trigger.innerText()).trim() === 'Choose one') {
+            const id = await trigger.getAttribute('id');
+
+            if (id !== null) {
+                await chooseInSelect(page, id, size);
+            }
         }
     }
+};
+
+/** A slab size of the reader's own, through Other. */
+export const typeSlabSize = async (
+    page: Page,
+    index: number,
+    size: string,
+): Promise<void> => {
+    await chooseInSelect(page, `requirements-slab-size-${index}`, 'Other');
+    await page.locator(`#requirements-slab-size-${index}-custom`).fill(size);
+};
+
+/**
+ * Answer one of the service's own questions under Other details, by the slug
+ * in its id (`seaters`, `table-base`, `area-sqm`): pick `answer` from its
+ * list, and through Other when it is a value of one's own.
+ */
+export const answerQuestion = async (
+    page: Page,
+    slug: string,
+    answer: string,
+    { own = false }: { own?: boolean } = {},
+): Promise<void> => {
+    const id = `requirements-${slug}-1`;
+
+    if (!own) {
+        await chooseInSelect(page, id, answer);
+
+        return;
+    }
+
+    await chooseInSelect(page, id, 'Other');
+    await page.locator(`#${id}-custom`).fill(answer);
 };
 
 export const answerStoneRow = async (
@@ -242,8 +276,9 @@ export type StoneProjectAnswers = {
     service?: string;
     rows?: StoneRowAnswer[];
     location?: string;
-    landmark?: string;
     notes?: string;
+    /** The service's own questions, by the slug in their id, with a listed answer. */
+    questions?: Record<string, string>;
 };
 
 /** A project of stone from the first question up to the last, not committed. */
@@ -282,13 +317,11 @@ export const addStoneProject = async (
     await chooseLocation(page, answers.location ?? 'Makati');
     await answerDeadline(page);
 
-    if (answers.landmark !== undefined) {
-        await openMoreDetails(page);
-        await landmarkField(page).fill(answers.landmark);
+    for (const [slug, answer] of Object.entries(answers.questions ?? {})) {
+        await answerQuestion(page, slug, answer);
     }
 
     if (answers.notes !== undefined) {
-        await openMoreDetails(page);
         await notesField(page).fill(answers.notes);
     }
 
@@ -348,8 +381,6 @@ export const projectPayload = (
     ],
     deliveryMethod: 'delivery',
     location: 'Makati',
-    landmark: '',
-    areaSqm: '',
     neededBy: futureDate(10),
     notes: '',
     ...overrides,

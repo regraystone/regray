@@ -26,7 +26,7 @@ class FurnitureFactory extends Factory
             'name' => fake()->unique()->words(3, true),
             'description' => null,
             'thumbnail_path' => null,
-            'furniture_type_id' => fn (): int => $this->typeNamed('Seating'),
+            'furniture_type_id' => fn (): int => $this->typeNamed('Dining Tables'),
             'is_active' => true,
             'sort_order' => 0,
         ];

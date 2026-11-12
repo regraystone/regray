@@ -88,7 +88,7 @@ test('a furniture profile shows its furniture type', function (): void {
             ->component('furniture-profile')
             ->where('furniture.data.slug', 'alora')
             ->where('furniture.data.name', 'Alora')
-            ->where('furniture.data.furnitureType', ['slug' => 'tables', 'name' => 'Tables'])
+            ->where('furniture.data.furnitureType', ['slug' => 'dining-tables', 'name' => 'Dining Tables'])
         );
 
     $this->actingAs(User::factory()->role(Role::Client)->create())

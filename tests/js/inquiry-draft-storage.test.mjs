@@ -21,8 +21,8 @@ const {
 } = await import('../../resources/js/lib/inquiry-draft-storage.ts');
 
 const USER = 7;
-const KEY = `regray.inquiry-draft.v8:${USER}`;
-const OLD_KEY = `regray.inquiry-draft.v7:${USER}`;
+const KEY = `regray.inquiry-draft.v9:${USER}`;
+const OLD_KEY = `regray.inquiry-draft.v8:${USER}`;
 
 const draft = (overrides = {}) => ({
     name: '',
@@ -33,8 +33,7 @@ const draft = (overrides = {}) => ({
     stones: [],
     deliveryMethod: '',
     location: '',
-    landmark: '',
-    areaSqm: '',
+    answers: {},
     neededBy: '',
     notes: '',
     attachments: [],
@@ -49,20 +48,20 @@ const stateOf = (values, step = 2, projects = []) =>
         draft: values,
     });
 
-/** A record as the previous version of this app wrote it. */
-const versionSevenRecord = () =>
+/** A record as the previous version of this app wrote it, with a landmark and an area. */
+const versionEightRecord = () =>
     JSON.stringify({
-        version: 7,
+        version: 8,
         savedAt: '2026-11-01T00:00:00.000Z',
         step: 2,
         editingProjectId: null,
         projects: [],
         draft: {
             ...draft(),
+            answers: undefined,
             stoneIds: ['marble'],
-            stoneWork: {
-                marble: { serviceId: 'supply-only', furnitureType: '' },
-            },
+            landmark: 'Near the church',
+            areaSqm: '12.5',
         },
         droppedAttachments: 0,
     });
@@ -73,7 +72,7 @@ const catalog = {
         {
             id: 'custom-stone-furniture',
             name: 'Custom Stone Furniture',
-            services: [{ id: 'tables', name: 'Tables' }],
+            services: [{ id: 'dining-tables', name: 'Dining Tables' }],
         },
     ],
 };
@@ -82,14 +81,14 @@ describe('an old draft', () => {
     beforeEach(() => memory.clear());
 
     it('is dropped from its old key without an error', () => {
-        memory.set(OLD_KEY, versionSevenRecord());
+        memory.set(OLD_KEY, versionEightRecord());
 
         assert.equal(readInquiryDraft(USER), null);
         assert.equal(memory.has(OLD_KEY), false);
     });
 
-    it('is dropped when a version 7 record sits under the current key', () => {
-        memory.set(KEY, versionSevenRecord());
+    it('is dropped when a version 8 record sits under the current key', () => {
+        memory.set(KEY, versionEightRecord());
 
         assert.equal(readInquiryDraft(USER), null);
         assert.equal(memory.has(KEY), false);
@@ -105,7 +104,7 @@ describe('a stored draft', () => {
             stateOf(
                 draft({
                     serviceTypeId: 'custom-stone-furniture',
-                    serviceId: 'tables',
+                    serviceId: 'dining-tables',
                 }),
             ),
         );
@@ -113,7 +112,7 @@ describe('a stored draft', () => {
         const stored = readInquiryDraft(USER);
 
         assert.equal(stored.draft.serviceTypeId, 'custom-stone-furniture');
-        assert.equal(stored.draft.serviceId, 'tables');
+        assert.equal(stored.draft.serviceId, 'dining-tables');
         assert.equal(stored.step, 2);
     });
 
@@ -213,7 +212,9 @@ describe('a stored draft', () => {
     it('drops a service type no longer in the catalogue, with its service', () => {
         writeInquiryDraft(
             USER,
-            stateOf(draft({ serviceTypeId: 'gone', serviceId: 'tables' })),
+            stateOf(
+                draft({ serviceTypeId: 'gone', serviceId: 'dining-tables' }),
+            ),
         );
 
         const { draft: stored } = readInquiryDraft(USER, catalog);

@@ -1,0 +1,108 @@
+<?php
+
+use App\Models\DetailField;
+use App\Models\FurnitureType;
+use App\Models\Service;
+use App\Models\ServiceFeature;
+use App\Models\StoneType;
+use Database\Seeders\DetailFieldSeeder;
+use Database\Seeders\FurnitureTypeSeeder;
+use Database\Seeders\ServiceSeeder;
+use Database\Seeders\ServiceStoneTypeSeeder;
+use Database\Seeders\StoneSeeder;
+use Illuminate\Support\Facades\DB;
+
+/*
+ * What the services ask is data: the seeders write each service's questions,
+ * features and stone types, and running them again changes nothing.
+ */
+
+beforeEach(function (): void {
+    $this->seed([StoneSeeder::class, ServiceSeeder::class, ServiceStoneTypeSeeder::class, FurnitureTypeSeeder::class]);
+});
+
+/** Each service's questions, in the order asked, a stone-scope one marked. */
+function askedQuestions(): array
+{
+    return Service::query()->with('detailFields')->orderBy('service_type_id')->orderBy('sort_order')->get()
+        ->mapWithKeys(fn (Service $service): array => [$service->slug => $service->detailFields
+            ->map(fn (DetailField $field): string => $field->slug.($field->scope->value === 'stone' ? ' (stone)' : '').($field->isRequiredByService() ? '' : ' (optional)'))
+            ->all()])
+        ->all();
+}
+
+it('asks each service its own questions, in order', function (): void {
+    expect(askedQuestions())->toBe([
+        'slab-supply-only' => ['quantity (stone)', 'slab_size (stone)', 'edge_profile (stone)', 'finish (stone)'],
+        'slab-supply-and-installation' => ['quantity (stone)', 'slab_size (stone)', 'edge_profile (stone)', 'finish (stone)'],
+        'installation-only' => [],
+        'countertop-backsplash' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
+        'wall-cladding' => ['area_sqm', 'finish (stone)'],
+        'flooring' => ['area_sqm', 'finish (stone)'],
+        'staircase' => ['area_sqm', 'finish (stone)'],
+        'kitchen-islands' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'waterfall_effect'],
+        'lavatories' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
+        'center-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
+        'side-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
+        'dining-tables' => ['seaters', 'edge_profile (stone)', 'finish (stone)', 'table_base'],
+        'pedestal' => ['size', 'edge_profile (stone)', 'finish (stone)'],
+        'other-customized-furniture' => ['size', 'finish (stone)'],
+    ])
+        ->and(Service::query()->where('requires_stones', false)->pluck('slug')->all())->toBe(['installation-only']);
+});
+
+it('keeps each service\'s features as rows, in order', function (): void {
+    $features = ServiceFeature::query()
+        ->where('service_id', Service::query()->where('slug', 'slab-supply-only')->value('id'))
+        ->orderBy('sort_order')
+        ->pluck('text')
+        ->all();
+
+    expect($features)->toBe(['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'])
+        ->and(Service::query()->whereDoesntHave('features')->pluck('slug')->all())->toBe([]);
+});
+
+it('links each stone type to the services it is offered for, and none to Installation Only', function (): void {
+    $links = Service::query()->with('stoneTypes')->orderBy('service_type_id')->orderBy('sort_order')->get()
+        ->mapWithKeys(fn (Service $service): array => [$service->slug => $service->stoneTypes->pluck('slug')->sort()->values()->all()])
+        ->all();
+    $all = StoneType::query()->pluck('slug')->sort()->values()->all();
+    $countertop = ['granite', 'marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite'];
+    $furniture = ['marble', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'];
+
+    expect($links)->toBe([
+        'slab-supply-only' => $all,
+        'slab-supply-and-installation' => $all,
+        'installation-only' => [],
+        'countertop-backsplash' => $countertop,
+        'wall-cladding' => ['crazy-cut', 'granite', 'marble', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'],
+        'flooring' => ['cobblestone', 'crazy-cut', 'granite', 'marble', 'monumental', 'quartzite', 'travertine'],
+        'staircase' => ['cobblestone', 'granite', 'marble', 'monumental', 'travertine'],
+        'kitchen-islands' => $countertop,
+        'lavatories' => $countertop,
+        'center-tables' => $countertop,
+        'side-tables' => $countertop,
+        'dining-tables' => $countertop,
+        'pedestal' => $furniture,
+        'other-customized-furniture' => $furniture,
+    ]);
+});
+
+it('changes nothing when the seeders run again, and retires what is no longer listed', function (): void {
+    $retired = Service::query()->create([
+        'service_type_id' => Service::query()->value('service_type_id'), 'slug' => 'seating', 'name' => 'Seating', 'description' => 'Old', 'sort_order' => 9,
+    ]);
+    FurnitureType::factory()->create(['slug' => 'seating', 'name' => 'Seating']);
+    $counts = fn (): array => array_map(fn (string $table): int => DB::table($table)->count(), [
+        'services', 'service_features', 'service_detail_fields', 'detail_fields', 'detail_field_options', 'service_stone_type', 'furniture_types',
+    ]);
+    $before = $counts();
+
+    $this->seed([DetailFieldSeeder::class, ServiceSeeder::class, ServiceStoneTypeSeeder::class, FurnitureTypeSeeder::class]);
+
+    expect($counts())->toBe($before)
+        ->and($retired->fresh()->is_active)->toBeFalse()
+        ->and(FurnitureType::query()->where('is_active', true)->orderBy('sort_order')->pluck('slug')->all())
+        ->toBe(['center-side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'])
+        ->and(FurnitureType::query()->where('slug', 'seating')->value('is_active'))->toBeFalse();
+});

@@ -40,17 +40,17 @@ export type InquiryDraftState = {
 };
 
 export type StoredInquiryDraft = InquiryDraftState & {
-    version: 8;
+    version: 9;
     /** When the autosave wrote it, as it is shown back to the reader. */
     savedAt: string;
 };
 
 /**
- * Bumped from 7 when the order became What do you need?, Stones, details. A version
- * 7 record holds a service per stone and a step number that now means another
- * question, so it is discarded instead of mis-restored.
+ * Bumped from 8 when what a project is asked came to depend on its service: a
+ * version 8 record holds a landmark and an area where a project now holds its
+ * service's answers, so it is discarded instead of mis-restored.
  */
-const DRAFT_VERSION = 8;
+const DRAFT_VERSION = 9;
 
 /**
  * The delivery method a fresh stepper starts on. Written out because a runtime
@@ -67,7 +67,7 @@ const DEFAULT_DELIVERY_METHOD: typeof DELIVERY = 'delivery';
  * an old record outright rather than half-understand it.
  */
 const storageKey = (userId: number): string =>
-    `regray.inquiry-draft.v8:${userId}`;
+    `regray.inquiry-draft.v9:${userId}`;
 
 /** The keys older versions wrote under, forgotten the first time a read runs. */
 const legacyStorageKeys = (userId: number): string[] => [
@@ -76,6 +76,7 @@ const legacyStorageKeys = (userId: number): string[] => [
     `regray.inquiry-draft.v5:${userId}`,
     `regray.inquiry-draft.v6:${userId}`,
     `regray.inquiry-draft.v7:${userId}`,
+    `regray.inquiry-draft.v8:${userId}`,
 ];
 
 /**
@@ -105,15 +106,19 @@ const warnWriteFailure = (): void => {
  * when it is emptied and `JSON.stringify` turns `NaN` into `null`: a stored
  * count of nothing reads back as one piece rather than as proof that the whole
  * draft is broken. Everything else is a plain string, because a value that is
- * not a string here is not something this app ever wrote.
+ * not a string here is not something this app ever wrote; an answer the
+ * service did not ask is `''`.
  */
 const storedStoneSchema = z.object({
     stoneId: z.string(),
     quantity: z.number().catch(1),
     slabSize: z.string().catch(''),
-    edge: z.string(),
-    finish: z.string(),
+    edge: z.string().catch(''),
+    finish: z.string().catch(''),
 });
+
+/** The service's project answers, by question slug. */
+const storedAnswersSchema = z.record(z.string(), z.string()).catch({});
 
 /** The delivery method. A draft saved with none starts on the default, as a new one does. */
 const storedDeliveryMethodSchema = z
@@ -128,10 +133,9 @@ const storedProjectSchema = z.object({
     serviceId: z.string().catch(''),
     stoneAdvice: z.boolean().catch(false),
     stones: z.array(storedStoneSchema),
+    answers: storedAnswersSchema,
     deliveryMethod: storedDeliveryMethodSchema,
     location: z.string(),
-    landmark: z.string(),
-    areaSqm: z.string(),
     neededBy: z.string(),
     notes: z.string(),
 });
@@ -143,10 +147,9 @@ const storedDraftSchema = z.object({
     stoneAdvice: z.boolean().catch(false),
     stoneIds: z.array(z.string()),
     stones: z.array(storedStoneSchema),
+    answers: storedAnswersSchema,
     deliveryMethod: storedDeliveryMethodSchema,
     location: z.string(),
-    landmark: z.string(),
-    areaSqm: z.string(),
     neededBy: z.string(),
     notes: z.string(),
 });
@@ -301,8 +304,7 @@ const isBlank = (state: InquiryDraftState): boolean =>
     state.draft.stoneIds.length === 0 &&
     state.draft.stones.length === 0 &&
     state.draft.location === '' &&
-    state.draft.landmark === '' &&
-    state.draft.areaSqm === '' &&
+    Object.values(state.draft.answers).every((value) => value === '') &&
     state.draft.neededBy === '' &&
     state.draft.notes === '';
 

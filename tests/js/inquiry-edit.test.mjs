@@ -13,17 +13,22 @@ const payload = (overrides = {}) => ({
     id: 42,
     name: 'Kitchen counters',
     serviceTypeId: 'natural-stone-applications',
-    serviceId: 'countertop',
+    serviceId: 'kitchen-islands',
     heldServiceType: null,
     heldStones: [],
     stoneAdviceRequested: false,
     stones: [
-        { stoneId: 'marble', quantity: 4, edge: 'Half Bevel', finish: 'Honed' },
+        {
+            stoneId: 'marble',
+            quantity: 4,
+            slabSize: null,
+            edge: 'Half Bevel',
+            finish: 'Honed',
+        },
     ],
+    answers: { area_sqm: 12.5, waterfall_effect: true },
     deliveryMethod: 'delivery',
     location: 'Makati',
-    landmark: null,
-    areaSqm: 12.5,
     notes: null,
     neededBy: '2030-01-02',
     deadlineLocked: false,
@@ -47,20 +52,20 @@ describe('toEditFormProjects', () => {
                 id: '42',
                 name: 'Kitchen counters',
                 serviceTypeId: 'natural-stone-applications',
-                serviceId: 'countertop',
+                serviceId: 'kitchen-islands',
                 stoneAdvice: false,
                 stones: [
                     {
                         stoneId: 'marble',
                         quantity: 4,
+                        slabSize: '',
                         edge: 'Half Bevel',
                         finish: 'Honed',
                     },
                 ],
+                answers: { area_sqm: '12.5', waterfall_effect: 'yes' },
                 deliveryMethod: 'delivery',
                 location: 'Makati',
-                landmark: '',
-                areaSqm: '12.5',
                 neededBy: '2030-01-02',
                 notes: '',
                 attachments: [
@@ -82,7 +87,7 @@ describe('toEditFormProjects', () => {
             payload({ stoneAdviceRequested: true, stones: [] }),
         ]);
 
-        assert.equal(project.serviceId, 'countertop');
+        assert.equal(project.serviceId, 'kitchen-islands');
         assert.equal(project.stoneAdvice, true);
     });
 
@@ -104,10 +109,33 @@ describe('toEditFormProjects', () => {
         assert.equal(project.location, '');
     });
 
-    it('turns a missing area into a blank', () => {
-        const [project] = toEditFormProjects([payload({ areaSqm: null })]);
+    it('reads the answers as the form holds them: a missing one blank, no as no', () => {
+        const [project] = toEditFormProjects([
+            payload({
+                answers: { area_sqm: null, waterfall_effect: false },
+                stones: [
+                    {
+                        stoneId: 'marble',
+                        quantity: 1,
+                        slabSize: null,
+                        edge: null,
+                        finish: null,
+                    },
+                ],
+            }),
+        ]);
 
-        assert.equal(project.areaSqm, '');
+        assert.deepEqual(project.answers, {
+            area_sqm: '',
+            waterfall_effect: 'no',
+        });
+        assert.deepEqual(project.stones[0], {
+            stoneId: 'marble',
+            quantity: 1,
+            slabSize: '',
+            edge: '',
+            finish: '',
+        });
     });
 });
 
@@ -143,6 +171,8 @@ describe('reviewActions', () => {
     });
 });
 
+const serviceFor = () => ({ requiresStones: true, fields: [] });
+
 describe('buildInquiryFormData when editing', () => {
     it('sends the project id, the stored files it keeps, and only new uploads as attachments', () => {
         const [project] = toEditFormProjects([payload()]);
@@ -160,7 +190,7 @@ describe('buildInquiryFormData when editing', () => {
                     },
                 ],
             },
-            { withProjectIds: true },
+            { withProjectIds: true, serviceFor },
         );
 
         assert.equal(body.get('projects[0][id]'), '42');
@@ -172,7 +202,10 @@ describe('buildInquiryFormData when editing', () => {
     it('never sends a project id for a new inquiry', () => {
         const [project] = toEditFormProjects([payload()]);
 
-        const body = buildInquiryFormData({ projects: [project] });
+        const body = buildInquiryFormData(
+            { projects: [project] },
+            { serviceFor },
+        );
 
         assert.equal(body.get('projects[0][id]'), null);
     });

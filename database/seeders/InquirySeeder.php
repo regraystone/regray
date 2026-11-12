@@ -6,6 +6,7 @@ use App\Enums\ClientKind;
 use App\Enums\ContactKind;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\DetailFieldScope;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
@@ -18,6 +19,7 @@ use App\Enums\SalesStatus;
 use App\Enums\SystemEvent;
 use App\Models\Client;
 use App\Models\Conversation;
+use App\Models\DetailField;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
@@ -573,6 +575,8 @@ class InquirySeeder extends Seeder
     {
         $project = $inquiryData['project'];
         $createdAt = Carbon::parse($inquiryData['created_at']);
+        $service = Service::query()->with('detailFields.options')->where('slug', $project['service'])->firstOrFail();
+        $asked = $service->detailFields->keyBy('slug');
 
         $inquiry = Inquiry::query()->forceCreate([
             'reference' => $inquiryData['reference'],
@@ -583,10 +587,8 @@ class InquirySeeder extends Seeder
             'marketing_status' => $final['marketing'],
             'marketing_status_changed_at' => $this->time($final['marketing_at']),
             'name' => $project['name'],
-            'service_id' => Service::query()->where('slug', $project['service'])->firstOrFail()->id,
+            'service_id' => $service->id,
             'location' => $project['location'],
-            'landmark' => $project['landmark'],
-            'area_sqm' => $project['area_sqm'],
             'notes' => $project['notes'],
             'sales_status' => $final['sales'],
             'sales_status_changed_at' => $this->time($final['changed']['sales']),
@@ -617,21 +619,53 @@ class InquirySeeder extends Seeder
                 ->whereHas('type', fn ($query) => $query->where('slug', $stoneSelection['stone_slug']))
                 ->orderBy('sort_order')->orderBy('id')->firstOrFail();
 
+            // Only the answers its service asks for, as the Inquire page sends them.
             $inquiry->stones()->create([
                 'stone_id' => $stone->id,
-                'edge_profile_id' => EdgeProfile::where('name', $stoneSelection['edge'])->firstOrFail()->id,
-                'finish_id' => Finish::where('name', $stoneSelection['finish'])->firstOrFail()->id,
-                'quantity' => $stoneSelection['quantity'],
-                'slab_size' => $stoneSelection['slab_size'] ?? '120 x 60 cm',
+                'edge_profile_id' => $asked->has(DetailField::EDGE_PROFILE) ? EdgeProfile::where('name', $stoneSelection['edge'])->firstOrFail()->id : null,
+                'finish_id' => $asked->has(DetailField::FINISH) ? Finish::where('name', $stoneSelection['finish'])->firstOrFail()->id : null,
+                'quantity' => $asked->has(DetailField::QUANTITY) ? $stoneSelection['quantity'] : null,
+                'slab_size' => $asked->has(DetailField::SLAB_SIZE) ? ($stoneSelection['slab_size'] ?? '120 x 60 cm') : null,
                 'sort_order' => $stoneSort,
             ]);
         }
+
+        $this->seedAnswers($inquiry, $service, $inquiryData['reference'], $project['answers']);
 
         foreach ($client === null ? [] : $project['attachments'] as $fileData) {
             $this->seedFile($fileUploads, $inquiry, $client, DocumentType::ClientAttachment, $fileData, $createdAt);
         }
 
         return $inquiry;
+    }
+
+    /**
+     * The project's answers to its service's project-scope questions, as
+     * sending the inquiry stores them. Like the Inquire page, it refuses a
+     * required question left unanswered and an answer to one the service does
+     * not ask.
+     *
+     * @param  array<string, string|int|float|bool>  $answers  By question slug; a closed option by its slug.
+     */
+    private function seedAnswers(Inquiry $inquiry, Service $service, string $reference, array $answers): void
+    {
+        $questions = $service->detailFields->filter(fn (DetailField $field): bool => $field->scope === DetailFieldScope::Project)->keyBy('slug');
+
+        foreach (array_diff(array_keys($answers), $questions->keys()->all()) as $slug) {
+            throw new RuntimeException("{$reference}: {$service->slug} does not ask {$slug}.");
+        }
+
+        foreach ($questions as $slug => $field) {
+            if (! array_key_exists($slug, $answers)) {
+                if ($field->isRequiredByService()) {
+                    throw new RuntimeException("{$reference}: {$service->slug} needs an answer to {$slug}.");
+                }
+
+                continue;
+            }
+
+            $inquiry->detailAnswers()->create($field->answerAttributes($answers[$slug]));
+        }
     }
 
     /**

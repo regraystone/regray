@@ -49,8 +49,8 @@ test('offers what active stones hold in both collections, matched or not, and no
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
             ->has('filterOptions.furnitureTypes', 4)
-            ->where('filterOptions.furnitureTypes.0', ['value' => 'Tables', 'label' => 'Tables'])
-            ->where('filterOptions.furnitureTypes.1', ['value' => 'Seating', 'label' => 'Seating'])
+            ->where('filterOptions.furnitureTypes.0', ['value' => 'Center & Side Tables', 'label' => 'Center & Side Tables'])
+            ->where('filterOptions.furnitureTypes.1', ['value' => 'Dining Tables', 'label' => 'Dining Tables'])
         );
 });
 
@@ -100,16 +100,16 @@ test('furniture filters by furniture type and search, a page at a time', functio
                 'name' => 'Alora',
                 'thumbnail' => '/storage/furniture/7d54e2740ed811b994f831e3af754ca8.jpg',
                 'brand' => ['slug' => 'regray-stone', 'name' => 'Regray Stone'],
-                'furnitureType' => ['slug' => 'tables', 'name' => 'Tables'],
+                'furnitureType' => ['slug' => 'dining-tables', 'name' => 'Dining Tables'],
             ])
             ->where('filters.collection', 'furniture')
             ->where('filters.perPage', 24)
         );
 
-    $this->actingAs($user)->get($page(['furniture_type' => 'Tables']))
+    $this->actingAs($user)->get($page(['furniture_type' => 'Dining Tables']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 6)
-            ->where('filters.furnitureType', 'Tables')
+            ->where('filters.furnitureType', 'Dining Tables')
         );
 
     $this->actingAs($user)->get($page(['search' => 'alora']))
@@ -185,9 +185,9 @@ test('a percent sign in a search is searched for, not treated as a wildcard', fu
 
 test('the second param is ignored under All Categories, and a param from the other collection is too', function (): void {
     $stone = Stone::factory()->for($this->brand)->create();
-    $furniture = Furniture::factory()->for($this->brand)->ofType('Seating')->create();
+    $furniture = Furniture::factory()->for($this->brand)->ofType('Pedestal')->create();
 
-    $this->get(brandPage(['collection' => 'all', 'type' => 'no-such-type', 'furniture_type' => 'Tables']))
+    $this->get(brandPage(['collection' => 'all', 'type' => 'no-such-type', 'furniture_type' => 'Dining Tables']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('products.meta.total', 2)
@@ -195,7 +195,7 @@ test('the second param is ignored under All Categories, and a param from the oth
             ->where('filters.furnitureType', null)
         );
 
-    $this->get(brandPage(['collection' => 'stones', 'furniture_type' => 'Tables']))
+    $this->get(brandPage(['collection' => 'stones', 'furniture_type' => 'Dining Tables']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('products.data', 1)->where('products.data.0.slug', $stone->slug));
 

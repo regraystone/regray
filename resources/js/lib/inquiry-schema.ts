@@ -1,9 +1,7 @@
 ﻿import { z } from 'zod';
 import {
-    LANDMARK_MAX,
     NOTES_MAX,
     PROJECT_NAME_MAX,
-    SLAB_SIZE_MAX,
     attachmentMeta,
     type InquiryAttachment,
     type InquirySavedAttachment,
@@ -14,6 +12,16 @@ import {
     REQUIREMENTS_STEP,
     SERVICE_STEP,
     STONES_STEP,
+    answerProblem,
+    asksQuantity,
+    findService,
+    linkedToStoneProblem,
+    projectFields,
+    quantityProblem,
+    stoneFieldKey,
+    stoneFields,
+    type ServiceField,
+    type StoneFieldKey,
 } from '@/lib/inquiry-flow';
 import type { InquiryCatalog } from '@/types/inquiry';
 
@@ -210,48 +218,54 @@ const attachmentsSchema = z
         }
     });
 
+/** "a, b and c". */
+const listed = (names: string[]): string =>
+    names.length <= 1
+        ? (names[0] ?? '')
+        : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
 /**
- * A stone may appear multiple times in a project, but never with identical
- * edge profile and finish combinations.
- *
- * On the list rather than on the single stone because it is about two of them.
- * Shared by both lists below so the rule is written once.
+ * A stone may appear multiple times in a project, but never with the same
+ * answers to every stone-scope question its service asks.
  *
  * Allows a client to specify the same stone with different finishes or edge
  * profiles (e.g., polished with a straight edge and honed with a bevel). Rows
- * with empty edge or finish are skipped — they are incomplete and should first
- * be flagged by the individual field validators.
+ * with an unanswered question are skipped — they are incomplete and are first
+ * flagged by the question's own rule. The complaint sits on the row's last
+ * question, which is where the reader changes it.
  */
 const rejectRepeatedStones = (
-    entries: readonly {
-        stoneId: string;
-        edge: string;
-        finish: string;
-        slabSize: string;
-    }[],
+    entries: readonly ({ stoneId: string } & Record<StoneFieldKey, string>)[],
+    questions: ServiceField[],
     ctx: z.RefinementCtx,
 ) => {
-    const seen = new Map<string, number>();
+    const keys = questions.flatMap((field) => {
+        const key = stoneFieldKey(field);
+
+        return key === null ? [] : [key];
+    });
+    const seen = new Set<string>();
 
     entries.forEach((entry, index) => {
-        if (entry.edge === '' || entry.finish === '') {
+        const values = keys.map((key) => entry[key].trim());
+
+        if (values.some((value) => value === '')) {
             return;
         }
 
-        const key = `${entry.stoneId}::${entry.edge}::${entry.finish}::${entry.slabSize.trim()}`;
+        const signature = [entry.stoneId, ...values].join('::');
 
-        if (seen.has(key)) {
+        if (seen.has(signature)) {
             ctx.addIssue({
                 code: 'custom',
-                path: [index, 'finish'],
-                message:
-                    'Another row of this stone has the same edge profile, finish and slab size. Change one of them or remove this row.',
+                path: ['stones', index, keys.at(-1) ?? 'quantity'],
+                message: `Another row of this stone has the same ${listed(questions.map((field) => field.label.toLowerCase()))}. Change one of them or remove this row.`,
             });
 
             return;
         }
 
-        seen.set(key, index);
+        seen.add(signature);
     });
 };
 
@@ -278,10 +292,15 @@ const projectNameSchema = z
  * type, an edge profile, a finish or a location *is* now comes from the
  * database through the page's props: the rules that say "it has to still be on
  * the list" can only be written once the list is known.
+ *
+ * What else a project is asked depends on the service it is for, so those
+ * rules are chosen per project, from the service its answers name: each stone
+ * row is checked against the stone-scope questions that service lists, and the
+ * project answers against its project-scope ones (`answerProblem`, worded as
+ * StoreInquiryRequest words them). A question the service does not ask is not
+ * checked, and not sent.
  */
 export const createInquirySchemas = (catalog: InquiryCatalog) => {
-    const edgeNames = new Set(catalog.edgeProfiles.map((edge) => edge.name));
-    const finishNames = new Set(catalog.finishes.map((finish) => finish.name));
     const serviceIds = new Set(
         catalog.serviceTypes.flatMap(({ services }) =>
             services.map(({ id }) => id),
@@ -308,36 +327,19 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
          * A count, not a string. The input is `type="number"` with
          * `valueAsNumber`, so anything unparseable arrives here as `NaN`, which is
          * how an emptied field reaches the "how many" complaint instead of the
-         * "not a number" one.
+         * "not a number" one. Only the slab services ask it, so it is checked
+         * with the project (`quantityProblem`).
          */
-        quantity: z
-            .number({ error: 'Enter how many pieces you need.' })
-            .int('Quantity has to be a whole number of pieces.')
-            .min(1, { error: 'Enter at least 1 piece.' })
-            .max(MAX_STONE_QUANTITY, {
-                error: `Enter ${MAX_STONE_QUANTITY} pieces or fewer.`,
-            }),
-
-        /* Free text: slabs are measured in more than one way. */
-        slabSize: z
-            .string()
-            .trim()
-            .min(1, { error: 'Enter the slab size.' })
-            .max(SLAB_SIZE_MAX, {
-                error: `Keep the slab size to ${SLAB_SIZE_MAX} characters or fewer.`,
-            }),
+        quantity: z.number().or(z.nan()),
 
         /*
-         * Plain strings so the unanswered `''` in the defaults type-checks, while
-         * the rule itself only accepts a name the page was given.
+         * The stone-scope answers, `''` while unanswered or not asked. Whether
+         * each is asked, and what it has to be, depends on the project's
+         * service, so they are checked with the project (`refineAnswers`).
          */
-        edge: z.string().refine((edge) => edgeNames.has(edge), {
-            error: 'Choose an edge profile.',
-        }),
-
-        finish: z.string().refine((finish) => finishNames.has(finish), {
-            error: 'Choose a finish.',
-        }),
+        slabSize: z.string(),
+        edge: z.string(),
+        finish: z.string(),
     });
 
     /**
@@ -352,8 +354,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
         .array(projectStoneSchema)
         .max(MAX_STONE_ROWS, {
             error: `A project can have up to ${MAX_STONE_ROWS} stone rows.`,
-        })
-        .superRefine(rejectRepeatedStones);
+        });
 
     /**
      * Where and when one piece of work is, and anything else the team needs about
@@ -370,29 +371,11 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
         /* Whether it is asked depends on the delivery method: see `refineAnswers`. */
         location: z.string().trim(),
 
-        landmark: z
-            .string()
-            .trim()
-            .max(LANDMARK_MAX, {
-                error: `Keep the landmark to ${LANDMARK_MAX} characters or fewer.`,
-            }),
-
         /*
-         * Optional, so an empty one is an answer rather than a mistake.
-         * `isFinite` rather than `> 0` alone because `Number('Infinity')` is
-         * `Infinity` and would otherwise pass as a real area.
+         * The service's project-scope answers, by question slug. Checked with
+         * the project, since which are asked depends on its service.
          */
-        areaSqm: z.string().refine(
-            (value) => {
-                const area = value.trim();
-
-                return (
-                    area === '' ||
-                    (Number.isFinite(Number(area)) && Number(area) > 0)
-                );
-            },
-            { error: 'Enter an area greater than 0.' },
-        ),
+        answers: z.record(z.string(), z.string()),
 
         /*
          * Both sides are `YYYY-MM-DD`, which is why this is a string comparison:
@@ -418,15 +401,23 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
     /**
      * The rules a project's answers have to meet together, committed or not.
      *
-     * A project needs a service, and a stone or the request for a recommendation.
-     * A delivery needs its location. Every project needs a day, because sending the
-     * inquiry books it as a schedule, for 10:00.
+     * A project needs a service, and a stone or the request for a
+     * recommendation, unless its service asks for no stones. Each stone row
+     * answers the stone-scope questions the service asks, and the project the
+     * project-scope ones; "Same as stone" needs a stone to be the same as. A
+     * delivery needs its location. Every project needs a day, because sending
+     * the inquiry books it as a schedule, for 10:00.
      */
     const refineAnswers = (
         answers: {
             serviceId: string;
             stoneAdvice: boolean;
             stoneIds: string[];
+            stones: ({ stoneId: string; quantity: number } & Record<
+                StoneFieldKey,
+                string
+            >)[];
+            answers: Record<string, string>;
             deliveryMethod: string;
             location: string;
             neededBy: string;
@@ -434,6 +425,9 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
         stonesField: string,
         ctx: z.RefinementCtx,
     ): void => {
+        const service = findService(catalog.serviceTypes, answers.serviceId);
+        const takesStones = service?.requiresStones !== false;
+
         if (!serviceIds.has(answers.serviceId)) {
             ctx.addIssue({
                 code: 'custom',
@@ -442,12 +436,68 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             });
         }
 
-        if (answers.stoneIds.length === 0 && !answers.stoneAdvice) {
+        if (
+            takesStones &&
+            answers.stoneIds.length === 0 &&
+            !answers.stoneAdvice
+        ) {
             ctx.addIssue({
                 code: 'custom',
                 path: [stonesField],
                 message: 'Select at least one stone.',
             });
+        }
+
+        if (takesStones) {
+            const questions = stoneFields(service);
+            const countsPieces = asksQuantity(service);
+
+            answers.stones.forEach((row, index) => {
+                const pieces = countsPieces
+                    ? quantityProblem(row.quantity)
+                    : null;
+
+                if (pieces !== null) {
+                    ctx.addIssue({
+                        code: 'custom',
+                        path: ['stones', index, 'quantity'],
+                        message: pieces,
+                    });
+                }
+
+                for (const question of questions) {
+                    const key = stoneFieldKey(question);
+                    const problem =
+                        key === null ? null : answerProblem(question, row[key]);
+
+                    if (key !== null && problem !== null) {
+                        ctx.addIssue({
+                            code: 'custom',
+                            path: ['stones', index, key],
+                            message: problem,
+                        });
+                    }
+                }
+            });
+
+            rejectRepeatedStones(answers.stones, questions, ctx);
+        }
+
+        const hasStones = takesStones && answers.stoneIds.length > 0;
+
+        for (const question of projectFields(service)) {
+            const value = answers.answers[question.slug];
+            const problem =
+                answerProblem(question, value) ??
+                linkedToStoneProblem(question, value, hasStones);
+
+            if (problem !== null) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['answers', question.slug],
+                    message: problem,
+                });
+            }
         }
 
         if (answers.deliveryMethod === '') {
@@ -614,10 +664,9 @@ export const draftDefaults = {
     stoneAdvice: false,
     stoneIds: [],
     stones: [],
+    answers: {},
     deliveryMethod: DELIVERY,
     location: '',
-    landmark: '',
-    areaSqm: '',
     neededBy: '',
     notes: '',
     attachments: [],

@@ -35,10 +35,8 @@ function postInquiry(mixed $test, array $projects): TestResponse
  */
 dataset('accepted values', [
     'name at 100 characters' => [fn (array $p): array => [...$p, 'name' => str_repeat('a', 100)]],
-    'landmark at 150 characters' => [fn (array $p): array => [...$p, 'landmark' => str_repeat('a', 150)]],
     'notes at 1000 characters' => [fn (array $p): array => [...$p, 'notes' => str_repeat('a', 1000)]],
-    'area above zero' => [fn (array $p): array => [...$p, 'areaSqm' => '0.01']],
-    'no area' => [fn (array $p): array => [...$p, 'areaSqm' => '']],
+    'area above zero' => [fn (array $p): array => inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '0.01']])],
     'deadline today' => [fn (array $p): array => [...$p, 'neededBy' => now('Asia/Manila')->toDateString()]],
     'quantity 1' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1]]]],
     'quantity 9999' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 9999]]]],
@@ -55,10 +53,10 @@ dataset('accepted values', [
 dataset('refused values', [
     'name over 100 characters' => [fn (array $p): array => [...$p, 'name' => str_repeat('a', 101)], 'projects.0.name'],
     'no name' => [fn (array $p): array => [...$p, 'name' => ''], 'projects.0.name'],
-    'landmark over 150 characters' => [fn (array $p): array => [...$p, 'landmark' => str_repeat('a', 151)], 'projects.0.landmark'],
     'notes over 1000 characters' => [fn (array $p): array => [...$p, 'notes' => str_repeat('a', 1001)], 'projects.0.notes'],
-    'area of zero' => [fn (array $p): array => [...$p, 'areaSqm' => '0'], 'projects.0.areaSqm'],
-    'negative area' => [fn (array $p): array => [...$p, 'areaSqm' => '-3'], 'projects.0.areaSqm'],
+    'area of zero' => [fn (array $p): array => inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '0']]), 'projects.0.answers.area_sqm'],
+    'negative area' => [fn (array $p): array => inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '-3']]), 'projects.0.answers.area_sqm'],
+    'no area where the service asks it' => [fn (array $p): array => inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => []]), 'projects.0.answers.area_sqm'],
     'deadline in the past' => [fn (array $p): array => [...$p, 'neededBy' => now()->subDay()->toDateString()], 'projects.0.neededBy'],
     'no deadline date' => [fn (array $p): array => [...$p, 'neededBy' => ''], 'projects.0.neededBy'],
     'quantity of 0' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 0]]], 'projects.0.stones.0.quantity'],
@@ -218,12 +216,10 @@ describe('stones and services', function (): void {
     });
 
     it('saves the one service of the request, however many stones it has', function (): void {
-        [$row] = twoStoneRows();
-
         postInquiry($this, [inquiryProjectInput([
             'stones' => [
-                [...$row, 'stoneId' => offeredStoneSlug('wall-cladding')],
-                [...$row, 'stoneId' => offeredStoneSlug('wall-cladding', 1)],
+                inquiryStoneRow('wall-cladding', ['stoneId' => offeredStoneSlug('wall-cladding')]),
+                inquiryStoneRow('wall-cladding', ['stoneId' => offeredStoneSlug('wall-cladding', 1)]),
             ],
             'serviceId' => 'wall-cladding',
         ])])->assertSessionHasNoErrors();
@@ -260,20 +256,16 @@ describe('stones and services', function (): void {
 
         expect(Inquiry::query()->count())->toBe(0);
 
-        $row = inquiryProjectInput()['stones'][0];
-
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'tables', 'stones' => [[...$row, 'stoneId' => offeredStoneSlug('tables')]]])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables'])])
             ->assertSessionHasNoErrors();
     });
 
     it('refuses a stone whose type is not linked to the service, on that stone\'s row', function (): void {
-        $row = inquiryProjectInput()['stones'][0];
-
         postInquiry($this, [inquiryProjectInput([
-            'serviceId' => 'countertop',
+            'serviceId' => 'countertop-backsplash',
             'stones' => [
-                [...$row, 'stoneId' => offeredStoneSlug('countertop')],
-                [...$row, 'stoneId' => unofferedStoneSlug('countertop')],
+                inquiryStoneRow('countertop-backsplash', ['stoneId' => offeredStoneSlug('countertop-backsplash')]),
+                inquiryStoneRow('countertop-backsplash', ['stoneId' => unofferedStoneSlug('countertop-backsplash')]),
             ],
         ])])
             ->assertSessionHasErrors(['projects.0.stones.1.stoneId' => 'That stone is not offered for this service.'])
@@ -283,28 +275,26 @@ describe('stones and services', function (): void {
     });
 
     it('accepts a stone whose type is linked to the service', function (): void {
-        $row = inquiryProjectInput()['stones'][0];
-        $stone = Stone::query()->where('slug', offeredStoneSlug('countertop'))->firstOrFail();
+        $stone = Stone::query()->where('slug', offeredStoneSlug('countertop-backsplash'))->firstOrFail();
 
-        expect(Service::query()->where('slug', 'countertop')->firstOrFail()->stoneTypes->modelKeys())->toContain($stone->stone_type_id);
+        expect(Service::query()->where('slug', 'countertop-backsplash')->firstOrFail()->stoneTypes->modelKeys())->toContain($stone->stone_type_id);
 
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop', 'stones' => [[...$row, 'stoneId' => $stone->slug]]])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => $stone->slug])]])])
             ->assertSessionHasNoErrors();
     });
 
     it('decides the fit by the primary type alone, not the collection filter types', function (): void {
-        $row = inquiryProjectInput()['stones'][0];
-        $stone = Stone::query()->where('slug', unofferedStoneSlug('countertop'))->firstOrFail();
-        $stone->types()->syncWithoutDetaching(Service::query()->where('slug', 'countertop')->firstOrFail()->stoneTypes->modelKeys());
+        $stone = Stone::query()->where('slug', unofferedStoneSlug('countertop-backsplash'))->firstOrFail();
+        $stone->types()->syncWithoutDetaching(Service::query()->where('slug', 'countertop-backsplash')->firstOrFail()->stoneTypes->modelKeys());
 
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop', 'stones' => [[...$row, 'stoneId' => $stone->slug]]])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => $stone->slug])]])])
             ->assertSessionHasErrors('projects.0.stones.0.stoneId');
     });
 
     it('refuses a service made from no stone type, which is not offered', function (): void {
-        Service::query()->where('slug', 'storage')->firstOrFail()->stoneTypes()->detach();
+        Service::query()->where('slug', 'pedestal')->firstOrFail()->stoneTypes()->detach();
 
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'storage', 'stoneAdvice' => true, 'stones' => []])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal', 'stoneAdvice' => true, 'stones' => []])])
             ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
     });
 });
@@ -336,23 +326,120 @@ describe('the delivery method', function (): void {
         'one left over' => [['location' => 'Makati']],
     ]);
 
-    it('keeps the landmark of a pickup', function (): void {
-        postInquiry($this, [inquiryProjectInput([
-            'deliveryMethod' => 'pickup',
-            'location' => '',
-            'landmark' => 'Near the church',
-        ])])->assertSessionHasNoErrors();
-
-        expect(Inquiry::query()->sole()->landmark)->toBe('Near the church');
-    });
-
     it('does not let the database hold a delivery with no location or a pickup with one', function (string $method, ?string $location): void {
         postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
 
-        expect(fn () => DB::table('inquiries')->update(['delivery_method' => $method, 'location' => $location, 'landmark' => null]))
+        expect(fn () => DB::table('inquiries')->update(['delivery_method' => $method, 'location' => $location]))
             ->toThrow(QueryException::class);
     })->with([
         'delivery with no location' => ['delivery', null],
         'pickup with a location' => ['pickup', 'Makati'],
     ]);
+});
+
+describe('the questions a service asks', function (): void {
+    it('asks wall cladding for an area and a finish on each stone, and no pieces, edge or slab size', function (): void {
+        $row = inquiryStoneRow('wall-cladding');
+
+        expect($row)->toHaveKey('finish')->not->toHaveKeys(['quantity', 'edge', 'slabSize']);
+
+        postInquiry($this, [inquiryProjectInput([
+            'serviceId' => 'wall-cladding',
+            'stones' => [[...$row, 'quantity' => 3, 'edge' => EdgeProfile::query()->value('name'), 'finish' => '']],
+            'answers' => [],
+        ])])->assertSessionHasErrors([
+            'projects.0.stones.0.quantity' => 'This service does not ask how many pieces.',
+            'projects.0.stones.0.edge' => 'This service does not ask for the edge profile.',
+            'projects.0.stones.0.finish' => 'Choose the finish.',
+            'projects.0.answers.area_sqm' => 'Enter the area to cover (sq m).',
+        ]);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'wall-cladding', 'answers' => ['area_sqm' => '18.5']])])
+            ->assertSessionHasNoErrors();
+
+        $stone = Inquiry::query()->sole()->stones()->sole();
+
+        expect($stone->finish_id)->not->toBeNull()
+            ->and($stone->quantity)->toBeNull()
+            ->and($stone->edge_profile_id)->toBeNull()
+            ->and($stone->slab_size)->toBeNull();
+    });
+
+    it('stores the project answers one row per question, in the column of its answer type', function (): void {
+        postInquiry($this, [inquiryProjectInput([
+            'serviceId' => 'kitchen-islands',
+            'answers' => ['area_sqm' => '6.25', 'waterfall_effect' => '1'],
+        ])])->assertSessionHasNoErrors();
+
+        postInquiry($this, [inquiryProjectInput([
+            'serviceId' => 'dining-tables',
+            'answers' => ['seaters' => '7', 'table_base' => 'steel'],
+        ])])->assertSessionHasNoErrors();
+
+        $answers = DB::table('inquiry_detail_answers')
+            ->join('detail_fields', 'detail_fields.id', '=', 'inquiry_detail_answers.detail_field_id')
+            ->leftJoin('detail_field_options', 'detail_field_options.id', '=', 'inquiry_detail_answers.option_id')
+            ->orderBy('inquiry_detail_answers.inquiry_id')
+            ->orderBy('detail_fields.sort_order')
+            ->get(['detail_fields.slug', 'text_value', 'number_value', 'detail_field_options.slug as option', 'boolean_value'])
+            ->map(fn (object $row): array => (array) $row)
+            ->all();
+
+        expect($answers)->toBe([
+            ['slug' => 'area_sqm', 'text_value' => null, 'number_value' => '6.25', 'option' => null, 'boolean_value' => null],
+            ['slug' => 'waterfall_effect', 'text_value' => null, 'number_value' => null, 'option' => null, 'boolean_value' => true],
+            ['slug' => 'seaters', 'text_value' => null, 'number_value' => '7.00', 'option' => null, 'boolean_value' => null],
+            ['slug' => 'table_base', 'text_value' => null, 'number_value' => null, 'option' => 'steel', 'boolean_value' => null],
+        ]);
+    });
+
+    it('takes a free entry where the question allows one, checked only by its type', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal', 'answers' => ['size' => '75 x 75 cm']])])
+            ->assertSessionHasNoErrors();
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => ['seaters' => 'many', 'table_base' => 'wood']])])
+            ->assertSessionHasErrors(['projects.0.answers.seaters' => 'Enter a number greater than 0.']);
+
+        expect(Inquiry::query()->sole()->detailAnswers()->sole()->text_value)->toBe('75 x 75 cm');
+    });
+
+    it('refuses an answer that is not one of a closed list', function (array $answers, string $field, string $message): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => $answers['service'], 'answers' => $answers['answers']])])
+            ->assertSessionHasErrors(["projects.0.answers.{$field}" => $message]);
+
+        expect(Inquiry::query()->count())->toBe(0);
+    })->with([
+        'a table base not listed' => [['service' => 'dining-tables', 'answers' => ['seaters' => '6', 'table_base' => 'marble']], 'table_base', 'Choose the table base from the list.'],
+        'a waterfall effect that is not yes or no' => [['service' => 'kitchen-islands', 'answers' => ['area_sqm' => '4', 'waterfall_effect' => 'maybe']], 'waterfall_effect', 'Choose yes or no.'],
+    ]);
+
+    it('refuses an answer to a question the service does not ask', function (): void {
+        postInquiry($this, [inquiryProjectInput(['answers' => ['size' => '60 x 60 cm']])])
+            ->assertSessionHasErrors(['projects.0.answers' => 'This service does not ask that.']);
+    });
+
+    it('takes "Same as stone" only for a project with a stone row', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'stones' => [], 'stoneAdvice' => true, 'answers' => ['seaters' => '6', 'table_base' => 'same-as-stone']])])
+            ->assertSessionHasErrors(['projects.0.answers.table_base' => 'Same as stone needs a stone. Choose another table base.']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => ['seaters' => '6', 'table_base' => 'same-as-stone']])])
+            ->assertSessionHasNoErrors();
+    });
+
+    it('sends Installation Only with no stones, and refuses stones or Help me choose for it', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'installation-only', 'stones' => [inquiryStoneRow()]])])
+            ->assertSessionHasErrors(['projects.0.stones' => 'This service needs no stones.']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'installation-only', 'stoneAdvice' => true])])
+            ->assertSessionHasErrors(['projects.0.stoneAdvice' => 'This service needs no stones.']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'installation-only'])])->assertSessionHasNoErrors();
+
+        $inquiry = Inquiry::query()->sole();
+
+        expect($inquiry->service->slug)->toBe('installation-only')
+            ->and($inquiry->stones()->count())->toBe(0)
+            ->and($inquiry->stone_advice_requested)->toBeFalse()
+            ->and($inquiry->detailAnswers()->count())->toBe(0);
+    });
 });
