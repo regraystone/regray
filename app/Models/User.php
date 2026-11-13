@@ -31,6 +31,9 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
+ * @property Carbon|null $terms_accepted_at
+ * @property string|null $terms_version
+ * @property Carbon|null $marketing_emails_opted_in_at
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -76,6 +79,21 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isClient(): bool
     {
         return $this->hasRole(Role::Client->value);
+    }
+
+    /**
+     * Whether the user has asked for promotional emails and announcements.
+     * Off unless they ticked it: at sign-up or in their own settings.
+     */
+    public function wantsMarketingEmails(): bool
+    {
+        return $this->marketing_emails_opted_in_at !== null;
+    }
+
+    /** @return HasMany<UserConsent, $this> */
+    public function consents(): HasMany
+    {
+        return $this->hasMany(UserConsent::class);
     }
 
     /** @return HasOne<UserProfile, $this> */
@@ -151,6 +169,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
+            'marketing_emails_opted_in_at' => 'datetime',
         ];
     }
 }

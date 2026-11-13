@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Settings\EmailPreferencesController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\ViewController;
@@ -22,6 +23,9 @@ Route::middleware(['auth', Permission::ProfileView->middleware()])->prefix('dash
 
     Route::get('profile/account-security', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('profile/account-security', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('profile/account-security/email-preferences', [EmailPreferencesController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('email-preferences.update');
 });
 
 Route::middleware(['auth', 'verified', Permission::ProfileView->middleware()])->prefix('dashboard')->group(function () {

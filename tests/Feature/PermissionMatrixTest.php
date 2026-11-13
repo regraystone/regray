@@ -109,6 +109,7 @@ test('makes a newly registered user a client', function () {
         'email' => 'test@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'terms' => true,
     ]);
 
     expect(User::where('email', 'test@example.com')->firstOrFail()->getRoleNames()->all())->toBe([Role::Client->value]);

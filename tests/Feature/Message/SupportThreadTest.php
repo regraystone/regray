@@ -49,6 +49,7 @@ it('gives a newly registered client one Regray Team thread', function (): void {
         'email' => 'new-client@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'terms' => true,
     ])->assertRedirect();
 
     $client = User::query()->where('email', 'new-client@example.com')->firstOrFail();
