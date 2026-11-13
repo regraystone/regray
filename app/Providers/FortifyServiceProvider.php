@@ -79,6 +79,8 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::registerView(fn () => Inertia::render('auth/register', [
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
+            // Shown in the Terms & Conditions dialog: the version an agreement is stored with.
+            'termsVersion' => config('legal.terms_version'),
         ]));
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/two-factor-challenge'));

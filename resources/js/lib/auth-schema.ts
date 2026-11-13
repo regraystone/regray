@@ -101,6 +101,12 @@ export const registerSchema = z
             .string()
             .trim()
             .min(1, { error: 'Confirm your password' }),
+        // Required, as the server requires it: no account without the terms.
+        terms: z.boolean().refine((agreed) => agreed, {
+            error: 'Agree to the Terms & Conditions to create an account',
+        }),
+        // Optional, and off unless ticked.
+        marketing_emails: z.boolean(),
     })
     /*
      * On the confirmation rather than on the password, because that is where the
@@ -121,6 +127,8 @@ export const registerDefaults = {
     email: '',
     password: '',
     password_confirmation: '',
+    terms: false,
+    marketing_emails: false,
 } satisfies RegisterFormValues;
 
 /** Every field the sign-up form owns, for mapping server errors onto. */
@@ -129,6 +137,8 @@ export const registerFields = [
     'email',
     'password',
     'password_confirmation',
+    'terms',
+    'marketing_emails',
 ] as const;
 
 /**

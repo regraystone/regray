@@ -2,8 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
+import TermsDialog from '@/components/terms-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
 import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
@@ -21,7 +23,7 @@ import { login } from '@/routes';
 import { store } from '@/routes/register';
 import { toast } from 'sonner';
 
-export default function Register() {
+export default function Register({ termsVersion }: { termsVersion: string }) {
     /*
      * A server answer about something the form has no box for, such as a
      * throttle notice, has nowhere to go next to a field. Held here and shown
@@ -29,13 +31,17 @@ export default function Register() {
      */
     const [formError, setFormError] = useState<string[]>([]);
 
+    const [termsOpen, setTermsOpen] = useState(false);
+
     const {
+        control,
+        setValue,
         watch,
         register: registerField,
         handleSubmit,
         setError,
         resetField,
-        formState: { errors, isSubmitting },
+        formState: { errors, isSubmitted, isSubmitting },
     } = useForm<RegisterFormInput, unknown, RegisterFormValues>({
         resolver: zodResolver(registerSchema),
         // Nothing is judged until the reader has actually tried to sign up,
@@ -147,6 +153,90 @@ export default function Register() {
                     </p>
                 </div>
 
+                <div className="space-y-3">
+                    <div>
+                        <div className="flex items-start gap-2">
+                            <Controller
+                                control={control}
+                                name="terms"
+                                render={({ field }) => (
+                                    <Checkbox
+                                        id="terms"
+                                        name="terms"
+                                        tabIndex={5}
+                                        className="mt-0.5"
+                                        checked={field.value}
+                                        onCheckedChange={(checked) =>
+                                            field.onChange(checked === true)
+                                        }
+                                        aria-invalid={
+                                            errors.terms ? true : undefined
+                                        }
+                                        aria-describedby={
+                                            errors.terms
+                                                ? 'terms-error'
+                                                : undefined
+                                        }
+                                        data-test="register-terms"
+                                    />
+                                )}
+                            />
+                            {/*
+                             * The button sits beside the label rather than in
+                             * it, so opening the terms does not also tick the
+                             * box.
+                             */}
+                            <p className="text-sm text-secondary-foreground">
+                                <label htmlFor="terms">I agree to the</label>{' '}
+                                <button
+                                    type="button"
+                                    tabIndex={5}
+                                    onClick={() => setTermsOpen(true)}
+                                    className="font-semibold text-foreground underline underline-offset-4"
+                                    data-test="register-terms-open"
+                                >
+                                    Terms &amp; Conditions
+                                </button>
+                            </p>
+                        </div>
+                        {errors.terms?.message ? (
+                            <p
+                                id="terms-error"
+                                role="alert"
+                                className="mt-2 text-[0.8rem] font-semibold text-secondary-foreground"
+                            >
+                                {errors.terms.message}
+                            </p>
+                        ) : null}
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                        <Controller
+                            control={control}
+                            name="marketing_emails"
+                            render={({ field }) => (
+                                <Checkbox
+                                    id="marketing_emails"
+                                    name="marketing_emails"
+                                    tabIndex={6}
+                                    className="mt-0.5"
+                                    checked={field.value}
+                                    onCheckedChange={(checked) =>
+                                        field.onChange(checked === true)
+                                    }
+                                />
+                            )}
+                        />
+                        <label
+                            htmlFor="marketing_emails"
+                            className="text-sm text-secondary-foreground"
+                        >
+                            Send me promotional emails and announcements
+                            (optional)
+                        </label>
+                    </div>
+                </div>
+
                 {formError.length > 0 ? (
                     <p
                         role="alert"
@@ -159,7 +249,7 @@ export default function Register() {
                 <Button
                     type="submit"
                     className="mt-1 w-full max-md:mt-(--auth-block-gap)"
-                    tabIndex={5}
+                    tabIndex={7}
                     disabled={isSubmitting}
                     data-test="register-button"
                 >
@@ -167,6 +257,16 @@ export default function Register() {
                     Sign Up
                 </Button>
             </form>
+
+            <TermsDialog
+                open={termsOpen}
+                onOpenChange={setTermsOpen}
+                version={termsVersion}
+                onAgree={() => {
+                    setValue('terms', true, { shouldValidate: isSubmitted });
+                    setTermsOpen(false);
+                }}
+            />
 
             <div className="relative my-5">
                 <div className="absolute inset-0 flex items-center">
@@ -215,7 +315,7 @@ export default function Register() {
                 <Link
                     href={login()}
                     className="inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline focus-visible:underline"
-                    tabIndex={6}
+                    tabIndex={8}
                 >
                     Sign In <ArrowRight className="size-4" aria-hidden />
                 </Link>

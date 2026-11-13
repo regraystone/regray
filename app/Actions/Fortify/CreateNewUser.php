@@ -6,6 +6,7 @@ use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Enums\Role as RoleEnum;
 use App\Models\User;
+use App\Services\ConsentService;
 use App\Services\Message\SupportConversationService;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Validator;
@@ -23,9 +24,15 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
-        Validator::make($input, [
+        $validated = Validator::make($input, [
             ...$this->profileRules(),
             'password' => $this->passwordRules(),
+            // No account without the terms; promotional emails are optional
+            // and off unless the box was ticked.
+            'terms' => ['accepted'],
+            'marketing_emails' => ['sometimes', 'boolean'],
+        ], [
+            'terms.accepted' => __('Agree to the Terms & Conditions to create an account.'),
         ])->validate();
 
         $user = User::create([
@@ -43,6 +50,12 @@ class CreateNewUser implements CreatesNewUsers
         // Every client has one Regray Team thread from the start, so Message
         // opens on it rather than on an empty list.
         app(SupportConversationService::class)->ensureFor($user);
+
+        app(ConsentService::class)->recordRegistration(
+            $user,
+            (bool) ($validated['marketing_emails'] ?? false),
+            request(),
+        );
 
         return $user;
     }

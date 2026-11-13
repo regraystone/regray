@@ -216,6 +216,7 @@ test('guards every route with exactly these permissions', function () {
         'profile.show' => $p(Permission::ProfileView),
         'profile.edit' => $p(Permission::ProfileView),
         'profile.update' => $p(Permission::ProfileView),
+        'email-preferences.update' => $p(Permission::ProfileView),
         'profile.destroy' => $p(Permission::ProfileView),
         'security.edit' => $p(Permission::ProfileView),
         'user-password.update' => $p(Permission::ProfileView),

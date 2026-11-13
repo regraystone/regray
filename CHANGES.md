@@ -1,3 +1,11 @@
+# Sign-up asks for the terms; promotional emails are opt-in
+
+- **Sign Up** has two boxes under the password: **I agree to the Terms & Conditions**, which is required (the server refuses an account without it: "Agree to the Terms & Conditions to create an account."), and **Send me promotional emails and announcements (optional)**, off unless ticked. "Terms & Conditions" opens them in a dialog over the form (`TermsDialog`), so nothing typed is lost; its **I agree** button ticks the box. The wording is a placeholder, to be replaced with the studio's own before launch (`terms-dialog.tsx`).
+- **Consent records:** each agreement or withdrawal is a row in the new `user_consents` table (`UserConsent`: type `terms` or `marketing_emails`, granted or not, the terms' version, source `registration` or `settings`, IP address, user agent, `created_at`). Rows are never changed or deleted, so the table says what a user had agreed to on any date. Where a user stands now is on `users`: `terms_accepted_at`, `terms_version` and `marketing_emails_opted_in_at` (null means no promotional emails). `ConsentService` writes both in one transaction.
+- **Terms version** is `TERMS_VERSION` (`config/legal.php`, default `2026-11-13`). Shown in the dialog; change it whenever the terms' wording changes.
+- **Account & Security** has an **Email preferences** card to turn promotional emails on or off (`email-preferences.update`, `profile.view`), and says when the user agreed to the terms, with the same dialog to read them again. Saving an unchanged choice records nothing. Emails about the user's account, inquiries and visits are not affected.
+- **Existing accounts**, and accounts staff create (walk-in clients, staff), have no terms agreement and no promotional emails. Nobody is asked to agree again. New migrations: run `php artisan migrate`.
+
 # Each service asks its own questions; new services and furniture types
 
 What a project is asked besides its stones now depends on its service, and is data rather than code. The schema changes are in the create migrations and the seed data changed, so an existing database needs `migrate:fresh --seed`.
