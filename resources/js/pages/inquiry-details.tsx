@@ -141,6 +141,7 @@ const SummaryRow = ({ label, value }: { label: string; value?: string }) => (
 type HistoryEntry = QuoteInquiryDetails['history'][number];
 type SharedDocument = QuoteInquiryDetails['documents'][number];
 type PaymentRecord = QuoteInquiryDetails['payments'][number];
+type AssignedStaffMember = QuoteInquiryDetails['assignedStaff'][number];
 
 const PAYMENT_RECORD_LABELS: Record<PaymentRecord['kind'], string> = {
     contract: 'Contract total',
@@ -176,6 +177,54 @@ const DatedRow = ({
             {dateTimeFormatter.format(new Date(at))}
         </time>
     </div>
+);
+
+/**
+ * Who on the team is handling the inquiry, and as what, in the order the
+ * server sends them. Only the assignment as it stood when the page loaded: a
+ * reassignment shows on the next visit. Nobody yet is normal for a new
+ * inquiry, not something gone wrong.
+ */
+const AssignedStaffCard = ({ staff }: { staff: AssignedStaffMember[] }) => (
+    <section
+        aria-labelledby="inquiry-assigned-staff-title"
+        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
+        data-testid="inquiry-assigned-staff"
+    >
+        <h2 className="flex items-center gap-3 px-4 py-3 sm:px-5">
+            <span
+                id="inquiry-assigned-staff-title"
+                className="block min-w-0 flex-1 truncate text-sm font-bold tracking-[0.08em] uppercase"
+            >
+                Assigned Staff
+            </span>
+            <CountBadge count={staff.length} />
+        </h2>
+
+        <div className="border-t border-sidebar-border px-4 sm:px-5">
+            {staff.length > 0 ? (
+                <ul className="divide-y divide-dashed divide-sidebar-border">
+                    {staff.map((member, index) => (
+                        // Names are not unique; the server's order is the identity.
+                        <li key={`${index}-${member.name}`} className="py-3">
+                            <p className="text-sm font-bold break-words">
+                                {member.name}
+                            </p>
+                            {member.roleLabel !== null ? (
+                                <p className="text-xs text-secondary-foreground">
+                                    {member.roleLabel}
+                                </p>
+                            ) : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="py-4 text-sm text-secondary-foreground sm:py-5">
+                    No staff have been assigned to this inquiry yet.
+                </p>
+            )}
+        </div>
+    </section>
 );
 
 /**
@@ -871,13 +920,14 @@ const InquiryDetails = () => {
             </div>
 
             {/*
-             * The aside (the activity log and the documents) is written first so that below `lg` it reads
+             * The aside (the assigned staff, the activity log and the documents) is written first so that below `lg` it reads
              * before the project: where the inquiry has got to is worth knowing
              * before the detail. The order classes put the project back on the
              * left once there is room for both.
              */}
             <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <aside className="space-y-6 lg:order-2">
+                    <AssignedStaffCard staff={inquiry.assignedStaff} />
                     <ActivityLogCard
                         history={inquiry.history}
                         createdAt={inquiry.createdAt}

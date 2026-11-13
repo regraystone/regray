@@ -14,6 +14,7 @@ use App\Models\DetailField;
 use App\Models\Inquiry;
 use App\Models\InquiryDetailAnswer;
 use App\Models\InquiryFile;
+use App\Models\InquiryHandler;
 use App\Models\InquiryStatusHistory;
 use App\Models\InquiryStone;
 use App\Models\User;
@@ -26,9 +27,10 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * An inquiry as its client sees it: the one project it is, the status it is
  * shown at, its three role statuses, the history of how they moved, its
- * payment records, and the documents the team has shared with the client. Names, quantities and dates:
- * no database ids, nothing about who changed a status or who handles the
- * inquiry, and no file paths or disks.
+ * payment records, the documents the team has shared with the client, and
+ * the staff assigned to it. Names, quantities and dates: no database ids,
+ * nothing about who changed a status, nothing about the staff beyond a name
+ * and a role, and no file paths or disks.
  *
  * Nothing about its lead is sent: a lost lead shows only as the inquiry being
  * cancelled. Whoever sends quotations (sales, and the super-admin) is sent
@@ -54,7 +56,7 @@ class InquiryDetailsResource extends JsonResource
     }
 
     /**
-     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null}
+     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>, assignedStaff: list<array{name: string, roleLabel: string|null}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null}
      */
     public function toArray(Request $request): array
     {
@@ -74,6 +76,7 @@ class InquiryDetailsResource extends JsonResource
             'history' => $this->history(),
             'payments' => $this->payments(),
             'documents' => $this->documents($viewer),
+            'assignedStaff' => $this->assignedStaff(),
             'project' => $this->project(),
             'actions' => (new InquiryActions)->for($this->resource),
             'conversation' => $this->conversationLink,
@@ -82,7 +85,8 @@ class InquiryDetailsResource extends JsonResource
 
     /**
      * The client's activity log: every change to sales, payment and logistics,
-     * oldest first, a stage starting included. Who made a change is not sent.
+     * oldest first, a stage starting included. Who made a change is not sent:
+     * who handles the inquiry is assignedStaff()'s, not the log's.
      *
      * Marketing's decision is the team's own business and is left out, except
      * that the client has to see their inquiry being cancelled: an inquiry
@@ -111,6 +115,29 @@ class InquiryDetailsResource extends JsonResource
         }
 
         return array_values($entries);
+    }
+
+    /**
+     * The staff handling the inquiry now (`inquiry_handlers`), first assigned
+     * first, then by name. A name and a role only, as a client already reads a
+     * name on a Regray Team thread; never how to reach them, nor who assigned
+     * them. Neither marketing holding the lead nor whoever opened the inquiry
+     * is listed: only an assignment makes someone its staff.
+     *
+     * @return list<array{name: string, roleLabel: string|null}>
+     */
+    private function assignedStaff(): array
+    {
+        return array_values($this->handlers
+            ->sortBy([
+                fn (InquiryHandler $a, InquiryHandler $b): int => $a->assigned_at <=> $b->assigned_at,
+                fn (InquiryHandler $a, InquiryHandler $b): int => strcasecmp($a->user->name, $b->user->name),
+            ])
+            ->map(fn (InquiryHandler $handler): array => [
+                'name' => $handler->user->name,
+                'roleLabel' => $handler->user->primaryRole()?->label(),
+            ])
+            ->all());
     }
 
     /**

@@ -344,7 +344,9 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'statusHistory',
                 'paymentTransactions',
                 'lead:id,reference,marketing_user_id',
-                'handlers:inquiry_id,user_id',
+                'handlers:inquiry_id,user_id,assigned_at',
+                'handlers.user:id,name',
+                'handlers.user.roles',
             ]);
     }
 }

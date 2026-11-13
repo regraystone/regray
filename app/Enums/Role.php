@@ -94,6 +94,24 @@ enum Role: string
     }
 
     /**
+     * What the role is called where a client may read it, as beside a handler's
+     * name on the inquiry page. The client has none, being no one's staff, and
+     * neither does the admin, which is not a part anyone plays in an inquiry.
+     */
+    public function label(): ?string
+    {
+        return match ($this) {
+            self::Sales => 'Sales Representative',
+            self::Technical => 'Technical Staff',
+            self::Accounting => 'Accounting',
+            self::Logistics => 'Logistics',
+            self::Marketing => 'Marketing',
+            self::Owner => 'Owner',
+            self::Admin, self::Client => null,
+        };
+    }
+
+    /**
      * Every role name, as the seeder and the tests read them.
      *
      * @return array<int, string>

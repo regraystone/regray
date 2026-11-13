@@ -21,6 +21,14 @@ class InquiryHandler extends Model
 
     protected $primaryKey = 'inquiry_id';
 
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            'assigned_at' => 'datetime',
+        ];
+    }
+
     /** @return BelongsTo<Inquiry, $this> */
     public function inquiry(): BelongsTo
     {
