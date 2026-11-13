@@ -2,6 +2,7 @@ import { Download, Eye, FileText, Image as ImageIcon } from 'lucide-react';
 import { useState } from 'react';
 import { formatSize } from '@/components/file-upload';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { formatDate } from '@/lib/format-date';
 import {
     downloadUrl,
@@ -57,7 +58,7 @@ export const InquiryFileRow = ({
     };
 
     return (
-        <li className={className} aria-busy={isOpening}>
+        <li className={`@container ${className}`} aria-busy={isOpening}>
             <div className="flex items-start gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
                     {isPdf ? (
@@ -87,32 +88,6 @@ export const InquiryFileRow = ({
                         {formatDate(file.uploadedAt)}
                     </p>
 
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {file.previewable ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={preview}
-                                disabled={isOpening}
-                                aria-label={`Preview ${file.name}`}
-                            >
-                                <Eye aria-hidden />
-                                {isOpening ? OPENING : 'Preview'}
-                            </Button>
-                        ) : null}
-                        <Button variant="outline" size="sm" asChild>
-                            <a
-                                href={downloadUrl(file.url)}
-                                download
-                                aria-label={`Download ${file.name}`}
-                            >
-                                <Download aria-hidden />
-                                Download
-                            </a>
-                        </Button>
-                    </div>
-
                     {state.kind === 'error' ? (
                         <p
                             role="alert"
@@ -121,6 +96,52 @@ export const InquiryFileRow = ({
                             {state.message}
                         </p>
                     ) : null}
+                </div>
+
+                {/*
+                 * On the right, beside the details. Where the row is narrow (the
+                 * Documents card, a phone) the buttons are icons only, named by
+                 * their label for a screen reader and by `title` for the pointer,
+                 * so the file name keeps its room.
+                 */}
+                <div className="flex shrink-0 items-center gap-2">
+                    {file.previewable ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="px-2.5 @md:px-3"
+                            onClick={preview}
+                            disabled={isOpening}
+                            aria-label={`Preview ${file.name}`}
+                            title={isOpening ? OPENING : 'Preview'}
+                        >
+                            {isOpening ? (
+                                <Spinner aria-hidden />
+                            ) : (
+                                <Eye aria-hidden />
+                            )}
+                            <span className="hidden @md:inline">
+                                {isOpening ? OPENING : 'Preview'}
+                            </span>
+                        </Button>
+                    ) : null}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="px-2.5 @md:px-3"
+                        asChild
+                    >
+                        <a
+                            href={downloadUrl(file.url)}
+                            download
+                            aria-label={`Download ${file.name}`}
+                            title="Download"
+                        >
+                            <Download aria-hidden />
+                            <span className="hidden @md:inline">Download</span>
+                        </a>
+                    </Button>
                 </div>
             </div>
         </li>
