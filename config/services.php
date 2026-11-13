@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    /*
+     * Sign in with Google (Socialite). An OAuth client from Google Cloud
+     * Console; its authorised redirect URI must be this callback exactly.
+     * Without a client id and secret the Google buttons say Google sign-in is
+     * not set up.
+     */
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/auth/google/callback'),
+    ],
+
 ];

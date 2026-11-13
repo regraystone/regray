@@ -76,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
         'group-create',
         'heavy-reads',
         'register',
+        'social-login',
         'password-reset',
     ];
 
@@ -224,6 +225,7 @@ class AppServiceProvider extends ServiceProvider
      * - `heavy-reads`: the Home and Saved feeds, where every filter change,
      *   search and page of infinite scroll is a request.
      * - `register` and `password-reset`: Fortify's guest forms, per IP.
+     * - `social-login`: signing in, signing up and connecting with Google.
      */
     protected function configureRateLimits(): void
     {

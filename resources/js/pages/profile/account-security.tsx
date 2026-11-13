@@ -3,6 +3,9 @@ import { ArrowLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import EmailPreferencesController from '@/actions/App/Http/Controllers/Settings/EmailPreferencesController';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
+import ConnectedAccounts, {
+    type GoogleConnection,
+} from '@/components/connected-accounts';
 import DeleteUser from '@/components/delete-user';
 import TermsDialog from '@/components/terms-dialog';
 import { Button } from '@/components/ui/button';
@@ -18,6 +21,7 @@ import { Field } from '@/components/ui/field';
 import { show as showProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import { send } from '@/routes/verification';
+import type { SocialNotice } from '@/lib/auth-schema';
 import type { Auth } from '@/types';
 
 type PageProps = {
@@ -36,10 +40,14 @@ export default function AccountSecurity({
     mustVerifyEmail,
     status,
     emailPreferences,
+    google,
+    socialNotice,
 }: {
     mustVerifyEmail: boolean;
     status?: string;
     emailPreferences: EmailPreferences;
+    google: GoogleConnection;
+    socialNotice?: SocialNotice | null;
 }) {
     const { auth } = usePage<PageProps>().props;
     const [marketingEmails, setMarketingEmails] = useState(
@@ -252,6 +260,9 @@ export default function AccountSecurity({
                             </Form>
                         </CardContent>
                     </Card>
+
+                    {/* Connected Accounts */}
+                    <ConnectedAccounts google={google} notice={socialNotice} />
 
                     {/* Security Door */}
                     <Link

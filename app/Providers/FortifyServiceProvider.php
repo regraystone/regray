@@ -61,6 +61,8 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
+            // Why a Google sign-in came back here (GoogleController).
+            'socialNotice' => $request->session()->get('socialNotice'),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
@@ -77,7 +79,8 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
-        Fortify::registerView(fn () => Inertia::render('auth/register', [
+        Fortify::registerView(fn (Request $request) => Inertia::render('auth/register', [
+            'socialNotice' => $request->session()->get('socialNotice'),
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
             // Shown in the Terms & Conditions dialog: the version an agreement is stored with.
             'termsVersion' => config('legal.terms_version'),

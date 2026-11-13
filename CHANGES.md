@@ -1,3 +1,12 @@
+# Sign in and sign up with Google
+
+- **Continue with Google**, on Sign In and Sign Up, goes to Google's account chooser and back to `/auth/google/callback` (`GoogleController`, Laravel Socialite). A Google account already connected signs in. Otherwise an account whose email Google has **verified** is recognised, but not signed in to: **Connect your Google account** (`auth/google-confirm`) asks for that account's password once (6 tries a minute), then connects Google, counts the email as verified and signs in. Owning the email at Google is not enough, since somebody may have registered with an address that is not theirs; its owner can use **Forgot password** there instead. An email Google has not verified is never matched. Someone with two-factor authentication on is still asked for their code. Cancelling on Google, an expired request, an unverified email and Google not being set up each come back to Sign In with a message saying so (`socialNotice`).
+- **Signing up with Google:** someone new is shown **Finish signing up** (`auth/google-finish`): their name from Google (theirs to change), their Google email, and the same two boxes as Sign Up (`ConsentFields`). The account is only made once they agree to the terms: a verified client, with a Regray thread and consent records like any sign-up (`ClientRegistrationService`, now shared with Sign Up). It has no password of its own; **Forgot password** sets one. The step expires after 15 minutes.
+- **Connected accounts**, on Account & Security, connects Google to the signed-in account or disconnects it. A Google account connected to another Regray account is refused.
+- **Schema:** new `social_accounts` table (`SocialAccount`: user, `provider`, `provider_user_id`, `email`), one per Google account and one Google account per user. Run `php artisan migrate`.
+- **Setup:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REDIRECT_URI` (`config/services.php`), from an OAuth client in Google Cloud Console whose authorised redirect URI is `{APP_URL}/auth/google/callback`. Without them the buttons say Google sign-in is not set up yet.
+- **Rate limit:** the Google routes share the new `social-login` limiter, 10 a minute (`RATE_LIMIT_SOCIAL_LOGIN`).
+
 # The email box decides message emails; staff start with it on
 
 - **The box** under the terms is now **Email me about new messages and updates (optional)**, and Account & Security's toggle reads **Email me about new messages and updates**. It now covers message notification emails as well as updates and announcements.
