@@ -38,6 +38,11 @@ class ProfileController extends Controller
         return Inertia::render('profile/account-security', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'emailPreferences' => [
+                'marketingEmails' => $request->user()->wantsMarketingEmails(),
+                'termsAcceptedAt' => $request->user()->terms_accepted_at?->toIso8601String(),
+                'termsVersion' => config('legal.terms_version'),
+            ],
         ]);
     }
 
