@@ -11,6 +11,7 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
 use App\Models\Stone;
+use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Services\ScheduleService;
 
@@ -144,6 +145,16 @@ it('shares quotations and payment receipts with the client, never the job order 
         ->and($documents[1]['revision'])->toBeNull()
         ->and(array_keys($documents[0]))->toBe(['id', 'status', 'revision', 'at', 'files'])
         ->and(array_keys($documents[0]['files'][0]))->toBe(['id', 'type', 'name', 'sizeBytes', 'mimeType']);
+});
+
+it('sends each assigned staff member as a name and a role label, and nothing else', function (): void {
+    $inquiry = detailedInquiry($this);
+    assignInquiry($inquiry, User::factory()->role(Role::Sales)->create());
+
+    $staff = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))->viewData('page')['props']['inquiry']['assignedStaff'];
+
+    expect($staff)->toHaveCount(1)
+        ->and(array_keys($staff[0]))->toBe(['name', 'roleLabel']);
 });
 
 it('carries nothing a client should not see', function (): void {

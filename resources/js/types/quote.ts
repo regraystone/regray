@@ -87,6 +87,15 @@ export type QuoteInquiryDetails = {
             mimeType: string;
         }>;
     }>;
+    /**
+     * The staff handling the inquiry now, first assigned first, then by name.
+     * Empty until anyone is assigned. A name and a role only.
+     */
+    assignedStaff: Array<{
+        name: string;
+        /** Such as "Sales Representative"; null for a role with no label. */
+        roleLabel: string | null;
+    }>;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
     /** Which buttons the page shows, and which can be pressed. */
