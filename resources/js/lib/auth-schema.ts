@@ -105,7 +105,8 @@ export const registerSchema = z
         terms: z.boolean().refine((agreed) => agreed, {
             error: 'Agree to the Terms & Conditions to create an account',
         }),
-        // Optional, and off unless ticked.
+        // Optional, and off unless ticked: a client who leaves it off gets
+        // message notifications on the site only, never by email.
         marketing_emails: z.boolean(),
     })
     /*
@@ -127,6 +128,8 @@ export const registerDefaults = {
     email: '',
     password: '',
     password_confirmation: '',
+    // Unticked to start with: the reader ticks it themselves, and neither the
+    // form nor the server makes an account without it.
     terms: false,
     marketing_emails: false,
 } satisfies RegisterFormValues;

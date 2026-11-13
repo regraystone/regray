@@ -157,9 +157,9 @@ export default function AccountSecurity({
                         <CardHeader className="px-4 sm:px-6">
                             <CardTitle>Email preferences</CardTitle>
                             <CardDescription>
-                                Choose what we may email you about. Emails about
-                                your account, inquiries and visits are always
-                                sent.
+                                Choose whether we email you. Emails about your
+                                account itself, such as verifying your address
+                                or resetting your password, are always sent.
                             </CardDescription>
                         </CardHeader>
 
@@ -198,8 +198,8 @@ export default function AccountSecurity({
                                                     htmlFor="marketing_emails"
                                                     className="text-sm text-secondary-foreground"
                                                 >
-                                                    Send me promotional emails
-                                                    and announcements
+                                                    Email me about new messages
+                                                    and updates (optional)
                                                 </label>
                                             </div>
                                             {errors.marketing_emails ? (

@@ -1,3 +1,10 @@
+# The email box decides message emails; staff start with it on
+
+- **The box** under the terms is now **Email me about new messages and updates (optional)**, and Account & Security's toggle reads **Email me about new messages and updates**. It now covers message notification emails as well as updates and announcements.
+- **Message emails** (`MessageWaitingNotification`) go only to someone who wants emails (`User::receivesMessageEmails()`): a verified address and the box on. With it off, the bell notification still arrives; only the email is skipped. Emails about the account itself (verifying the address, resetting the password) are always sent.
+- **Clients** are off unless they tick it, at sign-up or in their settings, as before. **Staff** never see the sign-up form, so they are on until they turn it off in Account & Security: a staff member with no email row in `user_consents` is emailed (`User::wantsMarketingEmails()`). This covers existing staff with no data change.
+- **The terms box** starts unticked, and sign-up is still refused without it.
+
 # Sign-up asks for the terms; promotional emails are opt-in
 
 - **Sign Up** has two boxes under the password: **I agree to the Terms & Conditions**, which is required (the server refuses an account without it: "Agree to the Terms & Conditions to create an account."), and **Send me promotional emails and announcements (optional)**, off unless ticked. "Terms & Conditions" opens them in a dialog over the form (`TermsDialog`), so nothing typed is lost; its **I agree** button ticks the box. The wording is a placeholder, to be replaced with the studio's own before launch (`terms-dialog.tsx`).

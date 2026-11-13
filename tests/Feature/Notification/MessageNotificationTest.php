@@ -154,7 +154,7 @@ it('drops a pool member\'s notification when someone else claims the thread befo
 });
 
 it('tells the client about a staff reply after an hour if unseen, and not before', function (): void {
-    $client = User::factory()->role(Role::Client)->create();
+    $client = User::factory()->role(Role::Client)->create(['marketing_emails_opted_in_at' => now()]);
     $thread = supportThreadFor($client);
     $mara = messagingStaff(Role::Marketing, 'Mara');
     $this->actingAs($mara)->postJson(route('inbox.claim', $thread))->assertOk();
@@ -168,6 +168,45 @@ it('tells the client about a staff reply after an hour if unseen, and not before
 
     expect(notificationBodies($client))->toBe(['Mara sent you a new message.']);
     Notification::assertSentTo($client, MessageWaitingNotification::class, fn (MessageWaitingNotification $mail): bool => $mail->headline === 'Mara sent you a new message.' && $mail->conversationId === $thread->id);
+});
+
+it('emails a client only once they ask for emails, with the bell either way', function (): void {
+    $client = User::factory()->role(Role::Client)->create();
+    $thread = supportThreadFor($client);
+    $mara = messagingStaff(Role::Marketing, 'Mara');
+    $this->actingAs($mara)->postJson(route('inbox.claim', $thread))->assertOk();
+
+    sendAs($this, $mara, $thread, 'Your quote is ready');
+    deliverDue($this, 60);
+
+    expect(notificationBodies($client))->toBe(['Mara sent you a new message.']);
+    Notification::assertNotSentTo($client, MessageWaitingNotification::class);
+
+    $this->actingAs($client)->patch(route('email-preferences.update'), ['marketing_emails' => '1'])->assertSessionHasNoErrors();
+    $this->actingAs($client)->getJson(route('inbox.thread', $thread))->assertOk();
+    sendAs($this, $mara, $thread, 'One more thing');
+    deliverDue($this, 60);
+
+    Notification::assertSentToTimes($client, MessageWaitingNotification::class, 1);
+});
+
+it('emails staff until they turn emails off, and not after', function (): void {
+    $client = User::factory()->role(Role::Client)->create(['name' => 'Carla']);
+    $thread = supportThreadFor($client);
+    $mara = messagingStaff(Role::Marketing, 'Mara');
+    $mike = messagingStaff(Role::Marketing, 'Mike');
+
+    // Never asked at sign-up, so on until they say otherwise.
+    expect($mara->wantsMarketingEmails())->toBeTrue();
+    $this->actingAs($mike)->patch(route('email-preferences.update'), ['marketing_emails' => '0'])->assertSessionHasNoErrors();
+    expect($mike->wantsMarketingEmails())->toBeFalse();
+
+    sendAs($this, $client, $thread, 'Hi');
+    deliverDue($this, 3);
+
+    expect(notificationBodies($mike))->toBe(['Carla sent a new message.']);
+    Notification::assertSentTo($mara, MessageWaitingNotification::class);
+    Notification::assertNotSentTo($mike, MessageWaitingNotification::class);
 });
 
 it('queues the delivery for the due time', function (): void {

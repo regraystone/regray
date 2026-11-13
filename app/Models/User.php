@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ConsentType;
 use App\Enums\InquiryStatus;
 use App\Enums\Role;
 use App\Notifications\QueuedResetPassword;
@@ -82,12 +83,29 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Whether the user has asked for promotional emails and announcements.
-     * Off unless they ticked it: at sign-up or in their own settings.
+     * Whether the user wants emails from Regray: message notifications,
+     * updates and announcements. Emails about the account itself (verifying
+     * the address, resetting the password) are sent regardless.
+     *
+     * A client is off unless they ticked it, at sign-up or in their settings.
+     * Staff never see the sign-up form, so they are on until they turn it off
+     * in their settings: one who has never chosen has no email row in
+     * `user_consents`.
      */
     public function wantsMarketingEmails(): bool
     {
-        return $this->marketing_emails_opted_in_at !== null;
+        if ($this->marketing_emails_opted_in_at !== null) {
+            return true;
+        }
+
+        return ! $this->isClient()
+            && ! $this->consents()->where('type', ConsentType::MarketingEmails)->exists();
+    }
+
+    /** Whether a message notification may also be emailed: a verified address that wants emails. */
+    public function receivesMessageEmails(): bool
+    {
+        return $this->email_verified_at !== null && $this->wantsMarketingEmails();
     }
 
     /** @return HasMany<UserConsent, $this> */

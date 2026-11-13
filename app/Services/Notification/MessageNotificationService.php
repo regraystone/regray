@@ -35,7 +35,9 @@ use Illuminate\Support\Facades\DB;
  * - any other conversation (a direct chat, a group bound to no inquiry): to
  *   its other members.
  * Never the sender, never a member who muted the thread, and never the owner
- * or the admin, who get no message notifications.
+ * or the admin, who get no message notifications. Anyone who does not want
+ * emails from Regray (User::receivesMessageEmails(): a client unless they
+ * ticked it, staff once they turned it off) gets the bell only.
  *
  * One open timer per recipient and thread (`pending_notifications`): later
  * messages add nothing until the recipient opens the thread (closeFor()),
@@ -127,7 +129,8 @@ class MessageNotificationService
             $body = $this->copyFor($user, $conversation, $sender);
             $this->notifications->send([$user], NotificationType::Message, $conversation->id, $body);
 
-            if ($user->email_verified_at !== null) {
+            // The bell always; the email only to whoever may be emailed.
+            if ($user->receivesMessageEmails()) {
                 $user->notify(new MessageWaitingNotification($body, $conversation->id));
             }
 
