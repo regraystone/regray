@@ -44,7 +44,8 @@ export type { InquiryStatus, PaymentStatus, ProcessStatus, SalesStatus };
 /**
  * An inquiry as the `inquiry_card` message announced it: the project it is,
  * and the snapshot the card was posted for. `status` is the inquiry's display
- * status now, which can have moved on since.
+ * status now, which can have moved on since; null for a viewer who may not view
+ * the inquiry (a support-pool member it is not visible to).
  */
 export type InquiryCard = {
     reference: string;
@@ -60,7 +61,7 @@ export type InquiryCard = {
     announcedSalesStatus: SalesStatus | null;
     announcedPaymentStatus: PaymentStatus | null;
     announcedProcessStatus: ProcessStatus | null;
-    status: InquiryStatus;
+    status: InquiryStatus | null;
     occurredAt: string;
 };
 

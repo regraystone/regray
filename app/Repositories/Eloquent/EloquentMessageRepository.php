@@ -28,7 +28,8 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         'systemUser:id,name',
         'replyTo:id,conversation_id,sender_id,type,body,deleted_at',
         'replyTo.sender:id,name',
-        'inquiry:id,reference,lead_id,marketing_status,name,location,stone_advice_requested,sales_status,payment_status,process_status',
+        // client_id and created_by: what InquiryPolicy::view() reads to show the card's status now.
+        'inquiry:id,reference,client_id,created_by,lead_id,marketing_status,name,location,stone_advice_requested,sales_status,payment_status,process_status',
         'inquiry.stones:id,inquiry_id,stone_id,sort_order',
         'inquiry.stones.stone:id,slug,name,thumbnail_path',
         'inquiry.files:id,inquiry_id,document_type,deleted_at',

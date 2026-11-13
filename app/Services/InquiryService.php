@@ -403,7 +403,8 @@ class InquiryService
         $this->fileUploads->authorize($client, DocumentType::ClientAttachment, $inquiry);
 
         $disk = config('inquiry.disk');
-        $extension = strtolower($file->getClientOriginalExtension());
+        // From the bytes, not the name: a PDF sent as `x.html` is stored as `.pdf`.
+        $extension = strtolower((string) $file->guessExtension());
         $name = Str::uuid()->toString().($extension === '' ? '' : '.'.$extension);
 
         $path = Storage::disk($disk)->putFileAs("inquiries/{$inquiry->reference}", $file, $name);
