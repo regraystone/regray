@@ -74,7 +74,7 @@ class MessageResource extends JsonResource
                 'isRemoved' => $this->replyTo->trashed(),
             ],
             'inquiryCard' => $this->type === MessageType::InquiryCard && $this->inquiry !== null
-                ? (new InquiryCardResource($this->resource))->resolve($request)
+                ? (new InquiryCardResource($this->resource, $this->viewer))->resolve($request)
                 : null,
             'scheduleCard' => $this->type === MessageType::ScheduleCard && $this->mayReadSchedule()
                 ? (new ScheduleCardResource($this->resource))->resolve($request)

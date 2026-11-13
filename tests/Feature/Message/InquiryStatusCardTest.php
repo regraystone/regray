@@ -140,6 +140,28 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
     expect(collect($list)->firstWhere('id', $thread->id)['preview'])->toBe("New Inquiry · {$reference}");
 });
 
+it('keeps the inquiry\'s status now from a support-pool member who may not view the inquiry', function (): void {
+    $client = inquiryClient();
+    $inquiry = makeInquiry($client, [], ['reference' => 'INQ-P2', 'status' => InquiryStatus::Production]);
+    $thread = supportThreadFor($client);
+    app(MessageRepositoryInterface::class)->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Pending, null, null, null);
+    $pool = inquiryClient(Role::Marketing);
+
+    // The unclaimed thread is open to the pool, but this inquiry is not theirs to read.
+    expect($inquiry->isVisibleTo($pool))->toBeFalse();
+
+    $card = $this->actingAs($pool)->getJson(route('inbox.thread', $thread))
+        ->assertOk()
+        ->json('messages.0.inquiryCard');
+
+    expect($card['reference'])->toBe('INQ-P2')
+        ->and($card['announcedStatus'])->toBe('pending')
+        ->and($card['status'])->toBeNull();
+
+    $this->actingAs($client)->getJson(route('inbox.thread', $thread))
+        ->assertJsonPath('messages.0.inquiryCard.status', 'production');
+});
+
 it('sends the snapshot the card was posted for, not the inquiry as it is now, and previews it by its display status', function (): void {
     $client = inquiryClient();
     $inquiry = makeInquiry($client, ['name' => 'Kitchen island'], ['reference' => 'INQ-P1', 'status' => InquiryStatus::Production, 'payment_status' => PaymentStatus::Partial]);
