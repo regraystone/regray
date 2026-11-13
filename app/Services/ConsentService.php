@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * The terms a user agreed to and whether they want promotional emails.
+ * The terms a user agreed to and whether they want emails from Regray
+ * (User::wantsMarketingEmails(), which is on for staff until they say no).
  *
  * Each change writes the user's columns, which say where they stand now, and
  * a `user_consents` row, which is the record of when and from where it was

@@ -231,8 +231,7 @@ export default function Register({ termsVersion }: { termsVersion: string }) {
                             htmlFor="marketing_emails"
                             className="text-sm text-secondary-foreground"
                         >
-                            Send me promotional emails and announcements
-                            (optional)
+                            Email me about new messages and updates (optional)
                         </label>
                     </div>
                 </div>
