@@ -50,6 +50,31 @@ export const ATTACHMENT_MIME_TYPES = [
     'image/jpeg',
 ];
 
+/** Which files an upload field takes, and how its hint names them. */
+export type AcceptedFileTypes = {
+    extensions: string[];
+    mimeTypes: string[];
+    label: string;
+};
+
+/** What a client may attach to an inquiry (`inquiry.limits.file_extensions`). */
+export const CLIENT_ATTACHMENT_TYPES: AcceptedFileTypes = {
+    extensions: ATTACHMENT_EXTENSIONS,
+    mimeTypes: ATTACHMENT_MIME_TYPES,
+    label: 'PDF, PNG, JPG or JPEG',
+};
+
+/**
+ * What staff may upload as a document (quotation, job order, billing
+ * statement, receipt, invoice, refund forms): PDF only, as
+ * UpdateInquiryStatusRequest and UploadJobOrderRequest check.
+ */
+export const STAFF_DOCUMENT_TYPES: AcceptedFileTypes = {
+    extensions: ['pdf'],
+    mimeTypes: ['application/pdf'],
+    label: 'PDF',
+};
+
 /**
  * How many projects one inquiry may hold. A client who wants another project
  * sends another inquiry. The backend holds the same number in config/inquiry.php.

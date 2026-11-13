@@ -27,6 +27,10 @@ return [
         // PATCH quote/{reference} and quote/{reference}/cancel.
         'inquiry-edit' => (int) env('RATE_LIMIT_INQUIRY_EDIT', 10),
 
+        // GET inquiry/{reference}/files/{storedName}: a preview checks the file
+        // with HEAD and then opens it, so each one is two requests.
+        'inquiry-files' => (int) env('RATE_LIMIT_INQUIRY_FILES', 120),
+
         // POST schedule/book.
         'booking' => (int) env('RATE_LIMIT_BOOKING', 10),
 

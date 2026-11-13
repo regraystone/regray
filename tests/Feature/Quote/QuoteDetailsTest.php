@@ -10,6 +10,7 @@ use App\Models\DetailField;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\InquiryFile;
 use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
@@ -33,7 +34,7 @@ function detailedInquiry(mixed $test): Inquiry
     $inquiry->update(['notes' => 'Ground floor']);
     $inquiry->detailAnswers()->create(DetailField::query()->with('options')->where('slug', 'area_sqm')->firstOrFail()->answerAttributes('12.5'));
     app(ScheduleService::class)->createForInquiry($inquiry, $test->client, '2030-01-02', '09:30');
-    $inquiry->files()->create(['document_type' => DocumentType::ClientAttachment, 'disk' => 'local', 'path' => 'inquiries/INQ-D1/secret-path.pdf', 'original_name' => 'plan.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048, 'sha256' => str_repeat('a', 64), 'uploaded_by' => $test->client->id]);
+    $inquiry->files()->create(['document_type' => DocumentType::ClientAttachment, 'disk' => 'local', 'path' => 'inquiries/INQ-D1/0b9f1c2e-plan-stored.pdf', 'stored_name' => '0b9f1c2e-plan-stored.pdf', 'original_name' => 'plan.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048, 'sha256' => str_repeat('a', 64), 'uploaded_by' => $test->client->id]);
     addInquiryFile($inquiry, DocumentType::Quotation, revision: 1);
     addInquiryFile($inquiry, DocumentType::JobOrder);
     addInquiryFile($inquiry, DocumentType::Receipt);
@@ -84,7 +85,16 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
         ])
         // The client's own attachment only: the quotation is staff's.
         ->and($project['requirements']['attachments'])->toBe([
-            ['id' => 'file-1', 'name' => 'plan.pdf', 'sizeBytes' => 2048, 'mimeType' => 'application/pdf'],
+            [
+                'id' => 'file-1',
+                'name' => 'plan.pdf',
+                'sizeBytes' => 2048,
+                'mimeType' => 'application/pdf',
+                'url' => route('inquiry.files.show', ['INQ-D1', '0b9f1c2e-plan-stored.pdf'], absolute: false),
+                'previewable' => true,
+                'uploadedAt' => InquiryFile::query()->where('stored_name', '0b9f1c2e-plan-stored.pdf')->firstOrFail()->created_at->toIso8601String(),
+                'format' => 'PDF',
+            ],
         ]);
 });
 
@@ -144,7 +154,7 @@ it('shares quotations and payment receipts with the client, never the job order 
         ->and($documents[0]['files'][0])->toMatchArray(['id' => 'document-1', 'type' => 'quotation', 'name' => 'quotation.pdf', 'mimeType' => 'application/pdf'])
         ->and($documents[1]['revision'])->toBeNull()
         ->and(array_keys($documents[0]))->toBe(['id', 'status', 'revision', 'at', 'files'])
-        ->and(array_keys($documents[0]['files'][0]))->toBe(['id', 'type', 'name', 'sizeBytes', 'mimeType']);
+        ->and(array_keys($documents[0]['files'][0]))->toBe(['id', 'type', 'name', 'sizeBytes', 'mimeType', 'url', 'previewable', 'uploadedAt', 'format']);
 });
 
 it('sends each assigned staff member as a name and a role label, and nothing else', function (): void {
@@ -162,7 +172,7 @@ it('carries nothing a client should not see', function (): void {
 
     $json = json_encode($this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))->viewData('page')['props']['inquiry']);
 
-    foreach (['client_id', 'changed_by', 'handler', 'secret-path', 'inquiries\/INQ', 'sha256', 'uploaded_by', '"disk"', '"path"', 'job_order'] as $forbidden) {
+    foreach (['client_id', 'changed_by', 'handler', 'inquiries\/INQ', 'sha256', str_repeat('a', 64), 'stored_name', 'uploaded_by', '"disk"', '"path"', 'job_order'] as $forbidden) {
         expect($json)->not->toContain($forbidden);
     }
 });

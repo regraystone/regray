@@ -18,6 +18,7 @@ use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Notification\NotificationController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
+use App\Http\Controllers\Quote\InquiryFileController;
 use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
@@ -308,6 +309,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('inquiry/{reference}', [InquiryDetailsController::class, 'show'])
             ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
             ->name('inquiry.show');
+        // One of the inquiry's files, for whoever may open the inquiry above.
+        Route::get('inquiry/{reference}/files/{storedName}', [InquiryFileController::class, 'show'])
+            ->where('storedName', '[A-Za-z0-9._-]+')
+            ->middleware([Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView), 'throttle:inquiry-files'])
+            ->name('inquiry.files.show');
 
         Route::get('schedule', [ViewController::class, 'schedule'])
             ->middleware(Permission::ScheduleView->middleware())

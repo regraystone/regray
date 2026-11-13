@@ -17,6 +17,7 @@ use App\Models\DetailField;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\Message;
@@ -32,6 +33,7 @@ use Database\Seeders\ServiceSeeder;
 use Database\Seeders\ServiceStoneTypeSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /*
@@ -338,14 +340,20 @@ function showInquiryAs(Inquiry $inquiry, InquiryStatus $status): Inquiry
     return $inquiry;
 }
 
-/** A file row on the inquiry, written straight to the database. Nothing is put on a disk. */
-function addInquiryFile(Inquiry $inquiry, DocumentType $type, ?User $uploader = null, ?int $revision = null): void
+/**
+ * A file row on the inquiry, written straight to the database under a
+ * generated stored name, as an upload is. Nothing is put on a disk.
+ */
+function addInquiryFile(Inquiry $inquiry, DocumentType $type, ?User $uploader = null, ?int $revision = null): InquiryFile
 {
-    $inquiry->files()->create([
+    $storedName = Str::uuid()->toString().'.pdf';
+
+    return $inquiry->files()->create([
         'document_type' => $type,
         'revision' => $revision,
         'disk' => 'local',
-        'path' => "inquiries/{$inquiry->reference}/{$type->value}.pdf",
+        'path' => "inquiries/{$inquiry->reference}/{$storedName}",
+        'stored_name' => $storedName,
         'original_name' => "{$type->value}.pdf",
         'mime_type' => 'application/pdf',
         'size_bytes' => 1024,

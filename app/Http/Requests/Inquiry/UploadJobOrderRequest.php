@@ -24,7 +24,8 @@ class UploadJobOrderRequest extends FormRequest
             'note' => ['required', 'string', 'max:'.InquiryStatusRules::NOTE_MAX_LENGTH],
             'files' => ['required', 'array:job_order'],
             'files.job_order' => ['required', 'array', 'size:1'],
-            'files.job_order.*' => ['file', 'mimes:'.implode(',', $limits['file_extensions']), 'max:'.$limits['file_kilobytes']],
+            // Staff documents are PDF only, whatever a client may attach.
+            'files.job_order.*' => ['file', 'mimes:pdf', 'max:'.$limits['file_kilobytes']],
         ];
     }
 
@@ -36,6 +37,7 @@ class UploadJobOrderRequest extends FormRequest
             'files.required' => 'Add the job order.',
             'files.job_order.required' => 'Add the job order.',
             'files.job_order.size' => 'Add one job order.',
+            'files.job_order.*.mimes' => 'The job order must be a PDF.',
         ];
     }
 

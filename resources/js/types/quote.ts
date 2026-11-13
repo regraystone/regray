@@ -33,6 +33,25 @@ export type QuotePageProps = {
     statusOptions: string[];
 };
 
+/**
+ * One stored file on the details page: a client attachment or a document the
+ * team shared. `url` previews it; with `?download=1` it is saved instead.
+ */
+export type StoredInquiryFile = {
+    id: string;
+    /** The uploader's own file name, for display only. */
+    name: string;
+    sizeBytes: number;
+    mimeType: string;
+    url: string;
+    /** Whether the browser may show it in a tab; otherwise it is download-only. */
+    previewable: boolean;
+    /** When the file was uploaded, not when its status update was. */
+    uploadedAt: string;
+    /** Such as "PDF" or "JPG". */
+    format: string;
+};
+
 /** One inquiry on the details page, as `InquiryDetailsResource` sends it. */
 export type QuoteInquiryDetails = {
     reference: string;
@@ -71,7 +90,8 @@ export type QuoteInquiryDetails = {
     /**
      * The documents the team has shared, one group per status update, oldest
      * first: each quotation, the billing statement, and each payment's
-     * receipts and invoice. The job order is internal and never sent.
+     * receipts and invoice. Staff are also sent the job order, which is
+     * internal and never sent to the client.
      */
     documents: Array<{
         id: string;
@@ -79,13 +99,7 @@ export type QuoteInquiryDetails = {
         status: string | null;
         revision: number | null;
         at: string;
-        files: Array<{
-            id: string;
-            type: SharedDocumentType;
-            name: string;
-            sizeBytes: number;
-            mimeType: string;
-        }>;
+        files: Array<StoredInquiryFile & { type: SharedDocumentType }>;
     }>;
     /**
      * The staff handling the inquiry now, first assigned first, then by name.
@@ -129,12 +143,7 @@ export type QuoteInquiryDetails = {
             location: string | null;
             neededBy: string | null;
             notes: string | null;
-            attachments: Array<{
-                id: string;
-                name: string;
-                sizeBytes: number;
-                mimeType: string;
-            }>;
+            attachments: StoredInquiryFile[];
         };
     };
 };

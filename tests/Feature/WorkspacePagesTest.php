@@ -180,6 +180,8 @@ test('guards every route with exactly these permissions', function () {
         'inquiry.edit' => $p(Permission::InquiriesEdit),
         'inquiry.update' => $p(Permission::InquiriesEdit),
         'inquiry.show' => $p(Permission::InquiriesView, Permission::QuotationsView),
+        // An inquiry's files, for whoever may open its details page.
+        'inquiry.files.show' => $p(Permission::InquiriesView, Permission::QuotationsView),
         // The track's own permission is the policy's to check.
         'inquiries.status' => $p(Permission::InquiriesView),
         'inquiries.job-order' => $p(Permission::InquiriesView),
@@ -232,7 +234,7 @@ test('guards every route with exactly these permissions', function () {
         ->toEqual($expected);
 });
 
-test('lets only the two details pages open on either of two permissions', function () {
+test('lets only the two details pages, and the inquiry\'s files, open on either of two permissions', function () {
     // `can_any` widens a guard, so every route that takes it is named here.
     $alternatives = pageRoutes()
         ->filter(fn (RoutingRoute $route) => collect(permissionGuardsFor($route->getName()))->contains('alternatives', true))
@@ -241,7 +243,7 @@ test('lets only the two details pages open on either of two permissions', functi
         ->values()
         ->all();
 
-    expect($alternatives)->toBe(['home.show', 'inquiry.show']);
+    expect($alternatives)->toBe(['home.show', 'inquiry.files.show', 'inquiry.show']);
 });
 
 test('opens to each role exactly the pages its matrix entry grants', function (string $role) {

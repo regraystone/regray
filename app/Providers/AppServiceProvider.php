@@ -70,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
         'notifications',
         'inquiry-submit',
         'inquiry-edit',
+        'inquiry-files',
         'booking',
         'saved-stone',
         'group-create',
@@ -214,6 +215,8 @@ class AppServiceProvider extends ServiceProvider
      * - `inquiry-submit` and `inquiry-edit`: sending, editing and cancelling
      *   an inquiry, each of which writes files and visits. Both inquiry doors
      *   share one count.
+     * - `inquiry-files`: previewing and downloading an inquiry's files, each
+     *   preview a HEAD and a GET; only a script walking the files reaches it.
      * - `booking`: Book an appointment.
      * - `saved-stone`: the heart on a stone card. A person taps through a
      *   feed; only a script reaches this.

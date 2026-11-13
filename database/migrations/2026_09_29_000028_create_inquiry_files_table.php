@@ -23,6 +23,10 @@ use Illuminate\Support\Facades\Schema;
  *
  * Who may upload which is the app's rule (App\Policies\InquiryFileUploads),
  * not the database's.
+ *
+ * `stored_name` is the generated name the file has on the disk (the last part
+ * of `path`), and the key the file is served by: the uploader's name stays in
+ * `original_name` and never reaches a path or a URL.
  */
 return new class extends Migration
 {
@@ -36,6 +40,7 @@ return new class extends Migration
             $table->smallInteger('revision')->nullable();
             $table->string('disk', 30);
             $table->string('path', 255);
+            $table->string('stored_name', 100);
             $table->string('original_name', 255);
             $table->string('mime_type', 100);
             $table->bigInteger('size_bytes');
@@ -46,6 +51,7 @@ return new class extends Migration
 
             $table->index(['inquiry_id', 'document_type']);
             $table->index('status_history_id');
+            $table->unique(['inquiry_id', 'stored_name']);
         });
 
         DB::statement("ALTER TABLE inquiry_files ADD CONSTRAINT chk_inquiry_files_document_type CHECK (document_type IN ('client_attachment','quotation','job_order','billing_statement','receipt','invoice','refund_request','refund_settlement'))");
