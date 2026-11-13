@@ -85,6 +85,7 @@ function schemaFile(int $inquiryId, ?string $documentType, ?int $revision = null
         'revision' => $revision,
         'disk' => 'local',
         'path' => 'inquiries/x.pdf',
+        'stored_name' => 'x.pdf',
         'original_name' => 'x.pdf',
         'mime_type' => 'application/pdf',
         'size_bytes' => 10,

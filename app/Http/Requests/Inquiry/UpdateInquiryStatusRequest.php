@@ -35,7 +35,8 @@ class UpdateInquiryStatusRequest extends FormRequest
             'note' => ['required', 'string', 'max:'.InquiryStatusRules::NOTE_MAX_LENGTH],
             'files' => ['nullable', 'array:'.implode(',', $staffDocuments)],
             'files.*' => ['array', 'max:'.$limits['files']],
-            'files.*.*' => ['file', 'mimes:'.implode(',', $limits['file_extensions']), 'max:'.$limits['file_kilobytes']],
+            // Staff documents are PDF only, whatever a client may attach.
+            'files.*.*' => ['file', 'mimes:pdf', 'max:'.$limits['file_kilobytes']],
             InquiryStatusRules::QUOTED_TOTAL => ['nullable', 'numeric', 'gt:0', 'max:9999999999.99'],
             InquiryStatusRules::AMOUNT_RECEIVED => ['nullable', 'numeric', 'gt:0', 'max:9999999999.99'],
             InquiryStatusRules::CONTRACT_TOTAL => ['nullable', 'numeric', 'gt:0', 'max:9999999999.99'],
@@ -50,6 +51,7 @@ class UpdateInquiryStatusRequest extends FormRequest
             'note.required' => 'Add a note explaining this change.',
             'note.max' => 'Keep the note to 500 characters.',
             'to.required' => 'Choose the status to move to.',
+            'files.*.*.mimes' => 'Documents must be PDFs.',
         ];
     }
 

@@ -9,6 +9,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
 use App\Models\Inquiry;
+use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
 use App\Models\User;
 use App\Policies\InquiryFileUploads;
@@ -17,7 +18,6 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -296,9 +296,7 @@ class InquiryStatusUpdateService
         $this->fileUploads->authorize($by, $type, $inquiry);
 
         $disk = config('inquiry.disk');
-        // From the bytes, not the name: a PDF sent as `x.html` is stored as `.pdf`.
-        $extension = strtolower((string) $file->guessExtension());
-        $name = Str::uuid()->toString().($extension === '' ? '' : '.'.$extension);
+        $name = InquiryFile::storedNameFor($file);
         $path = Storage::disk($disk)->putFileAs("inquiries/{$inquiry->reference}", $file, $name);
 
         if ($path === false) {
@@ -313,6 +311,7 @@ class InquiryStatusUpdateService
             'revision' => $type === DocumentType::Quotation ? $inquiry->quote_revision : null,
             'disk' => $disk,
             'path' => $path,
+            'stored_name' => $name,
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType() ?? 'application/octet-stream',
             'size_bytes' => $file->getSize(),

@@ -16,6 +16,7 @@ use App\Events\InquiryStatusChanged;
 use App\Events\InquirySubmitted;
 use App\Models\Client;
 use App\Models\Inquiry;
+use App\Models\InquiryFile;
 use App\Models\Lead;
 use App\Models\User;
 use App\Policies\InquiryActions;
@@ -27,7 +28,6 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -403,9 +403,7 @@ class InquiryService
         $this->fileUploads->authorize($client, DocumentType::ClientAttachment, $inquiry);
 
         $disk = config('inquiry.disk');
-        // From the bytes, not the name: a PDF sent as `x.html` is stored as `.pdf`.
-        $extension = strtolower((string) $file->guessExtension());
-        $name = Str::uuid()->toString().($extension === '' ? '' : '.'.$extension);
+        $name = InquiryFile::storedNameFor($file);
 
         $path = Storage::disk($disk)->putFileAs("inquiries/{$inquiry->reference}", $file, $name);
 
@@ -419,6 +417,7 @@ class InquiryService
             'document_type' => DocumentType::ClientAttachment,
             'disk' => $disk,
             'path' => $path,
+            'stored_name' => $name,
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType() ?? 'application/octet-stream',
             'size_bytes' => $file->getSize(),

@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import FileUpload from '@/components/file-upload';
+import { STAFF_DOCUMENT_TYPES } from '@/lib/inquiry-schema';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -307,6 +308,7 @@ const StatusUpdateDialog = ({
                                                             ? undefined
                                                             : 1
                                                     }
+                                                    types={STAFF_DOCUMENT_TYPES}
                                                     onFilesChange={(next) =>
                                                         setFiles(
                                                             (currentFiles) => ({

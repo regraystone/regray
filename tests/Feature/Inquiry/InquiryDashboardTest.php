@@ -169,6 +169,7 @@ describe('Update Status', function (): void {
         'no note' => ['note', ['note' => '']],
         'no quotation' => ['files.quotation', ['files' => []]],
         'a job order with the quote' => ['files.job_order', ['files' => ['quotation' => [pdf('quote.pdf')], 'job_order' => [pdf('jo.pdf')]]]],
+        'a quotation that is not a PDF' => ['files.quotation.0', ['files' => ['quotation' => [UploadedFile::fake()->image('quote.png')]]]],
         'no quoted total' => ['quotedTotal', ['quotedTotal' => null]],
         'a revision before any quote' => ['to', ['to' => 'revision']],
         'won before any quote' => ['to', ['to' => 'won', 'quotedTotal' => null, 'files' => []]],
@@ -230,6 +231,11 @@ describe('Update Status', function (): void {
 
         $this->actingAs($this->sales)->postJson(route('inquiries.job-order', 'INQ-S1'), ['note' => 'Again.', 'files' => ['job_order' => [pdf('jo2.pdf')]]])
             ->assertJsonValidationErrors(['files.job_order' => 'The job order is already in.']);
+    });
+
+    it('takes the job order as a PDF only', function (): void {
+        $this->actingAs($this->sales)->postJson(route('inquiries.job-order', 'INQ-S1'), ['note' => 'Job order in.', 'files' => ['job_order' => [UploadedFile::fake()->image('jo.png')]]])
+            ->assertJsonValidationErrors(['files.job_order.0' => 'The job order must be a PDF.']);
     });
 
     it('refuses the job order on its own before the client has approved the quotation', function (): void {

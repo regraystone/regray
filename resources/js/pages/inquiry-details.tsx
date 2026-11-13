@@ -1,17 +1,12 @@
 import { Link, usePage } from '@inertiajs/react';
-import {
-    ArrowLeft,
-    FileText,
-    Image as ImageIcon,
-    MessageCircle,
-} from 'lucide-react';
-import { formatSize } from '@/components/file-upload';
+import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { InquiryFileRow } from '@/components/inquiry-file-row';
 import { formatDate } from '@/lib/format-date';
 import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { InquiryFile, InquiryRequirementsRecord } from '@/data/inquiries';
+import type { InquiryRequirementsRecord } from '@/data/inquiries';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
 import {
@@ -26,7 +21,7 @@ import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
 import { index as quoteIndex } from '@/routes/quote';
 import { DELIVERY_METHODS, PICKUP } from '@/lib/inquiry-flow';
-import type { QuoteInquiryDetails } from '@/types/quote';
+import type { QuoteInquiryDetails, StoredInquiryFile } from '@/types/quote';
 
 type InquiryDetailsProps = {
     inquiry: QuoteInquiryDetails;
@@ -64,7 +59,9 @@ type ResolvedProject = {
     /** The project-scope answers, labelled and worded by the server. */
     answers: Array<{ label: string; value: string }>;
     /** Application names, on inquiries sent while the client was asked for them. */
-    requirements: InquiryRequirementsRecord;
+    requirements: Omit<InquiryRequirementsRecord, 'attachments'> & {
+        attachments: StoredInquiryFile[];
+    };
 };
 
 /** Pieces rather than types: how much was asked for, not how many kinds of it. */
@@ -394,10 +391,8 @@ const PaymentRecordsCard = ({ payments }: { payments: PaymentRecord[] }) => (
 /**
  * The documents the team has shared with the client: the quotation, with its
  * revision (sales and the admin see every revision, everyone else only the
- * latest), and each
- * payment receipt, newest first. The job order is internal
- * and never reaches the page. Name, size and date only: there is no download
- * endpoint yet, so nothing here pretends to open a file.
+ * latest), and each payment receipt, newest first. Staff also see the job
+ * order, which never reaches the client. Each can be previewed or downloaded.
  */
 const DocumentsCard = ({ documents }: { documents: SharedDocument[] }) => (
     <section
@@ -436,43 +431,15 @@ const DocumentsCard = ({ documents }: { documents: SharedDocument[] }) => (
                                 )}{' '}
                                 · {formatDate(group.at)}
                             </p>
-                            <ul className="mt-2 space-y-2">
+                            <ul className="mt-2 space-y-4">
                                 {group.files.map((file) => (
-                                    <li
+                                    <InquiryFileRow
                                         key={file.id}
-                                        className="flex items-start gap-3"
-                                    >
-                                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
-                                            {file.mimeType ===
-                                            'application/pdf' ? (
-                                                <FileText
-                                                    className="size-4"
-                                                    aria-hidden
-                                                />
-                                            ) : (
-                                                <ImageIcon
-                                                    className="size-4"
-                                                    aria-hidden
-                                                />
-                                            )}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm">
-                                                {
-                                                    DOCUMENT_TYPE_LABELS[
-                                                        file.type
-                                                    ]
-                                                }
-                                            </p>
-                                            <p
-                                                className="truncate text-xs text-secondary-foreground"
-                                                title={file.name}
-                                            >
-                                                {file.name} ·{' '}
-                                                {formatSize(file.sizeBytes)}
-                                            </p>
-                                        </div>
-                                    </li>
+                                        file={file}
+                                        heading={
+                                            DOCUMENT_TYPE_LABELS[file.type]
+                                        }
+                                    />
                                 ))}
                             </ul>
                         </li>
@@ -520,46 +487,6 @@ const SectionLabel = ({
         )}
     </h3>
 );
-
-/**
- * One file the project arrived with.
- *
- * Name, size and type, and nothing else: there is no upload endpoint yet, so
- * there is no stored copy to download or preview and no control that could
- * pretend otherwise.
- */
-const FileRow = ({ file }: { file: InquiryFile }) => {
-    const isPdf = file.mimeType === 'application/pdf';
-
-    return (
-        <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
-                {isPdf ? (
-                    <FileText className="size-4" aria-hidden />
-                ) : (
-                    <ImageIcon className="size-4" aria-hidden />
-                )}
-            </span>
-            <span className="min-w-0 flex-1">
-                {/*
-                 * Truncated rather than wrapped: these are file names, and a name
-                 * broken across lines stops looking like a name. The full one is
-                 * kept in `title` for the pointer.
-                 */}
-                <span
-                    className="block truncate text-sm font-bold"
-                    title={file.name}
-                >
-                    {file.name}
-                </span>
-                <span className="block text-xs text-secondary-foreground">
-                    {formatSize(file.sizeBytes)}
-                </span>
-            </span>
-            <span className="sr-only">{isPdf ? 'PDF' : 'Image'}</span>
-        </li>
-    );
-};
 
 /**
  * The project, whole: services, stones and requirements in one section,
@@ -754,12 +681,13 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                             <>
                                 <ul className="mt-3 divide-y divide-dashed divide-sidebar-border">
                                     {files.map((file) => (
-                                        <FileRow key={file.id} file={file} />
+                                        <InquiryFileRow
+                                            key={file.id}
+                                            file={file}
+                                            className="py-3 first:pt-0 last:pb-0"
+                                        />
                                     ))}
                                 </ul>
-                                <p className="mt-3 text-xs text-secondary-foreground">
-                                    Files are not stored in this preview.
-                                </p>
                             </>
                         ) : (
                             <p className="mt-2 text-sm text-secondary-foreground">
@@ -780,12 +708,12 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 /** The server's nulls are the page's absent answers. */
 const toRequirements = (
     requirements: QuoteInquiryDetails['project']['requirements'],
-): InquiryRequirementsRecord => ({
+): ResolvedProject['requirements'] => ({
     deliveryMethod: requirements.deliveryMethod,
     location: requirements.location ?? undefined,
     neededBy: requirements.neededBy ?? undefined,
     notes: requirements.notes ?? undefined,
-    attachments: requirements.attachments as InquiryFile[],
+    attachments: requirements.attachments,
 });
 
 const InquiryDetails = () => {

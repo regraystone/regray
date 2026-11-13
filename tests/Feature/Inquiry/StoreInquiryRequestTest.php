@@ -48,6 +48,7 @@ dataset('accepted values', [
     'a file of exactly 10 MB' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->create('big.pdf', 10240, 'application/pdf')]]],
     'a png' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.png')]]],
     'a jpeg' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.jpeg')]]],
+    'a jpg' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.jpg')]]],
 ]);
 
 dataset('refused values', [
@@ -73,6 +74,8 @@ dataset('refused values', [
         range(1, 11),
     )], 'projects.0.attachments'],
     'a file over 10 MB' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->create('big.pdf', 10241, 'application/pdf')]], 'projects.0.attachments.0'],
+    // Previewable if one is ever stored, but not taken on upload.
+    'a webp' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->image('site.webp')]], 'projects.0.attachments.0'],
     'an executable' => [fn (array $p): array => [...$p, 'attachments' => [UploadedFile::fake()->create('run.exe', 10, 'application/octet-stream')]], 'projects.0.attachments.0'],
 ]);
 
