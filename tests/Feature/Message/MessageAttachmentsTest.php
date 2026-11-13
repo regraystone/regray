@@ -89,6 +89,19 @@ it('keeps attachments on the private S3 bucket in production and in Laravel stor
     'an explicit override' => ['production', 'local', 'local'],
 ]);
 
+it('names a stored file by what its bytes are, not by the extension it was sent with', function (): void {
+    $disk = Storage::fake(config('messaging.attachments.disk'));
+    $client = inquiryClient();
+    $group = groupConversation([messagingStaff(Role::Sales), $client]);
+
+    sendFiles($client, $group, [UploadedFile::fake()->create('notes.html', 2, 'application/pdf')])->assertCreated();
+
+    $attachment = MessageAttachment::query()->sole();
+    expect($attachment->original_name)->toBe('notes.html')
+        ->and($attachment->path)->toEndWith('.pdf');
+    $disk->assertExists($attachment->path);
+});
+
 it('stores a photo and a PDF on the private disk and returns them with the message', function (): void {
     $disk = Storage::fake(config('messaging.attachments.disk'));
     $client = inquiryClient();

@@ -117,7 +117,8 @@ describe('who may change an appointment', function (): void {
     it('refuses a client acting on another client\'s booking, even with the permission', function (string $action): void {
         $schedule = appointment(inquiryClient());
 
-        changeSchedule($this, inquiryClient(), $action, $schedule)->assertForbidden();
+        // Answered as missing, so a client cannot tell which visit ids are taken.
+        changeSchedule($this, inquiryClient(), $action, $schedule)->assertNotFound();
 
         expect($schedule->fresh()->revision)->toBe(0);
     })->with(['update', 'cancel']);
@@ -367,7 +368,7 @@ describe('the update page', function (): void {
     it('refuses the page to another client and to the roles that cannot update', function (): void {
         $schedule = appointment(inquiryClient());
 
-        $this->actingAs(inquiryClient())->get(route('profile.schedule.edit', $schedule))->assertForbidden();
+        $this->actingAs(inquiryClient())->get(route('profile.schedule.edit', $schedule))->assertNotFound();
         $this->actingAs(inquiryClient(Role::Technical))->get(route('schedule.edit', $schedule))->assertForbidden();
     });
 
