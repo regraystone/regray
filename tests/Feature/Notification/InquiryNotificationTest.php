@@ -11,7 +11,11 @@ use App\Enums\SalesStatus;
 use App\Models\Client;
 use App\Models\Inquiry;
 use App\Models\User;
+use App\Notifications\InquiryReceivedNotification;
 use App\Services\InquiryStatusService;
+use App\Services\Notification\InquiryNotificationService;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
 /*
@@ -170,4 +174,42 @@ it('tells only the staff member, and nobody as a client, about a walk-in\'s inqu
     expect(notificationBodies($this->sales))->toBe(["You have successfully created inquiry {$ref} for Wanda Walk-in."])
         ->and(notificationBodies($this->client))->toBe([])
         ->and(notificationBodies($this->mara))->toBe([]);
+});
+
+it('emails the client a confirmation of their own inquiry, whatever their email box says', function (): void {
+    Notification::fake();
+    expect($this->client->wantsMarketingEmails())->toBeFalse();
+
+    $inquiry = submitInquiry($this, $this->client);
+    $ref = $inquiry->reference;
+
+    Notification::assertSentTo($this->client, InquiryReceivedNotification::class, function (InquiryReceivedNotification $notification) use ($ref): bool {
+        $mail = $notification->toMail($this->client);
+        $body = (string) $mail->render();
+
+        expect($notification)->toBeInstanceOf(ShouldQueue::class)
+            ->and($mail->subject)->toBe("We received your inquiry {$ref}")
+            ->and($mail->actionUrl)->toBe(route('quote.show', $ref))
+            ->and($body)->toContain("Reference: {$ref}", 'Project: Kitchen counters', 'Delivery: to Makati', 'Needed by: '.now('Asia/Manila')->addDays(10)->format('M j, Y'));
+
+        return true;
+    });
+});
+
+it('does not email a confirmation to a client whose address is unverified', function (): void {
+    Notification::fake();
+    $unverified = User::factory()->unverified()->role(Role::Client)->create();
+
+    app(InquiryNotificationService::class)->submitted(makeInquiry($unverified), null);
+
+    Notification::assertNotSentTo($unverified, InquiryReceivedNotification::class);
+});
+
+it('does not email a confirmation for an inquiry staff open for a client', function (): void {
+    Notification::fake();
+    $lead = makeLead($this->client, $this->mara);
+
+    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
+
+    Notification::assertNotSentTo($this->client, InquiryReceivedNotification::class);
 });
