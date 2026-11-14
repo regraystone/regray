@@ -1,3 +1,9 @@
+# A client is emailed when their inquiry's status changes
+
+- **Whenever the bell tells a client their inquiry moved** ("Your inquiry {ref} is now {status}."), they are also emailed (`InquiryStatusUpdatedNotification`, queued): the same moves, so never one that leaves the status they see unchanged (sales won still reads quoted), and never one they made themselves. It says what the status means and what happens next, in the card's groups: **under review** (negotiation, site visited), **approved** (quoted, awaiting payment), **action needed** (on hold, revision, delayed), **processing** (order received through installation, one email per step), payments (partially or fully paid, refunds), **cancelled** and **completed** (closed). Each has a **View your inquiry** button to its Quote page.
+- **Cancelled** says no more work will be done on it, that the team will contact them about any refund, and offers **Send a new inquiry** (the Inquire page). The client's own cancel is emailed too ("You cancelled inquiry {ref}"), beside the bell's "You have successfully cancelled inquiry {ref}.".
+- **Always sent** to a verified address, whatever the email box says, like the confirmation; Account & Security's Email preferences says so. Walk-ins, with no account, are not emailed. Received is the confirmation email below.
+
 # A client's inquiry is confirmed by email
 
 - **When a client sends an inquiry**, they are emailed a confirmation (`InquiryReceivedNotification`, queued) as well as the bell's "You have successfully submitted inquiry {ref}.". Subject **We received your inquiry {ref}**; it gives the reference, the project, the service, the stones (or that they asked us to recommend one), delivery to the location or pickup, and the needed-by date, then says where to follow it (the Quote page, the bell, Messages), with a **View your inquiry** button to its Quote page.
