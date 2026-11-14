@@ -3,6 +3,10 @@
 services:
     # Share local public/private files between PHP processes and preserve uploads.
     app:
+        # Dev packages (Faker for the demo seeders) in the local image only.
+        build:
+            args:
+                COMPOSER_DEV: 'true'
         volumes:
             - ./storage/app:/var/www/html/storage/app
     worker:
@@ -12,5 +16,10 @@ services:
         volumes:
             - ./storage/app:/var/www/html/storage/app
     web:
+        # Must match app's: the web image copies public/build from its own
+        # build of the app stage, and the asset hashes differ with dev packages.
+        build:
+            args:
+                COMPOSER_DEV: 'true'
         volumes:
             - ./storage/app/public:/var/www/html/public/storage:ro
