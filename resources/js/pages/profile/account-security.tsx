@@ -167,7 +167,8 @@ export default function AccountSecurity({
                             <CardDescription>
                                 Choose whether we email you. Emails about your
                                 account itself, such as verifying your address
-                                or resetting your password, are always sent.
+                                or resetting your password, and the confirmation
+                                of an inquiry you send are always sent.
                             </CardDescription>
                         </CardHeader>
 

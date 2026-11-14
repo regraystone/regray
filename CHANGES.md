@@ -1,3 +1,9 @@
+# A client's inquiry is confirmed by email
+
+- **When a client sends an inquiry**, they are emailed a confirmation (`InquiryReceivedNotification`, queued) as well as the bell's "You have successfully submitted inquiry {ref}.". Subject **We received your inquiry {ref}**; it gives the reference, the project, the service, the stones (or that they asked us to recommend one), delivery to the location or pickup, and the needed-by date, then says where to follow it (the Quote page, the bell, Messages), with a **View your inquiry** button to its Quote page.
+- **Always sent**, to a verified address, whatever the email box says: it is a receipt for something the client did, like a password reset. Account & Security's Email preferences says so.
+- **Only for the client's own inquiry:** one staff open for a client, and a walk-in's, are not emailed. Several projects sent together are several inquiries, each with its own email.
+
 # Sign in and sign up with Google
 
 - **Continue with Google**, on Sign In and Sign Up, goes to Google's account chooser and back to `/auth/google/callback` (`GoogleController`, Laravel Socialite). A Google account already connected signs in. Otherwise an account whose email Google has **verified** is recognised, but not signed in to: **Connect your Google account** (`auth/google-confirm`) asks for that account's password once (6 tries a minute), then connects Google, counts the email as verified and signs in. Owning the email at Google is not enough, since somebody may have registered with an address that is not theirs; its owner can use **Forgot password** there instead. An email Google has not verified is never matched. Someone with two-factor authentication on is still asked for their code. Cancelling on Google, an expired request, an unverified email and Google not being set up each come back to Sign In with a message saying so (`socialNotice`).

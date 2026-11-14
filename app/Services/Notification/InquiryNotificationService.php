@@ -13,6 +13,7 @@ use App\Models\Inquiry;
 use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\User;
+use App\Notifications\InquiryReceivedNotification;
 use App\Services\InquiryStatusCalculator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -28,7 +29,8 @@ use Illuminate\Database\Eloquent\Collection;
  *
  * - The client sends, updates or cancels one: the client is sent a
  *   confirmation; its assigned staff are told, or, while it is unclaimed, every
- *   marketing and sales user.
+ *   marketing and sales user. A new one is also confirmed to the client by
+ *   email (InquiryReceivedNotification), whatever their email box says.
  * - Staff open one: the staff member is told, and its client too when it is
  *   for a client account (not for a walk-in).
  * - A status moves: its assigned staff are told the role status that moved,
@@ -52,6 +54,11 @@ class InquiryNotificationService
         if ($createdBy === null) {
             $this->send($client === null ? [] : [$client], $inquiry, "You have successfully submitted inquiry {$reference}.");
             $this->send($this->concerned($inquiry), $inquiry, "{$clientName} has submitted inquiry {$reference}.");
+
+            // A receipt, so it does not wait on the email box: only on an address to send it to.
+            if ($client !== null && $client->email_verified_at !== null) {
+                $client->notify(new InquiryReceivedNotification($inquiry));
+            }
 
             return;
         }
