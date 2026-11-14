@@ -12,6 +12,8 @@ use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Enums\SizeUnit;
+use App\Enums\ThicknessUnit;
 use App\Models\Conversation;
 use App\Models\DetailField;
 use App\Models\EdgeProfile;
@@ -149,7 +151,8 @@ function inquiryStoneRow(string $service = 'slab-supply-only', array $overrides 
     return [
         'stoneId' => $offered ?? Stone::query()->active()->orderBy('id')->value('slug'),
         ...$asked->has(DetailField::QUANTITY) ? ['quantity' => 4] : [],
-        ...$asked->has(DetailField::SLAB_SIZE) ? ['slabSize' => '120 x 60 cm'] : [],
+        ...$asked->has(DetailField::SLAB_SIZE) ? ['slabSize' => '160 x 320 cm'] : [],
+        ...$asked->has(DetailField::THICKNESS) ? ['thickness' => '20 mm'] : [],
         ...$asked->has(DetailField::EDGE_PROFILE) ? ['edge' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name')] : [],
         ...$asked->has(DetailField::FINISH) ? ['finish' => Finish::query()->where('is_active', true)->orderBy('sort_order')->value('name')] : [],
         ...$overrides,
@@ -313,7 +316,8 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
             'edge_profile_id' => $edge,
             'finish_id' => $finish,
             'quantity' => $asked->has(DetailField::QUANTITY) ? 1 : null,
-            'slab_size' => $asked->has(DetailField::SLAB_SIZE) ? '120 x 60 cm' : null,
+            ...$asked->has(DetailField::SLAB_SIZE) ? ['slab_width' => '160', 'slab_length' => '320', 'slab_unit' => SizeUnit::Centimetre] : [],
+            ...$asked->has(DetailField::THICKNESS) ? ['thickness' => '20', 'thickness_unit' => ThicknessUnit::Millimetre] : [],
             'sort_order' => $order,
         ]);
     }

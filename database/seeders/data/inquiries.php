@@ -11,12 +11,15 @@
  * one open lead at a time, and each inquiry names its `lead`.
  *
  * stone_slug is a legacy category reference; InquirySeeder resolves its first
- * individual stone. A stone row's `edge`, `finish` and `slab_size` are written
- * only where the project's service asks for them, as the Inquire page sends
- * them. `answers` are the project's answers to its service's project-scope
- * questions (data/services.php), by question slug, a closed option by its
- * slug; InquirySeeder refuses a required one left out, and one the service
- * does not ask. Every project has a deadline date and time (Manila):
+ * individual stone. A stone row's `edge`, `finish`, `slab_size` (`[width,
+ * length, unit]`) and `thickness` (`[value, unit]`) are written only where the
+ * project's service asks for them, as the Inquire page sends them; the slab
+ * services ask all four, every furniture service asks the project area, and
+ * Countertop and Backsplash asks fascia (yes or no). `answers` are the
+ * project's answers to its service's project-scope questions
+ * (data/services.php), by question slug, a closed option by its slug;
+ * InquirySeeder refuses a required one left out, and one the service does
+ * not ask. Every project has a deadline date and time (Manila):
  * InquirySeeder books it as the inquiry's schedule, the way sending an
  * inquiry does.
  *
@@ -114,7 +117,7 @@ return [
                     ['stone_slug' => 'granite', 'quantity' => 10, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
                 ],
                 'location' => 'Quezon City',
-                'answers' => ['area_sqm' => 3],
+                'answers' => ['area_sqm' => 3, 'fascia' => true],
                 'deadline_date' => '2026-08-20',
                 'deadline_time' => '08:00',
                 'notes' => null,
@@ -224,7 +227,7 @@ return [
                     ['stone_slug' => 'monumental', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'location' => 'San Juan',
-                'answers' => ['seaters' => 8, 'table_base' => 'same-as-stone'],
+                'answers' => ['area_sqm' => 4.5, 'seaters' => 8, 'table_base' => 'same-as-stone'],
                 'deadline_date' => '2026-09-26',
                 'deadline_time' => '13:00',
                 'notes' => null,
@@ -286,7 +289,7 @@ return [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Polished'],
                 ],
                 'location' => 'Pasig',
-                'answers' => ['size' => '220 x 70 cm'],
+                'answers' => ['area_sqm' => 1.5, 'size' => '220 x 70 cm'],
                 'deadline_date' => '2026-10-30',
                 'deadline_time' => '10:00',
                 'notes' => 'The desk front is one slab, so please keep the veining running across the full width.',
@@ -354,7 +357,7 @@ return [
                     ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'location' => 'Makati',
-                'answers' => ['area_sqm' => 18.5],
+                'answers' => ['area_sqm' => 18.5, 'fascia' => false],
                 'deadline_date' => '2026-11-14',
                 'deadline_time' => '10:00',
                 'notes' => "The bar top has to clear the service window by 60 mm.\nPlease keep the seam out of the sight line from the entrance.",
@@ -380,7 +383,7 @@ return [
                     ['stone_slug' => 'quartzite', 'quantity' => 9, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'location' => 'Makati',
-                'answers' => ['size' => '60 x 60 cm'],
+                'answers' => ['area_sqm' => 0.4, 'size' => '60 x 60 cm'],
                 'deadline_date' => '2026-10-24',
                 'deadline_time' => '14:00',
                 'notes' => "Wanted square to the window wall so the joints run with it.\nPlease do the floor before the counters are set.",
@@ -414,7 +417,7 @@ return [
                 'name' => 'Moreau Studio — Kitchen Island',
                 'service' => 'slab-supply-only',
                 'stones' => [
-                    ['stone_slug' => 'marble', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Polished'],
+                    ['stone_slug' => 'marble', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Polished', 'slab_size' => [120, 240, 'cm'], 'thickness' => [20, 'mm']],
                 ],
                 'location' => 'Quezon City',
                 'answers' => [],
@@ -441,7 +444,7 @@ return [
                     ['stone_slug' => 'onyx', 'quantity' => 8, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
                 'location' => 'Taguig',
-                'answers' => ['area_sqm' => 16],
+                'answers' => ['area_sqm' => 16, 'fascia' => true],
                 'deadline_date' => '2026-12-12',
                 'deadline_time' => '10:00',
                 'notes' => 'The wall is backlit, so the onyx needs to be book-matched.',
@@ -549,7 +552,7 @@ return [
                     ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'location' => 'Pasig',
-                'answers' => ['area_sqm' => 2.8],
+                'answers' => ['area_sqm' => 2.8, 'fascia' => false],
                 'deadline_date' => '2026-11-20',
                 'deadline_time' => '10:00',
                 'notes' => null,
@@ -605,7 +608,7 @@ return [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'location' => 'Taguig',
-                'answers' => ['seaters' => 10, 'table_base' => 'steel'],
+                'answers' => ['area_sqm' => 6, 'seaters' => 10, 'table_base' => 'steel'],
                 'deadline_date' => '2026-11-14',
                 'deadline_time' => '10:00',
                 'notes' => 'The top seats twelve; the base is the client\'s own steel frame.',
@@ -634,7 +637,7 @@ return [
                     ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Leather'],
                 ],
                 'location' => 'San Juan',
-                'answers' => ['size' => '180 x 60 cm'],
+                'answers' => ['area_sqm' => 1.1, 'size' => '180 x 60 cm'],
                 'deadline_date' => '2026-11-07',
                 'deadline_time' => '10:00',
                 'notes' => null,
@@ -665,7 +668,7 @@ return [
                     ['stone_slug' => 'travertine', 'quantity' => 10, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
                 'location' => 'Muntinlupa',
-                'answers' => ['size' => '80 x 80 cm'],
+                'answers' => ['area_sqm' => 0.6, 'size' => '80 x 80 cm'],
                 'deadline_date' => '2026-10-31',
                 'deadline_time' => '10:00',
                 'notes' => null,
@@ -695,7 +698,7 @@ return [
                 'name' => 'Brightleaf Studio — Window Sills',
                 'service' => 'slab-supply-only',
                 'stones' => [
-                    ['stone_slug' => 'travertine', 'quantity' => 12, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                    ['stone_slug' => 'travertine', 'quantity' => 12, 'edge' => 'Straight Edge', 'finish' => 'Honed', 'slab_size' => [60, 120, 'cm'], 'thickness' => [18, 'mm']],
                 ],
                 'location' => 'Pasig',
                 'answers' => [],
@@ -731,7 +734,7 @@ return [
                     ['stone_slug' => 'marble', 'quantity' => 18, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
                 'location' => 'Quezon City',
-                'answers' => ['area_sqm' => 7.5],
+                'answers' => ['area_sqm' => 7.5, 'fascia' => true],
                 'deadline_date' => '2026-10-28',
                 'deadline_time' => '10:00',
                 'notes' => null,

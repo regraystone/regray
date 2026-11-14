@@ -23,10 +23,9 @@ use Illuminate\Support\Carbon;
  * @property string $slug
  * @property string $name
  * @property string $thumbnail_path
- * @property string $size
- * @property int $thickness_mm
  * @property bool $is_active
  * @property string $origin
+ * @property string|null $size_note How big the pieces run when the stone is sold without set sizes: "Diameter 15–40 cm".
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -37,8 +36,11 @@ use Illuminate\Support\Carbon;
  * @property-read StoneType $type
  * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, StoneType> $types
+ * @property-read Collection<int, StoneVariant> $variants
+ * @property-read Collection<int, Thickness> $thicknesses
+ * @property-read Collection<int, Size> $sizes
  */
-#[Fillable(['brand_id', 'stone_type_id', 'slug', 'name', 'thumbnail_path', 'size', 'thickness_mm', 'origin', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'stone_type_id', 'slug', 'name', 'thumbnail_path', 'origin', 'size_note', 'is_active', 'sort_order'])]
 class Stone extends Model
 {
     /** @use HasFactory<StoneFactory> */
@@ -114,6 +116,49 @@ class Stone extends Model
     public function types(): BelongsToMany
     {
         return $this->belongsToMany(StoneType::class, 'stone_stone_type');
+    }
+
+    /**
+     * The slabs the stone comes in, each a size at a thickness, in the order
+     * its profile and its Inquire row list them.
+     *
+     * @return HasMany<StoneVariant, $this>
+     */
+    public function variants(): HasMany
+    {
+        return $this->hasMany(StoneVariant::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * The thicknesses some slab of the stone comes in, each once however many
+     * sizes share it: by `sort_order` (its unit), then thinnest first. Count
+     * the rows read, not the query: COUNT(*) counts every slab.
+     *
+     * @return BelongsToMany<Thickness, $this>
+     */
+    public function thicknesses(): BelongsToMany
+    {
+        return $this->belongsToMany(Thickness::class, 'stone_variants')
+            ->distinct()
+            ->orderBy('thicknesses.sort_order')
+            ->orderBy('thicknesses.value');
+    }
+
+    /**
+     * The sizes some slab of the stone comes in, each once however many
+     * thicknesses it is cut in (a variant with no size names none): by
+     * `sort_order` (its unit), then smallest first. Count the rows read, not
+     * the query: COUNT(*) counts every slab.
+     *
+     * @return BelongsToMany<Size, $this>
+     */
+    public function sizes(): BelongsToMany
+    {
+        return $this->belongsToMany(Size::class, 'stone_variants')
+            ->distinct()
+            ->orderBy('sizes.sort_order')
+            ->orderBy('sizes.width')
+            ->orderBy('sizes.length');
     }
 
     /** List the stone under its primary type when importing, without removing additional ones. */

@@ -190,14 +190,19 @@ export type ServiceOption = {
 
 /**
  * The key a stone row holds each stone-scope answer under, by question slug.
- * These are the three columns of a stone row, which is why they are named
- * here; what each asks, its label and its options all come from the service.
+ * These are the columns of a stone row, which is why they are named here;
+ * what each asks, its label and its options all come from the service (and,
+ * for a slab size or thickness, from the row's stone).
  */
 export const STONE_FIELD_KEYS = {
     slab_size: 'slabSize',
+    thickness: 'thickness',
     edge_profile: 'edge',
     finish: 'finish',
-} as const satisfies Record<string, 'slabSize' | 'edge' | 'finish'>;
+} as const satisfies Record<
+    string,
+    'slabSize' | 'thickness' | 'edge' | 'finish'
+>;
 
 export type StoneFieldKey =
     (typeof STONE_FIELD_KEYS)[keyof typeof STONE_FIELD_KEYS];
@@ -275,12 +280,259 @@ export const NO = 'no';
 /** The largest number an answer holds, as the server stores it. */
 export const ANSWER_NUMBER_MAX = 9999999999.99;
 
-/** The longest free text an answer holds; a slab size holds less. */
+/** The longest free text an answer holds. */
 export const ANSWER_TEXT_MAX = 255;
-export const SLAB_SIZE_TEXT_MAX = 50;
 
-const answerTextMax = (field: Pick<ServiceField, 'slug'>): number =>
-    field.slug === 'slab_size' ? SLAB_SIZE_TEXT_MAX : ANSWER_TEXT_MAX;
+/* ------------------------------------------------------------------ */
+/* Slab sizes and thicknesses                                           */
+/* ------------------------------------------------------------------ */
+
+/** The units a slab size is given in (SizeUnit on the server), metric first. */
+export const SIZE_UNITS = ['cm', 'm', 'in', 'ft'] as const;
+
+/** The units a thickness is given in (ThicknessUnit on the server). */
+export const THICKNESS_UNITS = ['mm', 'cm', 'in'] as const;
+
+export type SizeUnit = (typeof SIZE_UNITS)[number];
+export type ThicknessUnit = (typeof THICKNESS_UNITS)[number];
+
+/** The question slugs answered with a measurement: a size, or a thickness. */
+export const MEASUREMENT_FIELDS = {
+    slab_size: 'size',
+    thickness: 'thickness',
+} as const;
+
+export type MeasurementKind =
+    (typeof MEASUREMENT_FIELDS)[keyof typeof MEASUREMENT_FIELDS];
+
+/** Whether a question is answered with a measurement, and which kind, or null. */
+export const measurementKind = (
+    field: Pick<ServiceField, 'slug'>,
+): MeasurementKind | null =>
+    (MEASUREMENT_FIELDS as Record<string, MeasurementKind>)[field.slug] ?? null;
+
+/** The largest side a slab size column holds, and the largest thickness (decimal 8,2 and 6,2). */
+export const SIZE_MAX = 999999.99;
+export const THICKNESS_MAX = 9999.99;
+
+const NUMBER = String.raw`\d+(?:\.\d{1,2})?`;
+const SIZE_PATTERN = new RegExp(
+    String.raw`^(${NUMBER})\s*x\s*(${NUMBER})\s*(${SIZE_UNITS.join('|')})$`,
+    'i',
+);
+const THICKNESS_PATTERN = new RegExp(
+    String.raw`^(${NUMBER})\s*(${THICKNESS_UNITS.join('|')})$`,
+    'i',
+);
+
+/**
+ * A measured number as every page writes it, as the server's Measurement
+ * does: no trailing zeros ("160", "0.75", "1.6").
+ */
+export const formatMeasure = (value: string | number): string =>
+    Number(value)
+        .toFixed(2)
+        .replace(/\.?0+$/, '');
+
+export type SlabSize = { width: string; length: string; unit: SizeUnit };
+export type Thickness = { value: string; unit: ThicknessUnit };
+
+/** "160 x 320 cm", as the server's SizeMeasurement labels it. */
+export const formatSlabSize = ({ width, length, unit }: SlabSize): string =>
+    `${formatMeasure(width)} x ${formatMeasure(length)} ${unit}`;
+
+/** "20 mm", "0.75 in". */
+export const formatThickness = ({ value, unit }: Thickness): string =>
+    `${formatMeasure(value)} ${unit}`;
+
+/**
+ * A written slab size, read as the server reads it: width x length and a
+ * unit, case and spacing free. Null when it is not one, whatever the numbers.
+ */
+export const parseSlabSize = (written: string): SlabSize | null => {
+    const match = SIZE_PATTERN.exec(written.trim());
+
+    return match === null
+        ? null
+        : {
+              width: match[1],
+              length: match[2],
+              unit: match[3].toLowerCase() as SizeUnit,
+          };
+};
+
+/** A written thickness, read as the server reads it: a number and a unit. */
+export const parseThickness = (written: string): Thickness | null => {
+    const match = THICKNESS_PATTERN.exec(written.trim());
+
+    return match === null
+        ? null
+        : { value: match[1], unit: match[2].toLowerCase() as ThicknessUnit };
+};
+
+/**
+ * Why a written slab size or thickness is refused, or null when it stands, in
+ * the words MeasurementRule uses. Any well-formed one stands: Other takes a
+ * size the stone is not listed in.
+ */
+export const measurementProblem = (
+    kind: MeasurementKind,
+    written: string,
+): string | null => {
+    if (kind === 'size') {
+        const size = parseSlabSize(written);
+
+        if (size === null) {
+            return 'Enter the slab size as width x length and a unit, like 160 x 320 cm.';
+        }
+
+        const sides = [Number(size.width), Number(size.length)];
+
+        if (sides.some((side) => side <= 0)) {
+            return 'Enter a slab size greater than 0.';
+        }
+
+        return sides.some((side) => side > SIZE_MAX)
+            ? 'Enter a smaller slab size.'
+            : null;
+    }
+
+    const thickness = parseThickness(written);
+
+    if (thickness === null) {
+        return 'Enter the thickness as a number and a unit, like 20 mm.';
+    }
+
+    if (Number(thickness.value) <= 0) {
+        return 'Enter a thickness greater than 0.';
+    }
+
+    return Number(thickness.value) > THICKNESS_MAX
+        ? 'Enter a smaller thickness.'
+        : null;
+};
+
+/**
+ * A stone row's answer as one value, so two rows are compared by what they
+ * ask rather than by how it was typed: "160x320 CM" is "160 x 320 cm".
+ */
+export const normalizedStoneAnswer = (
+    field: Pick<ServiceField, 'slug'>,
+    written: string,
+): string => {
+    const kind = measurementKind(field);
+
+    if (kind === 'size') {
+        const size = parseSlabSize(written);
+
+        return size === null ? written.trim() : formatSlabSize(size);
+    }
+
+    if (kind === 'thickness') {
+        const thickness = parseThickness(written);
+
+        return thickness === null ? written.trim() : formatThickness(thickness);
+    }
+
+    return written.trim();
+};
+
+/** One slab a stone comes in, as labels: a size (null without set sizes) at a thickness. */
+export type StoneVariantOption = { size: string | null; thickness: string };
+
+/**
+ * What a stone card carries of the slabs it comes in: every combination,
+ * and its sizes and thicknesses each once, in order.
+ */
+export type StoneMeasurementOptions = {
+    variants?: StoneVariantOption[];
+    sizes?: ServiceFieldChoice[];
+    thicknesses?: ServiceFieldChoice[];
+    /** How big the pieces run without set sizes: "Diameter 15–40 cm". */
+    sizeNote?: string | null;
+};
+
+/**
+ * The thicknesses a row of this stone lists for the size it has: only those
+ * that size is cut in, when it is one of the stone's own sizes; every
+ * thickness of the stone while no size is chosen, for a size of one's own
+ * (Other), and for a stone with no set sizes. In the stone's own order.
+ */
+export const thicknessOptionsFor = (
+    stone: StoneMeasurementOptions | undefined,
+    sizeLabel: string,
+): ServiceFieldChoice[] => {
+    const all = stone?.thicknesses ?? [];
+    const size = parseSlabSize(sizeLabel);
+    const label = size === null ? null : formatSlabSize(size);
+    const listed =
+        label !== null &&
+        (stone?.sizes ?? []).some((option) => option.value === label);
+
+    if (!listed) {
+        return all;
+    }
+
+    const cutIn = new Set(
+        (stone?.variants ?? [])
+            .filter((variant) => variant.size === label)
+            .map((variant) => variant.thickness),
+    );
+
+    return all.filter((option) => cutIn.has(option.value));
+};
+
+/**
+ * The thickness a row keeps when its size changes: a listed thickness the
+ * new size is not cut in is cleared, so it reads as unanswered again; one of
+ * the reader's own (Other) is theirs to keep, as is one that still fits.
+ */
+export const thicknessAfterSizeChange = (
+    stone: StoneMeasurementOptions | undefined,
+    sizeLabel: string,
+    thickness: string,
+): string => {
+    const value = normalizedStoneAnswer({ slug: 'thickness' }, thickness);
+    const isListed = (stone?.thicknesses ?? []).some(
+        (option) => option.value === value,
+    );
+
+    if (!isListed) {
+        return thickness;
+    }
+
+    return thicknessOptionsFor(stone, sizeLabel).some(
+        (option) => option.value === value,
+    )
+        ? thickness
+        : '';
+};
+
+/**
+ * The question as one stone row asks it: a slab size lists that row's
+ * stone's own sizes, a thickness the ones its chosen size is cut in
+ * (thicknessOptionsFor), and either lists none for a stone with none, which
+ * leaves only Other; every other question is as the service sent it.
+ */
+export const questionForStone = (
+    field: ServiceField,
+    stone: StoneMeasurementOptions | undefined,
+    row: { slabSize: string } = { slabSize: '' },
+): ServiceField => {
+    const kind = measurementKind(field);
+
+    if (kind === null) {
+        return field;
+    }
+
+    return {
+        ...field,
+        suggestions:
+            kind === 'size'
+                ? (stone?.sizes ?? [])
+                : thicknessOptionsFor(stone, row.slabSize),
+    };
+};
 
 /**
  * Why an answer to a question is refused, or null when it stands, in the
@@ -304,6 +556,12 @@ export const answerProblem = (
         return field.answerType === 'text' || field.answerType === 'number'
             ? `Enter the ${name}.`
             : `Choose the ${name}.`;
+    }
+
+    const kind = measurementKind(field);
+
+    if (kind !== null) {
+        return measurementProblem(kind, value);
     }
 
     if (field.answerType === 'choice') {
@@ -333,8 +591,8 @@ export const answerProblem = (
         return number > ANSWER_NUMBER_MAX ? 'Enter a smaller number.' : null;
     }
 
-    return value.length > answerTextMax(field)
-        ? `Keep the ${name} to ${answerTextMax(field)} characters or fewer.`
+    return value.length > ANSWER_TEXT_MAX
+        ? `Keep the ${name} to ${ANSWER_TEXT_MAX} characters or fewer.`
         : null;
 };
 
@@ -471,6 +729,7 @@ export type StoneRow = {
     stoneId: string;
     quantity: number;
     slabSize: string;
+    thickness: string;
     edge: string;
     finish: string;
 };
@@ -503,6 +762,7 @@ export const seedStoneRows = (
                       stoneId: id,
                       quantity: 1,
                       slabSize: '',
+                      thickness: '',
                       edge: advisory?.edge ?? '',
                       finish: advisory?.finish ?? '',
                   },
@@ -803,14 +1063,23 @@ export type InquiryEditProject = {
     /** The service it already has, which may no longer be offered to new inquiries. */
     heldServiceType: ServiceTypeOption | null;
     /** Its stones as cards, which may be on no page of stones reached yet. */
-    heldStones: Array<{ slug: string; name: string; thumbnail: string }>;
+    heldStones: Array<
+        {
+            slug: string;
+            name: string;
+            thumbnail: string;
+        } & StoneMeasurementOptions
+    >;
     stoneAdviceRequested: boolean;
     /** A stone row's answers are null where its service does not ask them. */
     stones: Array<{
         stoneId: string;
         /** Null where the service does not ask how many pieces. */
         quantity: number | null;
+        /** "160 x 320 cm", null where the service does not ask it. */
         slabSize: string | null;
+        /** "20 mm", null where the service does not ask it. */
+        thickness: string | null;
         edge: string | null;
         finish: string | null;
     }>;
@@ -884,6 +1153,7 @@ export const toEditFormProjects = (
             stoneId: row.stoneId,
             quantity: row.quantity ?? 1,
             slabSize: row.slabSize ?? '',
+            thickness: row.thickness ?? '',
             edge: row.edge ?? '',
             finish: row.finish ?? '',
         })),

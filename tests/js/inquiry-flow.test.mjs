@@ -471,7 +471,7 @@ describe('a service that asks for no stones', () => {
 describe('answering what a service asks', () => {
     const question = (overrides = {}) => ({
         slug: 'area_sqm',
-        label: 'Area to cover (sq m)',
+        label: 'Project area (sqm)',
         scope: 'project',
         answerType: 'number',
         required: true,
@@ -502,7 +502,7 @@ describe('answering what a service asks', () => {
     it('asks for a required answer in the words the server uses', () => {
         assert.equal(
             answerProblem(question(), ''),
-            'Enter the area to cover (sq m).',
+            'Enter the project area (sqm).',
         );
         assert.equal(
             answerProblem(tableBase, undefined),
@@ -549,7 +549,7 @@ describe('answering what a service asks', () => {
         );
         assert.equal(
             answerProblem(question({ allowsCustom: false }), '7'),
-            'Choose the area to cover (sq m) from the list.',
+            'Choose the project area (sqm) from the list.',
         );
     });
 
@@ -573,6 +573,7 @@ describe('seedStoneRows', () => {
                 stoneId: 'marble',
                 quantity: 1,
                 slabSize: '',
+                thickness: '',
                 edge: '',
                 finish: '',
             },
@@ -580,6 +581,7 @@ describe('seedStoneRows', () => {
                 stoneId: 'onyx',
                 quantity: 1,
                 slabSize: '',
+                thickness: '',
                 edge: '',
                 finish: '',
             },
@@ -619,6 +621,7 @@ describe('seedStoneRows', () => {
                 stoneId: 'marble',
                 quantity: 1,
                 slabSize: '',
+                thickness: '',
                 edge: 'Advise me',
                 finish: 'Advise me',
             },

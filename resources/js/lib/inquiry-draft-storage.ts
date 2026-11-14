@@ -113,6 +113,8 @@ const storedStoneSchema = z.object({
     stoneId: z.string(),
     quantity: z.number().catch(1),
     slabSize: z.string().catch(''),
+    // A draft saved before thickness was asked has none: it reads back unanswered.
+    thickness: z.string().catch(''),
     edge: z.string().catch(''),
     finish: z.string().catch(''),
 });

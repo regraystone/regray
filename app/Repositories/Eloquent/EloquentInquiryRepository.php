@@ -338,6 +338,10 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'stones.stone' => fn ($stone) => $stone->withTrashed(),
                 'stones.stone.type' => fn ($type) => $type->withTrashed(),
                 'stones.stone.brand',
+                // heldStones' cards list each stone's slabs, as the Inquire page's do,
+                // and the details page tells a standard slab from a custom one.
+                'stones.stone.variants.size',
+                'stones.stone.variants.thickness',
                 'stones.edgeProfile',
                 'stones.finish',
                 'files' => fn ($files) => $files->orderBy('id'),

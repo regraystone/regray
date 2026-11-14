@@ -11,6 +11,8 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Enums\SizeUnit;
+use App\Enums\ThicknessUnit;
 use App\Events\InquiryChangedByClient;
 use App\Events\InquiryStatusChanged;
 use App\Events\InquirySubmitted;
@@ -32,7 +34,7 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * @phpstan-type StoneInput array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_size: ?string}
+ * @phpstan-type StoneInput array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_width: ?string, slab_length: ?string, slab_unit: ?SizeUnit, thickness: ?string, thickness_unit: ?ThicknessUnit}
  * @phpstan-type AnswerInput array{detail_field_id: int, text_value: ?string, number_value: ?string, option_id: ?int, boolean_value: ?bool}
  * @phpstan-type ProjectInput array{name: string, service_id: int, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: DeliveryMethod, location: ?string, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
  * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: DeliveryMethod, location: ?string, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
@@ -385,7 +387,7 @@ class InquiryService
             'location' => $inquiry->location,
             'notes' => $inquiry->notes,
             'stone_advice_requested' => $inquiry->stone_advice_requested,
-            'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'slab_size'])->toArray(),
+            'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'slab_width', 'slab_length', 'slab_unit', 'thickness', 'thickness_unit'])->toArray(),
             'answers' => $inquiry->detailAnswers()->orderBy('detail_field_id')->get(['detail_field_id', 'text_value', 'number_value', 'option_id', 'boolean_value'])->toArray(),
             'file_ids' => $inquiry->files()->where('document_type', DocumentType::ClientAttachment)->orderBy('id')->pluck('id')->all(),
             'arrival_at' => $inquiry->schedule()->value('arrival_at'),

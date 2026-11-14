@@ -125,16 +125,65 @@ const StoneProfile = ({ stone: { data: stone } }: StoneProfileProps) => {
                                     label="Origin"
                                     value={stone.specifications.origin}
                                 />
-                                <SpecRow
-                                    label="Size"
-                                    value={stone.specifications.size}
-                                />
-                                <SpecRow
-                                    label="Thickness"
-                                    value={`${stone.specifications.thicknessMm} mm`}
-                                />
                             </dl>
                         </div>
+                        {/*
+                         * Every slab the stone comes in: one row per size, with
+                         * the thicknesses that size is cut in. A table rather
+                         * than two lists, since a size and a thickness only
+                         * mean something together. Fixed columns that wrap, so
+                         * a long list never widens the page on a phone.
+                         */}
+                        {stone.specifications.slabs.length > 0 ? (
+                            <div>
+                                <h3 className="mb-3 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+                                    Available Slabs
+                                </h3>
+                                <table
+                                    className="w-full table-fixed border-collapse text-left"
+                                    data-testid="available-slabs"
+                                >
+                                    <thead>
+                                        <tr className="border-b border-sidebar-border">
+                                            <th
+                                                scope="col"
+                                                className="w-1/2 py-2 pr-4 text-sm font-normal text-secondary-foreground"
+                                            >
+                                                Size
+                                            </th>
+                                            <th
+                                                scope="col"
+                                                className="py-2 text-sm font-normal text-secondary-foreground"
+                                            >
+                                                Thickness
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {stone.specifications.slabs.map(
+                                            (slab) => (
+                                                <tr
+                                                    key={slab.size ?? 'none'}
+                                                    className="border-b border-sidebar-border last:border-0"
+                                                >
+                                                    <td className="py-2.5 pr-4 align-top text-base font-semibold break-words text-foreground">
+                                                        {slab.size ??
+                                                            stone.specifications
+                                                                .sizeNote ??
+                                                            'Any size'}
+                                                    </td>
+                                                    <td className="py-2.5 align-top text-base font-semibold break-words text-foreground">
+                                                        {slab.thicknesses.join(
+                                                            ' · ',
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ),
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : null}
                         <div>
                             <h3 className="mb-3 text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
                                 Available Finishes

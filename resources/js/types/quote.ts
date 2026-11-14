@@ -128,8 +128,12 @@ export type QuoteInquiryDetails = {
             thumbnail: string;
             /** Null where the service does not ask how many pieces. */
             quantity: number | null;
-            /** Null where the service does not ask it. */
+            /** "160 x 320 cm"; null where the service does not ask it. */
             slabSize: string | null;
+            /** "20 mm"; null where the service does not ask it. */
+            thickness: string | null;
+            /** Whether the size and thickness are one of the stone's slabs; null where no thickness is asked. */
+            isStandardSlab: boolean | null;
             edge: string | null;
             finish: string | null;
             /** The stone-scope answers its service asks, labelled, in order. */

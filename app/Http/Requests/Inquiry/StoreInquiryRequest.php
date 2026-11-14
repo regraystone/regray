@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Inquiry;
 
+use App\Data\SizeMeasurement;
+use App\Data\ThicknessMeasurement;
 use App\Enums\DeliveryMethod;
 use App\Enums\DetailAnswerType;
 use App\Enums\DetailFieldScope;
@@ -10,6 +12,7 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Service;
 use App\Models\Stone;
+use App\Rules\MeasurementRule;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Http\FormRequest;
@@ -27,12 +30,16 @@ use Illuminate\Validation\Validator;
  * What else a project is asked depends on its service
  * (`service_detail_fields`), so those rules are built per project from the
  * service it names: a stone row answers only the stone-scope questions its
- * service lists (`quantity`, `slabSize`, `edge`, `finish`) and must leave out
- * the rest (only the slab services ask how many pieces),
+ * service lists (`quantity`, `slabSize`, `thickness`, `edge`, `finish`) and
+ * must leave out the rest (only the slab services ask how many pieces, a slab
+ * size and a thickness),
  * and the project-scope answers arrive as `answers.{slug}`, each checked
  * against its answer type, whether it is required and, for a closed list, its
  * options. A suggestion is never checked: a free entry is accepted only where
- * the question allows one, and then only by its type. A service that asks for
+ * the question allows one, and then only by its type. A slab size or
+ * thickness is a measurement ("160 x 320 cm", "20 mm", MeasurementRule): any
+ * well-formed one stands, not only the stone's own options, since Other takes
+ * any. A service that asks for
  * no stones (Installation Only) takes none, and no Help me choose either. The
  * messages are worded from the question's name, as the page words them.
  *
@@ -341,6 +348,10 @@ class StoreInquiryRequest extends FormRequest
             return ['integer', 'min:'.$limits['quantity_min'], 'max:'.$limits['quantity_max']];
         }
 
+        if ($field->isMeasurement()) {
+            return ['string', $field->slug === DetailField::SLAB_SIZE ? MeasurementRule::slabSize() : MeasurementRule::thickness()];
+        }
+
         if ($field->answersFromCatalog()) {
             $table = $field->slug === DetailField::EDGE_PROFILE ? 'edge_profiles' : 'finishes';
 
@@ -350,7 +361,7 @@ class StoreInquiryRequest extends FormRequest
         $listed = $field->allows_custom ? [] : [Rule::in($field->suggestions()->pluck('name')->all())];
 
         return match ($field->answer_type) {
-            DetailAnswerType::Text => ['string', 'max:'.$this->textMax($field), ...$listed],
+            DetailAnswerType::Text => ['string', 'max:'.self::TEXT_MAX, ...$listed],
             DetailAnswerType::Number => ['numeric', 'gt:0', 'max:'.self::NUMBER_MAX, ...$listed],
             DetailAnswerType::Choice => ['string', Rule::in($field->closedOptions()->pluck('slug')->all())],
             DetailAnswerType::Boolean => ['boolean'],
@@ -377,19 +388,13 @@ class StoreInquiryRequest extends FormRequest
             'string' => $field->answer_type === DetailAnswerType::Text ? "Enter the {$name}." : $fromList,
             'max' => $field->answer_type === DetailAnswerType::Number
                 ? 'Enter a smaller number.'
-                : "Keep the {$name} to {$this->textMax($field)} characters or fewer.",
+                : "Keep the {$name} to ".self::TEXT_MAX.' characters or fewer.',
             'numeric' => $number,
             'gt' => $number,
             'in' => $fromList,
             'exists' => $fromList,
             'boolean' => 'Choose yes or no.',
         ];
-    }
-
-    /** The longest free text an answer may be: a slab size is stored in 50. */
-    private function textMax(DetailField $field): int
-    {
-        return $field->slug === DetailField::SLAB_SIZE ? (int) config('inquiry.limits.slab_size') : self::TEXT_MAX;
     }
 
     /**
@@ -451,10 +456,12 @@ class StoreInquiryRequest extends FormRequest
 
             // A stone holds one row per set of answers, so a repeated row adds to it.
             foreach ($project['stones'] ?? [] as $stone) {
-                $slabSize = $asked->has(DetailField::SLAB_SIZE) && filled($stone['slabSize'] ?? null) ? trim($stone['slabSize']) : null;
+                $size = $asked->has(DetailField::SLAB_SIZE) && filled($stone['slabSize'] ?? null) ? SizeMeasurement::parse($stone['slabSize']) : null;
+                $thickness = $asked->has(DetailField::THICKNESS) && filled($stone['thickness'] ?? null) ? ThicknessMeasurement::parse($stone['thickness']) : null;
                 $edgeProfileId = $asked->has(DetailField::EDGE_PROFILE) && filled($stone['edge'] ?? null) ? $edgeProfileIds[$stone['edge']] : null;
                 $finishId = $asked->has(DetailField::FINISH) && filled($stone['finish'] ?? null) ? $finishIds[$stone['finish']] : null;
-                $row = "{$stone['stoneId']}::{$edgeProfileId}::{$finishId}::{$slabSize}";
+                // By the parsed measurements, so "160x320 CM" and "160 x 320 cm" are one row.
+                $row = "{$stone['stoneId']}::{$edgeProfileId}::{$finishId}::{$size?->key()}::{$thickness?->key()}";
 
                 $stones[$row] = [
                     'stone_id' => $stoneIds[$stone['stoneId']],
@@ -464,7 +471,11 @@ class StoreInquiryRequest extends FormRequest
                     'quantity' => $asked->has(DetailField::QUANTITY)
                         ? min(($stones[$row]['quantity'] ?? 0) + (int) $stone['quantity'], $quantityLimit)
                         : null,
-                    'slab_size' => $slabSize,
+                    'slab_width' => $size?->width,
+                    'slab_length' => $size?->length,
+                    'slab_unit' => $size?->unit,
+                    'thickness' => $thickness?->value,
+                    'thickness_unit' => $thickness?->unit,
                 ];
             }
 

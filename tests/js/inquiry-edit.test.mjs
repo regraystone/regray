@@ -22,6 +22,7 @@ const payload = (overrides = {}) => ({
             stoneId: 'marble',
             quantity: 4,
             slabSize: null,
+            thickness: null,
             edge: 'Half Bevel',
             finish: 'Honed',
         },
@@ -59,6 +60,7 @@ describe('toEditFormProjects', () => {
                         stoneId: 'marble',
                         quantity: 4,
                         slabSize: '',
+                        thickness: '',
                         edge: 'Half Bevel',
                         finish: 'Honed',
                     },
@@ -118,6 +120,7 @@ describe('toEditFormProjects', () => {
                         stoneId: 'marble',
                         quantity: 1,
                         slabSize: null,
+                        thickness: null,
                         edge: null,
                         finish: null,
                     },
@@ -133,9 +136,31 @@ describe('toEditFormProjects', () => {
             stoneId: 'marble',
             quantity: 1,
             slabSize: '',
+            thickness: '',
             edge: '',
             finish: '',
         });
+    });
+
+    it('reads a slab row back with its size and thickness as the form holds them', () => {
+        const [project] = toEditFormProjects([
+            payload({
+                serviceId: 'slab-supply-only',
+                stones: [
+                    {
+                        stoneId: 'marble',
+                        quantity: 3,
+                        slabSize: '160 x 320 cm',
+                        thickness: '0.75 in',
+                        edge: 'Half Bevel',
+                        finish: 'Honed',
+                    },
+                ],
+            }),
+        ]);
+
+        assert.equal(project.stones[0].slabSize, '160 x 320 cm');
+        assert.equal(project.stones[0].thickness, '0.75 in');
     });
 });
 

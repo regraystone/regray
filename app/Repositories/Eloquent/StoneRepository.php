@@ -5,8 +5,10 @@ namespace App\Repositories\Eloquent;
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStone;
+use App\Models\Size;
 use App\Models\Stone;
 use App\Models\StoneType;
+use App\Models\Thickness;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -66,6 +68,8 @@ class StoneRepository implements StoneRepositoryInterface
             'images' => fn (Relation $images) => $images->getQuery()
                 ->select(['id', 'stone_id', 'alt_text', 'path'])
                 ->orderBy('sort_order'),
+            'variants.size',
+            'variants.thickness',
             'type',
             'type.applications' => fn (Relation $applications) => $applications->getQuery()
                 ->select(['applications.id', 'name']),
@@ -94,15 +98,26 @@ class StoneRepository implements StoneRepositoryInterface
                 'bestSeller' => $stone->is_best_seller,
             ]);
 
-        $sizes = Stone::query()->active()->distinct()->pluck('size')
-            ->sort(function (string $left, string $right): int {
-                [$leftWidth, $leftLength] = array_map('intval', explode('x', $left));
-                [$rightWidth, $rightLength] = array_map('intval', explode('x', $right));
-
-                return ($leftWidth <=> $rightWidth) ?: ($leftLength <=> $rightLength);
-            })->values()->map(fn (string $size): array => ['value' => $size, 'label' => $size]);
-        $thicknesses = Stone::query()->active()->distinct()->orderBy('thickness_mm')->pluck('thickness_mm')
-            ->map(fn (int $millimetres): array => ['value' => (string) $millimetres, 'label' => "{$millimetres} mm"]);
+        /*
+         * Only the options some stone on show comes in, so a filter never offers
+         * a size that would list nothing. Read by unit, metric first, then by
+         * number; `value` is the option's key, which is what the link carries.
+         */
+        $sizes = Size::query()->offered()->get()
+            ->sortBy([
+                fn (Size $left, Size $right): int => $left->unit->position() <=> $right->unit->position(),
+                fn (Size $left, Size $right): int => (float) $left->width <=> (float) $right->width,
+                fn (Size $left, Size $right): int => (float) $left->length <=> (float) $right->length,
+            ])
+            ->values()
+            ->map(fn (Size $size): array => ['value' => $size->key, 'label' => $size->label]);
+        $thicknesses = Thickness::query()->offered()->get()
+            ->sortBy([
+                fn (Thickness $left, Thickness $right): int => $left->unit->position() <=> $right->unit->position(),
+                fn (Thickness $left, Thickness $right): int => (float) $left->value <=> (float) $right->value,
+            ])
+            ->values()
+            ->map(fn (Thickness $thickness): array => ['value' => $thickness->key, 'label' => $thickness->label]);
 
         return ['types' => $types, 'sizes' => $sizes, 'thicknesses' => $thicknesses];
     }

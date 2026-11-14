@@ -18,6 +18,7 @@ import {
     chooseLocation,
     expectStep,
     fillSlabSizes,
+    fillThicknesses,
     locationField,
     openInquire,
     pickService,
@@ -49,6 +50,7 @@ test('6 · a pickup asks for no location, and sends @layout', async ({
     await pressNext(page, 2);
     await expect(locationField(page)).toBeVisible();
     await fillSlabSizes(page);
+    await fillThicknesses(page);
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
     await expect(locationField(page)).toHaveCount(0);
     await answerDeadline(page);
@@ -104,6 +106,8 @@ test('7 · two stones under one furniture service send with its own questions, a
     });
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
+    // Every furniture service asks the project area first.
+    await answerQuestion(page, 'area-sqm', '2.5', { own: true });
     await answerQuestion(page, 'seaters', '7', { own: true });
     await answerQuestion(page, 'table-base', 'Same as stone');
     await shot(page, name('3-details'), testInfo);
@@ -118,7 +122,7 @@ test('7 · two stones under one furniture service send with its own questions, a
     ).toBeVisible();
     // "Same as stone" reads as the first stone's name.
     await expect(page.getByTestId('review-answers')).toContainText(
-        `Number of seaters7Table base${CATALOG.stones[0]}`,
+        `Project area (sqm)2.5Number of seaters7Table base${CATALOG.stones[0]}`,
     );
     await expect(page.getByTestId('review-service')).toContainText(
         CATALOG.furnitureType,
@@ -145,7 +149,11 @@ test('7 · two stones under one furniture service send with its own questions, a
         php<Record<string, string | null>>(
             `App\\Models\\Inquiry::query()->with('detailAnswers.detailField', 'detailAnswers.option')->where('reference', '${reference}')->first()->detailAnswers->mapWithKeys(fn ($answer) => [$answer->detailField->slug => $answer->option?->slug ?? $answer->number_value])`,
         ),
-    ).toEqual({ seaters: '7.00', table_base: 'same-as-stone' });
+    ).toEqual({
+        area_sqm: '2.50',
+        seaters: '7.00',
+        table_base: 'same-as-stone',
+    });
     expect(
         php<string[]>(
             `App\\Models\\Inquiry::query()->with('stones.stone')->where('reference', '${reference}')->first()->stones->sortBy('sort_order')->pluck('stone.name')->values()`,

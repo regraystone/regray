@@ -39,8 +39,12 @@ type ResolvedStone = {
     thumbnail: string;
     /** Null where the service does not ask how many pieces. */
     quantity: number | null;
-    /** Null where the service does not ask it. */
+    /** "160 x 320 cm"; null where the service does not ask it. */
     slabSize: string | null;
+    /** "20 mm"; null where the service does not ask it. */
+    thickness: string | null;
+    /** Whether the size and thickness are one of the stone's slabs; null where no thickness is asked. */
+    isStandardSlab: boolean | null;
     edge: string | null;
     finish: string | null;
     /** The stone-scope answers its service asks, labelled, in order. */
@@ -583,6 +587,21 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                                                 {detail.label}: {detail.value}
                                             </p>
                                         ))}
+                                        {/*
+                                         * Whether the size and thickness are one of
+                                         * the stone's own slabs, or cut to order.
+                                         */}
+                                        {stone.isStandardSlab ===
+                                        null ? null : (
+                                            <p
+                                                className="mt-1.5 inline-block rounded-sm border border-sidebar-border px-1.5 py-0.5 text-[11px] font-bold text-secondary-foreground"
+                                                data-testid="slab-kind"
+                                            >
+                                                {stone.isStandardSlab
+                                                    ? 'Standard slab'
+                                                    : 'Custom size/thickness'}
+                                            </p>
+                                        )}
                                     </div>
                                 ))}
                             </div>

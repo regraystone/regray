@@ -1,6 +1,11 @@
 import { inquiryFixtures } from '../support/accounts';
 import { expect, inquiryCount, postAsUser, test } from '../support/fixtures';
-import { CATALOG, projectPayload } from '../support/inquiry-flow';
+import {
+    CATALOG,
+    SLAB_SIZE,
+    THICKNESS,
+    projectPayload,
+} from '../support/inquiry-flow';
 
 /*
  * G. The server's own validation, with the page bypassed: requests sent with
@@ -41,7 +46,8 @@ test('29 · a quantity of 10000 and an edge not in the catalogue are refused wit
                     {
                         stoneId: CATALOG.stoneSlug,
                         quantity: 10000,
-                        slabSize: '120 x 60 cm',
+                        slabSize: SLAB_SIZE,
+                        thickness: THICKNESS,
                         edge: 'Laser Etched Edge',
                         finish: CATALOG.finishes[0],
                     },

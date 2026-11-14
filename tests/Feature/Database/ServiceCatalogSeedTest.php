@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DetailAnswerType;
 use App\Models\DetailField;
 use App\Models\FurnitureType;
 use App\Models\Service;
@@ -33,22 +34,26 @@ function askedQuestions(): array
 
 it('asks each service its own questions, in order', function (): void {
     expect(askedQuestions())->toBe([
-        'slab-supply-only' => ['quantity (stone)', 'slab_size (stone)', 'edge_profile (stone)', 'finish (stone)'],
-        'slab-supply-and-installation' => ['quantity (stone)', 'slab_size (stone)', 'edge_profile (stone)', 'finish (stone)'],
+        'slab-supply-only' => ['quantity (stone)', 'slab_size (stone)', 'thickness (stone)', 'edge_profile (stone)', 'finish (stone)'],
+        'slab-supply-and-installation' => ['quantity (stone)', 'slab_size (stone)', 'thickness (stone)', 'edge_profile (stone)', 'finish (stone)'],
         'installation-only' => [],
-        'countertop-backsplash' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
+        'countertop-backsplash' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'fascia'],
         'wall-cladding' => ['area_sqm', 'finish (stone)'],
         'flooring' => ['area_sqm', 'finish (stone)'],
         'staircase' => ['area_sqm', 'finish (stone)'],
         'kitchen-islands' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'waterfall_effect'],
         'lavatories' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
-        'center-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
-        'side-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
-        'dining-tables' => ['seaters', 'edge_profile (stone)', 'finish (stone)', 'table_base'],
-        'pedestal' => ['size', 'edge_profile (stone)', 'finish (stone)'],
-        'other-customized-furniture' => ['size', 'finish (stone)'],
+        'center-tables' => ['area_sqm', 'size', 'edge_profile (stone)', 'finish (stone)'],
+        'side-tables' => ['area_sqm', 'size', 'edge_profile (stone)', 'finish (stone)'],
+        'dining-tables' => ['area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)', 'table_base'],
+        'pedestal' => ['area_sqm', 'size', 'edge_profile (stone)', 'finish (stone)'],
+        'other-customized-furniture' => ['area_sqm', 'size', 'finish (stone)'],
     ])
-        ->and(Service::query()->where('requires_stones', false)->pluck('slug')->all())->toBe(['installation-only']);
+        ->and(Service::query()->where('requires_stones', false)->pluck('slug')->all())->toBe(['installation-only'])
+        ->and(DetailField::query()->where('slug', 'area_sqm')->value('name'))->toBe('Project area (sqm)')
+        ->and(DetailField::query()->where('slug', 'fascia')->first()?->only(['name', 'answer_type']))->toEqual(['name' => 'Fascia', 'answer_type' => DetailAnswerType::Boolean])
+        // The slab size and thickness list each stone's own slabs, not suggestions of their own.
+        ->and(DetailField::query()->whereIn('slug', ['slab_size', 'thickness'])->withCount('options')->pluck('options_count')->all())->toBe([0, 0]);
 });
 
 it('keeps each service\'s features as rows, in order', function (): void {

@@ -10,6 +10,7 @@ import {
     chooseLocation,
     expectStep,
     fillSlabSizes,
+    fillThicknesses,
     futureDate,
     hasHorizontalScroll,
     openInquire,
@@ -46,6 +47,7 @@ const walkEveryStep = async (
         finish: CATALOG.finishes[0],
     });
     await fillSlabSizes(page);
+    await fillThicknesses(page);
     await chooseLocation(page, 'Las Piñas');
     await answerDeadline(page);
     await check(QUESTIONS[2]);
@@ -168,12 +170,20 @@ test('36 · keyboard only: choose the service, pick a stone, fill the details an
     await page.keyboard.press('Enter');
     await expectStep(page, 3);
 
-    // A dropdown of suggested sizes: Enter opens it on the first, Enter picks it.
+    // A dropdown of the stone's own sizes: Enter opens it on the first, Enter picks it.
     await tabTo(page, (t) => t.id === 'requirements-slab-size-0', 'Slab size');
     await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
     await expect(page.locator('#requirements-slab-size-0')).toContainText(
-        '120 x 60 cm',
+        '60 x 120 cm',
+    );
+
+    // Then the thicknesses that size is cut in, the same way.
+    await tabTo(page, (t) => t.id === 'requirements-thickness-0', 'Thickness');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#requirements-thickness-0')).toContainText(
+        '20 mm',
     );
 
     await tabTo(

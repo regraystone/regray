@@ -78,13 +78,15 @@ it('sends the Inquire page its options', function (): void {
                         'suggestions' => [],
                     ],
                     [
+                        // The stone row lists its own stone's slabs: the question has none.
                         'slug' => 'slab_size', 'label' => 'Slab size', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true,
                         'options' => [],
-                        'suggestions' => [
-                            ['value' => '120 x 60 cm', 'label' => '120 x 60 cm'],
-                            ['value' => '120 x 240 cm', 'label' => '120 x 240 cm'],
-                            ['value' => '160 x 320 cm', 'label' => '160 x 320 cm'],
-                        ],
+                        'suggestions' => [],
+                    ],
+                    [
+                        'slug' => 'thickness', 'label' => 'Thickness', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true,
+                        'options' => [],
+                        'suggestions' => [],
                     ],
                     [
                         'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false,
@@ -100,7 +102,7 @@ it('sends the Inquire page its options', function (): void {
                     ],
                 ],
             ])
-            ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['seaters', 'edge_profile', 'finish', 'table_base']
+            ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['area_sqm', 'seaters', 'edge_profile', 'finish', 'table_base']
                 && collect($fields)->firstWhere('slug', 'table_base')['options'] === [
                     ['value' => 'wood', 'label' => 'Wood', 'linksToStone' => false],
                     ['value' => 'steel', 'label' => 'Steel', 'linksToStone' => false],
@@ -110,7 +112,7 @@ it('sends the Inquire page its options', function (): void {
             ->where('serviceTypes.0.services.2.requiresStones', false)
             ->missing('services')
             ->missing('furnitureTypes')
-            ->has('stones.data.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'brand', 'type']))
+            ->has('stones.data.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'brand', 'type', 'variants', 'sizes', 'thicknesses', 'sizeNote']))
             ->has('edgeProfiles', 8)
             ->has('finishes.0', fn ($finish) => $finish->hasAll(['id', 'name', 'isAdvisory']))
             ->where('locations', config('inquiry.locations')));

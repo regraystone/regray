@@ -52,8 +52,10 @@ test('no parameters returns the first page of active individual stones', functio
             )
             ->has('filterOptions.types')
             ->has('filterOptions.furnitureTypes', 4)
-            ->has('filterOptions.sizes', 4)
-            ->has('filterOptions.thicknesses', 4)
+            // Every size and thickness some seeded slab is cut in, each once: the
+            // generated pools plus the measured sizes in metres.
+            ->has('filterOptions.sizes', 72)
+            ->has('filterOptions.thicknesses', 11)
             ->where('products.data.0.type', ['slug' => 'cobblestone', 'name' => 'Cobblestone'])
         );
 });
@@ -92,7 +94,7 @@ test('multi-filter narrows results down correctly across types, sizes, and thick
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(stoneCollection(['search' => 'COSMIC', 'type' => 'granite', 'size' => '80x80', 'thickness' => '20']))
+        ->get(stoneCollection(['search' => 'COSMIC', 'type' => 'granite', 'size' => '60x120-cm', 'thickness' => '18-mm']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
@@ -100,8 +102,8 @@ test('multi-filter narrows results down correctly across types, sizes, and thick
             ->has('filters', fn (Assert $filters) => $filters
                 ->where('search', 'COSMIC')
                 ->where('type', 'granite')
-                ->where('size', '80x80')
-                ->where('thickness', '20')
+                ->where('size', '60x120-cm')
+                ->where('thickness', '18-mm')
                 ->where('furnitureType', null)
                 ->where('perPage', 24)
                 ->where('collection', 'stones')
@@ -116,7 +118,7 @@ test('invalid query parameters are dropped and redirect with valid ones kept', f
         ->get(stoneCollection([
             'search' => 'cosmic',
             'type' => 'no-such-type',
-            'size' => '99x99',
+            'size' => '99x99-cm',
             'thickness' => '99-mm',
         ]))
         ->assertRedirect(stoneCollection(['search' => 'cosmic']));
@@ -178,14 +180,14 @@ test('filters reflect the URL exactly after refresh', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
     $this->actingAs($user)
-        ->get(stoneCollection(['search' => 'test', 'type' => 'marble', 'size' => '80x80', 'thickness' => '20', 'page' => 2]))
+        ->get(stoneCollection(['search' => 'test', 'type' => 'marble', 'size' => '60x120-cm', 'thickness' => '20-mm', 'page' => 2]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('filters', fn (Assert $filters) => $filters
                 ->where('search', 'test')
                 ->where('type', 'marble')
-                ->where('size', '80x80')
-                ->where('thickness', '20')
+                ->where('size', '60x120-cm')
+                ->where('thickness', '20-mm')
                 ->where('furnitureType', null)
                 ->where('perPage', 24)
                 ->where('collection', 'stones')

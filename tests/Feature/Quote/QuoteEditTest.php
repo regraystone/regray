@@ -99,9 +99,23 @@ describe('the edit page', function (): void {
             ->assertInertia(fn (Assert $page) => $page
                 ->where('projects.0.answers', ['area_sqm' => 6.5, 'waterfall_effect' => false])
                 ->where('projects.0.stones.0.slabSize', null)
+                ->where('projects.0.stones.0.thickness', null)
                 ->where('projects.0.stones.0.edge', EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'))
                 ->missing('projects.0.landmark')
                 ->missing('projects.0.areaSqm'));
+    });
+
+    it('fills a slab row with its size and thickness as the labels the form holds, and the stone\'s slabs on its card', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5X10FT', 'thickness' => '0.75 IN'])]])]);
+
+        $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('projects.0.stones.0.slabSize', '5 x 10 ft')
+                ->where('projects.0.stones.0.thickness', '0.75 in')
+                ->has('projects.0.heldStones.0.variants')
+                ->has('projects.0.heldStones.0.sizes')
+                ->has('projects.0.heldStones.0.thicknesses')
+                ->has('projects.0.heldStones.0.sizeNote'));
     });
 
     it('sends a client to the details page with the reason when the inquiry can no longer change', function (InquiryStatus $status, string $reason): void {
@@ -137,6 +151,20 @@ describe('the edit page', function (): void {
 });
 
 describe('saving the edit', function (): void {
+    it('changes a slab row\'s size and thickness in place, with no second row', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput()]);
+        $row = inquiryStoneRow('slab-supply-only');
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['stones' => [[...$row, 'slabSize' => '1.6 x 3.2 m', 'thickness' => '0.75 in']]])]])
+            ->assertSessionHasNoErrors();
+
+        $stone = $inquiry->stones()->sole();
+
+        expect([$stone->slab_width, $stone->slab_length, $stone->slab_unit?->value, $stone->thickness, $stone->thickness_unit?->value])
+            ->toBe(['1.60', '3.20', 'm', '0.75', 'in']);
+    });
+
     it('changes the fields and the service, replaces the stones, moves the visit, and writes an audit row', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
         $otherStone = offeredStoneSlug('countertop-backsplash', 1);
@@ -147,7 +175,7 @@ describe('saving the edit', function (): void {
                 'name' => 'Kitchen and island',
                 'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => $otherStone])],
                 'serviceId' => 'countertop-backsplash',
-                'answers' => ['area_sqm' => '20'],
+                'answers' => ['area_sqm' => '20', 'fascia' => '0'],
                 'location' => 'Taguig',
                 'neededBy' => '2030-05-06',
             ])]])
@@ -161,10 +189,12 @@ describe('saving the edit', function (): void {
         expect($inquiry->name)->toBe('Kitchen and island')
             ->and($inquiry->location)->toBe('Taguig')
             ->and($inquiry->service->slug)->toBe('countertop-backsplash')
-            // The new service asks no slab size and no pieces, so the row holds neither.
+            // The new service asks no slab size, thickness or pieces, so the row holds none of them.
             ->and($inquiry->stones()->sole()->quantity)->toBeNull()
-            ->and($inquiry->stones()->sole()->slab_size)->toBeNull()
-            ->and($inquiry->detailAnswers()->sole()->number_value)->toBe('20.00')
+            ->and($inquiry->stones()->sole()->slabSizeLabel())->toBeNull()
+            ->and($inquiry->stones()->sole()->thicknessLabel())->toBeNull()
+            ->and($inquiry->detailAnswers()->orderBy('detail_field_id')->pluck('number_value')->filter()->values()->all())->toBe(['20.00'])
+            ->and($inquiry->detailAnswers()->whereNotNull('boolean_value')->sole()->boolean_value)->toBeFalse()
             ->and($inquiry->stones()->sole()->stone->slug)->toBe($otherStone)
             ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-05-06 10:00', 'Asia/Manila')))->toBeTrue()
             ->and($inquiry->schedule->title)->toBe('Kitchen and island')
@@ -180,7 +210,7 @@ describe('saving the edit', function (): void {
             ->and($audit->old_values['name'])->toBe('Kitchen')
             ->and($audit->new_values['name'])->toBe('Kitchen and island')
             ->and($audit->old_values['answers'])->toBe([])
-            ->and($audit->new_values['answers'])->toHaveCount(1);
+            ->and($audit->new_values['answers'])->toHaveCount(2);
     });
 
     it('changes the service and records it in the audit row', function (): void {

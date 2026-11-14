@@ -29,7 +29,7 @@ const services = {
     'countertop-backsplash': {
         requiresStones: true,
         fields: [
-            field('area_sqm', 'Area to cover (sq m)', 'project', 'number'),
+            field('area_sqm', 'Project area (sqm)', 'project', 'number'),
             field('edge_profile', 'Edge profile', 'stone', 'choice'),
             field('finish', 'Finish', 'stone', 'choice'),
         ],
@@ -37,7 +37,7 @@ const services = {
     'kitchen-islands': {
         requiresStones: true,
         fields: [
-            field('area_sqm', 'Area to cover (sq m)', 'project', 'number'),
+            field('area_sqm', 'Project area (sqm)', 'project', 'number'),
             field('finish', 'Finish', 'stone', 'choice'),
             field('waterfall_effect', 'Waterfall effect', 'project', 'boolean'),
         ],
@@ -48,6 +48,7 @@ const services = {
         fields: [
             field('quantity', 'How many pieces?', 'stone', 'number'),
             field('slab_size', 'Slab size', 'stone', 'text'),
+            field('thickness', 'Thickness', 'stone', 'text'),
             field('edge_profile', 'Edge profile', 'stone', 'choice'),
             field('finish', 'Finish', 'stone', 'choice'),
         ],
@@ -68,8 +69,9 @@ const project = (overrides = {}) => ({
         {
             stoneId: 'marble',
             quantity: 4,
-            // Typed under another service, which asked it: not sent.
-            slabSize: '120 x 60 cm',
+            // Typed under another service, which asked them: not sent.
+            slabSize: '160 x 320 cm',
+            thickness: '20 mm',
             edge: 'Straight Edge',
             finish: 'Honed',
         },
@@ -77,6 +79,7 @@ const project = (overrides = {}) => ({
             stoneId: 'onyx',
             quantity: 2,
             slabSize: '',
+            thickness: '',
             edge: 'Half Bevel',
             finish: 'Polished',
         },
@@ -142,7 +145,14 @@ describe('buildInquiryFormData', () => {
         assert.equal(body.get('projects[0][stones][0][quantity]'), '4');
         assert.equal(
             body.get('projects[0][stones][0][slabSize]'),
-            '120 x 60 cm',
+            '160 x 320 cm',
+        );
+        assert.equal(body.get('projects[0][stones][0][thickness]'), '20 mm');
+        assert.equal(
+            send({ projects: [project()] }).get(
+                'projects[0][stones][0][thickness]',
+            ),
+            null,
         );
         assert.equal(
             send({ projects: [project()] }).get(

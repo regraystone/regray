@@ -20,7 +20,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * and stone slugs, and edge and finish names. Only the client's own attachments,
  * nothing about the client and no file paths.
  *
- * A stone row's answers are null where its service does not ask them.
+ * A stone row's answers are null where its service does not ask them; its
+ * slab size and thickness are written back as the labels the form holds.
  * `answers` are the project-scope ones by question slug, in the shape the page
  * sends them: free text, a number, a closed option's slug, yes or no.
  *
@@ -34,7 +35,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class InquiryEditResource extends JsonResource
 {
     /**
-     * @return array{id: int, name: string, serviceTypeId: string|null, serviceId: string|null, heldServiceType: array{id: string, name: string, services: array<int, mixed>}|null, heldStones: array<int, mixed>, stoneAdviceRequested: bool, stones: list<array{stoneId: string, quantity: int|null, slabSize: string|null, edge: string|null, finish: string|null}>, answers: object, deliveryMethod: string, location: string|null, notes: string|null, neededBy: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
+     * @return array{id: int, name: string, serviceTypeId: string|null, serviceId: string|null, heldServiceType: array{id: string, name: string, services: array<int, mixed>}|null, heldStones: array<int, mixed>, stoneAdviceRequested: bool, stones: list<array{stoneId: string, quantity: int|null, slabSize: string|null, thickness: string|null, edge: string|null, finish: string|null}>, answers: object, deliveryMethod: string, location: string|null, notes: string|null, neededBy: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -59,7 +60,9 @@ class InquiryEditResource extends JsonResource
             'stones' => array_values($this->stones->map(fn (InquiryStone $row): array => [
                 'stoneId' => $row->stone->slug,
                 'quantity' => $row->quantity,
-                'slabSize' => $row->slab_size,
+                // As the form sends them back: "160 x 320 cm", "20 mm".
+                'slabSize' => $row->slabSizeLabel(),
+                'thickness' => $row->thicknessLabel(),
                 'edge' => $row->edgeProfile?->name,
                 'finish' => $row->finish?->name,
             ])->all()),

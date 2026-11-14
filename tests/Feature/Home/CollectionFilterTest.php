@@ -32,16 +32,23 @@ function brandPage(array $query = []): string
 test('offers what active stones hold in both collections, matched or not, and nothing inactive', function (): void {
     $type = StoneType::factory()->create();
     $inactive = StoneType::factory()->create(['is_active' => false]);
-    Stone::factory()->for($this->brand)->create(['size' => '90x90', 'thickness_mm' => 12]);
-    Stone::factory()->for($this->brand)->create(['size' => '95x95', 'thickness_mm' => 99, 'is_active' => false]);
+    Stone::factory()->for($this->brand)->withVariants([[[90, 90, 'cm'], [12, 'mm']], [[5, 10, 'ft'], [0.75, 'in']]])->create();
+    Stone::factory()->for($this->brand)->withVariants([[[95, 95, 'cm'], [99, 'mm']]])->create(['is_active' => false]);
 
     $this->get(brandPage(['collection' => 'stones', 'search' => 'no matching item']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
             ->where('filterOptions.types', fn ($options) => $options->pluck('value')->contains($type->slug) && ! $options->pluck('value')->contains($inactive->slug))
-            ->where('filterOptions.sizes', fn ($options) => $options->pluck('value')->contains('90x90') && ! $options->pluck('value')->contains('95x95'))
-            ->where('filterOptions.thicknesses', fn ($options) => $options->contains(['value' => '12', 'label' => '12 mm']) && ! $options->pluck('value')->contains('99'))
+            // By unit, metric first, then by number; each option once.
+            ->where('filterOptions.sizes', fn ($options) => $options->all() === [
+                ['value' => '90x90-cm', 'label' => '90 x 90 cm'],
+                ['value' => '5x10-ft', 'label' => '5 x 10 ft'],
+            ])
+            ->where('filterOptions.thicknesses', fn ($options) => $options->all() === [
+                ['value' => '12-mm', 'label' => '12 mm'],
+                ['value' => '0.75-in', 'label' => '0.75 in'],
+            ])
         );
 
     $this->get(brandPage(['collection' => 'furniture', 'search' => 'no matching item']))
@@ -55,12 +62,12 @@ test('offers what active stones hold in both collections, matched or not, and no
 });
 
 test('stones match an additional type, and their own size and thickness', function (): void {
-    $stone = Stone::factory()->for($this->brand)->create(['size' => '90x90', 'thickness_mm' => 12]);
+    $stone = Stone::factory()->for($this->brand)->withVariants([[[90, 90, 'cm'], [12, 'mm']]])->create();
     Stone::factory()->for($this->brand)->create();
     $type = StoneType::factory()->create();
     $stone->types()->attach($type);
 
-    $this->get(brandPage(['collection' => 'stones', 'type' => $type->slug, 'size' => '90x90', 'thickness' => '12']))
+    $this->get(brandPage(['collection' => 'stones', 'type' => $type->slug, 'size' => '90x90-cm', 'thickness' => '12-mm']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
             ->where('products.data.0.slug', $stone->slug)
@@ -69,19 +76,41 @@ test('stones match an additional type, and their own size and thickness', functi
     expect($stone->types()->count())->toBe(2);
 });
 
+test('a size and a thickness together match only a stone with that very slab', function (): void {
+    // 160 x 320 cm comes in 30 mm here, and 20 mm only in another size.
+    $mixed = Stone::factory()->for($this->brand)->withVariants([[[160, 320, 'cm'], [30, 'mm']], [[60, 120, 'cm'], [20, 'mm']]])->create(['name' => 'Mixed']);
+    $exact = Stone::factory()->for($this->brand)->withVariants([[[160, 320, 'cm'], [20, 'mm']]])->create(['name' => 'Exact']);
+
+    $slugs = fn (array $query) => collect($this->get(brandPage(['collection' => 'stones', ...$query]))->viewData('page')['props']['products']['data'])->pluck('slug')->sort()->values()->all();
+
+    expect($slugs(['size' => '160x320-cm', 'thickness' => '20-mm']))->toBe([$exact->slug])
+        ->and($slugs(['size' => '160x320-cm']))->toBe(collect([$mixed->slug, $exact->slug])->sort()->values()->all())
+        ->and($slugs(['thickness' => '20-mm']))->toBe(collect([$mixed->slug, $exact->slug])->sort()->values()->all());
+});
+
+test('drops a size or thickness no stone on show comes in, or that is not a key, from the URL', function (): void {
+    Stone::factory()->for($this->brand)->create();
+    Stone::factory()->withVariants([[[95, 95, 'cm'], [99, 'mm']]])->create(['is_active' => false]);
+
+    foreach ([['size' => '95x95-cm'], ['thickness' => '99-mm'], ['size' => '60x120'], ['thickness' => '20']] as $query) {
+        $this->get(brandPage(['collection' => 'stones', ...$query]))
+            ->assertRedirect(brandPage(['collection' => 'stones']));
+    }
+});
+
 test('a size and thickness of another brand are valid filters even with no stone here matching them', function (): void {
     Stone::factory()->for($this->brand)->create();
-    Stone::factory()->create(['size' => '90x90', 'thickness_mm' => 12]);
+    Stone::factory()->withVariants([[[90, 90, 'cm'], [12, 'mm']]])->create();
     $type = StoneType::factory()->create();
 
-    $this->get(brandPage(['collection' => 'stones', 'type' => $type->slug, 'size' => '90x90', 'thickness' => '12']))
+    $this->get(brandPage(['collection' => 'stones', 'type' => $type->slug, 'size' => '90x90-cm', 'thickness' => '12-mm']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
             ->where('hasProducts', true)
             ->where('filters.type', $type->slug)
-            ->where('filters.size', '90x90')
-            ->where('filters.thickness', '12')
+            ->where('filters.size', '90x90-cm')
+            ->where('filters.thickness', '12-mm')
         );
 });
 
