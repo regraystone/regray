@@ -22,7 +22,7 @@ return [
                 'description' => 'Premium natural stone slabs supplied for your project.',
                 'requires_stones' => true,
                 'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'],
-                'fields' => ['quantity' => true, 'slab_size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['quantity' => true, 'slab_size' => true, 'thickness' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'slab-supply-and-installation',
@@ -30,7 +30,7 @@ return [
                 'description' => 'Premium natural stone slabs supplied and installed for your project.',
                 'requires_stones' => true,
                 'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide installation'],
-                'fields' => ['quantity' => true, 'slab_size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['quantity' => true, 'slab_size' => true, 'thickness' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'installation-only',
@@ -46,7 +46,7 @@ return [
                 'description' => 'Natural stone countertops cut and finished to your dimensions.',
                 'requires_stones' => true,
                 'features' => ['Precision cutting and fabrication', 'Custom dimensions', 'Edge profiling and finishing'],
-                'fields' => ['area_sqm' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['area_sqm' => true, 'edge_profile' => true, 'finish' => true, 'fascia' => true],
             ],
             [
                 'slug' => 'wall-cladding',
@@ -100,7 +100,7 @@ return [
                 'description' => 'Made-to-order stone center and coffee tables.',
                 'requires_stones' => true,
                 'features' => ['Center and coffee tables', 'Made to order to your specifications'],
-                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['area_sqm' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'side-tables',
@@ -108,7 +108,7 @@ return [
                 'description' => 'Made-to-order stone side tables.',
                 'requires_stones' => true,
                 'features' => ['Side and end tables', 'Made to order to your specifications'],
-                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['area_sqm' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'dining-tables',
@@ -116,7 +116,7 @@ return [
                 'description' => 'Made-to-order stone tables.',
                 'requires_stones' => true,
                 'features' => ['Dining tables', 'Center and coffee tables', 'Side tables', 'Console tables'],
-                'fields' => ['seaters' => true, 'edge_profile' => true, 'finish' => true, 'table_base' => true],
+                'fields' => ['area_sqm' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true, 'table_base' => true],
             ],
             [
                 'slug' => 'pedestal',
@@ -124,7 +124,7 @@ return [
                 'description' => 'Bespoke decorative stone pieces.',
                 'requires_stones' => true,
                 'features' => ['Pedestals and bespoke stone pieces', 'Made to order to your specifications'],
-                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['area_sqm' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'other-customized-furniture',
@@ -132,7 +132,7 @@ return [
                 'description' => 'Any other stone furniture, made to order. Tell us what you have in mind.',
                 'requires_stones' => true,
                 'features' => ['Custom dimensions and designs', 'Made to order to your specifications'],
-                'fields' => ['size' => true, 'finish' => true],
+                'fields' => ['area_sqm' => true, 'size' => true, 'finish' => true],
             ],
         ],
     ],

@@ -8,14 +8,25 @@ import { expect } from './fixtures';
  * adds the next, and every question shown stays open. The service type, the service and the delivery
  * method are selects, the stone cards are checkboxes named after the stone, the
  * location is a combobox, and what the service asks of each stone sits on its
- * row (Slab Supply Only: a slab size, edge and finish, each a dropdown; a slab
- * size also takes Other with an entry of one's own). The service's own
- * questions sit under Other details, with the optional ones, the files and
- * the notes always on show under the required ones.
+ * row (Slab Supply Only: a slab size, thickness, edge and finish, each a
+ * dropdown). The slab size lists the row's stone's own sizes and the
+ * thickness the ones that size is cut in, each with Other, which opens a
+ * measurement of one's own: Width, Length and a unit for a size
+ * (`-width`, `-length`, `-unit`), a value and a unit for a thickness
+ * (`-value`, `-unit`). The service's own questions sit under Other details,
+ * with the optional ones, the files and the notes always on show under the
+ * required ones; every furniture service asks the project area there, and
+ * Countertop and Backsplash asks fascia.
  *
  * The names below are the catalogue that DatabaseSeeder writes. Both stones are
  * offered for Slab Supply Only and for Dining Tables: a granite and a marble.
- * Dining Tables asks for the number of seaters and the table base besides.
+ * Dining Tables asks for the project area, the number of seaters and the
+ * table base besides. E2EInquirySeeder fixes both stones' slabs, so
+ * SLAB_SIZE at THICKNESS is a slab of each:
+ * - Cosmic Black: 3.15 x 1.98 m and 160 x 320 cm in 20 mm and 0.75 in,
+ *   60 x 120 cm in 20 mm only;
+ * - Arabescato White: 3.07 x 2.01 m and 160 x 320 cm in 18 mm and 20 mm,
+ *   120 x 240 cm in 18 mm only.
  */
 
 export const CATALOG = {
@@ -185,39 +196,79 @@ export type StoneRowAnswer = {
 export const notesField = (page: Page): Locator =>
     page.getByLabel('Anything else we should know?');
 
-export const SLAB_SIZE = '120 x 60 cm';
+export const SLAB_SIZE = '160 x 320 cm';
+export const THICKNESS = '20 mm';
 
-/**
- * Every stone row of a service that asks for a slab size needs one: pick
- * `size`, one of the suggestions, on each row still unanswered.
- */
-export const fillSlabSizes = async (
-    page: Page,
-    size: string = SLAB_SIZE,
-): Promise<void> => {
-    const triggers = page.locator(
-        'button[id^="requirements-slab-size-"]:not([id$="-custom"])',
+/** A row's dropdown trigger itself, not the unit list of a measurement of one's own. */
+const listTriggers = (page: Page, prefix: string): Locator =>
+    page.locator(
+        `button[id^="${prefix}"]:not([id$="-custom"]):not([id$="-unit"]):not([id$="-value"])`,
     );
 
-    for (const trigger of await triggers.all()) {
+/** Pick `option` on every row of `prefix` still unanswered. */
+const fillUnanswered = async (
+    page: Page,
+    prefix: string,
+    option: string,
+): Promise<void> => {
+    for (const trigger of await listTriggers(page, prefix).all()) {
         if ((await trigger.innerText()).trim() === 'Choose one') {
             const id = await trigger.getAttribute('id');
 
             if (id !== null) {
-                await chooseInSelect(page, id, size);
+                await chooseInSelect(page, id, option);
             }
         }
     }
 };
 
-/** A slab size of the reader's own, through Other. */
+/**
+ * Every stone row of a service that asks for a slab size needs one: pick
+ * `size`, one of the row's stone's sizes, on each row still unanswered.
+ */
+export const fillSlabSizes = async (
+    page: Page,
+    size: string = SLAB_SIZE,
+): Promise<void> => fillUnanswered(page, 'requirements-slab-size-', size);
+
+/**
+ * Every stone row of a service that asks for a thickness needs one: pick
+ * `thickness`, one the row's size is cut in, on each row still unanswered.
+ * Fill the sizes first, since the list follows the size.
+ */
+export const fillThicknesses = async (
+    page: Page,
+    thickness: string = THICKNESS,
+): Promise<void> => fillUnanswered(page, 'requirements-thickness-', thickness);
+
+/** A slab size of the reader's own, through Other: its width, length and unit. */
 export const typeSlabSize = async (
     page: Page,
     index: number,
-    size: string,
+    width: string,
+    length: string,
+    unit: 'cm' | 'm' | 'in' | 'ft',
 ): Promise<void> => {
-    await chooseInSelect(page, `requirements-slab-size-${index}`, 'Other');
-    await page.locator(`#requirements-slab-size-${index}-custom`).fill(size);
+    const id = `requirements-slab-size-${index}`;
+
+    await chooseInSelect(page, id, 'Other');
+    await page.locator(`#${id}-width`).fill(width);
+    await page.locator(`#${id}-length`).fill(length);
+    await chooseInSelect(page, `${id}-unit`, unit);
+};
+
+/** A thickness of the reader's own, through Other: its value and unit. */
+export const typeThickness = async (
+    page: Page,
+    index: number,
+    value: string,
+    unit: 'mm' | 'cm' | 'in',
+): Promise<void> => {
+    const id = `requirements-thickness-${index}`;
+
+    await chooseInSelect(page, id, 'Other');
+    await page.locator(`#${id}-value`).fill(value);
+    await chooseInSelect(page, `${id}-unit`, unit);
 };
 
 /**
@@ -294,7 +345,21 @@ export const walkToRequirements = async (
 
     await pressNext(page, 2);
     await fillSlabSizes(page);
+    await fillThicknesses(page);
 };
+
+/** The furniture services, which all ask the project area. */
+export const FURNITURE_SERVICES = [
+    'Center Tables',
+    'Side Tables',
+    'Dining Tables',
+    'Pedestal',
+    'Other Customized Furniture',
+] as const;
+
+/** Whether the project's service asks the project area: it shows under Other details. */
+const asksArea = async (page: Page): Promise<boolean> =>
+    (await page.locator('#requirements-area-sqm-1').count()) > 0;
 
 /**
  * A project of stone from the first question to Review. It is named automatically,
@@ -317,7 +382,18 @@ export const addStoneProject = async (
     await chooseLocation(page, answers.location ?? 'Makati');
     await answerDeadline(page);
 
-    for (const [slug, answer] of Object.entries(answers.questions ?? {})) {
+    const questions = answers.questions ?? {};
+
+    // A furniture walk answers the project area unless the caller does.
+    if (
+        !('area-sqm' in questions) &&
+        answers.serviceType === CATALOG.furnitureType &&
+        (await asksArea(page))
+    ) {
+        await answerQuestion(page, 'area-sqm', '2');
+    }
+
+    for (const [slug, answer] of Object.entries(questions)) {
         await answerQuestion(page, slug, answer);
     }
 
@@ -375,6 +451,7 @@ export const projectPayload = (
             stoneId: CATALOG.stoneSlug,
             quantity: 4,
             slabSize: SLAB_SIZE,
+            thickness: THICKNESS,
             edge: CATALOG.edges[0],
             finish: CATALOG.finishes[0],
         },

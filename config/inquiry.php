@@ -33,7 +33,6 @@ return [
         'quantity_min' => 1,
         'quantity_max' => 9999,
         'name' => 100,
-        'slab_size' => 50,
         'notes' => 1000,
         'files' => 10,
         'file_kilobytes' => 10 * 1024,

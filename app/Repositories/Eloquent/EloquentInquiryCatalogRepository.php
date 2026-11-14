@@ -21,8 +21,8 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 
 class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterface
 {
-    /** What a stone card reads. */
-    private const CARD_RELATIONS = ['type:id,slug,name', 'brand:id,slug,name'];
+    /** What a stone card reads, with the slabs (size and thickness) a stone row lists. */
+    private const CARD_RELATIONS = ['type:id,slug,name', 'brand:id,slug,name', 'variants.size', 'variants.thickness'];
 
     public function __construct(
         public readonly StoneRepositoryInterface $stoneRepository,

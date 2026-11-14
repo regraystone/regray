@@ -33,10 +33,17 @@ test('a client reads the full database stone profile through either door', funct
     $stone = Stone::query()->where('slug', 'cosmic-black')->firstOrFail();
     $type = $stone->type;
     $type->update(['description' => 'Database description']);
+    // Its slabs, out of order: grouped by size in variant order, thinnest first within a size.
+    $stone->variants()->delete();
+    $slabs = Stone::factory()->withVariants([
+        [['3.15', '1.98', 'm'], [30, 'mm']],
+        [['3.15', '1.98', 'm'], [20, 'mm']],
+        [[60, 120, 'cm'], [20, 'mm']],
+        [['3.15', '1.98', 'm'], [0.75, 'in']],
+    ])->create();
+    $slabs->variants()->update(['stone_id' => $stone->id]);
     $stone->update([
         'name' => 'Database Granite',
-        'size' => '60x120',
-        'thickness_mm' => 75,
         'origin' => 'Database origin',
         'thumbnail_path' => 'stones/hero.jpg',
     ]);
@@ -85,7 +92,14 @@ test('a client reads the full database stone profile through either door', funct
                 ->where('brand', ['slug' => 'regray-stone', 'name' => 'Regray Stone'])
                 ->where('type', ['slug' => 'granite', 'name' => 'Granite'])
                 ->where('description', 'Database description')
-                ->where('specifications', ['origin' => 'Database origin', 'size' => '60x120', 'thicknessMm' => 75])
+                ->where('specifications', [
+                    'origin' => 'Database origin',
+                    'slabs' => [
+                        ['size' => '3.15 x 1.98 m', 'thicknesses' => ['20 mm', '30 mm', '0.75 in']],
+                        ['size' => '60 x 120 cm', 'thicknesses' => ['20 mm']],
+                    ],
+                    'sizeNote' => null,
+                ])
                 ->where('finishes', ['First finish', 'Last finish'])
                 ->where('applications', ['First application', 'Last application'])
                 ->where('care', ['First care tip', 'Last care tip'])
@@ -165,4 +179,16 @@ test('saving and unsaving uses the individual stone and exposes its type', funct
     );
     $this->actingAs($user)->delete(route('saved.destroy', $stone->slug))->assertRedirect();
     $this->assertDatabaseMissing('saved_stones', ['user_id' => $user->id, 'stone_id' => $stone->id]);
+});
+
+test('a stone sold without set sizes lists its pieces by their note', function (): void {
+    $stone = Stone::query()->whereHas('type', fn ($query) => $query->where('slug', 'crazy-cut'))->orderBy('sort_order')->firstOrFail();
+
+    $this->actingAs(User::factory()->role(Role::Client)->create())
+        ->get(route('dashboard.brands.stones.show', ['brand' => 'regray-stone', 'stone' => $stone->slug]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stone.data.specifications.slabs', [['size' => null, 'thicknesses' => ['2 cm', '3 cm', '4 cm']]])
+            ->where('stone.data.specifications.sizeNote', 'Diameter 15–40 cm')
+        );
 });

@@ -8,7 +8,10 @@
  * `scope` is where it is answered: `stone` on each stone row, `project` once
  * under "Other details". `allows_custom` takes a value besides the listed
  * ones. Edge profile and finish list the active rows of their own tables, so
- * they have no `options` here; waterfall effect is yes or no.
+ * they have no `options` here. Slab size and thickness have none either: each
+ * stone row lists the sizes and thicknesses its own stone comes in
+ * (`size_stone`, `stone_thickness`), and Other takes any width x length or
+ * thickness with its unit. Waterfall effect and fascia are yes or no.
  *
  * Each option is `[slug, name]`. `suggestions` are sample values shown beside
  * a free entry and never checked against; `options` are closed, picked from
@@ -30,11 +33,13 @@ return [
         'scope' => 'stone',
         'answer_type' => 'text',
         'allows_custom' => true,
-        'suggestions' => [
-            ['120x60', '120 x 60 cm'],
-            ['120x240', '120 x 240 cm'],
-            ['160x320', '160 x 320 cm'],
-        ],
+    ],
+    [
+        'slug' => 'thickness',
+        'name' => 'Thickness',
+        'scope' => 'stone',
+        'answer_type' => 'text',
+        'allows_custom' => true,
     ],
     [
         'slug' => 'edge_profile',
@@ -52,7 +57,7 @@ return [
     ],
     [
         'slug' => 'area_sqm',
-        'name' => 'Area to cover (sq m)',
+        'name' => 'Project area (sqm)',
         'scope' => 'project',
         'answer_type' => 'number',
         'allows_custom' => true,
@@ -107,6 +112,13 @@ return [
     [
         'slug' => 'waterfall_effect',
         'name' => 'Waterfall effect',
+        'scope' => 'project',
+        'answer_type' => 'boolean',
+        'allows_custom' => false,
+    ],
+    [
+        'slug' => 'fascia',
+        'name' => 'Fascia',
         'scope' => 'project',
         'answer_type' => 'boolean',
         'allows_custom' => false,

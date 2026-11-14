@@ -26,6 +26,7 @@ import {
     projectFields,
     reviewActions,
     STONE_ADVICE_LABEL,
+    normalizedStoneAnswer,
     stoneFieldKey,
     stoneFields,
     YES,
@@ -359,7 +360,11 @@ const ReviewProjectCard = ({
                      */}
                     {askedOfStones.map((question) => {
                         const key = stoneFieldKey(question);
-                        const value = key === null ? '' : row[key].trim();
+                        // A size or thickness as the server will store it: "160 x 320 cm".
+                        const value =
+                            key === null
+                                ? ''
+                                : normalizedStoneAnswer(question, row[key]);
 
                         if (
                             value === '' ||

@@ -2,14 +2,20 @@
 
 namespace Database\Seeders;
 
+use App\Data\Measurement;
+use App\Enums\SizeUnit;
+use App\Enums\ThicknessUnit;
 use App\Models\Application;
 use App\Models\Brand;
 use App\Models\CareTip;
 use App\Models\Finish;
+use App\Models\Size;
 use App\Models\Stone;
 use App\Models\StoneType;
+use App\Models\Thickness;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class StoneSeeder extends Seeder
 {
@@ -42,8 +48,11 @@ class StoneSeeder extends Seeder
 
         $usedSlugs = [];
         $usedNames = [];
-        /** Placeholder dimensions until the catalogue has measured sizes. */
-        $sizes = ['20x120', '60x60', '60x120', '80x80'];
+        /** How many stones of each type are seeded so far: a stone's place within its type. */
+        $positions = [];
+        $specs = $this->specs();
+        /** @var array<string, true> $specsUsed The "type/name" of every spec a stone took. */
+        $specsUsed = [];
 
         foreach ($data['stones'] as $idx => $imageData) {
             $typeSlug = $imageData['stone_slug'];
@@ -65,13 +74,37 @@ class StoneSeeder extends Seeder
                 'stone_type_id' => $type->id,
                 'name' => $name,
                 'thumbnail_path' => $imageData['path'],
-                'size' => $sizes[$idx % count($sizes)],
-                'thickness_mm' => $defaults[$typeSlug]['thickness_mm'],
                 'origin' => $defaults[$typeSlug]['origin'],
                 'is_active' => true,
                 'sort_order' => $idx,
             ]);
             $stone->attachPrimaryFilterOptions();
+
+            $position = $positions[$typeSlug] = ($positions[$typeSlug] ?? -1) + 1;
+            /** @var list<array{0: int|float, 1: string}> $thicknessPool */
+            $thicknessPool = $defaults[$typeSlug]['thicknesses'];
+            /** @var list<array{0: int|float, 1: int|float, 2: string}> $sizePool */
+            $sizePool = $defaults[$typeSlug]['sizes'];
+
+            $thicknesses = array_map(
+                fn (array $thickness): Thickness => $this->thickness($thickness),
+                self::subset($thicknessPool, $position, 1 + $position % 3),
+            );
+            $sizes = array_map(
+                fn (array $size): Size => $this->size($size),
+                self::subset($sizePool, $position, 1 + ($position + 1) % 3),
+            );
+
+            // Matched by the name as the data writes it, before a duplicate is told apart.
+            $spec = $specs[$typeSlug][$imageData['name']] ?? null;
+
+            if ($spec !== null) {
+                $specsUsed["{$typeSlug}/{$imageData['name']}"] = true;
+            }
+
+            $stone->forceFill(['size_note' => $spec['size_note'] ?? null])->save();
+            $this->writeVariants($stone, $this->variants($sizes, $thicknesses, $position, $spec));
+
             $stone->images()->updateOrCreate(
                 ['sort_order' => 0],
                 [
@@ -79,6 +112,14 @@ class StoneSeeder extends Seeder
                     'alt_text' => $name,
                 ]
             );
+        }
+
+        foreach ($specs as $typeSlug => $stones) {
+            foreach (array_keys($stones) as $stoneName) {
+                if (! isset($specsUsed["{$typeSlug}/{$stoneName}"])) {
+                    throw new RuntimeException("data/stone_specs.php names {$typeSlug} \"{$stoneName}\", which data/stones.php does not list.");
+                }
+            }
         }
 
         $applicationNames = array_unique($data['applications']);
@@ -142,6 +183,156 @@ class StoneSeeder extends Seeder
                 }
             }
         }
+    }
+
+    /**
+     * The measured sizes and fixed specifications, by type slug and stone
+     * name (data/stone_specs.php). A test hands in its own.
+     *
+     * @return array<string, array<string, array<string, mixed>>>
+     */
+    protected function specs(): array
+    {
+        return require database_path('seeders/data/stone_specs.php');
+    }
+
+    /**
+     * The slabs a stone comes in, as `[size or null, thickness]` in the order
+     * they are listed.
+     *
+     * Generated first, from the stone's share of its type's pools: each size
+     * comes in the thicknesses turned to start at the stone's place plus the
+     * size's own, taking one more for each step (so some sizes come in every
+     * thickness and others in only some), and a thickness no size took is
+     * paired with the first size, so every thickness the stone lists is a slab
+     * it comes in. Deterministic, so a reseed lists the same slabs.
+     *
+     * Then its spec: `add` puts the measured size first, in every one of those
+     * thicknesses; `replace` lists only the spec's own slabs.
+     *
+     * @param  list<Size>  $sizes
+     * @param  list<Thickness>  $thicknesses
+     * @param  array<string, mixed>|null  $spec
+     * @return list<array{0: Size|null, 1: Thickness}>
+     */
+    private function variants(array $sizes, array $thicknesses, int $position, ?array $spec): array
+    {
+        if (($spec['mode'] ?? null) === 'replace') {
+            /** @var list<array{0: array{0: int|float|string, 1: int|float|string, 2: string}|null, 1: array{0: int|float|string, 1: string}}> $listed */
+            $listed = $spec['variants'];
+
+            return array_map(fn (array $variant): array => [
+                $variant[0] === null ? null : $this->size($variant[0]),
+                $this->thickness($variant[1]),
+            ], $listed);
+        }
+
+        $bySize = [];
+
+        foreach ($sizes as $i => $size) {
+            $step = $position + $i;
+            $bySize[] = [$size, self::subset($thicknesses, $step, 1 + $step % count($thicknesses))];
+        }
+
+        $taken = array_unique(array_merge(...array_map(
+            fn (array $pair): array => array_map(fn (Thickness $thickness): int => $thickness->id, $pair[1]),
+            $bySize,
+        )));
+
+        foreach ($thicknesses as $thickness) {
+            if (! in_array($thickness->id, $taken, true)) {
+                $bySize[0][1][] = $thickness;
+            }
+        }
+
+        if (($spec['mode'] ?? null) === 'add') {
+            /** @var array{0: int|float|string, 1: int|float|string, 2: string} $measured */
+            $measured = $spec['size'];
+            array_unshift($bySize, [$this->size($measured), $thicknesses]);
+        }
+
+        $variants = [];
+
+        /** @var list<array{0: Size, 1: list<Thickness>}> $bySize */
+        foreach ($bySize as [$size, $cutIn]) {
+            // Thinnest first within a size: by unit, then by number.
+            usort($cutIn, fn (Thickness $left, Thickness $right): int => [$left->sort_order, (float) $left->value] <=> [$right->sort_order, (float) $right->value]);
+
+            foreach ($cutIn as $thickness) {
+                $variants[] = [$size, $thickness];
+            }
+        }
+
+        return $variants;
+    }
+
+    /**
+     * Replace the stone's slabs with these, in order, so a reseed leaves the
+     * same rows behind.
+     *
+     * @param  list<array{0: Size|null, 1: Thickness}>  $variants
+     */
+    private function writeVariants(Stone $stone, array $variants): void
+    {
+        $stone->variants()->delete();
+
+        foreach ($variants as $order => [$size, $thickness]) {
+            $stone->variants()->create([
+                'size_id' => $size?->id,
+                'thickness_id' => $thickness->id,
+                'sort_order' => $order,
+            ]);
+        }
+    }
+
+    /**
+     * A stone's share of its type's pool: the pool turned to start at the
+     * stone's place within its type, then the first `$take` of it (never more
+     * than the pool holds). Deterministic, so a reseed lists the same options,
+     * and varied, so neighbouring stones of one type overlap without matching.
+     *
+     * @template T
+     *
+     * @param  list<T>  $pool
+     * @return list<T>
+     */
+    private static function subset(array $pool, int $position, int $take): array
+    {
+        $start = $position % count($pool);
+        $rotated = [...array_slice($pool, $start), ...array_slice($pool, 0, $start)];
+
+        return array_slice($rotated, 0, min($take, count($pool)));
+    }
+
+    /**
+     * The shared row of one thickness, made on first use.
+     *
+     * @param  array{0: int|float|string, 1: string}  $thickness
+     */
+    private function thickness(array $thickness): Thickness
+    {
+        $unit = ThicknessUnit::from($thickness[1]);
+
+        return Thickness::query()->firstOrCreate(
+            ['value' => Measurement::number($thickness[0]), 'unit' => $unit],
+            ['sort_order' => $unit->position()],
+        );
+    }
+
+    /**
+     * The shared row of one size, made on first use: a measured size on two
+     * stones is one row.
+     *
+     * @param  array{0: int|float|string, 1: int|float|string, 2: string}  $size
+     */
+    private function size(array $size): Size
+    {
+        $unit = SizeUnit::from($size[2]);
+
+        return Size::query()->firstOrCreate(
+            ['width' => Measurement::number($size[0]), 'length' => Measurement::number($size[1]), 'unit' => $unit],
+            ['sort_order' => $unit->position()],
+        );
     }
 
     /**

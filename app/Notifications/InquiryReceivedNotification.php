@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Enums\DeliveryMethod;
 use App\Models\Inquiry;
+use App\Models\InquiryDetailAnswer;
 use App\Models\InquiryStone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -41,6 +42,8 @@ class InquiryReceivedNotification extends Notification implements ShouldQueue
             'service:id,name',
             'schedule:id,inquiry_id,arrival_at',
             'stones' => fn ($query) => $query->orderBy('sort_order')->with('stone:id,name'),
+            'detailAnswers.detailField',
+            'detailAnswers.option',
         ]);
         $reference = $inquiry->reference;
 
@@ -62,7 +65,11 @@ class InquiryReceivedNotification extends Notification implements ShouldQueue
     }
 
     /**
-     * The service, stones, delivery and date, each line only when the inquiry has it.
+     * The service, stones, the project's answers, delivery and date, each line
+     * only when the inquiry has it. A stone carries the slab size and
+     * thickness asked of it ("Cosmic Black (160 x 320 cm, 20 mm)"), so two rows
+     * of one stone in different sizes both show; an answer is worded as the
+     * inquiry page words it ("Project area (sqm): 3.75", "Fascia: Yes").
      *
      * @return list<string>
      */
@@ -75,7 +82,13 @@ class InquiryReceivedNotification extends Notification implements ShouldQueue
         }
 
         $stones = $inquiry->stones
-            ->map(fn (InquiryStone $row): ?string => $row->stone?->name)
+            ->map(function (InquiryStone $row): ?string {
+                $measurements = array_filter([$row->slabSizeLabel(), $row->thicknessLabel()]);
+
+                return $row->stone?->name === null || $measurements === []
+                    ? $row->stone?->name
+                    : $row->stone->name.' ('.implode(', ', $measurements).')';
+            })
             ->filter()
             ->unique()
             ->implode(', ');
@@ -84,6 +97,13 @@ class InquiryReceivedNotification extends Notification implements ShouldQueue
             $lines[] = "Stones: {$stones}";
         } elseif ($inquiry->stone_advice_requested) {
             $lines[] = 'Stones: you asked us to recommend one';
+        }
+
+        $firstStone = $inquiry->stones->first()?->stone?->name;
+
+        // In the catalogue's order, which is the order the questions are asked in.
+        foreach ($inquiry->detailAnswers->sortBy(fn (InquiryDetailAnswer $answer): int => $answer->detailField->sort_order) as $answer) {
+            $lines[] = "{$answer->detailField->name}: {$answer->displayValue($firstStone)}";
         }
 
         $lines[] = $inquiry->delivery_method === DeliveryMethod::Delivery

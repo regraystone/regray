@@ -10,6 +10,8 @@ use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
+use App\Enums\SizeUnit;
+use App\Enums\ThicknessUnit;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
@@ -48,7 +50,7 @@ interface InquiryRepositoryInterface
     ): InquiryStatusHistory;
 
     /**
-     * @param  list<array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_size: ?string}>  $stones  Stored in the order given; a NULL answer is one its service does not ask.
+     * @param  list<array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_width: ?string, slab_length: ?string, slab_unit: ?SizeUnit, thickness: ?string, thickness_unit: ?ThicknessUnit}>  $stones  Stored in the order given; a NULL answer is one its service does not ask.
      */
     public function addStones(Inquiry $inquiry, array $stones): void;
 
@@ -143,7 +145,7 @@ interface InquiryRepositoryInterface
     /**
      * Replace the inquiry's stone rows with these, in the order given.
      *
-     * @param  list<array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_size: ?string}>  $stones
+     * @param  list<array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_width: ?string, slab_length: ?string, slab_unit: ?SizeUnit, thickness: ?string, thickness_unit: ?ThicknessUnit}>  $stones
      */
     public function replaceStones(Inquiry $inquiry, array $stones): void;
 

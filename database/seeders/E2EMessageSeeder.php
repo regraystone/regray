@@ -9,6 +9,8 @@ use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
+use App\Enums\SizeUnit;
+use App\Enums\ThicknessUnit;
 use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
@@ -348,7 +350,11 @@ class E2EMessageSeeder extends Seeder
             'edge_profile_id' => EdgeProfile::query()->value('id'),
             'finish_id' => Finish::query()->value('id'),
             'quantity' => 1,
-            'slab_size' => '120 x 60 cm',
+            'slab_width' => '160',
+            'slab_length' => '320',
+            'slab_unit' => SizeUnit::Centimetre,
+            'thickness' => '20',
+            'thickness_unit' => ThicknessUnit::Millimetre,
             'sort_order' => 0,
         ]);
 

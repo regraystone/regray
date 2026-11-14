@@ -196,6 +196,23 @@ it('emails the client a confirmation of their own inquiry, whatever their email 
     });
 });
 
+it('lists each stone with its slab size and thickness, and the project\'s answers, in the confirmation', function (): void {
+    Notification::fake();
+
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5 x 10 ft', 'thickness' => '0.75 in'])]])]])
+        ->assertSessionHasNoErrors();
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'area_sqm' => '3.75']])]])
+        ->assertSessionHasNoErrors();
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => '1']])]])
+        ->assertSessionHasNoErrors();
+
+    $bodies = Inquiry::query()->orderBy('id')->get()->map(fn (Inquiry $inquiry): string => (string) (new InquiryReceivedNotification($inquiry))->toMail($this->client)->render())->all();
+
+    expect($bodies[0])->toContain('Stones: '.Inquiry::query()->orderBy('id')->first()->stones()->sole()->stone->name.' (5 x 10 ft, 0.75 in)')
+        ->and($bodies[1])->toContain('Project area (sqm): 3.75')
+        ->and($bodies[2])->toContain('Project area (sqm): 4', 'Fascia: Yes');
+});
+
 it('does not email a confirmation to a client whose address is unverified', function (): void {
     Notification::fake();
     $unverified = User::factory()->unverified()->role(Role::Client)->create();

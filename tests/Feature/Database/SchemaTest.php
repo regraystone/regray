@@ -146,7 +146,11 @@ function schemaInquiryStone(int $inquiryId, int $quantity = 1, ?int $finishId = 
         'edge_profile_id' => EdgeProfile::create(['name' => 'Beveled', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 1])->id,
         'finish_id' => $finishId ?? Finish::create(['name' => 'Polished', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 1])->id,
         'quantity' => $quantity,
-        'slab_size' => '120 x 60 cm',
+        'slab_width' => 160,
+        'slab_length' => 320,
+        'slab_unit' => 'cm',
+        'thickness' => 20,
+        'thickness_unit' => 'mm',
         'sort_order' => 0,
         'created_at' => now(),
         'updated_at' => now(),
@@ -229,10 +233,23 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     }],
     'stone: a quantity of 0' => ['chk_inquiry_stones_quantity', fn () => DB::table('inquiry_stones')->insert(schemaInquiryStone(schemaInquiry(), 0))],
     'stone: the same stone with no answers twice' => ['idx_inquiry_stones_unique', function () {
-        $row = [...schemaInquiryStone(schemaInquiry()), 'edge_profile_id' => null, 'finish_id' => null, 'slab_size' => null];
+        $row = [...schemaInquiryStone(schemaInquiry()), 'edge_profile_id' => null, 'finish_id' => null, 'slab_width' => null, 'slab_length' => null, 'slab_unit' => null, 'thickness' => null, 'thickness_unit' => null];
         DB::table('inquiry_stones')->insert($row);
         DB::table('inquiry_stones')->insert([...$row, 'quantity' => 3]);
     }],
+    'stone: the same slab size and thickness written with more places' => ['idx_inquiry_stones_unique', function () {
+        $row = schemaInquiryStone(schemaInquiry());
+        DB::table('inquiry_stones')->insert($row);
+        DB::table('inquiry_stones')->insert([...$row, 'slab_width' => '160.00', 'thickness' => '20.0', 'quantity' => 3]);
+    }],
+    'stone: a slab size without its unit' => ['chk_inquiry_stones_slab_size_complete', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'slab_unit' => null])],
+    'stone: a slab size with one side' => ['chk_inquiry_stones_slab_size_complete', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'slab_length' => null])],
+    'stone: a thickness without its unit' => ['chk_inquiry_stones_thickness_complete', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'thickness_unit' => null])],
+    'stone: a thickness unit without a thickness' => ['chk_inquiry_stones_thickness_complete', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'thickness' => null])],
+    'stone: a slab side of 0' => ['chk_inquiry_stones_slab_positive', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'slab_width' => 0])],
+    'stone: a thickness of 0' => ['chk_inquiry_stones_thickness_positive', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'thickness' => 0])],
+    'stone: a slab size in yards' => ['chk_inquiry_stones_slab_unit', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'slab_unit' => 'yd'])],
+    'stone: a thickness in feet' => ['chk_inquiry_stones_thickness_unit', fn () => DB::table('inquiry_stones')->insert([...schemaInquiryStone(schemaInquiry()), 'thickness_unit' => 'ft'])],
 
     // What a service asks, and the answers.
     'question: an unknown scope' => ['chk_detail_fields_scope', fn () => schemaDetailField('room')],
@@ -334,9 +351,35 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     }],
 
     // The stone catalogue.
-    'stone: a size not written WxH' => ['chk_stones_size', fn () => Stone::factory()->create(['size' => '20X120'])],
-    'stone: a fractional size' => ['chk_stones_size', fn () => Stone::factory()->create(['size' => '20.5x120'])],
-    'stone: a thickness of 0' => ['chk_stones_thickness_positive', fn () => Stone::factory()->create(['thickness_mm' => 0])],
+    'thickness: a value of 0' => ['chk_thicknesses_value_positive', fn () => DB::table('thicknesses')->insert(['value' => 0, 'unit' => 'mm', 'sort_order' => 0])],
+    'thickness: an unknown unit' => ['chk_thicknesses_unit', fn () => DB::table('thicknesses')->insert(['value' => 20, 'unit' => 'ft', 'sort_order' => 0])],
+    'thickness: the same value and unit twice' => ['thicknesses_value_unit_unique', function () {
+        DB::table('thicknesses')->insert(['value' => 33, 'unit' => 'mm', 'sort_order' => 0]);
+        DB::table('thicknesses')->insert(['value' => '33.00', 'unit' => 'mm', 'sort_order' => 1]);
+    }],
+    'size: a width of 0' => ['chk_sizes_width_positive', fn () => DB::table('sizes')->insert(['width' => 0, 'length' => 120, 'unit' => 'cm', 'sort_order' => 0])],
+    'size: a length of 0' => ['chk_sizes_length_positive', fn () => DB::table('sizes')->insert(['width' => 60, 'length' => 0, 'unit' => 'cm', 'sort_order' => 0])],
+    'size: an unknown unit' => ['chk_sizes_unit', fn () => DB::table('sizes')->insert(['width' => 60, 'length' => 120, 'unit' => 'mm', 'sort_order' => 0])],
+    'size: the same size twice' => ['sizes_width_length_unit_unique', function () {
+        DB::table('sizes')->insert(['width' => 61, 'length' => 121, 'unit' => 'cm', 'sort_order' => 0]);
+        DB::table('sizes')->insert(['width' => 61, 'length' => 121, 'unit' => 'cm', 'sort_order' => 0]);
+    }],
+    'variant: the same size and thickness twice' => ['idx_stone_variants_unique', function () {
+        $stone = Stone::factory()->create();
+        $variant = $stone->variants()->sole()->only(['stone_id', 'size_id', 'thickness_id']);
+        DB::table('stone_variants')->insert([...$variant, 'sort_order' => 1]);
+    }],
+    'variant: the same thickness with no size twice' => ['idx_stone_variants_unique', function () {
+        $stone = Stone::factory()->create();
+        $thicknessId = $stone->variants()->sole()->thickness_id;
+        DB::table('stone_variants')->insert(['stone_id' => $stone->id, 'size_id' => null, 'thickness_id' => $thicknessId, 'sort_order' => 1]);
+        DB::table('stone_variants')->insert(['stone_id' => $stone->id, 'size_id' => null, 'thickness_id' => $thicknessId, 'sort_order' => 2]);
+    }],
+    'variant: no thickness' => ['not-null', fn () => DB::table('stone_variants')->insert(['stone_id' => Stone::factory()->create()->id, 'size_id' => null, 'thickness_id' => null, 'sort_order' => 0])],
+    'deleting a thickness a slab is cut in' => ['stone_variants_thickness_id_foreign', function () {
+        $stone = Stone::factory()->create();
+        DB::table('thicknesses')->where('id', $stone->variants()->sole()->thickness_id)->delete();
+    }],
     'stone: a name in another case' => ['idx_stones_name_unique_not_deleted', function () {
         Stone::factory()->create(['name' => 'Cosmic Black']);
         Stone::factory()->create(['name' => 'CoSmIc BlAcK']);
