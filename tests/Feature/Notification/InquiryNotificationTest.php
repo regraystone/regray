@@ -12,6 +12,7 @@ use App\Models\Client;
 use App\Models\Inquiry;
 use App\Models\User;
 use App\Notifications\InquiryReceivedNotification;
+use App\Notifications\InquiryStatusUpdatedNotification;
 use App\Services\InquiryStatusService;
 use App\Services\Notification\InquiryNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -229,4 +230,76 @@ it('does not email a confirmation for an inquiry staff open for a client', funct
     $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
 
     Notification::assertNotSentTo($this->client, InquiryReceivedNotification::class);
+});
+
+it('emails the client the status they now see, and what it means', function (): void {
+    Notification::fake();
+    $inquiry = claimedInquiry($this, ['status' => InquiryStatus::Negotiation]);
+
+    moveStatus($inquiry, InquiryStatusTrack::Sales, SalesStatus::OnHold, $this->sales);
+
+    Notification::assertSentTo($this->client, InquiryStatusUpdatedNotification::class, function (InquiryStatusUpdatedNotification $notification): bool {
+        $mail = $notification->toMail($this->client);
+
+        expect($notification)->toBeInstanceOf(ShouldQueue::class)
+            ->and($notification->status)->toBe(InquiryStatus::OnHold)
+            ->and($mail->subject)->toBe('Your inquiry INQ-N1 is now on hold')
+            ->and($mail->actionUrl)->toBe(route('quote.show', 'INQ-N1'))
+            ->and((string) $mail->render())->toContain('Your inquiry is on hold for now.', 'Reference: INQ-N1');
+
+        return true;
+    });
+});
+
+it('emails a payment move, and nothing for a move that leaves the client\'s status unchanged', function (): void {
+    Notification::fake();
+    $inquiry = claimedInquiry($this, ['status' => InquiryStatus::Quoted]);
+
+    moveStatus($inquiry, InquiryStatusTrack::Sales, SalesStatus::Won, $this->sales);
+    Notification::assertNotSentTo($this->client, InquiryStatusUpdatedNotification::class);
+
+    moveStatus($inquiry, InquiryStatusTrack::Payment, PaymentStatus::Partial, $this->sales);
+
+    Notification::assertSentTo($this->client, InquiryStatusUpdatedNotification::class, fn (InquiryStatusUpdatedNotification $notification): bool => $notification->status === PaymentStatus::Partial
+        && $notification->toMail($this->client)->subject === 'Your inquiry INQ-N1 is now partially paid');
+});
+
+it('emails a cancelled inquiry with its next steps and a way to send a new one', function (): void {
+    Notification::fake();
+    $inquiry = claimedInquiry($this);
+
+    app(InquiryStatusService::class)->decide($inquiry->fresh(), LeadStatus::Lost, $this->mara);
+
+    Notification::assertSentTo($this->client, InquiryStatusUpdatedNotification::class, function (InquiryStatusUpdatedNotification $notification): bool {
+        $mail = $notification->toMail($this->client);
+
+        expect($notification->cancelledByClient)->toBeFalse()
+            ->and($mail->subject)->toBe('Your inquiry INQ-N1 has been cancelled')
+            ->and($mail->actionUrl)->toBe(route('quote.inquire'))
+            ->and((string) $mail->render())->toContain('our team will contact you about your refund');
+
+        return true;
+    });
+});
+
+it('emails the client their own cancel, once', function (): void {
+    Notification::fake();
+    claimedInquiry($this);
+
+    $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-N1'))->assertSessionHasNoErrors();
+
+    Notification::assertSentToTimes($this->client, InquiryStatusUpdatedNotification::class, 1);
+    Notification::assertSentTo($this->client, InquiryStatusUpdatedNotification::class, fn (InquiryStatusUpdatedNotification $notification): bool => $notification->cancelledByClient
+        && $notification->status === InquiryStatus::Cancelled
+        && $notification->toMail($this->client)->subject === 'You cancelled inquiry INQ-N1');
+});
+
+it('does not email status updates to a client whose address is unverified', function (): void {
+    Notification::fake();
+    $unverified = User::factory()->unverified()->role(Role::Client)->create();
+    $inquiry = makeInquiry($unverified, attributes: ['lead' => makeLead($unverified, $this->mara), 'status' => InquiryStatus::Negotiation]);
+
+    moveStatus($inquiry, InquiryStatusTrack::Sales, SalesStatus::OnHold, $this->sales);
+
+    Notification::assertNotSentTo($unverified, InquiryStatusUpdatedNotification::class);
 });
