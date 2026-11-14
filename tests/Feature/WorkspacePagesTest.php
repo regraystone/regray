@@ -151,6 +151,14 @@ test('guards every route with exactly these permissions', function () {
         'brands.stones.show' => [],
         'brands.furniture.show' => [],
         'stone.show' => [],
+        // Signing in and up with Google happens before there is a signed-in user.
+        'auth.google.redirect' => [],
+        'auth.google.callback' => [],
+        'auth.google.finish' => [],
+        'auth.google.finish.store' => [],
+        'auth.google.confirm' => [],
+        'auth.google.confirm.store' => [],
+        'auth.google.confirm.cancel' => [],
         'dashboard.brands.show' => $p(Permission::HomeView),
         'dashboard.brands.stones.show' => $p(Permission::HomeStoneView),
         'dashboard.brands.furniture.show' => $p(Permission::HomeView),
@@ -180,6 +188,8 @@ test('guards every route with exactly these permissions', function () {
         'inquiry.edit' => $p(Permission::InquiriesEdit),
         'inquiry.update' => $p(Permission::InquiriesEdit),
         'inquiry.show' => $p(Permission::InquiriesView, Permission::QuotationsView),
+        // An inquiry's files, for whoever may open its details page.
+        'inquiry.files.show' => $p(Permission::InquiriesView, Permission::QuotationsView),
         // The track's own permission is the policy's to check.
         'inquiries.status' => $p(Permission::InquiriesView),
         'inquiries.job-order' => $p(Permission::InquiriesView),
@@ -216,6 +226,9 @@ test('guards every route with exactly these permissions', function () {
         'profile.show' => $p(Permission::ProfileView),
         'profile.edit' => $p(Permission::ProfileView),
         'profile.update' => $p(Permission::ProfileView),
+        'email-preferences.update' => $p(Permission::ProfileView),
+        'social.google.connect' => $p(Permission::ProfileView),
+        'social.google.disconnect' => $p(Permission::ProfileView),
         'profile.destroy' => $p(Permission::ProfileView),
         'security.edit' => $p(Permission::ProfileView),
         'user-password.update' => $p(Permission::ProfileView),
@@ -232,7 +245,7 @@ test('guards every route with exactly these permissions', function () {
         ->toEqual($expected);
 });
 
-test('lets only the two details pages open on either of two permissions', function () {
+test('lets only the two details pages, and the inquiry\'s files, open on either of two permissions', function () {
     // `can_any` widens a guard, so every route that takes it is named here.
     $alternatives = pageRoutes()
         ->filter(fn (RoutingRoute $route) => collect(permissionGuardsFor($route->getName()))->contains('alternatives', true))
@@ -241,7 +254,7 @@ test('lets only the two details pages open on either of two permissions', functi
         ->values()
         ->all();
 
-    expect($alternatives)->toBe(['home.show', 'inquiry.show']);
+    expect($alternatives)->toBe(['home.show', 'inquiry.files.show', 'inquiry.show']);
 });
 
 test('opens to each role exactly the pages its matrix entry grants', function (string $role) {

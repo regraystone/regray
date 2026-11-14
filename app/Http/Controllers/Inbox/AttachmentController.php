@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Inbox;
 
 use App\Http\Controllers\Controller;
+use App\Http\Responses\FileDisposition;
 use App\Models\MessageAttachment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -31,7 +30,7 @@ class AttachmentController extends Controller
         $message = $attachment->message ?? abort(404);
         Gate::authorize('view', $message->conversation);
 
-        $disposition = $this->disposition($attachment->original_name, $request->boolean('download'));
+        $disposition = FileDisposition::for($attachment->original_name, $request->boolean('download'));
 
         if (config("filesystems.disks.{$attachment->disk}.driver") === 's3') {
             $url = Storage::disk($attachment->disk)->temporaryUrl(
@@ -52,22 +51,5 @@ class AttachmentController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, max-age=300',
         ]);
-    }
-
-    /**
-     * Shown in the browser, or saved with `?download=1`, under the sender's
-     * file name. Header-safe whatever the name holds: no slashes, and an ASCII
-     * fallback for browsers that do not read the UTF-8 one.
-     */
-    private function disposition(string $originalName, bool $download): string
-    {
-        $name = str_replace(['/', '\\'], '-', $originalName);
-        $fallback = str_replace('%', '', Str::ascii($name));
-
-        return HeaderUtils::makeDisposition(
-            $download ? HeaderUtils::DISPOSITION_ATTACHMENT : HeaderUtils::DISPOSITION_INLINE,
-            $name,
-            $fallback === '' ? 'attachment' : $fallback,
-        );
     }
 }

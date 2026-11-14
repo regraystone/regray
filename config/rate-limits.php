@@ -27,6 +27,10 @@ return [
         // PATCH quote/{reference} and quote/{reference}/cancel.
         'inquiry-edit' => (int) env('RATE_LIMIT_INQUIRY_EDIT', 10),
 
+        // GET inquiry/{reference}/files/{storedName}: a preview checks the file
+        // with HEAD and then opens it, so each one is two requests.
+        'inquiry-files' => (int) env('RATE_LIMIT_INQUIRY_FILES', 120),
+
         // POST schedule/book.
         'booking' => (int) env('RATE_LIMIT_BOOKING', 10),
 
@@ -42,6 +46,10 @@ return [
 
         // Fortify's POST register, per IP.
         'register' => (int) env('RATE_LIMIT_REGISTER', 5),
+
+        // Sign in and sign up with Google: the trip out, the callback and
+        // Finish signing up, per IP (per user when connecting from settings).
+        'social-login' => (int) env('RATE_LIMIT_SOCIAL_LOGIN', 10),
 
         // Fortify's POST forgot-password and reset-password, per IP, together.
         'password-reset' => (int) env('RATE_LIMIT_PASSWORD_RESET', 5),

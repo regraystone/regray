@@ -1,3 +1,39 @@
+# A client is emailed when their inquiry's status changes
+
+- **Whenever the bell tells a client their inquiry moved** ("Your inquiry {ref} is now {status}."), they are also emailed (`InquiryStatusUpdatedNotification`, queued): the same moves, so never one that leaves the status they see unchanged (sales won still reads quoted), and never one they made themselves. It says what the status means and what happens next, in the card's groups: **under review** (negotiation, site visited), **approved** (quoted, awaiting payment), **action needed** (on hold, revision, delayed), **processing** (order received through installation, one email per step), payments (partially or fully paid, refunds), **cancelled** and **completed** (closed). Each has a **View your inquiry** button to its Quote page.
+- **Cancelled** says no more work will be done on it, that the team will contact them about any refund, and offers **Send a new inquiry** (the Inquire page). The client's own cancel is emailed too ("You cancelled inquiry {ref}"), beside the bell's "You have successfully cancelled inquiry {ref}.".
+- **Always sent** to a verified address, whatever the email box says, like the confirmation; Account & Security's Email preferences says so. Walk-ins, with no account, are not emailed. Received is the confirmation email below.
+
+# A client's inquiry is confirmed by email
+
+- **When a client sends an inquiry**, they are emailed a confirmation (`InquiryReceivedNotification`, queued) as well as the bell's "You have successfully submitted inquiry {ref}.". Subject **We received your inquiry {ref}**; it gives the reference, the project, the service, the stones (or that they asked us to recommend one), delivery to the location or pickup, and the needed-by date, then says where to follow it (the Quote page, the bell, Messages), with a **View your inquiry** button to its Quote page.
+- **Always sent**, to a verified address, whatever the email box says: it is a receipt for something the client did, like a password reset. Account & Security's Email preferences says so.
+- **Only for the client's own inquiry:** one staff open for a client, and a walk-in's, are not emailed. Several projects sent together are several inquiries, each with its own email.
+
+# Sign in and sign up with Google
+
+- **Continue with Google**, on Sign In and Sign Up, goes to Google's account chooser and back to `/auth/google/callback` (`GoogleController`, Laravel Socialite). A Google account already connected signs in. Otherwise an account whose email Google has **verified** is recognised, but not signed in to: **Connect your Google account** (`auth/google-confirm`) asks for that account's password once (6 tries a minute), then connects Google, counts the email as verified and signs in. Owning the email at Google is not enough, since somebody may have registered with an address that is not theirs; its owner can use **Forgot password** there instead. An email Google has not verified is never matched. Someone with two-factor authentication on is still asked for their code. Cancelling on Google, an expired request, an unverified email and Google not being set up each come back to Sign In with a message saying so (`socialNotice`).
+- **Signing up with Google:** someone new is shown **Finish signing up** (`auth/google-finish`): their name from Google (theirs to change), their Google email, and the same two boxes as Sign Up (`ConsentFields`). The account is only made once they agree to the terms: a verified client, with a Regray thread and consent records like any sign-up (`ClientRegistrationService`, now shared with Sign Up). It has no password of its own; **Forgot password** sets one. The step expires after 15 minutes.
+- **Connected accounts**, on Account & Security, connects Google to the signed-in account or disconnects it. A Google account connected to another Regray account is refused.
+- **Schema:** new `social_accounts` table (`SocialAccount`: user, `provider`, `provider_user_id`, `email`), one per Google account and one Google account per user. Run `php artisan migrate`.
+- **Setup:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REDIRECT_URI` (`config/services.php`), from an OAuth client in Google Cloud Console whose authorised redirect URI is `{APP_URL}/auth/google/callback`. Without them the buttons say Google sign-in is not set up yet.
+- **Rate limit:** the Google routes share the new `social-login` limiter, 10 a minute (`RATE_LIMIT_SOCIAL_LOGIN`).
+
+# The email box decides message emails; staff start with it on
+
+- **The box** under the terms is now **Email me about new messages and updates (optional)**, and Account & Security's toggle reads **Email me about new messages and updates**. It now covers message notification emails as well as updates and announcements.
+- **Message emails** (`MessageWaitingNotification`) go only to someone who wants emails (`User::receivesMessageEmails()`): a verified address and the box on. With it off, the bell notification still arrives; only the email is skipped. Emails about the account itself (verifying the address, resetting the password) are always sent.
+- **Clients** are off unless they tick it, at sign-up or in their settings, as before. **Staff** never see the sign-up form, so they are on until they turn it off in Account & Security: a staff member with no email row in `user_consents` is emailed (`User::wantsMarketingEmails()`). This covers existing staff with no data change.
+- **The terms box** starts unticked, and sign-up is still refused without it.
+
+# Sign-up asks for the terms; promotional emails are opt-in
+
+- **Sign Up** has two boxes under the password: **I agree to the Terms & Conditions**, which is required (the server refuses an account without it: "Agree to the Terms & Conditions to create an account."), and **Send me promotional emails and announcements (optional)**, off unless ticked. "Terms & Conditions" opens them in a dialog over the form (`TermsDialog`), so nothing typed is lost; its **I agree** button ticks the box. The wording is a placeholder, to be replaced with the studio's own before launch (`terms-dialog.tsx`).
+- **Consent records:** each agreement or withdrawal is a row in the new `user_consents` table (`UserConsent`: type `terms` or `marketing_emails`, granted or not, the terms' version, source `registration` or `settings`, IP address, user agent, `created_at`). Rows are never changed or deleted, so the table says what a user had agreed to on any date. Where a user stands now is on `users`: `terms_accepted_at`, `terms_version` and `marketing_emails_opted_in_at` (null means no promotional emails). `ConsentService` writes both in one transaction.
+- **Terms version** is `TERMS_VERSION` (`config/legal.php`, default `2026-11-13`). Shown in the dialog; change it whenever the terms' wording changes.
+- **Account & Security** has an **Email preferences** card to turn promotional emails on or off (`email-preferences.update`, `profile.view`), and says when the user agreed to the terms, with the same dialog to read them again. Saving an unchanged choice records nothing. Emails about the user's account, inquiries and visits are not affected.
+- **Existing accounts**, and accounts staff create (walk-in clients, staff), have no terms agreement and no promotional emails. Nobody is asked to agree again. New migrations: run `php artisan migrate`.
+
 # Each service asks its own questions; new services and furniture types
 
 What a project is asked besides its stones now depends on its service, and is data rather than code. The schema changes are in the create migrations and the seed data changed, so an existing database needs `migrate:fresh --seed`.

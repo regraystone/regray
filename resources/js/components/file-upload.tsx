@@ -14,16 +14,18 @@ import {
     type InquiryUploadAttachment,
 } from '@/data/inquiries';
 import {
-    ATTACHMENT_EXTENSIONS,
-    ATTACHMENT_MIME_TYPES,
+    CLIENT_ATTACHMENT_TYPES,
     MAX_ATTACHMENTS,
     MAX_ATTACHMENT_BYTES,
+    type AcceptedFileTypes,
 } from '@/lib/inquiry-schema';
 
-/** Both the hint and the `accept` attribute, so the picker filters the same way. */
-const ACCEPT = `${ATTACHMENT_EXTENSIONS.map(
-    (extension) => `.${extension}`,
-).join(',')},${ATTACHMENT_MIME_TYPES.join(',')}`;
+/** The `accept` attribute, from the same list the check below uses, so the picker filters the same way. */
+const acceptFor = (types: AcceptedFileTypes): string =>
+    [
+        ...types.extensions.map((extension) => `.${extension}`),
+        ...types.mimeTypes,
+    ].join(',');
 
 const UPLOAD_MIN_MS = 1200;
 const UPLOAD_MAX_MS = 2500;
@@ -99,6 +101,8 @@ type FileUploadProps = {
     onFilesChange: (files: InquiryAttachment[]) => void;
     /** How many files the field takes; one turns off multi-select. */
     maxFiles?: number;
+    /** Which files it takes: a client's attachments unless told otherwise. */
+    types?: AcceptedFileTypes;
 };
 
 /**
@@ -114,6 +118,7 @@ const FileUpload = ({
     files,
     onFilesChange,
     maxFiles = MAX_ATTACHMENTS,
+    types = CLIENT_ATTACHMENT_TYPES,
 }: FileUploadProps) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -231,11 +236,11 @@ const FileUpload = ({
             const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
 
             if (
-                !ATTACHMENT_EXTENSIONS.includes(extension) ||
-                !ATTACHMENT_MIME_TYPES.includes(file.type)
+                !types.extensions.includes(extension) ||
+                !types.mimeTypes.includes(file.type)
             ) {
                 problems.push(
-                    `${file.name} isn't a supported type. Use PDF, PNG, JPG or JPEG.`,
+                    `${file.name} isn't a supported type. Use ${types.label}.`,
                 );
                 continue;
             }
@@ -438,8 +443,8 @@ const FileUpload = ({
                 </span>
                 <span className="text-xs text-secondary-foreground">
                     {maxFiles === 1
-                        ? 'PDF, PNG, JPG or JPEG. One file, up to 10 MB.'
-                        : `PDF, PNG, JPG or JPEG. Up to 10 MB each, ${maxFiles} files.`}
+                        ? `${types.label}. One file, up to 10 MB.`
+                        : `${types.label}. Up to 10 MB each, ${maxFiles} files.`}
                 </span>
             </button>
 
@@ -452,7 +457,7 @@ const FileUpload = ({
                 ref={inputRef}
                 type="file"
                 multiple={maxFiles > 1}
-                accept={ACCEPT}
+                accept={acceptFor(types)}
                 aria-label="Attach files"
                 tabIndex={-1}
                 className="sr-only"

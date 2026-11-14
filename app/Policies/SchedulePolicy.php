@@ -53,7 +53,13 @@ class SchedulePolicy
         }
 
         if ($user->isClient()) {
-            return $action->isOpenToClients() && $schedule->client_id === $user->id ? Response::allow() : Response::deny();
+            // Another client's visit answers as missing, like one that does not exist,
+            // so a client cannot tell which visit ids are taken.
+            if ($schedule->client_id !== $user->id) {
+                return Response::denyAsNotFound();
+            }
+
+            return $action->isOpenToClients() ? Response::allow() : Response::deny();
         }
 
         return $schedule->isVisibleTo($user) ? Response::allow() : Response::denyAsNotFound();

@@ -107,7 +107,7 @@ it('agrees with the SQL scope on every combination of marketing\'s decision and 
 
     foreach ($rows as $row) {
         if ($row['job_order']) {
-            $files[] = ['inquiry_id' => $ids[$row['reference']], 'document_type' => DocumentType::JobOrder->value, 'disk' => 'local', 'path' => 'x.pdf', 'original_name' => 'x.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 1, 'created_at' => now()];
+            $files[] = ['inquiry_id' => $ids[$row['reference']], 'document_type' => DocumentType::JobOrder->value, 'disk' => 'local', 'path' => 'x.pdf', 'stored_name' => 'x.pdf', 'original_name' => 'x.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 1, 'created_at' => now()];
         }
     }
 

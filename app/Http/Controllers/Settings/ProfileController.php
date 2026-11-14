@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\SocialProvider;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
@@ -35,9 +36,23 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $google = $request->user()->socialAccounts()->where('provider', SocialProvider::Google)->first();
+
         return Inertia::render('profile/account-security', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'google' => [
+                'available' => SocialProvider::Google->isConfigured(),
+                // The Google account's email when connected, null when not.
+                'connectedEmail' => $google?->email,
+                'connected' => $google !== null,
+            ],
+            'socialNotice' => $request->session()->get('socialNotice'),
+            'emailPreferences' => [
+                'marketingEmails' => $request->user()->wantsMarketingEmails(),
+                'termsAcceptedAt' => $request->user()->terms_accepted_at?->toIso8601String(),
+                'termsVersion' => config('legal.terms_version'),
+            ],
         ]);
     }
 

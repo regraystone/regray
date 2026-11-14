@@ -8,27 +8,31 @@ use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
-use App\Enums\Permission;
 use App\Enums\SalesStatus;
 use App\Models\DetailField;
 use App\Models\Inquiry;
 use App\Models\InquiryDetailAnswer;
 use App\Models\InquiryFile;
+use App\Models\InquiryHandler;
 use App\Models\InquiryStatusHistory;
 use App\Models\InquiryStone;
 use App\Models\User;
 use App\Policies\InquiryActions;
+use App\Policies\InquiryFileVisibility;
 use App\Services\ScheduleService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection;
 
 /**
  * An inquiry as its client sees it: the one project it is, the status it is
  * shown at, its three role statuses, the history of how they moved, its
- * payment records, and the documents the team has shared with the client. Names, quantities and dates:
- * no database ids, nothing about who changed a status or who handles the
- * inquiry, and no file paths or disks.
+ * payment records, the documents the team has shared with the client, and
+ * the staff assigned to it. Names, quantities and dates: no database ids,
+ * nothing about who changed a status, nothing about the staff beyond a name
+ * and a role, and no file paths or disks. Each file instead carries the URL
+ * it is previewed and downloaded by (`inquiry.files.show`).
  *
  * Nothing about its lead is sent: a lost lead shows only as the inquiry being
  * cancelled. Whoever sends quotations (sales, and the super-admin) is sent
@@ -54,12 +58,13 @@ class InquiryDetailsResource extends JsonResource
     }
 
     /**
-     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null}
+     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string, url: string, previewable: bool, uploadedAt: string, format: string}>}>, assignedStaff: list<array{name: string, roleLabel: string|null}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null}
      */
     public function toArray(Request $request): array
     {
         /** @var User $viewer */
         $viewer = $request->user();
+        $files = (new InquiryFileVisibility)->filter($viewer, $this->files);
 
         return [
             'reference' => $this->reference,
@@ -73,8 +78,9 @@ class InquiryDetailsResource extends JsonResource
             'contractTotal' => $this->contract_total,
             'history' => $this->history(),
             'payments' => $this->payments(),
-            'documents' => $this->documents($viewer),
-            'project' => $this->project(),
+            'documents' => $this->documents($files),
+            'assignedStaff' => $this->assignedStaff(),
+            'project' => $this->project($files),
             'actions' => (new InquiryActions)->for($this->resource),
             'conversation' => $this->conversationLink,
         ];
@@ -82,7 +88,8 @@ class InquiryDetailsResource extends JsonResource
 
     /**
      * The client's activity log: every change to sales, payment and logistics,
-     * oldest first, a stage starting included. Who made a change is not sent.
+     * oldest first, a stage starting included. Who made a change is not sent:
+     * who handles the inquiry is assignedStaff()'s, not the log's.
      *
      * Marketing's decision is the team's own business and is left out, except
      * that the client has to see their inquiry being cancelled: an inquiry
@@ -111,6 +118,29 @@ class InquiryDetailsResource extends JsonResource
         }
 
         return array_values($entries);
+    }
+
+    /**
+     * The staff handling the inquiry now (`inquiry_handlers`), first assigned
+     * first, then by name. A name and a role only, as a client already reads a
+     * name on a Regray Team thread; never how to reach them, nor who assigned
+     * them. Neither marketing holding the lead nor whoever opened the inquiry
+     * is listed: only an assignment makes someone its staff.
+     *
+     * @return list<array{name: string, roleLabel: string|null}>
+     */
+    private function assignedStaff(): array
+    {
+        return array_values($this->handlers
+            ->sortBy([
+                fn (InquiryHandler $a, InquiryHandler $b): int => $a->assigned_at <=> $b->assigned_at,
+                fn (InquiryHandler $a, InquiryHandler $b): int => strcasecmp($a->user->name, $b->user->name),
+            ])
+            ->map(fn (InquiryHandler $handler): array => [
+                'name' => $handler->user->name,
+                'roleLabel' => $handler->user->primaryRole()?->label(),
+            ])
+            ->all());
     }
 
     /**
@@ -191,26 +221,21 @@ class InquiryDetailsResource extends JsonResource
     /**
      * The documents the team has shared with the client, one group per status
      * update, oldest first: the quotation with its revision, the billing
-     * statement, and each payment's receipts and invoice. Staff are also sent
-     * the job order, which is internal and never sent to the client. Only the latest
-     * quotation is sent, as an older revision is superseded, except to whoever
-     * may move the sales status and so sends the quotations: they are sent every
-     * revision, to see how the quote moved. A group is headed by the
-     * update's status and date. Paths and disks are never sent.
+     * statement, and each payment's receipts and invoice. Which of them this
+     * reader sees (the job order for staff only, older quotation revisions
+     * for sales only) is InquiryFileVisibility's, which the file route asks
+     * too. A group is headed by the update's status and date.
      *
-     * @return list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string}>}>
+     * @param  Collection<int, InquiryFile>  $files  the files this reader may see
+     * @return list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string, url: string, previewable: bool, uploadedAt: string, format: string}>}>
      */
-    private function documents(User $viewer): array
+    private function documents(Collection $files): array
     {
         $updates = $this->statusHistory->keyBy('id');
         $position = 0;
-        $latestQuote = $this->files->where('document_type', DocumentType::Quotation)->max('revision');
-        $seesEveryRevision = $viewer->can(Permission::InquiriesStatusSales->value);
 
-        return array_values($this->files
-            ->filter(fn (InquiryFile $file): bool => ($file->document_type->isSharedWithClient()
-                    || ($file->document_type === DocumentType::JobOrder && ! $viewer->isClient()))
-                && ($file->document_type !== DocumentType::Quotation || $seesEveryRevision || $file->revision === $latestQuote))
+        return array_values($files
+            ->filter(fn (InquiryFile $file): bool => $file->document_type !== DocumentType::ClientAttachment)
             ->sortBy(fn (InquiryFile $file): string => $file->created_at->format('U.u').'-'.str_pad((string) $file->id, 12, '0', STR_PAD_LEFT))
             ->groupBy(fn (InquiryFile $file): string => $file->status_history_id === null ? 'file-'.$file->id : 'update-'.$file->status_history_id)
             ->values()
@@ -231,9 +256,7 @@ class InquiryDetailsResource extends JsonResource
                         return [
                             'id' => 'document-'.$position,
                             'type' => $file->document_type->value,
-                            'name' => $file->original_name,
-                            'sizeBytes' => $file->size_bytes,
-                            'mimeType' => $file->mime_type,
+                            ...$this->storedFile($file),
                         ];
                     })->all()),
                 ];
@@ -252,9 +275,10 @@ class InquiryDetailsResource extends JsonResource
      * reads as the first stone's name. `requiresStones` is false for a service
      * that asks for no stones, whose page has no Stones section.
      *
+     * @param  Collection<int, InquiryFile>  $files  the files this reader may see
      * @return array<string, mixed>
      */
-    private function project(): array
+    private function project(Collection $files): array
     {
         $arrivalAt = $this->schedule?->arrival_at->setTimezone(ScheduleService::timezone());
         $questions = $this->service === null ? new EloquentCollection : $this->service->detailFields;
@@ -297,16 +321,34 @@ class InquiryDetailsResource extends JsonResource
                 'location' => $this->location,
                 'neededBy' => $arrivalAt?->toDateString(),
                 'notes' => $this->notes,
-                'attachments' => $this->files
+                'attachments' => $files
                     ->filter(fn (InquiryFile $file): bool => $file->document_type === DocumentType::ClientAttachment)
                     ->values()
                     ->map(fn (InquiryFile $file, int $position): array => [
                         'id' => 'file-'.($position + 1),
-                        'name' => $file->original_name,
-                        'sizeBytes' => $file->size_bytes,
-                        'mimeType' => $file->mime_type,
+                        ...$this->storedFile($file),
                     ])->all(),
             ],
+        ];
+    }
+
+    /**
+     * What a file row shows and opens: the uploader's name, size and type,
+     * when it was uploaded, and the route it is served by, keyed by its
+     * generated `stored_name`. Never a path, disk, hash or database id.
+     *
+     * @return array{name: string, sizeBytes: int, mimeType: string, url: string, previewable: bool, uploadedAt: string, format: string}
+     */
+    private function storedFile(InquiryFile $file): array
+    {
+        return [
+            'name' => $file->original_name,
+            'sizeBytes' => $file->size_bytes,
+            'mimeType' => $file->mime_type,
+            'url' => route('inquiry.files.show', [$this->reference, $file->stored_name], absolute: false),
+            'previewable' => $file->isPreviewable(),
+            'uploadedAt' => $file->created_at->toIso8601String(),
+            'format' => $file->formatLabel(),
         ];
     }
 }

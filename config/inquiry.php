@@ -14,6 +14,9 @@ return [
 
     'disk' => env('INQUIRY_DISK', env('FILESYSTEM_PRIVATE_DISK', 'local')),
 
+    // On S3, how long the link a file preview or download redirects to lasts.
+    'file_link_minutes' => 5,
+
     /*
     |--------------------------------------------------------------------------
     | Limits

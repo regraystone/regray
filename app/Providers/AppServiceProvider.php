@@ -70,11 +70,13 @@ class AppServiceProvider extends ServiceProvider
         'notifications',
         'inquiry-submit',
         'inquiry-edit',
+        'inquiry-files',
         'booking',
         'saved-stone',
         'group-create',
         'heavy-reads',
         'register',
+        'social-login',
         'password-reset',
     ];
 
@@ -214,6 +216,8 @@ class AppServiceProvider extends ServiceProvider
      * - `inquiry-submit` and `inquiry-edit`: sending, editing and cancelling
      *   an inquiry, each of which writes files and visits. Both inquiry doors
      *   share one count.
+     * - `inquiry-files`: previewing and downloading an inquiry's files, each
+     *   preview a HEAD and a GET; only a script walking the files reaches it.
      * - `booking`: Book an appointment.
      * - `saved-stone`: the heart on a stone card. A person taps through a
      *   feed; only a script reaches this.
@@ -221,6 +225,7 @@ class AppServiceProvider extends ServiceProvider
      * - `heavy-reads`: the Home and Saved feeds, where every filter change,
      *   search and page of infinite scroll is a request.
      * - `register` and `password-reset`: Fortify's guest forms, per IP.
+     * - `social-login`: signing in, signing up and connecting with Google.
      */
     protected function configureRateLimits(): void
     {

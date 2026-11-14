@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Brand\ProductRedirectController;
 use App\Http\Controllers\Furniture\FurnitureController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Notification\NotificationController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
+use App\Http\Controllers\Quote\InquiryFileController;
 use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
@@ -34,6 +36,24 @@ use Illuminate\Support\Facades\Route;
  * Public landing page: guests see the catalogue, signed-in users redirect to their role home.
  */
 Route::get('/', [LandingController::class, 'index'])->name('home');
+
+/*
+ * Sign in and sign up with Google. The callback is the authorised redirect URI
+ * on the Google OAuth client (config/services.php), so its path must not
+ * change. It serves signed-in users too: connecting Google from Account &
+ * Security comes back through it.
+ */
+Route::middleware('throttle:social-login')->prefix('auth/google')->group(function () {
+    Route::get('redirect', [GoogleController::class, 'redirect'])->middleware('guest')->name('auth.google.redirect');
+    Route::get('callback', [GoogleController::class, 'callback'])->name('auth.google.callback');
+    Route::get('finish', [GoogleController::class, 'showFinish'])->middleware('guest')->name('auth.google.finish');
+    Route::post('finish', [GoogleController::class, 'finish'])->middleware('guest')->name('auth.google.finish.store');
+    // A Google email that is already an account's: its password, before connecting.
+    Route::get('confirm', [GoogleController::class, 'showConfirm'])->middleware('guest')->name('auth.google.confirm');
+    // A password guess: held tighter than the rest, like the Sign In form's.
+    Route::post('confirm', [GoogleController::class, 'confirm'])->middleware(['guest', 'throttle:6,1'])->name('auth.google.confirm.store');
+    Route::delete('confirm', [GoogleController::class, 'cancelConfirm'])->middleware('guest')->name('auth.google.confirm.cancel');
+});
 
 /*
  * The public catalogue: a brand's page and its products, with the signed-in
@@ -308,6 +328,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('inquiry/{reference}', [InquiryDetailsController::class, 'show'])
             ->middleware(Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView))
             ->name('inquiry.show');
+        // One of the inquiry's files, for whoever may open the inquiry above.
+        Route::get('inquiry/{reference}/files/{storedName}', [InquiryFileController::class, 'show'])
+            ->where('storedName', '[A-Za-z0-9._-]+')
+            ->middleware([Permission::anyOfMiddleware(Permission::InquiriesView, Permission::QuotationsView), 'throttle:inquiry-files'])
+            ->name('inquiry.files.show');
 
         Route::get('schedule', [ViewController::class, 'schedule'])
             ->middleware(Permission::ScheduleView->middleware())

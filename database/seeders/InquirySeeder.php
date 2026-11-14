@@ -45,6 +45,7 @@ use App\Services\ScheduleService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -938,13 +939,15 @@ class InquirySeeder extends Seeder
     private function seedFile(InquiryFileUploads $fileUploads, Inquiry $inquiry, User $uploader, DocumentType $type, array $fileData, Carbon $at, ?int $revision = null, ?InquiryStatusHistory $update = null): void
     {
         $fileUploads->authorize($uploader, $type, $inquiry);
+        $storedName = Str::uuid()->toString().'.'.strtolower(pathinfo($fileData['name'], PATHINFO_EXTENSION));
 
         $inquiry->files()->forceCreate([
             'document_type' => $type,
             'status_history_id' => $update?->id,
             'revision' => $revision,
             'disk' => 'local',
-            'path' => 'inquiries/'.$inquiry->reference.'/'.$fileData['name'],
+            'path' => 'inquiries/'.$inquiry->reference.'/'.$storedName,
+            'stored_name' => $storedName,
             'original_name' => $fileData['name'],
             'mime_type' => $fileData['mime_type'],
             'size_bytes' => $fileData['size_bytes'],
