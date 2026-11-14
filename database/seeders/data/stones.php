@@ -7,6 +7,14 @@ return [
      * ServiceStoneTypeSeeder links them; every service that asks for stones needs
      * at least one type, or it is not offered. Installation Only asks for none,
      * so no type names it.
+     *
+     * `thicknesses` (`[value, unit]`) and `sizes` (`[width, length, unit]`) are
+     * the pools the type's stones are cut in. StoneSeeder gives each stone a
+     * few of them, rotated by the stone's place in the list, so the options are
+     * shared across stones without every stone of a type listing the same
+     * set. Mostly millimetres and centimetres, as slabs are quoted here, with
+     * the imperial and metre sizes a supplier quotes from abroad, so every
+     * unit (ThicknessUnit, SizeUnit) is in use.
      */
     'types' => [
         [
@@ -15,7 +23,8 @@ return [
             'thumbnail_path' => 'stones/ef03fcfd4ff0e6063df004f6b897fe7a.png',
             'description' => 'Granite cut into cubes and setts, the oldest paving material still in daily use. A flamed or brushed face grips underfoot in the wet, and because the stone is hard-wearing rather than soft, a laid courtyard keeps its pattern for decades.',
             'origin' => 'Brazil, India',
-            'thickness_mm' => 75,
+            'thicknesses' => [[50, 'mm'], [75, 'mm'], [100, 'mm']],
+            'sizes' => [[10, 10, 'cm'], [10, 20, 'cm'], [20, 20, 'cm']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'flooring', 'staircase'],
         ],
         [
@@ -24,7 +33,8 @@ return [
             'thumbnail_path' => 'stones/1715fd73a1ddbc8f8ae32158bd35ae4a.png',
             'description' => 'Irregular flagstone pieces split and shaped to follow the ground instead of a saw line. No two pieces repeat, so a laid surface has a looser, more natural character than a rectangular tile ever will. Cut from granite, marble and limestone.',
             'origin' => 'Brazil, Italy, Turkey',
-            'thickness_mm' => 25,
+            'thicknesses' => [[20, 'mm'], [25, 'mm'], [30, 'mm']],
+            'sizes' => [[20, 120, 'cm'], [30, 60, 'cm'], [60, 60, 'cm']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'wall-cladding', 'flooring'],
         ],
         [
@@ -33,7 +43,8 @@ return [
             'thumbnail_path' => 'stones/8f7804fd9673f34737ecd0c1dfca9723.png',
             'description' => 'The workhorse of natural stone, granite is a dense igneous rock prized for its exceptional hardness, heat resistance, and stone-deep durability. A broad palette of speckles, veins, and tones makes it a safe, lasting choice for busy kitchens.',
             'origin' => 'Brazil, India',
-            'thickness_mm' => 20,
+            'thicknesses' => [[18, 'mm'], [20, 'mm'], [30, 'mm'], [0.75, 'in']],
+            'sizes' => [[60, 60, 'cm'], [60, 120, 'cm'], [160, 320, 'cm'], [180, 300, 'cm'], [5, 10, 'ft']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables'],
         ],
         [
@@ -42,7 +53,8 @@ return [
             'thumbnail_path' => 'stones/a2a72c93b7369e681b72f0e05380df17.png',
             'description' => 'A classic metamorphic stone celebrated for its luminous surface and elegant, dramatic veining. Each slab is unique, bringing quiet luxury to vanities, counters, and walls.',
             'origin' => 'Italy, Turkey',
-            'thickness_mm' => 18,
+            'thicknesses' => [[18, 'mm'], [20, 'mm'], [30, 'mm']],
+            'sizes' => [[60, 60, 'cm'], [60, 120, 'cm'], [120, 240, 'cm'], [160, 320, 'cm'], [1.6, 3.2, 'm']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
         ],
         [
@@ -51,7 +63,8 @@ return [
             'thumbnail_path' => 'stones/20845a043f5abd823694192363b27458.png',
             'description' => 'The densest and hardest natural stone available, cut for a glass-like, mirror-polished finish. Its extreme durability and scratch resistance make it ideal for high-traffic surfaces that must stay beautiful.',
             'origin' => 'South Africa',
-            'thickness_mm' => 20,
+            'thicknesses' => [[20, 'mm'], [30, 'mm'], [2, 'cm']],
+            'sizes' => [[60, 120, 'cm'], [160, 320, 'cm'], [180, 300, 'cm']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables'],
         ],
         [
@@ -60,7 +73,8 @@ return [
             'thumbnail_path' => 'stones/4b683a754fea6cc2e9c52669a4c2ca34.png',
             'description' => 'A translucent, banded stone that literally glows when lit from behind. Prized for statement backlit features, onyx turns any surface into a piece of art.',
             'origin' => 'Iran, Turkey',
-            'thickness_mm' => 18,
+            'thicknesses' => [[18, 'mm'], [20, 'mm']],
+            'sizes' => [[120, 240, 'cm'], [160, 280, 'cm'], [160, 320, 'cm']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
         ],
         [
@@ -69,7 +83,8 @@ return [
             'thumbnail_path' => 'stones/32429db4b70ad914e80ab79f031e4263.png',
             'description' => 'A show-stopping quartzite defined by sweeping cream, grey, and copper veining on a luminous white base. It pairs the beauty of marble with granite-grade toughness, performing beautifully in kitchens and on clad features.',
             'origin' => 'Brazil',
-            'thickness_mm' => 18,
+            'thicknesses' => [[20, 'mm'], [30, 'mm'], [1.25, 'in']],
+            'sizes' => [[160, 320, 'cm'], [180, 300, 'cm'], [200, 320, 'cm'], [63, 126, 'in']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
         ],
         [
@@ -78,7 +93,8 @@ return [
             'thumbnail_path' => 'stones/5b7cb3dae550009c37ad0cb518f4d09f.png',
             'description' => 'A naturally metamorphosed, quartz-rich stone that pairs marble-like movement with granite-grade strength. Its low porosity and heat resistance make it a favorite for high-traffic kitchen counters.',
             'origin' => 'Brazil, Norway',
-            'thickness_mm' => 18,
+            'thicknesses' => [[18, 'mm'], [20, 'mm'], [30, 'mm']],
+            'sizes' => [[120, 240, 'cm'], [160, 320, 'cm'], [180, 300, 'cm'], [5, 10, 'ft']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
         ],
         [
@@ -87,7 +103,8 @@ return [
             'thumbnail_path' => 'stones/bac6a5d8d41046a9fe8cb35205cbd34c.png',
             'description' => 'A warm, porous sedimentary stone with soft, earthy tones and a naturally pitted texture. Its time-honored character brings old-world warmth to bathrooms, patios, and feature walls.',
             'origin' => 'Turkey, Italy',
-            'thickness_mm' => 20,
+            'thicknesses' => [[12, 'mm'], [18, 'mm'], [20, 'mm']],
+            'sizes' => [[30, 60, 'cm'], [60, 60, 'cm'], [60, 120, 'cm'], [120, 240, 'cm']],
             'services' => ['slab-supply-only', 'slab-supply-and-installation', 'wall-cladding', 'flooring', 'staircase', 'pedestal', 'other-customized-furniture'],
         ],
     ],

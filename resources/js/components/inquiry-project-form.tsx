@@ -17,7 +17,9 @@ import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import {
     asksQuantity,
     findService,
+    questionForStone,
     stoneFieldKey,
+    thicknessAfterSizeChange,
     stoneFields,
     type ServiceField,
     type StoneFieldKey,
@@ -43,14 +45,19 @@ const quantityPath = (index: number) => `stones.${index}.quantity` as const;
 const answerPath = (index: number, key: StoneFieldKey) =>
     `stones.${index}.${key}` as const;
 
-/** The columns a stone row's answers take from tablet width up, by how many there are. */
+/**
+ * The columns a stone row's answers take from tablet width up, by how many
+ * there are. Four (a slab size, thickness, edge and finish) go two by two, so
+ * a size of one's own has room for its width, length and unit.
+ */
 const ANSWER_COLUMNS = {
     1: 'sm:grid-cols-1',
     2: 'sm:grid-cols-2',
     3: 'sm:grid-cols-3',
+    4: 'sm:grid-cols-2',
 } as const;
 
-/** The id of a stone row's answer: `requirements-slab-size-0`, `requirements-edge-0`. */
+/** The id of a stone row's answer: `requirements-slab-size-0`, `requirements-thickness-0`. */
 const stoneAnswerId = (key: StoneFieldKey, index: number): string =>
     `requirements-${key === 'slabSize' ? 'slab-size' : key}-${index}`;
 
@@ -78,8 +85,6 @@ const StoneSpecRow = ({
     countsPieces,
     onDuplicate,
     onRemove,
-    onApplyToAll,
-    showApplyToAll,
     canRemove,
 }: {
     index: number;
@@ -92,8 +97,6 @@ const StoneSpecRow = ({
     canRemove: boolean;
     onDuplicate: () => void;
     onRemove: () => void;
-    onApplyToAll: () => void;
-    showApplyToAll: boolean;
 }) => {
     const {
         control,
@@ -105,6 +108,8 @@ const StoneSpecRow = ({
 
     const stoneId = useWatch({ control, name: stoneIdPath(index) });
     const quantity = useWatch({ control, name: quantityPath(index) });
+    // The thickness list follows the size: each size lists only what it is cut in.
+    const slabSize = useWatch({ control, name: answerPath(index, 'slabSize') });
     const { stones } = useInquiryCatalog();
     const stone = stones.find((entry) => entry.slug === stoneId);
     const rowErrors = errors.stones?.[index];
@@ -276,11 +281,17 @@ const StoneSpecRow = ({
                     <div
                         className={`grid gap-4 ${
                             ANSWER_COLUMNS[
-                                Math.min(questions.length, 3) as 1 | 2 | 3
+                                Math.min(questions.length, 4) as 1 | 2 | 3 | 4
                             ]
                         }`}
                     >
-                        {questions.map((question) => {
+                        {questions.map((serviceQuestion) => {
+                            // A slab size or thickness lists this row's stone's own options.
+                            const question = questionForStone(
+                                serviceQuestion,
+                                stone,
+                                { slabSize },
+                            );
                             const key = stoneFieldKey(question);
 
                             return key === null ? null : (
@@ -290,10 +301,64 @@ const StoneSpecRow = ({
                                     name={answerPath(index, key)}
                                     render={({ field }) => (
                                         <InquiryDetailField
+                                            /*
+                                             * Drawn afresh when the thickness list
+                                             * narrows, so it reads the new list.
+                                             */
+                                            key={
+                                                key === 'thickness'
+                                                    ? question.suggestions
+                                                          .map(
+                                                              ({ value }) =>
+                                                                  value,
+                                                          )
+                                                          .join('|')
+                                                    : undefined
+                                            }
                                             id={stoneAnswerId(key, index)}
                                             field={question}
                                             value={field.value}
-                                            onChange={field.onChange}
+                                            hint={
+                                                key === 'slabSize'
+                                                    ? (stone.sizeNote ??
+                                                      undefined)
+                                                    : undefined
+                                            }
+                                            onChange={(next: string) => {
+                                                field.onChange(next);
+
+                                                if (key !== 'slabSize') {
+                                                    return;
+                                                }
+
+                                                /*
+                                                 * A listed thickness the new size
+                                                 * is not cut in no longer answers.
+                                                 */
+                                                const thickness = getValues(
+                                                    answerPath(
+                                                        index,
+                                                        'thickness',
+                                                    ),
+                                                );
+                                                const kept =
+                                                    thicknessAfterSizeChange(
+                                                        stone,
+                                                        next,
+                                                        thickness,
+                                                    );
+
+                                                if (kept !== thickness) {
+                                                    setValue(
+                                                        answerPath(
+                                                            index,
+                                                            'thickness',
+                                                        ),
+                                                        kept,
+                                                        { shouldDirty: true },
+                                                    );
+                                                }
+                                            }}
                                             onBlur={field.onBlur}
                                             fieldRef={field.ref}
                                             labelContext={stone.name}
@@ -305,31 +370,6 @@ const StoneSpecRow = ({
                                 />
                             );
                         })}
-                    </div>
-                ) : null}
-
-                {showApplyToAll ? (
-                    <div className="mt-2 flex flex-col items-end text-end">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onApplyToAll}
-                            aria-describedby={`apply-to-all-hint-${index}`}
-                            className="h-7 cursor-pointer px-1.5 text-xs"
-                        >
-                            Apply to all stones
-                        </Button>
-                        <p
-                            id={`apply-to-all-hint-${index}`}
-                            className="mt-1 text-xs text-secondary-foreground"
-                        >
-                            Copies this row's{' '}
-                            {questions
-                                .map(({ label }) => label.toLowerCase())
-                                .join(', ')}{' '}
-                            to every other row.
-                        </p>
                     </div>
                 ) : null}
 
@@ -473,6 +513,7 @@ const InquiryProjectForm = ({
                 quantity: 1,
                 // The same slab, worked another way.
                 slabSize: row.slabSize,
+                thickness: row.thickness,
                 edge: '',
                 finish: '',
             };
@@ -530,31 +571,6 @@ const InquiryProjectForm = ({
         }, 0);
     };
 
-    const applyToAll = () => {
-        const [first, ...rest] = getValues('stones');
-
-        if (first === undefined || rest.length === 0) {
-            return;
-        }
-
-        // Only the answers this service asks for are copied.
-        const copied = Object.fromEntries(
-            questions.flatMap((question) => {
-                const key = stoneFieldKey(question);
-
-                return key === null ? [] : [[key, first[key]]];
-            }),
-        );
-        const updated = rows.map((row, idx) =>
-            idx === 0 ? row : { ...row, ...copied },
-        );
-
-        setValue('stones', updated, {
-            shouldDirty: true,
-            shouldValidate: true,
-        });
-    };
-
     return (
         <form
             id={DETAILS_FORM_ID}
@@ -581,14 +597,8 @@ const InquiryProjectForm = ({
                                         canRemove={rows.length > 1}
                                         onDuplicate={() => duplicateRow(index)}
                                         onRemove={() => removeRow(index)}
-                                        onApplyToAll={applyToAll}
                                         questions={questions}
                                         countsPieces={countsPieces}
-                                        showApplyToAll={
-                                            index === 0 &&
-                                            rows.length > 1 &&
-                                            questions.length > 0
-                                        }
                                     />
                                 );
                             })}

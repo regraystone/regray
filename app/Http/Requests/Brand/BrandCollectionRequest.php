@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\Brand;
 
+use App\Models\Size;
+use App\Models\Thickness;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -69,11 +72,29 @@ class BrandCollectionRequest extends FormRequest
             'collection' => ['sometimes', 'nullable', 'string', Rule::in([self::COLLECTION_ALL, self::COLLECTION_STONES, self::COLLECTION_FURNITURE])],
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
             'type' => ['sometimes', 'nullable', 'string', Rule::exists('stone_types', 'slug')->where('deleted_at', null)->where('is_active', true)],
-            'size' => ['sometimes', 'nullable', 'string', 'max:20', Rule::exists('stones', 'size')->where('is_active', true)->whereNull('deleted_at')],
-            'thickness' => ['bail', 'sometimes', 'nullable', 'integer', 'min:1', 'max:32767', Rule::exists('stones', 'thickness_mm')->where('is_active', true)->whereNull('deleted_at')],
+            // An option's key ("160x320-cm", "20-mm") that some stone on show comes in.
+            'size' => ['bail', 'sometimes', 'nullable', 'string', 'max:30', $this->offeredOption(Size::class)],
+            'thickness' => ['bail', 'sometimes', 'nullable', 'string', 'max:20', $this->offeredOption(Thickness::class)],
             'furniture_type' => ['sometimes', 'nullable', 'string', Rule::exists('furniture_types', 'name')->where('is_active', true)],
             'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
+    }
+
+    /**
+     * Whether the key names a size or thickness an active, listed stone comes
+     * in: the same options filterOptions() offers. Any brand's stone counts,
+     * as before, so a shared link stays valid on a brand with none in it.
+     *
+     * @param  class-string<Size|Thickness>  $model
+     * @return Closure(string, mixed, Closure(string): mixed): void
+     */
+    private function offeredOption(string $model): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($model): void {
+            if (! is_string($value) || ! $model::query()->matchingKey($value)->offered()->exists()) {
+                $fail('That filter is no longer available.');
+            }
+        };
     }
 
     /** A bad filter is dropped from the URL, staying on this brand's own guest or signed-in page. */

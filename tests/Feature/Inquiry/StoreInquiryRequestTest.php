@@ -36,7 +36,7 @@ function postInquiry(mixed $test, array $projects): TestResponse
 dataset('accepted values', [
     'name at 100 characters' => [fn (array $p): array => [...$p, 'name' => str_repeat('a', 100)]],
     'notes at 1000 characters' => [fn (array $p): array => [...$p, 'notes' => str_repeat('a', 1000)]],
-    'area above zero' => [fn (array $p): array => inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '0.01']])],
+    'area above zero' => [fn (array $p): array => inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '0.01', 'fascia' => '0']])],
     'deadline today' => [fn (array $p): array => [...$p, 'neededBy' => now('Asia/Manila')->toDateString()]],
     'quantity 1' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1]]]],
     'quantity 9999' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 9999]]]],
@@ -114,7 +114,7 @@ describe('projects', function (): void {
 
 describe('stone rows', function (): void {
     /**
-     * @return list<array{stoneId: string, quantity: int, slabSize: string, edge: string, finish: string}>
+     * @return list<array{stoneId: string, quantity: int, slabSize: string, thickness: string, edge: string, finish: string}>
      */
     function distinctStoneRows(int $count): array
     {
@@ -122,7 +122,7 @@ describe('stone rows', function (): void {
 
         foreach (Stone::query()->active()->limit(3)->pluck('slug') as $slug) {
             foreach (EdgeProfile::query()->pluck('name') as $edge) {
-                $rows[] = ['stoneId' => $slug, 'quantity' => 1, 'slabSize' => '120 x 60 cm', 'edge' => $edge, 'finish' => Finish::query()->value('name')];
+                $rows[] = ['stoneId' => $slug, 'quantity' => 1, 'slabSize' => '160 x 320 cm', 'thickness' => '20 mm', 'edge' => $edge, 'finish' => Finish::query()->value('name')];
             }
         }
 
@@ -144,44 +144,111 @@ describe('stone rows', function (): void {
         postInquiry($this, [inquiryProjectInput(['stones' => [$row, [...$row, 'finish' => $other]]])])->assertSessionHasNoErrors();
     });
 
-    it('saves the size of a slab', function (): void {
+    it('saves a slab size and thickness as numbers and a unit, read whatever their case and spacing', function (string $size, string $thickness, array $stored, array $labels): void {
         $row = inquiryProjectInput()['stones'][0];
 
-        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => ' 90 x 45 cm ']]])])->assertSessionHasNoErrors();
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => $size, 'thickness' => $thickness]]])])->assertSessionHasNoErrors();
 
-        expect(Inquiry::query()->sole()->stones()->sole()->slab_size)->toBe('90 x 45 cm');
+        $stone = Inquiry::query()->sole()->stones()->sole();
+
+        expect([$stone->slab_width, $stone->slab_length, $stone->slab_unit?->value, $stone->thickness, $stone->thickness_unit?->value])->toBe($stored)
+            ->and([$stone->slabSizeLabel(), $stone->thicknessLabel()])->toBe($labels);
+    })->with([
+        'centimetres and millimetres' => [' 90 x 45 cm ', '20 mm', ['90.00', '45.00', 'cm', '20.00', 'mm'], ['90 x 45 cm', '20 mm']],
+        'metres and centimetres' => ['1.6 x 3.2 m', '2 cm', ['1.60', '3.20', 'm', '2.00', 'cm'], ['1.6 x 3.2 m', '2 cm']],
+        'inches' => ['63X126IN', '0.75in', ['63.00', '126.00', 'in', '0.75', 'in'], ['63 x 126 in', '0.75 in']],
+        'feet' => ['5 x 10 ft', '1.5 IN', ['5.00', '10.00', 'ft', '1.50', 'in'], ['5 x 10 ft', '1.5 in']],
+    ]);
+
+    it('takes a slab size or thickness the stone is not listed in, since Other takes any', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => '151 x 299 cm', 'thickness' => '27 mm']]])])->assertSessionHasNoErrors();
     });
 
-    it('refuses a stone row with no slab size', function (string $slabSize): void {
+    it('refuses a stone row with no slab size or thickness', function (string $blank): void {
         $row = inquiryProjectInput()['stones'][0];
 
-        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => $slabSize]]])])
-            ->assertSessionHasErrors(['projects.0.stones.0.slabSize' => 'Enter the slab size.']);
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => $blank, 'thickness' => $blank]]])])
+            ->assertSessionHasErrors([
+                'projects.0.stones.0.slabSize' => 'Enter the slab size.',
+                'projects.0.stones.0.thickness' => 'Enter the thickness.',
+            ]);
 
-        $withoutSize = $row;
-        unset($withoutSize['slabSize']);
+        $withoutEither = $row;
+        unset($withoutEither['slabSize'], $withoutEither['thickness']);
 
-        postInquiry($this, [inquiryProjectInput(['stones' => [$withoutSize]])])
-            ->assertSessionHasErrors('projects.0.stones.0.slabSize');
+        postInquiry($this, [inquiryProjectInput(['stones' => [$withoutEither]])])
+            ->assertSessionHasErrors(['projects.0.stones.0.slabSize', 'projects.0.stones.0.thickness']);
     })->with(['empty' => [''], 'blank' => ['   ']]);
 
-    it('refuses a slab size that is too long', function (): void {
+    it('refuses a thickness that is not a measurement', function (string $thickness, string $message): void {
         $row = inquiryProjectInput()['stones'][0];
 
-        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => str_repeat('x', 51)]]])])
-            ->assertSessionHasErrors('projects.0.stones.0.slabSize');
-    });
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'thickness' => $thickness]]])])
+            ->assertSessionHasErrors(['projects.0.stones.0.thickness' => $message]);
 
-    it('keeps the same stone, edge and finish in two sizes as two rows, and adds up the same size', function (): void {
+        expect(Inquiry::query()->count())->toBe(0);
+    })->with([
+        '0' => ['0 mm', 'Enter a thickness greater than 0.'],
+        'no unit' => ['20', 'Enter the thickness as a number and a unit, like 20 mm.'],
+        'an unknown unit' => ['20 ft', 'Enter the thickness as a number and a unit, like 20 mm.'],
+        'not a number' => ['abc', 'Enter the thickness as a number and a unit, like 20 mm.'],
+        'too many decimals' => ['20.555 mm', 'Enter the thickness as a number and a unit, like 20 mm.'],
+        'too large' => ['10000 mm', 'Enter a smaller thickness.'],
+    ]);
+
+    it('refuses a slab size that is not a measurement', function (string $size, string $message): void {
+        $row = inquiryProjectInput()['stones'][0];
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [[...$row, 'slabSize' => $size]]])])
+            ->assertSessionHasErrors(['projects.0.stones.0.slabSize' => $message]);
+
+        expect(Inquiry::query()->count())->toBe(0);
+    })->with([
+        'no unit' => ['160x320', 'Enter the slab size as width x length and a unit, like 160 x 320 cm.'],
+        'an unknown unit' => ['160 x 320 yd', 'Enter the slab size as width x length and a unit, like 160 x 320 cm.'],
+        'not a number' => ['abc', 'Enter the slab size as width x length and a unit, like 160 x 320 cm.'],
+        'too many decimals' => ['160.555 x 320 cm', 'Enter the slab size as width x length and a unit, like 160 x 320 cm.'],
+        'a side of 0' => ['0 x 320 cm', 'Enter a slab size greater than 0.'],
+        'too large' => ['1000000 x 320 cm', 'Enter a smaller slab size.'],
+    ]);
+
+    it('asks a thickness of both slab services only', function (string $service, bool $asks): void {
+        $row = inquiryStoneRow($service);
+
+        expect(array_key_exists('thickness', $row))->toBe($asks);
+
+        if ($asks) {
+            unset($row['thickness']);
+
+            postInquiry($this, [inquiryProjectInput(['serviceId' => $service, 'stones' => [$row]])])
+                ->assertSessionHasErrors(['projects.0.stones.0.thickness' => 'Enter the thickness.']);
+
+            return;
+        }
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => $service, 'stones' => [[...$row, 'thickness' => '20 mm']]])])
+            ->assertSessionHasErrors(['projects.0.stones.0.thickness' => 'This service does not ask for the thickness.']);
+    })->with([
+        ['slab-supply-only', true],
+        ['slab-supply-and-installation', true],
+        ['countertop-backsplash', false],
+        ['dining-tables', false],
+    ]);
+
+    it('keeps the same stone, edge and finish in two sizes or thicknesses as two rows, and adds up the same one however it is written', function (): void {
         $row = inquiryProjectInput()['stones'][0];
         $small = [...$row, 'quantity' => 2, 'slabSize' => '60 x 60 cm'];
-        $large = [...$row, 'quantity' => 3, 'slabSize' => '120 x 60 cm'];
+        $large = [...$row, 'quantity' => 3, 'slabSize' => '160 x 320 cm'];
+        $thicker = [...$large, 'quantity' => 1, 'thickness' => '30 mm'];
 
-        postInquiry($this, [inquiryProjectInput(['stones' => [$small, $large, $small]])])->assertSessionHasNoErrors();
+        postInquiry($this, [inquiryProjectInput(['stones' => [$small, $large, [...$small, 'slabSize' => '60X60 CM'], $thicker]])])->assertSessionHasNoErrors();
 
-        expect(Inquiry::query()->sole()->stones()->orderBy('sort_order')->get(['slab_size', 'quantity'])->toArray())->toBe([
-            ['slab_size' => '60 x 60 cm', 'quantity' => 4],
-            ['slab_size' => '120 x 60 cm', 'quantity' => 3],
+        expect(Inquiry::query()->sole()->stones()->orderBy('sort_order')->get()->map(fn ($stone): array => [$stone->slabSizeLabel(), $stone->thicknessLabel(), $stone->quantity])->all())->toBe([
+            ['60 x 60 cm', '20 mm', 4],
+            ['160 x 320 cm', '20 mm', 3],
+            ['160 x 320 cm', '30 mm', 1],
         ]);
     });
 
@@ -344,7 +411,7 @@ describe('the questions a service asks', function (): void {
     it('asks wall cladding for an area and a finish on each stone, and no pieces, edge or slab size', function (): void {
         $row = inquiryStoneRow('wall-cladding');
 
-        expect($row)->toHaveKey('finish')->not->toHaveKeys(['quantity', 'edge', 'slabSize']);
+        expect($row)->toHaveKey('finish')->not->toHaveKeys(['quantity', 'edge', 'slabSize', 'thickness']);
 
         postInquiry($this, [inquiryProjectInput([
             'serviceId' => 'wall-cladding',
@@ -354,7 +421,7 @@ describe('the questions a service asks', function (): void {
             'projects.0.stones.0.quantity' => 'This service does not ask how many pieces.',
             'projects.0.stones.0.edge' => 'This service does not ask for the edge profile.',
             'projects.0.stones.0.finish' => 'Choose the finish.',
-            'projects.0.answers.area_sqm' => 'Enter the area to cover (sq m).',
+            'projects.0.answers.area_sqm' => 'Enter the project area (sqm).',
         ]);
 
         postInquiry($this, [inquiryProjectInput(['serviceId' => 'wall-cladding', 'answers' => ['area_sqm' => '18.5']])])
@@ -365,7 +432,8 @@ describe('the questions a service asks', function (): void {
         expect($stone->finish_id)->not->toBeNull()
             ->and($stone->quantity)->toBeNull()
             ->and($stone->edge_profile_id)->toBeNull()
-            ->and($stone->slab_size)->toBeNull();
+            ->and($stone->slab_width)->toBeNull()
+            ->and($stone->thickness)->toBeNull();
     });
 
     it('stores the project answers one row per question, in the column of its answer type', function (): void {
@@ -376,7 +444,7 @@ describe('the questions a service asks', function (): void {
 
         postInquiry($this, [inquiryProjectInput([
             'serviceId' => 'dining-tables',
-            'answers' => ['seaters' => '7', 'table_base' => 'steel'],
+            'answers' => ['area_sqm' => '3.75', 'seaters' => '7', 'table_base' => 'steel'],
         ])])->assertSessionHasNoErrors();
 
         $answers = DB::table('inquiry_detail_answers')
@@ -391,19 +459,20 @@ describe('the questions a service asks', function (): void {
         expect($answers)->toBe([
             ['slug' => 'area_sqm', 'text_value' => null, 'number_value' => '6.25', 'option' => null, 'boolean_value' => null],
             ['slug' => 'waterfall_effect', 'text_value' => null, 'number_value' => null, 'option' => null, 'boolean_value' => true],
+            ['slug' => 'area_sqm', 'text_value' => null, 'number_value' => '3.75', 'option' => null, 'boolean_value' => null],
             ['slug' => 'seaters', 'text_value' => null, 'number_value' => '7.00', 'option' => null, 'boolean_value' => null],
             ['slug' => 'table_base', 'text_value' => null, 'number_value' => null, 'option' => 'steel', 'boolean_value' => null],
         ]);
     });
 
     it('takes a free entry where the question allows one, checked only by its type', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal', 'answers' => ['size' => '75 x 75 cm']])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal', 'answers' => ['area_sqm' => '0.5', 'size' => '75 x 75 cm']])])
             ->assertSessionHasNoErrors();
 
         postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => ['seaters' => 'many', 'table_base' => 'wood']])])
             ->assertSessionHasErrors(['projects.0.answers.seaters' => 'Enter a number greater than 0.']);
 
-        expect(Inquiry::query()->sole()->detailAnswers()->sole()->text_value)->toBe('75 x 75 cm');
+        expect(Inquiry::query()->sole()->detailAnswers()->whereNotNull('text_value')->sole()->text_value)->toBe('75 x 75 cm');
     });
 
     it('refuses an answer that is not one of a closed list', function (array $answers, string $field, string $message): void {
@@ -412,9 +481,39 @@ describe('the questions a service asks', function (): void {
 
         expect(Inquiry::query()->count())->toBe(0);
     })->with([
-        'a table base not listed' => [['service' => 'dining-tables', 'answers' => ['seaters' => '6', 'table_base' => 'marble']], 'table_base', 'Choose the table base from the list.'],
+        'a table base not listed' => [['service' => 'dining-tables', 'answers' => ['area_sqm' => '3', 'seaters' => '6', 'table_base' => 'marble']], 'table_base', 'Choose the table base from the list.'],
+        'a fascia that is not yes or no' => [['service' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => 'maybe']], 'fascia', 'Choose yes or no.'],
         'a waterfall effect that is not yes or no' => [['service' => 'kitchen-islands', 'answers' => ['area_sqm' => '4', 'waterfall_effect' => 'maybe']], 'waterfall_effect', 'Choose yes or no.'],
     ]);
+
+    it('asks Countertop and Backsplash for a fascia, yes or no, and stores it as a boolean', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4']])])
+            ->assertSessionHasErrors(['projects.0.answers.fascia' => 'Choose the fascia.']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => '1']])])
+            ->assertSessionHasNoErrors();
+
+        $fascia = Inquiry::query()->sole()->detailAnswers()->whereHas('detailField', fn ($field) => $field->where('slug', 'fascia'))->sole();
+
+        expect($fascia->boolean_value)->toBeTrue()
+            ->and($fascia->displayValue())->toBe('Yes');
+    });
+
+    it('asks every furniture service for the project area, and stores it as a number', function (string $service): void {
+        $answers = inquiryAnswers($service);
+        unset($answers['area_sqm']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => $service, 'answers' => $answers])])
+            ->assertSessionHasErrors(['projects.0.answers.area_sqm' => 'Enter the project area (sqm).']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => $service, 'answers' => [...$answers, 'area_sqm' => '3.75']])])
+            ->assertSessionHasNoErrors();
+
+        $area = Inquiry::query()->sole()->detailAnswers()->whereHas('detailField', fn ($field) => $field->where('slug', 'area_sqm'))->sole();
+
+        expect($area->number_value)->toBe('3.75')
+            ->and($area->displayValue())->toBe('3.75');
+    })->with(['center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture']);
 
     it('refuses an answer to a question the service does not ask', function (): void {
         postInquiry($this, [inquiryProjectInput(['answers' => ['size' => '60 x 60 cm']])])
@@ -422,10 +521,10 @@ describe('the questions a service asks', function (): void {
     });
 
     it('takes "Same as stone" only for a project with a stone row', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'stones' => [], 'stoneAdvice' => true, 'answers' => ['seaters' => '6', 'table_base' => 'same-as-stone']])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'stones' => [], 'stoneAdvice' => true, 'answers' => ['area_sqm' => '3', 'seaters' => '6', 'table_base' => 'same-as-stone']])])
             ->assertSessionHasErrors(['projects.0.answers.table_base' => 'Same as stone needs a stone. Choose another table base.']);
 
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => ['seaters' => '6', 'table_base' => 'same-as-stone']])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => ['area_sqm' => '3', 'seaters' => '6', 'table_base' => 'same-as-stone']])])
             ->assertSessionHasNoErrors();
     });
 

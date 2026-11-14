@@ -16,6 +16,7 @@ import {
     asksQuantity,
     findService,
     linkedToStoneProblem,
+    normalizedStoneAnswer,
     projectFields,
     quantityProblem,
     stoneFieldKey,
@@ -264,15 +265,19 @@ const rejectRepeatedStones = (
     questions: ServiceField[],
     ctx: z.RefinementCtx,
 ) => {
-    const keys = questions.flatMap((field) => {
+    const asked = questions.flatMap((field) => {
         const key = stoneFieldKey(field);
 
-        return key === null ? [] : [key];
+        return key === null ? [] : [{ field, key }];
     });
+    const keys = asked.map(({ key }) => key);
     const seen = new Set<string>();
 
     entries.forEach((entry, index) => {
-        const values = keys.map((key) => entry[key].trim());
+        // "160x320 CM" and "160 x 320 cm" are the same slab, as the server reads them.
+        const values = asked.map(({ field, key }) =>
+            normalizedStoneAnswer(field, entry[key]),
+        );
 
         if (values.some((value) => value === '')) {
             return;
@@ -363,6 +368,7 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
          * service, so they are checked with the project (`refineAnswers`).
          */
         slabSize: z.string(),
+        thickness: z.string(),
         edge: z.string(),
         finish: z.string(),
     });

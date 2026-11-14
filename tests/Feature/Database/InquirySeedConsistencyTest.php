@@ -105,7 +105,8 @@ describe('the seeded inquiries', function (): void {
 
             foreach ($inquiry->stones as $row) {
                 expect($row->quantity !== null)->toBe($asked->has('quantity'), $inquiry->reference)
-                    ->and($row->slab_size !== null)->toBe($asked->has('slab_size'), $inquiry->reference)
+                    ->and($row->slabSizeLabel() !== null)->toBe($asked->has('slab_size'), $inquiry->reference)
+                    ->and($row->thicknessLabel() !== null)->toBe($asked->has('thickness'), $inquiry->reference)
                     ->and($row->edge_profile_id !== null)->toBe($asked->has('edge_profile'), $inquiry->reference)
                     ->and($row->finish_id !== null)->toBe($asked->has('finish'), $inquiry->reference);
             }

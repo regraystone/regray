@@ -22,8 +22,13 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
 
 COPY composer.json composer.lock ./
 
+# Production images leave out require-dev. docker-compose.override.yml (local
+# only) sets this to true so the local stack has Faker for the demo seeders.
+ARG COMPOSER_DEV=false
+
 RUN --mount=type=cache,target=/root/.cache/composer \
-    composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
+    composer install $([ "$COMPOSER_DEV" = true ] || echo --no-dev) \
+        --no-scripts --no-autoloader --prefer-dist --no-interaction
 
 # Host storage may contain private backups, uploads, keys, or test artifacts.
 COPY --exclude=storage --exclude=bootstrap/cache . .
@@ -32,9 +37,10 @@ COPY --exclude=storage --exclude=bootstrap/cache . .
 RUN rm -f bootstrap/cache/*.php \
     && mkdir -p storage/framework/cache/data storage/framework/sessions \
         storage/framework/views storage/logs storage/app/public storage/app/private bootstrap/cache \
-    && composer dump-autoload --optimize --no-dev --no-interaction
+    && composer dump-autoload --optimize $([ "$COMPOSER_DEV" = true ] || echo --no-dev) --no-interaction
 
-# This public asset URL is the only build argument. Secrets belong at runtime.
+# Besides COMPOSER_DEV, this public asset URL is the only build argument.
+# Secrets belong at runtime.
 ARG VITE_ASSET_URL
 ENV VITE_ASSET_URL=$VITE_ASSET_URL
 

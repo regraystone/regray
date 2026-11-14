@@ -14,6 +14,7 @@ import {
     SERVICE_ID,
     SERVICE_TYPE_ID,
     SLAB_SIZE,
+    THICKNESS,
     answerQuestion,
     answerStoneRow,
     checkbox,
@@ -31,6 +32,7 @@ import {
     pressNext,
     projectPayload,
     sendAndReadReference,
+    fillThicknesses,
     typeSlabSize,
     walkToRequirements,
     walkToStones,
@@ -336,6 +338,7 @@ test('11b · the same stone, edge and finish sent twice are added together, and 
         stoneId: CATALOG.stoneSlug,
         quantity: 2,
         slabSize: SLAB_SIZE,
+        thickness: THICKNESS,
         edge: CATALOG.edges[0],
         finish: CATALOG.finishes[0],
     };
@@ -392,8 +395,13 @@ test('12 · Stones: no stone or no slab size blocks Continue to review; quantity
     );
     await expectStep(page, 3);
 
-    // A size of one's own, through Other, beside the suggestions.
-    await typeSlabSize(page, 0, '90 x 45 cm');
+    await expect(page.locator('#requirements-thickness-0-error')).toHaveText(
+        'Enter the thickness.',
+    );
+
+    // A size of one's own, through Other, beside the stone's own sizes.
+    await typeSlabSize(page, 0, '90', '45', 'cm');
+    await fillThicknesses(page);
     await addToInquiry(page).click();
     await expectStep(page, REVIEW);
     await expect(page.getByText('9999 pcs')).toBeVisible();
@@ -460,7 +468,7 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     await expect(
         pageError(
             page,
-            'Another row of this stone has the same slab size, edge profile and finish',
+            'Another row of this stone has the same slab size, thickness, edge profile and finish',
         ),
     ).toBeVisible();
     await expectStep(page, 3);
@@ -620,7 +628,7 @@ test('16a · Installation Only skips the stones and sends with none; Wall Claddi
     await answerDeadline(page);
     await addToInquiry(page).click();
     await expect(page.locator('#requirements-area-sqm-1-error')).toHaveText(
-        'Enter the area to cover (sq m).',
+        'Enter the project area (sqm).',
     );
     await expectStep(page, 3);
 
@@ -628,7 +636,7 @@ test('16a · Installation Only skips the stones and sends with none; Wall Claddi
     await addToInquiry(page).click();
     await expectStep(page, REVIEW);
     await expect(page.getByTestId('review-answers')).toContainText(
-        'Area to cover (sq m)5',
+        'Project area (sqm)5',
     );
 });
 

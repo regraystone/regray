@@ -98,6 +98,44 @@ describe('an old draft', () => {
 describe('a stored draft', () => {
     beforeEach(() => memory.clear());
 
+    it('reads a stone row saved before thickness was asked as unanswered', () => {
+        writeInquiryDraft(
+            USER,
+            stateOf(
+                draft({
+                    serviceTypeId: 'natural-stone-applications',
+                    serviceId: 'slab-supply-only',
+                    stoneIds: ['marble'],
+                    stones: [
+                        {
+                            stoneId: 'marble',
+                            quantity: 2,
+                            slabSize: '160 x 320 cm',
+                            thickness: '0.75 in',
+                            edge: 'Straight Edge',
+                            finish: 'Honed',
+                        },
+                    ],
+                }),
+            ),
+        );
+
+        assert.equal(
+            readInquiryDraft(USER).draft.stones[0].thickness,
+            '0.75 in',
+        );
+
+        // The same record as an older page wrote it: no thickness key at all.
+        const record = JSON.parse(memory.get(KEY));
+        delete record.draft.stones[0].thickness;
+        memory.set(KEY, JSON.stringify(record));
+
+        const [row] = readInquiryDraft(USER).draft.stones;
+
+        assert.equal(row.thickness, '');
+        assert.equal(row.slabSize, '160 x 320 cm');
+    });
+
     it('comes back after a refresh with its service', () => {
         writeInquiryDraft(
             USER,

@@ -82,11 +82,16 @@ class BrandRepository implements BrandRepositoryInterface
         if ($filters->type !== null) {
             $query->whereHas('types', fn (Builder $type) => $type->where('slug', $filters->type)->where('is_active', true));
         }
-        if ($filters->size !== null) {
-            $query->where('size', $filters->size);
-        }
-        if ($filters->thickness !== null) {
-            $query->where('thickness_mm', (int) $filters->thickness);
+        // One slab has to be both: a size cut only in another thickness does not match.
+        if ($filters->size !== null || $filters->thickness !== null) {
+            $query->whereHas('variants', function (Builder $variant) use ($filters): void {
+                if ($filters->size !== null) {
+                    $variant->whereHas('size', fn (Builder $size) => $size->matchingKey($filters->size));
+                }
+                if ($filters->thickness !== null) {
+                    $variant->whereHas('thickness', fn (Builder $thickness) => $thickness->matchingKey($filters->thickness));
+                }
+            });
         }
 
         return $query->toBase();

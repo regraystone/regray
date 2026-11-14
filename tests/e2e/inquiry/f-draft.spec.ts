@@ -19,7 +19,7 @@ import {
 /* F. The draft kept in this browser between visits. */
 
 const draftKey = (userId: number): string =>
-    `regray.inquiry-draft.v8:${userId}`;
+    `regray.inquiry-draft.v9:${userId}`;
 
 const storedDraft = (page: Page, userId: number) =>
     page.evaluate((key) => window.localStorage.getItem(key), draftKey(userId));

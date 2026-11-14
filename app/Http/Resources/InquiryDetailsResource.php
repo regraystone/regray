@@ -16,6 +16,7 @@ use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
 use App\Models\InquiryStatusHistory;
 use App\Models\InquiryStone;
+use App\Models\StoneVariant;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Policies\InquiryFileVisibility;
@@ -270,7 +271,9 @@ class InquiryDetailsResource extends JsonResource
      * The files are the client's own attachments; staff documents are not shown.
      *
      * Each stone carries the stone-scope answers its service asks, labelled,
-     * in the service's order (`details`), and null for the rest. `answers` are
+     * in the service's order (`details`), and null for the rest.
+     * `isStandardSlab` says whether its size and thickness are one of the
+     * slabs the stone is listed in (null where no thickness is asked). `answers` are
      * the project-scope ones, labelled and already worded: "Same as stone"
      * reads as the first stone's name. `requiresStones` is false for a service
      * that asks for no stones, whose page has no Stones section.
@@ -296,12 +299,15 @@ class InquiryDetailsResource extends JsonResource
                 'name' => $row->stone->name,
                 'thumbnail' => ProjectCardResource::resolveThumbnailUrl($row->stone->thumbnail_path),
                 'quantity' => $row->quantity,
-                'slabSize' => $row->slab_size,
+                'slabSize' => $row->slabSizeLabel(),
+                'thickness' => $row->thicknessLabel(),
+                'isStandardSlab' => self::isStandardSlab($row),
                 'edge' => $row->edgeProfile?->name,
                 'finish' => $row->finish?->name,
                 'details' => array_values($stoneQuestions
                     ->map(fn (DetailField $field): array => ['label' => $field->name, 'value' => match ($field->slug) {
-                        DetailField::SLAB_SIZE => $row->slab_size,
+                        DetailField::SLAB_SIZE => $row->slabSizeLabel(),
+                        DetailField::THICKNESS => $row->thicknessLabel(),
                         DetailField::EDGE_PROFILE => $row->edgeProfile?->name,
                         DetailField::FINISH => $row->finish?->name,
                         default => null,
@@ -350,5 +356,27 @@ class InquiryDetailsResource extends JsonResource
             'uploadedAt' => $file->created_at->toIso8601String(),
             'format' => $file->formatLabel(),
         ];
+    }
+
+    /**
+     * Whether a row asked for one of its stone's own slabs: its size and
+     * thickness are a variant's. A variant with no size (pieces without set
+     * sizes) counts only for a row that gave none. Null for a row whose
+     * service asks no thickness, which has no slab to compare. Custom sizes
+     * and thicknesses are allowed; this only tells them apart for staff.
+     */
+    private static function isStandardSlab(InquiryStone $row): ?bool
+    {
+        $thickness = $row->thicknessLabel();
+
+        if ($thickness === null) {
+            return null;
+        }
+
+        $size = $row->slabSizeLabel();
+
+        return $row->stone->variants->contains(
+            fn (StoneVariant $variant): bool => $variant->thickness->label === $thickness && $variant->size?->label === $size,
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Data\Measurement;
 use App\Enums\ClientKind;
 use App\Enums\ContactKind;
 use App\Enums\ConversationMemberRole;
@@ -16,7 +17,9 @@ use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Enums\SizeUnit;
 use App\Enums\SystemEvent;
+use App\Enums\ThicknessUnit;
 use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\DetailField;
@@ -626,7 +629,8 @@ class InquirySeeder extends Seeder
                 'edge_profile_id' => $asked->has(DetailField::EDGE_PROFILE) ? EdgeProfile::where('name', $stoneSelection['edge'])->firstOrFail()->id : null,
                 'finish_id' => $asked->has(DetailField::FINISH) ? Finish::where('name', $stoneSelection['finish'])->firstOrFail()->id : null,
                 'quantity' => $asked->has(DetailField::QUANTITY) ? $stoneSelection['quantity'] : null,
-                'slab_size' => $asked->has(DetailField::SLAB_SIZE) ? ($stoneSelection['slab_size'] ?? '120 x 60 cm') : null,
+                // A slab size and thickness only where asked, which the data then has to give.
+                ...$this->measurements($asked->has(DetailField::SLAB_SIZE), $asked->has(DetailField::THICKNESS), $stoneSelection, $inquiryData['reference']),
                 'sort_order' => $stoneSort,
             ]);
         }
@@ -638,6 +642,32 @@ class InquirySeeder extends Seeder
         }
 
         return $inquiry;
+    }
+
+    /**
+     * A stone row's slab size and thickness columns, from the data's
+     * `[width, length, unit]` and `[value, unit]`: null where the service does
+     * not ask them, refused where it does and the row leaves them out.
+     *
+     * @param  array<string, mixed>  $stoneSelection
+     * @return array{slab_width: ?string, slab_length: ?string, slab_unit: ?SizeUnit, thickness: ?string, thickness_unit: ?ThicknessUnit}
+     */
+    private function measurements(bool $asksSize, bool $asksThickness, array $stoneSelection, string $reference): array
+    {
+        if (($asksSize && ! isset($stoneSelection['slab_size'])) || ($asksThickness && ! isset($stoneSelection['thickness']))) {
+            throw new RuntimeException("{$reference}: a {$stoneSelection['stone_slug']} row needs its slab size and thickness.");
+        }
+
+        $size = $asksSize ? $stoneSelection['slab_size'] : null;
+        $thickness = $asksThickness ? $stoneSelection['thickness'] : null;
+
+        return [
+            'slab_width' => $size === null ? null : Measurement::number($size[0]),
+            'slab_length' => $size === null ? null : Measurement::number($size[1]),
+            'slab_unit' => $size === null ? null : SizeUnit::from($size[2]),
+            'thickness' => $thickness === null ? null : Measurement::number($thickness[0]),
+            'thickness_unit' => $thickness === null ? null : ThicknessUnit::from($thickness[1]),
+        ];
     }
 
     /**

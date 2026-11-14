@@ -205,3 +205,37 @@ it('does not offer a service made from no stone type, and tells the page which t
         ->and($services['installation-only']['stoneTypes'])->toBe([])
         ->and($services['installation-only']['requiresStones'])->toBeFalse();
 });
+
+it('carries each stone\'s slabs on its card: every combination, its sizes and thicknesses once each, and its size note', function (): void {
+    $stone = Stone::factory()->withVariants([
+        [[160, 320, 'cm'], [30, 'mm']],
+        [[160, 320, 'cm'], [20, 'mm']],
+        [['3.15', '1.98', 'm'], [20, 'mm']],
+        [[60, 120, 'cm'], [0.75, 'in']],
+    ])->create([
+        'name' => 'Slab Card Stone',
+        'size_note' => null,
+        'stone_type_id' => Stone::query()->offeredFor(inquiryService('slab-supply-only'))->value('stone_type_id'),
+    ]);
+
+    $card = collect($this->actingAs($this->client)->get(route('quote.inquire', ['stone_service' => 'slab-supply-only', 'stone_search' => 'Slab Card Stone']))
+        ->viewData('page')['props']['stones']['data'])->firstWhere('slug', $stone->slug);
+
+    expect($card['variants'])->toBe([
+        ['size' => '160 x 320 cm', 'thickness' => '30 mm'],
+        ['size' => '160 x 320 cm', 'thickness' => '20 mm'],
+        ['size' => '3.15 x 1.98 m', 'thickness' => '20 mm'],
+        ['size' => '60 x 120 cm', 'thickness' => '0.75 in'],
+    ])
+        ->and($card['sizes'])->toBe([
+            ['value' => '60 x 120 cm', 'label' => '60 x 120 cm'],
+            ['value' => '160 x 320 cm', 'label' => '160 x 320 cm'],
+            ['value' => '3.15 x 1.98 m', 'label' => '3.15 x 1.98 m'],
+        ])
+        ->and($card['thicknesses'])->toBe([
+            ['value' => '20 mm', 'label' => '20 mm'],
+            ['value' => '30 mm', 'label' => '30 mm'],
+            ['value' => '0.75 in', 'label' => '0.75 in'],
+        ])
+        ->and($card['sizeNote'])->toBeNull();
+});

@@ -1,5 +1,7 @@
 <?php
 
+use App\Data\SizeMeasurement;
+use App\Data\ThicknessMeasurement;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
@@ -67,6 +69,9 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
             // Only the slab services ask how many pieces.
             'quantity' => null,
             'slabSize' => null,
+            'thickness' => null,
+            // Only a row asked for a thickness has a slab to compare.
+            'isStandardSlab' => null,
             'edge' => EdgeProfile::query()->value('name'),
             'finish' => Finish::query()->value('name'),
             // Only what its service asks, labelled, in the service's order.
@@ -76,7 +81,7 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
             ],
         ])
         ->and($project['requiresStones'])->toBeTrue()
-        ->and($project['answers'])->toBe([['label' => 'Area to cover (sq m)', 'value' => '12.5']])
+        ->and($project['answers'])->toBe([['label' => 'Project area (sqm)', 'value' => '12.5']])
         ->and($project['requirements'])->not->toHaveKeys(['landmark', 'areaSqm'])
         ->and($project['requirements'])->toMatchArray([
             'location' => 'Makati',
@@ -229,3 +234,29 @@ it('shows the service type and the service, and no work per stone', function ():
         ->and($project)->not->toHaveKeys(['services', 'unassignedWork'])
         ->and($project['stones'][0])->not->toHaveKey('work');
 });
+
+it('shows a slab row\'s size and thickness, and whether they are one of the stone\'s own slabs', function (string $size, string $thickness, bool $standard): void {
+    $stone = Stone::factory()->withVariants([
+        [[160, 320, 'cm'], [20, 'mm']],
+        [[60, 120, 'cm'], [30, 'mm']],
+        [null, [2, 'cm']],
+    ])->create(['stone_type_id' => Stone::query()->offeredFor(inquiryService('slab-supply-only'))->value('stone_type_id')]);
+
+    $this->actingAs($this->client)
+        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['stoneId' => $stone->slug, 'slabSize' => $size, 'thickness' => $thickness])]])]])
+        ->assertSessionHasNoErrors();
+
+    $row = $this->actingAs($this->client)->get(route('quote.show', Inquiry::query()->sole()->reference))->viewData('page')['props']['inquiry']['project']['stones'][0];
+
+    expect($row)->toMatchArray([
+        'slabSize' => SizeMeasurement::parse($size)?->label(),
+        'thickness' => ThicknessMeasurement::parse($thickness)?->label(),
+        'isStandardSlab' => $standard,
+    ])->and($row['details'])->toContain(['label' => 'Thickness', 'value' => ThicknessMeasurement::parse($thickness)?->label()]);
+})->with([
+    'a listed slab' => ['160 x 320 cm', '20 mm', true],
+    'a listed slab, written another way' => ['160X320 CM', '20MM', true],
+    'a listed size in a thickness it is not cut in' => ['160 x 320 cm', '30 mm', false],
+    'a size of its own' => ['150 x 300 cm', '20 mm', false],
+    'a thickness of its own' => ['60 x 120 cm', '25 mm', false],
+]);

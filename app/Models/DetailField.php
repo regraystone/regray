@@ -17,8 +17,9 @@ use InvalidArgumentException;
  * A stone-scope question is answered on each stone row, in its own column of
  * `inquiry_stones` (STONE_INPUT_KEYS names them); a project-scope one once,
  * in `inquiry_detail_answers`. Edge profile and finish take their answers
- * from their own tables; every other listed answer is a
- * DetailFieldOption.
+ * from their own tables; slab size and thickness list the stone's own
+ * sizes and thicknesses (isMeasurement()) and are kept as numbers and a unit;
+ * every other listed answer is a DetailFieldOption.
  *
  * @property int $id
  * @property string $slug
@@ -36,6 +37,8 @@ class DetailField extends Model
 
     public const SLAB_SIZE = 'slab_size';
 
+    public const THICKNESS = 'thickness';
+
     public const EDGE_PROFILE = 'edge_profile';
 
     public const FINISH = 'finish';
@@ -47,6 +50,7 @@ class DetailField extends Model
     public const STONE_INPUT_KEYS = [
         self::QUANTITY => 'quantity',
         self::SLAB_SIZE => 'slabSize',
+        self::THICKNESS => 'thickness',
         self::EDGE_PROFILE => 'edge',
         self::FINISH => 'finish',
     ];
@@ -91,6 +95,16 @@ class DetailField extends Model
     public function answersFromCatalog(): bool
     {
         return in_array($this->slug, [self::EDGE_PROFILE, self::FINISH], true);
+    }
+
+    /**
+     * Whether it asks a measurement of the stone: a slab size or thickness,
+     * answered from the stone's own options or as a number and unit under
+     * Other, and stored in numeric columns rather than as text.
+     */
+    public function isMeasurement(): bool
+    {
+        return in_array($this->slug, [self::SLAB_SIZE, self::THICKNESS], true);
     }
 
     /** The key a stone row sends its answer under, or null for a project-scope question. */
