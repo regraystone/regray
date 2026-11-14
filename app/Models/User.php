@@ -108,6 +108,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->email_verified_at !== null && $this->wantsMarketingEmails();
     }
 
+    /** @return HasMany<SocialAccount, $this> */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
     /** @return HasMany<UserConsent, $this> */
     public function consents(): HasMany
     {

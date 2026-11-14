@@ -145,6 +145,37 @@ export const registerFields = [
 ] as const;
 
 /**
+ * Finish signing up with Google.
+ *
+ * Google has given the email, so only the name (prefilled from Google, and
+ * the reader's to change) and the same two boxes as Sign Up are asked.
+ */
+export const googleFinishSchema = z.object({
+    name: z
+        .string()
+        .trim()
+        .min(1, { error: 'Enter your full name' })
+        .max(255, { error: 'Keep the name to 255 characters or fewer' }),
+    terms: z.boolean().refine((agreed) => agreed, {
+        error: 'Agree to the Terms & Conditions to create an account',
+    }),
+    marketing_emails: z.boolean(),
+});
+
+export type GoogleFinishFormInput = z.input<typeof googleFinishSchema>;
+export type GoogleFinishFormValues = z.output<typeof googleFinishSchema>;
+
+/** Every field the Finish signing up form owns, for mapping server errors onto. */
+export const googleFinishFields = [
+    'name',
+    'terms',
+    'marketing_emails',
+] as const;
+
+/** Why a Google sign-in came back to this page, if it did. */
+export type SocialNotice = { type: 'success' | 'error'; message: string };
+
+/**
  * Hand every server error that names one of the form's own fields to
  * `onFieldError`, and return the messages left over.
  *

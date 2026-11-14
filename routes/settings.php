@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Settings\EmailPreferencesController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -26,6 +27,12 @@ Route::middleware(['auth', Permission::ProfileView->middleware()])->prefix('dash
     Route::patch('profile/account-security/email-preferences', [EmailPreferencesController::class, 'update'])
         ->middleware('throttle:6,1')
         ->name('email-preferences.update');
+
+    Route::get('profile/account-security/google/connect', [GoogleController::class, 'connect'])
+        ->middleware('throttle:social-login')
+        ->name('social.google.connect');
+    Route::delete('profile/account-security/google', [GoogleController::class, 'disconnect'])
+        ->name('social.google.disconnect');
 });
 
 Route::middleware(['auth', 'verified', Permission::ProfileView->middleware()])->prefix('dashboard')->group(function () {
