@@ -228,7 +228,7 @@ test('9a · Log out asks first, and only leaves when told to', async ({
     await page.locator('#password').fill(password);
     await page.locator('[data-test="login-button"]').click();
     await page.waitForURL((url) => !url.pathname.startsWith('/login'));
-    await page.goto('/dashboard/profile');
+    await page.goto('/dashboard/profile/settings');
 
     await page.locator('[data-test="logout-button"]').click();
     const dialog = page.getByRole('dialog');
@@ -236,7 +236,7 @@ test('9a · Log out asks first, and only leaves when told to', async ({
 
     await dialog.getByRole('button', { name: 'Stay logged in' }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page).toHaveURL(/\/dashboard\/profile/);
+    await expect(page).toHaveURL(/\/dashboard\/profile\/settings/);
 
     await page.locator('[data-test="logout-button"]').click();
     await dialog.getByRole('button', { name: 'Log out' }).click();

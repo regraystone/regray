@@ -1,5 +1,5 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import EmailPreferencesController from '@/actions/App/Http/Controllers/Settings/EmailPreferencesController';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
@@ -7,6 +7,7 @@ import ConnectedAccounts, {
     type GoogleConnection,
 } from '@/components/connected-accounts';
 import DeleteUser from '@/components/delete-user';
+import { HubRow, HubSection } from '@/components/hub-rows';
 import TermsDialog from '@/components/terms-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +19,7 @@ import {
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
-import { show as showProfile } from '@/routes/profile';
+import { settings as profileSettings } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import { send } from '@/routes/verification';
 import type { SocialNotice } from '@/lib/auth-schema';
@@ -64,14 +65,29 @@ export default function AccountSecurity({
             <div className="mx-auto w-full max-w-2xl">
                 {/* Mobile back link */}
                 <Link
-                    href={showProfile.url()}
+                    href={profileSettings.url()}
                     className="mb-5 inline-flex items-center gap-2 text-sm text-secondary-foreground transition-opacity hover:opacity-70 sm:hidden"
                 >
                     <ArrowLeft className="size-4" aria-hidden />
-                    Back to profile
+                    Back to settings
                 </Link>
 
                 <div className="space-y-6">
+                    {/*
+                        Security options first, where they are found without
+                        scrolling. The forms stay on the Security page, behind
+                        the password confirmation; this is only the way there.
+                    */}
+                    <HubSection title="Security options">
+                        <HubRow
+                            icon={KeyRound}
+                            title="Password & two-factor authentication"
+                            description="Change your password and turn two-factor authentication on or off"
+                            href={editSecurity.url()}
+                            dataTest="security-options-link"
+                        />
+                    </HubSection>
+
                     {/* Profile Information Form */}
                     <Card className="border-border py-4 shadow-none sm:py-6">
                         <CardHeader className="px-4 sm:px-6">
@@ -265,33 +281,6 @@ export default function AccountSecurity({
 
                     {/* Connected Accounts */}
                     <ConnectedAccounts google={google} notice={socialNotice} />
-
-                    {/* Security Door */}
-                    <Link
-                        href={editSecurity.url()}
-                        className="group flex min-h-[56px] items-center justify-between gap-4 border border-border bg-background p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
-                    >
-                        <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
-                            <ShieldCheck
-                                className="size-5 shrink-0 text-secondary-foreground"
-                                aria-hidden
-                            />
-                            <div className="min-w-0 space-y-0.5">
-                                <div className="text-sm font-bold tracking-[-0.02em] text-foreground sm:text-base">
-                                    Security
-                                </div>
-                                <div className="truncate text-xs text-muted-foreground sm:text-sm">
-                                    Update your password and manage two-factor
-                                    authentication
-                                </div>
-                            </div>
-                        </div>
-
-                        <ChevronRight
-                            className="size-5 shrink-0 text-secondary-foreground transition-transform duration-200 group-hover:translate-x-0.5"
-                            aria-hidden
-                        />
-                    </Link>
 
                     {/* Delete Account */}
                     <Card className="border-border py-4 shadow-none sm:py-6">
