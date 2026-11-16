@@ -128,6 +128,15 @@ enum Permission: string
     case InquiriesCreate = 'inquiries.create';
 
     /**
+     * The staff Inquire flow's Platform branch: find a client's Regray account
+     * and open the inquiry under their lead (`inquiry.inquire.accounts`,
+     * `leads.inquiries.store`), returning customers included. Marketing's, which
+     * then assigns the inquiry's members. Sales opens inquiries only for direct
+     * (walk-in) clients, so it is never asked Platform or Direct.
+     */
+    case InquiriesCreatePlatform = 'inquiries.create.platform';
+
+    /**
      * Changing an inquiry's project from the Inquiry list (Edit): its name,
      * location, notes, service, stones and answers. Never the client
      * or a status.
@@ -144,28 +153,39 @@ enum Permission: string
     case InquiriesStatusProcess = 'inquiries.status.process';
 
     /**
-     * Booking an appointment: a client for themselves, staff for a client of
-     * their choosing (auto-approved).
+     * Booking an appointment: a client for themselves, marketing for a client
+     * it may find (User::scopeClientsVisibleTo()), assigned at once to a sales
+     * member who confirms it. Sales does not book.
      */
     case ScheduleCreate = 'schedule.create';
 
     /**
-     * Updating an appointment (date, time, purpose, notes, with a reason), and,
-     * for staff only, marking a confirmed one as attended or not attended. A
+     * Updating an appointment (date, time, purpose, notes, with a reason). A
      * client holds it for their own bookings alone (SchedulePolicy); among staff
-     * only marketing and sales do. Never an inquiry's visit, which follows its
-     * inquiry.
+     * only marketing does. Never an inquiry's visit, which follows its inquiry.
      */
     case ScheduleUpdate = 'schedule.update';
 
     /**
      * Cancelling an appointment, with a reason. A client's own bookings only
-     * (SchedulePolicy); among staff, marketing's and sales'.
+     * (SchedulePolicy); among staff, marketing's.
      */
     case ScheduleCancel = 'schedule.cancel';
 
-    /** Approving a pending appointment: marketing's and sales', never a client's. */
-    case ScheduleApprove = 'schedule.approve';
+    /**
+     * Assigning a pending appointment to a sales member, who then confirms or
+     * declines it: marketing's.
+     */
+    case ScheduleAssign = 'schedule.assign';
+
+    /**
+     * Confirming or declining (with a reason) an appointment assigned to you:
+     * sales'. Only the sales member it is assigned to (SchedulePolicy).
+     */
+    case ScheduleConfirm = 'schedule.confirm';
+
+    /** Marking a confirmed appointment as attended or not attended: marketing's and sales'. */
+    case ScheduleAttend = 'schedule.attend';
 
     /**
      * Saving and unsaving a stone.

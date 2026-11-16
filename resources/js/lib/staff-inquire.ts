@@ -33,6 +33,16 @@ export const staffInquireKindFrom = (
 ): StaffInquireKind | null =>
     value === 'platform' || value === 'direct' ? value : null;
 
+/**
+ * The branch staff land on: what they asked for, except that staff who may
+ * not use Platform (sales, without `inquiries.create.platform`) are always on
+ * Direct.
+ */
+export const staffInquireKindFor = (
+    requested: StaffInquireKind | null,
+    canUsePlatform: boolean,
+): StaffInquireKind | null => (canUsePlatform ? requested : 'direct');
+
 /** The ways a direct client can be reached, as `client_contacts.kind`. */
 export type ContactKind = 'phone' | 'viber' | 'whatsapp' | 'email';
 

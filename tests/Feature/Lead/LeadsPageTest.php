@@ -3,7 +3,6 @@
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\Role;
-use App\Enums\SalesStatus;
 use App\Models\Inquiry;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -82,10 +81,10 @@ describe('opening an inquiry for a lead', function (): void {
         makeInquiry($lostClient, attributes: ['lead' => $this->lost, 'marketing_status' => LeadStatus::Lost]);
     });
 
-    it('offers sales only leads with a won inquiry, and marketing all its own leads', function (): void {
+    it('offers sales no lead, as it opens inquiries only for walk-in clients, and marketing all its own leads', function (): void {
         $offered = fn (User $user) => collect($this->actingAs($user)->get(route('inquiry.inquire'))->viewData('page')['props']['leads'])->pluck('reference')->sort()->values()->all();
 
-        expect($offered($this->sales))->toBe([$this->won->reference])
+        expect($offered($this->sales))->toBe([])
             ->and($offered($this->marketing))->toBe(collect([$this->idle->reference, $this->won->reference, $this->lost->reference])->sort()->values()->all())
             ->and($offered(messagingStaff(Role::Marketing, 'Other')))->toBe([]);
 
@@ -93,19 +92,12 @@ describe('opening an inquiry for a lead', function (): void {
         expect($this->actingAs($this->client)->get(route('quote.inquire'))->viewData('page')['props']['leads'])->toBeNull();
     });
 
-    it('lets sales open one only from a lead with a won inquiry, deciding it won at once so sales starts at negotiation', function (): void {
-        $this->actingAs($this->sales)->post(route('leads.inquiries.store', $this->idle->reference), ['projects' => [inquiryProjectInput()]])->assertForbidden();
-        $this->actingAs($this->sales)->post(route('leads.inquiries.store', $this->lost->reference), ['projects' => [inquiryProjectInput()]])->assertForbidden();
+    it('never lets sales open one under a lead, not even a returning customer\'s won lead', function (): void {
+        foreach ([$this->idle, $this->won, $this->lost] as $lead) {
+            $this->actingAs($this->sales)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput(['name' => 'Sales-opened'])]])->assertForbidden();
+        }
 
-        $this->actingAs($this->sales)->post(route('leads.inquiries.store', $this->won->reference), ['projects' => [inquiryProjectInput(['name' => 'Sales-opened'])]])->assertRedirect();
-
-        $inquiry = Inquiry::query()->where('name', 'Sales-opened')->sole();
-
-        expect($inquiry->lead_id)->toBe($this->won->id)
-            ->and($inquiry->client_id)->toBe($this->won->client_id)
-            ->and($inquiry->marketing_status)->toBe(LeadStatus::Won)
-            ->and($inquiry->sales_status)->toBe(SalesStatus::Negotiation)
-            ->and($inquiry->status)->toBe(InquiryStatus::Negotiation);
+        expect(Inquiry::query()->where('name', 'Sales-opened')->exists())->toBeFalse();
     });
 
     it('lets marketing open one from any of its own leads, waiting for its decision, and not from someone else\'s', function (): void {

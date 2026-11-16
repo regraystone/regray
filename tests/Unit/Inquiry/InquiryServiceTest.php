@@ -3,9 +3,7 @@
 use App\Data\WrittenFiles;
 use App\Enums\DeliveryMethod;
 use App\Enums\InquiryStatus;
-use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
-use App\Enums\Role;
 use App\Models\InquiryStatusHistory;
 use App\Models\Service;
 use App\Services\InquiryService;
@@ -55,19 +53,4 @@ it('leaves a new inquiry waiting for marketing even when the client already has 
         ->and($inquiry->fresh()->marketing_status)->toBeNull()
         ->and($inquiry->fresh()->status)->toBe(InquiryStatus::Pending)
         ->and(InquiryStatusHistory::query()->exists())->toBeFalse();
-});
-
-it('decides an inquiry sales opens on a lead won at once, which starts its sales at negotiation', function (): void {
-    $client = inquiryClient();
-    $lead = makeLead($client);
-    $sales = inquiryClient(Role::Sales);
-
-    [$inquiry] = app(InquiryService::class)->create($client, serviceInput(), new WrittenFiles, $lead, $sales);
-
-    $history = InquiryStatusHistory::query()->sole();
-
-    expect($inquiry->fresh()->marketing_status)->toBe(LeadStatus::Won)
-        ->and($inquiry->fresh()->status)->toBe(InquiryStatus::Negotiation)
-        ->and([$history->track, $history->from_status, $history->to_status, $history->changed_by])->toBe([InquiryStatusTrack::Sales, null, 'negotiation', $sales->id])
-        ->and($lead->history()->get()->last()->only(['inquiry_id', 'to_status', 'changed_by']))->toBe(['inquiry_id' => $inquiry->id, 'to_status' => LeadStatus::Won, 'changed_by' => $sales->id]);
 });

@@ -87,10 +87,20 @@ enum Role: string
         return in_array($this, [self::Sales, self::Technical, self::Accounting, self::Logistics], true);
     }
 
-    /** Reads every visit booked outside an inquiry. */
-    public function seesStandaloneVisits(): bool
+    /**
+     * Reads the visits booked outside an inquiry that it handles: the ones it
+     * booked or assigned, and the client bookings in its queue
+     * (Schedule::scopeVisibleTo()).
+     */
+    public function seesHandledVisits(): bool
     {
-        return $this === self::Marketing || $this === self::Sales;
+        return $this === self::Marketing;
+    }
+
+    /** Reads the visits booked outside an inquiry that are assigned to it (`schedules.assigned_to`). */
+    public function seesAssignedVisits(): bool
+    {
+        return $this === self::Sales;
     }
 
     /**

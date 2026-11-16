@@ -17,7 +17,7 @@ class ExpireSchedulesCommand extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Expire the appointments still pending when their time has passed, and tell each client.';
+    protected $description = 'Expire the appointments still pending or awaiting sales when their time has passed, and tell each client.';
 
     public function __construct(
         public readonly ScheduleRepositoryInterface $scheduleRepository,

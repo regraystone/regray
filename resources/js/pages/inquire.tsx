@@ -26,6 +26,7 @@ import StaffInquireStart, {
     leadTarget,
 } from '@/components/staff-inquire-start';
 import {
+    staffInquireKindFor,
     staffInquireKindFrom,
     type StaffInquireKind,
 } from '@/lib/staff-inquire';
@@ -2204,15 +2205,25 @@ const Inquire = (props: InquirePageProps) => {
      * keeps both, so a reload, or the Leads page's "Create inquiry", lands past
      * what was already answered. A direct client is not in the URL: it is taken
      * down again after a reload, and the duplicate check finds it.
+     *
+     * Staff who may not use Platform (sales) are never asked: they are always
+     * on Direct, whatever the URL says.
      */
+    const { can } = usePermissions();
+    const canUsePlatform = can(permissions.inquiriesCreatePlatform);
     const [kind, setKind] = useState<StaffInquireKind | null>(() =>
-        leadInUrl !== null
-            ? 'platform'
-            : staffInquireKindFrom(
-                  typeof window === 'undefined'
-                      ? null
-                      : new URLSearchParams(window.location.search).get('kind'),
-              ),
+        staffInquireKindFor(
+            leadInUrl !== null
+                ? 'platform'
+                : staffInquireKindFrom(
+                      typeof window === 'undefined'
+                          ? null
+                          : new URLSearchParams(window.location.search).get(
+                                'kind',
+                            ),
+                  ),
+            canUsePlatform,
+        ),
     );
     const [target, setTarget] = useState<StaffInquireTarget | null>(() => {
         const lead = leads?.find((option) => option.reference === leadInUrl);
@@ -2240,7 +2251,9 @@ const Inquire = (props: InquirePageProps) => {
         window.history.replaceState(window.history.state, '', url);
     };
 
-    const chooseKind = (next: StaffInquireKind | null) => {
+    const chooseKind = (requested: StaffInquireKind | null) => {
+        const next = staffInquireKindFor(requested, canUsePlatform);
+
         setKind(next);
         setTarget(null);
         keepInUrl(next, null);

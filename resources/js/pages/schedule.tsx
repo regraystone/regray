@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, router, usePage } from '@inertiajs/react';
 import ConfirmDialog from '@/components/confirm-dialog';
+import AssignScheduleDialog from '@/components/schedule/assign-schedule-dialog';
 import CancelScheduleDialog from '@/components/schedule/cancel-schedule-dialog';
 import EventDialog, {
     type ScheduleDialogAction,
@@ -31,10 +32,12 @@ import {
     type ScheduleData,
     type ScheduleItem,
 } from '@/lib/schedule';
+import { slotLabel } from '@/lib/booking-slots';
 import { sendScheduleChange } from '@/lib/schedule-changes';
+import { fetchOwnClash, type SalesClash } from '@/lib/schedule-sales-api';
 import { edit as profileScheduleEdit } from '@/routes/profile/schedule';
 import {
-    approve as approveSchedule,
+    confirm as confirmSchedule,
     edit as scheduleEdit,
     noShow as noShowSchedule,
     serve as serveSchedule,
@@ -214,9 +217,10 @@ const Schedule = () => {
      * Whether this reader may book a visit at all.
      *
      * A permission of its own rather than a byproduct of being able to read the
-     * schedule: a client books their own visit and the sales and marketing roles
-     * book one on somebody's behalf, while the roles that only oversee the week
-     * are not offered a button that leads nowhere.
+     * schedule: a client books their own visit and marketing books one on a
+     * client's behalf, while sales (which answers the visits assigned to it)
+     * and the roles that only oversee the week are not offered a button that
+     * leads nowhere.
      */
     const canBook = can(permissions.scheduleCreate);
 
@@ -237,14 +241,16 @@ const Schedule = () => {
     /*
      * Changing a visit, from its dialog or the Upcoming menu. Update opens the
      * Book an appointment page filled in with it, from this reader's door;
-     * Cancel asks for a reason here; Approve, Mark as attended and Did not
-     * attend only ask to be sure. The server answers with the page's schedules
+     * Cancel and Decline ask for a reason here, Assign for the sales member;
+     * Confirm, Mark as attended and Did not attend only ask to be sure. The server answers with the page's schedules
      * again, already changed.
      */
     const isClient = !can(permissions.scheduleView);
     const [cancelling, setCancelling] = useState<ScheduleItem | null>(null);
+    const [declining, setDeclining] = useState<ScheduleItem | null>(null);
+    const [assigning, setAssigning] = useState<ScheduleItem | null>(null);
     const [confirming, setConfirming] = useState<{
-        action: 'approve' | 'serve' | 'noShow';
+        action: 'confirm' | 'serve' | 'noShow';
         item: ScheduleItem;
     } | null>(null);
     const [isConfirming, setIsConfirming] = useState(false);
@@ -260,19 +266,56 @@ const Schedule = () => {
             );
         } else if (action === 'cancel') {
             setCancelling(item);
+        } else if (action === 'decline') {
+            setDeclining(item);
+        } else if (action === 'assign') {
+            setAssigning(item);
         } else {
             setConfirming({ action, item });
         }
     };
 
+    // Confirming: the sales member's own appointment it would overlap, a warning.
+    const [ownClash, setOwnClash] = useState<SalesClash | null>(null);
+
+    useEffect(() => {
+        setOwnClash(null);
+
+        if (confirming?.action !== 'confirm') {
+            return;
+        }
+
+        let isCurrent = true;
+
+        fetchOwnClash(confirming.item.id)
+            .then((clash) => {
+                if (isCurrent) {
+                    setOwnClash(clash);
+                }
+            })
+            .catch(() => undefined);
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [confirming]);
+
     const CONFIRMS = {
-        approve: {
-            title: 'Approve appointment',
+        confirm: {
+            title: 'Confirm appointment',
             description: (item: ScheduleItem) =>
-                `${item.title}. The client is told in their Regray chat that it is approved.`,
-            label: 'Approve',
-            route: approveSchedule,
-            done: 'Appointment approved',
+                `${item.title}${item.clientName ? ` with ${item.clientName}` : ''}. ${
+                    item.walkIn
+                        ? 'A walk-in is not told in the app: let them know yourself.'
+                        : 'The client is told in their Regray chat that it is confirmed.'
+                }${
+                    ownClash
+                        ? ` Heads up: you already have “${ownClash.title}” at ${slotLabel(ownClash.time)}.`
+                        : ''
+                }`,
+            label: 'Confirm',
+            route: confirmSchedule,
+            done: 'Appointment confirmed',
         },
         serve: {
             title: 'Mark as attended',
@@ -470,6 +513,25 @@ const Schedule = () => {
                 onSaved={() => {
                     setCancelling(null);
                     toast.success('Appointment cancelled');
+                }}
+            />
+
+            <CancelScheduleDialog
+                kind="decline"
+                item={declining}
+                onClose={() => setDeclining(null)}
+                onSaved={() => {
+                    setDeclining(null);
+                    toast.success('Appointment declined');
+                }}
+            />
+
+            <AssignScheduleDialog
+                item={assigning}
+                onClose={() => setAssigning(null)}
+                onSaved={(sales) => {
+                    setAssigning(null);
+                    toast.success(`Assigned to ${sales.name}`);
                 }}
             />
 

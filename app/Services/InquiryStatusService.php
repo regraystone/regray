@@ -31,8 +31,8 @@ use InvalidArgumentException;
  * Marketing's decision on an inquiry goes through decide(): won starts its
  * sales, lost shows it cancelled. Staff move the sales, payment and logistics
  * tracks by hand through InquiryStatusUpdateService; the client's cancel,
- * marketing's decisions and an inquiry opened by sales or for a direct client
- * move them here too.
+ * marketing's decisions and an inquiry opened for a direct client move them
+ * here too.
  */
 class InquiryStatusService
 {
@@ -95,12 +95,9 @@ class InquiryStatusService
      * lead, undecided, and its sales has not started. Expects the inquiry to be
      * locked already, by whoever decided the change is allowed.
      *
-     * `$opening` is true when the decision is made as the inquiry is opened
-     * (sales opening one on a lead), which its InquirySubmitted announces.
-     *
      * @throws ValidationException When the inquiry is not waiting for a decision, or `$to` is idle.
      */
-    public function decide(Inquiry $inquiry, LeadStatus $to, ?User $by, ?string $note = null, bool $opening = false): void
+    public function decide(Inquiry $inquiry, LeadStatus $to, ?User $by, ?string $note = null): void
     {
         if ($to === LeadStatus::Idle) {
             throw ValidationException::withMessages(['to' => 'An inquiry can only be marked won or lost.']);
@@ -120,14 +117,14 @@ class InquiryStatusService
         $this->leads->createHistory($this->leads->lockForUpdate($inquiry->lead_id), null, $to, $by?->id, $now, $note, $inquiry->id);
 
         if ($to === LeadStatus::Won) {
-            $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $by, decision: LeadStatus::Won, opening: $opening);
+            $this->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $by, decision: LeadStatus::Won);
 
             return;
         }
 
         $this->scheduleService->cancelForInquiry($inquiry, $now);
 
-        event(new InquiryStatusChanged($inquiry, null, null, null, $by?->id, LeadStatus::Lost, $opening));
+        event(new InquiryStatusChanged($inquiry, null, null, null, $by?->id, LeadStatus::Lost));
     }
 
     /**
