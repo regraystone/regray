@@ -1,16 +1,23 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import {
+    AuthDivider,
+    AuthFootnote,
+    AuthNotice,
+    authCheckbox,
+    authLink,
+    authPrimaryButton,
+    authQuietLink,
+} from '@/components/auth/auth-ui';
 import GoogleButton from '@/components/auth/google-button';
-import SocialNotice from '@/components/auth/social-notice';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
 import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
+import AuthBrandLayout from '@/layouts/auth/auth-brand-layout';
 import {
     loginDefaults,
     loginFields,
@@ -83,27 +90,31 @@ export default function Login({
         });
 
     return (
-        <>
+        <div className="flex flex-col gap-7">
             <Head title="Sign In" />
 
-            <SocialNotice notice={socialNotice} />
-
-            {status ? (
-                <p className="mb-6 text-center text-[0.9rem] font-medium text-secondary-foreground max-md:mb-(--auth-block-gap)">
-                    {status}
-                </p>
+            {socialNotice ? (
+                <AuthNotice
+                    alert={socialNotice.type === 'error'}
+                    data-test="social-notice"
+                >
+                    {socialNotice.message}
+                </AuthNotice>
             ) : null}
+
+            {status ? <AuthNotice tone="success">{status}</AuthNotice> : null}
 
             <form
                 noValidate
                 onSubmit={handleSubmit(onValid)}
-                className="space-y-5 max-md:space-y-(--auth-field-gap)"
+                className="flex flex-col gap-7"
             >
                 <Field
                     id="email"
                     type="email"
+                    variant="line"
                     label="Email"
-                    placeholder="email@example.com"
+                    placeholder="you@example.com"
                     autoComplete="email"
                     autoFocus
                     tabIndex={1}
@@ -114,101 +125,86 @@ export default function Login({
                 <PasswordField
                     id="password"
                     type="password"
+                    variant="line"
                     label="Password"
-                    placeholder="Password"
                     autoComplete="current-password"
                     tabIndex={2}
+                    hint={
+                        canResetPassword ? (
+                            <Link
+                                href={request()}
+                                className={authQuietLink}
+                                tabIndex={4}
+                            >
+                                Forgot password?
+                            </Link>
+                        ) : null
+                    }
                     error={errors.password?.message}
                     {...registerField('password')}
                 />
 
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <Controller
-                            control={control}
-                            name="remember"
-                            render={({ field }) => (
-                                <Checkbox
-                                    id="remember"
-                                    name="remember"
-                                    tabIndex={5}
-                                    checked={field.value}
-                                    onCheckedChange={(checked) =>
-                                        field.onChange(checked === true)
-                                    }
-                                />
-                            )}
-                        />
-                        <label
-                            htmlFor="remember"
-                            className="text-sm text-secondary-foreground"
-                        >
-                            Remember me
-                        </label>
-                    </div>
-
-                    {canResetPassword ? (
-                        <Link
-                            href={request()}
-                            className="text-[0.8rem] font-semibold text-secondary-foreground transition-opacity hover:opacity-85"
-                            tabIndex={4}
-                        >
-                            Forgot password?
-                        </Link>
-                    ) : null}
+                <div className="flex items-center gap-3">
+                    <Controller
+                        control={control}
+                        name="remember"
+                        render={({ field }) => (
+                            <Checkbox
+                                id="remember"
+                                name="remember"
+                                tabIndex={5}
+                                className={`${authCheckbox} mt-0`}
+                                checked={field.value}
+                                onCheckedChange={(checked) =>
+                                    field.onChange(checked === true)
+                                }
+                            />
+                        )}
+                    />
+                    <label
+                        htmlFor="remember"
+                        className="cursor-pointer text-[0.9375rem] text-ink-soft"
+                    >
+                        Remember me
+                    </label>
                 </div>
 
                 {formError.length > 0 ? (
-                    <p
-                        role="alert"
-                        className="text-[0.8rem] font-semibold text-secondary-foreground"
-                    >
-                        {formError.join(' ')}
-                    </p>
+                    <AuthNotice alert>{formError.join(' ')}</AuthNotice>
                 ) : null}
 
-                <Button
-                    type="submit"
-                    className="mt-1 w-full max-md:mt-(--auth-block-gap)"
-                    tabIndex={3}
-                    disabled={isSubmitting}
-                    data-test="login-button"
-                >
-                    {isSubmitting && <Spinner />}
-                    Sign In
-                </Button>
+                <div className="flex flex-col gap-3.5">
+                    <Button
+                        type="submit"
+                        className={authPrimaryButton}
+                        tabIndex={3}
+                        disabled={isSubmitting}
+                        data-test="login-button"
+                    >
+                        {isSubmitting && <Spinner />}
+                        Sign in
+                    </Button>
+                    <AuthDivider />
+                    <GoogleButton />
+                </div>
             </form>
 
-            <div className="relative my-5">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-secondary-foreground">
-                        Or
-                    </span>
-                </div>
-            </div>
-
-            <GoogleButton />
-
-            <p className="mt-8 text-center text-sm max-md:mt-(--auth-block-gap)">
+            <AuthFootnote>
                 Don&rsquo;t have an account?{' '}
-                <Link
-                    href={signUp()}
-                    className="inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline focus-visible:underline"
-                    tabIndex={6}
-                >
-                    Sign Up <ArrowRight className="size-4" aria-hidden />
+                <Link href={signUp()} className={authLink} tabIndex={6}>
+                    Sign up
                 </Link>
-            </p>
-        </>
+            </AuthFootnote>
+        </div>
     );
 }
 
 Login.layout = [
-    AuthSheetLayout,
+    AuthBrandLayout,
     {
-        title: 'Sign In',
+        eyebrow: 'Welcome back',
+        title: 'Sign in',
+        description:
+            'Pick up your saved stones, inquiries and messages where you left them.',
     },
 ];

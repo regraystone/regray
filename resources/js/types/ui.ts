@@ -8,6 +8,8 @@ export type FlashToast = {
 export type AuthLayoutProps = {
     children?: ReactNode;
     name?: string;
+    /** The small uppercase line above the title ("Welcome back"). */
+    eyebrow?: string;
     title?: string;
     description?: string;
 };

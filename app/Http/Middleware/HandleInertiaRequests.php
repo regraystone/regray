@@ -2,16 +2,34 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\Home\ListBrandsAction;
+use App\Http\Resources\BrandCardResource;
 use App\Services\Message\ConversationService;
 use App\Services\Notification\NotificationService;
 use App\Services\SavedFurnitureService;
 use App\Services\SavedStoneService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    /**
+     * The pages drawn in the auth layout (resources/js/layouts/auth), by
+     * route name: Fortify's and Google sign-in's.
+     */
+    private const AUTH_PAGES = [
+        'login',
+        'register',
+        'password.request',
+        'password.reset',
+        'verification.notice',
+        'two-factor.login',
+        'auth.google.finish',
+        'auth.google.confirm',
+    ];
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -72,6 +90,12 @@ class HandleInertiaRequests extends Middleware
                     'port' => config('broadcasting.client.port') ? (int) config('broadcasting.client.port') : null,
                     'scheme' => config('broadcasting.client.scheme') ?: null,
                 ],
+            // The auth pages' side panel shows the brands' photos and logos;
+            // null on every other page. Sent once: moving between Sign In and
+            // Sign Up keeps them.
+            'authBrands' => $request->routeIs(self::AUTH_PAGES)
+                ? Inertia::once(fn (): array => BrandCardResource::collection(app(ListBrandsAction::class)->execute())->resolve($request))
+                : null,
         ];
     }
 }

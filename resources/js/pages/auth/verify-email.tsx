@@ -1,60 +1,78 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import {
+    AuthFootnote,
+    AuthNotice,
+    authLink,
+    authPrimaryButton,
+} from '@/components/auth/auth-ui';
 import LogoutDialog from '@/components/logout-dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
+import AuthBrandLayout from '@/layouts/auth/auth-brand-layout';
 import { send } from '@/routes/verification';
+import type { Auth } from '@/types';
 
 export default function VerifyEmail({ status }: { status?: string }) {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const { auth } = usePage<{ auth: Auth }>().props;
 
     return (
-        <>
+        <div className="flex flex-col gap-7">
             <Head title="Email verification" />
 
-            <div className="w-full">
-                {status === 'verification-link-sent' ? (
-                    <p className="mb-6 text-center text-[0.9rem] leading-relaxed text-secondary-foreground">
-                        A new verification link has been sent to the email
-                        address you provided during registration.
-                    </p>
-                ) : null}
+            {status === 'verification-link-sent' ? (
+                <AuthNotice tone="success">
+                    A new verification link has been sent to your email address.
+                </AuthNotice>
+            ) : null}
 
-                <Form {...send.form()} className="flex flex-col gap-6">
-                    {({ processing }) => (
-                        <>
-                            <Button
-                                type="submit"
-                                className="w-full"
-                                disabled={processing}
-                            >
-                                {processing && <Spinner />}
-                                Resend verification email
-                            </Button>
-
-                            <button
-                                type="button"
-                                onClick={() => setIsLoggingOut(true)}
-                                className="cursor-pointer text-center text-[0.8rem] font-semibold text-secondary-foreground transition-opacity hover:opacity-85"
-                            >
-                                Log out
-                            </button>
-                        </>
-                    )}
-                </Form>
+            <div className="flex flex-col gap-1.5 border-y border-line py-5">
+                <span className="text-xs font-medium tracking-[0.16em] text-ink-muted uppercase">
+                    Sent to
+                </span>
+                <span className="text-lg break-all">{auth.user.email}</span>
             </div>
 
+            <p className="text-[0.9375rem] leading-relaxed text-ink-soft">
+                Can&rsquo;t find it? Check your spam folder, or send a new link.
+            </p>
+
+            <Form {...send.form()}>
+                {({ processing }) => (
+                    <Button
+                        type="submit"
+                        className={authPrimaryButton}
+                        disabled={processing}
+                    >
+                        {processing && <Spinner />}
+                        Resend verification email
+                    </Button>
+                )}
+            </Form>
+
+            <AuthFootnote>
+                Wrong account?{' '}
+                <button
+                    type="button"
+                    onClick={() => setIsLoggingOut(true)}
+                    className={`cursor-pointer ${authLink}`}
+                >
+                    Log out
+                </button>
+            </AuthFootnote>
+
             <LogoutDialog open={isLoggingOut} onOpenChange={setIsLoggingOut} />
-        </>
+        </div>
     );
 }
 
 VerifyEmail.layout = [
-    AuthSheetLayout,
+    AuthBrandLayout,
     {
-        title: 'Email verification',
+        eyebrow: 'One more step',
+        title: 'Verify your email',
         description:
-            'Please verify your email address by clicking on the link we just emailed to you.',
+            'We sent a link to your inbox. Open it to confirm your address and finish setting up your account.',
     },
 ];
