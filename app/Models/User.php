@@ -256,6 +256,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Schedule::class, 'client_id');
     }
 
+    /** @return HasMany<Schedule, $this> The appointments a sales member is assigned to confirm. */
+    public function assignedSchedules(): HasMany
+    {
+        return $this->hasMany(Schedule::class, 'assigned_to');
+    }
+
     /**
      * Get the attributes that should be cast.
      *

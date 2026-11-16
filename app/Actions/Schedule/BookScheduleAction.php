@@ -14,7 +14,7 @@ class BookScheduleAction
         public readonly ScheduleService $scheduleService,
     ) {}
 
-    /** Save a client's booking, pending, and let the team hear about it. */
+    /** Save a client's booking, pending, and let marketing hear about it. */
     public function execute(User $client, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
     {
         $schedule = $this->scheduleService->createForBooking($client, $purpose, $arrivalAt, $notes);
@@ -25,12 +25,13 @@ class BookScheduleAction
     }
 
     /**
-     * Save a booking staff made for a client, confirmed at once with the staff
-     * member as its approver, and tell the client in their Regray thread.
+     * Save a booking marketing made for a client, assigned at once to
+     * `$sales`, who is told to confirm it. The client is told once it is
+     * confirmed.
      */
-    public function executeForStaff(User $staff, User $client, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
+    public function executeForStaff(User $staff, User $client, User $sales, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
     {
-        $schedule = $this->scheduleService->createForStaffBooking($staff, $client, $purpose, $arrivalAt, $notes);
+        $schedule = $this->scheduleService->createForStaffBooking($staff, $client, $sales, $purpose, $arrivalAt, $notes);
 
         event(new ScheduleBooked($schedule));
 

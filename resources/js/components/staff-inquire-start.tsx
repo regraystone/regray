@@ -47,9 +47,9 @@ export const leadTarget = (lead: InquiryLeadOption): StaffInquireTarget => ({
  * What staff answer before the stepper: who the inquiry is for.
  *
  * - No branch yet: the Platform or Direct (walk-in) question.
- * - **Platform**: find the client's account, then pick one of that client's
- *   leads this reader may use (the server sends only those: sales won leads,
- *   marketing its own idle or won leads).
+ * - **Platform** (marketing's; sales is never offered it): find the client's
+ *   account, then pick one of that client's leads this reader may use (the
+ *   server sends only those: marketing's own idle or won leads).
  * - **Direct**: take the client down. When one of the contacts is already
  *   another client's, that client is offered instead of a second one.
  *
@@ -144,7 +144,7 @@ const PlatformStart = ({
             <InquiryLeadPicker
                 leads={accountLeads}
                 description={`Choose ${account.name}'s lead`}
-                emptyDescription={`${account.name} has no lead you can open an inquiry from. Sales can use won leads; marketing its own idle or won leads.`}
+                emptyDescription={`${account.name} has no lead you can open an inquiry from. You can use your own idle or won leads.`}
                 action={<BackButton onClick={() => setAccount(null)} />}
                 onPick={(lead) => onTarget(leadTarget(lead))}
             />

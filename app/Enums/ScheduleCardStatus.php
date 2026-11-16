@@ -19,9 +19,12 @@ enum ScheduleCardStatus: string
     case Cancelled = 'cancelled';
     case Expired = 'expired';
 
-    /** The card a status of its own announces. */
+    /**
+     * The card a status of its own announces, as the client reads it:
+     * awaiting sales is pending (ScheduleStatus::forClient()).
+     */
     public static function forStatus(ScheduleStatus $status): self
     {
-        return self::from($status->value);
+        return self::from($status->forClient()->value);
     }
 }

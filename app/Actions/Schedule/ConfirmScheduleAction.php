@@ -6,15 +6,15 @@ use App\Models\Schedule;
 use App\Models\User;
 use App\Services\ScheduleChangeService;
 
-class ApproveScheduleAction
+class ConfirmScheduleAction
 {
     public function __construct(
         public readonly ScheduleChangeService $scheduleChangeService,
     ) {}
 
-    /** Approve a pending appointment. */
+    /** The sales member an appointment is assigned to confirms it. */
     public function execute(Schedule $schedule, User $by, ?string $ipAddress, ?string $userAgent): Schedule
     {
-        return $this->scheduleChangeService->approve($schedule, $by, $ipAddress, $userAgent);
+        return $this->scheduleChangeService->confirm($schedule, $by, $ipAddress, $userAgent);
     }
 }

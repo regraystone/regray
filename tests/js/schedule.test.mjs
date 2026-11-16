@@ -26,7 +26,9 @@ const item = (id, arrival) => ({
 const can = {
     update: true,
     cancel: true,
-    approve: false,
+    assign: true,
+    confirm: false,
+    decline: false,
     serve: false,
     noShow: false,
 };
@@ -34,6 +36,9 @@ const rest = {
     bookedByType: 'staff',
     bookedByName: 'Sam',
     clientName: 'Rafa',
+    assignedSalesName: 'Sales Officer',
+    declinedByName: null,
+    declineReason: null,
     cancelReason: null,
     changeReason: 'Client asked for later',
     can,

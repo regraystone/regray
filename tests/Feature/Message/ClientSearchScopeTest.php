@@ -165,16 +165,10 @@ describe('the Inquire and Book an appointment pickers', function (): void {
             ->assertJsonPath('accounts.0.label', 'Clara Claimed');
     })->with(['inquiry.inquire.accounts', 'schedule.book.accounts']);
 
-    it('find for sales only the clients of the inquiries it reads', function (string $route): void {
-        $this->actingAs($this->sales)->getJson(route($route))
-            ->assertOk()
-            ->assertExactJson(['accounts' => []]);
-
+    it('are closed to sales, which books no appointment and opens inquiries only for walk-in clients', function (string $route): void {
         assignInquiry($this->inquiry, $this->sales);
 
-        $this->actingAs($this->sales)->getJson(route($route))
-            ->assertOk()
-            ->assertJsonPath('accounts.*.id', [$this->leadClient->id]);
+        $this->actingAs($this->sales)->getJson(route($route))->assertForbidden();
     })->with(['inquiry.inquire.accounts', 'schedule.book.accounts']);
 
     it('find every client for the admin', function (): void {

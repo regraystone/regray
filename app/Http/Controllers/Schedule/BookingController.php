@@ -18,7 +18,8 @@ class BookingController extends Controller
 
     /**
      * Save the booking the Book an appointment page built: a client's own,
-     * pending, or one staff made for the client they chose, confirmed at once.
+     * pending, or one marketing made for the client it chose, awaiting the
+     * sales member it is assigned to.
      *
      * Validation failures are the form request's and come back as Inertia
      * errors. Anything else is reported once and flashed as an error, and the
@@ -33,7 +34,9 @@ class BookingController extends Controller
             if ($request->isStaffBooking()) {
                 /** @var User $client after() refused a request naming no client account. */
                 $client = $request->client();
-                $this->bookSchedule->executeForStaff($user, $client, $request->purpose(), $request->arrivalAt(), $request->notes());
+                /** @var User $sales after() refused a request naming no sales member. */
+                $sales = $request->sales();
+                $this->bookSchedule->executeForStaff($user, $client, $sales, $request->purpose(), $request->arrivalAt(), $request->notes());
             } else {
                 $this->bookSchedule->execute($user, $request->purpose(), $request->arrivalAt(), $request->notes());
             }

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import BookingCalendar from '@/components/schedule/booking-calendar';
 import BookingClientPicker from '@/components/schedule/booking-client-picker';
+import SalesPicker from '@/components/schedule/sales-picker';
 import Countdown from '@/components/countdown';
 import PageHeading from '@/components/page-heading';
 import FormField from '@/components/form-field';
@@ -29,10 +30,11 @@ import {
 } from '@/routes/profile';
 import { usePermissions } from '@/hooks/use-permissions';
 import { formatFullDate, dayKey } from '@/lib/date';
+import type { ClientAccount } from '@/lib/staff-clients-api';
 import { staffBookingSchema, updateScheduleSchema } from '@/lib/booking-schema';
 import { sendScheduleChange } from '@/lib/schedule-changes';
 import { update as updateSchedule } from '@/routes/schedule';
-import type { ClientAccount } from '@/lib/staff-clients-api';
+import type { AssignableSales } from '@/lib/schedule-sales-api';
 import { openSlotsOn, slotLabel } from '@/lib/booking-slots';
 import { rateLimitFrom, retryLabel } from '@/lib/rate-limit';
 import type { RateLimit } from '@/lib/rate-limit';
@@ -40,15 +42,21 @@ import type { StudioNow } from '@/lib/booking-slots';
 import type { z } from 'zod';
 
 /*
- * One form for booking and updating: a client's booking has no client to
- * choose, so `clientId` is only checked (and sent) when staff book; updating
+ * One form for booking and updating: a client's booking has no client or
+ * sales member to choose, so `clientId` and `salesId` are only checked (and
+ * sent) when marketing books; updating
  * keeps the client and asks for the reason for the change instead. See
  * `staffBookingSchema` and `updateScheduleSchema`.
  */
 type BookingFormValues = Omit<
     z.infer<typeof staffBookingSchema>,
-    'date' | 'clientId'
-> & { date: Date | null; clientId: number | null; reason: string };
+    'date' | 'clientId' | 'salesId'
+> & {
+    date: Date | null;
+    clientId: number | null;
+    salesId: number | null;
+    reason: string;
+};
 
 /** The appointment being updated, as ViewController::scheduleEdit() sends it. */
 type UpdatingSchedule = {
@@ -70,12 +78,14 @@ type BookingResult =
           date: Date;
           arrivalTime: string;
           clientName: string | null;
+          salesName: string | null;
       }
     | { status: 'error'; message?: string; retryAt?: number | null }
     | null;
 
 const BOOKING_FIELDS: Array<keyof BookingFormValues> = [
     'clientId',
+    'salesId',
     'date',
     'arrivalTime',
     'purpose',
@@ -121,6 +131,7 @@ const sendBooking = (
                 ...(values.clientId === null
                     ? {}
                     : { clientId: values.clientId }),
+                ...(values.salesId === null ? {} : { salesId: values.salesId }),
             },
             {
                 preserveScroll: true,
@@ -186,9 +197,10 @@ const sendUpdate = async (
  * browser's. `earliestBookableDate` is the first day the signed-in user may
  * book: tomorrow for a client, today for staff.
  *
- * Staff (who read the schedule from the sidebar, `schedule.view`) first choose
- * the client the appointment is for; theirs is confirmed at once. A client
- * books for themselves, and theirs waits for the team to approve it.
+ * Staff (marketing, who read the schedule from the sidebar, `schedule.view`)
+ * first choose the client the appointment is for and the sales member who
+ * confirms it. A client books for themselves, and theirs waits for marketing
+ * to assign it.
  *
  * With `schedule`, the page updates that appointment instead: the same fields,
  * filled in with it, the client kept, and the reason for the change asked.
@@ -222,6 +234,7 @@ const Page = ({
     const [isSending, setIsSending] = useState(false);
     const isSendingRef = useRef(false);
     const [client, setClient] = useState<ClientAccount | null>(null);
+    const [sales, setSales] = useState<AssignableSales | null>(null);
 
     const methods = useForm<BookingFormValues>({
         resolver: zodResolver(
@@ -229,7 +242,7 @@ const Page = ({
                 ? updateScheduleSchema
                 : isStaff
                   ? staffBookingSchema
-                  : staffBookingSchema.omit({ clientId: true }),
+                  : staffBookingSchema.omit({ clientId: true, salesId: true }),
         ) as any,
         mode: 'onTouched',
         reValidateMode: 'onChange',
@@ -239,6 +252,7 @@ const Page = ({
             purpose: schedule?.title ?? '',
             notes: schedule?.notes ?? '',
             clientId: null,
+            salesId: null,
             reason: '',
         },
     });
@@ -330,6 +344,7 @@ const Page = ({
             date: values.date,
             arrivalTime: values.arrivalTime,
             clientName: client?.name ?? null,
+            salesName: sales?.name ?? null,
         });
     };
 
@@ -343,6 +358,7 @@ const Page = ({
         setResult(null);
         reset();
         setClient(null);
+        setSales(null);
         setMonth(studioToday);
     };
 
@@ -361,10 +377,14 @@ const Page = ({
     const heading = isUpdate ? 'Update appointment' : 'Book an appointment';
     const description = isUpdate
         ? !isStaff && schedule.status === 'confirmed'
-            ? 'Change the day, time or details, and say why. A new time goes back to the team to approve.'
-            : 'Change the day, time or details, and say why.'
+            ? 'Change the day, time or details, and say why. The team confirms it again.'
+            : isStaff &&
+                (schedule.status === 'confirmed' ||
+                    schedule.status === 'awaiting_sales')
+              ? 'Change the day, time or details, and say why. A new time goes back to its sales member to confirm.'
+              : 'Change the day, time or details, and say why.'
         : isStaff
-          ? 'Choose the client, then the day and time. It is confirmed at once.'
+          ? 'Choose the client and the sales member who confirms it, then the day and time.'
           : 'Pick a day and tell us when to expect you';
 
     return (
@@ -405,6 +425,23 @@ const Page = ({
                                         );
                                     }}
                                     error={formState.errors.clientId?.message}
+                                />
+                            ) : null}
+
+                            {isStaff && !isUpdate ? (
+                                <SalesPicker
+                                    value={sales}
+                                    onChange={(person) => {
+                                        setSales(person);
+                                        setValue(
+                                            'salesId',
+                                            person?.id ?? null,
+                                            {
+                                                shouldValidate: person !== null,
+                                            },
+                                        );
+                                    }}
+                                    error={formState.errors.salesId?.message}
                                 />
                             ) : null}
 
@@ -587,9 +624,11 @@ const Page = ({
                                   <>
                                       {result.clientName} is expected on{' '}
                                       {formatFullDate.format(result.date)} at{' '}
-                                      {slotLabel(result.arrivalTime)}. It is
-                                      confirmed, and they have been told in
-                                      their Regray chat.
+                                      {slotLabel(result.arrivalTime)}.{' '}
+                                      {result.salesName ?? 'The sales member'}{' '}
+                                      has been asked to confirm it; the client
+                                      is told in their Regray chat once it is
+                                      confirmed.
                                   </>
                               ) : (
                                   <>

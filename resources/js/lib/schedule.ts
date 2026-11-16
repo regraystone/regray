@@ -4,9 +4,13 @@
  * imports, for tests/js.
  */
 
-/** Where a visit has got to. */
+/**
+ * Where a visit has got to. `awaiting_sales` (assigned to a sales member who
+ * has not confirmed it yet) is staff-only: a client is sent `pending`.
+ */
 export type ScheduleStatus =
     | 'pending'
+    | 'awaiting_sales'
     | 'confirmed'
     | 'served'
     | 'cancelled'
@@ -16,7 +20,12 @@ export type ScheduleStatus =
 export type ScheduleAbilities = {
     update: boolean;
     cancel: boolean;
-    approve: boolean;
+    /** Marketing: give it to a sales member to confirm. */
+    assign: boolean;
+    /** Its sales member: agree to it. */
+    confirm: boolean;
+    /** Its sales member: send it back to marketing, with a reason. */
+    decline: boolean;
     serve: boolean;
     noShow: boolean;
 };
@@ -36,6 +45,11 @@ export type ScheduleData = {
     bookedByName: string | null;
     /** Whose appointment it is: staff readers only. */
     clientName: string | null;
+    /** The sales member who confirms it: staff readers only. */
+    assignedSalesName: string | null;
+    /** Who last declined it and why, until it is assigned again: staff readers only. */
+    declinedByName: string | null;
+    declineReason: string | null;
     cancelReason: string | null;
     changeReason: string | null;
     can: ScheduleAbilities;
@@ -53,6 +67,9 @@ export type ScheduleItem = {
     bookedByType: 'client' | 'staff';
     bookedByName: string | null;
     clientName: string | null;
+    assignedSalesName: string | null;
+    declinedByName: string | null;
+    declineReason: string | null;
     cancelReason: string | null;
     changeReason: string | null;
     can: ScheduleAbilities;
@@ -73,6 +90,9 @@ export const toScheduleItem = (data: ScheduleData): ScheduleItem => ({
     bookedByType: data.bookedByType,
     bookedByName: data.bookedByName,
     clientName: data.clientName,
+    assignedSalesName: data.assignedSalesName,
+    declinedByName: data.declinedByName,
+    declineReason: data.declineReason,
     cancelReason: data.cancelReason,
     changeReason: data.changeReason,
     can: data.can,

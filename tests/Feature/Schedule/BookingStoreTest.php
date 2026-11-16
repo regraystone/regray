@@ -17,7 +17,9 @@ use Inertia\Support\SessionKey;
 
 /*
  * Book an appointment: a client's booking is saved as a pending schedule and
- * announced with a schedule card in their Regray Team thread. "Now" is
+ * announced with a schedule card in their Regray Team thread. Marketing books
+ * for a client and assigns it to a sales member, who confirms it: until then
+ * it awaits sales, and the client is not told. "Now" is
  * Wednesday 14 October 2026, 13:05 in Manila. A client books from tomorrow
  * on, staff from today on.
  */
@@ -134,7 +136,9 @@ it('takes a client booking from tomorrow on, and nothing for today', function ()
 it('lets staff book a slot still ahead today, up to the last one, and not one already past or yesterday', function (): void {
     $staff = inquiryClient(Role::Marketing);
     $client = inquiryClient();
-    $book = fn (array $overrides) => $this->actingAs($staff)->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', 'clientId' => $client->id, ...$overrides]));
+    makeLead($client, $staff);
+    $sales = inquiryClient(Role::Sales);
+    $book = fn (array $overrides) => $this->actingAs($staff)->post(route('schedule.book.store'), bookingInput(['date' => '2026-10-14', 'clientId' => $client->id, 'salesId' => $sales->id, ...$overrides]));
 
     $book(['arrivalTime' => '13:30'])->assertSessionHasNoErrors();
     $book(['arrivalTime' => '18:00'])->assertSessionHasNoErrors();
@@ -144,12 +148,14 @@ it('lets staff book a slot still ahead today, up to the last one, and not one al
     $book(['date' => '2026-10-13'])->assertSessionHasErrors(['date' => 'Choose a day from today on']);
 });
 
-it('books for the client staff chose, confirmed at once with the staff member as its approver, and tells the client', function (Role $role): void {
-    $staff = inquiryClient($role);
+it('books for the client marketing chose, assigned to the sales member it chose, and tells the client nothing yet', function (): void {
+    $staff = inquiryClient(Role::Marketing);
     $client = inquiryClient();
+    makeLead($client, $staff);
+    $sales = inquiryClient(Role::Sales);
 
     $this->actingAs($staff)
-        ->post(route('schedule.book.store'), bookingInput(['clientId' => $client->id]))
+        ->post(route('schedule.book.store'), bookingInput(['clientId' => $client->id, 'salesId' => $sales->id]))
         ->assertSessionHasNoErrors()
         ->assertSessionHas(SessionKey::FLASH_DATA.'.booking.status', 'success');
 
@@ -158,17 +164,26 @@ it('books for the client staff chose, confirmed at once with the staff member as
     expect($schedule->client_id)->toBe($client->id)
         ->and($schedule->booked_by)->toBe($staff->id)
         ->and($schedule->booked_by_type)->toBe(BookedByType::Staff)
-        ->and($schedule->status)->toBe(ScheduleStatus::Confirmed)
-        ->and($schedule->approved_by)->toBe($staff->id)
-        ->and($schedule->approved_at)->not->toBeNull();
+        ->and($schedule->status)->toBe(ScheduleStatus::AwaitingSales)
+        ->and($schedule->assigned_to)->toBe($sales->id)
+        ->and($schedule->assigned_by)->toBe($staff->id)
+        ->and($schedule->assigned_at)->not->toBeNull()
+        ->and($schedule->approved_by)->toBeNull()
+        ->and($schedule->isKnownToClient())->toBeFalse()
+        ->and(Message::query()->where('type', MessageType::ScheduleCard)->exists())->toBeFalse();
+
+    // Its sales member confirms it: now the client is told, in their Regray chat.
+    $this->actingAs($sales)->post(route('schedule.confirm', $schedule))->assertSessionHasNoErrors();
 
     $card = Message::query()->where('type', MessageType::ScheduleCard)->sole();
     $thread = Conversation::query()->find($card->conversation_id);
 
-    expect($card->announced_status)->toBe('confirmed')
+    expect($schedule->fresh()->status)->toBe(ScheduleStatus::Confirmed)
+        ->and($schedule->fresh()->approved_by)->toBe($sales->id)
+        ->and($card->announced_status)->toBe('confirmed')
         ->and($thread->type)->toBe(ConversationType::Support)
         ->and($thread->support_client_id)->toBe($client->id);
-})->with([Role::Marketing, Role::Sales]);
+});
 
 it('keeps booking from the staff who only view the schedule', function (Role $role): void {
     $staff = inquiryClient($role);
@@ -180,30 +195,62 @@ it('keeps booking from the staff who only view the schedule', function (Role $ro
         ->assertForbidden();
 
     expect(Schedule::query()->count())->toBe(0);
-})->with([Role::Owner, Role::Technical, Role::Logistics]);
+})->with([Role::Owner, Role::Sales, Role::Technical, Role::Accounting, Role::Logistics]);
 
 it('refuses a staff booking with no client, or one naming staff instead of a client account', function (): void {
-    $staff = inquiryClient(Role::Sales);
+    $staff = inquiryClient(Role::Marketing);
+    $sales = inquiryClient(Role::Sales);
 
     $this->actingAs($staff)
-        ->post(route('schedule.book.store'), bookingInput())
+        ->post(route('schedule.book.store'), bookingInput(['salesId' => $sales->id]))
         ->assertSessionHasErrors(['clientId' => 'Choose the client this appointment is for']);
 
     $this->actingAs($staff)
-        ->post(route('schedule.book.store'), bookingInput(['clientId' => inquiryClient(Role::Marketing)->id]))
+        ->post(route('schedule.book.store'), bookingInput(['clientId' => inquiryClient(Role::Marketing)->id, 'salesId' => $sales->id]))
         ->assertSessionHasErrors(['clientId' => 'Choose a client with a Regray account']);
 
     expect(Schedule::query()->count())->toBe(0);
 });
 
-it('finds the client accounts for staff booking, and keeps a client out', function (): void {
+it('refuses a marketing booking with no sales member, or one naming someone not in sales', function (): void {
+    $staff = inquiryClient(Role::Marketing);
+    $client = inquiryClient();
+    makeLead($client, $staff);
+
+    $this->actingAs($staff)
+        ->post(route('schedule.book.store'), bookingInput(['clientId' => $client->id]))
+        ->assertSessionHasErrors(['salesId' => 'Choose a sales member to confirm this appointment']);
+
+    foreach ([inquiryClient(Role::Marketing), inquiryClient(Role::Technical), inquiryClient()] as $notSales) {
+        $this->actingAs($staff)
+            ->post(route('schedule.book.store'), bookingInput(['clientId' => $client->id, 'salesId' => $notSales->id]))
+            ->assertSessionHasErrors('salesId');
+    }
+
+    expect(Schedule::query()->count())->toBe(0);
+});
+
+it('finds the client accounts the staff member is authorized for, and keeps a client out', function (): void {
+    seedInquiryCatalog();
     $client = inquiryClient();
     $client->update(['name' => 'Ramona Booker']);
+    $marketing = inquiryClient(Role::Marketing);
+    // Marketing finds the clients whose lead it holds, and no others.
+    makeLead($client, $marketing);
+    $elsewhere = inquiryClient();
+    $elsewhere->update(['name' => 'Ramona Elsewhere']);
+    makeLead($elsewhere, inquiryClient(Role::Marketing));
 
-    $this->actingAs(inquiryClient(Role::Sales))
+    $this->actingAs($marketing)
         ->getJson(route('schedule.book.accounts', ['search' => 'Ramona']))
         ->assertOk()
+        ->assertJsonCount(1, 'accounts')
         ->assertJsonPath('accounts.0.id', $client->id);
+
+    // Sales books nothing, so it searches no client accounts here.
+    $this->actingAs(inquiryClient(Role::Sales))
+        ->getJson(route('schedule.book.accounts', ['search' => 'Ramona']))
+        ->assertForbidden();
 
     $this->actingAs($client)
         ->getJson(route('schedule.book.accounts', ['search' => 'Ramona']))

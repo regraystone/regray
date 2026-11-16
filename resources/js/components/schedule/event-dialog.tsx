@@ -11,11 +11,14 @@ import {
 import type { ScheduleItem } from '@/lib/schedule';
 import { formatFullDate, formatTime } from '@/lib/date';
 
+
 /** What the reader chose to do to the visit from its dialog. */
 export type ScheduleDialogAction =
     | 'update'
     | 'cancel'
-    | 'approve'
+    | 'assign'
+    | 'confirm'
+    | 'decline'
     | 'serve'
     | 'noShow';
 
@@ -27,9 +30,13 @@ export type ScheduleDialogAction =
  * to, and anything the studio wrote down for the day, with the reason it was
  * last moved or cancelled. Staff also see whose it is and who booked it.
  *
+ * Staff also see the sales member it is assigned to, and while it waits for
+ * marketing again, who declined it and why.
+ *
  * Its buttons are the changes this reader may make to it now (`item.can`, as
  * the server works it out): Update and Cancel for the client on their own and
- * for marketing and sales; Approve, Mark as attended and Did not attend for
+ * for marketing; Assign (or Reassign) for marketing; Confirm and Decline for
+ * the sales member it is assigned to; Mark as attended and Did not attend for
  * marketing and sales. An inquiry's visit has none: it follows its inquiry.
  */
 const EventDialog = ({
@@ -109,6 +116,47 @@ const EventDialog = ({
                                     </dd>
                                 </div>
                             ) : null}
+                                        {item.walkIn.address ? (
+                                            <p>
+                                                <span className="font-bold text-foreground">
+                                                    Address:
+                                                </span>{' '}
+                                                {item.walkIn.address}
+                                            </p>
+                                        ) : null}
+                                    </dd>
+                                </div>
+                            ) : null}
+                            {item.assignedSalesName ? (
+                                <div
+                                    className="px-4 py-3"
+                                    data-testid="schedule-assigned-sales"
+                                >
+                                    <dt className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                                        Sales
+                                    </dt>
+                                    <dd className="mt-1.5 text-sm text-secondary-foreground">
+                                        {item.assignedSalesName}
+                                        {item.status === 'awaiting_sales'
+                                            ? ' (has not confirmed yet)'
+                                            : ''}
+                                    </dd>
+                                </div>
+                            ) : null}
+                            {item.declineReason ? (
+                                <div
+                                    className="px-4 py-3"
+                                    data-testid="schedule-decline-reason"
+                                >
+                                    <dt className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                                        Declined by{' '}
+                                        {item.declinedByName ?? 'sales'}
+                                    </dt>
+                                    <dd className="mt-1.5 text-sm text-secondary-foreground">
+                                        {item.declineReason}
+                                    </dd>
+                                </div>
+                            ) : null}
                             {item.bookedByName ? (
                                 <div
                                     className="px-4 py-3"
@@ -168,12 +216,36 @@ const EventDialog = ({
             ) : null}
 
             <DialogFooter className="flex-wrap gap-2">
-                {item?.can.approve ? (
+                {item?.can.confirm ? (
                     <Button
                         type="button"
-                        onClick={() => onAction('approve', item)}
+                        onClick={() => onAction('confirm', item)}
                     >
-                        Approve
+                        Confirm
+                    </Button>
+                ) : null}
+                {item?.can.decline ? (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => onAction('decline', item)}
+                    >
+                        Decline
+                    </Button>
+                ) : null}
+                {item?.can.assign ? (
+                    <Button
+                        type="button"
+                        variant={
+                            item.status === 'awaiting_sales'
+                                ? 'outline'
+                                : 'default'
+                        }
+                        onClick={() => onAction('assign', item)}
+                    >
+                        {item.status === 'awaiting_sales'
+                            ? 'Reassign'
+                            : 'Assign to sales'}
                     </Button>
                 ) : null}
                 {item?.can.serve ? (

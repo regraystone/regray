@@ -14,32 +14,73 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { cancelScheduleSchema } from '@/lib/booking-schema';
+import {
+    cancelScheduleSchema,
+    declineScheduleSchema,
+} from '@/lib/booking-schema';
 import type { ScheduleItem } from '@/lib/schedule';
 import { sendScheduleChange } from '@/lib/schedule-changes';
-import { cancel as cancelSchedule } from '@/routes/schedule';
+import {
+    cancel as cancelSchedule,
+    decline as declineSchedule,
+} from '@/routes/schedule';
 
 type CancelValues = z.input<typeof cancelScheduleSchema>;
+
+/** What each kind of reason dialog says and where it sends. */
+const KINDS = {
+    cancel: {
+        schema: cancelScheduleSchema,
+        route: cancelSchedule,
+        title: 'Cancel appointment',
+        audience: 'The client and the team will see the reason.',
+        field: 'Reason for cancelling *',
+        keep: 'Keep appointment',
+        submit: 'Cancel appointment',
+        saving: 'Cancelling...',
+        failed: 'The appointment could not be cancelled. Try again.',
+        destructive: true,
+    },
+    decline: {
+        schema: declineScheduleSchema,
+        route: declineSchedule,
+        title: 'Decline appointment',
+        audience:
+            'It goes back to marketing to assign to someone else. Marketing sees the reason; the client does not.',
+        field: 'Reason for declining *',
+        keep: 'Not now',
+        submit: 'Decline appointment',
+        saving: 'Declining...',
+        failed: 'The appointment could not be declined. Try again.',
+        destructive: false,
+    },
+} as const;
 
 /**
  * Cancel an appointment, saying why. The reason is shown to the client and to
  * staff, on the appointment and on the card in the client's Regray chat.
+ *
+ * With `kind` "decline", the sales member an appointment is assigned to sends
+ * it back to marketing, saying why: the same form, a different audience.
  */
 const CancelScheduleDialog = ({
     item,
     onClose,
     onSaved,
+    kind = 'cancel',
 }: {
     item: ScheduleItem | null;
     onClose: () => void;
     onSaved: () => void;
+    kind?: keyof typeof KINDS;
 }) => {
+    const copy = KINDS[kind];
     const [refusal, setRefusal] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
     const { register, handleSubmit, setError, reset, formState } =
         useForm<CancelValues>({
-            resolver: zodResolver(cancelScheduleSchema),
+            resolver: zodResolver(copy.schema),
             mode: 'onTouched',
             defaultValues: { reason: '' },
         });
@@ -61,7 +102,7 @@ const CancelScheduleDialog = ({
 
         const outcome = await sendScheduleChange(
             'post',
-            cancelSchedule.url(item.id),
+            copy.route.url(item.id),
             { reason: values.reason },
         );
 
@@ -86,7 +127,7 @@ const CancelScheduleDialog = ({
             return;
         }
 
-        setRefusal('The appointment could not be cancelled. Try again.');
+        setRefusal(copy.failed);
     };
 
     return (
@@ -101,11 +142,11 @@ const CancelScheduleDialog = ({
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
-                        Cancel appointment
+                        {copy.title}
                     </DialogTitle>
                     <DialogDescription>
-                        {item ? `${item.title}. ` : ''}The client and the team
-                        will see the reason.
+                        {item ? `${item.title}. ` : ''}
+                        {copy.audience}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -117,7 +158,7 @@ const CancelScheduleDialog = ({
                 >
                     <FormField
                         id="cancel-reason"
-                        label="Reason for cancelling *"
+                        label={copy.field}
                         error={formState.errors.reason?.message}
                     >
                         {({ describedBy, invalid }) => (
@@ -146,21 +187,21 @@ const CancelScheduleDialog = ({
                         onClick={onClose}
                         disabled={isSaving}
                     >
-                        Keep appointment
+                        {copy.keep}
                     </Button>
                     <Button
                         type="submit"
                         form="cancel-schedule-form"
-                        variant="destructive"
+                        variant={copy.destructive ? 'destructive' : 'default'}
                         disabled={isSaving}
                     >
                         {isSaving ? (
                             <>
                                 <Spinner />
-                                Cancelling...
+                                {copy.saving}
                             </>
                         ) : (
-                            'Cancel appointment'
+                            copy.submit
                         )}
                     </Button>
                 </DialogFooter>

@@ -198,7 +198,8 @@ class E2EMessageSeeder extends Seeder
 
         $schedules = [];
 
-        foreach (ScheduleStatus::cases() as $status) {
+        // A card never announces awaiting sales: the client reads it as pending.
+        foreach (array_filter(ScheduleStatus::cases(), fn (ScheduleStatus $status): bool => $status !== ScheduleStatus::AwaitingSales) as $status) {
             foreach (BookedByType::cases() as $type) {
                 $schedule = new Schedule;
                 $schedule->forceFill([
@@ -213,6 +214,9 @@ class E2EMessageSeeder extends Seeder
                     'cancelled_at' => $status === ScheduleStatus::Cancelled ? Carbon::now() : null,
                     'approved_by' => in_array($status, [ScheduleStatus::Confirmed, ScheduleStatus::Served], true) ? $sales->id : null,
                     'approved_at' => in_array($status, [ScheduleStatus::Confirmed, ScheduleStatus::Served], true) ? Carbon::now() : null,
+                    'assigned_to' => in_array($status, [ScheduleStatus::Confirmed, ScheduleStatus::Served], true) ? $sales->id : null,
+                    'assigned_by' => in_array($status, [ScheduleStatus::Confirmed, ScheduleStatus::Served], true) ? $marketingA->id : null,
+                    'assigned_at' => in_array($status, [ScheduleStatus::Confirmed, ScheduleStatus::Served], true) ? Carbon::now() : null,
                 ])->save();
                 $this->card($group, [
                     'type' => MessageType::ScheduleCard,
@@ -237,6 +241,9 @@ class E2EMessageSeeder extends Seeder
             'status' => ScheduleStatus::Confirmed,
             'approved_by' => $sales->id,
             'approved_at' => Carbon::now(),
+            'assigned_to' => $sales->id,
+            'assigned_by' => $marketingA->id,
+            'assigned_at' => Carbon::now(),
         ])->save();
         $this->card($group, ['type' => MessageType::ScheduleCard, 'schedule_id' => $longSchedule->id, 'announced_status' => 'confirmed', 'schedule_revision' => 0, 'announced_arrival_at' => $longSchedule->arrival_at]);
 

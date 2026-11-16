@@ -13,7 +13,8 @@ use Illuminate\Database\Eloquent\Collection;
 
 class EloquentScheduleRepository implements ScheduleRepositoryInterface
 {
-    private const OPEN_STATUSES = [ScheduleStatus::Pending, ScheduleStatus::Confirmed];
+    /** What the Schedule page shows of each visit (ScheduleResource). */
+    private const DISPLAYED = ['inquiry:id,reference', 'client:id,name', 'bookedBy:id,name', 'assignee:id,name', 'declinedBy:id,name'];
 
     /** `client_id` is not fillable, so the row is filled by hand. */
     public function create(array $attributes): Schedule
@@ -32,7 +33,7 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
     public function between(User $viewer, CarbonInterface $from, CarbonInterface $to): Collection
     {
         return $this->visibleTo($viewer)
-            ->with(['inquiry:id,reference', 'client:id,name', 'bookedBy:id,name'])
+            ->with(self::DISPLAYED)
             ->where('arrival_at', '>=', $from)
             ->where('arrival_at', '<', $to)
             ->orderBy('arrival_at')
@@ -43,8 +44,8 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
     public function nextOpenSince(User $viewer, CarbonInterface $since, int $limit): Collection
     {
         return $this->visibleTo($viewer)
-            ->with(['inquiry:id,reference', 'client:id,name', 'bookedBy:id,name'])
-            ->whereIn('status', self::OPEN_STATUSES)
+            ->with(self::DISPLAYED)
+            ->whereIn('status', ScheduleStatus::open())
             ->where('arrival_at', '>=', $since)
             ->orderBy('arrival_at')
             ->orderBy('id')
@@ -56,7 +57,7 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
     {
         return Schedule::query()
             ->where('inquiry_id', $inquiry->id)
-            ->whereIn('status', self::OPEN_STATUSES)
+            ->whereIn('status', ScheduleStatus::open())
             ->update([
                 'status' => ScheduleStatus::Cancelled,
                 'cancelled_at' => $cancelledAt,
@@ -73,12 +74,53 @@ class EloquentScheduleRepository implements ScheduleRepositoryInterface
             ->findOrFail($id);
     }
 
+    public function dueSalesReminderIds(CarbonInterface $now): array
+    {
+        $hours = (int) config('schedule.sales_reminder_hours');
+
+        /** @var list<int> */
+        return Schedule::query()
+            ->whereNull('inquiry_id')
+            ->where('status', ScheduleStatus::AwaitingSales->value)
+            ->whereNotNull('assigned_to')
+            ->whereNull('sales_reminded_at')
+            ->where('arrival_at', '>', $now)
+            ->where('assigned_at', '<=', $now->copy()->subHour())
+            ->where(fn (Builder $query) => $query
+                ->where('assigned_at', '<=', $now->copy()->subHours($hours))
+                ->orWhere('arrival_at', '<=', $now->copy()->addHours($hours)))
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+    }
+
+    public function dueMarketingReminderIds(CarbonInterface $now): array
+    {
+        $hours = (int) config('schedule.marketing_reminder_hours');
+        $since = 'COALESCE(declined_at, created_at)';
+
+        /** @var list<int> */
+        return Schedule::query()
+            ->whereNull('inquiry_id')
+            ->where('status', ScheduleStatus::Pending->value)
+            ->whereNull('assigned_to')
+            ->whereNull('marketing_reminded_at')
+            ->where('arrival_at', '>', $now)
+            ->whereRaw("{$since} <= ?", [$now->copy()->subHour()])
+            ->where(fn (Builder $query) => $query
+                ->whereRaw("{$since} <= ?", [$now->copy()->subHours($hours)])
+                ->orWhere('arrival_at', '<=', $now->copy()->addHours($hours)))
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+    }
+
     public function pendingPastIds(CarbonInterface $now): array
     {
         /** @var list<int> */
         return Schedule::query()
             ->whereNull('inquiry_id')
-            ->where('status', ScheduleStatus::Pending)
+            ->whereIn('status', ScheduleStatus::unconfirmed())
             ->where('arrival_at', '<=', $now)
             ->orderBy('id')
             ->pluck('id')

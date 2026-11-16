@@ -9,10 +9,13 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 
 /*
- * Which visits staff read: an inquiry's visit follows its inquiry
- * (Inquiry::scopeVisibleTo()); a visit booked outside an inquiry is read by
- * every marketing and sales user; the admin and the owner read every one.
- * Acting on a visit needs the same, and one a user does not read is a 404.
+ * Which visits staff read. An inquiry's visit follows its inquiry
+ * (Inquiry::scopeVisibleTo()), read-only. A visit booked outside an inquiry is
+ * read by the marketers handling it (who booked or assigned it, and for a
+ * client's own booking, whose queue it is in: the lead holder, else the thread
+ * holder, else every marketer) and by the sales member it is assigned to. The
+ * admin and the owner read every one. Acting on a visit needs the same, and
+ * one a user does not read is a 404.
  */
 
 beforeEach(function (): void {
@@ -20,10 +23,10 @@ beforeEach(function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-10-14 10:00', 'Asia/Manila'));
 });
 
-/** A pending visit on 15 October, for `$inquiry` or for nobody's inquiry. */
-function visibilityVisit(?Inquiry $inquiry, string $title): Schedule
+/** A pending visit on 15 October, for `$inquiry` or for nobody's inquiry, with `$attributes` over it. */
+function visibilityVisit(?Inquiry $inquiry, string $title, ?User $client = null, array $attributes = []): Schedule
 {
-    $client = $inquiry?->client ?? inquiryClient();
+    $client ??= $inquiry?->client ?? inquiryClient();
     $schedule = new Schedule;
     $schedule->forceFill([
         'client_id' => $client->id,
@@ -33,27 +36,51 @@ function visibilityVisit(?Inquiry $inquiry, string $title): Schedule
         'title' => $title,
         'arrival_at' => CarbonImmutable::parse('2026-10-15 10:00', 'Asia/Manila')->utc(),
         'status' => $inquiry === null ? ScheduleStatus::Pending : ScheduleStatus::Confirmed,
+        ...$attributes,
     ])->save();
 
     return $schedule;
 }
 
 /**
- * The visibility world's people, a standalone visit, and a visit for its lead,
- * sales-assigned, assigned and foreign inquiries.
+ * The visibility world's people, and its visits:
+ *  - `queued`: a client's own booking, the client with no lead and no thread
+ *    holder, so in every marketer's queue;
+ *  - `otherLeads`: a client's own booking whose lead another marketer holds;
+ *  - `booked`: one marketing booked and assigned to sales;
+ *  - `elsewhere`: one another marketer booked and assigned to another sales member;
+ *  - one per inquiry: its lead's, sales-assigned, assigned and foreign.
  *
- * @return array{users: array<string, User>, visits: array<string, Schedule>}
+ * @return array{users: array<string, User>, others: array{marketing: User, sales: User}, visits: array<string, Schedule>}
  */
 function visitWorld(): array
 {
     $world = visibilityWorld();
-    $visits = ['standalone' => visibilityVisit(null, 'standalone')];
+    $users = $world['users'];
+    $others = ['marketing' => User::factory()->role(Role::Marketing)->create(), 'sales' => User::factory()->role(Role::Sales)->create()];
+    $assignedBy = fn (User $marketer, User $sales): array => [
+        'booked_by' => $marketer->id,
+        'booked_by_type' => BookedByType::Staff,
+        'status' => ScheduleStatus::AwaitingSales,
+        'assigned_to' => $sales->id,
+        'assigned_by' => $marketer->id,
+        'assigned_at' => now(),
+    ];
+    $otherLeadsClient = inquiryClient();
+    makeLead($otherLeadsClient, $others['marketing']);
+
+    $visits = [
+        'queued' => visibilityVisit(null, 'queued'),
+        'otherLeads' => visibilityVisit(null, 'otherLeads', $otherLeadsClient),
+        'booked' => visibilityVisit(null, 'booked', attributes: $assignedBy($users['marketing'], $users['sales'])),
+        'elsewhere' => visibilityVisit(null, 'elsewhere', attributes: $assignedBy($others['marketing'], $others['sales'])),
+    ];
 
     foreach (['lead', 'salesAssigned', 'assigned', 'foreign'] as $key) {
         $visits[$key] = visibilityVisit($world['inquiries'][$key], $key);
     }
 
-    return ['users' => $world['users'], 'visits' => $visits];
+    return ['users' => $users, 'others' => $others, 'visits' => $visits];
 }
 
 it('shows each role exactly the visits it reads on the Schedule page', function (Role $role, array $visible): void {
@@ -67,28 +94,60 @@ it('shows each role exactly the visits it reads on the Schedule page', function 
     expect(array_column($props['schedules'], 'title'))->toEqualCanonicalizing($visible)
         ->and(array_column($props['upcoming'], 'title'))->each->toBeIn($visible);
 })->with([
-    'admin, every one' => [Role::Admin, ['standalone', 'lead', 'salesAssigned', 'assigned', 'foreign']],
-    'owner, every one' => [Role::Owner, ['standalone', 'lead', 'salesAssigned', 'assigned', 'foreign']],
-    'marketing, standalone and its lead\'s' => [Role::Marketing, ['standalone', 'lead']],
-    'sales, standalone and its assigned one\'s' => [Role::Sales, ['standalone', 'salesAssigned']],
-    'technical, its assigned one\'s only' => [Role::Technical, ['assigned']],
-    'logistics, its assigned one\'s only' => [Role::Logistics, ['assigned']],
+    'admin, every one' => [Role::Admin, ['queued', 'otherLeads', 'booked', 'elsewhere', 'lead', 'salesAssigned', 'assigned', 'foreign']],
+    'owner, every one' => [Role::Owner, ['queued', 'otherLeads', 'booked', 'elsewhere', 'lead', 'salesAssigned', 'assigned', 'foreign']],
+    'marketing, its queue, its booking and its lead\'s' => [Role::Marketing, ['queued', 'booked', 'lead']],
+    'sales, the booking assigned to it and its assigned inquiry\'s' => [Role::Sales, ['booked', 'salesAssigned']],
+    'technical, its assigned inquiry\'s only' => [Role::Technical, ['assigned']],
+    'logistics, its assigned inquiry\'s only' => [Role::Logistics, ['assigned']],
+    'accounting, its assigned inquiry\'s only' => [Role::Accounting, ['assigned']],
 ]);
 
-it('gives accounting its assigned inquiry\'s visit and no standalone one', function (): void {
+it('gives technical, accounting and logistics their inquiries\' visits read-only', function (Role $role): void {
     $world = visitWorld();
+    $props = $this->actingAs($world['users'][$role->value])->get(route('schedule.index', ['from' => '2026-10-01T00:00:00+08:00', 'to' => '2026-11-01T00:00:00+08:00']))
+        ->assertOk()
+        ->viewData('page')['props'];
 
-    expect(Schedule::query()->visibleTo($world['users']['accounting'])->pluck('title')->all())->toBe(['assigned']);
+    expect($props['schedules'][0]['can'])->each->toBeFalse();
+})->with([Role::Technical, Role::Accounting, Role::Logistics]);
+
+it('puts a client\'s own booking in its lead holder\'s queue, else its thread holder\'s, else every marketer\'s', function (): void {
+    $holder = messagingStaff(Role::Marketing, 'Holder');
+    $other = messagingStaff(Role::Marketing, 'Other');
+    $byLead = inquiryClient();
+    makeLead($byLead, $holder);
+    $byThread = inquiryClient();
+    supportThreadFor($byThread)->forceFill(['assigned_to' => $holder->id, 'assigned_at' => now()])->save();
+    $inPool = inquiryClient();
+    supportThreadFor($inPool);
+
+    $visits = [
+        'byLead' => visibilityVisit(null, 'byLead', $byLead),
+        'byThread' => visibilityVisit(null, 'byThread', $byThread),
+        'inPool' => visibilityVisit(null, 'inPool', $inPool),
+    ];
+
+    expect(Schedule::query()->visibleTo($holder)->pluck('title')->all())->toEqualCanonicalizing(['byLead', 'byThread', 'inPool'])
+        ->and(Schedule::query()->visibleTo($other)->pluck('title')->all())->toBe(['inPool'])
+        ->and($visits['byLead']->marketingQueue()->modelKeys())->toBe([$holder->id])
+        ->and($visits['byThread']->marketingQueue()->modelKeys())->toBe([$holder->id])
+        ->and($visits['inPool']->marketingQueue()->modelKeys())->toEqualCanonicalizing([$holder->id, $other->id]);
 });
 
-it('shows a standalone visit to every marketing and sales user, not only the one involved', function (Role $role): void {
+it('keeps a declined visit with the marketer who assigned it, and takes it from the sales member who declined', function (): void {
     $world = visitWorld();
+    $visit = $world['visits']['otherLeads'];
+    $visit->forceFill([
+        'assigned_by' => $world['users']['marketing']->id,
+        'declined_by' => $world['users']['sales']->id,
+        'declined_at' => now(),
+        'decline_reason' => 'Out of the office',
+    ])->save();
 
-    expect(Schedule::query()->visibleTo(User::factory()->role($role)->create())->pluck('title')->all())->toBe(['standalone']);
-})->with([
-    'marketing' => [Role::Marketing],
-    'sales' => [Role::Sales],
-]);
+    expect($visit->fresh()->isVisibleTo($world['users']['marketing']))->toBeTrue()
+        ->and($visit->fresh()->isVisibleTo($world['users']['sales']))->toBeFalse();
+});
 
 it('answers alike for a list and for one loaded visit', function (Role $role): void {
     $world = visitWorld();
@@ -100,38 +159,44 @@ it('answers alike for a list and for one loaded visit', function (Role $role): v
     }
 })->with(fn (): array => array_map(fn (Role $role): array => [$role], array_filter(Role::cases(), fn (Role $role): bool => $role !== Role::Client)));
 
-it('404s every change to a visit the user does not read', function (string $action): void {
+it('404s every change to a visit the user does not read', function (string $role, string $action): void {
     $world = visitWorld();
-    $sales = $world['users']['sales'];
-    $hidden = $world['visits']['foreign'];
+    $user = $world['users'][$role];
+    $hidden = $world['visits']['elsewhere'];
 
     $response = match ($action) {
-        'edit' => $this->actingAs($sales)->get(route('schedule.edit', $hidden)),
-        'update' => $this->actingAs($sales)->patch(route('schedule.update', $hidden), ['purpose' => 'Showroom visit', 'date' => '2026-10-17', 'arrivalTime' => '14:00', 'notes' => '', 'reason' => 'The architect can only come on Saturday']),
-        'cancel' => $this->actingAs($sales)->post(route('schedule.cancel', $hidden), ['reason' => 'Plans changed']),
-        'approve' => $this->actingAs($sales)->post(route('schedule.approve', $hidden)),
-        'serve' => $this->actingAs($sales)->post(route('schedule.serve', $hidden)),
-        'noShow' => $this->actingAs($sales)->post(route('schedule.no-show', $hidden)),
+        'edit' => $this->actingAs($user)->get(route('schedule.edit', $hidden)),
+        'update' => $this->actingAs($user)->patch(route('schedule.update', $hidden), ['purpose' => 'Showroom visit', 'date' => '2026-10-17', 'arrivalTime' => '14:00', 'notes' => '', 'reason' => 'The architect can only come on Saturday']),
+        'cancel' => $this->actingAs($user)->post(route('schedule.cancel', $hidden), ['reason' => 'Plans changed']),
+        'assign' => $this->actingAs($user)->post(route('schedule.assign', $hidden), ['salesId' => $world['users']['sales']->id]),
+        'confirm' => $this->actingAs($user)->post(route('schedule.confirm', $hidden)),
+        'decline' => $this->actingAs($user)->post(route('schedule.decline', $hidden), ['reason' => 'Out of the office']),
+        'serve' => $this->actingAs($user)->post(route('schedule.serve', $hidden)),
+        'noShow' => $this->actingAs($user)->post(route('schedule.no-show', $hidden)),
     };
 
     $response->assertNotFound();
     expect($hidden->fresh()->revision)->toBe(0)
-        ->and($hidden->fresh()->status)->toBe(ScheduleStatus::Confirmed);
-})->with(['edit', 'update', 'cancel', 'approve', 'serve', 'noShow']);
+        ->and($hidden->fresh()->status)->toBe(ScheduleStatus::AwaitingSales);
+})->with([
+    ['marketing', 'edit'], ['marketing', 'update'], ['marketing', 'cancel'], ['marketing', 'assign'], ['marketing', 'serve'], ['marketing', 'noShow'],
+    ['sales', 'confirm'], ['sales', 'decline'], ['sales', 'serve'], ['sales', 'noShow'],
+]);
 
 it('still refuses a change to an inquiry\'s visit the user reads by its state, not as missing', function (): void {
     $world = visitWorld();
 
-    $this->actingAs($world['users']['sales'])
-        ->post(route('schedule.cancel', $world['visits']['salesAssigned']), ['reason' => 'Plans changed'])
+    $this->actingAs($world['users']['marketing'])
+        ->post(route('schedule.cancel', $world['visits']['lead']), ['reason' => 'Plans changed'])
         ->assertSessionHasErrors(['schedule' => 'This visit belongs to an inquiry, so it changes with the inquiry.']);
 });
 
-it('lets sales act on a standalone visit, which every sales user reads', function (): void {
+it('lets the sales member a visit is assigned to confirm it', function (): void {
     $world = visitWorld();
-    $visit = $world['visits']['standalone'];
+    $visit = $world['visits']['booked'];
 
-    $this->actingAs($world['users']['sales'])->post(route('schedule.approve', $visit))->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($world['users']['sales'])->post(route('schedule.confirm', $visit))->assertRedirect()->assertSessionHasNoErrors();
 
-    expect($visit->fresh()->status)->toBe(ScheduleStatus::Confirmed);
+    expect($visit->fresh()->status)->toBe(ScheduleStatus::Confirmed)
+        ->and($visit->fresh()->approved_by)->toBe($world['users']['sales']->id);
 });
