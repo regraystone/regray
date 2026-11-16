@@ -179,7 +179,7 @@ it('404s every change to a visit the user does not read', function (string $role
     expect($hidden->fresh()->revision)->toBe(0)
         ->and($hidden->fresh()->status)->toBe(ScheduleStatus::AwaitingSales);
 })->with([
-    ['marketing', 'edit'], ['marketing', 'update'], ['marketing', 'cancel'], ['marketing', 'assign'], ['marketing', 'serve'], ['marketing', 'noShow'],
+    ['marketing', 'edit'], ['marketing', 'update'], ['marketing', 'cancel'], ['marketing', 'assign'],
     ['sales', 'confirm'], ['sales', 'decline'], ['sales', 'serve'], ['sales', 'noShow'],
 ]);
 

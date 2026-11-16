@@ -43,9 +43,9 @@ dataset('the permission matrix', function () {
             // Inquiries for clients with an account, returning customers included, under their lead; sales has walk-ins only.
             Permission::InquiriesCreatePlatform,
             Permission::LeadsView, Permission::LeadsUpdate,
-            // Marketing books, changes and assigns appointments to sales.
+            // Marketing books, changes and assigns appointments to sales; sales marks how they went.
             Permission::ScheduleView, Permission::ScheduleCreate,
-            Permission::ScheduleUpdate, Permission::ScheduleCancel, Permission::ScheduleAssign, Permission::ScheduleAttend,
+            Permission::ScheduleUpdate, Permission::ScheduleCancel, Permission::ScheduleAssign,
             Permission::MessagesView, Permission::ConversationsCreate, Permission::SupportClaim,
             Permission::ProfileView,
         )],

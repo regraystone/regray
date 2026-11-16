@@ -62,9 +62,10 @@ class RolePermissionSeeder extends Seeder
      * only (SchedulePolicy), and among staff to marketing alone;
      * `schedule.assign` (to a sales member) to marketing alone;
      * `schedule.confirm` (confirm or decline one assigned to you) to sales
-     * alone; `schedule.attend` (mark as attended or not attended) to marketing
-     * and sales. Sales neither books nor changes an appointment: it answers the
-     * ones assigned to it. Owner, accounting, technical and logistics hold none
+     * alone; `schedule.attend` (mark as attended or not attended) to sales
+     * alone, since it is the sales member who meets the client. Sales neither
+     * books nor changes an appointment: it answers the ones assigned to it and
+     * marks how they went. Owner, accounting, technical and logistics hold none
      * of them: they view the visits they read (Schedule::scopeVisibleTo()).
      *
      * `leads.view` and `leads.update` are marketing's alone (and the
@@ -161,7 +162,6 @@ class RolePermissionSeeder extends Seeder
             Permission::ScheduleUpdate->value,
             Permission::ScheduleCancel->value,
             Permission::ScheduleAssign->value,
-            Permission::ScheduleAttend->value,
             Permission::ConversationsCreate->value,
             Permission::SupportClaim->value,
             Permission::LeadsUpdate->value,

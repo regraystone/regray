@@ -1,3 +1,7 @@
+# Only sales marks how an appointment went
+
+**Mark as attended** and **Did not attend** are now the sales member's alone (and the admin's): marketing loses `schedule.attend`, so it no longer sees either button and the server refuses it (403). Marketing still books, updates, cancels and assigns. **Deploy, local and production: `php artisan db:seed --class=RolePermissionSeeder --force`**, which syncs each role's grants; no migration.
+
 # Account options move to Settings
 
 The account-level options leave the Profile page for one **Settings** page under it, in three groups. **No migration.**

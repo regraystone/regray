@@ -8,7 +8,7 @@ namespace App\Enums;
  *
  * Marketing assigns an appointment to a sales member; that sales member
  * confirms or declines it. Marketing (and the client, their own) updates and
- * cancels; marketing and sales mark how it went.
+ * cancels; sales alone marks how it went.
  */
 enum ScheduleAction: string
 {
