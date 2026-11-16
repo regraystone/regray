@@ -1,3 +1,11 @@
+# Home, Saved and Profile breadcrumbs name the Dashboard
+
+The workspace header's trail on Home, Saved and Profile, and on every page under them, now reads **Regray / Dashboard / {page}**, like the rest of the workspace, instead of Regray / {page}. **No migration.**
+
+- **Home:** Regray / Dashboard / Home, and its project and stone pages after it. The brand, stone and furniture pages (`catalogueCrumbs`) read Regray / Dashboard / Home / Brand / Product.
+- **Saved:** Regray / Dashboard / Saved, and a saved stone or furniture piece after it.
+- **Profile:** Regray / Dashboard / Profile, and Account & Security, Security, Schedule and Book after it.
+
 # The sign-in and sign-up pages are redesigned
 
 Every auth page (Sign In, Sign Up, Forgot and Reset Password, Verify Email, the two-factor challenge, and finishing or connecting a Google sign-up) moves to one new layout from the design, in the landing page's warm palette. The font stays Instrument Sans. What the pages do is unchanged: validation, server and rate-limit messages, Remember me, Google sign-in, the Terms & Conditions dialog, the optional email box, two-factor recovery codes, tab order, and the `#email`, `#password` and `data-test` hooks the end-to-end tests use.

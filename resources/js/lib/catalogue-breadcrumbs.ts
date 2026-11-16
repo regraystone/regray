@@ -7,8 +7,8 @@ type BrandedRecord = {
 
 /**
  * The workspace header's trail on a brand, stone or furniture page:
- * Regray / Home / Brand / Product. Null on any other page, or when the payload
- * has nothing to name. Guests see no breadcrumbs.
+ * Regray / Dashboard / Home / Brand / Product. Null on any other page, or when
+ * the payload has nothing to name. Guests see no breadcrumbs.
  */
 export const catalogueCrumbs = ({
     component,
@@ -23,6 +23,7 @@ export const catalogueCrumbs = ({
 }): Crumb[] | null => {
     const trail = (...rest: Crumb[]): Crumb[] => [
         { label: 'Regray' },
+        { label: 'Dashboard' },
         { label: 'Home', href: homeHref },
         ...rest,
     ];
