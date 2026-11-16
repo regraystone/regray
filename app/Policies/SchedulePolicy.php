@@ -15,7 +15,7 @@ use Illuminate\Auth\Access\Response;
  * staff holding the permission may act on an appointment they read
  * (Schedule::isVisibleTo()), and confirming or declining is for the sales
  * member it is assigned to alone. Among staff, marketing updates, cancels and
- * assigns; sales confirms and declines; both mark how it went.
+ * assigns; sales confirms and declines, and alone marks how it went.
  *
  * Whether the appointment's state still allows the change is not decided here
  * but by ScheduleService::refusalFor(), because the super-admin passes every

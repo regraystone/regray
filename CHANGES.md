@@ -1,3 +1,7 @@
+# Only sales marks how an appointment went
+
+**Mark as attended** and **Did not attend** are now the sales member's alone (and the admin's): marketing loses `schedule.attend`, so it no longer sees either button and the server refuses it (403). Marketing still books, updates, cancels and assigns. **Deploy, local and production: `php artisan db:seed --class=RolePermissionSeeder --force`**, which syncs each role's grants; no migration.
+
 # Regray's own fonts, and a corporate landing page for the platform
 
 The whole system takes the Regray Stone look, in free fonts: **Hanken Grotesk** for text (standing in for Neue Montreal) and **Lexend** for headings (standing in for Garet), both from Bunny Fonts (`vite.config.ts`). `font-sans` is Hanken Grotesk, the new `font-display` is Lexend, and every `h1`, `h2` and `h3` uses it (`app.css`). Instrument Sans is gone.

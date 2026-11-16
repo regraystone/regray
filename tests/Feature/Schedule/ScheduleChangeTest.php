@@ -197,22 +197,25 @@ describe('who may change an appointment', function (): void {
         expect($schedule->fresh()->revision)->toBe(0);
     })->with(['update', 'cancel']);
 
-    it('keeps marking how a visit went to marketing and its sales member, never a client', function (): void {
+    it('keeps marking how a visit went to its sales member, never marketing or a client', function (): void {
         $client = inquiryClient();
         $sales = inquiryClient(Role::Sales);
         $schedule = assignedAppointment($client, $sales, ScheduleStatus::Confirmed, '2026-10-14 11:00');
 
-        foreach ([$client, inquiryClient(Role::Technical)] as $refused) {
+        // Marketing booked and assigned it, and still may not say how it went.
+        foreach ([$client, $schedule->assignedBy, inquiryClient(Role::Technical)] as $refused) {
             changeSchedule($this, $refused, 'serve', $schedule)->assertForbidden();
             changeSchedule($this, $refused, 'noShow', $schedule)->assertForbidden();
         }
+
+        expect($schedule->fresh()->status)->toBe(ScheduleStatus::Confirmed);
 
         changeSchedule($this, $sales, 'serve', $schedule)->assertSessionHasNoErrors();
 
         expect($schedule->fresh()->status)->toBe(ScheduleStatus::Served);
 
         $other = assignedAppointment($client, $sales, ScheduleStatus::Confirmed, '2026-10-14 11:00');
-        changeSchedule($this, $other->assignedBy, 'noShow', $other)->assertSessionHasNoErrors();
+        changeSchedule($this, $sales, 'noShow', $other)->assertSessionHasNoErrors();
 
         expect($other->fresh()->status)->toBe(ScheduleStatus::Cancelled);
     });
@@ -399,7 +402,7 @@ describe('assigning, confirming and declining', function (): void {
         $sales = inquiryClient(Role::Sales);
         $schedule = assignedAppointment(inquiryClient(), $sales, at: '2026-10-14 11:00');
 
-        changeSchedule($this, $schedule->assignedBy, 'serve', $schedule)
+        changeSchedule($this, $sales, 'serve', $schedule)
             ->assertSessionHasErrors(['schedule' => 'Sales must confirm this appointment before you mark whether the client came.']);
     });
 });
@@ -574,7 +577,8 @@ describe('the buttons the page offers', function (): void {
             ->and($read($marketing, $waiting)['can'])->toBe($can('update', 'cancel', 'assign'))
             ->and($read($sales, $waiting)['can'])->toBe($can('confirm', 'decline'))
             ->and($read($sales, $pastConfirmed)['can'])->toBe($can('serve', 'noShow'))
-            ->and($read($marketing, $pastConfirmed)['can'])->toBe($can('serve', 'noShow'));
+            // Only its sales member says how the visit went.
+            ->and($read($marketing, $pastConfirmed)['can'])->toBe($can());
 
         // Sales does not read a booking nobody has assigned to it.
         $salesIds = array_column($this->actingAs($sales)->get(route('schedule.index', $range))->viewData('page')['props']['schedules'], 'id');

@@ -52,7 +52,7 @@ export type ScheduleDialogAction =
  * the server works it out): Update and Cancel for the client on their own and
  * for marketing; Assign (or Reassign) for marketing; Confirm and Decline for
  * the sales member it is assigned to; Mark as attended and Did not attend for
- * marketing and sales. An inquiry's visit has none: it follows its inquiry.
+ * sales alone. An inquiry's visit has none: it follows its inquiry.
  */
 const EventDialog = ({
     item,
