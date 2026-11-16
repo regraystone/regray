@@ -182,7 +182,7 @@ const NewGroupDialog = ({
                                                 chooseClient(person.id)
                                             }
                                         />
-                                        {person.name}
+                                        {person.label}
                                     </label>
                                 </li>
                             ))}

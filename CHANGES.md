@@ -1,3 +1,13 @@
+# Staff find only the clients they are authorized for
+
+The Inbox's client search no longer lists every client. **No migration.**
+
+- **One rule** (`User::scopeClientsVisibleTo()`), applied before the search term and the limit. The admin and the owner find every client. Anyone else finds a client when they hold the client's lead (`leads.marketing_user_id`), read one of the client's inquiries (`Inquiry::visibleTo()`), have been assigned the client's Regray Team thread, or the thread is unassigned and they are in the support pool (`support.claim`: marketing and admin). A thread another marketer has claimed gives nothing.
+- **Inbox, New group:** the people search (`inbox.people`) lists only those clients, and making a group (`GroupConversationService::create()`) refuses any other with "Choose one client.". A client outside the scope gets no inquiries in the search either; the inquiries listed for a client in scope are still only those `Inquiry::visibleTo()` allows, so a client found through the pool does not widen them.
+- **Labels:** each client result carries a server-computed `label`, the client's full name, or their email when the search contains "@" and the email matches it (`User::searchLabel()`). The New group dialog shows it. An email search for a client outside the scope finds nothing.
+- **Inquire and Book an appointment pickers** (`inquiry.inquire.accounts`, `schedule.book.accounts`, `ClientService::searchAccounts()`) use the same rule and return the same `label`. Sales now finds only the clients of the inquiries it opened or is assigned to.
+- **E2E:** `E2EMessageSeeder` gives Marketing A Card Client's lead, which `message/a-access` searches for.
+
 # Stone slabs: sizes and thicknesses, with units, by combination
 
 A stone now comes in slabs, each a size at a thickness, instead of one size string and one thickness in millimetres; the Inquire page asks the thickness of the slab services, lists each stone's own sizes and the thicknesses its chosen size is cut in, and stores both as numbers and a unit. Fascia and the project area are asked where they belong. **Deploy, local and production: `php artisan migrate:fresh --seed`.** This wipes all data, which is intended: nothing is carried over.

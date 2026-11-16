@@ -87,16 +87,18 @@ class ClientService
     }
 
     /**
-     * Client accounts matching a search, for the Platform branch of the staff
-     * Inquire flow.
+     * Client accounts `$viewer` may find (User::scopeClientsVisibleTo())
+     * matching a search, for the Platform branch of the staff Inquire flow
+     * and the staff Book an appointment page. The admin and the owner find
+     * every client; anyone else, only the clients they are authorized for.
      *
      * @return Collection<int, User>
      */
-    public function searchAccounts(?string $search): Collection
+    public function searchAccounts(User $viewer, ?string $search): Collection
     {
         $search = $search === null ? '' : trim($search);
 
-        return $this->clients->searchAccounts(str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search), self::ACCOUNT_SEARCH_LIMIT);
+        return $this->clients->searchAccounts($viewer, str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search), self::ACCOUNT_SEARCH_LIMIT);
     }
 
     /**

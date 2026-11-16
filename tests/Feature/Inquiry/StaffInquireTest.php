@@ -42,15 +42,23 @@ function walkInInput(array $overrides = []): array
 }
 
 describe('platform', function (): void {
-    it('finds client accounts by name or email, for staff only', function (): void {
+    it('finds the client accounts the user is authorized for by name or email, for staff only', function (): void {
         $grace = inquiryClient();
         $grace->forceFill(['name' => 'Grace Lim', 'email' => 'grace@maplelane.example'])->save();
+        makeLead($grace, $this->marketing);
+        // Another marketer's client: out of scope, however it is searched.
+        $hidden = tap(inquiryClient(), fn (User $user) => $user->forceFill(['name' => 'Grace Hidden'])->save());
+        makeLead($hidden);
         inquiryClient()->forceFill(['name' => 'Ivan Mercado'])->save();
         User::factory()->role(Role::Sales)->create(['name' => 'Grace Staff']);
 
         $this->actingAs($this->marketing)->getJson(route('inquiry.inquire.accounts', ['search' => 'grace']))
             ->assertOk()
-            ->assertExactJson(['accounts' => [['id' => $grace->id, 'name' => 'Grace Lim', 'email' => 'grace@maplelane.example']]]);
+            ->assertExactJson(['accounts' => [['id' => $grace->id, 'name' => 'Grace Lim', 'email' => 'grace@maplelane.example', 'label' => 'Grace Lim']]]);
+
+        $this->actingAs($this->marketing)->getJson(route('inquiry.inquire.accounts', ['search' => 'grace@maple']))
+            ->assertOk()
+            ->assertJsonPath('accounts.0.label', 'grace@maplelane.example');
 
         $this->actingAs($grace)->getJson(route('inquiry.inquire.accounts'))->assertForbidden();
     });

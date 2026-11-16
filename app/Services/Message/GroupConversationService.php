@@ -37,6 +37,15 @@ use Illuminate\Validation\ValidationException;
  * never members and never assigned: they read every group through
  * ConversationPolicy, and write in none. Marketing is not assigned either: it
  * reads the inquiry through its lead.
+ *
+ * The clients a creator finds and may choose are only those they are
+ * authorized for (User::scopeClientsVisibleTo()): the clients whose lead they
+ * hold, whose inquiries they read, whose Regray Team thread is theirs or still
+ * in the support pool they belong to. The admin and the owner find every one.
+ * The scope is applied before the search and the limit, in people() and in
+ * create() alike, so a search never reaches past it and an id picked around it
+ * is refused. A client result is labelled by name, or by email when the
+ * search is an email the client's matches (User::searchLabel()).
  */
 class GroupConversationService
 {
@@ -65,7 +74,7 @@ class GroupConversationService
     public function create(User $creator, string $name, array $staffIds, int $clientId, int $inquiryId): Conversation
     {
         $staff = $this->groupStaff($staffIds);
-        $client = $this->clientQuery()->whereKey($clientId)->first();
+        $client = $this->clientQuery($creator)->whereKey($clientId)->first();
 
         if ($client === null) {
             throw ValidationException::withMessages(['clientId' => 'Choose one client.']);
@@ -173,9 +182,10 @@ class GroupConversationService
 
     /**
      * Who a group can be made with, matching a search: the sales and technical
-     * staff, each with their active inquiry count, and the clients. With a
-     * client, that client's inquiries `$creator` reads too, each saying
-     * whether it has a group already.
+     * staff, each with their active inquiry count, and the clients `$creator`
+     * is authorized for (clientQuery()), each with a `label` (User::searchLabel()).
+     * With a client, that client's inquiries `$creator` reads too, each saying
+     * whether it has a group already; none for a client outside the scope.
      *
      * @return array{sales: Collection<int, User>, technical: Collection<int, User>, clients: Collection<int, User>, inquiries: list<array{id: int, reference: string, name: string, hasGroup: bool, isWon: bool}>}
      */
@@ -186,7 +196,9 @@ class GroupConversationService
         return [
             'sales' => $this->pickable($this->withRoles([Role::Sales]), $search)->get(),
             'technical' => $this->pickable($this->withRoles([Role::Technical]), $search)->get(),
-            'clients' => $this->matching($this->clientQuery(), $search)->get(['id', 'name']),
+            'clients' => $this->matching($this->clientQuery($creator), $search)
+                ->get(['users.id', 'users.name', 'users.email'])
+                ->each(fn (User $client): User => $client->setAttribute('label', $client->searchLabel($search))),
             'inquiries' => $clientId === null ? [] : $this->inquiriesOf($creator, $clientId),
         ];
     }
@@ -242,6 +254,10 @@ class GroupConversationService
     /** @return list<array{id: int, reference: string, name: string, hasGroup: bool, isWon: bool}> */
     private function inquiriesOf(User $creator, int $clientId): array
     {
+        if (! $this->clientQuery($creator)->whereKey($clientId)->exists()) {
+            return [];
+        }
+
         return array_values(Inquiry::query()
             ->visibleTo($creator)
             ->where('client_id', $clientId)
@@ -303,9 +319,13 @@ class GroupConversationService
             ->whereDoesntHave('roles', fn (Builder $role) => $role->where('name', Role::Client->value));
     }
 
-    /** @return Builder<User> */
-    private function clientQuery(): Builder
+    /**
+     * The clients `$creator` may find and choose (User::scopeClientsVisibleTo()).
+     *
+     * @return Builder<User>
+     */
+    private function clientQuery(User $creator): Builder
     {
-        return User::query()->whereHas('roles', fn (Builder $role) => $role->where('name', Role::Client->value));
+        return User::query()->clientsVisibleTo($creator);
     }
 }

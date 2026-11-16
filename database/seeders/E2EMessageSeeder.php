@@ -6,6 +6,7 @@ use App\Enums\BookedByType;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
 use App\Enums\InquiryStatus;
+use App\Enums\LeadStatus;
 use App\Enums\MessageType;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
@@ -16,6 +17,7 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
 use App\Models\InquiryHandler;
+use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -78,6 +80,7 @@ class E2EMessageSeeder extends Seeder
         ];
 
         $this->seedSupportClients();
+        $this->seedClientScope($cardClient, $marketingA);
         $this->seedLists($lister, $partner);
         $this->seedCards($cardClient, $sales, $marketingA);
         $this->seedChats($marketingA, $marketingB, $sales, $directClient);
@@ -112,6 +115,25 @@ class E2EMessageSeeder extends Seeder
                 'name' => $client->name,
                 'conversationId' => $thread->id,
             ];
+        }
+    }
+
+    /**
+     * Marketing finds only the clients it is authorized for
+     * (User::scopeClientsVisibleTo()), so a-access gives Marketing A Card
+     * Client's lead: its people search finds Card Client by name. "Client"
+     * (client@example.com) is found through the support pool: its Regray Team
+     * thread is unassigned (ConversationSeeder).
+     */
+    private function seedClientScope(User $cardClient, User $marketingA): void
+    {
+        $lead = Lead::query()->firstOrCreate(
+            ['client_id' => $cardClient->id],
+            ['reference' => 'LEAD-E2E-CARD', 'marketing_user_id' => $marketingA->id],
+        );
+
+        if ($lead->wasRecentlyCreated) {
+            $lead->history()->create(['to_status' => LeadStatus::Idle, 'changed_at' => Carbon::now()]);
         }
     }
 

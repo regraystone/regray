@@ -11,7 +11,17 @@ import type { ContactKind } from '@/lib/staff-inquire';
  * Inbox page's ApiError, with the server's field errors.
  */
 
-export type ClientAccount = { id: number; name: string; email: string };
+/**
+ * A client account the user is authorized for (the server scopes the
+ * search). `label` is what a result is shown by: the name, or the email when
+ * the search is an email address this account's matches.
+ */
+export type ClientAccount = {
+    id: number;
+    name: string;
+    email: string;
+    label: string;
+};
 
 export type DirectClient = {
     id: number;
