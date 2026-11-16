@@ -32,7 +32,9 @@ import {
     type ScheduleData,
     type ScheduleItem,
 } from '@/lib/schedule';
+import { slotLabel } from '@/lib/booking-slots';
 import { sendScheduleChange } from '@/lib/schedule-changes';
+import { fetchOwnClash, type SalesClash } from '@/lib/schedule-sales-api';
 import { edit as profileScheduleEdit } from '@/routes/profile/schedule';
 import {
     confirm as confirmSchedule,
@@ -273,6 +275,31 @@ const Schedule = () => {
         }
     };
 
+    // Confirming: the sales member's own appointment it would overlap, a warning.
+    const [ownClash, setOwnClash] = useState<SalesClash | null>(null);
+
+    useEffect(() => {
+        setOwnClash(null);
+
+        if (confirming?.action !== 'confirm') {
+            return;
+        }
+
+        let isCurrent = true;
+
+        fetchOwnClash(confirming.item.id)
+            .then((clash) => {
+                if (isCurrent) {
+                    setOwnClash(clash);
+                }
+            })
+            .catch(() => undefined);
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [confirming]);
+
     const CONFIRMS = {
         confirm: {
             title: 'Confirm appointment',
@@ -281,6 +308,10 @@ const Schedule = () => {
                     item.walkIn
                         ? 'A walk-in is not told in the app: let them know yourself.'
                         : 'The client is told in their Regray chat that it is confirmed.'
+                }${
+                    ownClash
+                        ? ` Heads up: you already have “${ownClash.title}” at ${slotLabel(ownClash.time)}.`
+                        : ''
                 }`,
             label: 'Confirm',
             route: confirmSchedule,

@@ -1,15 +1,36 @@
+import { TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { slotLabel } from '@/lib/booking-slots';
 import {
+    clashWarning,
     searchAssignableSales,
     type AssignableSales,
+    type SalesClash,
+    type SalesPickerTime,
 } from '@/lib/schedule-sales-api';
+
+/** The overlap warning under a sales member's name. */
+const ClashNote = ({ clash }: { clash: SalesClash }) => (
+    <span
+        className="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+        data-testid="sales-clash"
+    >
+        <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+        <span className="truncate">{clashWarning(clash, slotLabel)}</span>
+    </span>
+);
 
 /**
  * Who confirms the appointment: one sales member, found by name, each shown
  * with how many appointments are still to happen with them. Chosen, it reads
  * as their name with a Change button, like the client picker beside it.
+ *
+ * Given `at` (the time being booked, or the appointment being assigned), a
+ * sales member who already has an appointment then is marked with a warning,
+ * and still chosen if marketing wants them. The warning follows `at`, so it is
+ * checked again when the day or time changes after they were chosen.
  *
  * Used by Book an appointment and by an appointment's Assign dialog.
  */
@@ -17,32 +38,49 @@ const SalesPicker = ({
     value,
     onChange,
     error,
+    at = null,
     exceptId = null,
 }: {
     value: AssignableSales | null;
     onChange: (sales: AssignableSales | null) => void;
     error?: string;
+    at?: SalesPickerTime | null;
     /** Left out of the list: the sales member it is already assigned to. */
     exceptId?: number | null;
 }) => {
     const [search, setSearch] = useState('');
     const [people, setPeople] = useState<AssignableSales[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [chosenClash, setChosenClash] = useState<SalesClash | null>(null);
+    const atKey = at === null ? '' : JSON.stringify(at);
 
     useEffect(() => {
-        if (value !== null) {
-            return;
-        }
-
         const timer = window.setTimeout(() => {
-            searchAssignableSales(search)
-                .then((response) => setPeople(response.sales))
-                .catch(() => setPeople([]))
+            // Chosen: only whether they clash at `at` is still asked.
+            searchAssignableSales(value === null ? search : value.name, at)
+                .then((response) => {
+                    if (value === null) {
+                        setPeople(response.sales);
+                    } else {
+                        setChosenClash(
+                            response.sales.find(
+                                (person) => person.id === value.id,
+                            )?.clash ?? null,
+                        );
+                    }
+                })
+                .catch(() => {
+                    if (value === null) {
+                        setPeople([]);
+                    }
+                })
                 .finally(() => setHasSearched(true));
         }, 200);
 
         return () => window.clearTimeout(timer);
-    }, [search, value]);
+        // `atKey` stands for `at`, which callers rebuild on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [search, value?.id, atKey]);
 
     const errorId = 'sales-picker-error';
     const listed = people.filter((person) => person.id !== exceptId);
@@ -66,12 +104,16 @@ const SalesPicker = ({
                         <span className="block truncate text-xs text-secondary-foreground">
                             {workload(value.openAppointmentCount)}
                         </span>
+                        {chosenClash ? <ClashNote clash={chosenClash} /> : null}
                     </span>
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => onChange(null)}
+                        onClick={() => {
+                            setChosenClash(null);
+                            onChange(null);
+                        }}
                         aria-label={`Change sales member: ${value.name}`}
                     >
                         Change
@@ -101,7 +143,10 @@ const SalesPicker = ({
                                 <li key={person.id}>
                                     <button
                                         type="button"
-                                        onClick={() => onChange(person)}
+                                        onClick={() => {
+                                            setChosenClash(person.clash);
+                                            onChange(person);
+                                        }}
                                         className="block w-full px-3 py-2 text-left transition-opacity hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                     >
                                         <span className="block truncate text-sm font-bold">
@@ -112,6 +157,9 @@ const SalesPicker = ({
                                                 person.openAppointmentCount,
                                             )}
                                         </span>
+                                        {person.clash ? (
+                                            <ClashNote clash={person.clash} />
+                                        ) : null}
                                     </button>
                                 </li>
                             ))}

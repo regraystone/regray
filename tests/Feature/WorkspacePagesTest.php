@@ -206,6 +206,7 @@ test('guards every route with exactly these permissions', function () {
         'schedule.assign' => $p(Permission::ScheduleAssign),
         'schedule.confirm' => $p(Permission::ScheduleConfirm),
         'schedule.decline' => $p(Permission::ScheduleConfirm),
+        'schedule.clash' => $p(Permission::ScheduleConfirm),
         'schedule.serve' => $p(Permission::ScheduleAttend),
         'schedule.no-show' => $p(Permission::ScheduleAttend),
         'schedule.sales' => $p(Permission::ScheduleView, Permission::ScheduleAssign),

@@ -164,6 +164,61 @@ class ScheduleService
             ->get(['users.id', 'users.name']);
     }
 
+    /**
+     * For each of `$salesIds` with one, the earliest appointment of theirs
+     * that a visit at `$arrivalAt` would overlap: closer to it than
+     * `schedule.visit_minutes`. Theirs are those assigned to them (awaiting
+     * them or confirmed) and the confirmed visits of the inquiries they handle
+     * (`inquiry_handlers`) or opened. `$exceptId` is the appointment being
+     * assigned or confirmed, which never clashes with itself. A warning for
+     * the sales picker and for confirming, never a refusal.
+     *
+     * @param  list<int>  $salesIds
+     * @return array<int, Schedule> keyed by sales member id
+     */
+    public function salesClashes(array $salesIds, CarbonImmutable $arrivalAt, ?int $exceptId = null): array
+    {
+        if ($salesIds === []) {
+            return [];
+        }
+
+        $window = max(1, (int) config('schedule.visit_minutes')) - 1;
+        $at = $arrivalAt->setTimezone(config('app.timezone'));
+        $around = [$at->subMinutes($window)->subSeconds(59), $at->addMinutes($window)->addSeconds(59)];
+
+        $assigned = Schedule::query()
+            ->select(['id', 'title', 'arrival_at', 'assigned_to as sales_id'])
+            ->whereIn('assigned_to', $salesIds)
+            ->whereIn('status', [ScheduleStatus::AwaitingSales->value, ScheduleStatus::Confirmed->value])
+            ->whereBetween('arrival_at', $around)
+            ->when($exceptId !== null, fn (Builder $query) => $query->whereKeyNot($exceptId));
+
+        // An inquiry's visit is never assigned: it is theirs through its inquiry.
+        $handled = Schedule::query()
+            ->join('inquiry_handlers', 'inquiry_handlers.inquiry_id', '=', 'schedules.inquiry_id')
+            ->select(['schedules.id', 'schedules.title', 'schedules.arrival_at', 'inquiry_handlers.user_id as sales_id'])
+            ->whereIn('inquiry_handlers.user_id', $salesIds)
+            ->where('schedules.status', ScheduleStatus::Confirmed->value)
+            ->whereBetween('schedules.arrival_at', $around)
+            ->when($exceptId !== null, fn (Builder $query) => $query->where('schedules.id', '!=', $exceptId));
+
+        $opened = Schedule::query()
+            ->join('inquiries', 'inquiries.id', '=', 'schedules.inquiry_id')
+            ->select(['schedules.id', 'schedules.title', 'schedules.arrival_at', 'inquiries.created_by as sales_id'])
+            ->whereIn('inquiries.created_by', $salesIds)
+            ->where('schedules.status', ScheduleStatus::Confirmed->value)
+            ->whereBetween('schedules.arrival_at', $around)
+            ->when($exceptId !== null, fn (Builder $query) => $query->where('schedules.id', '!=', $exceptId));
+
+        return $assigned->get()
+            ->concat($handled->get())
+            ->concat($opened->get())
+            ->sortBy([['arrival_at', 'asc'], ['id', 'asc']])
+            ->unique(fn (Schedule $schedule): int => (int) $schedule->getAttribute('sales_id'))
+            ->keyBy(fn (Schedule $schedule): int => (int) $schedule->getAttribute('sales_id'))
+            ->all();
+    }
+
     /** Whether `$user` may be given an appointment to confirm: a sales member, not a client. */
     public static function isAssignableSales(User $user): bool
     {

@@ -3,6 +3,7 @@
 use App\Enums\BookedByType;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
+use App\Models\Inquiry;
 use App\Models\Schedule;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -53,8 +54,8 @@ it('lists the sales members by name, each with the appointments still to happen 
     $this->actingAs(inquiryClient(Role::Marketing))->getJson(route('schedule.sales'))
         ->assertOk()
         ->assertExactJson(['sales' => [
-            ['id' => $ana->id, 'name' => 'Ana Sales', 'openAppointmentCount' => 0],
-            ['id' => $sam->id, 'name' => 'Sam Sales', 'openAppointmentCount' => 2],
+            ['id' => $ana->id, 'name' => 'Ana Sales', 'openAppointmentCount' => 0, 'clash' => null],
+            ['id' => $sam->id, 'name' => 'Sam Sales', 'openAppointmentCount' => 2, 'clash' => null],
         ]]);
 });
 
@@ -84,4 +85,103 @@ it('opens the picker to the admin', function (): void {
     $this->actingAs(inquiryClient(Role::Admin))->getJson(route('schedule.sales'))
         ->assertOk()
         ->assertJsonCount(1, 'sales');
+});
+
+it('warns of a sales member with an appointment within an hour of the time asked about, and only them', function (): void {
+    $sam = User::factory()->role(Role::Sales)->create(['name' => 'Sam Sales']);
+    $ana = User::factory()->role(Role::Sales)->create(['name' => 'Ana Sales']);
+    $lee = User::factory()->role(Role::Sales)->create(['name' => 'Lee Sales']);
+    salesLoad($sam, ScheduleStatus::Confirmed, '2026-10-16 10:30')->update(['title' => 'Slab viewing']);
+    // Exactly an hour away is no overlap; a cancelled one never is.
+    salesLoad($ana, ScheduleStatus::AwaitingSales, '2026-10-16 11:00');
+    salesLoad($lee, ScheduleStatus::Cancelled, '2026-10-16 10:00');
+
+    $sales = collect($this->actingAs(inquiryClient(Role::Marketing))
+        ->getJson(route('schedule.sales', ['date' => '2026-10-16', 'time' => '10:00']))
+        ->assertOk()
+        ->json('sales'))->keyBy('name');
+
+    expect($sales['Sam Sales']['clash'])->toBe(['arrivalAt' => '2026-10-16T10:30:00+08:00', 'time' => '10:30', 'title' => 'Slab viewing'])
+        ->and($sales['Ana Sales']['clash'])->toBeNull()
+        ->and($sales['Lee Sales']['clash'])->toBeNull();
+});
+
+it('reads the time from the appointment being assigned, which never clashes with itself', function (): void {
+    $sam = User::factory()->role(Role::Sales)->create(['name' => 'Sam Sales']);
+    $marketing = inquiryClient(Role::Marketing);
+    $assigning = salesLoad($sam, ScheduleStatus::AwaitingSales, '2026-10-16 10:00');
+    $assigning->update(['booked_by' => $marketing->id, 'booked_by_type' => BookedByType::Staff]);
+
+    $clash = fn () => $this->actingAs($marketing)->getJson(route('schedule.sales', ['scheduleId' => $assigning->id]))->assertOk()->json('sales.0.clash');
+
+    expect($clash())->toBeNull();
+
+    salesLoad($sam, ScheduleStatus::Confirmed, '2026-10-16 09:30');
+
+    expect($clash()['time'])->toBe('09:30');
+
+    // One this marketer does not read (another marketer booked it) gives no time to check.
+    $hidden = salesLoad($sam, ScheduleStatus::Confirmed, '2026-10-20 10:00');
+    $hidden->update(['booked_by' => inquiryClient(Role::Marketing)->id, 'booked_by_type' => BookedByType::Staff]);
+    salesLoad($sam, ScheduleStatus::Confirmed, '2026-10-20 10:15');
+
+    expect($this->actingAs($marketing)->getJson(route('schedule.sales', ['scheduleId' => $hidden->id]))->json('sales.0.clash'))->toBeNull();
+});
+
+/** A confirmed visit of an inquiry, at `$at` in Manila. */
+function inquiryVisitAt(Inquiry $inquiry, string $at, string $title = 'Site ocular'): Schedule
+{
+    $schedule = new Schedule;
+    $schedule->forceFill([
+        'inquiry_id' => $inquiry->id,
+        'booked_by_type' => BookedByType::Staff,
+        'title' => $title,
+        'arrival_at' => CarbonImmutable::parse($at, 'Asia/Manila')->utc(),
+        'status' => ScheduleStatus::Confirmed,
+    ])->save();
+
+    return $schedule;
+}
+
+it('counts the visits of the inquiries a sales member handles or opened as theirs', function (): void {
+    seedInquiryCatalog();
+    $sam = User::factory()->role(Role::Sales)->create(['name' => 'Sam Sales']);
+    $ana = User::factory()->role(Role::Sales)->create(['name' => 'Ana Sales']);
+    $lee = User::factory()->role(Role::Sales)->create(['name' => 'Lee Sales']);
+    $handled = makeInquiry(inquiryClient());
+    assignInquiry($handled, $sam);
+    inquiryVisitAt($handled, '2026-10-16 10:15', 'Site ocular');
+    $opened = makeInquiry(inquiryClient());
+    $opened->forceFill(['created_by' => $ana->id])->save();
+    inquiryVisitAt($opened, '2026-10-16 09:45', 'Kitchen measuring');
+    // Nobody's: Lee neither handles nor opened it.
+    inquiryVisitAt(makeInquiry(inquiryClient()), '2026-10-16 10:00');
+
+    $sales = collect($this->actingAs(inquiryClient(Role::Marketing))
+        ->getJson(route('schedule.sales', ['date' => '2026-10-16', 'time' => '10:00']))
+        ->assertOk()
+        ->json('sales'))->keyBy('name');
+
+    expect($sales['Sam Sales']['clash']['title'])->toBe('Site ocular')
+        ->and($sales['Ana Sales']['clash']['title'])->toBe('Kitchen measuring')
+        ->and($sales['Lee Sales']['clash'])->toBeNull();
+});
+
+it('warns the sales member confirming an appointment of theirs it would overlap, and only them', function (): void {
+    $sam = User::factory()->role(Role::Sales)->create(['name' => 'Sam Sales']);
+    $other = User::factory()->role(Role::Sales)->create();
+    $confirming = salesLoad($sam, ScheduleStatus::AwaitingSales, '2026-10-16 10:00');
+
+    $this->actingAs($sam)->getJson(route('schedule.clash', $confirming))->assertOk()->assertExactJson(['clash' => null]);
+
+    salesLoad($sam, ScheduleStatus::Confirmed, '2026-10-16 10:30')->update(['title' => 'Slab viewing']);
+
+    $this->actingAs($sam)->getJson(route('schedule.clash', $confirming))
+        ->assertOk()
+        ->assertJsonPath('clash.time', '10:30')
+        ->assertJsonPath('clash.title', 'Slab viewing');
+
+    // Another sales member does not read it at all; marketing reads it but does not confirm.
+    $this->actingAs($other)->getJson(route('schedule.clash', $confirming))->assertNotFound();
+    $this->actingAs(inquiryClient(Role::Marketing))->getJson(route('schedule.clash', $confirming))->assertForbidden();
 });

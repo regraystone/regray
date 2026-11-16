@@ -121,6 +121,7 @@ const AssignScheduleDialog = ({
                 ) : null}
 
                 <SalesPicker
+                    at={item === null ? null : { scheduleId: item.id }}
                     value={sales}
                     onChange={(next) => {
                         setSales(next);

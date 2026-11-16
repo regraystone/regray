@@ -390,6 +390,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->whereNumber('schedule')
             ->middleware([Permission::ScheduleConfirm->middleware(), 'throttle:booking'])
             ->name('schedule.confirm');
+        // What the sales member about to confirm it already has at that time: a warning.
+        Route::get('schedule/{schedule}/clash', [SalesPickerController::class, 'clash'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleConfirm->middleware()])
+            ->name('schedule.clash');
         Route::post('schedule/{schedule}/decline', [ScheduleChangeController::class, 'decline'])
             ->whereNumber('schedule')
             ->middleware([Permission::ScheduleConfirm->middleware(), 'throttle:booking'])

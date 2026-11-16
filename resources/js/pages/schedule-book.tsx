@@ -205,8 +205,9 @@ const sendUpdate = async (
  *
  * Staff (marketing, who read the schedule from the sidebar, `schedule.view`)
  * first choose the client the appointment is for, with a Regray account or a
- * walk-in, and the sales member who confirms it. A client books for
- * themselves, and theirs waits for marketing to assign it.
+ * walk-in, and the sales member who confirms it, warned when that sales
+ * member already has an appointment then. A client books for themselves, and
+ * theirs waits for marketing to assign it.
  *
  * With `schedule`, the page updates that appointment instead: the same fields,
  * filled in with it, the client kept, and the reason for the change asked.
@@ -436,6 +437,14 @@ const Page = ({
 
                             {isStaff && !isUpdate ? (
                                 <SalesPicker
+                                    at={
+                                        date && arrivalTime
+                                            ? {
+                                                  date: dayKey(date),
+                                                  time: arrivalTime,
+                                              }
+                                            : null
+                                    }
                                     value={sales}
                                     onChange={(person) => {
                                         setSales(person);

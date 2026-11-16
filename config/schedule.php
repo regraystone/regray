@@ -69,4 +69,17 @@ return [
 
     'marketing_reminder_hours' => (int) env('SCHEDULE_MARKETING_REMINDER_HOURS', 24),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Visit length
+    |--------------------------------------------------------------------------
+    |
+    | How long a visit is taken to last, in minutes, when warning that a sales
+    | member already has an appointment at about that time: two appointments
+    | closer together than this overlap.
+    |
+    */
+
+    'visit_minutes' => (int) env('SCHEDULE_VISIT_MINUTES', 60),
+
 ];
