@@ -1,7 +1,10 @@
-import { Form, Head, setLayoutProps } from '@inertiajs/react';
-import { ArrowRight } from 'lucide-react';
+import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import TextLink from '@/components/text-link';
+import {
+    AuthFootnote,
+    authLink,
+    authPrimaryButton,
+} from '@/components/auth/auth-ui';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { OtpField } from '@/components/ui/otp-field';
@@ -43,6 +46,7 @@ export default function TwoFactorChallenge() {
     }, [showRecoveryInput]);
 
     setLayoutProps({
+        eyebrow: 'Two-factor authentication',
         title: authConfigContent.title,
         description: authConfigContent.description,
     });
@@ -69,7 +73,7 @@ export default function TwoFactorChallenge() {
 
             <Form
                 {...store.form()}
-                className="space-y-5"
+                className="flex flex-col gap-7"
                 resetOnError
                 resetOnSuccess={!showRecoveryInput}
                 onError={clearValues}
@@ -82,6 +86,7 @@ export default function TwoFactorChallenge() {
                                     id="recovery_code"
                                     name="recovery_code"
                                     type="text"
+                                    variant="line"
                                     label="Recovery code"
                                     placeholder="xxxxxxxxxx-xxxxxxxxxx"
                                     autoComplete="off"
@@ -92,7 +97,7 @@ export default function TwoFactorChallenge() {
                                     error={errors.recovery_code}
                                 />
 
-                                <p className="mt-2 text-xs text-secondary-foreground">
+                                <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-ink-muted">
                                     Enter one of the emergency codes you saved
                                     when you set up two-factor authentication.
                                     Each code works once.
@@ -114,7 +119,7 @@ export default function TwoFactorChallenge() {
 
                         <Button
                             type="submit"
-                            className="mt-6 w-full"
+                            className={authPrimaryButton}
                             disabled={
                                 processing ||
                                 (showRecoveryInput
@@ -127,31 +132,26 @@ export default function TwoFactorChallenge() {
                             Continue
                         </Button>
 
-                        <p className="mt-8 text-center text-sm">
-                            <button
-                                type="button"
-                                className="inline-flex items-center gap-1 rounded-md font-bold underline-offset-4 hover:underline focus-visible:underline"
-                                onClick={() => toggleRecoveryMode(clearErrors)}
-                            >
-                                {authConfigContent.toggleText}{' '}
-                                <ArrowRight className="size-4" aria-hidden />
-                            </button>
-                        </p>
+                        <div className="flex flex-col gap-3">
+                            <AuthFootnote>
+                                <button
+                                    type="button"
+                                    className={`cursor-pointer ${authLink}`}
+                                    onClick={() =>
+                                        toggleRecoveryMode(clearErrors)
+                                    }
+                                >
+                                    {authConfigContent.toggleText}
+                                </button>
+                            </AuthFootnote>
 
-                        <p className="mt-4 text-center text-sm">
-                            {/*
-                             * `no-underline` is what makes this read like the
-                             * cross links on Sign In and Sign Up; the rest of
-                             * `TextLink`'s decoration colour is cancelled with
-                             * `decoration-current` so nothing is left over.
-                             */}
-                            <TextLink
-                                href={login()}
-                                className="font-bold no-underline decoration-current underline-offset-4 hover:underline focus-visible:underline"
-                            >
-                                Back to Sign In
-                            </TextLink>
-                        </p>
+                            <AuthFootnote>
+                                Not you?{' '}
+                                <Link href={login()} className={authLink}>
+                                    Back to sign in
+                                </Link>
+                            </AuthFootnote>
+                        </div>
                     </>
                 )}
             </Form>

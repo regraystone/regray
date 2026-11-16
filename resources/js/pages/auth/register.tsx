@@ -1,17 +1,22 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import {
+    AuthDivider,
+    AuthFootnote,
+    AuthNotice,
+    authLink,
+    authPrimaryButton,
+} from '@/components/auth/auth-ui';
 import ConsentFields from '@/components/auth/consent-fields';
-import TermsDialog from '@/components/terms-dialog';
 import GoogleButton from '@/components/auth/google-button';
-import SocialNotice from '@/components/auth/social-notice';
+import TermsDialog from '@/components/terms-dialog';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
+import AuthBrandLayout from '@/layouts/auth/auth-brand-layout';
 import {
     passwordStrength,
     registerDefaults,
@@ -88,10 +93,17 @@ export default function Register({
         });
 
     return (
-        <>
+        <div className="flex flex-col gap-7">
             <Head title="Sign Up" />
 
-            <SocialNotice notice={socialNotice} />
+            {socialNotice ? (
+                <AuthNotice
+                    alert={socialNotice.type === 'error'}
+                    data-test="social-notice"
+                >
+                    {socialNotice.message}
+                </AuthNotice>
+            ) : null}
 
             <form
                 noValidate
@@ -100,11 +112,12 @@ export default function Register({
                  * server is deciding, the fields are not worth typing into.
                  */
                 onSubmit={handleSubmit(onValid)}
-                className="space-y-5 max-md:space-y-(--auth-field-gap)"
+                className="flex flex-col gap-6.5"
             >
                 <Field
                     id="name"
                     type="text"
+                    variant="line"
                     label="Name"
                     placeholder="Jane Doe"
                     autoComplete="name"
@@ -117,22 +130,23 @@ export default function Register({
                 <Field
                     id="email"
                     type="email"
+                    variant="line"
                     label="Email"
-                    placeholder="email@example.com"
+                    placeholder="you@example.com"
                     autoComplete="email"
                     tabIndex={2}
                     error={errors.email?.message}
                     {...registerField('email')}
                 />
 
-                <div className="space-y-1.5">
-                    {/* Side by side from md up, stacked below. */}
-                    <div className="space-y-5 max-md:space-y-(--auth-field-gap) md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+                <div className="flex flex-col gap-3">
+                    {/* Side by side when there is room, stacked below. */}
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11.25rem),1fr))] gap-x-6 gap-y-6.5">
                         <PasswordField
                             id="password"
                             type="password"
+                            variant="line"
                             label="Password"
-                            placeholder="Password"
                             autoComplete="new-password"
                             tabIndex={3}
                             error={errors.password?.message}
@@ -142,8 +156,8 @@ export default function Register({
                         <PasswordField
                             id="password_confirmation"
                             type="password"
-                            label="Confirm Password"
-                            placeholder="Confirm password"
+                            variant="line"
+                            label="Confirm password"
                             autoComplete="new-password"
                             tabIndex={4}
                             error={errors.password_confirmation?.message}
@@ -151,14 +165,15 @@ export default function Register({
                         />
                     </div>
 
+                    {/* Turns green once the password meets every rule. */}
                     <p
-                        className={
+                        className={`text-[0.8125rem] transition-colors ${
                             meetsPasswordRules
-                                ? 'text-xs font-medium text-green-600 dark:text-green-400'
-                                : 'text-xs font-medium text-red-600 dark:text-red-400'
-                        }
+                                ? 'text-success-text'
+                                : 'text-ink-muted'
+                        }`}
                     >
-                        Use 12+ characters, mixed case, a number and a symbol
+                        Use 12+ characters, mixed case, a number and a symbol.
                     </p>
                 </div>
 
@@ -179,24 +194,23 @@ export default function Register({
                 />
 
                 {formError.length > 0 ? (
-                    <p
-                        role="alert"
-                        className="text-[0.8rem] font-semibold text-secondary-foreground"
-                    >
-                        {formError.join(' ')}
-                    </p>
+                    <AuthNotice alert>{formError.join(' ')}</AuthNotice>
                 ) : null}
 
-                <Button
-                    type="submit"
-                    className="mt-1 w-full max-md:mt-(--auth-block-gap)"
-                    tabIndex={7}
-                    disabled={isSubmitting}
-                    data-test="register-button"
-                >
-                    {isSubmitting && <Spinner />}
-                    Sign Up
-                </Button>
+                <div className="flex flex-col gap-3.5">
+                    <Button
+                        type="submit"
+                        className={authPrimaryButton}
+                        tabIndex={7}
+                        disabled={isSubmitting}
+                        data-test="register-button"
+                    >
+                        {isSubmitting && <Spinner />}
+                        Sign up
+                    </Button>
+                    <AuthDivider />
+                    <GoogleButton />
+                </div>
             </form>
 
             <TermsDialog
@@ -209,36 +223,22 @@ export default function Register({
                 }}
             />
 
-            <div className="relative my-5">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-secondary-foreground">
-                        Or
-                    </span>
-                </div>
-            </div>
-
-            <GoogleButton />
-
-            <p className="mt-8 text-center text-sm max-md:mt-(--auth-block-gap)">
+            <AuthFootnote>
                 Already have an account?{' '}
-                <Link
-                    href={login()}
-                    className="inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline focus-visible:underline"
-                    tabIndex={8}
-                >
-                    Sign In <ArrowRight className="size-4" aria-hidden />
+                <Link href={login()} className={authLink} tabIndex={8}>
+                    Sign in
                 </Link>
-            </p>
-        </>
+            </AuthFootnote>
+        </div>
     );
 }
 
 Register.layout = [
-    AuthSheetLayout,
+    AuthBrandLayout,
     {
-        title: 'Sign Up',
+        eyebrow: 'Join Regray',
+        title: 'Sign up',
+        description:
+            'Save stones and furniture, send inquiries, and follow each one until it is delivered.',
     },
 ];

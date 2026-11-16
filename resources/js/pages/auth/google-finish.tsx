@@ -3,12 +3,13 @@ import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import GoogleController from '@/actions/App/Http/Controllers/Auth/GoogleController';
+import { AuthNotice, authPrimaryButton } from '@/components/auth/auth-ui';
 import ConsentFields from '@/components/auth/consent-fields';
 import TermsDialog from '@/components/terms-dialog';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
+import AuthBrandLayout from '@/layouts/auth/auth-brand-layout';
 import {
     googleFinishFields,
     googleFinishSchema,
@@ -69,22 +70,25 @@ export default function GoogleFinish({
         });
 
     return (
-        <>
+        <div className="flex flex-col gap-7">
             <Head title="Finish signing up" />
 
-            <p className="mb-5 text-sm text-secondary-foreground">
-                You're signing up with Google as{' '}
-                <span className="font-semibold text-foreground">{email}</span>.
-            </p>
+            <div className="flex flex-col gap-1.5 border-y border-line py-5">
+                <span className="text-xs font-medium tracking-[0.16em] text-ink-muted uppercase">
+                    Signing up with Google as
+                </span>
+                <span className="text-lg break-all">{email}</span>
+            </div>
 
             <form
                 noValidate
                 onSubmit={handleSubmit(onValid)}
-                className="space-y-5 max-md:space-y-(--auth-field-gap)"
+                className="flex flex-col gap-6.5"
             >
                 <Field
                     id="name"
                     type="text"
+                    variant="line"
                     label="Name"
                     placeholder="Jane Doe"
                     autoComplete="name"
@@ -111,17 +115,12 @@ export default function GoogleFinish({
                 />
 
                 {formError.length > 0 ? (
-                    <p
-                        role="alert"
-                        className="text-[0.8rem] font-semibold text-secondary-foreground"
-                    >
-                        {formError.join(' ')}
-                    </p>
+                    <AuthNotice alert>{formError.join(' ')}</AuthNotice>
                 ) : null}
 
                 <Button
                     type="submit"
-                    className="mt-1 w-full max-md:mt-(--auth-block-gap)"
+                    className={authPrimaryButton}
                     tabIndex={4}
                     disabled={isSubmitting}
                     data-test="google-finish-button"
@@ -140,13 +139,16 @@ export default function GoogleFinish({
                     setTermsOpen(false);
                 }}
             />
-        </>
+        </div>
     );
 }
 
 GoogleFinish.layout = [
-    AuthSheetLayout,
+    AuthBrandLayout,
     {
+        eyebrow: 'Join Regray',
         title: 'Finish signing up',
+        description:
+            'Google has told us who you are. Check your name and agree to the terms to create your account.',
     },
 ];
