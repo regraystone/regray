@@ -1,3 +1,11 @@
+# Home, Saved and Profile breadcrumbs name the Dashboard
+
+The workspace header's trail on Home, Saved and Profile, and on every page under them, now reads **Regray / Dashboard / {page}**, like the rest of the workspace, instead of Regray / {page}. **No migration.**
+
+- **Home:** Regray / Dashboard / Home, and its project and stone pages after it. The brand, stone and furniture pages (`catalogueCrumbs`) read Regray / Dashboard / Home / Brand / Product.
+- **Saved:** Regray / Dashboard / Saved, and a saved stone or furniture piece after it.
+- **Profile:** Regray / Dashboard / Profile, and Account & Security, Security, Schedule and Book after it.
+
 # Marketing books appointments, sales confirms them
 
 Only marketing (and the admin) books an appointment for a client now, and every appointment is confirmed by the sales member it is assigned to. Sales no longer books, updates or cancels; it confirms, declines and marks how a visit went. **Deploy, local and production: `php artisan migrate:fresh --seed`.** The seeded appointments are rebuilt: some assigned to sales, some not, one declined.
