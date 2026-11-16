@@ -27,6 +27,6 @@ class SendScheduleNotifications implements ShouldQueue
             return;
         }
 
-        $this->notifications->changed($event->schedule, $event->announced, CarbonImmutable::parse($event->arrivalAt), $event->changedBy);
+        $this->notifications->changed($event->schedule, $event->kind, CarbonImmutable::parse($event->arrivalAt), $event->changedBy, $event->reason);
     }
 }

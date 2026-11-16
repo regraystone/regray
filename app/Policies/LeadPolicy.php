@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Enums\LeadStatus;
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Lead;
@@ -32,16 +31,14 @@ class LeadPolicy
     }
 
     /**
-     * Open an inquiry for the lead's client. Marketing may use its own leads;
-     * sales only a lead with an inquiry marketing has won, the client already
-     * being a customer.
+     * Open an inquiry for the lead's client, a returning customer's included:
+     * the marketing user who holds it, with `inquiries.create.platform`. Sales
+     * opens inquiries only for direct (walk-in) clients, never under a lead.
      */
     public function createInquiry(User $user, Lead $lead): bool
     {
-        if ($user->hasRole(Role::Sales->value)) {
-            return $lead->inquiries()->where('marketing_status', LeadStatus::Won)->exists();
-        }
-
-        return $user->hasRole(Role::Marketing->value) && $lead->marketing_user_id === $user->id;
+        return $user->can(Permission::InquiriesCreatePlatform->value)
+            && $user->hasRole(Role::Marketing->value)
+            && $lead->marketing_user_id === $user->id;
     }
 }

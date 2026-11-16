@@ -35,9 +35,11 @@ interface ClientRepositoryInterface
     public function findByContacts(array $contacts): ?array;
 
     /**
-     * Accounts with the client role whose name or email matches, by name.
+     * Client accounts `$viewer` may find (User::scopeClientsVisibleTo())
+     * whose name or email matches, by name. The scope is applied before the
+     * search and the limit.
      *
      * @return Collection<int, User>
      */
-    public function searchAccounts(string $escapedSearch, int $limit): Collection;
+    public function searchAccounts(User $viewer, string $escapedSearch, int $limit): Collection;
 }

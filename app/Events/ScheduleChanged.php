@@ -2,16 +2,18 @@
 
 namespace App\Events;
 
-use App\Enums\ScheduleCardStatus;
+use App\Enums\ScheduleChangeKind;
 use App\Models\Schedule;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * An appointment was updated, cancelled, approved, served, marked as not
- * attended or expired. Dispatched by ScheduleChangeService once the change is
- * committed; PostScheduleCard announces it in the client's Regray thread.
+ * An appointment was updated, cancelled, assigned to sales, confirmed or
+ * declined by sales, served, marked as not attended or expired. Dispatched by
+ * ScheduleChangeService once the change is committed; PostScheduleCard
+ * announces it in the client's Regray thread when the client sees that step
+ * (ScheduleChangeKind::card()).
  *
  * `$revision`, `$arrivalAt` and `$reason` are the appointment as this change
  * left it, so the card keeps them even if a later change lands before the
@@ -24,7 +26,7 @@ class ScheduleChanged implements ShouldDispatchAfterCommit
 
     public function __construct(
         public Schedule $schedule,
-        public ScheduleCardStatus $announced,
+        public ScheduleChangeKind $kind,
         public int $revision,
         public string $arrivalAt,
         public ?string $reason,

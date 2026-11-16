@@ -116,13 +116,33 @@ const UpcomingList = ({
                                 >
                                     View details
                                 </DropdownMenuItem>
-                                {item.can.approve ? (
+                                {item.can.confirm ? (
                                     <DropdownMenuItem
                                         onSelect={() =>
-                                            onAction('approve', item)
+                                            onAction('confirm', item)
                                         }
                                     >
-                                        Approve
+                                        Confirm
+                                    </DropdownMenuItem>
+                                ) : null}
+                                {item.can.decline ? (
+                                    <DropdownMenuItem
+                                        onSelect={() =>
+                                            onAction('decline', item)
+                                        }
+                                    >
+                                        Decline
+                                    </DropdownMenuItem>
+                                ) : null}
+                                {item.can.assign ? (
+                                    <DropdownMenuItem
+                                        onSelect={() =>
+                                            onAction('assign', item)
+                                        }
+                                    >
+                                        {item.status === 'awaiting_sales'
+                                            ? 'Reassign'
+                                            : 'Assign to sales'}
                                     </DropdownMenuItem>
                                 ) : null}
                                 {item.can.update ? (

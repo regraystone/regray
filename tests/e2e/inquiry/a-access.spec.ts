@@ -41,18 +41,16 @@ test("2 · a marketing user opens a lead's inquiry on /inquiry/inquire and lands
     await expectStep(page, 1);
 });
 
-test('3 · a sales user is asked Platform or Direct on /inquiry/inquire, and gets the forbidden page on /quote/inquire', async ({
+test('3 · a sales user goes straight to the walk-in form on /inquiry/inquire, never asked Platform, and gets the forbidden page on /quote/inquire', async ({
     actors,
 }) => {
     const { page } = await actors.open('sales');
     actors.allowConsole(/status of 403/);
 
     await page.goto('/dashboard/inquiry/inquire');
-    await expect(
-        page
-            .getByTestId('staff-inquire-dialog')
-            .locator('[data-staff-inquire-kind]'),
-    ).toHaveCount(2);
+    // Sales opens inquiries only for walk-ins: no Platform/Direct choice.
+    await expect(page.getByTestId('direct-client-form')).toBeVisible();
+    await expect(page.locator('[data-staff-inquire-kind]')).toHaveCount(0);
 
     const response = await page.goto('/dashboard/quote/inquire');
 

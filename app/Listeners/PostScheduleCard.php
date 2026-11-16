@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Enums\BookedByType;
 use App\Enums\ScheduleCardStatus;
 use App\Events\Message\MessageCreated;
 use App\Events\ScheduleBooked;
@@ -17,10 +18,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 
 /**
  * Posts a schedule card into the client's Regray thread
- * (SupportConversationService::scheduleCardThreadFor()), for a booking and for
- * every change after it: updated, cancelled, approved, served, did not attend,
- * expired. Never into an inquiry's group chat, and never for an inquiry's
- * visit, which follows its inquiry and is announced by the inquiry's own card.
+ * (SupportConversationService::scheduleCardThreadFor()) for each step the
+ * client sees: their own booking (pending), confirmed by sales, and, once the
+ * client knows of the appointment (Schedule::isKnownToClient()), updated,
+ * cancelled, served, did not attend and expired. A booking marketing makes is
+ * announced only when sales confirms it; assigning and declining are steps
+ * between marketing and sales and post nothing (ScheduleChangeKind::card()).
+ * Never into an inquiry's group chat, and never for an inquiry's visit, which
+ * follows its inquiry and is announced by the inquiry's own card.
  *
  * Each card keeps the arrival and the reason as its change left them, so an
  * older card does not move when the appointment does.
@@ -43,12 +48,21 @@ class PostScheduleCard implements ShouldQueue
         $schedule = $event->schedule;
 
         if ($event instanceof ScheduleBooked) {
-            $this->post($schedule, ScheduleCardStatus::forStatus($schedule->status), $schedule->revision, $schedule->arrival_at, null);
+            // A booking marketing made waits for sales before the client hears of it.
+            if ($schedule->booked_by_type === BookedByType::Client) {
+                $this->post($schedule, ScheduleCardStatus::forStatus($schedule->status), $schedule->revision, $schedule->arrival_at, null);
+            }
 
             return;
         }
 
-        $this->post($schedule, $event->announced, $event->revision, CarbonImmutable::parse($event->arrivalAt), $event->reason);
+        $card = $event->kind->card();
+
+        if ($card === null || ($card !== ScheduleCardStatus::Confirmed && ! $schedule->isKnownToClient())) {
+            return;
+        }
+
+        $this->post($schedule, $card, $event->revision, CarbonImmutable::parse($event->arrivalAt), $event->reason);
     }
 
     public function post(Schedule $schedule, ScheduleCardStatus $announced, int $revision, CarbonInterface $arrivalAt, ?string $reason): void

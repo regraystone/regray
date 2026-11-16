@@ -3,14 +3,17 @@
 namespace App\Services;
 
 use App\Enums\BookedByType;
+use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Enums\ScheduleStatus;
+use App\Models\Client;
 use App\Models\Inquiry;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Repositories\Contracts\ScheduleRepositoryInterface;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Date;
 
@@ -18,7 +21,8 @@ use Illuminate\Support\Facades\Date;
  * Reads and writes schedules.
  *
  * Who sees what is decided here from the signed-in user, never from the
- * request: a client sees only their own visits, every staff role sees all.
+ * request: a client sees only their own visits, staff those
+ * Schedule::scopeVisibleTo() gives them.
  */
 class ScheduleService
 {
@@ -26,6 +30,9 @@ class ScheduleService
 
     /** When a project with a date but no time of its own is booked for: the showroom opens at ten. */
     public const DEFAULT_ARRIVAL_TIME = '10:00';
+
+    /** How many sales members the assign picker lists. */
+    public const SALES_PICKER_LIMIT = 20;
 
     public function __construct(
         public readonly ScheduleRepositoryInterface $scheduleRepository,
@@ -71,6 +78,7 @@ class ScheduleService
     {
         return $this->scheduleRepository->create([
             'client_id' => $client?->id,
+            'client_record_id' => $inquiry->client_record_id,
             'booked_by' => ($bookedBy ?? $client)?->id,
             'booked_by_type' => $bookedBy === null ? BookedByType::Client : BookedByType::Staff,
             'inquiry_id' => $inquiry->id,
@@ -85,9 +93,9 @@ class ScheduleService
     /**
      * A client's own booking from the Book an appointment page.
      *
-     * Theirs and booked by them, with no inquiry, pending until Marketing or
-     * Sales approve it. The purpose is its title. `$arrivalAt` is read in the
-     * studio's zone and stored in the app's.
+     * Theirs and booked by them, with no inquiry, pending until marketing
+     * assigns it to a sales member, who then confirms it. The purpose is its
+     * title. `$arrivalAt` is read in the studio's zone and stored in the app's.
      */
     public function createForBooking(User $client, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
     {
@@ -104,24 +112,117 @@ class ScheduleService
     }
 
     /**
-     * An appointment staff book for a client they chose: the client's, booked by
-     * the staff member, and confirmed at once with that staff member as its
-     * approver, since staff booking it is the studio agreeing to it.
+     * An appointment marketing books for a client it chose: a client account
+     * (`User`), or a direct (walk-in) client record with no account (`Client`),
+     * who is never told. Booked by the marketer, and assigned at once to
+     * `$sales`, so it is awaiting sales until that sales member confirms it.
+     * Not confirmed yet, and not yet announced to the client
+     * (Schedule::isKnownToClient()).
      */
-    public function createForStaffBooking(User $staff, User $client, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
+    public function createForStaffBooking(User $staff, User|Client $client, User $sales, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
     {
         return $this->scheduleRepository->create([
-            'client_id' => $client->id,
+            'client_id' => $client instanceof User ? $client->id : null,
+            'client_record_id' => $client instanceof Client ? $client->id : null,
             'booked_by' => $staff->id,
             'booked_by_type' => BookedByType::Staff,
             'inquiry_id' => null,
             'title' => $purpose,
             'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
-            'status' => ScheduleStatus::Confirmed,
+            'status' => ScheduleStatus::AwaitingSales,
             'notes' => $notes,
-            'approved_by' => $staff->id,
-            'approved_at' => Date::now(),
+            'assigned_to' => $sales->id,
+            'assigned_by' => $staff->id,
+            'assigned_at' => Date::now(),
         ]);
+    }
+
+    /**
+     * The sales members an appointment may be assigned to, matching a search
+     * by name or email, by name, each with `open_appointment_count`: how many
+     * appointments assigned to them are still to happen (awaiting them or
+     * confirmed, not yet past). Informational only.
+     *
+     * @return Collection<int, User>
+     */
+    public function assignableSales(?string $search): Collection
+    {
+        $search = $search === null ? '' : trim($search);
+        $pattern = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search).'%';
+
+        return User::query()
+            ->whereHas('roles', fn (Builder $role) => $role->where('name', Role::Sales->value))
+            ->whereDoesntHave('roles', fn (Builder $role) => $role->where('name', Role::Client->value))
+            ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
+                ->where('name', 'ILIKE', $pattern)
+                ->orWhere('email', 'ILIKE', $pattern)))
+            ->withCount(['assignedSchedules as open_appointment_count' => fn (Builder $schedule) => $schedule
+                ->whereIn('status', [ScheduleStatus::AwaitingSales->value, ScheduleStatus::Confirmed->value])
+                ->where('arrival_at', '>=', Date::now())])
+            ->orderBy('name')
+            ->limit(self::SALES_PICKER_LIMIT)
+            ->get(['users.id', 'users.name']);
+    }
+
+    /**
+     * For each of `$salesIds` with one, the earliest appointment of theirs
+     * that a visit at `$arrivalAt` would overlap: closer to it than
+     * `schedule.visit_minutes`. Theirs are those assigned to them (awaiting
+     * them or confirmed) and the confirmed visits of the inquiries they handle
+     * (`inquiry_handlers`) or opened. `$exceptId` is the appointment being
+     * assigned or confirmed, which never clashes with itself. A warning for
+     * the sales picker and for confirming, never a refusal.
+     *
+     * @param  list<int>  $salesIds
+     * @return array<int, Schedule> keyed by sales member id
+     */
+    public function salesClashes(array $salesIds, CarbonImmutable $arrivalAt, ?int $exceptId = null): array
+    {
+        if ($salesIds === []) {
+            return [];
+        }
+
+        $window = max(1, (int) config('schedule.visit_minutes')) - 1;
+        $at = $arrivalAt->setTimezone(config('app.timezone'));
+        $around = [$at->subMinutes($window)->subSeconds(59), $at->addMinutes($window)->addSeconds(59)];
+
+        $assigned = Schedule::query()
+            ->select(['id', 'title', 'arrival_at', 'assigned_to as sales_id'])
+            ->whereIn('assigned_to', $salesIds)
+            ->whereIn('status', [ScheduleStatus::AwaitingSales->value, ScheduleStatus::Confirmed->value])
+            ->whereBetween('arrival_at', $around)
+            ->when($exceptId !== null, fn (Builder $query) => $query->whereKeyNot($exceptId));
+
+        // An inquiry's visit is never assigned: it is theirs through its inquiry.
+        $handled = Schedule::query()
+            ->join('inquiry_handlers', 'inquiry_handlers.inquiry_id', '=', 'schedules.inquiry_id')
+            ->select(['schedules.id', 'schedules.title', 'schedules.arrival_at', 'inquiry_handlers.user_id as sales_id'])
+            ->whereIn('inquiry_handlers.user_id', $salesIds)
+            ->where('schedules.status', ScheduleStatus::Confirmed->value)
+            ->whereBetween('schedules.arrival_at', $around)
+            ->when($exceptId !== null, fn (Builder $query) => $query->where('schedules.id', '!=', $exceptId));
+
+        $opened = Schedule::query()
+            ->join('inquiries', 'inquiries.id', '=', 'schedules.inquiry_id')
+            ->select(['schedules.id', 'schedules.title', 'schedules.arrival_at', 'inquiries.created_by as sales_id'])
+            ->whereIn('inquiries.created_by', $salesIds)
+            ->where('schedules.status', ScheduleStatus::Confirmed->value)
+            ->whereBetween('schedules.arrival_at', $around)
+            ->when($exceptId !== null, fn (Builder $query) => $query->where('schedules.id', '!=', $exceptId));
+
+        return $assigned->get()
+            ->concat($handled->get())
+            ->concat($opened->get())
+            ->sortBy([['arrival_at', 'asc'], ['id', 'asc']])
+            ->unique(fn (Schedule $schedule): int => (int) $schedule->getAttribute('sales_id'))
+            ->keyBy(fn (Schedule $schedule): int => (int) $schedule->getAttribute('sales_id'))
+            ->all();
+    }
+
+    /** Whether `$user` may be given an appointment to confirm: a sales member, not a client. */
+    public static function isAssignableSales(User $user): bool
+    {
+        return $user->hasRole(Role::Sales->value) && ! $user->isClient();
     }
 
     /**
@@ -170,7 +271,7 @@ class ScheduleService
     public function deadlineLockedReason(Schedule $schedule): ?string
     {
         return match ($schedule->status) {
-            ScheduleStatus::Pending, ScheduleStatus::Confirmed, ScheduleStatus::Expired => null,
+            ScheduleStatus::Pending, ScheduleStatus::AwaitingSales, ScheduleStatus::Confirmed, ScheduleStatus::Expired => null,
             ScheduleStatus::Served => 'This visit has already taken place, so its date and time can no longer be changed.',
             ScheduleStatus::Cancelled => 'This visit was cancelled, so its date and time can no longer be changed here.',
         };
@@ -191,22 +292,31 @@ class ScheduleService
         }
 
         $hasArrived = $schedule->arrival_at->lessThanOrEqualTo($now ?? Date::now());
+        $status = $schedule->status;
 
         return match ($action) {
             ScheduleAction::Update, ScheduleAction::Cancel => match (true) {
-                ! $schedule->status->isOpen() => self::closedReason($schedule->status),
+                ! $status->isOpen() => self::closedReason($status),
                 $hasArrived => 'This appointment\'s time has passed, so it can no longer be changed.',
                 default => null,
             },
-            ScheduleAction::Approve => match (true) {
-                $schedule->status === ScheduleStatus::Confirmed => 'This appointment is already approved.',
-                $schedule->status !== ScheduleStatus::Pending => self::closedReason($schedule->status),
-                $hasArrived => 'This appointment\'s time has passed, so it can no longer be approved.',
+            // Assigned again while it waits on sales too, as when the sales member it went to does not answer.
+            ScheduleAction::Assign => match (true) {
+                $status === ScheduleStatus::Confirmed => 'This appointment is already confirmed.',
+                ! $status->isUnconfirmed() => self::closedReason($status),
+                $hasArrived => 'This appointment\'s time has passed, so it can no longer be assigned.',
+                default => null,
+            },
+            ScheduleAction::Confirm, ScheduleAction::Decline => match (true) {
+                $status === ScheduleStatus::Confirmed => 'This appointment is already confirmed.',
+                $status === ScheduleStatus::Pending => 'This appointment is not assigned to sales yet.',
+                $status !== ScheduleStatus::AwaitingSales => self::closedReason($status),
+                $hasArrived => 'This appointment\'s time has passed, so it can no longer be '.($action === ScheduleAction::Confirm ? 'confirmed.' : 'declined.'),
                 default => null,
             },
             ScheduleAction::Serve, ScheduleAction::NoShow => match (true) {
-                $schedule->status === ScheduleStatus::Pending => 'Approve this appointment before marking whether the client came.',
-                $schedule->status !== ScheduleStatus::Confirmed => self::closedReason($schedule->status),
+                $status->isUnconfirmed() => 'Sales must confirm this appointment before you mark whether the client came.',
+                $status !== ScheduleStatus::Confirmed => self::closedReason($status),
                 ! $hasArrived => 'You can mark this once its time has come.',
                 default => null,
             },
@@ -218,7 +328,7 @@ class ScheduleService
         return match ($status) {
             ScheduleStatus::Served => 'This appointment has already been served, so it can no longer be changed.',
             ScheduleStatus::Cancelled => 'This appointment was cancelled, so it can no longer be changed.',
-            ScheduleStatus::Expired => 'This appointment expired before it was approved, so it can no longer be changed. Book a new one instead.',
+            ScheduleStatus::Expired => 'This appointment expired before it was confirmed, so it can no longer be changed. Book a new one instead.',
             default => 'This appointment can no longer be changed.',
         };
     }

@@ -28,8 +28,10 @@ final readonly class StaffVisibility
         public bool $createdInquiries = false,
         /** The inquiries the user is assigned to. */
         public bool $assignedInquiries = false,
-        /** Every visit booked outside an inquiry. */
-        public bool $standaloneVisits = false,
+        /** The visits booked outside an inquiry it handles: booked, assigned or queued (marketing). */
+        public bool $handledVisits = false,
+        /** The visits booked outside an inquiry assigned to it (sales). */
+        public bool $assignedVisits = false,
     ) {}
 
     public static function for(User $user): self
@@ -43,7 +45,8 @@ final readonly class StaffVisibility
             leadInquiries: $roles->contains(fn (Role $role): bool => $role->seesLeadInquiries()),
             createdInquiries: $roles->contains(fn (Role $role): bool => $role->seesCreatedInquiries()),
             assignedInquiries: $roles->contains(fn (Role $role): bool => $role->seesAssignedInquiries()),
-            standaloneVisits: $roles->contains(fn (Role $role): bool => $role->seesStandaloneVisits()),
+            handledVisits: $roles->contains(fn (Role $role): bool => $role->seesHandledVisits()),
+            assignedVisits: $roles->contains(fn (Role $role): bool => $role->seesAssignedVisits()),
         );
     }
 

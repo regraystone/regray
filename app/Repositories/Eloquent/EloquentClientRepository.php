@@ -3,7 +3,6 @@
 namespace App\Repositories\Eloquent;
 
 use App\Enums\ClientKind;
-use App\Enums\Role;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\User;
@@ -67,12 +66,12 @@ class EloquentClientRepository implements ClientRepositoryInterface
         return $match === null ? null : ['client' => $match->client, 'kind' => $match->kind, 'value' => $match->value];
     }
 
-    public function searchAccounts(string $escapedSearch, int $limit): Collection
+    public function searchAccounts(User $viewer, string $escapedSearch, int $limit): Collection
     {
         $pattern = "%{$escapedSearch}%";
 
         return User::query()
-            ->whereHas('roles', fn (Builder $role) => $role->where('name', Role::Client->value))
+            ->clientsVisibleTo($viewer)
             ->when($escapedSearch !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('name', 'ILIKE', $pattern)
                 ->orWhere('email', 'ILIKE', $pattern)))

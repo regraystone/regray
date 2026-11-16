@@ -35,8 +35,9 @@ type InquiryEntry = {
  * cannot be talked out of being blank on a refresh.
  *
  * Staff are asked first who the inquiry is for (StaffInquireDialog: Platform or
- * Direct), and the stepper opens on that branch (`?kind=`). A client, who sends
- * their own, is never asked.
+ * Direct), and the stepper opens on that branch (`?kind=`). Staff who may not
+ * use Platform (sales: `inquiries.create.platform`) go straight to Direct. A
+ * client, who sends their own, is never asked.
  *
  * The buttons keep their own look and their own permission checks — this hook
  * decides where a click goes, not whether it is offered.
@@ -79,7 +80,11 @@ export function useInquiryEntry(): InquiryEntry {
         }
 
         if (isStaff) {
-            setIsAskingKind(true);
+            if (can(permissions.inquiriesCreatePlatform)) {
+                setIsAskingKind(true);
+            } else {
+                openStepper('direct');
+            }
 
             return;
         }

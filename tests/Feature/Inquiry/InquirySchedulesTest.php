@@ -113,7 +113,7 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
         'notes' => "Inquiry {$inquiry->reference} · Kitchen · Makati",
         'inquiryReference' => $inquiry->reference,
         // An inquiry's visit follows its inquiry: no schedule action applies.
-        'can' => ['update' => false, 'cancel' => false, 'approve' => false, 'serve' => false, 'noShow' => false],
+        'can' => ['update' => false, 'cancel' => false, 'assign' => false, 'confirm' => false, 'decline' => false, 'serve' => false, 'noShow' => false],
     ];
 
     $clientPage = $this->actingAs($this->client)->get(route('profile.schedule'))->assertOk()->viewData('page')['props'];

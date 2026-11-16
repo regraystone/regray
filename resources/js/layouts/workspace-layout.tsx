@@ -111,7 +111,10 @@ export const permissions = {
     scheduleCreate: 'schedule.create',
     scheduleUpdate: 'schedule.update',
     scheduleCancel: 'schedule.cancel',
-    scheduleApprove: 'schedule.approve',
+    inquiriesCreatePlatform: 'inquiries.create.platform',
+    scheduleAssign: 'schedule.assign',
+    scheduleConfirm: 'schedule.confirm',
+    scheduleAttend: 'schedule.attend',
     conversationsCreate: 'conversations.create',
     supportClaim: 'support.claim',
 } as const;
@@ -574,11 +577,12 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
          * built by hand rather than by segment: the segments would read
          * "account security security" and say nothing about where the page is.
          *
-         * Regray / Profile is the floor every one of these shares. Each page
-         * then adds its own name, and Security adds the page holding the
-         * Security card first, so the trail reads as the route the reader
+         * Regray / Dashboard / Profile is the floor every one of these shares.
+         * Each page then adds its own name, and Security adds the page holding
+         * the Security card first, so the trail reads as the route the reader
          * walked rather than as a list of slugs.
          */
+        crumbs.push({ label: 'Dashboard' });
         crumbs.push({ label: 'Profile', href: showProfile.url() });
 
         if (effectiveUrl === editAccountSecurity.url()) {
@@ -601,6 +605,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         effectiveUrl.split('?')[0] === savedIndex.url() ||
         effectiveUrl.startsWith(`${savedIndex.url()}/`)
     ) {
+        crumbs.push({ label: 'Dashboard' });
         crumbs.push({ label: 'Saved', href: savedIndex.url() });
 
         const stone = (
@@ -633,6 +638,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 | undefined
         )?.data;
 
+        crumbs.push({ label: 'Dashboard' });
         crumbs.push({ label: 'Home', href: homeIndex.url() });
 
         if (project) {

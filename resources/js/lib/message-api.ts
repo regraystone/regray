@@ -180,6 +180,18 @@ export type Person = {
     activeInquiryCount?: number;
 };
 
+/**
+ * A client the people search found, among those the user is authorized for
+ * only (the server scopes the search).
+ */
+export type ClientPerson = Person & {
+    /**
+     * What the result is shown by, decided by the server: the client's name,
+     * or their email when the search is an email address theirs matches.
+     */
+    label: string;
+};
+
 /** One of the chosen client's inquiries, as a group can be bound to it. */
 export type GroupInquiryOption = {
     id: number;
@@ -196,7 +208,8 @@ export type GroupPeople = {
     sales: Person[];
     /** Technical staff: a group takes exactly one. */
     technical: Person[];
-    clients: Person[];
+    /** Only the clients the user is authorized for. */
+    clients: ClientPerson[];
     /** The chosen client's inquiries; empty until a client is chosen. */
     inquiries: GroupInquiryOption[];
 };

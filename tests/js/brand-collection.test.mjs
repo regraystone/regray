@@ -101,39 +101,43 @@ describe('the breadcrumbs', () => {
         brandHref: (slug) => `/brands/${slug}`,
     };
     const brand = { slug: 'regray-stone', name: 'Regray Stone' };
-    const home = { label: 'Home', href: '/' };
+    const root = [
+        { label: 'Regray' },
+        { label: 'Dashboard' },
+        { label: 'Home', href: '/' },
+    ];
     const brandCrumb = { label: 'Regray Stone', href: '/brands/regray-stone' };
 
-    it('reads Regray / Home / Brand on a brand page', () => {
+    it('reads Regray / Dashboard / Home / Brand on a brand page', () => {
         assert.deepEqual(
             catalogueCrumbs({
                 ...urls,
                 component: 'brand-profile',
                 props: { brand: { data: brand } },
             }),
-            [{ label: 'Regray' }, home, brandCrumb],
+            [...root, brandCrumb],
         );
     });
 
-    it('reads Regray / Home / Brand / Stone on a stone page, by name', () => {
+    it('reads Regray / Dashboard / Home / Brand / Stone on a stone page, by name', () => {
         assert.deepEqual(
             catalogueCrumbs({
                 ...urls,
                 component: 'stone-profile',
                 props: { stone: { data: { name: 'Arctic Pink', brand } } },
             }),
-            [{ label: 'Regray' }, home, brandCrumb, { label: 'Arctic Pink' }],
+            [...root, brandCrumb, { label: 'Arctic Pink' }],
         );
     });
 
-    it('reads Regray / Home / Brand / Furniture on a furniture page, by name', () => {
+    it('reads Regray / Dashboard / Home / Brand / Furniture on a furniture page, by name', () => {
         assert.deepEqual(
             catalogueCrumbs({
                 ...urls,
                 component: 'furniture-profile',
                 props: { furniture: { data: { name: 'Alora', brand } } },
             }),
-            [{ label: 'Regray' }, home, brandCrumb, { label: 'Alora' }],
+            [...root, brandCrumb, { label: 'Alora' }],
         );
     });
 

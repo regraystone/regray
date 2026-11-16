@@ -60,7 +60,7 @@ it('shows a client only their own visits, whatever client_id the URL names', fun
         ->and(propIds($response, 'upcoming'))->toBe([$own->id]);
 });
 
-it('shows staff every client\'s visits', function (Role $role): void {
+it('shows the staff who oversee the week, and marketing, every client\'s own bookings', function (Role $role): void {
     $first = scheduledVisit(inquiryClient(), '2026-10-15 09:00');
     $second = scheduledVisit(inquiryClient(), '2026-10-16 09:00');
 
@@ -70,7 +70,8 @@ it('shows staff every client\'s visits', function (Role $role): void {
 
     expect(propIds($response, 'schedules'))->toBe([$first->id, $second->id]);
 })->with([
-    'sales' => [Role::Sales],
+    // With no lead and no thread holder, a client's booking is in every marketer's queue.
+    'marketing' => [Role::Marketing],
     'owner' => [Role::Owner],
     'admin' => [Role::Admin],
 ]);

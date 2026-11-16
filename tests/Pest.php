@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ClientKind;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
 use App\Enums\DetailAnswerType;
@@ -14,6 +15,7 @@ use App\Enums\Role;
 use App\Enums\SalesStatus;
 use App\Enums\SizeUnit;
 use App\Enums\ThicknessUnit;
+use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\DetailField;
 use App\Models\EdgeProfile;
@@ -547,4 +549,13 @@ function referencesOf(array $world, array $keys): array
 function notificationBodies(User $user): array
 {
     return array_values(UserNotification::query()->where('user_id', $user->id)->orderBy('id')->pluck('body')->all());
+}
+
+/** A direct (walk-in) client record, with no account and one phone number. */
+function walkInClient(string $name = 'Wanda Walk-in'): Client
+{
+    $client = Client::query()->forceCreate(['kind' => ClientKind::Direct, 'user_id' => null, 'full_name' => $name]);
+    $client->contacts()->create(['kind' => 'phone', 'value' => '+63917'.random_int(1000000, 9999999)]);
+
+    return $client;
 }

@@ -53,7 +53,14 @@ export const bookingFieldsSchema = z.object({
 /** A client booking for themselves. */
 export const bookingSchema = bookingFieldsSchema;
 
-/** Staff booking for a client they choose (StoreBookingRequest's `clientId`). */
+/** Same as AssignScheduleRequest::SALES_MESSAGE. */
+export const SALES_REQUIRED =
+    'Choose a sales member to confirm this appointment';
+
+/**
+ * Marketing booking for a client it chooses, assigned to a sales member who
+ * confirms it (StoreBookingRequest's `clientId` and `salesId`).
+ */
 export const staffBookingSchema = bookingFieldsSchema.extend({
     clientId: z
         .number()
@@ -61,6 +68,10 @@ export const staffBookingSchema = bookingFieldsSchema.extend({
         .refine((v) => v !== null, {
             message: 'Choose the client this appointment is for',
         }),
+    salesId: z
+        .number()
+        .nullable()
+        .refine((v) => v !== null, { message: SALES_REQUIRED }),
 });
 
 /**
@@ -74,4 +85,9 @@ export const updateScheduleSchema = bookingFieldsSchema.extend({
 /** Cancel an appointment: why. */
 export const cancelScheduleSchema = z.object({
     reason: reasonSchema('Say why the appointment is being cancelled'),
+});
+
+/** Decline an appointment assigned to you: why (DeclineScheduleRequest). */
+export const declineScheduleSchema = z.object({
+    reason: reasonSchema('Say why you are declining the appointment'),
 });
