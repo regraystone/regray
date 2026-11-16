@@ -1,3 +1,4 @@
+import { authOutlineButton } from '@/components/auth/auth-ui';
 import { Button } from '@/components/ui/button';
 import { redirect } from '@/routes/auth/google';
 
@@ -10,11 +11,7 @@ import { redirect } from '@/routes/auth/google';
  * own page and come back.
  */
 const GoogleButton = () => (
-    <Button
-        asChild
-        variant="outline"
-        className="w-full gap-2.5 tracking-normal"
-    >
+    <Button asChild variant="outline" className={`${authOutlineButton} gap-3`}>
         <a href={redirect.url()} data-test="google-button">
             <svg
                 className="size-4 shrink-0"

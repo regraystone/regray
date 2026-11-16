@@ -39,6 +39,13 @@
     --color-night-text: var(--night-text);
     --color-night-line: var(--night-line);
 
+    /* The auth pages' fields and notices (resources/js/layouts/auth). */
+    --color-field-line: var(--field-line);
+    --color-ink-faint: var(--ink-faint);
+    --color-success: var(--success);
+    --color-success-line: var(--success-line);
+    --color-success-text: var(--success-text);
+
     --color-secondary: var(--secondary);
     --color-secondary-foreground: var(--secondary-foreground);
 
@@ -427,6 +434,11 @@
     --night: #1c1a17;
     --night-text: #c9c2b6;
     --night-line: #4a453e;
+    --field-line: #b9b2a7;
+    --ink-faint: #a39d93;
+    --success: #e6efe4;
+    --success-line: #c3d6bf;
+    --success-text: #2f4a2c;
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);

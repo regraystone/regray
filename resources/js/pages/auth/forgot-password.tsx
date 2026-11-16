@@ -1,67 +1,68 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
+import {
+    AuthFootnote,
+    AuthNotice,
+    authLink,
+    authPrimaryButton,
+} from '@/components/auth/auth-ui';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
-import TextLink from '@/components/text-link';
-import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
+import AuthBrandLayout from '@/layouts/auth/auth-brand-layout';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
 export default function ForgotPassword({ status }: { status?: string }) {
     return (
-        <>
+        <div className="flex flex-col gap-7">
             <Head title="Forgot password" />
 
-            {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
-                    {status}
-                </div>
-            )}
+            {status ? <AuthNotice tone="success">{status}</AuthNotice> : null}
 
-            <div className="space-y-6 max-md:space-y-(--auth-block-gap)">
-                <Form
-                    {...email.form()}
-                    className="space-y-5 max-md:space-y-(--auth-field-gap)"
-                >
-                    {({ processing, errors }) => (
-                        <>
-                            <Field
-                                id="email"
-                                type="email"
-                                name="email"
-                                label="Email"
-                                placeholder="email@example.com"
-                                autoComplete="off"
-                                autoFocus
-                                error={errors.email}
-                            />
+            <Form {...email.form()} className="flex flex-col gap-7">
+                {({ processing, errors }) => (
+                    <>
+                        <Field
+                            id="email"
+                            type="email"
+                            name="email"
+                            variant="line"
+                            label="Email"
+                            placeholder="you@example.com"
+                            autoComplete="off"
+                            autoFocus
+                            error={errors.email}
+                        />
 
-                            <Button
-                                type="submit"
-                                className="mt-1 w-full max-md:mt-(--auth-block-gap)"
-                                disabled={processing}
-                                data-test="email-password-reset-link-button"
-                            >
-                                {processing && <Spinner />}
-                                Email password reset link
-                            </Button>
-                        </>
-                    )}
-                </Form>
+                        <Button
+                            type="submit"
+                            className={authPrimaryButton}
+                            disabled={processing}
+                            data-test="email-password-reset-link-button"
+                        >
+                            {processing && <Spinner />}
+                            Email reset link
+                        </Button>
+                    </>
+                )}
+            </Form>
 
-                <div className="space-x-1 text-center text-sm text-muted-foreground">
-                    <span>Or, return to</span>
-                    <TextLink href={login()}>log in</TextLink>
-                </div>
-            </div>
-        </>
+            <AuthFootnote>
+                Remembered it?{' '}
+                <Link href={login()} className={authLink}>
+                    Back to sign in
+                </Link>
+            </AuthFootnote>
+        </div>
     );
 }
 
 ForgotPassword.layout = [
-    AuthSheetLayout,
+    AuthBrandLayout,
     {
+        eyebrow: 'Account',
         title: 'Forgot password',
-        description: 'Enter your email to receive a password reset link',
+        description:
+            'Enter the email you signed up with. We will send you a link to choose a new password.',
     },
 ];
