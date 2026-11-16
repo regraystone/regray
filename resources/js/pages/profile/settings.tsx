@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 import { HubRow, HubSection } from '@/components/hub-rows';
 import LogoutDialog from '@/components/logout-dialog';
 import PageHeading from '@/components/page-heading';
-import SwitchAccountDialog from '@/components/switch-account-dialog';
 import {
     edit as editAccountSecurity,
     show as showProfile,
@@ -19,12 +18,11 @@ import {
 
 /**
  * The account-level options, one tap from the Profile hub, in three groups:
- * the account itself, where to get help, and this session. Help & Support is
- * not built yet, so its row only says so. Both session rows ask first. Every
- * reader of the profile, client or staff, has all of them.
+ * the account itself, where to get help, and this session. Help & Support and
+ * Switch account are not built yet, so their rows only say so. Log out asks
+ * first. Every reader of the profile, client or staff, has all of them.
  */
 const Settings = () => {
-    const [isSwitching, setIsSwitching] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     return (
@@ -70,16 +68,15 @@ const Settings = () => {
                         />
                     </HubSection>
 
-                    {/*
-                        Leaving the session is kept apart from the rest, and
-                        both ways out ask before they go.
-                    */}
+                    {/* Leaving the session is kept apart from the rest. */}
                     <HubSection title="Session">
                         <HubRow
                             icon={ArrowLeftRight}
                             title="Switch account"
-                            description="Log out and sign in with a different account"
-                            onClick={() => setIsSwitching(true)}
+                            description="Sign in with a different account"
+                            onClick={() => {
+                                toast.info('Switch account is coming soon.');
+                            }}
                             dataTest="switch-account-button"
                         />
                         <HubRow
@@ -93,10 +90,6 @@ const Settings = () => {
                 </div>
             </div>
 
-            <SwitchAccountDialog
-                open={isSwitching}
-                onOpenChange={setIsSwitching}
-            />
             <LogoutDialog open={isLoggingOut} onOpenChange={setIsLoggingOut} />
         </>
     );

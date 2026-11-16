@@ -1,10 +1,9 @@
 # Account options move to Settings
 
-The account-level options leave the Profile page for one **Settings** page under it, in three groups, and both ways out of the session ask first. **No migration.**
+The account-level options leave the Profile page for one **Settings** page under it, in three groups. **No migration.**
 
 - **Profile** (`/dashboard/profile`): Schedule (as before, for those who have it), Transaction history (still coming soon) and **Settings**. Account & Security, Help and the Session block move to Settings.
-- **Settings** (`/dashboard/profile/settings`, `profile.settings`, `profile.view`; every role): **Account** (Account & Security), **Support** (Help & Support, a "coming soon" toast for now) and **Session** (Switch account, Log out).
-- **Switch account** asks "Switch account?" (Stay signed in / Switch account), logs out and opens the sign-in page. It is the same logout request as Log out (`lib/logout.ts`, also used by `LogoutDialog`), which is unchanged.
+- **Settings** (`/dashboard/profile/settings`, `profile.settings`, `profile.view`; every role): **Account** (Account & Security), **Support** (Help & Support, a "coming soon" toast for now) and **Session** (Switch account, a "coming soon" toast for now; Log out, which asks first as before).
 - **Account & Security** keeps its URL. Its mobile back link reads "Back to settings", and **Security options** (password and two-factor) now lead the page, linking to the Security page.
 - **Header menu:** the dead Help item is now **Settings**.
 - **Breadcrumbs** (`lib/profile-breadcrumbs.ts`): Regray / Dashboard / Profile / Settings, then Account & Security under Settings, and Security under that; every ancestor links. Schedule is unchanged.
