@@ -21,12 +21,18 @@ class StaffClientController extends Controller
         public readonly ClientService $clientService,
     ) {}
 
-    /** Client accounts matching a search: id, name and email only. */
+    /**
+     * The client accounts the user may find (User::scopeClientsVisibleTo())
+     * matching a search: id, name, email, and the `label` a result is shown
+     * by (User::searchLabel()).
+     */
     public function accounts(SearchPeopleRequest $request): JsonResponse
     {
+        $search = $request->search();
+
         return response()->json([
-            'accounts' => $this->clientService->searchAccounts($request->search())
-                ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email])
+            'accounts' => $this->clientService->searchAccounts($request->user(), $search)
+                ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'label' => $user->searchLabel($search)])
                 ->values()
                 ->all(),
         ]);

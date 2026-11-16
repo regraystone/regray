@@ -246,8 +246,7 @@ class Inquiry extends Model
 
     /**
      * Whether marketing has won it, which a group chat waits for
-     * (InquiryPolicy::createGroup()). Sales opening one on a lead wins it as
-     * it is sent.
+     * (InquiryPolicy::createGroup()).
      */
     public function isWonByMarketing(): bool
     {

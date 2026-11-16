@@ -111,7 +111,10 @@ export const permissions = {
     scheduleCreate: 'schedule.create',
     scheduleUpdate: 'schedule.update',
     scheduleCancel: 'schedule.cancel',
-    scheduleApprove: 'schedule.approve',
+    inquiriesCreatePlatform: 'inquiries.create.platform',
+    scheduleAssign: 'schedule.assign',
+    scheduleConfirm: 'schedule.confirm',
+    scheduleAttend: 'schedule.attend',
     conversationsCreate: 'conversations.create',
     supportClaim: 'support.claim',
 } as const;

@@ -26,7 +26,9 @@ const item = (id, arrival) => ({
 const can = {
     update: true,
     cancel: true,
-    approve: false,
+    assign: true,
+    confirm: false,
+    decline: false,
     serve: false,
     noShow: false,
 };
@@ -34,6 +36,14 @@ const rest = {
     bookedByType: 'staff',
     bookedByName: 'Sam',
     clientName: 'Rafa',
+    walkIn: {
+        company: null,
+        address: 'Makati',
+        contacts: [{ kind: 'phone', value: '+639171234567' }],
+    },
+    assignedSalesName: 'Sales Officer',
+    declinedByName: null,
+    declineReason: null,
     cancelReason: null,
     changeReason: 'Client asked for later',
     can,

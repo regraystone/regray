@@ -8,7 +8,6 @@ use App\Enums\ClientKind;
 use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
-use App\Enums\LeadStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
 use App\Enums\SizeUnit;
@@ -248,9 +247,8 @@ class InquiryService
      * which a direct client has none of), linked to `$lead`. No role status
      * has started: sales, payment and logistics stay NULL until their stages
      * do, and an inquiry on a lead waits for marketing to decide it. For a
-     * direct client sales starts at once, at negotiation; one sales opens on a
-     * lead is decided won as it is sent, which starts sales the same way. Its visit is booked first: the deadline given is
-     * that schedule's arrival.
+     * direct client sales starts at once, at negotiation. Its visit is booked
+     * first: the deadline given is that schedule's arrival.
      * All of it is written in the caller's transaction, so a failed inquiry
      * leaves no schedule.
      *
@@ -299,8 +297,6 @@ class InquiryService
 
         if ($client === null) {
             $this->inquiryStatusService->transition($inquiry, InquiryStatusTrack::Sales, SalesStatus::Negotiation, $actor, opening: true);
-        } elseif ($lead !== null && $by?->hasRole(Role::Sales->value)) {
-            $this->inquiryStatusService->decide($inquiry, LeadStatus::Won, $by, 'Opened by sales.', opening: true);
         }
 
         event(new InquirySubmitted($inquiry, $by?->id));

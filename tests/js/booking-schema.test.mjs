@@ -70,12 +70,35 @@ describe('a staff booking', () => {
         };
 
         assert.equal(
-            firstError(staffBookingSchema, { ...booking, clientId: null }),
+            firstError(staffBookingSchema, {
+                ...booking,
+                clientId: null,
+                salesId: 4,
+            }),
             'Choose the client this appointment is for',
         );
         assert.equal(
-            firstError(staffBookingSchema, { ...booking, clientId: 12 }),
+            firstError(staffBookingSchema, {
+                ...booking,
+                clientId: 12,
+                salesId: 4,
+            }),
             null,
+        );
+    });
+
+    it('needs the sales member who confirms it', () => {
+        const booking = {
+            date: new Date(2026, 9, 17),
+            arrivalTime: '14:00',
+            purpose: 'Showroom visit',
+            notes: '',
+            clientId: 12,
+        };
+
+        assert.equal(
+            firstError(staffBookingSchema, { ...booking, salesId: null }),
+            'Choose a sales member to confirm this appointment',
         );
     });
 });

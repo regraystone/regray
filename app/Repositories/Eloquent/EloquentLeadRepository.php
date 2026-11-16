@@ -86,10 +86,9 @@ class EloquentLeadRepository implements LeadRepositoryInterface
             ->paginate($perPage, page: $page);
     }
 
-    public function pickable(?User $marketingUser, bool $withWonInquiry): Collection
+    public function pickable(?User $marketingUser): Collection
     {
         return $this->visibleTo($marketingUser)
-            ->when($withWonInquiry, fn (Builder $query) => $query->whereHas('inquiries', fn (Builder $inquiry) => $inquiry->where('marketing_status', LeadStatus::Won)))
             ->with(['client:id,name', 'inquiries:id,lead_id,marketing_status'])
             ->orderByDesc('updated_at')
             ->orderByDesc('id')

@@ -5,6 +5,7 @@ import {
     CONTACT_KIND_LABELS,
     CONTACT_KINDS,
     STAFF_INQUIRE_OPTIONS,
+    staffInquireKindFor,
     staffInquireKindFrom,
 } from '../../resources/js/lib/staff-inquire.ts';
 
@@ -33,6 +34,17 @@ describe('the staff Inquire modal', () => {
         assert.equal(staffInquireKindFrom('walk_in'), null);
         assert.equal(staffInquireKindFrom(null), null);
         assert.equal(staffInquireKindFrom(undefined), null);
+    });
+
+    it('keeps the branch asked for when Platform is allowed', () => {
+        assert.equal(staffInquireKindFor('platform', true), 'platform');
+        assert.equal(staffInquireKindFor('direct', true), 'direct');
+        assert.equal(staffInquireKindFor(null, true), null);
+    });
+
+    it('always lands sales, who may not use Platform, on Direct', () => {
+        assert.equal(staffInquireKindFor('platform', false), 'direct');
+        assert.equal(staffInquireKindFor(null, false), 'direct');
     });
 });
 

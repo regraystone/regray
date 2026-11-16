@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Schedule;
 
-use App\Actions\Schedule\ApproveScheduleAction;
+use App\Actions\Schedule\AssignScheduleAction;
 use App\Actions\Schedule\CancelScheduleAction;
+use App\Actions\Schedule\ConfirmScheduleAction;
+use App\Actions\Schedule\DeclineScheduleAction;
 use App\Actions\Schedule\NoShowScheduleAction;
 use App\Actions\Schedule\ServeScheduleAction;
 use App\Actions\Schedule\UpdateScheduleAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Schedule\AssignScheduleRequest;
 use App\Http\Requests\Schedule\CancelScheduleRequest;
+use App\Http\Requests\Schedule\DeclineScheduleRequest;
 use App\Http\Requests\Schedule\UpdateScheduleRequest;
 use App\Models\Schedule;
 use App\Models\User;
@@ -19,13 +23,15 @@ use Inertia\Inertia;
 
 /**
  * Changing an appointment from the Schedule page, the staff one and the
- * client's Profile one alike: update, cancel, approve, served, did not attend.
+ * client's Profile one alike: update, cancel, assign to sales, confirm or
+ * decline (the sales member it is assigned to), served, did not attend.
  *
  * The route checks the permission and SchedulePolicy who may act on this
- * appointment (a client only on their own, and only to update or cancel). A
- * change its state no longer allows is refused by ScheduleChangeService as a
- * `schedule` validation error, which the dialog shows. Success is flashed as
- * `schedule` for the page's toast.
+ * appointment (a client only on their own, and only to update or cancel;
+ * only its sales member confirms or declines it). A change its state no
+ * longer allows is refused by ScheduleChangeService as a `schedule`
+ * validation error, which the dialog shows. Success is flashed as `schedule`
+ * for the page's toast.
  */
 class ScheduleChangeController extends Controller
 {
@@ -47,13 +53,33 @@ class ScheduleChangeController extends Controller
         return $this->done(__('Appointment cancelled'));
     }
 
-    public function approve(Request $request, Schedule $schedule, ApproveScheduleAction $approveSchedule): RedirectResponse
+    public function assign(AssignScheduleRequest $request, Schedule $schedule, AssignScheduleAction $assignSchedule): RedirectResponse
     {
-        Gate::authorize('approve', $schedule);
+        Gate::authorize('assign', $schedule);
 
-        $approveSchedule->execute($schedule, $this->actor($request), $request->ip(), $request->userAgent());
+        /** @var User $sales after() refused a request naming no sales member. */
+        $sales = $request->sales();
+        $assignSchedule->execute($schedule, $this->actor($request), $sales, $request->ip(), $request->userAgent());
 
-        return $this->done(__('Appointment approved'));
+        return $this->done(__('Assigned to :name', ['name' => $sales->name]));
+    }
+
+    public function confirm(Request $request, Schedule $schedule, ConfirmScheduleAction $confirmSchedule): RedirectResponse
+    {
+        Gate::authorize('confirm', $schedule);
+
+        $confirmSchedule->execute($schedule, $this->actor($request), $request->ip(), $request->userAgent());
+
+        return $this->done(__('Appointment confirmed'));
+    }
+
+    public function decline(DeclineScheduleRequest $request, Schedule $schedule, DeclineScheduleAction $declineSchedule): RedirectResponse
+    {
+        Gate::authorize('decline', $schedule);
+
+        $declineSchedule->execute($schedule, $this->actor($request), $request->reason(), $request->ip(), $request->userAgent());
+
+        return $this->done(__('Appointment declined'));
     }
 
     public function serve(Request $request, Schedule $schedule, ServeScheduleAction $serveSchedule): RedirectResponse
