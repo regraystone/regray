@@ -17,15 +17,14 @@ export default function SiteLayout({
         return <WorkspaceLayout>{children}</WorkspaceLayout>;
     }
 
-    const isLanding = component === 'landing';
+    // The landing page draws its own header and footer (components/landing).
+    if (component === 'landing') {
+        return children;
+    }
 
     return (
         <GuestLayout>
-            <div
-                className={isLanding ? '' : 'px-4 py-6 sm:px-5 lg:px-8 lg:py-8'}
-            >
-                {children}
-            </div>
+            <div className="px-4 py-6 sm:px-5 lg:px-8 lg:py-8">{children}</div>
         </GuestLayout>
     );
 }
