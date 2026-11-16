@@ -1,43 +1,26 @@
 import { Link } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import { LANDING_NAV } from '@/components/landing/landing-links';
 import Logo from '@/components/logo';
 import { login } from '@/routes';
 import { inquire } from '@/routes/quote';
 
-/** The landing page's own sections, in the order they appear. */
-export const LANDING_SECTIONS = [
-    { label: 'Brands', href: '#brands' },
-    { label: 'Projects', href: '#projects' },
-    { label: 'Services', href: '#services' },
-    { label: 'How it works', href: '#how-it-works' },
-] as const;
+/** The header's height: the hero fills the screen below it. */
+export const HEADER_HEIGHT = 'h-20';
 
-/** How far the page scrolls before the header turns solid. */
-const SOLID_AFTER_PX = 40;
-
-const linkText = 'text-xs font-medium tracking-[0.16em] uppercase';
+const navLink =
+    'border-b border-transparent py-1.5 transition-colors hover:border-foreground';
 
 /**
- * The landing page's header: see-through over the hero, then solid once the
- * page scrolls, so it reads over both the photo and the paper below. Below
- * `lg` the links fold into a full-screen menu.
+ * The landing page's header: white and always in view, the wordmark, the
+ * page's sections and the catalog, then Login and Inquire. Below 1180px the
+ * links fold into a full-screen menu (Escape closes it).
  *
  * Sending an inquiry needs an account: a guest is taken to Login first and
  * comes back to the Inquire page once signed in.
  */
 export default function LandingHeader() {
-    const [scrolled, setScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
-    const solid = scrolled || menuOpen;
-
-    useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > SOLID_AFTER_PX);
-
-        onScroll();
-        window.addEventListener('scroll', onScroll, { passive: true });
-
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
 
     useEffect(() => {
         if (!menuOpen) {
@@ -65,86 +48,94 @@ export default function LandingHeader() {
     return (
         <>
             <header
-                className={`fixed inset-x-0 top-0 z-50 border-b transition-colors duration-400 ${
-                    solid
-                        ? 'border-line bg-paper/97 text-ink'
-                        : 'border-white/25 bg-transparent text-on-image'
-                }`}
+                className={`sticky top-0 z-50 flex ${HEADER_HEIGHT} items-center justify-between gap-6 bg-background px-4 sm:px-8`}
             >
+                <Logo className="[&>span:first-child]:h-5" />
+
                 <nav
                     aria-label="Primary"
-                    className="flex h-19 items-center justify-between gap-6 px-4 sm:px-5 lg:px-8"
+                    className="hidden items-center gap-[clamp(1rem,1.6vw,1.625rem)] text-[0.8125rem] tracking-[0.02em] uppercase min-[1180px]:flex"
                 >
-                    <Logo />
-
-                    <ul className="hidden items-center gap-8 lg:flex xl:gap-10">
-                        {LANDING_SECTIONS.map((section) => (
-                            <li key={section.href}>
-                                <a
-                                    href={section.href}
-                                    className={`${linkText} border-b border-transparent py-1.5 transition-colors hover:border-current`}
-                                >
-                                    {section.label}
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-
-                    <div className="hidden items-center gap-6 lg:flex">
-                        <Link
-                            href={login.url()}
-                            className={`${linkText} transition-opacity hover:opacity-70`}
-                        >
-                            Login
-                        </Link>
-                        <Link
-                            href={inquire.url()}
-                            className={`${linkText} border border-current px-5 py-3 transition-opacity hover:opacity-70`}
-                        >
-                            Send an inquiry
-                        </Link>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setMenuOpen((open) => !open)}
-                        aria-expanded={menuOpen}
-                        aria-controls="landing-menu"
-                        className={`${linkText} min-h-11 px-1 lg:hidden`}
+                    {LANDING_NAV.map((item) =>
+                        item.href.startsWith('#') ? (
+                            <a
+                                key={item.label}
+                                href={item.href}
+                                className={navLink}
+                            >
+                                {item.label}
+                            </a>
+                        ) : (
+                            <Link
+                                key={item.label}
+                                href={item.href}
+                                className={navLink}
+                            >
+                                {item.label}
+                            </Link>
+                        ),
+                    )}
+                    <span aria-hidden className="h-4 w-px bg-border" />
+                    <Link href={login.url()} className={navLink}>
+                        Login
+                    </Link>
+                    <Link
+                        href={inquire.url()}
+                        className="bg-foreground px-4 py-2.5 font-semibold text-background transition-colors hover:bg-foreground/80"
                     >
-                        {menuOpen ? 'Close' : 'Menu'}
-                    </button>
+                        Inquire
+                    </Link>
                 </nav>
+
+                <button
+                    type="button"
+                    onClick={() => setMenuOpen((open) => !open)}
+                    aria-expanded={menuOpen}
+                    aria-controls="landing-menu"
+                    className="min-h-11 px-1 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase min-[1180px]:hidden"
+                >
+                    {menuOpen ? 'Close' : 'Menu'}
+                </button>
             </header>
 
             {menuOpen ? (
                 <div
                     id="landing-menu"
-                    className="fixed inset-x-0 top-19 bottom-0 z-40 flex flex-col overflow-auto bg-paper px-6 py-8 text-ink lg:hidden"
+                    className="fixed inset-x-0 top-20 bottom-0 z-40 flex flex-col overflow-auto bg-background px-5 pt-2 pb-8 min-[1180px]:hidden"
                 >
                     <ul>
-                        {LANDING_SECTIONS.map((section) => (
-                            <li key={section.href}>
-                                <a
-                                    href={section.href}
-                                    onClick={closeMenu}
-                                    className="block border-b border-line py-3.5 text-3xl"
-                                >
-                                    {section.label}
-                                </a>
+                        {LANDING_NAV.map((item) => (
+                            <li key={item.label}>
+                                {item.href.startsWith('#') ? (
+                                    <a
+                                        href={item.href}
+                                        onClick={closeMenu}
+                                        className="block border-b border-border py-4 font-display text-2xl font-light uppercase"
+                                    >
+                                        {item.label}
+                                    </a>
+                                ) : (
+                                    <Link
+                                        href={item.href}
+                                        onClick={closeMenu}
+                                        className="block border-b border-border py-4 font-display text-2xl font-light uppercase"
+                                    >
+                                        {item.label}
+                                    </Link>
+                                )}
                             </li>
                         ))}
                     </ul>
-                    <div className="mt-8 flex flex-col gap-3">
+                    <div className="mt-7 flex flex-col gap-3 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase">
                         <Link
                             href={inquire.url()}
-                            className={`${linkText} bg-ink p-4.5 text-center text-paper`}
+                            className="bg-foreground p-4.5 text-center text-background"
                         >
                             Send an inquiry
                         </Link>
                         <Link
                             href={login.url()}
-                            className={`${linkText} border border-ink p-4.5 text-center`}
+                            className="border border-foreground p-4.5 text-center"
                         >
                             Login
                         </Link>
