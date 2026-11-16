@@ -1,3 +1,4 @@
+import { authCheckbox, authLink } from '@/components/auth/auth-ui';
 import { Checkbox } from '@/components/ui/checkbox';
 
 /**
@@ -25,14 +26,14 @@ const ConsentFields = ({
     onMarketingEmailsChange: (wanted: boolean) => void;
     tabIndex: number;
 }) => (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3.5">
         <div>
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-3">
                 <Checkbox
                     id="terms"
                     name="terms"
                     tabIndex={tabIndex}
-                    className="mt-0.5"
+                    className={authCheckbox}
                     checked={terms}
                     onCheckedChange={(checked) =>
                         onTermsChange(checked === true)
@@ -45,13 +46,15 @@ const ConsentFields = ({
                  * The button sits beside the label rather than in it, so
                  * opening the terms does not also tick the box.
                  */}
-                <p className="text-sm text-secondary-foreground">
-                    <label htmlFor="terms">I agree to the</label>{' '}
+                <p className="text-[0.9375rem] leading-normal text-ink-soft">
+                    <label htmlFor="terms" className="cursor-pointer">
+                        I agree to the
+                    </label>{' '}
                     <button
                         type="button"
                         tabIndex={tabIndex}
                         onClick={onOpenTerms}
-                        className="font-semibold text-foreground underline underline-offset-4"
+                        className={`cursor-pointer ${authLink}`}
                         data-test="register-terms-open"
                     >
                         Terms &amp; Conditions
@@ -62,19 +65,19 @@ const ConsentFields = ({
                 <p
                     id="terms-error"
                     role="alert"
-                    className="mt-2 text-[0.8rem] font-semibold text-secondary-foreground"
+                    className="mt-2 text-[0.8125rem] font-medium text-ink-soft"
                 >
                     {termsError}
                 </p>
             ) : null}
         </div>
 
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-3">
             <Checkbox
                 id="marketing_emails"
                 name="marketing_emails"
                 tabIndex={tabIndex + 1}
-                className="mt-0.5"
+                className={authCheckbox}
                 checked={marketingEmails}
                 onCheckedChange={(checked) =>
                     onMarketingEmailsChange(checked === true)
@@ -82,7 +85,7 @@ const ConsentFields = ({
             />
             <label
                 htmlFor="marketing_emails"
-                className="text-sm text-secondary-foreground"
+                className="cursor-pointer text-[0.9375rem] leading-normal text-ink-soft"
             >
                 Email me about new messages and updates (optional)
             </label>

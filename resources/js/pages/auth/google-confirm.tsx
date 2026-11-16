@@ -1,9 +1,14 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import GoogleController from '@/actions/App/Http/Controllers/Auth/GoogleController';
+import {
+    authOutlineButton,
+    authPrimaryButton,
+    authQuietLink,
+} from '@/components/auth/auth-ui';
 import { Button } from '@/components/ui/button';
 import { PasswordField } from '@/components/ui/password-field';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSheetLayout from '@/layouts/auth/auth-sheet-layout';
+import AuthBrandLayout from '@/layouts/auth/auth-brand-layout';
 import { request } from '@/routes/password';
 
 /**
@@ -14,20 +19,20 @@ import { request } from '@/routes/password';
  */
 export default function GoogleConfirm({ email }: { email: string }) {
     return (
-        <>
+        <div className="flex flex-col gap-7">
             <Head title="Connect your Google account" />
 
-            <p className="mb-5 text-sm text-secondary-foreground">
-                You already have an account with{' '}
-                <span className="font-semibold text-foreground">{email}</span>.
-                Enter its password once to connect Google. After that you can
-                sign in either way.
-            </p>
+            <div className="flex flex-col gap-1.5 border-y border-line py-5">
+                <span className="text-xs font-medium tracking-[0.16em] text-ink-muted uppercase">
+                    Your account
+                </span>
+                <span className="text-lg break-all">{email}</span>
+            </div>
 
             <Form
                 {...GoogleController.confirm.form()}
                 resetOnError={['password']}
-                className="space-y-5 max-md:space-y-(--auth-field-gap)"
+                className="flex flex-col gap-7"
             >
                 {({ processing, errors }) => (
                     <>
@@ -35,28 +40,27 @@ export default function GoogleConfirm({ email }: { email: string }) {
                             id="password"
                             name="password"
                             type="password"
+                            variant="line"
                             label="Password"
-                            placeholder="Password"
                             autoComplete="current-password"
                             autoFocus
                             tabIndex={1}
+                            hint={
+                                // Whoever owns the email can reset it from here.
+                                <Link
+                                    href={request()}
+                                    className={authQuietLink}
+                                    tabIndex={4}
+                                >
+                                    Forgot password?
+                                </Link>
+                            }
                             error={errors.password}
                         />
 
-                        <div className="flex justify-end">
-                            {/* Whoever owns the email can reset it from here. */}
-                            <Link
-                                href={request()}
-                                className="text-[0.8rem] font-semibold text-secondary-foreground transition-opacity hover:opacity-85"
-                                tabIndex={4}
-                            >
-                                Forgot password?
-                            </Link>
-                        </div>
-
                         <Button
                             type="submit"
-                            className="w-full"
+                            className={authPrimaryButton}
                             tabIndex={2}
                             disabled={processing}
                             data-test="google-confirm-button"
@@ -71,7 +75,7 @@ export default function GoogleConfirm({ email }: { email: string }) {
             <Button
                 asChild
                 variant="outline"
-                className="mt-3 w-full"
+                className={`-mt-3.5 ${authOutlineButton}`}
                 tabIndex={3}
             >
                 <Link
@@ -83,13 +87,16 @@ export default function GoogleConfirm({ email }: { email: string }) {
                     Cancel
                 </Link>
             </Button>
-        </>
+        </div>
     );
 }
 
 GoogleConfirm.layout = [
-    AuthSheetLayout,
+    AuthBrandLayout,
     {
+        eyebrow: 'Account',
         title: 'Connect your Google account',
+        description:
+            'You already have an account with this email. Enter its password once to connect Google; after that you can sign in either way.',
     },
 ];

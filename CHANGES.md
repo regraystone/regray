@@ -35,6 +35,15 @@ The Inbox's client search no longer lists every client. **No migration.**
 - **Inquire and Book an appointment pickers** (`inquiry.inquire.accounts`, `schedule.book.accounts`, `ClientService::searchAccounts()`) use the same rule and return the same `label`. Sales no longer uses either picker (see above).
 - **E2E:** `E2EMessageSeeder` gives Marketing A Card Client's lead, which `message/a-access` searches for.
 
+# The sign-in and sign-up pages are redesigned
+
+Every auth page (Sign In, Sign Up, Forgot and Reset Password, Verify Email, the two-factor challenge, and finishing or connecting a Google sign-up) moves to one new layout from the design, in the landing page's warm palette. The font stays Instrument Sans. What the pages do is unchanged: validation, server and rate-limit messages, Remember me, Google sign-in, the Terms & Conditions dialog, the optional email box, two-factor recovery codes, tab order, and the `#email`, `#password` and `data-test` hooks the end-to-end tests use.
+
+- **Layout** (`layouts/auth/auth-brand-layout.tsx`, replacing `auth-sheet-layout.tsx` and `auth-split-layout.tsx`; `auth-layout.tsx`, which the two-factor page gets, now uses it too): from 900px the brands' photos fill the left 56% and stay put while the form scrolls; below it the photo panel sits on top of the page. The form column opens with a small uppercase line (the new `eyebrow` layout prop), the title and a line on what the page is for. Phones still scroll the submit button above the on-screen keyboard.
+- **Brand panel** (`components/auth/auth-brand-panel.tsx`): each active brand's photo in turn, fading with a slow zoom every 6 seconds (not for anyone who prefers reduced motion), under the wordmark and Back to site; below, the tagline on screens tall enough for it, and the row of brand logos, each showing its photo when clicked. The brands come from the new shared prop `authBrands` (`HandleInertiaRequests`, `BrandCardResource`), sent once on the auth pages' routes and null everywhere else.
+- **Form parts:** `Field` and `PasswordField` take `variant="line"`, a single underline with Show and Hide in words; the default boxed look the workspace uses is untouched. `components/auth/auth-ui.tsx` holds the square buttons, the "or" divider, the notices (green for a link sent or a password reset) and the links; `GoogleButton` and `ConsentFields` take the same look.
+- **Copy:** each page has its own line and intro, after the design ("Welcome back / Sign in", "Join Regray / Sign up", …); Verify Email and the Google pages show the address in question.
+
 # The landing page is redesigned
 
 The public landing page (`/`, guests only) is rebuilt from the new design, filled with Regray's own content instead of placeholders. The font stays Instrument Sans; signed-in users' Home page, the brand and project pages and the guest layout elsewhere are unchanged.
