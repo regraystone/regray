@@ -1,8 +1,6 @@
-import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import ConfirmDialog from '@/components/confirm-dialog';
-import { forgetBrowserStorage } from '@/lib/browser-storage';
-import { logout } from '@/routes';
+import { logOut } from '@/lib/logout';
 
 /**
  * Asks before logging out, wherever a Log out button is, and once the logout
@@ -28,15 +26,7 @@ const LogoutDialog = ({
             processing={isLoggingOut}
             onConfirm={() => {
                 setIsLoggingOut(true);
-                router.flushAll();
-                router.post(
-                    logout.url(),
-                    {},
-                    {
-                        onSuccess: () => forgetBrowserStorage(),
-                        onFinish: () => setIsLoggingOut(false),
-                    },
-                );
+                logOut({ onFinish: () => setIsLoggingOut(false) });
             }}
         />
     );
