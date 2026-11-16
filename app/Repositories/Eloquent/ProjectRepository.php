@@ -5,10 +5,21 @@ namespace App\Repositories\Eloquent;
 use App\Models\Project;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
 class ProjectRepository implements ProjectRepositoryInterface
 {
+    public function latestPublished(int $limit): Collection
+    {
+        return Project::query()
+            ->published()
+            ->orderByDesc('completed_year')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get(['id', 'slug', 'name', 'location', 'completed_year', 'thumbnail_path']);
+    }
+
     /**
      * Load the profile only after permission has been settled, rather than in route binding.
      * Related keys are retained so Eloquent can match the constrained eager loads.

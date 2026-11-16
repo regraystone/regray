@@ -1,3 +1,14 @@
+# The landing page is redesigned
+
+The public landing page (`/`, guests only) is rebuilt from the new design, filled with Regray's own content instead of placeholders. The font stays Instrument Sans; signed-in users' Home page, the brand and project pages and the guest layout elsewhere are unchanged.
+
+- **Header** (`components/landing/landing-header.tsx`): see-through over the hero, solid once the page scrolls; links to the page's sections, Login and Send an inquiry; below `lg` a full-screen menu (Escape closes it). The landing no longer uses the guest layout's header (`SiteLayout`).
+- **Hero:** a slideshow of the studio's photo and the Ascale and Cucine Lube brand photos (the largest the site has), fading with a slow zoom every 6.5 seconds; it does not turn on its own for anyone who prefers reduced motion, and bars pick a slide by hand.
+- **Sections:** an intro; **Our brands** (each brand's photo, name, tagline and its page); **Projects**, the six latest published projects with their photos, location and year, each opening its public profile; **Services**, the services the Inquire page offers, grouped by service type and numbered; **How it works**, the four steps from inquiry to installation; **Site visit**, booking a visit or messaging the team; a footer with the brands and the ways in; and the Message us button.
+- **Data:** `LandingController` now also sends `projects` (`ProjectService::latestPublished()`, `LandingProjectResource`) and `serviceTypes` (`InquiryCatalogService::serviceTypes()`, the Inquire page's own list, `LandingServiceTypeResource`), so the landing never lists a project that is unpublished or a service a client cannot ask for.
+- **Guests and the workspace:** sending an inquiry, booking a visit and Messages need an account, so their links take a guest to Login first and on to that page once signed in.
+- **Colours:** the landing's warm palette is a set of tokens in `app.css` (`paper`, `paper-deep`, `ink`, `ink-soft`, `ink-muted`, `line`, `night`, `night-text`, `night-line`).
+
 # Stone slabs: sizes and thicknesses, with units, by combination
 
 A stone now comes in slabs, each a size at a thickness, instead of one size string and one thickness in millimetres; the Inquire page asks the thickness of the slab services, lists each stone's own sizes and the thicknesses its chosen size is cut in, and stores both as numbers and a unit. Fascia and the project area are asked where they belong. **Deploy, local and production: `php artisan migrate:fresh --seed`.** This wipes all data, which is intended: nothing is carried over.
