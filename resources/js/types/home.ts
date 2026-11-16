@@ -109,3 +109,24 @@ export type BrandPageProps = {
 export type HomePageProps = {
     brands: BrandCardData[];
 };
+
+/** A finished project on the landing page (LandingProjectResource). */
+export type LandingProject = {
+    slug: string;
+    name: string;
+    location: string;
+    completedYear: number;
+    thumbnail: string;
+};
+
+/** A group of services on the landing page (LandingServiceTypeResource). */
+export type LandingServiceType = {
+    slug: string;
+    name: string;
+    services: { slug: string; name: string; description: string }[];
+};
+
+export type LandingPageProps = HomePageProps & {
+    projects: LandingProject[];
+    serviceTypes: LandingServiceType[];
+};

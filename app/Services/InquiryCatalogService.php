@@ -38,6 +38,17 @@ class InquiryCatalogService
     }
 
     /**
+     * The service types the Inquire page offers, each with its services: the
+     * landing page lists the same ones.
+     *
+     * @return Collection<int, ServiceType>
+     */
+    public function serviceTypes(): Collection
+    {
+        return $this->catalogRepository->serviceTypes();
+    }
+
+    /**
      * One page of the stones the Inquire page offers.
      *
      * @return LengthAwarePaginator<int, Stone>
