@@ -9,6 +9,18 @@ The account-level options leave the Profile page for one **Settings** page under
 - **Header menu:** the dead Help item is now **Settings**.
 - **Breadcrumbs** (`lib/profile-breadcrumbs.ts`): Regray / Dashboard / Profile / Settings, then Account & Security under Settings, and Security under that; every ancestor links. Schedule is unchanged.
 
+# Regray's own fonts, and a corporate landing page for the platform
+
+The whole system takes the Regray Stone look, in free fonts: **Hanken Grotesk** for text (standing in for Neue Montreal) and **Lexend** for headings (standing in for Garet), both from Bunny Fonts (`vite.config.ts`). `font-sans` is Hanken Grotesk, the new `font-display` is Lexend, and every `h1`, `h2` and `h3` uses it (`app.css`). Instrument Sans is gone.
+
+The landing page (`/`, guests only) is rebuilt from the CEO's brief and the v5 design: Regray introduced as a platform, the group of brands it brings together, then what a client does on it and where to find it. White and corporate, with photos framed in a white margin and centred stories under them.
+
+- **Header:** sticky and white: Stones and Furniture (Regray Stone's public page, filtered to each), Brands, Projects, Catalogs, Showroom, Login and Inquire; a full-screen menu below 1180px.
+- **Sections:** the framed hero; **The Regray group, "Every brand. One platform."**, its count of brands taken from the database; **Regray Stone** first, then every other active brand, each its own photo across the full width (cropped to the screen's height when taller, never letterboxed) with its logo over it, its database description (or tagline) and a link to its page; **Premium slabs collection** over a wall of book-matched quartzite (`public/images/regray-slabs.jpg`, from the Recidencia Del Hamor gallery); **Featured projects**, the 4 latest published projects as square tiles; **For clients**, the four steps and Send an inquiry / Create an account; **Catalogs**, the title in a left column beside a row of tall cards, every active brand's collection with what it holds ("Cucine Lube kitchens", "Ascale sintered stone", …), which runs off the page's right edge and scrolls sideways (trackpad, touch, keyboard, or the previous and next arrows a card at a time); each opens its brand's page (there is no catalogs page yet); **Showroom**, its photo (`public/images/regray-showroom.jpg`, from regraystone.com) with the address and hours as regraystone.com gives them and Get directions on Google Maps.
+- **Footer:** black: collections, every brand, the platform's actions, Regray's six social accounts and the showroom's address and hours.
+- **Not built:** the design's newsletter form (nothing stores sign-ups yet) and its Terms and Privacy links (no such pages).
+- **Data:** `LandingController` sends `brands` through the new `LandingBrandResource` (with the description) and `projects` capped at 4; the services list and its `LandingServiceTypeResource` are removed.
+
 # Home, Saved and Profile breadcrumbs name the Dashboard
 
 The workspace header's trail on Home, Saved and Profile, and on every page under them, now reads **Regray / Dashboard / {page}**, like the rest of the workspace, instead of Regray / {page}. **No migration.**

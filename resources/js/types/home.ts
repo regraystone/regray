@@ -119,14 +119,16 @@ export type LandingProject = {
     thumbnail: string;
 };
 
-/** A group of services on the landing page (LandingServiceTypeResource). */
-export type LandingServiceType = {
+/** A brand as the landing page introduces it (LandingBrandResource). */
+export type LandingBrand = {
     slug: string;
     name: string;
-    services: { slug: string; name: string; description: string }[];
+    description: string | null;
+    logo: string;
+    thumbnail: string | null;
 };
 
-export type LandingPageProps = HomePageProps & {
+export type LandingPageProps = {
+    brands: LandingBrand[];
     projects: LandingProject[];
-    serviceTypes: LandingServiceType[];
 };

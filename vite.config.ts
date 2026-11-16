@@ -13,8 +13,14 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
+                // Text, everywhere: the design's stand-in for Neue Montreal.
+                bunny('Hanken Grotesk', {
+                    weights: [300, 400, 500, 600, 700],
+                }),
+                // Headings and big titles (`font-display`): the design's
+                // stand-in for Garet, the Regray Stone brand font.
+                bunny('Lexend', {
+                    weights: [300, 400, 500, 600, 700],
                 }),
             ],
         }),
