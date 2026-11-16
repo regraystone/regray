@@ -3,7 +3,9 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import BookingCalendar from '@/components/schedule/booking-calendar';
-import BookingClientPicker from '@/components/schedule/booking-client-picker';
+import BookingClientPicker, {
+    type BookingClient,
+} from '@/components/schedule/booking-client-picker';
 import SalesPicker from '@/components/schedule/sales-picker';
 import Countdown from '@/components/countdown';
 import PageHeading from '@/components/page-heading';
@@ -30,7 +32,6 @@ import {
 } from '@/routes/profile';
 import { usePermissions } from '@/hooks/use-permissions';
 import { formatFullDate, dayKey } from '@/lib/date';
-import type { ClientAccount } from '@/lib/staff-clients-api';
 import { staffBookingSchema, updateScheduleSchema } from '@/lib/booking-schema';
 import { sendScheduleChange } from '@/lib/schedule-changes';
 import { update as updateSchedule } from '@/routes/schedule';
@@ -79,6 +80,7 @@ type BookingResult =
           arrivalTime: string;
           clientName: string | null;
           salesName: string | null;
+          isWalkIn: boolean;
       }
     | { status: 'error'; message?: string; retryAt?: number | null }
     | null;
@@ -117,6 +119,7 @@ const bookingSucceeded = (flash: unknown): boolean =>
  */
 const sendBooking = (
     values: BookingFormValues & { date: Date },
+    client: BookingClient | null,
 ): Promise<SendOutcome> =>
     new Promise((resolve) => {
         let rateLimit: RateLimit | undefined;
@@ -128,9 +131,12 @@ const sendBooking = (
                 arrivalTime: values.arrivalTime,
                 purpose: values.purpose,
                 notes: values.notes ?? '',
-                ...(values.clientId === null
+                // A walk-in is a client record (`directClientId`), not an account.
+                ...(client === null
                     ? {}
-                    : { clientId: values.clientId }),
+                    : client.kind === 'walkIn'
+                      ? { directClientId: client.id }
+                      : { clientId: client.id }),
                 ...(values.salesId === null ? {} : { salesId: values.salesId }),
             },
             {
@@ -198,9 +204,9 @@ const sendUpdate = async (
  * book: tomorrow for a client, today for staff.
  *
  * Staff (marketing, who read the schedule from the sidebar, `schedule.view`)
- * first choose the client the appointment is for and the sales member who
- * confirms it. A client books for themselves, and theirs waits for marketing
- * to assign it.
+ * first choose the client the appointment is for, with a Regray account or a
+ * walk-in, and the sales member who confirms it. A client books for
+ * themselves, and theirs waits for marketing to assign it.
  *
  * With `schedule`, the page updates that appointment instead: the same fields,
  * filled in with it, the client kept, and the reason for the change asked.
@@ -233,7 +239,7 @@ const Page = ({
     const [result, setResult] = useState<BookingResult>(null);
     const [isSending, setIsSending] = useState(false);
     const isSendingRef = useRef(false);
-    const [client, setClient] = useState<ClientAccount | null>(null);
+    const [client, setClient] = useState<BookingClient | null>(null);
     const [sales, setSales] = useState<AssignableSales | null>(null);
 
     const methods = useForm<BookingFormValues>({
@@ -295,7 +301,7 @@ const Page = ({
 
         const outcome =
             schedule === null
-                ? await sendBooking({ ...values, date: values.date })
+                ? await sendBooking({ ...values, date: values.date }, client)
                 : await sendUpdate(schedule.id, {
                       ...values,
                       date: values.date,
@@ -345,6 +351,7 @@ const Page = ({
             arrivalTime: values.arrivalTime,
             clientName: client?.name ?? null,
             salesName: sales?.name ?? null,
+            isWalkIn: client?.kind === 'walkIn',
         });
     };
 
@@ -413,14 +420,13 @@ const Page = ({
                             {isStaff && !isUpdate ? (
                                 <BookingClientPicker
                                     value={client}
-                                    onChange={(account) => {
-                                        setClient(account);
+                                    onChange={(chosen) => {
+                                        setClient(chosen);
                                         setValue(
                                             'clientId',
-                                            account?.id ?? null,
+                                            chosen?.id ?? null,
                                             {
-                                                shouldValidate:
-                                                    account !== null,
+                                                shouldValidate: chosen !== null,
                                             },
                                         );
                                     }}
@@ -626,9 +632,10 @@ const Page = ({
                                       {formatFullDate.format(result.date)} at{' '}
                                       {slotLabel(result.arrivalTime)}.{' '}
                                       {result.salesName ?? 'The sales member'}{' '}
-                                      has been asked to confirm it; the client
-                                      is told in their Regray chat once it is
-                                      confirmed.
+                                      has been asked to confirm it;{' '}
+                                      {result.isWalkIn
+                                          ? 'a walk-in has no Regray account, so let them know yourself once it is confirmed.'
+                                          : 'the client is told in their Regray chat once it is confirmed.'}
                                   </>
                               ) : (
                                   <>

@@ -17,7 +17,8 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property int|null $client_id Null for a direct (walk-in) client's inquiry visit.
+ * @property int|null $client_id The client's account; null for a direct (walk-in) client.
+ * @property int|null $client_record_id The client record: a walk-in marketing booked for, or an inquiry visit's client.
  * @property int|null $booked_by
  * @property BookedByType $booked_by_type
  * @property int|null $inquiry_id
@@ -45,7 +46,8 @@ use Illuminate\Support\Carbon;
  * A client's booking is made by ScheduleService::createForBooking(): booked by
  * the client, with no inquiry, pending until marketing assigns it to a sales
  * member. A marketing booking (createForStaffBooking()) is for a client
- * marketing chose, and is assigned to a sales member at once. Either way it is
+ * marketing chose, with an account or a walk-in (`client_record_id`, no
+ * account and so never told), and is assigned to a sales member at once. Either way it is
  * then awaiting sales until that sales member confirms it, or declines it
  * back to marketing (ScheduleChangeService). The client reads awaiting sales
  * as pending, and is told of a marketing booking only once it is confirmed
@@ -289,10 +291,16 @@ class Schedule extends Model
         return $this->belongsTo(User::class, 'client_id');
     }
 
-    /** Whose appointment it is, by name. */
+    /** @return BelongsTo<Client, $this> The client record: a walk-in's, or an inquiry visit's client. */
+    public function clientRecord(): BelongsTo
+    {
+        return $this->belongsTo(Client::class, 'client_record_id');
+    }
+
+    /** Whose appointment it is, by name: the account's, else the walk-in's. */
     public function clientName(): ?string
     {
-        return $this->client?->name;
+        return $this->client->name ?? $this->clientRecord?->full_name;
     }
 
     /** @return BelongsTo<User, $this> */

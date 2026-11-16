@@ -277,7 +277,11 @@ const Schedule = () => {
         confirm: {
             title: 'Confirm appointment',
             description: (item: ScheduleItem) =>
-                `${item.title}${item.clientName ? ` with ${item.clientName}` : ''}. The client is told in their Regray chat that it is confirmed.`,
+                `${item.title}${item.clientName ? ` with ${item.clientName}` : ''}. ${
+                    item.walkIn
+                        ? 'A walk-in is not told in the app: let them know yourself.'
+                        : 'The client is told in their Regray chat that it is confirmed.'
+                }`,
             label: 'Confirm',
             route: confirmSchedule,
             done: 'Appointment confirmed',

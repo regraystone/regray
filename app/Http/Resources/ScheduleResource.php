@@ -3,7 +3,9 @@
 namespace App\Http\Resources;
 
 use App\Enums\BookedByType;
+use App\Enums\ClientKind;
 use App\Enums\ScheduleAction;
+use App\Models\ClientContact;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Services\ScheduleService;
@@ -19,7 +21,9 @@ use Illuminate\Support\Facades\Gate;
  * nothing of who it is assigned to or who declined it. Staff are told whose
  * appointment it is (`clientName`), who booked it when staff did, the sales
  * member it is assigned to, and the last decline while it waits to be
- * assigned again. No contact details and no ids of other people for anyone.
+ * assigned again. No ids of other people for anyone, and no contact details
+ * but a walk-in's (`walkIn`), for staff: a walk-in is never told in the app,
+ * so staff reach them themselves.
  *
  * `can` says which changes this reader may make to it now: SchedulePolicy for
  * who may, and ScheduleService::refusalFor() for whether its state still
@@ -30,7 +34,7 @@ use Illuminate\Support\Facades\Gate;
 class ScheduleResource extends JsonResource
 {
     /**
-     * @return array{id: int, title: string, arrivalAt: string, status: string, notes: string|null, inquiryReference: string|null, bookedByType: string, bookedByName: string|null, clientName: string|null, assignedSalesName: string|null, declinedByName: string|null, declineReason: string|null, cancelReason: string|null, changeReason: string|null, can: array<string, bool>}
+     * @return array{id: int, title: string, arrivalAt: string, status: string, notes: string|null, inquiryReference: string|null, bookedByType: string, bookedByName: string|null, clientName: string|null, walkIn: array{company: string|null, address: string|null, contacts: list<array{kind: string, value: string}>}|null, assignedSalesName: string|null, declinedByName: string|null, declineReason: string|null, cancelReason: string|null, changeReason: string|null, can: array<string, bool>}
      */
     public function toArray(Request $request): array
     {
@@ -48,12 +52,37 @@ class ScheduleResource extends JsonResource
             'bookedByType' => $this->booked_by_type->value,
             'bookedByName' => $this->booked_by_type === BookedByType::Staff ? $this->bookedBy?->name : null,
             'clientName' => $isStaffReader ? $this->clientName() : null,
+            'walkIn' => $isStaffReader ? $this->walkIn() : null,
             'assignedSalesName' => $isStaffReader ? $this->assignee?->name : null,
             'declinedByName' => $isStaffReader && $this->declined_at !== null ? $this->declinedBy?->name : null,
             'declineReason' => $isStaffReader ? $this->decline_reason : null,
             'cancelReason' => $this->cancel_reason,
             'changeReason' => $this->change_reason,
             'can' => $this->abilities($viewer),
+        ];
+    }
+
+    /**
+     * A direct (walk-in) client's company, address and every way to reach
+     * them; null for a client with an account.
+     *
+     * @return array{company: string|null, address: string|null, contacts: list<array{kind: string, value: string}>}|null
+     */
+    private function walkIn(): ?array
+    {
+        $record = $this->clientRecord;
+
+        if ($record === null || $record->kind !== ClientKind::Direct) {
+            return null;
+        }
+
+        return [
+            'company' => $record->company,
+            'address' => $record->address,
+            'contacts' => array_values($record->contacts->map(fn (ClientContact $contact): array => [
+                'kind' => $contact->kind->value,
+                'value' => $contact->value,
+            ])->all()),
         ];
     }
 

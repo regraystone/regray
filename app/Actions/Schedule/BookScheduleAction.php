@@ -3,6 +3,7 @@
 namespace App\Actions\Schedule;
 
 use App\Events\ScheduleBooked;
+use App\Models\Client;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Services\ScheduleService;
@@ -25,11 +26,11 @@ class BookScheduleAction
     }
 
     /**
-     * Save a booking marketing made for a client, assigned at once to
-     * `$sales`, who is told to confirm it. The client is told once it is
-     * confirmed.
+     * Save a booking marketing made for a client (an account, or a walk-in's
+     * client record), assigned at once to `$sales`, who is told to confirm it.
+     * A client with an account is told once it is confirmed; a walk-in never.
      */
-    public function executeForStaff(User $staff, User $client, User $sales, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
+    public function executeForStaff(User $staff, User|Client $client, User $sales, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
     {
         $schedule = $this->scheduleService->createForStaffBooking($staff, $client, $sales, $purpose, $arrivalAt, $notes);
 

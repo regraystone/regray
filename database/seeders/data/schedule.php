@@ -10,6 +10,9 @@
  *   accounts (0 is sales@example.com); null for one nobody has been assigned.
  *   Awaiting sales, confirmed and served visits always have one.
  * - `declined`: a pending visit a sales member sent back, and why.
+ * - `walkIn`: booked by marketing for the first direct (walk-in) client
+ *   InquirySeeder took down, who has no account, rather than for the sample
+ *   client.
  */
 return [
     'items' => [
@@ -33,5 +36,7 @@ return [
         ['id' => 'apt-18', 'title' => 'Cancelled demo', 'week' => 'current', 'day' => 1, 'hour' => 14, 'by' => 'client', 'status' => 'cancelled', 'sales' => null, 'notes' => 'Cancelled by client'],
         ['id' => 'apt-19', 'title' => 'Slab viewing', 'week' => 'next', 'day' => 1, 'hour' => 10, 'by' => 'marketing', 'status' => 'awaiting_sales', 'sales' => 1, 'notes' => 'Viewing the reserved slabs'],
         ['id' => 'apt-20', 'title' => 'Measurement visit', 'week' => 'next', 'day' => 2, 'hour' => 13, 'by' => 'client', 'status' => 'pending', 'sales' => null, 'notes' => 'Kitchen measurements'],
+        ['id' => 'apt-21', 'title' => 'Walk-in showroom visit', 'week' => 'next', 'day' => 3, 'hour' => 11, 'by' => 'marketing', 'walkIn' => true, 'status' => 'awaiting_sales', 'sales' => 0, 'notes' => 'Called the studio; no account'],
+        ['id' => 'apt-22', 'title' => 'Walk-in slab viewing', 'week' => 'next', 'day' => 4, 'hour' => 15, 'by' => 'marketing', 'walkIn' => true, 'status' => 'confirmed', 'sales' => 1, 'notes' => 'Bringing the contractor'],
     ],
 ];

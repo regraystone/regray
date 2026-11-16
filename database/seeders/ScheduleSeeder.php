@@ -3,8 +3,10 @@
 namespace Database\Seeders;
 
 use App\Enums\BookedByType;
+use App\Enums\ClientKind;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
+use App\Models\Client;
 use App\Models\Schedule;
 use App\Models\User;
 use Carbon\Carbon;
@@ -15,8 +17,8 @@ use Illuminate\Database\Seeder;
  * step of the sales confirmation flow (data/schedule.php): waiting for
  * marketing to assign them, declined back to marketing, awaiting a sales
  * member, confirmed, served and cancelled; some booked by the client, some by
- * marketing. They are spread over two sales members, so each reads only
- * theirs.
+ * marketing, two for a walk-in with no account. They are spread over two
+ * sales members, so each reads only theirs.
  *
  * Inquiry visits are not seeded here: InquirySeeder books one per inquiry
  * project through ScheduleService. These rows are looked up with
@@ -39,10 +41,18 @@ class ScheduleSeeder extends Seeder
             return;
         }
 
+        $walkIn = Client::query()->where('kind', ClientKind::Direct->value)->orderBy('id')->first();
+
         // sales@example.com first, so index 0 is the demo account.
         $sales = User::role(Role::Sales->value)->orderByRaw("email = 'sales@example.com' DESC")->orderBy('id')->get()->values();
 
         foreach ($data['items'] as $itemData) {
+            $isWalkIn = ($itemData['walkIn'] ?? false) === true;
+
+            if ($isWalkIn && $walkIn === null) {
+                continue;
+            }
+
             $dayOffset = $itemData['week'] === 'next' ? 7 + $itemData['day'] : min(max($todayIndex + $itemData['day'], 0), 6);
             $arrivalAt = $monday->copy()->addDays($dayOffset)->setHour($itemData['hour'])->setMinute(0);
             $status = ScheduleStatus::from($itemData['status']);
@@ -57,7 +67,8 @@ class ScheduleSeeder extends Seeder
             Schedule::query()->firstOrCreate(
                 ['title' => $itemData['title'], 'arrival_at' => $arrivalAt, 'inquiry_id' => null],
                 [
-                    'client_id' => $client->id,
+                    'client_id' => $isWalkIn ? null : $client->id,
+                    'client_record_id' => $isWalkIn ? $walkIn->id : null,
                     'booked_by' => $byMarketing ? $marketing->id : $client->id,
                     'booked_by_type' => $byMarketing ? BookedByType::Staff : BookedByType::Client,
                     'status' => $status,

@@ -36,6 +36,11 @@ const rest = {
     bookedByType: 'staff',
     bookedByName: 'Sam',
     clientName: 'Rafa',
+    walkIn: {
+        company: null,
+        address: 'Makati',
+        contacts: [{ kind: 'phone', value: '+639171234567' }],
+    },
     assignedSalesName: 'Sales Officer',
     declinedByName: null,
     declineReason: null,

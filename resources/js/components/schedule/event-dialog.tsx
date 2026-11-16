@@ -8,9 +8,24 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { ScheduleItem } from '@/lib/schedule';
+import type { ScheduleItem, ScheduleWalkIn } from '@/lib/schedule';
+import { CONTACT_KIND_LABELS } from '@/lib/staff-inquire';
 import { formatFullDate, formatTime } from '@/lib/date';
 
+/** A link that calls or writes to a walk-in's contact, where one fits. */
+const contactHref = (
+    contact: ScheduleWalkIn['contacts'][number],
+): string | null => {
+    if (contact.kind === 'phone') {
+        return `tel:${contact.value}`;
+    }
+
+    if (contact.kind === 'email') {
+        return `mailto:${contact.value}`;
+    }
+
+    return null;
+};
 
 /** What the reader chose to do to the visit from its dialog. */
 export type ScheduleDialogAction =
@@ -113,9 +128,59 @@ const EventDialog = ({
                                     </dt>
                                     <dd className="mt-1.5 text-sm text-secondary-foreground">
                                         {item.clientName}
+                                        {item.walkIn ? ' (walk-in)' : ''}
                                     </dd>
                                 </div>
                             ) : null}
+                            {item.walkIn ? (
+                                <div
+                                    className="px-4 py-3"
+                                    data-testid="schedule-walk-in"
+                                >
+                                    <dt className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                                        Reach them
+                                    </dt>
+                                    <dd className="mt-1.5 space-y-1 text-sm text-secondary-foreground">
+                                        <p className="text-xs">
+                                            A walk-in has no Regray account and
+                                            is not told in the app.
+                                        </p>
+                                        {item.walkIn.contacts.map((contact) => (
+                                            <p
+                                                key={`${contact.kind}-${contact.value}`}
+                                            >
+                                                <span className="font-bold text-foreground">
+                                                    {
+                                                        CONTACT_KIND_LABELS[
+                                                            contact.kind
+                                                        ]
+                                                    }
+                                                    :
+                                                </span>{' '}
+                                                {contactHref(contact) ? (
+                                                    <a
+                                                        href={
+                                                            contactHref(
+                                                                contact,
+                                                            ) ?? undefined
+                                                        }
+                                                        className="underline underline-offset-2"
+                                                    >
+                                                        {contact.value}
+                                                    </a>
+                                                ) : (
+                                                    contact.value
+                                                )}
+                                            </p>
+                                        ))}
+                                        {item.walkIn.company ? (
+                                            <p>
+                                                <span className="font-bold text-foreground">
+                                                    Company:
+                                                </span>{' '}
+                                                {item.walkIn.company}
+                                            </p>
+                                        ) : null}
                                         {item.walkIn.address ? (
                                             <p>
                                                 <span className="font-bold text-foreground">

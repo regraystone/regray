@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\BookedByType;
+use App\Enums\ClientKind;
 use App\Enums\ConversationType;
 use App\Enums\MessageType;
 use App\Enums\Role;
 use App\Enums\ScheduleStatus;
 use App\Events\ScheduleBooked;
 use App\Listeners\PostScheduleCard;
+use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Schedule;
@@ -255,4 +257,59 @@ it('finds the client accounts the staff member is authorized for, and keeps a cl
     $this->actingAs($client)
         ->getJson(route('schedule.book.accounts', ['search' => 'Ramona']))
         ->assertForbidden();
+});
+
+describe('a walk-in', function (): void {
+    it('books a walk-in, shows their name to staff, and never posts a card for them', function (): void {
+        $marketing = inquiryClient(Role::Marketing);
+        $marketing->update(['name' => 'Mara']);
+        $sales = inquiryClient(Role::Sales);
+        $sales->update(['name' => 'Sam']);
+        $walkIn = walkInClient('Wanda Walk-in');
+
+        $this->actingAs($marketing)
+            ->post(route('schedule.book.store'), bookingInput(['directClientId' => $walkIn->id, 'salesId' => $sales->id]))
+            ->assertSessionHasNoErrors();
+
+        $schedule = Schedule::query()->sole();
+
+        expect($schedule->client_id)->toBeNull()
+            ->and($schedule->client_record_id)->toBe($walkIn->id)
+            ->and($schedule->booked_by_type)->toBe(BookedByType::Staff)
+            ->and($schedule->status)->toBe(ScheduleStatus::AwaitingSales)
+            ->and($schedule->assigned_to)->toBe($sales->id)
+            ->and(notificationBodies($sales))->toBe(['Mara has assigned you an appointment with Wanda Walk-in on Oct 15, 2026 at 10:00 AM. Confirm or decline it.']);
+
+        $this->actingAs($sales)->post(route('schedule.confirm', $schedule))->assertSessionHasNoErrors();
+
+        expect($schedule->fresh()->status)->toBe(ScheduleStatus::Confirmed)
+            ->and(Message::query()->where('type', MessageType::ScheduleCard)->exists())->toBeFalse()
+            ->and(notificationBodies($marketing))->toContain('Sam has confirmed the appointment with Wanda Walk-in on Oct 15, 2026 at 10:00 AM.');
+
+        $range = ['from' => '2026-10-01', 'to' => '2026-11-01'];
+        $row = collect($this->actingAs($marketing)->get(route('schedule.index', $range))->viewData('page')['props']['schedules'])->sole();
+
+        expect($row['clientName'])->toBe('Wanda Walk-in')
+            ->and($row['walkIn']['contacts'])->toBe([['kind' => 'phone', 'value' => $walkIn->contacts()->value('value')]])
+            ->and($row['walkIn'])->toHaveKeys(['company', 'address']);
+
+        // The sales member confirming it reads how to reach them too.
+        $salesRow = collect($this->actingAs($sales)->get(route('schedule.index', $range))->viewData('page')['props']['schedules'])->sole();
+
+        expect($salesRow['walkIn']['contacts'])->toHaveCount(1);
+    });
+
+    it('refuses a walk-in id that names a client with an account, or nobody', function (): void {
+        $marketing = inquiryClient(Role::Marketing);
+        $sales = inquiryClient(Role::Sales);
+        $platform = Client::query()->forceCreate(['kind' => ClientKind::Platform, 'user_id' => inquiryClient()->id, 'full_name' => 'Has An Account']);
+
+        foreach ([$platform->id, 999999] as $id) {
+            $this->actingAs($marketing)
+                ->post(route('schedule.book.store'), bookingInput(['directClientId' => $id, 'salesId' => $sales->id]))
+                ->assertSessionHasErrors(['clientId' => 'Choose a walk-in client on file']);
+        }
+
+        expect(Schedule::query()->count())->toBe(0);
+    });
 });

@@ -6,6 +6,7 @@ use App\Enums\BookedByType;
 use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Enums\ScheduleStatus;
+use App\Models\Client;
 use App\Models\Inquiry;
 use App\Models\Schedule;
 use App\Models\User;
@@ -77,6 +78,7 @@ class ScheduleService
     {
         return $this->scheduleRepository->create([
             'client_id' => $client?->id,
+            'client_record_id' => $inquiry->client_record_id,
             'booked_by' => ($bookedBy ?? $client)?->id,
             'booked_by_type' => $bookedBy === null ? BookedByType::Client : BookedByType::Staff,
             'inquiry_id' => $inquiry->id,
@@ -110,16 +112,18 @@ class ScheduleService
     }
 
     /**
-     * An appointment marketing books for a client it chose. Booked by the
-     * marketer, and assigned at once to
+     * An appointment marketing books for a client it chose: a client account
+     * (`User`), or a direct (walk-in) client record with no account (`Client`),
+     * who is never told. Booked by the marketer, and assigned at once to
      * `$sales`, so it is awaiting sales until that sales member confirms it.
      * Not confirmed yet, and not yet announced to the client
      * (Schedule::isKnownToClient()).
      */
-    public function createForStaffBooking(User $staff, User $client, User $sales, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
+    public function createForStaffBooking(User $staff, User|Client $client, User $sales, string $purpose, CarbonImmutable $arrivalAt, ?string $notes): Schedule
     {
         return $this->scheduleRepository->create([
-            'client_id' => $client->id,
+            'client_id' => $client instanceof User ? $client->id : null,
+            'client_record_id' => $client instanceof Client ? $client->id : null,
             'booked_by' => $staff->id,
             'booked_by_type' => BookedByType::Staff,
             'inquiry_id' => null,

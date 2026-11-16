@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Schedule;
 use App\Actions\Schedule\BookScheduleAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Schedule\StoreBookingRequest;
+use App\Models\Client;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -18,8 +19,8 @@ class BookingController extends Controller
 
     /**
      * Save the booking the Book an appointment page built: a client's own,
-     * pending, or one marketing made for the client it chose, awaiting the
-     * sales member it is assigned to.
+     * pending, or one marketing made for the client it chose (an account or a
+     * walk-in), awaiting the sales member it is assigned to.
      *
      * Validation failures are the form request's and come back as Inertia
      * errors. Anything else is reported once and flashed as an error, and the
@@ -32,8 +33,8 @@ class BookingController extends Controller
 
         try {
             if ($request->isStaffBooking()) {
-                /** @var User $client after() refused a request naming no client account. */
-                $client = $request->client();
+                /** @var User|Client $client after() refused a request naming no client account or walk-in. */
+                $client = $request->bookedFor();
                 /** @var User $sales after() refused a request naming no sales member. */
                 $sales = $request->sales();
                 $this->bookSchedule->executeForStaff($user, $client, $sales, $request->purpose(), $request->arrivalAt(), $request->notes());
