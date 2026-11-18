@@ -333,6 +333,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'service.detailFields.options',
                 'detailAnswers.detailField',
                 'detailAnswers.option',
+                'clientInformationSnapshot',
                 'schedule:id,inquiry_id,arrival_at,status',
                 'stones' => fn ($stones) => $stones->orderBy('sort_order'),
                 'stones.stone' => fn ($stone) => $stone->withTrashed(),

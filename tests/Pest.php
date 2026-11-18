@@ -209,6 +209,41 @@ function inquiryProjectInput(array $overrides = []): array
 }
 
 /**
+ * The delivery answer a client sends with their own inquiry, with `$overrides`
+ * laid over it. It is the same answer the project carries, sent once more so
+ * the Profile row and the inquiry snapshot can be written from one payload.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function clientInformationInput(array $overrides = []): array
+{
+    return [
+        'deliveryMethod' => 'delivery',
+        'location' => 'Makati',
+        'saveToProfile' => false,
+        ...$overrides,
+    ];
+}
+
+/**
+ * The whole body a client posts to send their own inquiry: the projects plus
+ * the delivery answer they were asked for. It is on each project as well, as
+ * it is on the page.
+ *
+ * @param  list<array<string, mixed>>  $projects
+ * @param  array<string, mixed>  $clientInformation
+ * @return array{projects: list<array<string, mixed>>, clientInformation: array<string, mixed>}
+ */
+function clientInquiryInput(array $projects, array $clientInformation = []): array
+{
+    return [
+        'projects' => $projects,
+        'clientInformation' => clientInformationInput($clientInformation),
+    ];
+}
+
+/**
  * Role statuses that show `$status`, for an inquiry or a card snapshot, NULL
  * for a stage that has not started: sales starts when the lead is won, payment
  * when the client approves, and logistics with the first payment. Won comes

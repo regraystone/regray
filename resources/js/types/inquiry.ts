@@ -1,4 +1,8 @@
 import type {
+    ClientInformationPageProps,
+    ClientInformationValues,
+} from '@/lib/client-information';
+import type {
     InquiryEditProject,
     InquiryMode,
     ServiceTypeOption,
@@ -43,6 +47,16 @@ export type InquirePageProps = {
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
     locations: string[];
+    /**
+     * A client sending their own inquiry: their saved details and what a new
+     * form starts from. On edit, the flat snapshot of what was sent instead.
+     * Absent on staff flows, which have no new required fields and never
+     * prefill from a Profile.
+     */
+    clientInformation?:
+        | ClientInformationPageProps
+        | ClientInformationValues
+        | null;
     mode?: InquiryMode;
     reference?: string;
     projects?: InquiryEditProject[];

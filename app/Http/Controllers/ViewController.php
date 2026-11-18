@@ -14,6 +14,7 @@ use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
+use App\Http\Resources\ClientInformationResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryRowResource;
 use App\Http\Resources\LeadOptionResource;
@@ -24,6 +25,7 @@ use App\Models\Schedule;
 use App\Models\User;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Services\ClientInformationService;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
 use Illuminate\Database\Eloquent\Collection;
@@ -169,16 +171,31 @@ class ViewController extends Controller
      * super-admin every open lead. A client's `leads` is null: they send their
      * own.
      */
-    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads): Response
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientInformationService $clientInformation): Response
     {
         /** @var User $user */
         $user = $request->user();
         $pickable = $user->isClient() ? null : $this->pickableLeads($user, $leads);
 
+        /*
+         * Only the client sending their own inquiry is given these values, as
+         * one prop on this page — never in the shared Inertia props. `saved`
+         * says whether there is a row to reset to; `prefill` is what a new
+         * form starts with. Staff get no prop at all.
+         */
+        $information = $pickable === null ? [
+            'saved' => $clientInformation->savedFor($user) === null
+                ? null
+                : ClientInformationResource::make($clientInformation->prefillFor($user))->resolve($request),
+            'prefill' => ClientInformationResource::make($clientInformation->prefillFor($user))->resolve($request),
+        ] : null;
+
         return Inertia::render('inquire', [
             ...InquiryCatalogResource::make($listInquiryOptions->execute())->resolve($request),
             ...$listInquiryStones->execute($request),
             'mode' => 'create',
+            // Staff do not get the key at all: there is no block to hide.
+            ...($pickable === null ? ['clientInformation' => $information] : []),
             'leads' => $pickable === null ? null : LeadOptionResource::collection($pickable)->resolve($request),
             'lead' => $pickable?->firstWhere('reference', $request->query('lead'))?->reference,
         ]);

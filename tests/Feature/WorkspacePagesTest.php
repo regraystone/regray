@@ -238,6 +238,8 @@ test('guards every route with exactly these permissions', function () {
         'profile.destroy' => $p(Permission::ProfileView),
         'security.edit' => $p(Permission::ProfileView),
         'user-password.update' => $p(Permission::ProfileView),
+        'profile.client-information.edit' => $p(Permission::ProfileView, Permission::ProfileClientInformationView),
+        'profile.client-information.update' => $p(Permission::ProfileView, Permission::ProfileClientInformationView),
         'profile.schedule' => $p(Permission::ProfileView, Permission::ProfileScheduleView),
         'profile.schedule.book' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate),
         'profile.schedule.edit' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleUpdate),

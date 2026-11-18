@@ -84,7 +84,7 @@ describe('platform', function (): void {
     it('files a client\'s own inquiry under their platform record too', function (): void {
         $client = inquiryClient();
 
-        $this->actingAs($client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertRedirect();
+        $this->actingAs($client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))->assertRedirect();
 
         expect(Inquiry::query()->sole()->clientRecord->user_id)->toBe($client->id);
     });

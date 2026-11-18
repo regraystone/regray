@@ -10,6 +10,7 @@ const urls = {
     security: '/dashboard/profile/account-security/security',
     schedule: '/dashboard/profile/schedule',
     scheduleBook: '/dashboard/profile/schedule/book',
+    clientInformation: '/dashboard/profile/client-information',
 };
 
 const root = [{ label: 'Regray' }, { label: 'Dashboard' }];
@@ -48,6 +49,14 @@ describe('the profile breadcrumbs', () => {
             settings,
             { label: 'Account & Security', href: urls.accountSecurity },
             { label: 'Security' },
+        ]);
+    });
+
+    it('puts Client Information under Profile, not under Settings', () => {
+        assert.deepEqual(profileCrumbs(urls.clientInformation, urls), [
+            ...root,
+            profile,
+            { label: 'Client Information' },
         ]);
     });
 

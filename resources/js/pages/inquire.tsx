@@ -6,6 +6,17 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
+import {
+    clientInformationDiffers,
+    clientInformationForStorage,
+    clientInformationFormValues,
+    clientInformationSchema,
+    clientInformationZodErrors,
+    projectAnswersForNewProject,
+    type ClientInformationFormValues,
+    type ClientInformationPageProps,
+    type ClientInformationValues,
+} from '@/lib/client-information';
 import { fieldMessage } from '@/components/form-field';
 import { INQUIRY_DELIVERY_METHOD_ID } from '@/components/inquiry-project-details';
 import InquiryProjectForm from '@/components/inquiry-project-form';
@@ -73,6 +84,7 @@ import {
     INQUIRY_STEP_LABELS,
     mapInquiryErrors,
     nextQuestion,
+    PICKUP,
     questionProblem,
     readInquiryFlash,
     removedStonesNotice,
@@ -82,6 +94,8 @@ import {
     stoneFilterQuery,
     stoneTypeOptions,
     toEditFormProjects,
+    type ClientInformationErrorMessages,
+    type ClientInformationRequest,
     type InquiryEditProject,
     type InquiryFlash,
     type ServiceTypeOption,
@@ -232,11 +246,13 @@ const sendInquiryRequest = (
     values: InquiryFormValues,
     serviceTypes: ServiceTypeOption[],
     method: 'post' | 'patch' = 'post',
+    clientInformation: ClientInformationRequest | null = null,
 ): Promise<SendOutcome> =>
     new Promise((resolve) => {
         const body = buildInquiryFormData(values, {
             withProjectIds: method === 'patch',
             serviceFor: (serviceId) => findService(serviceTypes, serviceId),
+            clientInformation,
         });
 
         if (method === 'patch') {
@@ -397,7 +413,14 @@ type InquiryEdit = {
     back: { url: string; label: string };
     /** Staff edit the project only: the client's files stay as they are. */
     allowAttachments: boolean;
+    /** The snapshot of what this inquiry was sent with, when it has one. */
+    clientInformation?: ClientInformationValues | null;
 };
+
+/** Create and edit send different shapes: saved/prefill versus a flat snapshot. */
+const isClientInformationPageProps = (
+    value: ClientInformationPageProps | ClientInformationValues,
+): value is ClientInformationPageProps => 'saved' in value;
 
 /**
  * The stepper. `edit` is null when starting a new inquiry; when it is set, the
@@ -412,11 +435,14 @@ const InquireFlow = ({
     target = null,
     onChangeTarget,
     rememberStones,
+    clientInformation: clientInformationProps = null,
 }: {
     edit: InquiryEdit | null;
     target?: StaffInquireTarget | null;
     onChangeTarget?: () => void;
     rememberStones: (found: InquiryStoneOption[]) => void;
+    /** Present only for a client's own new inquiry; never for staff or an edit. */
+    clientInformation?: ClientInformationPageProps | null;
 }) => {
     const catalog = useInquiryCatalog();
     const { inquirySchema, projectDraftSchema } = useMemo(
@@ -560,6 +586,28 @@ const InquireFlow = ({
     );
 
     /*
+     * The saved answer is only ever the starting point for a new project. It is
+     * held in local state, so an Inertia prop refresh cannot put an older value
+     * back over what the reader has since chosen, and a save can move the local
+     * starting point forward. restore() below still wins over all of it.
+     */
+    const [activePrefill, setActivePrefill] = useState<ClientInformationValues>(
+        () =>
+            clientInformationProps?.prefill ?? {
+                deliveryMethod: DELIVERY,
+                location: null,
+            },
+    );
+
+    const initialDraftDefaults = useMemo(
+        () => ({
+            ...draftDefaults,
+            ...projectAnswersForNewProject(activePrefill, catalog.locations),
+        }),
+        [activePrefill, catalog.locations],
+    );
+
+    /*
      * The project in progress, as a second form.
      *
      * A second form rather than a corner of the first because a draft is not part
@@ -576,7 +624,7 @@ const InquireFlow = ({
         resolver: zodResolver(projectDraftSchema),
         mode: 'onTouched',
         reValidateMode: 'onChange',
-        defaultValues: draftDefaults,
+        defaultValues: initialDraftDefaults,
         shouldUnregister: false,
     });
 
@@ -596,6 +644,71 @@ const InquireFlow = ({
      */
     const hasDraftContinued = useRef(false);
     const isSendingRef = useRef(false);
+
+    /*
+     * The client's own details are page state, not part of either form: they
+     * live on the Review step, are sent once with the request, and are never
+     * written to a stored draft. A later Inertia prop refresh cannot reapply
+     * them over what the reader has already typed, so the props are read only
+     * here, on the first render.
+     */
+    const [savedInformation, setSavedInformation] = useState<
+        ClientInformationPageProps['saved']
+    >(clientInformationProps?.saved ?? null);
+    const [clientInformationValues, setClientInformationValues] =
+        useState<ClientInformationFormValues>(() =>
+            clientInformationFormValues(
+                clientInformationProps?.prefill ?? activePrefill,
+            ),
+        );
+    const [clientInformationErrors, setClientInformationErrors] =
+        useState<ClientInformationErrorMessages>({});
+    const [saveToProfile, setSaveToProfile] = useState(false);
+
+    const showSaveChoice =
+        clientInformationProps !== null &&
+        (savedInformation === null ||
+            clientInformationDiffers(
+                savedInformation,
+                clientInformationValues,
+            ));
+
+    /*
+     * If the values are brought back to what is saved, the choice to save them
+     * has nothing left to offer. It starts unchecked and stays that way.
+     */
+    useEffect(() => {
+        if (!showSaveChoice) {
+            setSaveToProfile(false);
+        }
+    }, [showSaveChoice]);
+
+    const resetClientInformation = (): void => {
+        if (savedInformation === null) {
+            return;
+        }
+
+        const answers = clientInformationFormValues(savedInformation);
+
+        setClientInformationValues(answers);
+        setClientInformationErrors({});
+
+        /*
+         * Review summarises the project's answer rather than keeping a second
+         * copy of it, so a reset has to put the saved answer onto the project
+         * too. That is also what the request and the snapshot then carry.
+         */
+        const projects = getValues('projects');
+
+        if (projects.length > 0) {
+            setValue('projects.0.deliveryMethod', answers.deliveryMethod, {
+                shouldDirty: true,
+            });
+            setValue('projects.0.location', answers.location, {
+                shouldDirty: true,
+            });
+        }
+    };
 
     const { can } = usePermissions();
 
@@ -702,10 +815,27 @@ const InquireFlow = ({
                     attachments: [],
                 })),
             });
+            /*
+             * The draft's delivery answer wins, including a deliberately blank
+             * site. A stale or unknown one falls through to the saved answer
+             * silently, exactly as on a brand-new project.
+             */
+            const answers = projectAnswersForNewProject(
+                activePrefill,
+                catalog.locations,
+                stored.draft.deliveryMethod,
+                stored.draft.location,
+            );
+
             draftMethods.reset({
                 ...stored.draft,
+                ...answers,
                 attachments: [],
             });
+
+            if (clientInformationProps !== null) {
+                setClientInformationValues(answers);
+            }
             setEditingProjectId(
                 stored.editingProjectId !== null &&
                     stored.projects.some(
@@ -1181,7 +1311,7 @@ const InquireFlow = ({
      * project would quietly make the next one overwrite an existing one.
      */
     const clearDraft = () => {
-        draftMethods.reset(draftDefaults);
+        draftMethods.reset(initialDraftDefaults);
         hasDraftContinued.current = false;
         setEditingProjectId(null);
         setStoneNotice(null);
@@ -1410,6 +1540,20 @@ const InquireFlow = ({
 
         setValue('projects', committed, { shouldDirty: true });
 
+        /*
+         * The Review block reads the committed answer, so a client who changes
+         * it on the details step sees that same answer there. An edit snapshot
+         * is never used for this: it stays as it was sent.
+         */
+        if (clientInformationProps !== null) {
+            setClientInformationValues(
+                clientInformationFormValues({
+                    deliveryMethod: project.deliveryMethod,
+                    location: project.location,
+                }),
+            );
+        }
+
         setEditingProjectId(null);
 
         clearDraft();
@@ -1518,11 +1662,51 @@ const InquireFlow = ({
             return;
         }
 
+        /*
+         * The client's own details are checked here, on the same button, so a
+         * complaint lands beside the Review block rather than coming back from
+         * the server after the request has already been sent.
+         */
+        const parsedClientInformation =
+            clientInformationProps === null
+                ? null
+                : clientInformationSchema(catalog.locations).safeParse(
+                      clientInformationValues,
+                  );
+
+        if (
+            parsedClientInformation !== null &&
+            !parsedClientInformation.success
+        ) {
+            const messages = clientInformationZodErrors(
+                parsedClientInformation.error.issues,
+            );
+
+            setClientInformationErrors(messages);
+            setValidationAlertErrors(Object.values(messages));
+
+            return;
+        }
+
+        const clientForRequest: ClientInformationRequest | null =
+            parsedClientInformation?.success === true
+                ? {
+                      deliveryMethod:
+                          parsedClientInformation.data.deliveryMethod,
+                      location:
+                          parsedClientInformation.data.deliveryMethod === PICKUP
+                              ? ''
+                              : parsedClientInformation.data.location,
+                      saveToProfile,
+                  }
+                : null;
+
+        setClientInformationErrors({});
         setSectionMessages({});
         setProjectMessages({});
         setValidationAlertErrors([]);
 
-        await (edit === null ? sendInquiry() : saveChanges());
+        await (edit === null ? sendInquiry(clientForRequest) : saveChanges());
     };
 
     /**
@@ -1542,7 +1726,9 @@ const InquireFlow = ({
      * is touched at all — that promise is the reason the panel offers a retry
      * rather than making the reader rebuild the request.
      */
-    const sendInquiry = async () => {
+    const sendInquiry = async (
+        clientInformation: ClientInformationRequest | null = null,
+    ) => {
         if (isSendingRef.current) {
             return;
         }
@@ -1557,6 +1743,8 @@ const InquireFlow = ({
                       inquireStoreUrl,
                       getValues(),
                       catalog.serviceTypes,
+                      'post',
+                      clientInformation,
                   );
 
         isSendingRef.current = false;
@@ -1570,6 +1758,7 @@ const InquireFlow = ({
 
             setProjectMessages(mapped.projectMessages);
             setSectionMessages(mapped.sectionMessages);
+            setClientInformationErrors(mapped.clientInformationMessages);
             setValidationAlertErrors(mapped.alertErrors);
             setResult(null);
 
@@ -1598,12 +1787,47 @@ const InquireFlow = ({
         const { title, reference } = outcome.flash;
 
         /*
-         * A fresh inquiry starts empty rather than from the request just sent,
-         * and the draft goes with it: a half-built project is the one thing that
+         * A fresh inquiry starts empty rather than from the request just sent.
+         * The draft goes with it: a half-built project is the one thing that
          * must not survive into the next inquiry.
          */
         reset(inquiryDefaults);
+
+        let nextPrefill = activePrefill;
+
+        /*
+         * The Client Information block goes back to the saved answer, not to
+         * what was sent with this request. If the reader asked for it to be
+         * kept, the local saved copy — and the starting answer for the next
+         * project — moves with it; no Inertia prop refresh is needed, and none
+         * is allowed to reapply an older prefill.
+         */
+        if (clientInformationProps !== null) {
+            setClientInformationErrors({});
+            setSaveToProfile(false);
+
+            const savedNow =
+                clientInformation !== null && clientInformation.saveToProfile;
+            const nextSaved = savedNow
+                ? clientInformationForStorage(clientInformation)
+                : (savedInformation ?? activePrefill);
+
+            nextPrefill = savedNow ? nextSaved : activePrefill;
+
+            if (savedNow) {
+                setSavedInformation(nextSaved);
+            }
+
+            setActivePrefill(nextPrefill);
+            setClientInformationValues(clientInformationFormValues(nextSaved));
+        }
+
         clearDraft();
+        draftMethods.reset({
+            ...draftDefaults,
+            ...projectAnswersForNewProject(nextPrefill, catalog.locations),
+        });
+
         /*
          * The draft is no longer a draft once it has been sent. Forgetting it
          * here — with any write still waiting behind it cancelled — is what
@@ -1816,6 +2040,48 @@ const InquireFlow = ({
                             locked={isSending}
                             onRequestQuote={requestQuote}
                             mode={edit === null ? 'create' : 'edit'}
+                            clientInformation={
+                                edit !== null
+                                    ? edit.clientInformation !== null &&
+                                      edit.clientInformation !== undefined
+                                        ? {
+                                              values: clientInformationFormValues(
+                                                  edit.clientInformation,
+                                              ),
+                                              errors: {},
+                                              hasSaved: false,
+                                              showSaveChoice: false,
+                                              saveToProfile: false,
+                                              readOnly: true,
+                                              onReset: () => {},
+                                              onSaveToProfileChange: () => {},
+                                          }
+                                        : undefined
+                                    : target === null &&
+                                        clientInformationProps !== null
+                                      ? {
+                                            values: clientInformationValues,
+                                            errors: clientInformationErrors,
+                                            hasSaved: savedInformation !== null,
+                                            showSaveChoice,
+                                            saveToProfile,
+                                            onEdit: () => {
+                                                const project =
+                                                    getValues('projects')[0];
+
+                                                if (project !== undefined) {
+                                                    openProject(
+                                                        project.id,
+                                                        REQUIREMENTS_STEP,
+                                                    );
+                                                }
+                                            },
+                                            onReset: resetClientInformation,
+                                            onSaveToProfileChange:
+                                                setSaveToProfile,
+                                        }
+                                      : undefined
+                            }
                         />
                     ) : (
                         /*
@@ -2313,9 +2579,15 @@ const Inquire = (props: InquirePageProps) => {
                                     label: 'Back to Quote',
                                 },
                       allowAttachments: editor !== 'staff',
+                      clientInformation:
+                          props.clientInformation === null ||
+                          props.clientInformation === undefined ||
+                          isClientInformationPageProps(props.clientInformation)
+                              ? null
+                              : props.clientInformation,
                   }
                 : null,
-        [mode, reference, projects, editor],
+        [mode, reference, projects, editor, props.clientInformation],
     );
 
     const catalog = useMemo(
@@ -2341,6 +2613,15 @@ const Inquire = (props: InquirePageProps) => {
                 target={edit === null ? target : null}
                 onChangeTarget={() => chooseKind(kind)}
                 rememberStones={rememberStones}
+                clientInformation={
+                    edit === null &&
+                    target === null &&
+                    props.clientInformation !== null &&
+                    props.clientInformation !== undefined &&
+                    isClientInformationPageProps(props.clientInformation)
+                        ? props.clientInformation
+                        : null
+                }
             />
         </InquiryCatalogProvider>
     );

@@ -257,6 +257,14 @@ export const keepKnownStones = (
  * the two are looking at the same value and a draft that only changed its
  * files cannot slip past the check or fail it.
  */
+/**
+ * The request-only "Client Information" payload. The delivery answer itself is
+ * a normal part of a project draft and is deliberately kept there — a restored
+ * draft must win over the Profile — but the payload sent with an inquiry is
+ * never written to browser storage.
+ */
+const personalDraftKeys = ['clientInformation'] as const;
+
 export const inquiryDraftState = (values: {
     step: number;
     editingProjectId: string | null;
@@ -269,6 +277,10 @@ export const inquiryDraftState = (values: {
         const copy = { ...entry } as Partial<T>;
 
         delete copy.attachments;
+
+        for (const key of personalDraftKeys) {
+            Reflect.deleteProperty(copy, key);
+        }
 
         return copy as Omit<T, 'attachments'>;
     };

@@ -260,4 +260,37 @@ describe('a stored draft', () => {
         assert.equal(stored.serviceTypeId, '');
         assert.equal(stored.serviceId, '');
     });
+
+    it('never writes the request-only Client Information payload to browser storage', () => {
+        const requestOnly = {
+            deliveryMethod: 'delivery',
+            location: 'Request-only site',
+            saveToProfile: true,
+        };
+
+        writeInquiryDraft(
+            USER,
+            stateOf(
+                draft({
+                    serviceId: 'dining-tables',
+                    deliveryMethod: 'delivery',
+                    location: 'Makati',
+                    clientInformation: requestOnly,
+                }),
+            ),
+        );
+
+        const raw = memory.get(KEY);
+
+        assert.notEqual(raw, null);
+        assert.equal(raw.includes('clientInformation'), false);
+        assert.equal(raw.includes('Request-only site'), false);
+        assert.equal(raw.includes('saveToProfile'), false);
+
+        // The project's own answer is a draft answer and does come back.
+        const { draft: stored } = readInquiryDraft(USER, catalog);
+
+        assert.equal(stored.deliveryMethod, 'delivery');
+        assert.equal(stored.location, 'Makati');
+    });
 });

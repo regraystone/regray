@@ -38,7 +38,7 @@ beforeEach(function (): void {
 function sentInquiry(mixed $test, array $projects): Inquiry
 {
     $test->actingAs($test->client)
-        ->post(route('quote.inquire.store'), ['projects' => $projects])
+        ->post(route('quote.inquire.store'), clientInquiryInput($projects))
         ->assertSessionHasNoErrors();
 
     return Inquiry::query()->latest('id')->with('files', 'schedule')->firstOrFail();

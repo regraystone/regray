@@ -7,6 +7,7 @@ import {
     CreditCard,
     FileText,
     Settings,
+    UserRound,
 } from 'lucide-react';
 import { HubRow, HubSection } from '@/components/hub-rows';
 import PageHeading from '@/components/page-heading';
@@ -16,6 +17,7 @@ import {
     schedule as profileSchedule,
     settings as profileSettings,
 } from '@/routes/profile';
+import { edit as editClientInformation } from '@/routes/profile/client-information';
 import { comingSoon } from '@/lib/coming-soon';
 
 /**
@@ -54,6 +56,18 @@ const Profile = () => {
                                 title="Schedule"
                                 description="Your appointments and when to expect them"
                                 href={profileSchedule.url()}
+                            />
+                        </HubSection>
+                    )}
+
+                    {can(permissions.profileClientInformationView) && (
+                        <HubSection title="Your details">
+                            <HubRow
+                                icon={UserRound}
+                                title="Client Information"
+                                description="How you'd like to get it and where"
+                                href={editClientInformation.url()}
+                                dataTest="profile-client-information-link"
                             />
                         </HubSection>
                     )}

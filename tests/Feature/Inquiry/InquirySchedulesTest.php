@@ -22,7 +22,7 @@ it('gives each inquiry sent one confirmed schedule, at 10:00', function (): void
         inquiryProjectInput(['name' => 'Survey', 'location' => 'Taguig', 'neededBy' => '2030-03-05']),
     ] as $project) {
         $this->actingAs($this->client)
-            ->post(route('quote.inquire.store'), ['projects' => [$project]])
+            ->post(route('quote.inquire.store'), clientInquiryInput([$project]))
             ->assertSessionHasNoErrors();
     }
 
@@ -53,7 +53,7 @@ it('gives each inquiry sent one confirmed schedule, at 10:00', function (): void
 it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leaves others alone', function (): void {
     foreach ([1, 2] as $inquiryNumber) {
         $this->actingAs($this->client)
-            ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+            ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
             ->assertSessionHasNoErrors();
     }
 
@@ -74,7 +74,7 @@ it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leav
 
 it('leaves a served schedule alone when the inquiry is cancelled', function (): void {
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertSessionHasNoErrors();
 
     $inquiry = Inquiry::query()->sole();
@@ -91,9 +91,9 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
     $thread = supportThreadFor($this->client);
 
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [
+        ->post(route('quote.inquire.store'), clientInquiryInput([
             inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2026-10-20']),
-        ]])
+        ]))
         ->assertSessionHasNoErrors();
 
     $inquiry = Inquiry::query()->with('schedule')->sole();

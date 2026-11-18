@@ -138,7 +138,7 @@ it('keeps the client on one lead: an inquiry sent after another was lost or won 
     makeInquiry($this->client, attributes: ['lead' => $lead, 'marketing_status' => LeadStatus::Lost]);
     makeInquiry($this->client, attributes: ['lead' => $lead, 'marketing_status' => LeadStatus::Won, 'status' => InquiryStatus::Negotiation]);
 
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => 'Patio'])]])->assertRedirect();
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['name' => 'Patio'])]))->assertRedirect();
 
     $inquiry = Inquiry::query()->where('name', 'Patio')->sole();
 
@@ -150,7 +150,7 @@ it('keeps the client on one lead: an inquiry sent after another was lost or won 
 });
 
 it('leaves a new inquiry unlinked while nobody holds the client\'s thread, and the claim links it', function (): void {
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertRedirect();
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))->assertRedirect();
 
     expect(Inquiry::query()->sole()->lead_id)->toBeNull()
         ->and(Lead::query()->exists())->toBeFalse();

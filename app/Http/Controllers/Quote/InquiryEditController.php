@@ -6,10 +6,12 @@ use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Quote\ShowInquiryEditAction;
 use App\Actions\Quote\UpdateInquiryAction;
+use App\Data\ClientInformationValues;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Quote\EditInquiryRequest;
 use App\Http\Requests\Quote\UpdateInquiryRequest;
 use App\Http\Requests\Quote\UpdateStaffInquiryRequest;
+use App\Http\Resources\ClientInformationResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryEditResource;
 use App\Models\User;
@@ -58,6 +60,14 @@ class InquiryEditController extends Controller
             ...$this->listInquiryStones->execute($request, $result['inquiry']->service?->slug),
             'mode' => 'edit',
             'reference' => $result['inquiry']->reference,
+            /*
+             * The snapshot stays the record of what was sent: it is shown
+             * read-only on the edit page and never used to prefill a changed
+             * form, nor updated when the project is saved.
+             */
+            'clientInformation' => $result['inquiry']->clientInformationSnapshot === null
+                ? null
+                : ClientInformationResource::make(ClientInformationValues::fromSnapshot($result['inquiry']->clientInformationSnapshot))->resolve($request),
             'projects' => [InquiryEditResource::make($result['inquiry'])->resolve($request)],
         ]);
     }

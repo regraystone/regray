@@ -179,7 +179,7 @@ it('records the staff member who opens an inquiry, and nobody for a client\'s ow
     $client = inquiryClient();
 
     $this->actingAs($marketing)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput(['name' => 'By staff'])]])->assertRedirect();
-    $this->actingAs($client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => 'By client'])]])->assertRedirect();
+    $this->actingAs($client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['name' => 'By client'])]))->assertRedirect();
 
     expect(Inquiry::query()->where('name', 'By staff')->value('created_by'))->toBe($marketing->id)
         ->and(Inquiry::query()->where('name', 'By client')->value('created_by'))->toBeNull();

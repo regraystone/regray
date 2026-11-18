@@ -29,6 +29,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int $id
  * @property string $name
  * @property string $email
+ * @property ClientInformation|null $clientInformation
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -126,6 +127,17 @@ class User extends Authenticatable implements MustVerifyEmail
     public function profile(): HasOne
     {
         return $this->hasOne(UserProfile::class);
+    }
+
+    /**
+     * The client's own saved "Client Information" row, not their CRM `Client`
+     * record. One per account, owned by this user alone.
+     *
+     * @return HasOne<ClientInformation, $this>
+     */
+    public function clientInformation(): HasOne
+    {
+        return $this->hasOne(ClientInformation::class);
     }
 
     /** @return HasMany<Inquiry, $this> */

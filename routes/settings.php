@@ -2,6 +2,7 @@
 
 use App\Enums\Permission;
 use App\Http\Controllers\Auth\GoogleController;
+use App\Http\Controllers\Settings\ClientInformationController;
 use App\Http\Controllers\Settings\EmailPreferencesController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -26,6 +27,27 @@ Route::middleware(['auth', Permission::ProfileView->middleware()])->prefix('dash
     Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
 
     Route::get('profile/settings', [ProfileController::class, 'settings'])->name('profile.settings');
+
+    /*
+     * The client's own saved delivery choice and site. Two guards:
+     * `profile.view` admits the reader to the hub this page sits under, and the
+     * page's own permission says which door they were given — the client, who
+     * sends their own inquiries, rather than a staff member who opens one for
+     * somebody else. No id is named in the URL: the row is the signed-in user's.
+     */
+    Route::get('profile/client-information', [ClientInformationController::class, 'edit'])
+        ->middleware([
+            Permission::ProfileView->middleware(),
+            Permission::ProfileClientInformationView->middleware(),
+        ])
+        ->name('profile.client-information.edit');
+    Route::put('profile/client-information', [ClientInformationController::class, 'update'])
+        ->middleware([
+            Permission::ProfileView->middleware(),
+            Permission::ProfileClientInformationView->middleware(),
+            'throttle:client-information-save',
+        ])
+        ->name('profile.client-information.update');
 
     Route::get('profile/account-security', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('profile/account-security', [ProfileController::class, 'update'])->name('profile.update');
