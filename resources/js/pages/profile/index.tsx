@@ -5,7 +5,6 @@ import {
     Calendar,
     Coins,
     CreditCard,
-    FileText,
     Settings,
     UserRound,
 } from 'lucide-react';
@@ -79,13 +78,6 @@ const Profile = () => {
                             description="Your transaction records"
                             onClick={comingSoon}
                             dataTest="profile-payments-button"
-                        />
-                        <HubRow
-                            icon={FileText}
-                            title="Quotations"
-                            description="Your submitted requests"
-                            onClick={comingSoon}
-                            dataTest="profile-quotations-button"
                         />
                         <HubRow
                             icon={BadgeCheck}
