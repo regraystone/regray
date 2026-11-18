@@ -1,3 +1,11 @@
+# Profile hub placeholder rows
+
+Five new UI placeholders on the Profile page (`/dashboard/profile`), all showing a "Coming Soon!" toast when clicked. **No migration.**
+
+- **Activity section:** Payments, Quotations, Warranties, Points (replace the old Transaction history row)
+- **Feedback section:** Report a Bug
+- **Settings placeholders:** Help & Support and Switch account now use the shared `comingSoon()` helper for consistent messages
+
 # Only sales marks how an appointment went
 
 **Mark as attended** and **Did not attend** are now the sales member's alone (and the admin's): marketing loses `schedule.attend`, so it no longer sees either button and the server refuses it (403). Marketing still books, updates, cancels and assigns. **Deploy, local and production: `php artisan db:seed --class=RolePermissionSeeder --force`**, which syncs each role's grants; no migration.

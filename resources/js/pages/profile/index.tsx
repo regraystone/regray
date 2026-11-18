@@ -1,6 +1,13 @@
 import { Head } from '@inertiajs/react';
-import { Calendar, Receipt, Settings } from 'lucide-react';
-import { toast } from 'sonner';
+import {
+    BadgeCheck,
+    Bug,
+    Calendar,
+    Coins,
+    CreditCard,
+    FileText,
+    Settings,
+} from 'lucide-react';
 import { HubRow, HubSection } from '@/components/hub-rows';
 import PageHeading from '@/components/page-heading';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -9,6 +16,7 @@ import {
     schedule as profileSchedule,
     settings as profileSettings,
 } from '@/routes/profile';
+import { comingSoon } from '@/lib/coming-soon';
 
 /**
  * Your account.
@@ -22,6 +30,9 @@ import {
  * staff who read the week have the sidebar entry and are not offered this door.
  * Which of the two a role gets is a permission question — `profile-schedule.view`
  * against `schedule.view` — so nothing here names a role.
+ *
+ * Placeholder rows (Payments, Quotations, Warranties, Points and Report a Bug)
+ * are UI stubs that display a "coming soon" toast when clicked.
  */
 const Profile = () => {
     const { can } = usePermissions();
@@ -47,16 +58,44 @@ const Profile = () => {
                         </HubSection>
                     )}
 
-                    <HubSection title="Transaction history">
+                    <HubSection title="Activity">
                         <HubRow
-                            icon={Receipt}
-                            title="Transaction history"
-                            description="View your payments and past transactions"
-                            onClick={() => {
-                                toast.info(
-                                    'Transaction history is coming soon.',
-                                );
-                            }}
+                            icon={CreditCard}
+                            title="Payments"
+                            description="Your transaction records"
+                            onClick={comingSoon}
+                            dataTest="profile-payments-button"
+                        />
+                        <HubRow
+                            icon={FileText}
+                            title="Quotations"
+                            description="Your submitted requests"
+                            onClick={comingSoon}
+                            dataTest="profile-quotations-button"
+                        />
+                        <HubRow
+                            icon={BadgeCheck}
+                            title="Warranties"
+                            description="Your coverage and terms"
+                            onClick={comingSoon}
+                            dataTest="profile-warranties-button"
+                        />
+                        <HubRow
+                            icon={Coins}
+                            title="Points"
+                            description="Your reward balance"
+                            onClick={comingSoon}
+                            dataTest="profile-points-button"
+                        />
+                    </HubSection>
+
+                    <HubSection title="Feedback">
+                        <HubRow
+                            icon={Bug}
+                            title="Report a Bug"
+                            description="Report issues and feedback"
+                            onClick={comingSoon}
+                            dataTest="profile-report-bug-button"
                         />
                     </HubSection>
 

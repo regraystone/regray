@@ -22,6 +22,9 @@ class ProfileController extends Controller
      * and it only lists the doors this reader has. Which of them are drawn is
      * decided in the front end from the shared `auth.permissions` prop, the same
      * way the sidebar decides what to hide, so there is nothing to pass here.
+     *
+     * Placeholder rows (Payments, Quotations, Warranties, Points and Report a Bug)
+     * are UI stubs that display a "coming soon" toast when clicked.
      */
     public function show(): Response
     {
