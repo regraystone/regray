@@ -29,7 +29,7 @@ dataset('the permission matrix', function () {
             Permission::QuotationsView, Permission::InquiriesCreate,
             Permission::MessagesView,
             Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate,
-            // Their own bookings only (SchedulePolicy); never approve.
+            // Their own bookings only (SchedulePolicy); never assign, confirm or mark how it went.
             Permission::ScheduleUpdate, Permission::ScheduleCancel,
         )],
         // The super-admin holds every permission.
@@ -40,26 +40,31 @@ dataset('the permission matrix', function () {
         )],
         'marketing' => [Role::Marketing->value, $p(
             Permission::OverviewView, Permission::InquiriesView, Permission::InquiriesCreate, Permission::InquiriesEdit,
+            // Inquiries for clients with an account, returning customers included, under their lead; sales has walk-ins only.
+            Permission::InquiriesCreatePlatform,
             Permission::LeadsView, Permission::LeadsUpdate,
+            // Marketing books, changes and assigns appointments to sales; sales marks how they went.
             Permission::ScheduleView, Permission::ScheduleCreate,
-            Permission::ScheduleUpdate, Permission::ScheduleCancel, Permission::ScheduleApprove,
+            Permission::ScheduleUpdate, Permission::ScheduleCancel, Permission::ScheduleAssign,
             Permission::MessagesView, Permission::ConversationsCreate, Permission::SupportClaim,
             Permission::ProfileView,
         )],
         'sales' => [Role::Sales->value, $p(
             Permission::OverviewView, Permission::InquiriesView, Permission::InquiriesCreate, Permission::InquiriesEdit,
             Permission::InquiriesStatusSales,
-            Permission::ScheduleView, Permission::ScheduleCreate,
-            Permission::ScheduleUpdate, Permission::ScheduleCancel, Permission::ScheduleApprove,
+            // Sales books nothing: it confirms or declines what it is assigned, and marks how it went.
+            Permission::ScheduleView, Permission::ScheduleConfirm, Permission::ScheduleAttend,
             Permission::MessagesView, Permission::ProfileView,
         )],
         'accounting' => [Role::Accounting->value, $p(
             Permission::OverviewView, Permission::SalesView, Permission::InquiriesView, Permission::InquiriesStatusPayment,
+            // The visits of the inquiries it is assigned to, read-only.
+            Permission::ScheduleView,
             Permission::MessagesView, Permission::ProfileView,
         )],
         'technical' => [Role::Technical->value, $p(
             Permission::OverviewView, Permission::InquiriesView,
-            // They view the schedule; booking is marketing's and sales'.
+            // They view the visits of their inquiries; booking is marketing's.
             Permission::ScheduleView,
             Permission::MessagesView, Permission::ProfileView,
         )],

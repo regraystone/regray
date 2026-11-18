@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Data\StaffVisibility;
 use App\Enums\ConsentType;
 use App\Enums\InquiryStatus;
+use App\Enums\Permission;
 use App\Enums\Role;
 use App\Notifications\QueuedResetPassword;
 use App\Notifications\QueuedVerifyEmail;
@@ -132,6 +134,18 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Inquiry::class, 'client_id');
     }
 
+    /** @return HasMany<Lead, $this> The client's lead: a client has one at most. */
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'client_id');
+    }
+
+    /** @return HasOne<Conversation, $this> The client's Regray Team thread. */
+    public function supportConversation(): HasOne
+    {
+        return $this->hasOne(Conversation::class, 'support_client_id');
+    }
+
     /** @return HasMany<InquiryHandler, $this> */
     public function handledInquiries(): HasMany
     {
@@ -154,6 +168,66 @@ class User extends Authenticatable implements MustVerifyEmail
             ->whereHas('inquiry', fn (Builder $inquiry) => $inquiry
                 ->whereNot(fn (Builder $inquiry) => $inquiry->whereDisplayStatus(InquiryStatus::Closed, InquiryStatus::Cancelled))),
         ]);
+    }
+
+    /**
+     * Keep the client accounts `$viewer` may find and pick: the one rule for
+     * every client search staff make (the Inbox's people search and group
+     * creation, the Inquire and Book an appointment pickers). Apply it before
+     * the search term and the limit, so neither reaches past it.
+     *
+     * The admin and the owner (StaffVisibility::$everything) find every
+     * client. Anyone else finds a client when any of these holds:
+     *  - they hold the client's lead (`leads.marketing_user_id`);
+     *  - they read one of the client's inquiries (Inquiry::scopeVisibleTo());
+     *  - the client's Regray Team thread is assigned to them;
+     *  - the thread is unassigned and they are in the support pool
+     *    (`support.claim`), who read it while nobody has it
+     *    (ConversationPolicy::view()).
+     * A thread another user has claimed gives nothing.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function clientsVisibleTo(Builder $query, User $viewer): void
+    {
+        $query->whereHas('roles', fn (Builder $role) => $role->where('name', Role::Client->value));
+
+        $visibility = StaffVisibility::for($viewer);
+
+        if ($visibility->everything) {
+            return;
+        }
+
+        $inSupportPool = $viewer->can(Permission::SupportClaim->value);
+
+        $query->where(function (Builder $query) use ($viewer, $visibility, $inSupportPool): void {
+            $query
+                ->whereHas('leads', fn (Builder $lead) => $lead->where('marketing_user_id', $viewer->id))
+                ->orWhereHas('supportConversation', fn (Builder $thread) => $thread->where(fn (Builder $thread) => $thread
+                    ->where('assigned_to', $viewer->id)
+                    ->when($inSupportPool, fn (Builder $thread) => $thread->orWhereNull('assigned_to'))));
+
+            if (! $visibility->seesNoInquiry()) {
+                $query->orWhereHas('inquiries', fn (Builder $inquiry) => $inquiry->visibleTo($viewer));
+            }
+        });
+    }
+
+    /**
+     * How this client reads in a search result: their email when the search
+     * is one (it holds "@") and the email holds it, otherwise their name. Run
+     * on clients the search already matched inside the viewer's scope
+     * (scopeClientsVisibleTo()), so it never reveals an email the viewer
+     * could not have found.
+     */
+    public function searchLabel(?string $search): string
+    {
+        $search = $search === null ? '' : trim($search);
+
+        return str_contains($search, '@') && str_contains(mb_strtolower($this->email), mb_strtolower($search))
+            ? $this->email
+            : $this->name;
     }
 
     /** @return BelongsToMany<Stone, $this> */
@@ -180,6 +254,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function schedules(): HasMany
     {
         return $this->hasMany(Schedule::class, 'client_id');
+    }
+
+    /** @return HasMany<Schedule, $this> The appointments a sales member is assigned to confirm. */
+    public function assignedSchedules(): HasMany
+    {
+        return $this->hasMany(Schedule::class, 'assigned_to');
     }
 
     /**

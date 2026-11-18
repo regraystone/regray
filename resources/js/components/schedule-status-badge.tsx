@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 
 export const STATUS_LABELS: Record<ScheduleStatus, string> = {
     pending: 'Pending',
+    awaiting_sales: 'Awaiting sales',
     confirmed: 'Confirmed',
     served: 'Served',
     expired: 'Expired',
@@ -12,6 +13,10 @@ export const STATUS_LABELS: Record<ScheduleStatus, string> = {
 const STATUS_STYLES: Record<ScheduleStatus, { bg: string; text: string }> = {
     pending: {
         bg: 'bg-transparent border border-secondary-foreground',
+        text: 'text-secondary-foreground',
+    },
+    awaiting_sales: {
+        bg: 'bg-transparent border border-dashed border-secondary-foreground',
         text: 'text-secondary-foreground',
     },
     confirmed: {

@@ -232,22 +232,23 @@ class ViewController extends Controller
 
     /**
      * The leads this staff member may open an inquiry from (LeadPolicy): every
-     * lead for the super-admin, those with a won inquiry for sales, and
-     * marketing's own.
+     * lead for the super-admin, marketing's own, and none for sales, which
+     * opens inquiries only for direct (walk-in) clients.
      *
      * @return Collection<int, Lead>
      */
     private function pickableLeads(User $user, LeadRepositoryInterface $leads): Collection
     {
         if ($user->hasRole(Role::superAdmin()->value)) {
-            return $leads->pickable(null, false);
+            return $leads->pickable(null);
         }
 
-        if ($user->hasRole(Role::Sales->value)) {
-            return $leads->pickable(null, true);
+        // Sales opens inquiries only for direct (walk-in) clients: no lead to pick.
+        if (! $user->can(Permission::InquiriesCreatePlatform->value)) {
+            return new Collection;
         }
 
-        return $leads->pickable($user, false);
+        return $leads->pickable($user);
     }
 
     /**
@@ -309,8 +310,8 @@ class ViewController extends Controller
                 'date' => $arrival->toDateString(),
                 'arrivalTime' => $arrival->format('H:i'),
                 'notes' => $schedule->notes,
-                'status' => $schedule->status->value,
-                'clientName' => $viewer->isClient() ? null : $schedule->client?->name,
+                'status' => $schedule->status->for($viewer)->value,
+                'clientName' => $viewer->isClient() ? null : $schedule->clientName(),
             ],
         ]);
     }

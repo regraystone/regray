@@ -45,11 +45,11 @@ interface LeadRepositoryInterface
     /**
      * The leads staff may open an inquiry from, newest first, with their client
      * and their inquiries' decisions. Only the marketing user's own when one is
-     * given; only those with a won inquiry when `$withWonInquiry`.
+     * given.
      *
      * @return Collection<int, Lead>
      */
-    public function pickable(?User $marketingUser, bool $withWonInquiry): Collection;
+    public function pickable(?User $marketingUser): Collection;
 
     public function findByReference(string $reference): ?Lead;
 }

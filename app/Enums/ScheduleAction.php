@@ -5,22 +5,30 @@ namespace App\Enums;
 /**
  * What may be done to an appointment once it is booked. The value is the key
  * of the `can` flags ScheduleResource sends, and the SchedulePolicy ability.
+ *
+ * Marketing assigns an appointment to a sales member; that sales member
+ * confirms or declines it. Marketing (and the client, their own) updates and
+ * cancels; sales alone marks how it went.
  */
 enum ScheduleAction: string
 {
     case Update = 'update';
     case Cancel = 'cancel';
-    case Approve = 'approve';
+    case Assign = 'assign';
+    case Confirm = 'confirm';
+    case Decline = 'decline';
     case Serve = 'serve';
     case NoShow = 'noShow';
 
-    /** The permission the route checks: attended and did not attend are a kind of update. */
+    /** The permission the route checks. */
     public function permission(): Permission
     {
         return match ($this) {
-            self::Update, self::Serve, self::NoShow => Permission::ScheduleUpdate,
+            self::Update => Permission::ScheduleUpdate,
             self::Cancel => Permission::ScheduleCancel,
-            self::Approve => Permission::ScheduleApprove,
+            self::Assign => Permission::ScheduleAssign,
+            self::Confirm, self::Decline => Permission::ScheduleConfirm,
+            self::Serve, self::NoShow => Permission::ScheduleAttend,
         };
     }
 
@@ -28,5 +36,11 @@ enum ScheduleAction: string
     public function isOpenToClients(): bool
     {
         return $this === self::Update || $this === self::Cancel;
+    }
+
+    /** Whether only the sales member the appointment is assigned to may do it. */
+    public function isForAssignedSales(): bool
+    {
+        return $this === self::Confirm || $this === self::Decline;
     }
 }

@@ -29,6 +29,18 @@ class ProfileController extends Controller
     }
 
     /**
+     * Show the Settings hub.
+     *
+     * Like the Profile hub, a list of doors: Account & Security, Help & Support
+     * (coming soon), Switch account and Log out. Every reader of the profile has
+     * all four, so there is nothing to pass.
+     */
+    public function settings(): Response
+    {
+        return Inertia::render('profile/settings');
+    }
+
+    /**
      * Show the user's Account & Security page.
      *
      * The name, email, security and delete-account settings, which is what the

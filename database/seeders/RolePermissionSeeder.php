@@ -51,18 +51,22 @@ class RolePermissionSeeder extends Seeder
      * The client holds `profile-schedule.view` where the staff who read the week
      * hold `schedule.view`: the schedule is one page with two URLs, and each role is
      * given the door that suits them. A client reaches it from their Profile
-     * page and has no Schedule in the sidebar; owner, marketing, sales, technical
-     * and logistics reach it from the sidebar and are not offered the Profile
-     * door. The client keeps `schedule.create` either way, because booking a visit
-     * is allowed from the appropriate door depending on which URL they use.
+     * page and has no Schedule in the sidebar; owner, marketing, sales,
+     * accounting, technical and logistics reach it from the sidebar and are not
+     * offered the Profile door. The client keeps `schedule.create` either way,
+     * because booking a visit is allowed from the appropriate door depending on
+     * which URL they use.
      *
-     * Changing an appointment: `schedule.update` (adjust, and for staff, mark
-     * as attended or not attended) and `schedule.cancel` go to the client, for
-     * their own bookings only (SchedulePolicy), and among staff to marketing and
-     * sales alone; `schedule.approve` to marketing and sales alone. Owner,
-     * accounting, technical and logistics hold none of them, nor
-     * `schedule.create`: they view the schedule, and marketing and sales book
-     * and change appointments.
+     * Booking and changing an appointment: `schedule.create`, `schedule.update`
+     * (adjust) and `schedule.cancel` go to the client, for their own bookings
+     * only (SchedulePolicy), and among staff to marketing alone;
+     * `schedule.assign` (to a sales member) to marketing alone;
+     * `schedule.confirm` (confirm or decline one assigned to you) to sales
+     * alone; `schedule.attend` (mark as attended or not attended) to sales
+     * alone, since it is the sales member who meets the client. Sales neither
+     * books nor changes an appointment: it answers the ones assigned to it and
+     * marks how they went. Owner, accounting, technical and logistics hold none
+     * of them: they view the visits they read (Schedule::scopeVisibleTo()).
      *
      * `leads.view` and `leads.update` are marketing's alone (and the
      * super-admin's, listed like every other permission). On the Inquiry list,
@@ -121,10 +125,13 @@ class RolePermissionSeeder extends Seeder
             Permission::LeadsView->value,
             Permission::ProfileScheduleView->value,
             Permission::InquiriesCreate->value,
+            Permission::InquiriesCreatePlatform->value,
             Permission::ScheduleCreate->value,
             Permission::ScheduleUpdate->value,
             Permission::ScheduleCancel->value,
-            Permission::ScheduleApprove->value,
+            Permission::ScheduleAssign->value,
+            Permission::ScheduleConfirm->value,
+            Permission::ScheduleAttend->value,
             Permission::SavedManage->value,
             Permission::ConversationsCreate->value,
             Permission::SupportClaim->value,
@@ -150,10 +157,11 @@ class RolePermissionSeeder extends Seeder
             Permission::ProfileView->value,
             Permission::LeadsView->value,
             Permission::InquiriesCreate->value,
+            Permission::InquiriesCreatePlatform->value,
             Permission::ScheduleCreate->value,
             Permission::ScheduleUpdate->value,
             Permission::ScheduleCancel->value,
-            Permission::ScheduleApprove->value,
+            Permission::ScheduleAssign->value,
             Permission::ConversationsCreate->value,
             Permission::SupportClaim->value,
             Permission::LeadsUpdate->value,
@@ -166,10 +174,8 @@ class RolePermissionSeeder extends Seeder
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::InquiriesCreate->value,
-            Permission::ScheduleCreate->value,
-            Permission::ScheduleUpdate->value,
-            Permission::ScheduleCancel->value,
-            Permission::ScheduleApprove->value,
+            Permission::ScheduleConfirm->value,
+            Permission::ScheduleAttend->value,
             Permission::InquiriesEdit->value,
             Permission::InquiriesStatusSales->value,
         ],
@@ -177,6 +183,7 @@ class RolePermissionSeeder extends Seeder
             Permission::OverviewView->value,
             Permission::SalesView->value,
             Permission::InquiriesView->value,
+            Permission::ScheduleView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::InquiriesStatusPayment->value,

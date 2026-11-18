@@ -1,3 +1,74 @@
+# Only sales marks how an appointment went
+
+**Mark as attended** and **Did not attend** are now the sales member's alone (and the admin's): marketing loses `schedule.attend`, so it no longer sees either button and the server refuses it (403). Marketing still books, updates, cancels and assigns. **Deploy, local and production: `php artisan db:seed --class=RolePermissionSeeder --force`**, which syncs each role's grants; no migration.
+
+# Account options move to Settings
+
+The account-level options leave the Profile page for one **Settings** page under it, in three groups. **No migration.**
+
+- **Profile** (`/dashboard/profile`): Schedule (as before, for those who have it), Transaction history (still coming soon) and **Settings**. Account & Security, Help and the Session block move to Settings.
+- **Settings** (`/dashboard/profile/settings`, `profile.settings`, `profile.view`; every role): **Account** (Account & Security), **Support** (Help & Support, a "coming soon" toast for now) and **Session** (Switch account, a "coming soon" toast for now; Log out, which asks first as before).
+- **Account & Security** keeps its URL. Its mobile back link reads "Back to settings", and **Security options** (password and two-factor) now lead the page, linking to the Security page.
+- **Header menu:** the dead Help item is now **Settings**.
+- **Breadcrumbs** (`lib/profile-breadcrumbs.ts`): Regray / Dashboard / Profile / Settings, then Account & Security under Settings, and Security under that; every ancestor links. Schedule is unchanged.
+
+# Regray's own fonts, and a corporate landing page for the platform
+
+The whole system takes the Regray Stone look, in free fonts: **Hanken Grotesk** for text (standing in for Neue Montreal) and **Lexend** for headings (standing in for Garet), both from Bunny Fonts (`vite.config.ts`). `font-sans` is Hanken Grotesk, the new `font-display` is Lexend, and every `h1`, `h2` and `h3` uses it (`app.css`). Instrument Sans is gone.
+
+The landing page (`/`, guests only) is rebuilt from the CEO's brief and the v5 design: Regray introduced as a platform, the group of brands it brings together, then what a client does on it and where to find it. White and corporate, with photos framed in a white margin and centred stories under them.
+
+- **Header:** sticky and white: Stones and Furniture (Regray Stone's public page, filtered to each), Brands, Projects, Catalogs, Showroom, Login and Inquire; a full-screen menu below 1180px.
+- **Sections:** the framed hero; **The Regray group, "Every brand. One platform."**, its count of brands taken from the database; **Regray Stone** first, then every other active brand, each its own photo across the full width (cropped to the screen's height when taller, never letterboxed) with its logo over it, its database description (or tagline) and a link to its page; **Premium slabs collection** over a wall of book-matched quartzite (`public/images/regray-slabs.jpg`, from the Recidencia Del Hamor gallery); **Featured projects**, the 4 latest published projects as square tiles; **For clients**, the four steps and Send an inquiry / Create an account; **Catalogs**, the title in a left column beside a row of tall cards, every active brand's collection with what it holds ("Cucine Lube kitchens", "Ascale sintered stone", …), which runs off the page's right edge and scrolls sideways (trackpad, touch, keyboard, or the previous and next arrows a card at a time); each opens its brand's page (there is no catalogs page yet); **Showroom**, its photo (`public/images/regray-showroom.jpg`, from regraystone.com) with the address and hours as regraystone.com gives them and Get directions on Google Maps.
+- **Footer:** black: collections, every brand, the platform's actions, Regray's six social accounts and the showroom's address and hours.
+- **Not built:** the design's newsletter form (nothing stores sign-ups yet) and its Terms and Privacy links (no such pages).
+- **Data:** `LandingController` sends `brands` through the new `LandingBrandResource` (with the description) and `projects` capped at 4; the services list and its `LandingServiceTypeResource` are removed.
+
+# Home, Saved and Profile breadcrumbs name the Dashboard
+
+The workspace header's trail on Home, Saved and Profile, and on every page under them, now reads **Regray / Dashboard / {page}**, like the rest of the workspace, instead of Regray / {page}. **No migration.**
+
+- **Home:** Regray / Dashboard / Home, and its project and stone pages after it. The brand, stone and furniture pages (`catalogueCrumbs`) read Regray / Dashboard / Home / Brand / Product.
+- **Saved:** Regray / Dashboard / Saved, and a saved stone or furniture piece after it.
+- **Profile:** Regray / Dashboard / Profile, and Account & Security, Security, Schedule and Book after it.
+
+# Marketing books appointments, sales confirms them
+
+Only marketing (and the admin) books an appointment for a client now, and every appointment is confirmed by the sales member it is assigned to. Sales no longer books, updates or cancels; it confirms, declines and marks how a visit went. **Deploy, local and production: `php artisan migrate:fresh --seed`.** The seeded appointments are rebuilt: some assigned to sales, some not, one declined.
+
+- **Schema** (`2026_11_16_000001_add_sales_assignment_to_schedules`): `schedules.assigned_to`, `assigned_by`, `declined_by` (users, null on delete), `assigned_at`, `declined_at`, `decline_reason`, `sales_reminded_at`, `marketing_reminded_at`; `client_record_id` (clients, restrict on delete) for a walk-in's appointment; a new status **`awaiting_sales`** in `chk_schedules_status`; `chk_schedules_declined` keeps the decline time and reason set together; `chk_schedules_client` requires an inquiry, a client account or a client record.
+- **Status:** `pending` is waiting for marketing to assign it, `awaiting_sales` for its sales member to confirm. A client only ever sees **pending** for either (`ScheduleStatus::forClient()`, `for($viewer)`, used by the page, the edit page and the chat cards). Both expire when their time passes (`schedules:expire`).
+- **Booking:**
+    - **A client** books as before: pending, in marketing's queue.
+    - **Marketing** chooses the client and a **sales member** (required; the picker shows each one's upcoming appointments, `schedule.sales`). It is saved as awaiting sales, and the client is told nothing until it is confirmed.
+    - **Walk-ins:** the client picker has a **Regray account / Walk-in** switch. Walk-in takes the client down with the same form as Inquire's Direct branch (offering the record already on file instead of a duplicate) and books with `directClientId`. A walk-in has no account, so gets no chat card or notification; staff are notified as usual, by the walk-in's name. Staff reading the appointment (marketing, its sales member, the admin and the owner) see the walk-in's phone, Viber, WhatsApp and email, company and address under **Reach them** (`walkIn` on the schedule), to tell them themselves; confirming one says so.
+- **Overlap warning:** the sales picker, given the time being booked (`date`, `time`) or the appointment being assigned (`scheduleId`), marks a sales member who already has an appointment less than `schedule.visit_minutes` (60) away: one assigned to them (awaiting them or confirmed), or a confirmed visit of an inquiry they handle or opened. "Already has “Slab viewing” at 10:30 AM". A warning only; they can still be chosen. The sales member confirming an appointment is warned the same way in the Confirm dialog (`schedule.clash`), and may still confirm.
+- **Reminders** (`schedules:remind`, hourly), once each, in the app, never within the hour:
+    - **Sales:** a sales member who has not confirmed or declined an appointment, `schedule.sales_reminder_hours` (24) after it was assigned or that long before its time, whichever comes first. Only they are told. Assigning it again, or a reschedule sending it back to them, counts anew.
+    - **Marketing:** an appointment still pending with no sales member (a client's booking, or one a sales member declined), `schedule.marketing_reminder_hours` (24) after it was booked or declined, or that long before its time. The marketers handling it are told: whoever booked or last assigned it, and a client's booking's queue. Not the admins or the owner. A decline counts anew.
+- **Assign** (marketing, admin): a pending appointment, one a sales member declined, or one still awaiting a sales member who has not answered (**Reassign**). Not a confirmed one.
+- **Confirm / Decline** (only the sales member it is assigned to, and the admin): confirming makes it confirmed, with them as its approver. Declining asks for a reason (3 to 255 characters), puts it back to pending with nobody assigned, and shows marketing who declined it and why until it is assigned again.
+- **Update / Cancel:** the client on their own, marketing, the admin. A confirmed appointment that moves, or that the client changes, goes back to its sales member to confirm again.
+- **Mark as attended / Did not attend:** marketing and the sales member, once sales has confirmed it and its time has come.
+- **Who reads which appointment** (`Schedule::scopeVisibleTo()`): the admin and the owner, every one. Marketing reads what it booked or assigned, and a client's own booking in its queue: the client's lead holder, else the holder of their Regray Team thread, else every marketer. Sales reads only the appointments assigned to it. An inquiry's visit is still read by whoever reads its inquiry, and is read-only; technical, accounting and logistics see only those. Accounting gets the Schedule page (`schedule.view`).
+- **Permissions:** `schedule.approve` is replaced by `schedule.assign` (marketing), `schedule.confirm` (sales: confirm and decline) and `schedule.attend` (marketing and sales: served and did not attend). Sales loses `schedule.create`, `schedule.update` and `schedule.cancel`, so its Schedule page has no Book button and the booking client picker is closed to it.
+- **Routes:** `schedule.approve` is gone; new `schedule.assign`, `schedule.confirm`, `schedule.decline` (POST), `schedule.sales` and `schedule.clash` (GET).
+- **Notifications** (only to those who read the appointment): a client's booking tells marketing in its queue and the admins; assigning asks the sales member to confirm or decline; confirming tells the client and marketing; declining tells marketing, with the reason; a change to a marketing booking reaches the client only once it has been confirmed. Sales members it is not assigned to hear nothing.
+- **Chat cards:** assigning and declining post no card. A marketing booking posts its first card when it is confirmed. An expired appointment the client never heard of posts none.
+- **Pages:** the appointment dialog and the upcoming list offer **Assign to sales** / **Reassign**, **Confirm** and **Decline**; staff see the assigned sales member and the decline reason. Book an appointment has the sales picker for marketing.
+- **Sales opens inquiries only for walk-ins:** a new permission `inquiries.create.platform` (admin, marketing) guards the Platform branch (`inquiry.inquire.accounts`, `leads.inquiries.store`). Sales goes straight to the walk-in form on Inquire. It can no longer open an inquiry under a lead, a returning customer's won lead included: marketing opens those, and assigns the inquiry's members as for any other.
+- **Not changed:** an inquiry's visit is still created confirmed and follows its inquiry; it does not go through sales. Sales still reads the inquiries it created as well as those assigned to it. A booking from a client with an account still goes to the lead holder, else the Regray Team thread's holder, else every marketer.
+
+# Staff find only the clients they are authorized for
+
+The Inbox's client search no longer lists every client. **No migration.**
+
+- **One rule** (`User::scopeClientsVisibleTo()`), applied before the search term and the limit. The admin and the owner find every client. Anyone else finds a client when they hold the client's lead (`leads.marketing_user_id`), read one of the client's inquiries (`Inquiry::visibleTo()`), have been assigned the client's Regray Team thread, or the thread is unassigned and they are in the support pool (`support.claim`: marketing and admin). A thread another marketer has claimed gives nothing.
+- **Inbox, New group:** the people search (`inbox.people`) lists only those clients, and making a group (`GroupConversationService::create()`) refuses any other with "Choose one client.". A client outside the scope gets no inquiries in the search either; the inquiries listed for a client in scope are still only those `Inquiry::visibleTo()` allows, so a client found through the pool does not widen them.
+- **Labels:** each client result carries a server-computed `label`, the client's full name, or their email when the search contains "@" and the email matches it (`User::searchLabel()`). The New group dialog shows it. An email search for a client outside the scope finds nothing.
+- **Inquire and Book an appointment pickers** (`inquiry.inquire.accounts`, `schedule.book.accounts`, `ClientService::searchAccounts()`) use the same rule and return the same `label`. Sales no longer uses either picker (see above).
+- **E2E:** `E2EMessageSeeder` gives Marketing A Card Client's lead, which `message/a-access` searches for.
+
 # The sign-in and sign-up pages are redesigned
 
 Every auth page (Sign In, Sign Up, Forgot and Reset Password, Verify Email, the two-factor challenge, and finishing or connecting a Google sign-up) moves to one new layout from the design, in the landing page's warm palette. The font stays Instrument Sans. What the pages do is unchanged: validation, server and rate-limit messages, Remember me, Google sign-in, the Terms & Conditions dialog, the optional email box, two-factor recovery codes, tab order, and the `#email`, `#password` and `data-test` hooks the end-to-end tests use.

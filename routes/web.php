@@ -27,6 +27,7 @@ use App\Http\Controllers\Saved\SavedFurnitureController;
 use App\Http\Controllers\Saved\SavedStoneController;
 use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
 use App\Http\Controllers\Schedule\BookingController;
+use App\Http\Controllers\Schedule\SalesPickerController;
 use App\Http\Controllers\Schedule\ScheduleChangeController;
 use App\Http\Controllers\ViewController;
 use App\Http\Middleware\RedirectSignedInToDashboard;
@@ -233,17 +234,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
          * permissions are checked before anything says whether the lead exists.
          */
         Route::post('leads/{reference}/inquiries', [InquiryController::class, 'storeForLead'])
-            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-submit'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), Permission::InquiriesCreatePlatform->middleware(), 'throttle:inquiry-submit'])
             ->name('leads.inquiries.store');
 
         /*
          * The two branches of the staff Inquire flow, guarded like the staff
-         * stepper. Platform: find the client's account, then their lead (above).
-         * Direct (walk-in): take the client down, with the duplicate check, then
+         * stepper. Platform (marketing's, `inquiries.create.platform`): find the
+         * client's account, then their lead (above). Direct (walk-in), the only
+         * branch sales has: take the client down, with the duplicate check, then
          * send the inquiry for them, with no lead.
          */
         Route::get('inquiry/inquire/accounts', [StaffClientController::class, 'accounts'])
-            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:message-people'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), Permission::InquiriesCreatePlatform->middleware(), 'throttle:message-people'])
             ->name('inquiry.inquire.accounts');
         Route::post('inquiry/direct-clients', [StaffClientController::class, 'storeDirect'])
             ->middleware([Permission::InquiriesView->middleware(), Permission::InquiriesCreate->middleware(), 'throttle:inquiry-edit'])
@@ -376,18 +378,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->whereNumber('schedule')
             ->middleware([Permission::ScheduleCancel->middleware(), 'throttle:booking'])
             ->name('schedule.cancel');
-        Route::post('schedule/{schedule}/approve', [ScheduleChangeController::class, 'approve'])
+        /*
+         * Marketing assigns an appointment to a sales member; only that sales
+         * member confirms or declines it (SchedulePolicy).
+         */
+        Route::post('schedule/{schedule}/assign', [ScheduleChangeController::class, 'assign'])
             ->whereNumber('schedule')
-            ->middleware([Permission::ScheduleApprove->middleware(), 'throttle:booking'])
-            ->name('schedule.approve');
+            ->middleware([Permission::ScheduleAssign->middleware(), 'throttle:booking'])
+            ->name('schedule.assign');
+        Route::post('schedule/{schedule}/confirm', [ScheduleChangeController::class, 'confirm'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleConfirm->middleware(), 'throttle:booking'])
+            ->name('schedule.confirm');
+        // What the sales member about to confirm it already has at that time: a warning.
+        Route::get('schedule/{schedule}/clash', [SalesPickerController::class, 'clash'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleConfirm->middleware()])
+            ->name('schedule.clash');
+        Route::post('schedule/{schedule}/decline', [ScheduleChangeController::class, 'decline'])
+            ->whereNumber('schedule')
+            ->middleware([Permission::ScheduleConfirm->middleware(), 'throttle:booking'])
+            ->name('schedule.decline');
         Route::post('schedule/{schedule}/serve', [ScheduleChangeController::class, 'serve'])
             ->whereNumber('schedule')
-            ->middleware([Permission::ScheduleUpdate->middleware(), 'throttle:booking'])
+            ->middleware([Permission::ScheduleAttend->middleware(), 'throttle:booking'])
             ->name('schedule.serve');
         Route::post('schedule/{schedule}/no-show', [ScheduleChangeController::class, 'noShow'])
             ->whereNumber('schedule')
-            ->middleware([Permission::ScheduleUpdate->middleware(), 'throttle:booking'])
+            ->middleware([Permission::ScheduleAttend->middleware(), 'throttle:booking'])
             ->name('schedule.no-show');
+        // The sales members an appointment may be assigned to, from Book an appointment and the Assign dialog.
+        Route::get('schedule/sales', [SalesPickerController::class, 'index'])
+            ->middleware([Permission::ScheduleView->middleware(), Permission::ScheduleAssign->middleware(), 'throttle:message-people'])
+            ->name('schedule.sales');
         /*
          * The Inbox page. Everything under it needs `messages.view`; the
          * conversation routes then ask ConversationPolicy whether this user may

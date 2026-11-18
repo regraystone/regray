@@ -41,4 +41,45 @@ return [
 
     'max_range_days' => 62,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sales reminder
+    |--------------------------------------------------------------------------
+    |
+    | An appointment still waiting on its sales member reminds them once, in
+    | the app, this many hours after it was assigned, or this many hours before
+    | its time, whichever comes first (`schedules:remind`). Never sooner
+    | than an hour after it was assigned.
+    |
+    */
+
+    'sales_reminder_hours' => (int) env('SCHEDULE_SALES_REMINDER_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Marketing reminder
+    |--------------------------------------------------------------------------
+    |
+    | A client's booking, or one a sales member declined, still with nobody
+    | assigned reminds the marketers handling it once, this many hours after it
+    | started waiting or this many hours before its time, whichever comes
+    | first. Never sooner than an hour after it started waiting.
+    |
+    */
+
+    'marketing_reminder_hours' => (int) env('SCHEDULE_MARKETING_REMINDER_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Visit length
+    |--------------------------------------------------------------------------
+    |
+    | How long a visit is taken to last, in minutes, when warning that a sales
+    | member already has an appointment at about that time: two appointments
+    | closer together than this overlap.
+    |
+    */
+
+    'visit_minutes' => (int) env('SCHEDULE_VISIT_MINUTES', 60),
+
 ];

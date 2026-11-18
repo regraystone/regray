@@ -20,6 +20,8 @@ Schedule::command('notifications:deliver-due')->everyMinute()->withoutOverlappin
 Schedule::command('model:prune', ['--model' => [UserNotification::class, PendingNotification::class]])->dailyAt('01:00')->timezone('Asia/Manila')->onOneServer();
 // An appointment nobody approved before its time becomes expired, and its client is told.
 Schedule::command('schedules:expire')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+// A sales member who has not answered an appointment, and marketing with one nobody is assigned, are reminded once.
+Schedule::command('schedules:remind')->hourly()->withoutOverlapping()->onOneServer();
 // Horizon's throughput and wait-time graphs. Only Horizon's redis queues have any.
 Schedule::command('horizon:snapshot')->everyFiveMinutes()->when(fn (): bool => config('queue.default') === 'redis');
 // The heartbeat app:health-check reads to tell that the scheduler is running.

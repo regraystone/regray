@@ -1,12 +1,17 @@
+import type { ContactKind } from './staff-inquire';
 /*
  * The Schedule page's data: what the server sends, the items the page draws,
  * the range it asks for, and the Upcoming panel's day groups. Pure, with no
  * imports, for tests/js.
  */
 
-/** Where a visit has got to. */
+/**
+ * Where a visit has got to. `awaiting_sales` (assigned to a sales member who
+ * has not confirmed it yet) is staff-only: a client is sent `pending`.
+ */
 export type ScheduleStatus =
     | 'pending'
+    | 'awaiting_sales'
     | 'confirmed'
     | 'served'
     | 'cancelled'
@@ -16,7 +21,12 @@ export type ScheduleStatus =
 export type ScheduleAbilities = {
     update: boolean;
     cancel: boolean;
-    approve: boolean;
+    /** Marketing: give it to a sales member to confirm. */
+    assign: boolean;
+    /** Its sales member: agree to it. */
+    confirm: boolean;
+    /** Its sales member: send it back to marketing, with a reason. */
+    decline: boolean;
     serve: boolean;
     noShow: boolean;
 };
@@ -36,6 +46,13 @@ export type ScheduleData = {
     bookedByName: string | null;
     /** Whose appointment it is: staff readers only. */
     clientName: string | null;
+    /** A walk-in's details, to reach them: staff readers only; null for a client with an account. */
+    walkIn: ScheduleWalkIn | null;
+    /** The sales member who confirms it: staff readers only. */
+    assignedSalesName: string | null;
+    /** Who last declined it and why, until it is assigned again: staff readers only. */
+    declinedByName: string | null;
+    declineReason: string | null;
     cancelReason: string | null;
     changeReason: string | null;
     can: ScheduleAbilities;
@@ -53,9 +70,23 @@ export type ScheduleItem = {
     bookedByType: 'client' | 'staff';
     bookedByName: string | null;
     clientName: string | null;
+    walkIn: ScheduleWalkIn | null;
+    assignedSalesName: string | null;
+    declinedByName: string | null;
+    declineReason: string | null;
     cancelReason: string | null;
     changeReason: string | null;
     can: ScheduleAbilities;
+};
+
+/**
+ * A direct (walk-in) client, who has no account and is never told in the
+ * app: how staff reach them themselves.
+ */
+export type ScheduleWalkIn = {
+    company: string | null;
+    address: string | null;
+    contacts: { kind: ContactKind; value: string }[];
 };
 
 /** The most days one request may cover. Mirrors `schedule.max_range_days`. */
@@ -73,6 +104,10 @@ export const toScheduleItem = (data: ScheduleData): ScheduleItem => ({
     bookedByType: data.bookedByType,
     bookedByName: data.bookedByName,
     clientName: data.clientName,
+    walkIn: data.walkIn,
+    assignedSalesName: data.assignedSalesName,
+    declinedByName: data.declinedByName,
+    declineReason: data.declineReason,
     cancelReason: data.cancelReason,
     changeReason: data.changeReason,
     can: data.can,

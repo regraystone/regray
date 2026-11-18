@@ -1,4 +1,5 @@
 import { catalogueCrumbs, type Crumb } from '@/lib/catalogue-breadcrumbs';
+import { profileCrumbs } from '@/lib/profile-breadcrumbs';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart3,
@@ -9,7 +10,6 @@ import {
     Folder,
     Handshake,
     Heart,
-    HelpCircle,
     Home,
     LayoutDashboard,
     LogOut,
@@ -19,6 +19,7 @@ import {
     Target,
     PanelLeftClose,
     PanelLeftOpen,
+    Settings,
     Users,
     Wrench,
 } from 'lucide-react';
@@ -64,6 +65,7 @@ import { index as stonesIndex } from '@/routes/stones';
 import {
     schedule as profileSchedule,
     edit as editAccountSecurity,
+    settings as profileSettings,
     show as showProfile,
 } from '@/routes/profile';
 import { book as profileScheduleBook } from '@/routes/profile/schedule';
@@ -111,7 +113,10 @@ export const permissions = {
     scheduleCreate: 'schedule.create',
     scheduleUpdate: 'schedule.update',
     scheduleCancel: 'schedule.cancel',
-    scheduleApprove: 'schedule.approve',
+    inquiriesCreatePlatform: 'inquiries.create.platform',
+    scheduleAssign: 'schedule.assign',
+    scheduleConfirm: 'schedule.confirm',
+    scheduleAttend: 'schedule.attend',
     conversationsCreate: 'conversations.create',
     supportClaim: 'support.claim',
 } as const;
@@ -566,41 +571,33 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
           })
         : null;
 
-    const crumbs: Crumb[] = catalogueTrail ?? [{ label: 'Regray' }];
+    /*
+     * Everything under the Profile hub hangs off it, so its trail is built by
+     * name rather than by segment (lib/profile-breadcrumbs.ts): the segments
+     * would read "account security security" and say nothing about where the
+     * page is.
+     */
+    const profileTrail = profileCrumbs(effectiveUrl, {
+        profile: showProfile.url(),
+        settings: profileSettings.url(),
+        accountSecurity: editAccountSecurity.url(),
+        security: editSecurity.url(),
+        schedule: profileSchedule.url(),
+        scheduleBook: profileScheduleBook.url(),
+    });
 
-    if (effectiveUrl.startsWith(showProfile.url())) {
-        /*
-         * Everything under the Profile hub hangs off the Profile hub, so the trail is
-         * built by hand rather than by segment: the segments would read
-         * "account security security" and say nothing about where the page is.
-         *
-         * Regray / Profile is the floor every one of these shares. Each page
-         * then adds its own name, and Security adds the page holding the
-         * Security card first, so the trail reads as the route the reader
-         * walked rather than as a list of slugs.
-         */
-        crumbs.push({ label: 'Profile', href: showProfile.url() });
+    const crumbs: Crumb[] = catalogueTrail ??
+        profileTrail ?? [{ label: 'Regray' }];
 
-        if (effectiveUrl === editAccountSecurity.url()) {
-            crumbs.push({ label: 'Account & Security' });
-        } else if (effectiveUrl === profileSchedule.url()) {
-            crumbs.push({ label: 'Schedule' });
-        } else if (effectiveUrl === profileScheduleBook.url()) {
-            crumbs.push({ label: 'Schedule', href: profileSchedule.url() });
-            crumbs.push({ label: 'Book' });
-        } else if (effectiveUrl.startsWith(editSecurity.url())) {
-            crumbs.push({
-                label: 'Account & Security',
-                href: editAccountSecurity.url(),
-            });
-            crumbs.push({ label: 'Security' });
-        }
+    if (profileTrail) {
+        // The trail above is the whole of it.
     } else if (catalogueTrail) {
         // The trail above is the whole of it.
     } else if (
         effectiveUrl.split('?')[0] === savedIndex.url() ||
         effectiveUrl.startsWith(`${savedIndex.url()}/`)
     ) {
+        crumbs.push({ label: 'Dashboard' });
         crumbs.push({ label: 'Saved', href: savedIndex.url() });
 
         const stone = (
@@ -633,6 +630,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 | undefined
         )?.data;
 
+        crumbs.push({ label: 'Dashboard' });
         crumbs.push({ label: 'Home', href: homeIndex.url() });
 
         if (project) {
@@ -817,9 +815,15 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                         Profile
                                     </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                    <HelpCircle className="mr-2" />
-                                    Help
+                                <DropdownMenuItem asChild>
+                                    <Link
+                                        href={profileSettings()}
+                                        as="button"
+                                        className="block w-full cursor-pointer"
+                                    >
+                                        <Settings className="mr-2" />
+                                        Settings
+                                    </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 interface ScheduleRepositoryInterface
 {
     /**
-     * @param  array{client_id: ?int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string, approved_by?: ?int, approved_at?: ?CarbonInterface}  $attributes
+     * @param  array{client_id: ?int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string, approved_by?: ?int, approved_at?: ?CarbonInterface, assigned_to?: ?int, assigned_by?: ?int, assigned_at?: ?CarbonInterface}  $attributes
      */
     public function create(array $attributes): Schedule;
 
@@ -33,7 +33,7 @@ interface ScheduleRepositoryInterface
     public function between(User $viewer, CarbonInterface $from, CarbonInterface $to): Collection;
 
     /**
-     * The first `$limit` pending or confirmed schedules arriving on or after
+     * The first `$limit` open (pending, awaiting sales or confirmed) schedules arriving on or after
      * `$since`, soonest first, with their inquiry loaded. Scoped like
      * between().
      *
@@ -42,7 +42,7 @@ interface ScheduleRepositoryInterface
     public function nextOpenSince(User $viewer, CarbonInterface $since, int $limit): Collection;
 
     /**
-     * Cancel the inquiry's pending and confirmed schedules. Served, expired and
+     * Cancel the inquiry's open schedules. Served, expired and
      * already cancelled ones are left as they are.
      *
      * @return int How many were cancelled.
@@ -59,10 +59,27 @@ interface ScheduleRepositoryInterface
     public function findForUpdate(int $id, ?User $viewer = null): Schedule;
 
     /**
-     * The ids of the appointments still pending at `$now`, their time passed.
+     * The ids of the appointments still pending or awaiting sales at `$now`,
+     * their time passed.
      * Never an inquiry's visit.
      *
      * @return list<int>
      */
     public function pendingPastIds(CarbonInterface $now): array;
+
+    /**
+     * The ids of the appointments whose sales member is due their reminder at
+     * `$now` (Schedule::isDueSalesReminder()).
+     *
+     * @return list<int>
+     */
+    public function dueSalesReminderIds(CarbonInterface $now): array;
+
+    /**
+     * The ids of the appointments whose marketers are due their reminder to
+     * assign them at `$now` (Schedule::isDueMarketingReminder()).
+     *
+     * @return list<int>
+     */
+    public function dueMarketingReminderIds(CarbonInterface $now): array;
 }
