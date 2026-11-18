@@ -44,7 +44,7 @@ it('flashes an error and keeps the page when the write fails', function (): void
 
     $this->actingAs(inquiryClient())
         ->from(route('quote.inquire'))
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect(route('quote.inquire'))
         ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.status', 'error');
 });

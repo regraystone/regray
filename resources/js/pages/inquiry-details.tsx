@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { InquiryFileRow } from '@/components/inquiry-file-row';
+import type { ClientInformationValues } from '@/lib/client-information';
 import { formatDate } from '@/lib/format-date';
 import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
@@ -178,6 +179,63 @@ const DatedRow = ({
             {dateTimeFormatter.format(new Date(at))}
         </time>
     </div>
+);
+
+/**
+ * The client's own answer to "How would you like to get it?" as it was when
+ * this request was sent. The Profile can change afterwards; this does not, so
+ * staff and the client see the same record of what they were actually given.
+ */
+const ClientInformationCard = ({
+    information,
+}: {
+    information: ClientInformationValues;
+}) => (
+    <section
+        aria-labelledby="inquiry-client-information-title"
+        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
+        data-testid="inquiry-client-information"
+    >
+        <h2 className="px-4 py-3 sm:px-5">
+            <span
+                id="inquiry-client-information-title"
+                className="block text-sm font-bold tracking-[0.08em] uppercase"
+            >
+                Client Information
+            </span>
+            <span className="mt-1 block text-xs font-normal text-secondary-foreground normal-case">
+                As sent with this request
+            </span>
+        </h2>
+
+        <dl className="border-t border-sidebar-border px-4 sm:px-5">
+            {[
+                [
+                    "How you'll get it",
+                    DELIVERY_METHODS.find(
+                        ({ value }) => value === information.deliveryMethod,
+                    )?.title ?? information.deliveryMethod,
+                ],
+                ...(information.deliveryMethod === PICKUP
+                    ? []
+                    : [['Location', information.location ?? '']]),
+            ].map(([label, value]) => (
+                <div
+                    key={label}
+                    className="flex items-baseline justify-between gap-4 border-b border-dashed border-sidebar-border py-3 last:border-b-0"
+                >
+                    <dt className="text-sm text-secondary-foreground">
+                        {label}
+                    </dt>
+                    <dd className="min-w-0 text-right text-sm font-bold break-words">
+                        {value === null || value.trim() === ''
+                            ? 'Not provided'
+                            : value}
+                    </dd>
+                </div>
+            ))}
+        </dl>
+    </section>
 );
 
 /**
@@ -875,6 +933,11 @@ const InquiryDetails = () => {
             <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <aside className="space-y-6 lg:order-2">
                     <AssignedStaffCard staff={inquiry.assignedStaff} />
+                    {inquiry.clientInformation !== null ? (
+                        <ClientInformationCard
+                            information={inquiry.clientInformation}
+                        />
+                    ) : null}
                     <ActivityLogCard
                         history={inquiry.history}
                         createdAt={inquiry.createdAt}

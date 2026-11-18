@@ -50,7 +50,7 @@ it('posts a "New inquiry" card with no role status in its snapshot into the Regr
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect();
 
     $inquiry = Inquiry::query()->where('client_id', $client->id)->sole();
@@ -72,7 +72,7 @@ it('posts one card per inquiry when a client sends several', function (): void {
 
     foreach (['Kitchen', 'Bath'] as $name) {
         $this->actingAs($client)
-            ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => $name])]])
+            ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['name' => $name])]))
             ->assertRedirect();
     }
 
@@ -86,7 +86,7 @@ it('creates the Regray Team thread for a client who has none yet', function (): 
     expect(regrayTeamThreadOf($client))->toBeNull();
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect();
 
     $thread = regrayTeamThreadOf($client);
@@ -100,7 +100,7 @@ it('posts nothing for an inquiry the server refuses', function (): void {
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->postJson(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['location' => 'Cebu'])]])
+        ->postJson(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['location' => 'Cebu'])]))
         ->assertUnprocessable();
 
     expect(Message::query()->where('conversation_id', $thread->id)->count())->toBe(0);
@@ -111,7 +111,7 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => 'Kitchen island'])]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['name' => 'Kitchen island'])]))
         ->assertRedirect();
     $reference = Inquiry::query()->where('client_id', $client->id)->value('reference');
 
@@ -257,7 +257,7 @@ it('keeps the sent and the cancelled card in order in one thread', function (): 
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect();
     $reference = Inquiry::query()->where('client_id', $client->id)->value('reference');
     $this->actingAs($client)->patchJson(route('quote.cancel', $reference))->assertRedirect();

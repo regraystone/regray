@@ -14,7 +14,7 @@ beforeEach(function (): void {
 function sendProject(mixed $test, array $overrides): mixed
 {
     return $test->actingAs($test->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput($overrides)]]);
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput($overrides)]));
 }
 
 it('takes an inquiry with no stone when the client asks for a recommendation', function (): void {

@@ -243,7 +243,7 @@ it('shows a slab row\'s size and thickness, and whether they are one of the ston
     ])->create(['stone_type_id' => Stone::query()->offeredFor(inquiryService('slab-supply-only'))->value('stone_type_id')]);
 
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['stoneId' => $stone->slug, 'slabSize' => $size, 'thickness' => $thickness])]])]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['stoneId' => $stone->slug, 'slabSize' => $size, 'thickness' => $thickness])]])]))
         ->assertSessionHasNoErrors();
 
     $row = $this->actingAs($this->client)->get(route('quote.show', Inquiry::query()->sole()->reference))->viewData('page')['props']['inquiry']['project']['stones'][0];

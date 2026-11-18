@@ -40,7 +40,7 @@ beforeEach(function (): void {
 
 function submitInquiry(mixed $test, User $client): Inquiry
 {
-    $test->actingAs($client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
+    $test->actingAs($client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
 
     return Inquiry::query()->latest('id')->firstOrFail();
 }
@@ -157,7 +157,7 @@ it('stops telling staff who lost their assignment, and keeps what they had', fun
 it('tells staff who open an inquiry for a client, and the client', function (): void {
     $lead = makeLead($this->client, $this->mara);
 
-    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
+    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
     $ref = Inquiry::query()->sole()->reference;
 
     expect(notificationBodies($this->mara))->toBe(["You have successfully created inquiry {$ref} for Carla."])
@@ -169,7 +169,7 @@ it('tells staff who open an inquiry for a client, and the client', function (): 
 it('tells only the staff member, and nobody as a client, about a walk-in\'s inquiry', function (): void {
     $record = Client::query()->create(['kind' => ClientKind::Direct, 'full_name' => 'Wanda Walk-in', 'created_by' => $this->sales->id]);
 
-    $this->actingAs($this->sales)->post(route('inquiry.direct-clients.inquiries.store', $record->id), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
+    $this->actingAs($this->sales)->post(route('inquiry.direct-clients.inquiries.store', $record->id), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
     $ref = Inquiry::query()->sole()->reference;
 
     expect(notificationBodies($this->sales))->toBe(["You have successfully created inquiry {$ref} for Wanda Walk-in."])
@@ -200,11 +200,11 @@ it('emails the client a confirmation of their own inquiry, whatever their email 
 it('lists each stone with its slab size and thickness, and the project\'s answers, in the confirmation', function (): void {
     Notification::fake();
 
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5 x 10 ft', 'thickness' => '0.75 in'])]])]])
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5 x 10 ft', 'thickness' => '0.75 in'])]])]))
         ->assertSessionHasNoErrors();
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'area_sqm' => '3.75']])]])
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'area_sqm' => '3.75']])]))
         ->assertSessionHasNoErrors();
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => '1']])]])
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => '1']])]))
         ->assertSessionHasNoErrors();
 
     $bodies = Inquiry::query()->orderBy('id')->get()->map(fn (Inquiry $inquiry): string => (string) (new InquiryReceivedNotification($inquiry))->toMail($this->client)->render())->all();
@@ -227,7 +227,7 @@ it('does not email a confirmation for an inquiry staff open for a client', funct
     Notification::fake();
     $lead = makeLead($this->client, $this->mara);
 
-    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
+    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
 
     Notification::assertNotSentTo($this->client, InquiryReceivedNotification::class);
 });

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Inquiry;
 use App\Actions\Inquiry\CreateInquiryAction;
 use App\Enums\ClientKind;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Inquiry\StoreClientInquiryRequest;
 use App\Http\Requests\Inquiry\StoreInquiryRequest;
 use App\Http\Requests\Inquiry\StoreLeadInquiryRequest;
 use App\Models\Client;
@@ -34,9 +35,9 @@ class InquiryController extends Controller
      * errors. Anything else is reported once and flashed as an error, and the
      * redirect leaves the page where it was so the form keeps its contents.
      */
-    public function store(StoreInquiryRequest $request): RedirectResponse
+    public function store(StoreClientInquiryRequest $request): RedirectResponse
     {
-        return $this->send($request, $request->user());
+        return $this->send($request, $request->user(), null, null, $request->ip(), $request->userAgent());
     }
 
     /**
@@ -70,14 +71,14 @@ class InquiryController extends Controller
         return $this->send($request, null, null, $record);
     }
 
-    private function send(StoreInquiryRequest $request, ?User $client, ?Lead $lead = null, ?Client $direct = null): RedirectResponse
+    private function send(StoreInquiryRequest $request, ?User $client, ?Lead $lead = null, ?Client $direct = null, ?string $ipAddress = null, ?string $userAgent = null): RedirectResponse
     {
         $input = $request->inquiryInput();
 
         try {
             $inquiries = $direct !== null
                 ? $this->createInquiry->executeForDirectClient($direct, $input, $request->user())
-                : $this->createInquiry->execute($client ?? $request->user(), $input, $lead, $lead === null ? null : $request->user());
+                : $this->createInquiry->execute($client ?? $request->user(), $input, $lead, $lead === null ? null : $request->user(), $ipAddress, $userAgent);
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (Throwable $exception) {

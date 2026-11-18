@@ -28,7 +28,7 @@ dataset('the permission matrix', function () {
             Permission::SavedView, Permission::SavedStoneView, Permission::SavedProjectsView, Permission::SavedManage,
             Permission::QuotationsView, Permission::InquiriesCreate,
             Permission::MessagesView,
-            Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate,
+            Permission::ProfileView, Permission::ProfileScheduleView, Permission::ProfileClientInformationView, Permission::ScheduleCreate,
             // Their own bookings only (SchedulePolicy); never assign, confirm or mark how it went.
             Permission::ScheduleUpdate, Permission::ScheduleCancel,
         )],

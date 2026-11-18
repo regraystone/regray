@@ -78,6 +78,11 @@ class RolePermissionSeeder extends Seeder
      * their idle or won lead, and to sales, who may open one only from a won
      * lead.
      *
+     * `profile-client-information.view` is the client's own saved answer to
+     * "How would you like to get it?" under their Profile hub: the client
+     * alone, since `inquiries.create` is shared with the staff who open
+     * inquiries for others.
+     *
      * `home-projects.view` goes to the client and to the super-admin and to
      * nobody else: it names the project profile and the stone profile nested
      * under it, which are portfolio pages a client reads from Home. The
@@ -98,6 +103,7 @@ class RolePermissionSeeder extends Seeder
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::ProfileScheduleView->value,
+            Permission::ProfileClientInformationView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
             Permission::ScheduleUpdate->value,
@@ -124,6 +130,7 @@ class RolePermissionSeeder extends Seeder
             Permission::ProfileView->value,
             Permission::LeadsView->value,
             Permission::ProfileScheduleView->value,
+            Permission::ProfileClientInformationView->value,
             Permission::InquiriesCreate->value,
             Permission::InquiriesCreatePlatform->value,
             Permission::ScheduleCreate->value,

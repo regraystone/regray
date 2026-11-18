@@ -1,3 +1,11 @@
+# Client Information in Profile, prefilled on new quotation requests
+
+A client-only **Client Information** row on the Profile hub opens `/dashboard/profile/client-information` (`profile.client-information.edit`). Its only answers are **How would you like to get it?** and, when delivery is chosen, **Location**; a pickup saves no site. It saves with PUT (`profile.client-information.update`, rate-limited to 10 per minute). The values live in two new tables, `client_information` (one row per account, cascading with the user) and `client_information_snapshots` (one row per client-submitted inquiry), with CHECK constraints on both. The audit log records only that a save happened, with `null` old and new values — never the answers.
+
+On a new quotation request, the saved delivery choice is only the starting answer: a restored draft wins, including a deliberately blank site, and typed answers are never reapplied or overwritten on an Inertia refresh. A stale or no-longer-offered location is ignored silently. Review summarises the project's answer with **Edit**, **Reset to my saved information** and a default-unchecked **Save this information to my profile** choice, which is hidden again when the answer matches the saved row. Ticking it saves the Profile row in the same transaction as the inquiry; every client inquiry keeps a read-only snapshot of what was sent. Staff flows send no `clientInformation` prop or payload, ask for no new field and read the snapshot without being able to change it. The request-only payload is never put in a draft, URL, query string, shared prop, log or browser storage.
+
+**Deploy, local and production: `php artisan migrate && php artisan db:seed --class=RolePermissionSeeder --force`.** The migration adds the two tables; the `profile-client-information.view` permission is declared for clients and the super-admin and synced by the seeder.
+
 # Profile hub placeholder rows
 
 Five new UI placeholders on the Profile page (`/dashboard/profile`), all showing a "Coming Soon!" toast when clicked. **No migration.**

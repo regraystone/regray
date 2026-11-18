@@ -26,7 +26,7 @@ beforeEach(function (): void {
  */
 function postInquiry(mixed $test, array $projects): TestResponse
 {
-    return $test->actingAs($test->client)->post(route('quote.inquire.store'), ['projects' => $projects]);
+    return $test->actingAs($test->client)->post(route('quote.inquire.store'), clientInquiryInput($projects));
 }
 
 /**

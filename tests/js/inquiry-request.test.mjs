@@ -396,6 +396,7 @@ describe('mapInquiryErrors', () => {
         assert.deepEqual(mapInquiryErrors({}, projects), {
             projectMessages: {},
             sectionMessages: {},
+            clientInformationMessages: {},
             alertErrors: [],
         });
     });

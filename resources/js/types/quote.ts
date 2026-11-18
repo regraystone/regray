@@ -6,6 +6,7 @@ import type {
     SalesStatus,
     SharedDocumentType,
 } from '@/lib/inquiry-statuses';
+import type { ClientInformationValues } from '@/lib/client-information';
 import type { QuoteActions } from '@/lib/quote-actions';
 import type { QuoteFilters } from '@/lib/quote-filters';
 
@@ -110,6 +111,12 @@ export type QuoteInquiryDetails = {
         /** Such as "Sales Representative"; null for a role with no label. */
         roleLabel: string | null;
     }>;
+    /**
+     * What the client sent with this inquiry, when they sent their own. A
+     * snapshot, not the Profile's current values; staff-opened and older
+     * inquiries have none. Read-only everywhere it is shown.
+     */
+    clientInformation: ClientInformationValues | null;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
     /** Which buttons the page shows, and which can be pressed. */

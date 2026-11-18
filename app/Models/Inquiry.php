@@ -338,6 +338,18 @@ class Inquiry extends Model
     }
 
     /**
+     * What the client sent as "Client Information" with this inquiry, if they
+     * sent their own. Staff-opened and older inquiries have none, and an edit
+     * never changes it.
+     *
+     * @return HasOne<ClientInformationSnapshot, $this>
+     */
+    public function clientInformationSnapshot(): HasOne
+    {
+        return $this->hasOne(ClientInformationSnapshot::class);
+    }
+
+    /**
      * The visit that holds the project's target deadline. One per inquiry.
      *
      * @return HasOne<Schedule, $this>

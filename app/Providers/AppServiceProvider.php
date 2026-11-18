@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Models\User;
 use App\Repositories\Contracts\AuditLogRepositoryInterface;
 use App\Repositories\Contracts\BrandRepositoryInterface;
+use App\Repositories\Contracts\ClientInformationRepositoryInterface;
 use App\Repositories\Contracts\ClientRepositoryInterface;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
@@ -23,6 +24,7 @@ use App\Repositories\Contracts\StoneRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\Eloquent\BrandRepository;
 use App\Repositories\Eloquent\EloquentAuditLogRepository;
+use App\Repositories\Eloquent\EloquentClientInformationRepository;
 use App\Repositories\Eloquent\EloquentClientRepository;
 use App\Repositories\Eloquent\EloquentConversationMemberRepository;
 use App\Repositories\Eloquent\EloquentConversationRepository;
@@ -70,6 +72,7 @@ class AppServiceProvider extends ServiceProvider
         'notifications',
         'inquiry-submit',
         'inquiry-edit',
+        'client-information-save',
         'inquiry-files',
         'booking',
         'saved-stone',
@@ -96,6 +99,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(InquiryRepositoryInterface::class, EloquentInquiryRepository::class);
         $this->app->bind(LeadRepositoryInterface::class, EloquentLeadRepository::class);
         $this->app->bind(ClientRepositoryInterface::class, EloquentClientRepository::class);
+        $this->app->bind(ClientInformationRepositoryInterface::class, EloquentClientInformationRepository::class);
         $this->app->bind(InquiryCatalogRepositoryInterface::class, EloquentInquiryCatalogRepository::class);
         $this->app->bind(ConversationRepositoryInterface::class, EloquentConversationRepository::class);
         $this->app->bind(ConversationMemberRepositoryInterface::class, EloquentConversationMemberRepository::class);

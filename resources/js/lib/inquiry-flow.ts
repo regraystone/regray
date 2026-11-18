@@ -830,6 +830,22 @@ export type RequestAttachment =
     | { status: 'uploading' | 'done'; file: File }
     | { status: 'saved'; fileId: number };
 
+/**
+ * The client's own delivery answer on a new request. It is the same answer the
+ * project holds, sent once more under `clientInformation` so the Profile row
+ * and the inquiry snapshot can be written from one payload. Nothing in this
+ * shape is ever written to a stored draft.
+ */
+export type ClientInformationRequest = {
+    deliveryMethod: string;
+    location: string;
+    saveToProfile: boolean;
+};
+
+export type ClientInformationErrorMessages = Partial<
+    Record<'deliveryMethod' | 'location', string>
+>;
+
 export type RequestProject = {
     /** The project's id; sent only when editing, where it is the database id. */
     id?: string;
@@ -868,11 +884,14 @@ export const buildInquiryFormData = (
     {
         withProjectIds = false,
         serviceFor,
+        clientInformation = null,
     }: {
         withProjectIds?: boolean;
         serviceFor: (
             serviceId: string,
         ) => Pick<ServiceOption, 'fields' | 'requiresStones'> | undefined;
+        /** Present only on a client's own new inquiry; never on staff or edit. */
+        clientInformation?: ClientInformationRequest | null;
     },
 ): FormData => {
     const body = new FormData();
@@ -954,6 +973,26 @@ export const buildInquiryFormData = (
         }
     });
 
+    /*
+     * The client's own delivery answer travels with the request, not with a
+     * project, because it is for the sender rather than for one of its
+     * projects. It is appended last so no change to the project loop can
+     * mistake one of them for the site on a project.
+     */
+    if (clientInformation !== null) {
+        const field = (name: string): string => `clientInformation[${name}]`;
+
+        body.append(
+            field('deliveryMethod'),
+            clientInformation.deliveryMethod.trim(),
+        );
+        body.append(field('location'), clientInformation.location.trim());
+        body.append(
+            field('saveToProfile'),
+            clientInformation.saveToProfile ? '1' : '0',
+        );
+    }
+
     return body;
 };
 
@@ -966,6 +1005,8 @@ export type MappedInquiryErrors = {
     projectMessages: Record<string, string>;
     /** One complaint about the request as a whole, keyed by the owning step. */
     sectionMessages: Partial<Record<number, string>>;
+    /** Complaints about the client's own details, beside the Review block. */
+    clientInformationMessages: ClientInformationErrorMessages;
     /** Every complaint, once each, for the alert above the page. */
     alertErrors: string[];
 };
@@ -985,11 +1026,26 @@ export const mapInquiryErrors = (
 ): MappedInquiryErrors => {
     const projectMessages: Record<string, string> = {};
     const sectionMessages: Partial<Record<number, string>> = {};
+    const clientInformationMessages: ClientInformationErrorMessages = {};
     const alertErrors: string[] = [];
 
     for (const [key, message] of Object.entries(errors)) {
         if (!alertErrors.includes(message)) {
             alertErrors.push(message);
+        }
+
+        const clientField =
+            /^clientInformation\.(deliveryMethod|location)$/.exec(key);
+
+        if (clientField !== null) {
+            const field =
+                clientField[1] as keyof ClientInformationErrorMessages;
+
+            if (clientInformationMessages[field] === undefined) {
+                clientInformationMessages[field] = message;
+            }
+
+            continue;
         }
 
         const match = /^projects\.(\d+)(?:\.|$)/.exec(key);
@@ -1015,7 +1071,12 @@ export const mapInquiryErrors = (
         }
     }
 
-    return { projectMessages, sectionMessages, alertErrors };
+    return {
+        projectMessages,
+        sectionMessages,
+        clientInformationMessages,
+        alertErrors,
+    };
 };
 
 /** What the backend flashes after a send. */

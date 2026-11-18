@@ -68,6 +68,7 @@ import {
     settings as profileSettings,
     show as showProfile,
 } from '@/routes/profile';
+import { edit as editClientInformation } from '@/routes/profile/client-information';
 import { book as profileScheduleBook } from '@/routes/profile/schedule';
 import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
@@ -108,6 +109,7 @@ export const permissions = {
     profileView: 'profile.view',
     leadsView: 'leads.view',
     profileScheduleView: 'profile-schedule.view',
+    profileClientInformationView: 'profile-client-information.view',
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
     scheduleCreate: 'schedule.create',
@@ -584,6 +586,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         security: editSecurity.url(),
         schedule: profileSchedule.url(),
         scheduleBook: profileScheduleBook.url(),
+        clientInformation: editClientInformation.url(),
     });
 
     const crumbs: Crumb[] = catalogueTrail ??

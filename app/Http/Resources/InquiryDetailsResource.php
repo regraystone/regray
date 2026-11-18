@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Data\ClientInformationValues;
 use App\Enums\DetailFieldScope;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
@@ -81,6 +82,15 @@ class InquiryDetailsResource extends JsonResource
             'payments' => $this->payments(),
             'documents' => $this->documents($files),
             'assignedStaff' => $this->assignedStaff(),
+            /*
+             * What the client actually sent with this inquiry, not what their
+             * Profile holds now. Staff-opened and older inquiries have none.
+             * The values are read-only here: an edit keeps the snapshot as it
+             * was when the inquiry was first sent.
+             */
+            'clientInformation' => $this->clientInformationSnapshot === null
+                ? null
+                : ClientInformationResource::make(ClientInformationValues::fromSnapshot($this->clientInformationSnapshot))->resolve($request),
             'project' => $this->project($files),
             'actions' => (new InquiryActions)->for($this->resource),
             'conversation' => $this->conversationLink,
