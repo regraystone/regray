@@ -11,6 +11,13 @@ enum MessageType: string
 
     case ScheduleCard = 'schedule_card';
 
+    /**
+     * One quotation document Sales sent, a revision included, posted beside
+     * the inquiry card that announced it. Its contents are a snapshot
+     * (`card_snapshot`) of the document when it was posted.
+     */
+    case QuotationCard = 'quotation_card';
+
     /** A claim of a Regray Team thread (and, on older threads, a release or reassignment). */
     case System = 'system';
 }

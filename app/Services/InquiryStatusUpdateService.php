@@ -8,6 +8,7 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
+use App\Events\QuotationSent;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryStatusHistory;
@@ -35,7 +36,7 @@ use RuntimeException;
  * 5. the files are stored through the uploader rule (InquiryFileUploads), each
  *    pointing at the update's history row, so they read as one group;
  * 6. the move goes through InquiryStatusService::transition(), with the note,
- *    and so posts the card.
+ *    and so posts the card; a quotation also posts its own card (QuotationSent).
  *
  * Quoting is a new quotation revision with its total. The job order comes
  * with the win (or later, attachJobOrder()). Logistics starts at
@@ -106,7 +107,12 @@ class InquiryStatusUpdateService
         foreach (InquiryStatusRules::requiredFiles($track, $to) as $group) {
             foreach ($group['slots'] as $slot) {
                 foreach ($files[$slot['type']->value] ?? [] as $file) {
-                    $this->storeFile($inquiry, $by, $slot['type'], $file, $history, $written);
+                    $stored = $this->storeFile($inquiry, $by, $slot['type'], $file, $history, $written);
+
+                    // Its own card in the thread, after the inquiry card the move posts.
+                    if ($stored->document_type === DocumentType::Quotation) {
+                        event(new QuotationSent($stored));
+                    }
                 }
             }
         }
@@ -291,7 +297,7 @@ class InquiryStatusUpdateService
      * stored name is generated; the uploader's own name is kept only as
      * `original_name`.
      */
-    private function storeFile(Inquiry $inquiry, User $by, DocumentType $type, UploadedFile $file, ?InquiryStatusHistory $history, WrittenFiles $written): void
+    private function storeFile(Inquiry $inquiry, User $by, DocumentType $type, UploadedFile $file, ?InquiryStatusHistory $history, WrittenFiles $written): InquiryFile
     {
         $this->fileUploads->authorize($by, $type, $inquiry);
 
@@ -305,7 +311,7 @@ class InquiryStatusUpdateService
 
         $written->record($path);
 
-        $this->inquiryRepository->addFile($inquiry, [
+        return $this->inquiryRepository->addFile($inquiry, [
             'document_type' => $type,
             'status_history_id' => $history?->id,
             'revision' => $type === DocumentType::Quotation ? $inquiry->quote_revision : null,

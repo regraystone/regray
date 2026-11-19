@@ -267,3 +267,33 @@ it('keeps the sent and the cancelled card in order in one thread', function (): 
         InquiryStatus::Cancelled->value,
     ]);
 });
+
+it('sends the inquiry\'s one service, and up to three stone pictures with the rest counted', function (): void {
+    $client = inquiryClient();
+    $stones = array_map(fn (int $skip): string => offeredStoneSlug('slab-supply-only', $skip), range(0, 3));
+    $inquiry = makeInquiry($client, ['name' => 'Kitchen island', 'stones' => $stones], ['reference' => 'INQ-SV1']);
+    $thread = supportThreadFor($client);
+    app(MessageRepositoryInterface::class)->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Pending, null, null, null);
+    $service = inquiryService('slab-supply-only');
+
+    $card = $this->actingAs($client)->getJson(route('inbox.thread', $thread))
+        ->assertOk()
+        ->json('messages.0.inquiryCard');
+
+    expect($card['service'])->toBe(['id' => $service->slug, 'name' => $service->name])
+        ->and($card['stones'])->toHaveCount(3)
+        ->and(array_column($card['stones'], 'slug'))->toBe(array_slice($stones, 0, 3))
+        ->and($card['stoneCount'])->toBe(4);
+});
+
+it('sends no service for an inquiry without one', function (): void {
+    $client = inquiryClient();
+    $inquiry = makeInquiry($client, attributes: ['reference' => 'INQ-SV2']);
+    $inquiry->forceFill(['service_id' => null])->save();
+    $thread = supportThreadFor($client);
+    app(MessageRepositoryInterface::class)->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Pending, null, null, null);
+
+    $this->actingAs($client)->getJson(route('inbox.thread', $thread))
+        ->assertOk()
+        ->assertJsonPath('messages.0.inquiryCard.service', null);
+});
