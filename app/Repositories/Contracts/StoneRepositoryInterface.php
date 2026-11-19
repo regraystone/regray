@@ -2,7 +2,9 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Models\Project;
 use App\Models\Stone;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 
 interface StoneRepositoryInterface
@@ -25,4 +27,27 @@ interface StoneRepositoryInterface
      * @return array{types: SupportCollection<int, array{value: string, label: string, bestSeller: bool}>, sizes: SupportCollection<int, array{value: string, label: string}>, thicknesses: SupportCollection<int, array{value: string, label: string}>}
      */
     public function filterOptions(): array;
+
+    /**
+     * The active stones of one brand and type in their catalog order, for
+     * stepping from one stone to the next.
+     *
+     * @return Collection<int, Stone>
+     */
+    public function activeOfBrandAndType(int $brandId, int $typeId): Collection;
+
+    /**
+     * Up to `$limit` other active stones of the same brand and type, in
+     * catalog order, loaded for their cards.
+     *
+     * @return Collection<int, Stone>
+     */
+    public function relatedTo(Stone $stone, int $limit): Collection;
+
+    /**
+     * The published projects the stone was used in, newest first.
+     *
+     * @return Collection<int, Project>
+     */
+    public function publishedProjectsUsing(Stone $stone, int $limit): Collection;
 }
