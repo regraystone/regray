@@ -10,20 +10,19 @@ use Illuminate\Support\Carbon;
 
 /**
  * A client the studio works for. `platform` with an account (`user_id`), or
- * `direct`, a walk-in with no account whose contacts staff took down. An
- * account has one client record at most, and two records are never merged.
+ * `direct`, a walk-in with no account: staff take down their name, phone and,
+ * optionally, email (`contacts`). An account has one client record at most,
+ * and two records are never merged.
  *
  * @property int $id
  * @property ClientKind $kind
  * @property int|null $user_id Set exactly when the kind is platform.
  * @property string $full_name
- * @property string|null $company
- * @property string|null $address
  * @property int|null $created_by
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['kind', 'user_id', 'full_name', 'company', 'address', 'created_by'])]
+#[Fillable(['kind', 'user_id', 'full_name', 'created_by'])]
 class Client extends Model
 {
     protected function casts(): array

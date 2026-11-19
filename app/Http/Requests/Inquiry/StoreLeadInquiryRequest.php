@@ -3,10 +3,11 @@
 namespace App\Http\Requests\Inquiry;
 
 /**
- * The Inquire page's answers, sent by staff for a lead's client. The same
- * fields and rules as the client's own, except attachments: a client
- * attachment is uploaded by the client alone (InquiryFileUploads), so staff
- * send none.
+ * The Inquire page's answers, sent by staff for a lead's client or a direct
+ * (walk-in) client. The same fields and rules as the client's own, except
+ * that staff send no attachments (a client attachment is uploaded by the
+ * client alone, InquiryFileUploads) and enter the address themselves with the
+ * address picker: they never pick from, or see, a client's address book.
  */
 class StoreLeadInquiryRequest extends StoreInquiryRequest
 {

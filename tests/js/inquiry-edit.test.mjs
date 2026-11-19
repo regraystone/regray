@@ -8,6 +8,34 @@ import {
     toEditFormProjects,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
+/** The address an inquiry keeps, as the server sends it. */
+const MAKATI = {
+    regionCode: '1300000000',
+    regionName: 'National Capital Region',
+    provinceCode: null,
+    provinceName: null,
+    cityCode: '1380300000',
+    cityName: 'City of Makati',
+    barangayCode: '1380300001',
+    barangayName: 'Bel-Air',
+    postalCode: '1209',
+    lat: 14.56,
+    lng: 121.03,
+    line: 'Bel-Air, City of Makati, National Capital Region 1209',
+};
+
+/** The page's reader (addressFromPayload), reduced to what these tests look at. */
+const toPicked = (address) => ({
+    region: { code: address.regionCode, name: address.regionName },
+    province: null,
+    noProvince: true,
+    city: { code: address.cityCode, name: address.cityName },
+    barangay: { code: address.barangayCode, name: address.barangayName },
+    postalCode: address.postalCode ?? '',
+    lat: address.lat,
+    lng: address.lng,
+});
+
 /** One project as InquiryEditResource sends it. */
 const payload = (overrides = {}) => ({
     id: 42,
@@ -28,8 +56,10 @@ const payload = (overrides = {}) => ({
         },
     ],
     answers: { area_sqm: 12.5, waterfall_effect: true },
+    brands: ['laminam'],
+    brandNoPreference: false,
     deliveryMethod: 'delivery',
-    location: 'Makati',
+    address: MAKATI,
     notes: null,
     neededBy: '2030-01-02',
     deadlineLocked: false,
@@ -48,7 +78,7 @@ const payload = (overrides = {}) => ({
 
 describe('toEditFormProjects', () => {
     it('fills the form the way a committed project is held, with the real id', () => {
-        assert.deepEqual(toEditFormProjects([payload()]), [
+        assert.deepEqual(toEditFormProjects([payload()], toPicked), [
             {
                 id: '42',
                 name: 'Kitchen counters',
@@ -66,8 +96,12 @@ describe('toEditFormProjects', () => {
                     },
                 ],
                 answers: { area_sqm: '12.5', waterfall_effect: 'yes' },
+                brands: ['laminam'],
+                brandNoPreference: false,
                 deliveryMethod: 'delivery',
-                location: 'Makati',
+                // Held: a client keeps it, whatever their book holds now.
+                addressId: 'held',
+                address: toPicked(MAKATI),
                 neededBy: '2030-01-02',
                 notes: '',
                 attachments: [
@@ -85,48 +119,64 @@ describe('toEditFormProjects', () => {
     });
 
     it('keeps the service of a project with no stone chosen', () => {
-        const [project] = toEditFormProjects([
-            payload({ stoneAdviceRequested: true, stones: [] }),
-        ]);
+        const [project] = toEditFormProjects(
+            [payload({ stoneAdviceRequested: true, stones: [] })],
+            toPicked,
+        );
 
         assert.equal(project.serviceId, 'kitchen-islands');
         assert.equal(project.stoneAdvice, true);
     });
 
     it('reads a project with no service as blanks', () => {
-        const [project] = toEditFormProjects([
-            payload({ serviceTypeId: null, serviceId: null }),
-        ]);
+        const [project] = toEditFormProjects(
+            [payload({ serviceTypeId: null, serviceId: null })],
+            toPicked,
+        );
 
         assert.equal(project.serviceTypeId, '');
         assert.equal(project.serviceId, '');
     });
 
-    it('reads a pickup, which holds no location, as blanks', () => {
+    it('reads a pickup, which holds no address, as blanks', () => {
         const [project] = toEditFormProjects([
-            payload({ deliveryMethod: 'pickup', location: null }),
+            payload({ deliveryMethod: 'pickup', address: null }),
         ]);
 
         assert.equal(project.deliveryMethod, 'pickup');
-        assert.equal(project.location, '');
+        assert.equal(project.addressId, '');
+        assert.equal(project.address, null);
+    });
+
+    it('reads an installed service, which asks no method, as blank', () => {
+        const [project] = toEditFormProjects(
+            [payload({ deliveryMethod: null })],
+            toPicked,
+        );
+
+        assert.equal(project.deliveryMethod, '');
+        assert.equal(project.addressId, 'held');
     });
 
     it('reads the answers as the form holds them: a missing one blank, no as no', () => {
-        const [project] = toEditFormProjects([
-            payload({
-                answers: { area_sqm: null, waterfall_effect: false },
-                stones: [
-                    {
-                        stoneId: 'marble',
-                        quantity: 1,
-                        slabSize: null,
-                        thickness: null,
-                        edge: null,
-                        finish: null,
-                    },
-                ],
-            }),
-        ]);
+        const [project] = toEditFormProjects(
+            [
+                payload({
+                    answers: { area_sqm: null, waterfall_effect: false },
+                    stones: [
+                        {
+                            stoneId: 'marble',
+                            quantity: 1,
+                            slabSize: null,
+                            thickness: null,
+                            edge: null,
+                            finish: null,
+                        },
+                    ],
+                }),
+            ],
+            toPicked,
+        );
 
         assert.deepEqual(project.answers, {
             area_sqm: '',
@@ -143,21 +193,24 @@ describe('toEditFormProjects', () => {
     });
 
     it('reads a slab row back with its size and thickness as the form holds them', () => {
-        const [project] = toEditFormProjects([
-            payload({
-                serviceId: 'slab-supply-only',
-                stones: [
-                    {
-                        stoneId: 'marble',
-                        quantity: 3,
-                        slabSize: '160 x 320 cm',
-                        thickness: '0.75 in',
-                        edge: 'Half Bevel',
-                        finish: 'Honed',
-                    },
-                ],
-            }),
-        ]);
+        const [project] = toEditFormProjects(
+            [
+                payload({
+                    serviceId: 'slab-supply-only',
+                    stones: [
+                        {
+                            stoneId: 'marble',
+                            quantity: 3,
+                            slabSize: '160 x 320 cm',
+                            thickness: '0.75 in',
+                            edge: 'Half Bevel',
+                            finish: 'Honed',
+                        },
+                    ],
+                }),
+            ],
+            toPicked,
+        );
 
         assert.equal(project.stones[0].slabSize, '160 x 320 cm');
         assert.equal(project.stones[0].thickness, '0.75 in');
@@ -200,7 +253,7 @@ const serviceFor = () => ({ requiresStones: true, fields: [] });
 
 describe('buildInquiryFormData when editing', () => {
     it('sends the project id, the stored files it keeps, and only new uploads as attachments', () => {
-        const [project] = toEditFormProjects([payload()]);
+        const [project] = toEditFormProjects([payload()], toPicked);
         const upload = new File(['x'], 'site.pdf', { type: 'application/pdf' });
 
         const body = buildInquiryFormData(
@@ -219,13 +272,15 @@ describe('buildInquiryFormData when editing', () => {
         );
 
         assert.equal(body.get('projects[0][id]'), '42');
+        assert.equal(body.get('projects[0][keepAddress]'), '1');
+        assert.equal(body.get('projects[0][addressId]'), null);
         assert.equal(body.get('projects[0][keepFileIds][0]'), '7');
         assert.equal(body.get('projects[0][attachments][0]').name, 'site.pdf');
         assert.equal(body.get('projects[0][attachments][1]'), null);
     });
 
     it('never sends a project id for a new inquiry', () => {
-        const [project] = toEditFormProjects([payload()]);
+        const [project] = toEditFormProjects([payload()], toPicked);
 
         const body = buildInquiryFormData(
             { projects: [project] },

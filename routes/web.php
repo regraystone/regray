@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Address\PhPlaceController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Brand\ProductRedirectController;
@@ -494,6 +495,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('projects.index');
     });
 });
+
+/*
+ * The address picker's searches, one PSGC level at a time under its parent
+ * (PhPlaceController). Any signed-in user: a client for their address book,
+ * staff for the address they enter on an inquiry.
+ */
+Route::middleware(['auth', 'verified', 'throttle:ph-address-search'])
+    ->prefix('api/ph')
+    ->name('ph.')
+    ->controller(PhPlaceController::class)
+    ->group(function () {
+        Route::get('regions', 'regions')->name('regions');
+        Route::get('provinces', 'provinces')->name('provinces');
+        Route::get('cities', 'cities')->name('cities');
+        Route::get('barangays', 'barangays')->name('barangays');
+        Route::get('postal-codes', 'postalCodes')->name('postal-codes');
+        Route::get('resolve', 'resolve')->name('resolve');
+    });
 
 /*
  * Public catch-all: a project's profile, or a stone's old address, at /{slug}.

@@ -32,7 +32,7 @@ class InquiryCardResource extends JsonResource
     }
 
     /**
-     * @return array{reference: string, name: string, location: string, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, stoneAdviceRequested: bool, service: array{id: string, name: string}|null, announcedStatus: string, announcedSalesStatus: string|null, announcedPaymentStatus: string|null, announcedProcessStatus: string|null, status: string|null, occurredAt: string}
+     * @return array{reference: string, name: string, location: string|null, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, stoneAdviceRequested: bool, service: array{id: string, name: string}|null, announcedStatus: string, announcedSalesStatus: string|null, announcedPaymentStatus: string|null, announcedProcessStatus: string|null, status: string|null, occurredAt: string}
      */
     public function toArray(Request $request): array
     {
@@ -54,7 +54,7 @@ class InquiryCardResource extends JsonResource
         return [
             'reference' => $inquiry->reference,
             'name' => $inquiry->name,
-            'location' => $inquiry->location,
+            'location' => $inquiry->placeLabel(),
             'stones' => array_slice(array_values($stones), 0, self::HERO_STONES),
             'stoneCount' => count($stones),
             'stoneAdviceRequested' => $inquiry->stone_advice_requested,

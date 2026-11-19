@@ -1,15 +1,7 @@
-import { Plus, Trash2 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { ApiError } from '@/lib/message-api';
 import {
@@ -17,27 +9,14 @@ import {
     type DirectClientInput,
     type DirectClientResult,
 } from '@/lib/staff-clients-api';
-import {
-    CONTACT_KIND_LABELS,
-    CONTACT_KINDS,
-    type ContactKind,
-} from '@/lib/staff-inquire';
-
-/** A further way to reach the client; the first contact is always the phone. */
-const NEW_CONTACT = { kind: 'email' as ContactKind, value: '' };
-
-/** A contact kind mid-sentence: "this email", but "this Viber" and "this WhatsApp". */
-const contactWord = (kind: ContactKind): string =>
-    kind === 'phone' || kind === 'email'
-        ? CONTACT_KIND_LABELS[kind].toLowerCase()
-        : CONTACT_KIND_LABELS[kind];
+import { CONTACT_KIND_LABELS } from '@/lib/staff-inquire';
 
 /**
- * Take down a direct (walk-in) client: a name, an optional company and
- * address, and how to reach them (a phone number first, then up to seven
- * more). When one of the contacts is already another client's, nothing is
- * created and that client is offered instead (`use`), so the same client is
- * not added twice.
+ * Take down a direct (walk-in) client: their full name and phone number, and
+ * their email when they give one. Nothing else: where the work goes is asked
+ * on each inquiry, with the address picker. When the phone or the email is
+ * already another client's, nothing is created and that client is offered
+ * instead (`use`), so the same client is not added twice.
  *
  * Shared by the staff Inquire flow (Direct) and Book an appointment (Walk-in).
  * `header` draws the heading above it, told whether the duplicate is being
@@ -56,9 +35,8 @@ const DirectClientForm = ({
 }) => {
     const [form, setForm] = useState<DirectClientInput>({
         fullName: '',
-        company: '',
-        address: '',
-        contacts: [{ kind: 'phone', value: '' }],
+        phone: '',
+        email: '',
     });
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [saving, setSaving] = useState(false);
@@ -89,21 +67,18 @@ const DirectClientForm = ({
         }
     };
 
-    const setContact = (
-        index: number,
-        change: Partial<DirectClientInput['contacts'][number]>,
-    ) =>
-        setForm((current) => ({
-            ...current,
-            contacts: current.contacts.map((contact, at) =>
-                at === index ? { ...contact, ...change } : contact,
-            ),
-        }));
-
-    const error = (field: string) =>
+    const error = (field: keyof DirectClientInput) =>
         errors[field]?.[0] ? (
-            <p className="text-xs text-destructive">{errors[field][0]}</p>
+            <p
+                id={`direct-${field}-error`}
+                className="text-xs text-destructive"
+            >
+                {errors[field][0]}
+            </p>
         ) : null;
+
+    const describedBy = (field: keyof DirectClientInput) =>
+        errors[field]?.[0] ? `direct-${field}-error` : undefined;
 
     if (existing !== null) {
         return (
@@ -116,13 +91,10 @@ const DirectClientForm = ({
                     <p className="text-sm">
                         <span className="font-bold">
                             {existing.client.fullName}
-                        </span>
-                        {existing.client.company
-                            ? ` · ${existing.client.company}`
-                            : ''}{' '}
+                        </span>{' '}
                         already has this{' '}
                         {existing.matched
-                            ? `${contactWord(existing.matched.kind)} (${existing.matched.value})`
+                            ? `${CONTACT_KIND_LABELS[existing.matched.kind].toLowerCase()} (${existing.matched.value})`
                             : 'contact'}
                         . {useFor} instead of adding the same client twice.
                     </p>
@@ -153,157 +125,69 @@ const DirectClientForm = ({
 
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="direct-full-name">Full name</Label>
+                    <Label htmlFor="direct-full-name">
+                        Full name
+                        <span className="text-destructive" aria-hidden>
+                            {' *'}
+                        </span>
+                        <span className="sr-only"> (required)</span>
+                    </Label>
                     <Input
                         id="direct-full-name"
                         value={form.fullName}
                         onChange={(event) =>
                             setForm({ ...form, fullName: event.target.value })
                         }
+                        autoComplete="name"
                         maxLength={150}
+                        aria-invalid={describedBy('fullName') !== undefined}
+                        aria-describedby={describedBy('fullName')}
                         className="rounded-none"
                     />
                     {error('fullName')}
                 </div>
                 <div className="space-y-1.5">
-                    <Label htmlFor="direct-company">Company (optional)</Label>
+                    <Label htmlFor="direct-phone">
+                        Phone number
+                        <span className="text-destructive" aria-hidden>
+                            {' *'}
+                        </span>
+                        <span className="sr-only"> (required)</span>
+                    </Label>
                     <Input
-                        id="direct-company"
-                        value={form.company}
+                        id="direct-phone"
+                        type="tel"
+                        inputMode="tel"
+                        value={form.phone}
                         onChange={(event) =>
-                            setForm({ ...form, company: event.target.value })
+                            setForm({ ...form, phone: event.target.value })
                         }
-                        maxLength={150}
+                        autoComplete="tel"
+                        maxLength={30}
+                        aria-invalid={describedBy('phone') !== undefined}
+                        aria-describedby={describedBy('phone')}
                         className="rounded-none"
                     />
-                    {error('company')}
+                    {error('phone')}
                 </div>
                 <div className="space-y-1.5">
-                    <Label htmlFor="direct-address">Address (optional)</Label>
+                    <Label htmlFor="direct-email">Email (optional)</Label>
                     <Input
-                        id="direct-address"
-                        value={form.address}
+                        id="direct-email"
+                        type="email"
+                        value={form.email}
                         onChange={(event) =>
-                            setForm({ ...form, address: event.target.value })
+                            setForm({ ...form, email: event.target.value })
                         }
+                        autoComplete="email"
                         maxLength={255}
+                        aria-invalid={describedBy('email') !== undefined}
+                        aria-describedby={describedBy('email')}
                         className="rounded-none"
                     />
-                    {error('address')}
+                    {error('email')}
                 </div>
             </div>
-
-            <fieldset className="mt-6 space-y-2">
-                <legend className="mb-2 text-sm font-bold">
-                    How to reach them
-                </legend>
-                {form.contacts.map((contact, index) => (
-                    <div key={index} className="space-y-1">
-                        {index === 0 ? (
-                            <Label htmlFor="direct-contact-0">
-                                Phone number
-                                <span
-                                    className="text-destructive"
-                                    aria-label="required"
-                                >
-                                    {' '}
-                                    *
-                                </span>
-                            </Label>
-                        ) : null}
-                        <div className="flex items-center gap-2">
-                            {/* The first contact is always the phone number, which is required. */}
-                            {index === 0 ? null : (
-                                <Select
-                                    value={contact.kind}
-                                    onValueChange={(kind) =>
-                                        setContact(index, {
-                                            kind: kind as ContactKind,
-                                        })
-                                    }
-                                >
-                                    <SelectTrigger
-                                        aria-label={`Contact ${index + 1} kind`}
-                                        className="w-32 shrink-0 rounded-none text-base data-[size=default]:h-11"
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {CONTACT_KINDS.map((kind) => (
-                                            <SelectItem
-                                                key={kind}
-                                                value={kind}
-                                                className="rounded-none"
-                                            >
-                                                {CONTACT_KIND_LABELS[kind]}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            <Input
-                                id={`direct-contact-${index}`}
-                                value={contact.value}
-                                onChange={(event) =>
-                                    setContact(index, {
-                                        value: event.target.value,
-                                    })
-                                }
-                                type={
-                                    contact.kind === 'email' ? 'email' : 'tel'
-                                }
-                                aria-label={
-                                    index === 0
-                                        ? 'Phone number'
-                                        : `Contact ${index + 1}`
-                                }
-                                maxLength={255}
-                                className="min-w-0 rounded-none"
-                            />
-                            {index > 0 ? (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label={`Remove contact ${index + 1}`}
-                                    onClick={() =>
-                                        setForm({
-                                            ...form,
-                                            contacts: form.contacts.filter(
-                                                (_, at) => at !== index,
-                                            ),
-                                        })
-                                    }
-                                >
-                                    <Trash2 aria-hidden />
-                                </Button>
-                            ) : null}
-                        </div>
-                        {error(`contacts.${index}.value`)}
-                        {error(`contacts.${index}.kind`)}
-                    </div>
-                ))}
-                {error('contacts')}
-                {form.contacts.length < 8 ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                            setForm({
-                                ...form,
-                                contacts: [
-                                    ...form.contacts,
-                                    { ...NEW_CONTACT },
-                                ],
-                            })
-                        }
-                    >
-                        <Plus aria-hidden />
-                        Add another contact
-                    </Button>
-                ) : null}
-            </fieldset>
 
             <div className="mt-8 flex justify-end">
                 <Button type="submit" disabled={saving}>

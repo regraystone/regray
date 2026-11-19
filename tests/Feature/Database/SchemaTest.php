@@ -24,7 +24,8 @@ function schemaInquiry(): int
         'reference' => 'INQ-S'.random_int(100000, 999999),
         'client_id' => User::factory()->create()->id,
         'name' => 'Kitchen',
-        'location' => 'Makati',
+        // A pickup: the one inquiry with no address.
+        'delivery_method' => 'pickup',
         'created_at' => now(),
         'updated_at' => now(),
     ]);
@@ -377,7 +378,7 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     'contact: an unknown kind' => ['chk_client_contacts_kind', fn () => DB::table('client_contacts')->insert(['client_id' => schemaClient(), 'kind' => 'fax', 'value' => '123', 'created_at' => now()])],
     'deleting a direct client with an inquiry' => ['inquiries_client_record_id_foreign', function () {
         $clientId = schemaClient();
-        DB::table('inquiries')->insert(['reference' => 'INQ-SD1', 'client_id' => null, 'client_record_id' => $clientId, 'name' => 'Counter', 'location' => 'Pasig', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('inquiries')->insert(['reference' => 'INQ-SD1', 'client_id' => null, 'client_record_id' => $clientId, 'name' => 'Counter', 'delivery_method' => 'pickup', 'created_at' => now(), 'updated_at' => now()]);
         DB::table('clients')->where('id', $clientId)->delete();
     }],
 
@@ -517,7 +518,7 @@ test('allows as many inquiries on a lead, bookings, unbound groups and new snaps
     // The same number as another kind is another contact.
     $contact = ['client_id' => schemaClient(), 'value' => '+639175550142', 'created_at' => now()];
     DB::table('client_contacts')->insert([...$contact, 'kind' => 'phone']);
-    DB::table('client_contacts')->insert([...$contact, 'kind' => 'viber']);
+    DB::table('client_contacts')->insert([...$contact, 'kind' => 'email']);
 
     expect(DB::table('inquiries')->where('lead_id', $leadId)->count())->toBe(3)
         ->and(DB::table('schedules')->whereNull('inquiry_id')->count())->toBe(2)

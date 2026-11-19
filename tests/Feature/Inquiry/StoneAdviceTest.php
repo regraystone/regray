@@ -70,18 +70,18 @@ it('clears the request when an edit chooses a stone, and keeps it when an edit d
     $edit = ['id' => $inquiry->id, 'name' => $inquiry->name, 'keepFileIds' => []];
 
     $this->actingAs($this->client)
-        ->patch(route('quote.update', $inquiry->reference), ['projects' => [inquiryProjectInput([
+        ->patch(route('quote.update', $inquiry->reference), clientEditInput([inquiryProjectInput([
             ...$edit, 'stones' => [], 'stoneAdvice' => '1', 'notes' => 'Changed.',
-        ])]])
+        ])]))
         ->assertSessionHasNoErrors();
 
     expect($inquiry->refresh()->stone_advice_requested)->toBeTrue()
         ->and($inquiry->notes)->toBe('Changed.');
 
     $this->actingAs($this->client)
-        ->patch(route('quote.update', $inquiry->reference), ['projects' => [inquiryProjectInput([
+        ->patch(route('quote.update', $inquiry->reference), clientEditInput([inquiryProjectInput([
             ...$edit, 'stoneAdvice' => '0',
-        ])]])
+        ])]))
         ->assertSessionHasNoErrors();
 
     expect($inquiry->refresh()->stone_advice_requested)->toBeFalse()

@@ -186,17 +186,19 @@ test('36 · keyboard only: choose the service, pick a stone, fill the details an
         '20 mm',
     );
 
-    await tabTo(
-        page,
-        (t) => t.id.startsWith('requirements-location'),
-        'Location',
-    );
-    await page.keyboard.type('Makat');
-    await page.keyboard.press('ArrowDown');
+    // How it is got: Delivery, then the default saved address is already picked.
+    await tabTo(page, (t) => t.id === 'inquiry-delivery-method', 'the method');
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('combobox', { name: /^Location/ })).toHaveValue(
-        'Makati',
+    await page.getByRole('option', { name: 'Delivery', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#inquiry-delivery-method')).toContainText(
+        'Delivery',
     );
+    await expect(
+        page
+            .getByRole('radiogroup', { name: /Delivery address/ })
+            .getByRole('radio', { name: /^Home/ }),
+    ).toBeChecked();
 
     const [year, month, day] = futureDate(9).split('-');
     await tabTo(

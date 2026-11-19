@@ -54,13 +54,12 @@ class StaffClientController extends Controller
         ], $result['existing'] ? 200 : 201);
     }
 
-    /** @return array{id: int, fullName: string, company: ?string, kind: string} */
+    /** @return array{id: int, fullName: string, kind: string} */
     private function summary(Client $client): array
     {
         return [
             'id' => $client->id,
             'fullName' => $client->full_name,
-            'company' => $client->company,
             'kind' => $client->kind->value,
         ];
     }

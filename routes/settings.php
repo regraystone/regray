@@ -2,7 +2,7 @@
 
 use App\Enums\Permission;
 use App\Http\Controllers\Auth\GoogleController;
-use App\Http\Controllers\Settings\ClientInformationController;
+use App\Http\Controllers\Settings\ClientAddressController;
 use App\Http\Controllers\Settings\EmailPreferencesController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -29,25 +29,22 @@ Route::middleware(['auth', Permission::ProfileView->middleware()])->prefix('dash
     Route::get('profile/settings', [ProfileController::class, 'settings'])->name('profile.settings');
 
     /*
-     * The client's own saved delivery choice and site. Two guards:
-     * `profile.view` admits the reader to the hub this page sits under, and the
-     * page's own permission says which door they were given — the client, who
-     * sends their own inquiries, rather than a staff member who opens one for
-     * somebody else. No id is named in the URL: the row is the signed-in user's.
+     * The client's own address book. Two guards: `profile.view` admits the
+     * reader to the hub this page sits under, and the page's own permission
+     * says which door they were given — the client, who sends their own
+     * inquiries, rather than a staff member, who always enters an address
+     * themselves. An address is found among the signed-in user's own only.
      */
-    Route::get('profile/client-information', [ClientInformationController::class, 'edit'])
-        ->middleware([
-            Permission::ProfileView->middleware(),
-            Permission::ProfileClientInformationView->middleware(),
-        ])
-        ->name('profile.client-information.edit');
-    Route::put('profile/client-information', [ClientInformationController::class, 'update'])
-        ->middleware([
-            Permission::ProfileView->middleware(),
-            Permission::ProfileClientInformationView->middleware(),
-            'throttle:client-information-save',
-        ])
-        ->name('profile.client-information.update');
+    Route::middleware(Permission::ProfileAddressesView->middleware())->group(function () {
+        Route::get('profile/addresses', [ClientAddressController::class, 'index'])->name('profile.addresses.index');
+
+        Route::middleware('throttle:address-book-save')->group(function () {
+            Route::post('profile/addresses', [ClientAddressController::class, 'store'])->name('profile.addresses.store');
+            Route::put('profile/addresses/{address}', [ClientAddressController::class, 'update'])->whereNumber('address')->name('profile.addresses.update');
+            Route::post('profile/addresses/{address}/default', [ClientAddressController::class, 'makeDefault'])->whereNumber('address')->name('profile.addresses.default');
+            Route::delete('profile/addresses/{address}', [ClientAddressController::class, 'destroy'])->whereNumber('address')->name('profile.addresses.destroy');
+        });
+    });
 
     Route::get('profile/account-security', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('profile/account-security', [ProfileController::class, 'update'])->name('profile.update');

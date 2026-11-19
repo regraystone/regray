@@ -6,6 +6,7 @@ use App\Data\Measurement;
 use App\Enums\Role;
 use App\Enums\SizeUnit;
 use App\Enums\ThicknessUnit;
+use App\Models\ClientAddress;
 use App\Models\Service;
 use App\Models\Size;
 use App\Models\Stone;
@@ -19,7 +20,10 @@ use Illuminate\Support\Facades\File;
  * DatabaseSeeder and only adds rows; it changes nothing the other seeders made.
  *
  * Two clients with no inquiries of their own, so a spec can count what it
- * sends; and an unverified client for the verification guard.
+ * sends, each with saved addresses (A: Home in Makati, the default, and a
+ * Site in Antipolo; B: an Office in Pasig); a client with no addresses, for
+ * the Inquire page's "Add an address to continue"; and an unverified client
+ * for the verification guard.
  *
  * The two catalogue stones the specs pick (CATALOG.stones in
  * tests/e2e/support/inquiry-flow.ts) get fixed slabs (size and thickness
@@ -52,7 +56,12 @@ class E2EInquirySeeder extends Seeder
 
         $clientA = $this->user('e2e.inquiry.a@example.com', 'Inquiry Client A');
         $clientB = $this->user('e2e.inquiry.b@example.com', 'Inquiry Client B');
+        $noAddresses = $this->user('e2e.inquiry.no-address@example.com', 'Inquiry Client Without Addresses');
         $unverified = $this->user('e2e.inquiry.unverified@example.com', 'Unverified Client', verified: false);
+
+        // A's default is Makati, with an Antipolo site to switch to; B has one.
+        UserSeeder::seedAddressBook($clientA, [['label' => 'Home', 'place' => 'Makati'], ['label' => 'Site', 'place' => 'Antipolo']]);
+        UserSeeder::seedAddressBook($clientB, [['label' => 'Office', 'place' => 'Pasig']]);
 
         $path = storage_path('app/e2e/inquiry-fixtures.json');
         File::ensureDirectoryExists(dirname($path));
@@ -60,12 +69,17 @@ class E2EInquirySeeder extends Seeder
             'users' => [
                 'clientA' => $clientA->email,
                 'clientB' => $clientB->email,
+                'noAddresses' => $noAddresses->email,
                 'unverified' => $unverified->email,
                 'marketing' => 'marketing@example.com',
                 'sales' => 'sales@example.com',
             ],
             'clientAId' => $clientA->id,
             'clientBId' => $clientB->id,
+            'addresses' => [
+                'clientA' => $clientA->addresses()->get()->map(fn (ClientAddress $address): array => ['id' => $address->id, 'label' => $address->label, 'line' => $address->address()->line(), 'isDefault' => $address->is_default])->all(),
+                'clientB' => $clientB->addresses()->get()->map(fn (ClientAddress $address): array => ['id' => $address->id, 'label' => $address->label, 'line' => $address->address()->line(), 'isDefault' => $address->is_default])->all(),
+            ],
             'disk' => config('inquiry.disk'),
         ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     }

@@ -173,22 +173,6 @@ const EventDialog = ({
                                                 )}
                                             </p>
                                         ))}
-                                        {item.walkIn.company ? (
-                                            <p>
-                                                <span className="font-bold text-foreground">
-                                                    Company:
-                                                </span>{' '}
-                                                {item.walkIn.company}
-                                            </p>
-                                        ) : null}
-                                        {item.walkIn.address ? (
-                                            <p>
-                                                <span className="font-bold text-foreground">
-                                                    Address:
-                                                </span>{' '}
-                                                {item.walkIn.address}
-                                            </p>
-                                        ) : null}
                                     </dd>
                                 </div>
                             ) : null}

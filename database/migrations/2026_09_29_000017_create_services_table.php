@@ -17,6 +17,11 @@ return new class extends Migration
      * `requires_stones` is false for a service that asks for no stones
      * (Installation Only): the Inquire page skips the stones question for it.
      *
+     * `fulfillment` is how the work reaches the client, and so what the Inquire
+     * page asks about it: `delivery_or_pickup` asks how they would like to get
+     * it, and for a delivery address when it is delivered; `installed` is done
+     * on site, so it asks only for the installation address.
+     *
      * What else a service asks is data, not code: `detail_fields` is the
      * catalog of questions (scope `stone`, answered on each stone row, or
      * `project`, answered once under "Other details"), `detail_field_options`
@@ -47,6 +52,7 @@ return new class extends Migration
             $table->string('name', 150);
             $table->text('description');
             $table->boolean('requires_stones')->default(true);
+            $table->string('fulfillment', 20)->default('delivery_or_pickup');
             $table->smallInteger('sort_order');
             $table->boolean('is_active')->default(true);
             $table->timestampTz('created_at');
@@ -54,6 +60,8 @@ return new class extends Migration
 
             $table->index(['service_type_id', 'is_active', 'sort_order']);
         });
+
+        DB::statement("ALTER TABLE services ADD CONSTRAINT chk_services_fulfillment CHECK (fulfillment IN ('delivery_or_pickup','installed'))");
 
         Schema::create('service_features', function (Blueprint $table) {
             $table->foreignId('service_id')->constrained()->cascadeOnDelete();

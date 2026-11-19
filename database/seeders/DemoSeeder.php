@@ -39,10 +39,15 @@ class DemoSeeder extends Seeder
 
         // Create one account per role
         foreach (Role::cases() as $role) {
-            User::factory()->role($role)->create([
+            $user = User::factory()->role($role)->create([
                 'name' => ucfirst($role->value),
                 'email' => $role->value.'@example.com',
             ]);
+
+            // As DemoAccountsSeeder: the demo client has an address book to pick from.
+            if ($role === Role::Client) {
+                UserSeeder::seedAddressBook($user, [['label' => 'Home', 'place' => 'Makati'], ['label' => 'Site', 'place' => 'Antipolo']]);
+            }
         }
 
         // Seed dependent demo data

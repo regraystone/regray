@@ -1,5 +1,6 @@
 <?php
 
+use App\Data\PhAddress;
 use App\Enums\DeliveryMethod;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
@@ -40,7 +41,8 @@ dataset('accepted values', [
     'deadline today' => [fn (array $p): array => [...$p, 'neededBy' => now('Asia/Manila')->toDateString()]],
     'quantity 1' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1]]]],
     'quantity 9999' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 9999]]]],
-    'a location from the list' => [fn (array $p): array => [...$p, 'location' => 'Las Piñas']],
+    'a brand instead of No preference' => [fn (array $p): array => [...$p, 'brandNoPreference' => null, 'brands' => ['regray-stone']]],
+    'a pickup' => [fn (array $p): array => [...$p, 'deliveryMethod' => 'pickup', 'address' => null]],
     'ten files' => [fn (array $p): array => [...$p, 'attachments' => array_map(
         fn (int $n): UploadedFile => UploadedFile::fake()->create("plan-{$n}.pdf", 10, 'application/pdf'),
         range(1, 10),
@@ -63,7 +65,8 @@ dataset('refused values', [
     'quantity of 0' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 0]]], 'projects.0.stones.0.quantity'],
     'quantity of 10000' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 10000]]], 'projects.0.stones.0.quantity'],
     'a fractional quantity' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'quantity' => 1.5]]], 'projects.0.stones.0.quantity'],
-    'a location not in the list' => [fn (array $p): array => [...$p, 'location' => 'Atlantis'], 'projects.0.location'],
+    'a saved address not in the book' => [fn (array $p): array => [...$p, 'addressId' => '999999'], 'projects.0.addressId'],
+    'brands and No preference' => [fn (array $p): array => [...$p, 'brands' => ['regray-stone']], 'projects.0.brands'],
     'an unknown stone' => [fn (array $p): array => [...$p, 'stones' => [[...$p['stones'][0], 'stoneId' => 'no-such-stone']]], 'projects.0.stones.0.stoneId'],
     'no service' => [fn (array $p): array => [...$p, 'serviceId' => ''], 'projects.0.serviceId'],
     'an unknown service' => [fn (array $p): array => [...$p, 'serviceId' => 'no-such-option'], 'projects.0.serviceId'],
@@ -370,41 +373,46 @@ describe('stones and services', function (): void {
 });
 
 describe('the delivery method', function (): void {
-    it('stores a delivery with its location', function (): void {
+    it('stores a delivery with a copy of its saved address', function (): void {
         postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
 
         $inquiry = Inquiry::query()->sole();
 
         expect($inquiry->delivery_method)->toBe(DeliveryMethod::Delivery)
-            ->and($inquiry->location)->toBe('Makati');
+            ->and($inquiry->address_city_name)->toBe('City of Makati')
+            ->and($inquiry->address_postal_code)->toBe('1209');
     });
 
-    it('needs a location for a delivery', function (): void {
-        postInquiry($this, [inquiryProjectInput(['location' => ''])])
-            ->assertSessionHasErrors(['projects.0.location' => 'Choose where the site is.']);
+    it('needs an address for a delivery', function (): void {
+        postInquiry($this, [inquiryProjectInput(['address' => null])])
+            ->assertSessionHasErrors(['projects.0.addressId' => 'Choose the delivery address.']);
     });
 
-    it('needs no location for a pickup, and keeps none it was sent', function (array $site): void {
-        postInquiry($this, [inquiryProjectInput(['deliveryMethod' => 'pickup', ...$site])])->assertSessionHasNoErrors();
+    it('needs no address for a pickup, and refuses one sent with it', function (): void {
+        postInquiry($this, [inquiryProjectInput(['deliveryMethod' => 'pickup', 'address' => null])])->assertSessionHasNoErrors();
 
-        $inquiry = Inquiry::query()->sole();
+        expect(Inquiry::query()->sole()->address_city_code)->toBeNull();
 
-        expect($inquiry->delivery_method)->toBe(DeliveryMethod::Pickup)
-            ->and($inquiry->location)->toBeNull();
-    })->with([
-        'none sent' => [['location' => '']],
-        'one left over' => [['location' => 'Makati']],
-    ]);
+        postInquiry($this, [inquiryProjectInput(['deliveryMethod' => 'pickup', 'addressId' => (string) defaultTestAddress($this->client)->id])])
+            ->assertSessionHasErrors(['projects.0.address' => 'A pickup needs no address.']);
+    });
 
-    it('does not let the database hold a delivery with no location or a pickup with one', function (string $method, ?string $location): void {
+    it('does not let the database hold a delivery with no address or a pickup with one', function (string $method, bool $keepAddress): void {
         postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
 
-        expect(fn () => DB::table('inquiries')->update(['delivery_method' => $method, 'location' => $location]))
-            ->toThrow(QueryException::class);
+        $change = ['delivery_method' => $method, ...($keepAddress ? [] : PhAddress::emptyColumns(Inquiry::ADDRESS_PREFIX))];
+
+        expect(fn () => DB::table('inquiries')->update($change))->toThrow(QueryException::class);
     })->with([
-        'delivery with no location' => ['delivery', null],
-        'pickup with a location' => ['pickup', 'Makati'],
+        'delivery with no address' => ['delivery', false],
+        'pickup with an address' => ['pickup', true],
     ]);
+
+    it('does not let the database hold half an address', function (): void {
+        postInquiry($this, [inquiryProjectInput()])->assertSessionHasNoErrors();
+
+        expect(fn () => DB::table('inquiries')->update(['address_barangay_code' => null]))->toThrow(QueryException::class);
+    });
 });
 
 describe('the questions a service asks', function (): void {

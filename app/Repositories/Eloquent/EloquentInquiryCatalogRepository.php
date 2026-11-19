@@ -65,6 +65,8 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
                 ->whereIn('stone_type_id', $this->stoneRepository->bestSellerTypeIds(BestSellerService::BEST_SELLER_COUNT)))
             ->when($filters->type !== null, fn (Builder $query) => $query
                 ->whereHas('type', fn (Builder $type) => $type->where('slug', $filters->type)))
+            ->when($filters->brands !== [], fn (Builder $query) => $query
+                ->whereHas('brand', fn (Builder $brand) => $brand->whereIn('slug', $filters->brands)))
             ->when($pattern !== null, fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('name', 'ILIKE', $pattern)
                 ->orWhere('origin', 'ILIKE', $pattern)

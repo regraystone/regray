@@ -10,11 +10,18 @@ import { ROOT } from '../message/support/stack';
  * otherwise.
  */
 
-export type Role = 'client' | 'clientB' | 'marketing' | 'sales' | 'unverified';
+export type Role =
+    | 'client'
+    | 'clientB'
+    | 'noAddresses'
+    | 'marketing'
+    | 'sales'
+    | 'unverified';
 
 export const ROLES: Role[] = [
     'client',
     'clientB',
+    'noAddresses',
     'marketing',
     'sales',
     'unverified',
@@ -23,12 +30,22 @@ export const ROLES: Role[] = [
 /** What E2EInquirySeeder wrote to storage/app/e2e/inquiry-fixtures.json. */
 export type InquiryFixtures = {
     users: Record<
-        'clientA' | 'clientB' | 'unverified' | 'marketing' | 'sales',
+        | 'clientA'
+        | 'clientB'
+        | 'noAddresses'
+        | 'unverified'
+        | 'marketing'
+        | 'sales',
         string
     >;
     clientAId: number;
     clientBId: number;
     disk: string;
+    /** Each client's saved addresses, the default first. */
+    addresses?: Record<
+        'clientA' | 'clientB',
+        Array<{ id: number; label: string; line: string; isDefault: boolean }>
+    >;
 };
 
 export const INQUIRY_FIXTURES_FILE = join(
@@ -60,6 +77,7 @@ export const credentialsFor = (
     const seeded: Record<Role, string> = {
         client: users.clientA,
         clientB: users.clientB,
+        noAddresses: users.noAddresses,
         marketing: users.marketing,
         sales: users.sales,
         unverified: users.unverified,

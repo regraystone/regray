@@ -6,7 +6,7 @@ import type {
     SalesStatus,
     SharedDocumentType,
 } from '@/lib/inquiry-statuses';
-import type { ClientInformationValues } from '@/lib/client-information';
+import type { PhAddressPayload } from '@/lib/ph-address';
 import type { QuoteActions } from '@/lib/quote-actions';
 import type { QuoteFilters } from '@/lib/quote-filters';
 
@@ -111,12 +111,6 @@ export type QuoteInquiryDetails = {
         /** Such as "Sales Representative"; null for a role with no label. */
         roleLabel: string | null;
     }>;
-    /**
-     * What the client sent with this inquiry, when they sent their own. A
-     * snapshot, not the Profile's current values; staff-opened and older
-     * inquiries have none. Read-only everywhere it is shown.
-     */
-    clientInformation: ClientInformationValues | null;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
     /** Which buttons the page shows, and which can be pressed. */
@@ -125,6 +119,9 @@ export type QuoteInquiryDetails = {
     project: {
         name: string;
         stoneAdviceRequested: boolean;
+        /** The brands the client would like, in the brands' order; empty with no preference. */
+        brands: Array<{ id: string; name: string }>;
+        brandNoPreference: boolean;
         serviceType: string | null;
         service: string | null;
         /** False for a service that asks for no stones, which has no Stones section. */
@@ -149,9 +146,12 @@ export type QuoteInquiryDetails = {
         /** The project-scope answers, labelled and already worded. */
         answers: Array<{ label: string; value: string }>;
         requirements: {
-            deliveryMethod: string;
-            /** Null on a pickup. */
-            location: string | null;
+            /** Null for an installed service, which asks no method. */
+            deliveryMethod: string | null;
+            /** The copy kept with the inquiry; null on a pickup. */
+            address: PhAddressPayload | null;
+            /** "Pickup", "Delivery to {address}" or "Installation at {address}". */
+            fulfillment: string;
             neededBy: string | null;
             notes: string | null;
             attachments: StoredInquiryFile[];

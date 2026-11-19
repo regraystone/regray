@@ -1,7 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { InquiryFileRow } from '@/components/inquiry-file-row';
-import type { ClientInformationValues } from '@/lib/client-information';
 import { formatDate } from '@/lib/format-date';
 import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
@@ -21,7 +20,6 @@ import { buildCardActions } from '@/lib/quote-actions';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
 import { index as quoteIndex } from '@/routes/quote';
-import { DELIVERY_METHODS, PICKUP } from '@/lib/inquiry-flow';
 import type { QuoteInquiryDetails, StoredInquiryFile } from '@/types/quote';
 
 type InquiryDetailsProps = {
@@ -56,6 +54,8 @@ type ResolvedProject = {
     name: string;
     /** The client asked Regray to recommend a stone instead of choosing one. */
     stoneAdviceRequested: boolean;
+    brands: Array<{ id: string; name: string }>;
+    brandNoPreference: boolean;
     serviceType: string | null;
     service: string | null;
     /** False for a service that asks for no stones. */
@@ -68,10 +68,6 @@ type ResolvedProject = {
         attachments: StoredInquiryFile[];
     };
 };
-
-/** Pieces rather than types: how much was asked for, not how many kinds of it. */
-const inquiryDeliveryMethod = (project: ResolvedProject): string | undefined =>
-    project.requirements.deliveryMethod;
 
 /** Null when the service asked no piece count, which only the slab services ask. */
 const countPieces = (
@@ -179,63 +175,6 @@ const DatedRow = ({
             {dateTimeFormatter.format(new Date(at))}
         </time>
     </div>
-);
-
-/**
- * The client's own answer to "How would you like to get it?" as it was when
- * this request was sent. The Profile can change afterwards; this does not, so
- * staff and the client see the same record of what they were actually given.
- */
-const ClientInformationCard = ({
-    information,
-}: {
-    information: ClientInformationValues;
-}) => (
-    <section
-        aria-labelledby="inquiry-client-information-title"
-        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
-        data-testid="inquiry-client-information"
-    >
-        <h2 className="px-4 py-3 sm:px-5">
-            <span
-                id="inquiry-client-information-title"
-                className="block text-sm font-bold tracking-[0.08em] uppercase"
-            >
-                Client Information
-            </span>
-            <span className="mt-1 block text-xs font-normal text-secondary-foreground normal-case">
-                As sent with this request
-            </span>
-        </h2>
-
-        <dl className="border-t border-sidebar-border px-4 sm:px-5">
-            {[
-                [
-                    "How you'll get it",
-                    DELIVERY_METHODS.find(
-                        ({ value }) => value === information.deliveryMethod,
-                    )?.title ?? information.deliveryMethod,
-                ],
-                ...(information.deliveryMethod === PICKUP
-                    ? []
-                    : [['Location', information.location ?? '']]),
-            ].map(([label, value]) => (
-                <div
-                    key={label}
-                    className="flex items-baseline justify-between gap-4 border-b border-dashed border-sidebar-border py-3 last:border-b-0"
-                >
-                    <dt className="text-sm text-secondary-foreground">
-                        {label}
-                    </dt>
-                    <dd className="min-w-0 text-right text-sm font-bold break-words">
-                        {value === null || value.trim() === ''
-                            ? 'Not provided'
-                            : value}
-                    </dd>
-                </div>
-            ))}
-        </dl>
-    </section>
 );
 
 /**
@@ -687,6 +626,16 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 
                     <dl>
                         <SummaryRow
+                            label="Brands"
+                            value={
+                                project.brandNoPreference
+                                    ? 'No preference'
+                                    : project.brands
+                                          .map(({ name }) => name)
+                                          .join(', ') || undefined
+                            }
+                        />
+                        <SummaryRow
                             label="Service type"
                             value={project.serviceType ?? undefined}
                         />
@@ -719,20 +668,8 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                     <dl>
                         <SummaryRow
                             label="How you'll get it"
-                            value={
-                                DELIVERY_METHODS.find(
-                                    ({ value }) =>
-                                        value ===
-                                        inquiryDeliveryMethod(project),
-                                )?.title
-                            }
+                            value={project.requirements.fulfillment}
                         />
-                        {inquiryDeliveryMethod(project) === PICKUP ? null : (
-                            <SummaryRow
-                                label="Location"
-                                value={project.requirements.location}
-                            />
-                        )}
                         <SummaryRow label="Target deadline" value={neededBy} />
                     </dl>
 
@@ -786,8 +723,8 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 const toRequirements = (
     requirements: QuoteInquiryDetails['project']['requirements'],
 ): ResolvedProject['requirements'] => ({
-    deliveryMethod: requirements.deliveryMethod,
-    location: requirements.location ?? undefined,
+    deliveryMethod: requirements.deliveryMethod ?? undefined,
+    fulfillment: requirements.fulfillment,
     neededBy: requirements.neededBy ?? undefined,
     notes: requirements.notes ?? undefined,
     attachments: requirements.attachments,
@@ -810,6 +747,8 @@ const InquiryDetails = () => {
     const project: ResolvedProject = {
         name: inquiry.project.name,
         stoneAdviceRequested: inquiry.project.stoneAdviceRequested,
+        brands: inquiry.project.brands,
+        brandNoPreference: inquiry.project.brandNoPreference,
         serviceType: inquiry.project.serviceType,
         service: inquiry.project.service,
         requiresStones: inquiry.project.requiresStones,
@@ -933,11 +872,6 @@ const InquiryDetails = () => {
             <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <aside className="space-y-6 lg:order-2">
                     <AssignedStaffCard staff={inquiry.assignedStaff} />
-                    {inquiry.clientInformation !== null ? (
-                        <ClientInformationCard
-                            information={inquiry.clientInformation}
-                        />
-                    ) : null}
                     <ActivityLogCard
                         history={inquiry.history}
                         createdAt={inquiry.createdAt}

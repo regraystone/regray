@@ -8,22 +8,26 @@ import {
     type InquiryUploadAttachment,
 } from '@/data/inquiries';
 import {
-    DELIVERY,
+    BRAND_STEP,
     REQUIREMENTS_STEP,
     SERVICE_STEP,
     STONES_STEP,
     answerProblem,
     asksQuantity,
+    brandProblem,
     findService,
+    fulfillmentProblems,
     linkedToStoneProblem,
     normalizedStoneAnswer,
     projectFields,
     quantityProblem,
     stoneFieldKey,
     stoneFields,
+    type AddressSource,
     type ServiceField,
     type StoneFieldKey,
 } from '@/lib/inquiry-flow';
+import { isAddressComplete, type AddressValue } from '@/lib/ph-address';
 import type { InquiryCatalog } from '@/types/inquiry';
 
 /*
@@ -39,7 +43,7 @@ import type { InquiryCatalog } from '@/types/inquiry';
  * at `REQUIREMENTS_STEP`: the questions validate a draft rather than the form the
  * request is built from, so they own no committed fields.
  */
-export { REQUIREMENTS_STEP, SERVICE_STEP, STONES_STEP };
+export { BRAND_STEP, REQUIREMENTS_STEP, SERVICE_STEP, STONES_STEP };
 
 /** Attachments, shared so the drop zone and the rule below cannot disagree. */
 export const MAX_ATTACHMENTS = 10;
@@ -319,9 +323,12 @@ const projectNameSchema = z
  * Every rule the inquiry form has, built over the options the page was given.
  *
  * A function rather than constants because what a stone, a service, a furniture
- * type, an edge profile, a finish or a location *is* now comes from the
+ * type, an edge profile or a finish *is* now comes from the
  * database through the page's props: the rules that say "it has to still be on
  * the list" can only be written once the list is known.
+ *
+ * Where the address comes from is the reader's: a client picks one of their
+ * saved addresses, staff enter one with the picker (`addressSource`).
  *
  * What else a project is asked depends on the service it is for, so those
  * rules are chosen per project, from the service its answers name: each stone
@@ -330,7 +337,10 @@ const projectNameSchema = z
  * StoreInquiryRequest words them). A question the service does not ask is not
  * checked, and not sent.
  */
-export const createInquirySchemas = (catalog: InquiryCatalog) => {
+export const createInquirySchemas = (
+    catalog: InquiryCatalog,
+    addressSource: AddressSource = 'book',
+) => {
     const serviceIds = new Set(
         catalog.serviceTypes.flatMap(({ services }) =>
             services.map(({ id }) => id),
@@ -398,9 +408,33 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
      * Shared by the draft and the committed project so the two cannot come to
      * accept different answers to the same question.
      */
+    const placeSchema = z.object({ code: z.string(), name: z.string() });
+
     const projectDetailsShape = {
-        /* Whether it is asked depends on the delivery method: see `refineAnswers`. */
-        location: z.string().trim(),
+        /* The brands by slug, or No preference: see `refineAnswers`. */
+        brands: z.array(z.string()),
+        brandNoPreference: z.boolean(),
+
+        /*
+         * Whether a method is asked, and an address, is the service's: see
+         * `refineAnswers`. A client's address is one of their saved ones by
+         * id; staff's is the picker's value.
+         */
+        deliveryMethod: z.string(),
+        addressId: z.string(),
+        address: z
+            .object({
+                region: placeSchema.nullable(),
+                province: placeSchema.nullable(),
+                noProvince: z.boolean(),
+                city: placeSchema.nullable(),
+                barangay: placeSchema.nullable(),
+                postalCode: z.string(),
+                lat: z.number().nullable(),
+                lng: z.number().nullable(),
+                needsPostalCode: z.boolean().optional(),
+            })
+            .nullable(),
 
         /*
          * The service's project-scope answers, by question slug. Checked with
@@ -435,9 +469,11 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
      * A project needs a service, and a stone or the request for a
      * recommendation, unless its service asks for no stones. Each stone row
      * answers the stone-scope questions the service asks, and the project the
-     * project-scope ones; "Same as stone" needs a stone to be the same as. A
-     * delivery needs its location. Every project needs a day, because sending
-     * the inquiry books it as a schedule, for 10:00.
+     * project-scope ones; "Same as stone" needs a stone to be the same as.
+     * Brands or No preference, one or the other. A service that is delivered
+     * or picked up asks which, and a delivery needs its address; an installed
+     * service needs its installation address. Every project needs a day,
+     * because sending the inquiry books it as a schedule, for 10:00.
      */
     const refineAnswers = (
         answers: {
@@ -449,8 +485,11 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
                 string
             >)[];
             answers: Record<string, string>;
+            brands: string[];
+            brandNoPreference: boolean;
             deliveryMethod: string;
-            location: string;
+            addressId: string;
+            address: AddressValue | null;
             neededBy: string;
         },
         stonesField: string,
@@ -531,34 +570,19 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             }
         }
 
-        if (answers.deliveryMethod === '') {
-            ctx.addIssue({
-                code: 'custom',
-                path: ['deliveryMethod'],
-                message: 'Choose how you would like to get it.',
-            });
+        const brands = brandProblem(answers);
+
+        if (brands !== null) {
+            ctx.addIssue({ code: 'custom', path: ['brands'], message: brands });
         }
 
-        if (answers.deliveryMethod === DELIVERY) {
-            /*
-             * A search over a fixed list, so anything that is not one of its
-             * entries is half-typed text rather than an answer we can route. The
-             * emptiness check comes first so an untouched field reads as unanswered
-             * instead of as something the reader mistyped.
-             */
-            if (answers.location === '') {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['location'],
-                    message: 'Choose where the site is.',
-                });
-            } else if (!catalog.locations.includes(answers.location)) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['location'],
-                    message: 'Choose a city or municipality from the list.',
-                });
-            }
+        for (const { field, message } of fulfillmentProblems(
+            answers,
+            service,
+            addressSource,
+            (address) => isAddressComplete(address as AddressValue),
+        )) {
+            ctx.addIssue({ code: 'custom', path: [field], message });
         }
 
         if (answers.neededBy === '') {
@@ -585,7 +609,6 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             serviceId: z.string(),
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
-            deliveryMethod: z.string(),
             ...projectDetailsShape,
         })
         .superRefine((project, ctx) =>
@@ -620,7 +643,6 @@ export const createInquirySchemas = (catalog: InquiryCatalog) => {
             serviceId: z.string(),
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
-            deliveryMethod: z.string(),
             ...projectDetailsShape,
         })
         .superRefine((draft, ctx) => refineAnswers(draft, 'stoneIds', ctx));
@@ -696,8 +718,11 @@ export const draftDefaults = {
     stoneIds: [],
     stones: [],
     answers: {},
-    deliveryMethod: DELIVERY,
-    location: '',
+    brands: [],
+    brandNoPreference: false,
+    deliveryMethod: '',
+    addressId: '',
+    address: null,
     neededBy: '',
     notes: '',
     attachments: [],

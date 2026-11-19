@@ -13,8 +13,10 @@ use Illuminate\Support\Facades\Schema;
  *   That pairing is the app's rule, not a CHECK.
  * - `user_id`: the client's account, unique, so an account has one client
  *   record at most. Two records are never merged into one.
- * - A direct client's phone, Viber, WhatsApp and email are rows of
- *   `client_contacts`; a platform client's are on their account.
+ * - A direct client is taken down with a full name, a phone number and,
+ *   optionally, an email: the two are rows of `client_contacts`. A platform
+ *   client's are on their account. Where the work goes is asked per inquiry,
+ *   never kept on the client.
  */
 return new class extends Migration
 {
@@ -25,8 +27,6 @@ return new class extends Migration
             $table->string('kind', 10);
             $table->foreignId('user_id')->nullable()->unique()->constrained()->restrictOnDelete();
             $table->string('full_name', 150);
-            $table->string('company', 150)->nullable();
-            $table->string('address', 255)->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');

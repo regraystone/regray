@@ -291,7 +291,8 @@ describe('a walk-in', function (): void {
 
         expect($row['clientName'])->toBe('Wanda Walk-in')
             ->and($row['walkIn']['contacts'])->toBe([['kind' => 'phone', 'value' => $walkIn->contacts()->value('value')]])
-            ->and($row['walkIn'])->toHaveKeys(['company', 'address']);
+            // Only how to reach them: a walk-in has no company or address any more.
+            ->and($row['walkIn'])->toBe(['contacts' => $row['walkIn']['contacts']]);
 
         // The sales member confirming it reads how to reach them too.
         $salesRow = collect($this->actingAs($sales)->get(route('schedule.index', $range))->viewData('page')['props']['schedules'])->sole();

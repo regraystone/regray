@@ -2,12 +2,10 @@
 
 namespace App\Enums;
 
-/** How a direct client can be reached: one `client_contacts` row each. */
+/** How a direct client can be reached: their phone and, optionally, their email; one `client_contacts` row each. */
 enum ContactKind: string
 {
     case Phone = 'phone';
-    case Viber = 'viber';
-    case WhatsApp = 'whatsapp';
     case Email = 'email';
 
     /**
@@ -28,8 +26,6 @@ enum ContactKind: string
     {
         return match ($this) {
             self::Phone => 'Phone',
-            self::Viber => 'Viber',
-            self::WhatsApp => 'WhatsApp',
             self::Email => 'Email',
         };
     }

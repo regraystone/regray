@@ -144,6 +144,11 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         $inquiry->forceFill($attributes)->save();
     }
 
+    public function replaceBrands(Inquiry $inquiry, array $brandIds): void
+    {
+        $inquiry->brands()->sync($brandIds);
+    }
+
     public function replaceStones(Inquiry $inquiry, array $stones): void
     {
         $inquiry->stones()->delete();
@@ -333,7 +338,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'service.detailFields.options',
                 'detailAnswers.detailField',
                 'detailAnswers.option',
-                'clientInformationSnapshot',
+                'brands:id,slug,name,logo_path,sort_order',
                 'schedule:id,inquiry_id,arrival_at,status',
                 'stones' => fn ($stones) => $stones->orderBy('sort_order'),
                 'stones.stone' => fn ($stone) => $stone->withTrashed(),

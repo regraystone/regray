@@ -6,6 +6,7 @@ use App\Data\Message\QuotationCardSnapshot;
 use App\Enums\BookedByType;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
@@ -425,7 +426,9 @@ class E2EMessageSeeder extends Seeder
             'client_id' => $client->id,
             'name' => $projectName,
             'service_id' => Service::query()->where('slug', 'slab-supply-only')->value('id'),
-            'location' => 'Makati',
+            'delivery_method' => DeliveryMethod::Delivery,
+            ...DemoPlaces::address('Makati')->toColumns(Inquiry::ADDRESS_PREFIX),
+            'brand_no_preference' => true,
         ])->save();
 
         if (! $withStone) {

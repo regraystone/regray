@@ -12,7 +12,8 @@ use Illuminate\Database\Seeder;
  * One account per Role case plus a generic test@example.com, all with the
  * factory default password ("password"). These accounts exist solely so a
  * fresh non-production install has somebody to sign in as; they are blocked
- * on production by the runtime guard in run().
+ * on production by the runtime guard in run(). The client account has two
+ * saved addresses.
  */
 class DemoAccountsSeeder extends Seeder
 {
@@ -28,10 +29,15 @@ class DemoAccountsSeeder extends Seeder
         ]);
 
         foreach (Role::cases() as $role) {
-            User::factory()->role($role)->create([
+            $user = User::factory()->role($role)->create([
                 'name' => ucfirst($role->value),
                 'email' => $role->value.'@example.com',
             ]);
+
+            // The demo client starts with an address book, so the Inquire page has one to pick from.
+            if ($role === Role::Client) {
+                UserSeeder::seedAddressBook($user, [['label' => 'Home', 'place' => 'Makati'], ['label' => 'Site', 'place' => 'Antipolo']]);
+            }
         }
     }
 }
