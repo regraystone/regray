@@ -7,6 +7,10 @@ A piece of furniture's page (`/brands/{brand}/furniture/{furniture}`, and its `/
 - **Neighbours and related** (`FurnitureService::neighbours()`, `related()`, `FurnitureRepository`): the brand's active pieces in catalog order, and others of the same type.
 - **Save:** the page draws its own Save, so the workspace's floating heart is now a stone profile's only.
 
+# Saving and unsaving a stone works again
+
+With the routes cached (`artisan optimize`, as the containers and production run), saving or unsaving a stone did nothing: the stone profile's old address, `Route::redirect('saved/{stone}', …)`, answers every method, so it took the `PUT` and `DELETE` on the same address and answered them with a 301. Uncached (tests, `artisan serve`) the later routes replaced it, which is why the tests passed. The redirect is now GET only, and goes to `/dashboard/saved/stones/{stone}` (it pointed at a relative `saved/stones/…`, one level too deep). `RedirectRoutesTest` fails any redirect that shares its address with another route. Furniture was not affected. **No migration.**
+
 # Brands first, delivery by service, an address book with a map, and staff address entry
 
 The Inquire flow now opens on **Which brands would you like?**, asks how the work is got by what the service is, and takes every address as real Philippine places (PSGC codes) instead of a free-text location. Clients keep an **address book**; staff type the address with the same picker. **Deploy, local and production: `php artisan migrate:fresh --seed`** (the migrations and seeders were edited in place, and the PSGC tables are seeded), then set the Mapbox token below and **rebuild the images** (the token is baked into the frontend build).

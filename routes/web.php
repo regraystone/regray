@@ -172,7 +172,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('saved/furniture/{furniture}', [FurnitureController::class, 'show'])
             ->middleware([Permission::SavedView->middleware(), 'throttle:heavy-reads'])
             ->name('saved.furniture.show');
-        Route::redirect('saved/{stone}', 'saved/stones/{stone}', 301);
+        /*
+         * The stone profile's old address. GET only: Route::redirect answers every
+         * method, and with the routes cached it would take the PUT and DELETE below
+         * (saving and unsaving a stone) before they are reached.
+         */
+        Route::get('saved/{stone}', fn (string $stone) => redirect("/dashboard/saved/stones/{$stone}", 301))
+            ->where('stone', '[a-z0-9-]+');
         Route::get('saved/{stone}/{project}', [SavedProjectController::class, 'show'])
             ->middleware(Permission::SavedProjectsView->middleware())
             ->name('saved.project');
