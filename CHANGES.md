@@ -1,3 +1,17 @@
+# Saved opens with "Your Saved Collection" and a category section
+
+The client's Saved page (`/dashboard/saved`) opens the way Sir Mark asked, in his words: a heart, **Your Saved Collection**, "A personal selection of materials, furniture, and designs for your next project." and **Explore collections** (the Home catalogue).
+
+- **Explore by category** (`components/saved/saved-collection-intro.tsx`): four rounded photo cards, four to a row on desktop and two on phones, each saying what it holds from the active catalog:
+    - **Natural Stone:** Regray Stone's stones ("75 stones · Regray Stone"), opening its page on its stones.
+    - **Furniture:** Regray Stone's furniture ("6 pieces · Regray Stone"), opening its page on its furniture.
+    - **Kitchens:** Cucine Lube, with its photo, opening its page.
+    - **Wardrobes:** Faer Ambienti, with its photo, opening its page.
+
+  A brand that is not active leaves its card out.
+- **Your saved pieces**, with how many, then the saved stones and furniture as before: Request a quote, the heart to remove, each opening its page. Nothing saved shows the same note under the same heading.
+- **Data:** the Saved page also gets `categories`, Regray Stone's active stone and furniture counts and the Kitchens and Wardrobes brands (`ListSavedCategoriesAction`, `BrandCardResource`).
+
 # The landing page follows the agreed homepage layout, and a News page
 
 The landing page (`/`, guests only) is rebuilt from the v6 design in the agreed homepage layout: 01 Hero and Discover, 02 Our brands, 03 Regray Online, 04 Showroom, 05 News, 06 Contact, then the footer. Every word is true to the system: nothing the design invented (its sample news headlines, a virtual tour) is shown.
