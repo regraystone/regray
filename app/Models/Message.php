@@ -25,6 +25,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $schedule_revision A schedule card's appointment revision.
  * @property Carbon|null $announced_arrival_at A schedule card's arrival, as its change left it.
  * @property string|null $announced_reason A schedule card's reason, as its change gave it.
+ * @property int|null $inquiry_file_id A quotation card's document.
+ * @property array{fileName: string, storedName: string, sizeBytes: int, revision: int|null, materialCount: int, inquiryName: string, reference: string}|null $card_snapshot A quotation card's document and inquiry as they were when it was posted (QuotationCardSnapshot).
  * @property Carbon $created_at
  * @property Carbon|null $edited_at
  * @property Carbon|null $deleted_at
@@ -39,7 +41,7 @@ use Illuminate\Support\Carbon;
  * Nothing prunes these rows; do not make this model Prunable without
  * deciding that policy again.
  */
-#[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'announced_sales_status', 'announced_payment_status', 'announced_process_status', 'schedule_revision', 'announced_arrival_at', 'announced_reason', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
+#[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'announced_sales_status', 'announced_payment_status', 'announced_process_status', 'schedule_revision', 'announced_arrival_at', 'announced_reason', 'inquiry_file_id', 'card_snapshot', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
 class Message extends Model
 {
     use SoftDeletes;
@@ -54,6 +56,7 @@ class Message extends Model
             'edited_at' => 'datetime',
             'announced_arrival_at' => 'datetime',
             'schedule_revision' => 'integer',
+            'card_snapshot' => 'array',
         ];
     }
 

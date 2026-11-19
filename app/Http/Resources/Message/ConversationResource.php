@@ -177,6 +177,7 @@ class ConversationResource extends JsonResource
         return match ($message->type) {
             MessageType::Text => $this->textPreview($message, $isOwnSupport),
             MessageType::InquiryCard => $this->inquiryPreview($message),
+            MessageType::QuotationCard => 'Quotation · '.($message->card_snapshot['fileName'] ?? ''),
             MessageType::ScheduleCard => (self::SCHEDULE_HEADLINES[(string) $message->announced_status] ?? 'Appointment').' · '.($message->schedule->title ?? ''),
             MessageType::System => $this->systemPreview($message),
         };

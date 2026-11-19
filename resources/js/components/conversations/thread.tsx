@@ -17,6 +17,7 @@ import Composer, {
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
+import QuotationCard from '@/components/conversations/quotation-card';
 import QuotePrompt from '@/components/conversations/quote-prompt';
 import AddMembersDialog from '@/components/conversations/add-members-dialog';
 import Receipts from '@/components/conversations/receipts';
@@ -537,6 +538,15 @@ const Thread = ({
                                 <InquiryCard
                                     key={item.key}
                                     card={message.inquiryCard}
+                                />
+                            ) : null;
+                        }
+
+                        if (message.type === 'quotation_card') {
+                            return message.quotationCard ? (
+                                <QuotationCard
+                                    key={item.key}
+                                    card={message.quotationCard}
                                 />
                             ) : null;
                         }

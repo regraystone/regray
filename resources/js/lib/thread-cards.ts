@@ -111,3 +111,30 @@ export const bookedByText = (
     bookedByType === 'staff'
         ? `Booked by ${bookedByName ?? 'staff'}`
         : 'Booked by client';
+
+/** "1 item", "3 items": `singular` plus "s" past one. */
+const counted = (count: number, singular: string): string =>
+    `${count} ${count === 1 ? singular : `${singular}s`}`;
+
+/** The inquiry card's Materials row: "1 item", "3 items". */
+export const materialItemsLabel = (count: number): string =>
+    counted(count, 'item');
+
+/**
+ * The quotation card's sub-line: "3 materials · Kitchen renovation", or just
+ * the inquiry's name for a service-only inquiry, which has none.
+ */
+export const quotationSubline = (
+    materialCount: number,
+    inquiryName: string,
+): string =>
+    materialCount > 0
+        ? `${counted(materialCount, 'material')} · ${inquiryName}`
+        : inquiryName;
+
+/**
+ * The "+N" on the last stone picture: the stones the card counts but does not
+ * draw. Never below 0.
+ */
+export const extraStoneCount = (stoneCount: number, shown: number): number =>
+    Math.max(0, stoneCount - shown);
