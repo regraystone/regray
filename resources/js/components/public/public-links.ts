@@ -1,4 +1,4 @@
-import { about, brands, contact, showroom } from '@/routes/company';
+import { about, brands, contact, news, showroom } from '@/routes/company';
 import { show as brandsShow } from '@/routes/brands';
 import { book } from '@/routes/profile/schedule';
 import { inquire } from '@/routes/quote';
@@ -100,7 +100,9 @@ export const BRAND_CATEGORIES = [
 
 export type MenuLink = { label: string; href: string; external?: boolean };
 
-export type MenuSection = {
+/** A tab that opens a panel: what it holds, its main link, its links and a photo. */
+export type MenuPanel = {
+    kind: 'panel';
     label: string;
     description: string;
     cta: MenuLink;
@@ -108,13 +110,19 @@ export type MenuSection = {
     image: string;
 };
 
+/** A tab that is a plain link to its page. */
+export type MenuPage = { kind: 'page'; label: string; href: string };
+
+export type MenuItem = MenuPanel | MenuPage;
+
 /**
- * The header's menu: each tab's line on what it holds, its main link, its
- * links and its photo. Pages a guest cannot open yet (booking a visit, the
- * Inquire page) go through Login first.
+ * The header's menu, in the agreed order: every tab opens a panel. (A tab may
+ * instead be a plain link to its page, `kind: 'page'`.) Pages a guest cannot
+ * open yet (booking a visit, the Inquire page) go through Login first.
  */
-export const menuSections = (brandPhoto: string | null): MenuSection[] => [
+export const menuItems = (brandPhoto: string | null): MenuItem[] => [
     {
+        kind: 'panel',
         label: 'Our brands',
         description:
             'Six houses in stone, kitchens, wardrobes, doors and interiors, each with its own collection and official website.',
@@ -126,6 +134,7 @@ export const menuSections = (brandPhoto: string | null): MenuSection[] => [
         image: brandPhoto ?? '/images/regray-slabs.jpg',
     },
     {
+        kind: 'panel',
         label: 'Showroom',
         description:
             'Discover and experience Regray’s brands in person, at our showroom in Makati.',
@@ -142,6 +151,7 @@ export const menuSections = (brandPhoto: string | null): MenuSection[] => [
         image: '/images/regray-showroom.jpg',
     },
     {
+        kind: 'panel',
         label: 'Discover',
         description:
             'Learn about Regray: its story, its vision and how to work with us.',
@@ -156,19 +166,21 @@ export const menuSections = (brandPhoto: string | null): MenuSection[] => [
         image: '/images/regray-slabs.jpg',
     },
     {
+        kind: 'panel',
         label: 'News',
         description:
-            'The latest from Regray and its brands: new stones, finished projects and design stories.',
-        cta: { label: 'Read the journal', href: JOURNAL, external: true },
+            'The latest from Regray and its brands: finished projects, new stones and design stories.',
+        cta: { label: 'All news', href: news.url() },
         links: [
+            { label: 'Latest projects', href: news.url() },
             { label: 'Regray Journal', href: JOURNAL, external: true },
-            { label: 'Featured projects', href: '/#projects' },
             { label: 'Instagram', href: SOCIALS[0].href, external: true },
             { label: 'Facebook', href: SOCIALS[1].href, external: true },
         ],
         image: '/images/regray-hero.jpg',
     },
     {
+        kind: 'panel',
         label: 'Contact',
         description: 'Connect with the Regray team.',
         cta: { label: 'Contact us', href: contact.url() },

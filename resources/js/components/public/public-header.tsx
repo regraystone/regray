@@ -2,8 +2,9 @@ import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
     HOME_BRAND,
-    menuSections,
+    menuItems,
     type MenuLink,
+    type MenuPanel,
 } from '@/components/public/public-links';
 import Logo from '@/components/logo';
 import { dashboard, login, register } from '@/routes';
@@ -91,10 +92,12 @@ const Plus = ({
  * News, Contact) and, for a guest, Login and Sign up, or for anyone signed
  * in, their Dashboard.
  *
- * From 1180px each tab opens a panel under the header on hover, focus or
- * click: what the tab holds, its main link, its links and a photo, over a
- * dimmed page. Leaving the header, Escape or the dimmed page closes it.
- * Below 1180px the tabs fold into a full-screen menu, each one an accordion.
+ * Each tab opens a panel (a tab marked as a page instead goes straight to it,
+ * underlined on its own page). From 1180px a panel
+ * opens under the header on hover, focus or click: what the tab holds, its
+ * main link, its links and a photo, over a dimmed page. Leaving the header,
+ * Escape or the dimmed page closes it. Below 1180px the tabs fold into a
+ * full-screen menu, the panels as accordions and the pages as links.
  */
 export default function PublicHeader() {
     const { siteBrands, auth } = usePage<{
@@ -102,18 +105,27 @@ export default function PublicHeader() {
         auth: { user: unknown };
     }>().props;
     const isSignedIn = auth.user !== null;
-    const sections = menuSections(
+    const { url } = usePage();
+    const items = menuItems(
         siteBrands?.find((brand) => brand.slug === HOME_BRAND)?.thumbnail ??
             null,
     );
+    const firstPanel = items.find(
+        (item): item is MenuPanel => item.kind === 'panel',
+    );
 
-    /** The open tab's index from 1180px; -1 when none is. */
+    /** The open panel tab's index in `items` from 1180px; -1 when none is. */
     const [open, setOpen] = useState(-1);
     const [menuOpen, setMenuOpen] = useState(false);
     /** The open accordion in the phone menu; -1 when none is. */
     const [accordion, setAccordion] = useState(0);
-    const current = sections[open >= 0 ? open : 0];
-    const isOpen = open >= 0;
+    const openItem = open >= 0 ? items[open] : undefined;
+    const current =
+        openItem?.kind === 'panel' ? openItem : (firstPanel as MenuPanel);
+    const isOpen = openItem?.kind === 'panel';
+    /** Whether a page tab is the page being read. */
+    const isHere = (href: string) =>
+        url.split(/[?#]/)[0] === href.split(/[?#]/)[0];
 
     const closeAll = () => {
         setOpen(-1);
@@ -183,31 +195,50 @@ export default function PublicHeader() {
                         aria-label="Primary"
                         className="hidden self-stretch min-[1180px]:flex min-[1180px]:gap-[clamp(1.25rem,2.4vw,2.5rem)]"
                     >
-                        {sections.map((section, index) => (
-                            <button
-                                key={section.label}
-                                type="button"
-                                onMouseEnter={() => setOpen(index)}
-                                onFocus={() => setOpen(index)}
-                                // Hover and focus open it first, so a click only
-                                // keeps it open; Escape, leaving the header or
-                                // the dimmed page close it.
-                                onClick={() => setOpen(index)}
-                                aria-expanded={open === index}
-                                aria-controls="public-menu-panel"
-                                className={`-mb-px flex h-full cursor-pointer items-center gap-2 border-b text-[0.8125rem] tracking-[0.06em] uppercase transition-colors duration-200 ${
-                                    open === index
-                                        ? 'border-foreground'
-                                        : 'border-transparent'
-                                }`}
-                            >
-                                {section.label}
-                                <Plus
-                                    open={open === index}
-                                    className="text-sm"
-                                />
-                            </button>
-                        ))}
+                        {items.map((item, index) =>
+                            item.kind === 'page' ? (
+                                <Link
+                                    key={item.label}
+                                    href={item.href}
+                                    onMouseEnter={() => setOpen(-1)}
+                                    onFocus={() => setOpen(-1)}
+                                    aria-current={
+                                        isHere(item.href) ? 'page' : undefined
+                                    }
+                                    className={`-mb-px flex h-full items-center border-b text-[0.8125rem] tracking-[0.06em] uppercase transition-colors duration-200 hover:border-foreground ${
+                                        isHere(item.href)
+                                            ? 'border-foreground'
+                                            : 'border-transparent'
+                                    }`}
+                                >
+                                    {item.label}
+                                </Link>
+                            ) : (
+                                <button
+                                    key={item.label}
+                                    type="button"
+                                    onMouseEnter={() => setOpen(index)}
+                                    onFocus={() => setOpen(index)}
+                                    // Hover and focus open it first, so a click
+                                    // only keeps it open; Escape, leaving the
+                                    // header or the dimmed page close it.
+                                    onClick={() => setOpen(index)}
+                                    aria-expanded={open === index}
+                                    aria-controls="public-menu-panel"
+                                    className={`-mb-px flex h-full cursor-pointer items-center gap-2 border-b text-[0.8125rem] tracking-[0.06em] uppercase transition-colors duration-200 ${
+                                        open === index
+                                            ? 'border-foreground'
+                                            : 'border-transparent'
+                                    }`}
+                                >
+                                    {item.label}
+                                    <Plus
+                                        open={open === index}
+                                        className="text-sm"
+                                    />
+                                </button>
+                            ),
+                        )}
                     </nav>
 
                     <div
@@ -323,8 +354,26 @@ export default function PublicHeader() {
                     aria-label="Menu"
                     className="fixed inset-x-0 top-20 bottom-0 z-40 flex flex-col overflow-auto bg-background px-5 pt-2 pb-8 min-[1180px]:hidden"
                 >
-                    {sections.map((section, index) => {
+                    {items.map((section, index) => {
                         const expanded = accordion === index;
+
+                        if (section.kind === 'page') {
+                            return (
+                                <Link
+                                    key={section.label}
+                                    href={section.href}
+                                    onClick={closeAll}
+                                    aria-current={
+                                        isHere(section.href)
+                                            ? 'page'
+                                            : undefined
+                                    }
+                                    className="flex min-h-16 items-center border-b border-border font-display text-2xl font-light uppercase"
+                                >
+                                    {section.label}
+                                </Link>
+                            );
+                        }
 
                         return (
                             <div

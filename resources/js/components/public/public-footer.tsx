@@ -8,7 +8,7 @@ import {
     collectionUrl,
 } from '@/components/public/public-links';
 import { login, register } from '@/routes';
-import { about, brands, contact, showroom } from '@/routes/company';
+import { about, brands, contact, news, showroom } from '@/routes/company';
 import { index as inboxIndex } from '@/routes/inbox';
 import { book } from '@/routes/profile/schedule';
 import { inquire } from '@/routes/quote';
@@ -90,6 +90,7 @@ export default function PublicFooter() {
             title: 'Regray',
             links: [
                 { label: 'About Regray', href: about.url() },
+                { label: 'News', href: news.url() },
                 { label: 'Showroom', href: showroom.url() },
                 { label: 'Contact', href: contact.url() },
                 { label: 'Journal', href: JOURNAL, kind: 'external' },
