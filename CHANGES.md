@@ -1,3 +1,12 @@
+# The furniture page shows what a client may choose
+
+A piece of furniture's page (`/brands/{brand}/furniture/{furniture}`, and its `/dashboard` twin) is redesigned after the Furniture Detail design, kept minimal: only what the catalog really holds, with no invented specifications, gallery, care notes or PDFs.
+
+- **Layout** (`pages/furniture-profile.tsx`): a breadcrumb (brand, furniture, the piece) with the brand's previous and next pieces; the photo, square, beside its type and brand, its name and description; **Made to your choice**; **Ask a quote** and **Save** together, and "Made to order. Prefer to see the slabs first? Book a showroom visit"; then **More {type}**, up to four other pieces of the same brand and type, and View all. On phones and tablets a bar at the bottom keeps Ask a quote and Save in reach. A guest's Ask a quote and Save go through Login, and Book a showroom visit opens the Showroom page.
+- **Made to your choice** (`FurnitureCustomizationService`): what the Inquire page's service for the piece's type offers: its stone types (and Browse the stones), and its piece questions with their answers: table base, edge profile and finish (their active, non-advisory ones), and seats as a range ("2 to 12"). The project area is left out. A furniture type and its services are linked by slug (`SERVICES_BY_TYPE`), as the schema has no link between the two.
+- **Neighbours and related** (`FurnitureService::neighbours()`, `related()`, `FurnitureRepository`): the brand's active pieces in catalog order, and others of the same type.
+- **Save:** the page draws its own Save, so the workspace's floating heart is now a stone profile's only.
+
 # Saving and unsaving a stone works again
 
 With the routes cached (`artisan optimize`, as the containers and production run), saving or unsaving a stone did nothing: the stone profile's old address, `Route::redirect('saved/{stone}', …)`, answers every method, so it took the `PUT` and `DELETE` on the same address and answered them with a 301. Uncached (tests, `artisan serve`) the later routes replaced it, which is why the tests passed. The redirect is now GET only, and goes to `/dashboard/saved/stones/{stone}` (it pointed at a relative `saved/stones/…`, one level too deep). `RedirectRoutesTest` fails any redirect that shares its address with another route. Furniture was not affected. **No migration.**
