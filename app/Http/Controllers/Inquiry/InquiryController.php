@@ -37,7 +37,7 @@ class InquiryController extends Controller
      */
     public function store(StoreClientInquiryRequest $request): RedirectResponse
     {
-        return $this->send($request, $request->user(), null, null, $request->ip(), $request->userAgent());
+        return $this->send($request, $request->user());
     }
 
     /**
@@ -71,14 +71,14 @@ class InquiryController extends Controller
         return $this->send($request, null, null, $record);
     }
 
-    private function send(StoreInquiryRequest $request, ?User $client, ?Lead $lead = null, ?Client $direct = null, ?string $ipAddress = null, ?string $userAgent = null): RedirectResponse
+    private function send(StoreInquiryRequest $request, ?User $client, ?Lead $lead = null, ?Client $direct = null): RedirectResponse
     {
         $input = $request->inquiryInput();
 
         try {
             $inquiries = $direct !== null
                 ? $this->createInquiry->executeForDirectClient($direct, $input, $request->user())
-                : $this->createInquiry->execute($client ?? $request->user(), $input, $lead, $lead === null ? null : $request->user(), $ipAddress, $userAgent);
+                : $this->createInquiry->execute($client ?? $request->user(), $input, $lead, $lead === null ? null : $request->user());
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (Throwable $exception) {

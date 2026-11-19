@@ -14,8 +14,20 @@ use Illuminate\Support\Facades\Schema;
  *   who has none; `client_record_id` is the client either way (`clients`).
  * - `service_id`: what the client asked for. The request requires it; a row
  *   written outside the form may have none.
- * - `delivery_method`: how the project reaches the client. A pickup has no site
- *   to name, so its `location` is NULL, and a CHECK holds the two facts together.
+ * - `delivery_method`: how the project reaches the client, asked only when its
+ *   service is `delivery_or_pickup` (`services.fulfillment`): `delivery` or
+ *   `pickup`. NULL for an `installed` service, which is done on site.
+ * - `address_*`: where the work goes, copied when the inquiry is sent (or
+ *   edited) so a later edit of the client's address book never changes it:
+ *   the region, province (NULL where the region has none, as in NCR), city or
+ *   municipality and barangay, each by its PSGC code and its name at the time,
+ *   the postal code (NULL for a city with none listed) and the pin's
+ *   coordinates. A delivery and an installation have one; a pickup has none.
+ *   A CHECK holds the method and the address together; whether the service
+ *   asks for a method at all is the request's rule (StoreInquiryRequest).
+ * - `brand_no_preference`: the client chose No preference for brands. Their
+ *   brands are otherwise rows of `inquiry_brands`; the request takes one or
+ *   the other, never both.
  * - `lead_id`: marketing's lead for the client (`leads`). NULL until the
  *   client's Regray Team thread is claimed, which links it, and for a direct
  *   client, who has no lead.
@@ -74,8 +86,19 @@ return new class extends Migration
             $table->timestampTz('marketing_status_changed_at')->nullable();
             $table->string('name', 100);
             $table->foreignId('service_id')->nullable()->constrained()->restrictOnDelete();
-            $table->string('delivery_method', 20)->default('delivery');
-            $table->string('location', 255)->nullable();
+            $table->boolean('brand_no_preference')->default(false);
+            $table->string('delivery_method', 20)->nullable();
+            $table->string('address_region_code', 9)->nullable();
+            $table->string('address_region_name', 100)->nullable();
+            $table->string('address_province_code', 9)->nullable();
+            $table->string('address_province_name', 100)->nullable();
+            $table->string('address_city_code', 9)->nullable();
+            $table->string('address_city_name', 100)->nullable();
+            $table->string('address_barangay_code', 9)->nullable();
+            $table->string('address_barangay_name', 100)->nullable();
+            $table->string('address_postal_code', 4)->nullable();
+            $table->decimal('address_lat', 9, 6)->nullable();
+            $table->decimal('address_lng', 9, 6)->nullable();
             $table->string('notes', 1000)->nullable();
             $table->boolean('stone_advice_requested')->default(false);
             $table->string('sales_status', 20)->nullable();
@@ -108,7 +131,19 @@ return new class extends Migration
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_quote_revision CHECK (quote_revision >= 1)');
         DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_contract_total CHECK (contract_total > 0)');
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_marketing_status CHECK (marketing_status IN ('won','lost'))");
-        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_delivery_location CHECK ((delivery_method = 'delivery' AND location IS NOT NULL) OR (delivery_method = 'pickup' AND location IS NULL))");
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_delivery_method CHECK (delivery_method IN ('delivery','pickup'))");
+        // The address is whole or absent: its region, city and barangay come together, with their names.
+        DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_address_whole CHECK (
+            (address_region_code IS NULL AND address_region_name IS NULL AND address_province_code IS NULL AND address_province_name IS NULL
+                AND address_city_code IS NULL AND address_city_name IS NULL AND address_barangay_code IS NULL AND address_barangay_name IS NULL
+                AND address_postal_code IS NULL AND address_lat IS NULL AND address_lng IS NULL)
+            OR (address_region_code IS NOT NULL AND address_region_name IS NOT NULL AND address_city_code IS NOT NULL AND address_city_name IS NOT NULL
+                AND address_barangay_code IS NOT NULL AND address_barangay_name IS NOT NULL
+                AND (address_province_code IS NULL) = (address_province_name IS NULL)
+                AND (address_lat IS NULL) = (address_lng IS NULL))
+        )');
+        // A pickup has no address; a delivery, and an installation (no method), has one.
+        DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_delivery_address CHECK ((delivery_method IS NOT DISTINCT FROM 'pickup') = (address_city_code IS NULL))");
 
         Schema::create('inquiry_detail_answers', function (Blueprint $table) {
             $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
@@ -124,10 +159,20 @@ return new class extends Migration
         });
 
         DB::statement('ALTER TABLE inquiry_detail_answers ADD CONSTRAINT chk_inquiry_detail_answers_one_value CHECK (num_nonnulls(text_value, number_value, option_id, boolean_value) = 1)');
+
+        // The brands the client would like, in no order; none with brand_no_preference.
+        Schema::create('inquiry_brands', function (Blueprint $table) {
+            $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('brand_id')->constrained()->restrictOnDelete();
+
+            $table->primary(['inquiry_id', 'brand_id']);
+            $table->index('brand_id');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('inquiry_brands');
         Schema::dropIfExists('inquiry_detail_answers');
         Schema::dropIfExists('inquiries');
         DB::statement('DROP SEQUENCE IF EXISTS inquiry_reference_seq');

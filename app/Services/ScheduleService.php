@@ -72,7 +72,7 @@ class ScheduleService
      * typed, read in the studio's zone. Only a
      * visit asks for a time; any other project is booked for
      * DEFAULT_ARRIVAL_TIME on its date. The title and notes are the inquiry's
-     * project name and location.
+     * project name and the city it goes to.
      */
     public function createForInquiry(Inquiry $inquiry, ?User $client, string $date, ?string $time, ?User $bookedBy = null): Schedule
     {
@@ -333,10 +333,10 @@ class ScheduleService
         };
     }
 
-    /** "Inquiry INQ-1048 · Kitchen counters · Makati", or "· Pickup" where there is no location. */
+    /** "Inquiry INQ-1048 · Kitchen counters · City of Makati", or "· Pickup" where there is no address. */
     private static function inquiryNotes(Inquiry $inquiry): string
     {
-        return "Inquiry {$inquiry->reference} · {$inquiry->name} · ".($inquiry->location ?? 'Pickup');
+        return "Inquiry {$inquiry->reference} · {$inquiry->name} · ".($inquiry->placeLabel() ?? 'Pickup');
     }
 
     /** Cancel the inquiry's open visits along with it. */

@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { MAPBOX_HOSTS, mockMapbox } from './mapbox-mock';
 import { join } from 'node:path';
 import {
     expect,
@@ -42,6 +43,9 @@ export const allowedHosts = (): Set<string> => {
     if (process.env.ASSET_URL) {
         hosts.add(new URL(process.env.ASSET_URL).host);
     }
+
+    // Answered in the browser by mockMapbox(): nothing leaves the machine.
+    MAPBOX_HOSTS.forEach((host) => hosts.add(host));
 
     return hosts;
 };
@@ -97,6 +101,7 @@ export const test = base.extend<{ actors: Actors }>({
                         ? {}
                         : { storageState: storageStateFor(role) }),
                 });
+                await mockMapbox(context);
                 const page = await context.newPage();
                 const session: Session = {
                     context,

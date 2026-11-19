@@ -87,7 +87,7 @@ it('confirms the client\'s update and cancel to them and tells the assigned staf
     $inquiry = claimedInquiry($this);
     $edit = ['id' => $inquiry->id, 'name' => $inquiry->name, 'keepFileIds' => []];
 
-    $this->actingAs($this->client)->patch(route('quote.update', 'INQ-N1'), ['projects' => [inquiryProjectInput([...$edit, 'notes' => 'Changed.'])]])->assertSessionHasNoErrors();
+    $this->actingAs($this->client)->patch(route('quote.update', 'INQ-N1'), clientEditInput([inquiryProjectInput([...$edit, 'notes' => 'Changed.'])]))->assertSessionHasNoErrors();
     $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-N1'))->assertSessionHasNoErrors();
 
     foreach (['client', 'mara', 'sales', 'technical', 'owner', 'admin'] as $who) {
@@ -157,7 +157,7 @@ it('stops telling staff who lost their assignment, and keeps what they had', fun
 it('tells staff who open an inquiry for a client, and the client', function (): void {
     $lead = makeLead($this->client, $this->mara);
 
-    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
+    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
     $ref = Inquiry::query()->sole()->reference;
 
     expect(notificationBodies($this->mara))->toBe(["You have successfully created inquiry {$ref} for Carla."])
@@ -169,7 +169,7 @@ it('tells staff who open an inquiry for a client, and the client', function (): 
 it('tells only the staff member, and nobody as a client, about a walk-in\'s inquiry', function (): void {
     $record = Client::query()->create(['kind' => ClientKind::Direct, 'full_name' => 'Wanda Walk-in', 'created_by' => $this->sales->id]);
 
-    $this->actingAs($this->sales)->post(route('inquiry.direct-clients.inquiries.store', $record->id), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
+    $this->actingAs($this->sales)->post(route('inquiry.direct-clients.inquiries.store', $record->id), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
     $ref = Inquiry::query()->sole()->reference;
 
     expect(notificationBodies($this->sales))->toBe(["You have successfully created inquiry {$ref} for Wanda Walk-in."])
@@ -191,7 +191,7 @@ it('emails the client a confirmation of their own inquiry, whatever their email 
         expect($notification)->toBeInstanceOf(ShouldQueue::class)
             ->and($mail->subject)->toBe("We received your inquiry {$ref}")
             ->and($mail->actionUrl)->toBe(route('quote.show', $ref))
-            ->and($body)->toContain("Reference: {$ref}", 'Project: Kitchen counters', 'Delivery: to Makati', 'Needed by: '.now('Asia/Manila')->addDays(10)->format('M j, Y'));
+            ->and($body)->toContain("Reference: {$ref}", 'Project: Kitchen counters', 'Delivery: Bel-Air, City of Makati', 'Needed by: '.now('Asia/Manila')->addDays(10)->format('M j, Y'));
 
         return true;
     });
@@ -227,7 +227,7 @@ it('does not email a confirmation for an inquiry staff open for a client', funct
     Notification::fake();
     $lead = makeLead($this->client, $this->mara);
 
-    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
+    $this->actingAs($this->mara)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
 
     Notification::assertNotSentTo($this->client, InquiryReceivedNotification::class);
 });

@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * The demo clients and staff UserSeeder adds. A client's `addresses` is their
+ * address book (Profile → Addresses), the first one their default: each a
+ * label and a key of data/places.php. `company` and `address` are their
+ * Profile's free text.
+ */
 return [
     'clients' => [
         [
@@ -9,6 +15,7 @@ return [
             'phone' => '+63 917 555 0142',
             'company' => 'Brightleaf Design Studio',
             'address' => '12 Kalachuchi Street, Barangay Commonwealth, Quezon City, 1103',
+            'addresses' => [['label' => 'Office', 'place' => 'Quezon City'], ['label' => 'Site', 'place' => 'Antipolo']],
         ],
         [
             'id' => 'cl-rafael',
@@ -17,6 +24,7 @@ return [
             'phone' => '+63 2 8123 4409',
             'company' => 'The Northgate Cafe',
             'address' => 'Unit 4, Dela Paz Compound, Legazpi Village, Makati, 1229',
+            'addresses' => [['label' => 'Cafe', 'place' => 'Makati']],
         ],
         [
             'id' => 'cl-nadine',
@@ -25,6 +33,7 @@ return [
             'phone' => '+63 998 401 2277',
             'company' => 'Lumen & Co. Architects',
             'address' => '88 Katipunan Avenue, Barangay Juan Lopez, Quezon City, 1108',
+            'addresses' => [['label' => 'Office', 'place' => 'Loyola Heights'], ['label' => 'Home', 'place' => 'Bel-Air'], ['label' => 'Cebu site', 'place' => 'Cebu']],
         ],
         [
             'id' => 'cl-ivan',
@@ -33,6 +42,7 @@ return [
             'phone' => '+63 917 220 8815',
             'company' => 'Hillcrest Showroom',
             'address' => '3 Greenwood Street, Barangay Addition Hills, San Juan, 1050',
+            'addresses' => [['label' => 'Showroom', 'place' => 'San Juan'], ['label' => 'Warehouse', 'place' => 'Addition Hills']],
         ],
         [
             'id' => 'cl-haruki',
@@ -41,6 +51,7 @@ return [
             'phone' => '+63 917 630 3345',
             'company' => 'The Grove Residences',
             'address' => '17 Balete Drive, Barangay Ayala Alabang, Muntinlupa, 1780',
+            'addresses' => [['label' => 'Site', 'place' => 'Muntinlupa']],
         ],
         [
             'id' => 'cl-grace',
@@ -49,6 +60,7 @@ return [
             'phone' => '+63 2 7441 9022',
             'company' => null,
             'address' => '5 Maple Lane, Barangay Tunay, Quezon City, 1105',
+            'addresses' => [['label' => 'Home', 'place' => 'Quezon City'], ['label' => 'Office', 'place' => 'Pasig'], ['label' => 'Condo', 'place' => 'Taguig']],
         ],
     ],
     'people' => [

@@ -27,8 +27,11 @@ return [
         // PATCH quote/{reference} and quote/{reference}/cancel.
         'inquiry-edit' => (int) env('RATE_LIMIT_INQUIRY_EDIT', 10),
 
-        // PUT dashboard/profile/client-information: saving the client's own delivery choice.
-        'client-information-save' => (int) env('RATE_LIMIT_CLIENT_INFORMATION_SAVE', 10),
+        // POST, PUT and DELETE dashboard/profile/addresses: changing the client's address book.
+        'address-book-save' => (int) env('RATE_LIMIT_ADDRESS_BOOK_SAVE', 20),
+
+        // GET api/ph/*: the address picker's searches, debounced as the reader types.
+        'ph-address-search' => (int) env('RATE_LIMIT_PH_ADDRESS_SEARCH', 120),
 
         // GET inquiry/{reference}/files/{storedName}: a preview checks the file
         // with HEAD and then opens it, so each one is two requests.

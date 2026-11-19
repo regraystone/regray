@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -29,7 +30,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int $id
  * @property string $name
  * @property string $email
- * @property ClientInformation|null $clientInformation
+ * @property-read Collection<int, ClientAddress> $addresses
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -130,14 +131,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * The client's own saved "Client Information" row, not their CRM `Client`
-     * record. One per account, owned by this user alone.
+     * The client's address book, the default first, then the most recently
+     * changed (ClientAddressService).
      *
-     * @return HasOne<ClientInformation, $this>
+     * @return HasMany<ClientAddress, $this>
      */
-    public function clientInformation(): HasOne
+    public function addresses(): HasMany
     {
-        return $this->hasOne(ClientInformation::class);
+        return $this->hasMany(ClientAddress::class)->orderByDesc('is_default')->orderByDesc('updated_at')->orderByDesc('id');
     }
 
     /** @return HasMany<Inquiry, $this> */

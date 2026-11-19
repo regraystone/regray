@@ -39,39 +39,4 @@ return [
         'file_extensions' => ['pdf', 'png', 'jpg', 'jpeg'],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Locations
-    |--------------------------------------------------------------------------
-    |
-    | The cities and municipalities a project can be in. Metro Manila is the
-    | National Capital Region's seventeen local government units: sixteen cities,
-    | plus Pateros, which is the region's one municipality. The spellings are the
-    | official ones, diacritics included, because these end up on a delivery
-    | docket. Alphabetical, so the unfiltered list reads as a list.
-    |
-    | Validation and the Inquire page both read this one list.
-    |
-    */
-
-    'locations' => [
-        'Caloocan',
-        'Las Piñas',
-        'Makati',
-        'Malabon',
-        'Mandaluyong',
-        'Manila',
-        'Marikina',
-        'Muntinlupa',
-        'Navotas',
-        'Parañaque',
-        'Pasay',
-        'Pasig',
-        'Pateros',
-        'Quezon City',
-        'San Juan',
-        'Taguig',
-        'Valenzuela',
-    ],
-
 ];

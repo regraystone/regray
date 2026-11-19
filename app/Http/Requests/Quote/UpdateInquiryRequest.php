@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Quote;
 
+use App\Data\PhAddress;
 use App\Http\Requests\Inquiry\StoreInquiryRequest;
+use App\Models\Inquiry;
 use App\Models\Service;
 use App\Models\User;
 use Closure;
@@ -18,6 +20,10 @@ use Illuminate\Validation\Validator;
  * - `projects.*.keepFileIds` are the stored files the client left in place.
  *   `projects.*.attachments` are new uploads only, and the two together may not
  *   exceed the per-project file limit.
+ *
+ * - The client picks the address from their address book, as on a new
+ *   inquiry, or keeps the one the inquiry already has (`keepAddress`), which
+ *   may since have left the book.
  *
  * The stone rule of the create applies as it is: every stone, the inquiry's
  * own included, has to be offered for the service sent, whether the service
@@ -61,6 +67,34 @@ class UpdateInquiryRequest extends StoreInquiryRequest
                 }
             },
         ];
+    }
+
+    protected function addressSource(): string
+    {
+        return self::ADDRESS_FROM_BOOK;
+    }
+
+    /** The address the client's inquiry already has, which the edit may keep. */
+    protected function heldAddress(): ?PhAddress
+    {
+        $inquiry = $this->editedInquiry();
+
+        return $inquiry?->address();
+    }
+
+    /**
+     * The inquiry being edited, read only as its editor may read it: a
+     * client's own, or one staff read.
+     */
+    protected function editedInquiry(): ?Inquiry
+    {
+        /** @var User $editor */
+        $editor = $this->user();
+
+        return Inquiry::query()
+            ->where('reference', $this->route('reference'))
+            ->when($editor->isClient(), fn ($own) => $own->where('client_id', $editor->id), fn ($visible) => $visible->visibleTo($editor))
+            ->first();
     }
 
     /**

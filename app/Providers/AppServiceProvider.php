@@ -6,7 +6,7 @@ use App\Enums\Role;
 use App\Models\User;
 use App\Repositories\Contracts\AuditLogRepositoryInterface;
 use App\Repositories\Contracts\BrandRepositoryInterface;
-use App\Repositories\Contracts\ClientInformationRepositoryInterface;
+use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\ClientRepositoryInterface;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
@@ -15,6 +15,7 @@ use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
+use App\Repositories\Contracts\PhAddressRepositoryInterface;
 use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use App\Repositories\Contracts\SavedFurnitureRepositoryInterface;
@@ -24,7 +25,7 @@ use App\Repositories\Contracts\StoneRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\Eloquent\BrandRepository;
 use App\Repositories\Eloquent\EloquentAuditLogRepository;
-use App\Repositories\Eloquent\EloquentClientInformationRepository;
+use App\Repositories\Eloquent\EloquentClientAddressRepository;
 use App\Repositories\Eloquent\EloquentClientRepository;
 use App\Repositories\Eloquent\EloquentConversationMemberRepository;
 use App\Repositories\Eloquent\EloquentConversationRepository;
@@ -32,6 +33,7 @@ use App\Repositories\Eloquent\EloquentInquiryCatalogRepository;
 use App\Repositories\Eloquent\EloquentInquiryRepository;
 use App\Repositories\Eloquent\EloquentLeadRepository;
 use App\Repositories\Eloquent\EloquentMessageRepository;
+use App\Repositories\Eloquent\EloquentPhAddressRepository;
 use App\Repositories\Eloquent\EloquentScheduleRepository;
 use App\Repositories\Eloquent\FurnitureRepository;
 use App\Repositories\Eloquent\ProjectCategoryRepository;
@@ -72,7 +74,8 @@ class AppServiceProvider extends ServiceProvider
         'notifications',
         'inquiry-submit',
         'inquiry-edit',
-        'client-information-save',
+        'address-book-save',
+        'ph-address-search',
         'inquiry-files',
         'booking',
         'saved-stone',
@@ -99,7 +102,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(InquiryRepositoryInterface::class, EloquentInquiryRepository::class);
         $this->app->bind(LeadRepositoryInterface::class, EloquentLeadRepository::class);
         $this->app->bind(ClientRepositoryInterface::class, EloquentClientRepository::class);
-        $this->app->bind(ClientInformationRepositoryInterface::class, EloquentClientInformationRepository::class);
+        $this->app->bind(PhAddressRepositoryInterface::class, EloquentPhAddressRepository::class);
+        $this->app->bind(ClientAddressRepositoryInterface::class, EloquentClientAddressRepository::class);
         $this->app->bind(InquiryCatalogRepositoryInterface::class, EloquentInquiryCatalogRepository::class);
         $this->app->bind(ConversationRepositoryInterface::class, EloquentConversationRepository::class);
         $this->app->bind(ConversationMemberRepositoryInterface::class, EloquentConversationMemberRepository::class);

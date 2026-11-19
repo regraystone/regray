@@ -1,6 +1,5 @@
 import { toast } from 'sonner';
 import { z } from 'zod';
-import type { DELIVERY } from '@/lib/inquiry-flow';
 import type { InquiryDraftInput, InquiryFormInput } from '@/lib/inquiry-schema';
 import type { InquiryCatalog } from '@/types/inquiry';
 
@@ -40,24 +39,18 @@ export type InquiryDraftState = {
 };
 
 export type StoredInquiryDraft = InquiryDraftState & {
-    version: 9;
+    version: 10;
     /** When the autosave wrote it, as it is shown back to the reader. */
     savedAt: string;
 };
 
 /**
- * Bumped from 8 when what a project is asked came to depend on its service: a
- * version 8 record holds a landmark and an area where a project now holds its
- * service's answers, so it is discarded instead of mis-restored.
+ * Bumped from 9 when the brand question came first and a free-text location
+ * gave way to an address: a version 9 record holds its steps one number lower
+ * and a city name where a project now holds a saved address or a picked one,
+ * so it is discarded instead of mis-restored.
  */
-const DRAFT_VERSION = 9;
-
-/**
- * The delivery method a fresh stepper starts on. Written out because a runtime
- * import of `inquiry-flow` through the alias would keep this file from running
- * under the Node tests; the annotation fails the type check if the two ever differ.
- */
-const DEFAULT_DELIVERY_METHOD: typeof DELIVERY = 'delivery';
+const DRAFT_VERSION = 10;
 
 /**
  * The one key this browser's draft for this account lives under.
@@ -67,7 +60,7 @@ const DEFAULT_DELIVERY_METHOD: typeof DELIVERY = 'delivery';
  * an old record outright rather than half-understand it.
  */
 const storageKey = (userId: number): string =>
-    `regray.inquiry-draft.v9:${userId}`;
+    `regray.inquiry-draft.v10:${userId}`;
 
 /** The keys older versions wrote under, forgotten the first time a read runs. */
 const legacyStorageKeys = (userId: number): string[] => [
@@ -77,6 +70,7 @@ const legacyStorageKeys = (userId: number): string[] => [
     `regray.inquiry-draft.v6:${userId}`,
     `regray.inquiry-draft.v7:${userId}`,
     `regray.inquiry-draft.v8:${userId}`,
+    `regray.inquiry-draft.v9:${userId}`,
 ];
 
 /**
@@ -122,11 +116,37 @@ const storedStoneSchema = z.object({
 /** The service's project answers, by question slug. */
 const storedAnswersSchema = z.record(z.string(), z.string()).catch({});
 
-/** The delivery method. A draft saved with none starts on the default, as a new one does. */
-const storedDeliveryMethodSchema = z
-    .string()
-    .catch('')
-    .transform((value) => (value === '' ? DEFAULT_DELIVERY_METHOD : value));
+/** A place of the picked address. */
+const storedPlaceSchema = z.object({ code: z.string(), name: z.string() });
+
+/**
+ * The address entered with the picker (staff), or null. A half-picked one is
+ * kept as it was: the reader carries on from it.
+ */
+const storedAddressSchema = z
+    .object({
+        region: storedPlaceSchema.nullable(),
+        province: storedPlaceSchema.nullable(),
+        noProvince: z.boolean().catch(false),
+        city: storedPlaceSchema.nullable(),
+        barangay: storedPlaceSchema.nullable(),
+        postalCode: z.string().catch(''),
+        lat: z.number().nullable().catch(null),
+        lng: z.number().nullable().catch(null),
+        needsPostalCode: z.boolean().optional().catch(undefined),
+    })
+    .nullable()
+    .catch(null);
+
+/** The brands, the delivery method and the address, which every project holds. */
+const storedFulfillmentShape = {
+    brands: z.array(z.string()).catch([]),
+    brandNoPreference: z.boolean().catch(false),
+    deliveryMethod: z.string().catch(''),
+    /** A saved address's id: whether it is still in the book is the page's to say. */
+    addressId: z.string().catch(''),
+    address: storedAddressSchema,
+};
 
 const storedProjectSchema = z.object({
     id: z.string(),
@@ -136,8 +156,7 @@ const storedProjectSchema = z.object({
     stoneAdvice: z.boolean().catch(false),
     stones: z.array(storedStoneSchema),
     answers: storedAnswersSchema,
-    deliveryMethod: storedDeliveryMethodSchema,
-    location: z.string(),
+    ...storedFulfillmentShape,
     neededBy: z.string(),
     notes: z.string(),
 });
@@ -150,8 +169,7 @@ const storedDraftSchema = z.object({
     stoneIds: z.array(z.string()),
     stones: z.array(storedStoneSchema),
     answers: storedAnswersSchema,
-    deliveryMethod: storedDeliveryMethodSchema,
-    location: z.string(),
+    ...storedFulfillmentShape,
     neededBy: z.string(),
     notes: z.string(),
 });
@@ -215,10 +233,19 @@ const sanitize = (
         };
     };
 
+    // A brand survives while it is offered.
+    const offeredBrands = new Set(catalog.brands.map(({ id }) => id));
+    const knownBrands = <T extends { brands: string[] }>(entry: T): T => ({
+        ...entry,
+        brands: entry.brands.filter((id) => offeredBrands.has(id)),
+    });
+
     return {
         ...record,
-        projects: record.projects.map(knownService),
-        draft: knownService(record.draft),
+        projects: record.projects.map((project) =>
+            knownBrands(knownService(project)),
+        ),
+        draft: knownBrands(knownService(record.draft)),
     };
 };
 
@@ -257,14 +284,6 @@ export const keepKnownStones = (
  * the two are looking at the same value and a draft that only changed its
  * files cannot slip past the check or fail it.
  */
-/**
- * The request-only "Client Information" payload. The delivery answer itself is
- * a normal part of a project draft and is deliberately kept there — a restored
- * draft must win over the Profile — but the payload sent with an inquiry is
- * never written to browser storage.
- */
-const personalDraftKeys = ['clientInformation'] as const;
-
 export const inquiryDraftState = (values: {
     step: number;
     editingProjectId: string | null;
@@ -277,10 +296,6 @@ export const inquiryDraftState = (values: {
         const copy = { ...entry } as Partial<T>;
 
         delete copy.attachments;
-
-        for (const key of personalDraftKeys) {
-            Reflect.deleteProperty(copy, key);
-        }
 
         return copy as Omit<T, 'attachments'>;
     };
@@ -305,19 +320,22 @@ export const inquiryDraftState = (values: {
  *
  * Checked against what is written rather than against whether anything was
  * typed: opening the stepper and leaving it again has to leave no draft
- * behind, or every visit would grow one.
+ * behind, or every visit would grow one. The saved address picked is no
+ * answer either: a client's new project starts on their default.
  */
 const isBlank = (state: InquiryDraftState): boolean =>
     state.projects.length === 0 &&
     state.draft.name === '' &&
     !state.draft.stoneAdvice &&
-    (state.draft.deliveryMethod === '' ||
-        state.draft.deliveryMethod === DEFAULT_DELIVERY_METHOD) &&
+    state.draft.deliveryMethod === '' &&
+    state.draft.brands.length === 0 &&
+    !state.draft.brandNoPreference &&
     state.draft.serviceTypeId === '' &&
     state.draft.serviceId === '' &&
     state.draft.stoneIds.length === 0 &&
     state.draft.stones.length === 0 &&
-    state.draft.location === '' &&
+    // Not the saved address: a new project starts on the default one already.
+    state.draft.address === null &&
     Object.values(state.draft.answers).every((value) => value === '') &&
     state.draft.neededBy === '' &&
     state.draft.notes === '';

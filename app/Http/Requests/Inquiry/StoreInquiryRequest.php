@@ -2,11 +2,15 @@
 
 namespace App\Http\Requests\Inquiry;
 
+use App\Data\PhAddress;
 use App\Data\SizeMeasurement;
 use App\Data\ThicknessMeasurement;
 use App\Enums\DeliveryMethod;
 use App\Enums\DetailAnswerType;
 use App\Enums\DetailFieldScope;
+use App\Http\Requests\Concerns\ValidatesPhAddress;
+use App\Models\Brand;
+use App\Models\ClientAddress;
 use App\Models\DetailField;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
@@ -43,10 +47,33 @@ use Illuminate\Validation\Validator;
  * no stones (Installation Only) takes none, and no Help me choose either. The
  * messages are worded from the question's name, as the page words them.
  *
+ * Every project names the brands the client would like (`brands`, by slug) or
+ * No preference (`brandNoPreference`), one or the other. Which brands are
+ * named never limits the service.
+ *
+ * Where the work goes follows its service's `fulfillment`, read from the
+ * service and never from the request: `delivery_or_pickup` asks how they
+ * would like to get it (`deliveryMethod`), with an address for a delivery and
+ * none for a pickup; `installed` asks no method and needs the installation
+ * address. The address comes one of two ways (addressSource()): a client
+ * picks one of their own saved addresses (`addressId`), and staff enter one
+ * with the address picker (`address`, PSGC codes, ValidatesPhAddress). The
+ * inquiry keeps a copy of it either way.
+ *
  * @phpstan-import-type ProjectInput from \App\Services\InquiryService
  */
 class StoreInquiryRequest extends FormRequest
 {
+    use ValidatesPhAddress;
+
+    /** Where a project's address comes from: the client's address book, or the address picker. */
+    public const ADDRESS_FROM_BOOK = 'book';
+
+    public const ADDRESS_FROM_PICKER = 'picker';
+
+    /** The most brands one project may name: every active brand, with room to spare. */
+    private const BRANDS_MAX = 50;
+
     /** The largest number an answer's `number_value` holds (decimal 12,2). */
     private const NUMBER_MAX = '9999999999.99';
 
@@ -58,6 +85,9 @@ class StoreInquiryRequest extends FormRequest
 
     /** @var Collection<int, DetailField>|null */
     private ?Collection $questions = null;
+
+    /** @var array<int, PhAddress> Each project's address, once checked, by index. */
+    private array $projectAddresses = [];
 
     /** The route middleware decides access before this request is resolved. */
     public function authorize(): bool
@@ -84,8 +114,23 @@ class StoreInquiryRequest extends FormRequest
             ],
             'projects.*.answers' => ['nullable', 'array'],
 
-            'projects.*.deliveryMethod' => ['required', Rule::enum(DeliveryMethod::class)],
-            'projects.*.location' => ['nullable', 'required_if:projects.*.deliveryMethod,'.DeliveryMethod::Delivery->value, 'string', Rule::in(config('inquiry.locations'))],
+            'projects.*.brands' => ['nullable', 'array', 'max:'.self::BRANDS_MAX],
+            'projects.*.brands.*' => ['string', 'distinct', Rule::exists('brands', 'slug')->where('is_active', true)],
+            'projects.*.brandNoPreference' => ['nullable', 'boolean'],
+
+            // Whether it is asked, and the address with it, is the service's: see after().
+            'projects.*.deliveryMethod' => ['nullable', Rule::enum(DeliveryMethod::class)],
+            ...$this->addressSource() === self::ADDRESS_FROM_BOOK
+                ? [
+                    'projects.*.addressId' => ['nullable', 'integer'],
+                    'projects.*.keepAddress' => ['nullable', 'boolean'],
+                    'projects.*.address' => ['prohibited'],
+                ]
+                : [
+                    ...$this->phAddressRules('projects.*.address', required: false),
+                    'projects.*.addressId' => ['prohibited'],
+                    'projects.*.keepAddress' => ['prohibited'],
+                ],
             'projects.*.neededBy' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
             'projects.*.notes' => ['nullable', 'string', 'max:'.$limits['notes']],
 
@@ -130,10 +175,15 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.stones.*.quantity.prohibited' => 'This service does not ask how many pieces.',
             'projects.*.answers.array' => 'This service does not ask that.',
             'projects.*.answers.prohibited' => 'This service does not ask that.',
-            'projects.*.deliveryMethod.required' => 'Choose how you would like to get it.',
+            'projects.*.brands.max' => 'Choose fewer brands.',
+            'projects.*.brands.*.exists' => 'That brand is no longer available.',
+            'projects.*.brands.*.distinct' => 'That brand is already chosen.',
             'projects.*.deliveryMethod.Illuminate\Validation\Rules\Enum' => 'Choose how you would like to get it.',
-            'projects.*.location.required_if' => 'Choose where the site is.',
-            'projects.*.location.in' => 'Choose a city or municipality from the list.',
+            'projects.*.addressId.integer' => 'Choose one of your saved addresses.',
+            'projects.*.addressId.prohibited' => 'Enter the address with the address picker.',
+            'projects.*.keepAddress.prohibited' => 'Enter the address with the address picker.',
+            'projects.*.address.prohibited' => 'Choose one of your saved addresses.',
+            ...$this->phAddressMessages('projects.*.address'),
             'projects.*.neededBy.after_or_equal' => 'Target deadline cannot be in the past.',
             'projects.*.notes.max' => "Keep the notes to {$limits['notes']} characters or fewer.",
             'projects.*.attachments.max' => "You can attach up to {$limits['files']} files.",
@@ -187,6 +237,7 @@ class StoreInquiryRequest extends FormRequest
                 $projects = $this->projectsInput();
                 $held = $this->heldServiceSlugs();
                 $stoneTypeIds = $this->stoneTypeIdsFor($projects);
+                $stoneBrands = $this->stoneBrandSlugsFor($projects);
 
                 foreach ($projects as $index => $project) {
                     /** @var Service $service */
@@ -198,16 +249,23 @@ class StoreInquiryRequest extends FormRequest
                     }
 
                     $linked = $service->stoneTypes->modelKeys();
+                    // The Brand answer keeps the stones to those brands; No preference keeps none out.
+                    $chosenBrands = filter_var($project['brandNoPreference'] ?? false, FILTER_VALIDATE_BOOLEAN) ? [] : (array) ($project['brands'] ?? []);
 
                     foreach ($project['stones'] ?? [] as $row => $stone) {
                         if (! in_array($stoneTypeIds[$stone['stoneId']] ?? null, $linked, true)) {
                             $validator->errors()->add("projects.{$index}.stones.{$row}.stoneId", 'That stone is not offered for this service.');
+                        } elseif ($chosenBrands !== [] && ! in_array($stoneBrands[$stone['stoneId']] ?? null, $chosenBrands, true)) {
+                            $validator->errors()->add("projects.{$index}.stones.{$row}.stoneId", "That stone isn't from the brands you chose.");
                         }
                     }
 
                     if (empty($project['neededBy'])) {
                         $validator->errors()->add("projects.{$index}.neededBy", 'Say when this is needed.');
                     }
+
+                    $this->checkBrands($validator, $index, $project);
+                    $this->checkFulfillment($validator, $index, $project, $service);
 
                     if (! $service->requires_stones && $asksForAdvice) {
                         $validator->errors()->add("projects.{$index}.stoneAdvice", 'This service needs no stones.');
@@ -227,6 +285,134 @@ class StoreInquiryRequest extends FormRequest
                 }
             },
         ];
+    }
+
+    /**
+     * Brands or No preference, one or the other, never both and never neither.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkBrands(Validator $validator, int $index, array $project): void
+    {
+        $brands = is_array($project['brands'] ?? null) ? $project['brands'] : [];
+        $noPreference = filter_var($project['brandNoPreference'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if ($brands === [] && ! $noPreference) {
+            $validator->errors()->add("projects.{$index}.brands", 'Choose at least one brand, or No preference.');
+        } elseif ($brands !== [] && $noPreference) {
+            $validator->errors()->add("projects.{$index}.brands", 'Choose brands or No preference, not both.');
+        }
+    }
+
+    /**
+     * What the service asks about getting the work to the client: a method
+     * and, for a delivery, an address (`delivery_or_pickup`); no method and an
+     * installation address (`installed`). A pickup takes no address.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkFulfillment(Validator $validator, int $index, array $project, Service $service): void
+    {
+        $method = DeliveryMethod::tryFrom((string) ($project['deliveryMethod'] ?? ''));
+        $asksMethod = $service->fulfillment->asksDeliveryMethod();
+
+        if ($asksMethod && $method === null) {
+            $validator->errors()->add("projects.{$index}.deliveryMethod", 'Choose how you would like to get it.');
+
+            return;
+        }
+
+        if (! $asksMethod && $method !== null) {
+            $validator->errors()->add("projects.{$index}.deliveryMethod", 'This service is installed on site, so there is no delivery method to choose.');
+
+            return;
+        }
+
+        if ($method === DeliveryMethod::Pickup) {
+            if ($this->sentAddress($project)) {
+                $validator->errors()->add("projects.{$index}.address", 'A pickup needs no address.');
+            }
+
+            return;
+        }
+
+        $address = $this->addressSource() === self::ADDRESS_FROM_BOOK
+            ? $this->addressFromBook($validator, $index, $project, $asksMethod)
+            : $this->addressFromPicker($validator, $index, $asksMethod);
+
+        if ($address !== null) {
+            $this->projectAddresses[$index] = $address;
+        }
+    }
+
+    /** @param  array<string, mixed>  $project */
+    private function sentAddress(array $project): bool
+    {
+        return ! empty($project['address']) || ! empty($project['addressId']) || filter_var($project['keepAddress'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * One of the client's own saved addresses, or, when editing, the address
+     * the inquiry already has (`keepAddress`).
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function addressFromBook(Validator $validator, int $index, array $project, bool $isDelivery): ?PhAddress
+    {
+        if (filter_var($project['keepAddress'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $held = $this->heldAddress();
+
+            if ($held === null) {
+                $validator->errors()->add("projects.{$index}.addressId", 'Choose one of your saved addresses.');
+            }
+
+            return $held;
+        }
+
+        $id = $project['addressId'] ?? null;
+
+        if ($id === null || $id === '') {
+            $validator->errors()->add("projects.{$index}.addressId", $isDelivery ? 'Choose the delivery address.' : 'Choose the installation address.');
+
+            return null;
+        }
+
+        $saved = ClientAddress::query()->where('user_id', $this->user()?->id)->whereKey((int) $id)->first();
+
+        if ($saved === null) {
+            $validator->errors()->add("projects.{$index}.addressId", 'That address is no longer in your address book. Choose another.');
+
+            return null;
+        }
+
+        return $saved->address();
+    }
+
+    /** The address staff entered with the address picker, checked as places. */
+    private function addressFromPicker(Validator $validator, int $index, bool $isDelivery): ?PhAddress
+    {
+        if (! is_array($this->input("projects.{$index}.address"))) {
+            $validator->errors()->add("projects.{$index}.address", $isDelivery ? 'Enter the delivery address.' : 'Enter the installation address.');
+
+            return null;
+        }
+
+        return $this->checkPhAddress($validator, "projects.{$index}.address");
+    }
+
+    /**
+     * Where a client's own addresses come from: the address book. Staff
+     * requests enter one with the picker.
+     */
+    protected function addressSource(): string
+    {
+        return self::ADDRESS_FROM_PICKER;
+    }
+
+    /** The address the inquiry being edited already has, which an edit may keep. A new inquiry has none. */
+    protected function heldAddress(): ?PhAddress
+    {
+        return null;
     }
 
     /**
@@ -418,6 +604,29 @@ class StoreInquiryRequest extends FormRequest
     }
 
     /**
+     * Each picked stone's brand, by the stone's slug.
+     *
+     * @param  array<int, array<string, mixed>>  $projects
+     * @return array<string, string>
+     */
+    private function stoneBrandSlugsFor(array $projects): array
+    {
+        $slugs = [];
+
+        foreach ($projects as $project) {
+            foreach ($project['stones'] ?? [] as $stone) {
+                $slugs[] = $stone['stoneId'];
+            }
+        }
+
+        /** @var array<string, string> */
+        return Stone::query()->join('brands', 'brands.id', '=', 'stones.brand_id')
+            ->whereIn('stones.slug', array_unique($slugs))
+            ->select(['stones.slug as stone_slug', 'brands.slug as brand_slug'])
+            ->pluck('brand_slug', 'stone_slug')->all();
+    }
+
+    /**
      * The validated request in the shape the service writes: slugs and names
      * already turned into ids, a stone row holding only the answers its
      * service asks, the project answers as their rows, and the files collected
@@ -443,14 +652,15 @@ class StoreInquiryRequest extends FormRequest
         $finishIds = Finish::query()->pluck('id', 'name');
         $quantityLimit = (int) config('inquiry.limits.quantity_max');
 
+        $brandIds = Brand::query()->pluck('id', 'slug');
         $input = [];
 
-        foreach ($projects as $project) {
+        foreach ($projects as $index => $project) {
             /** @var Service $service */
             $service = $this->serviceOf($project);
             $asked = $service->detailFields->keyBy('slug');
-            $deliveryMethod = DeliveryMethod::from($project['deliveryMethod']);
-            $isDelivery = $deliveryMethod === DeliveryMethod::Delivery;
+            $deliveryMethod = $service->fulfillment->asksDeliveryMethod() ? DeliveryMethod::from($project['deliveryMethod']) : null;
+            $noPreference = filter_var($project['brandNoPreference'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
             $stones = [];
 
@@ -502,9 +712,11 @@ class StoreInquiryRequest extends FormRequest
                 'service_id' => $service->id,
                 'stones' => array_values($stones),
                 'answers' => $answers,
+                'brand_ids' => $noPreference ? [] : array_values(array_map(fn (string $slug): int => $brandIds[$slug], $project['brands'] ?? [])),
+                'brand_no_preference' => $noPreference,
                 'delivery_method' => $deliveryMethod,
-                // A pickup has no site to name.
-                'location' => $isDelivery ? $project['location'] : null,
+                // A pickup has no address; a delivery and an installation, the one checked in after().
+                'address' => $deliveryMethod === DeliveryMethod::Pickup ? null : $this->projectAddresses[$index],
                 'deadline_date' => $project['neededBy'],
                 'notes' => $project['notes'] ?? null,
                 // Choosing a stone answers the question, so the two never stand together.

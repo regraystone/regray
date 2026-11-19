@@ -244,8 +244,11 @@ test('guards every route with exactly these permissions', function () {
         'profile.destroy' => $p(Permission::ProfileView),
         'security.edit' => $p(Permission::ProfileView),
         'user-password.update' => $p(Permission::ProfileView),
-        'profile.client-information.edit' => $p(Permission::ProfileView, Permission::ProfileClientInformationView),
-        'profile.client-information.update' => $p(Permission::ProfileView, Permission::ProfileClientInformationView),
+        'profile.addresses.index' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.store' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.update' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.default' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.destroy' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
         'profile.schedule' => $p(Permission::ProfileView, Permission::ProfileScheduleView),
         'profile.schedule.book' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate),
         'profile.schedule.edit' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleUpdate),
@@ -253,6 +256,13 @@ test('guards every route with exactly these permissions', function () {
         'notifications.index' => [],
         'notifications.read-all' => [],
         'notifications.open' => [],
+        // The address picker's place searches: any signed-in user.
+        'ph.regions' => [],
+        'ph.provinces' => [],
+        'ph.cities' => [],
+        'ph.barangays' => [],
+        'ph.postal-codes' => [],
+        'ph.resolve' => [],
     ];
 
     expect(pageRoutes()->mapWithKeys(fn (RoutingRoute $route) => [$route->getName() => guardsFor($route->getName())])->all())

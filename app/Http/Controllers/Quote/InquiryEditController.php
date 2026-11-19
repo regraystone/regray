@@ -6,15 +6,15 @@ use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Quote\ShowInquiryEditAction;
 use App\Actions\Quote\UpdateInquiryAction;
-use App\Data\ClientInformationValues;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Quote\EditInquiryRequest;
 use App\Http\Requests\Quote\UpdateInquiryRequest;
 use App\Http\Requests\Quote\UpdateStaffInquiryRequest;
-use App\Http\Resources\ClientInformationResource;
+use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryEditResource;
 use App\Models\User;
+use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Services\InquiryDetailsService;
 use App\Services\InquiryService;
 use App\Services\InquiryStatusRules;
@@ -42,6 +42,7 @@ class InquiryEditController extends Controller
         public readonly ListInquiryStonesAction $listInquiryStones,
         public readonly InquiryDetailsService $inquiryDetailsService,
         public readonly InquiryService $inquiryService,
+        public readonly ClientAddressRepositoryInterface $addresses,
     ) {}
 
     public function edit(EditInquiryRequest $request): Response|RedirectResponse
@@ -61,13 +62,11 @@ class InquiryEditController extends Controller
             'mode' => 'edit',
             'reference' => $result['inquiry']->reference,
             /*
-             * The snapshot stays the record of what was sent: it is shown
-             * read-only on the edit page and never used to prefill a changed
-             * form, nor updated when the project is saved.
+             * The client's address book to pick from; the project also keeps
+             * the address it was sent with (InquiryEditResource), which may
+             * since have left the book.
              */
-            'clientInformation' => $result['inquiry']->clientInformationSnapshot === null
-                ? null
-                : ClientInformationResource::make(ClientInformationValues::fromSnapshot($result['inquiry']->clientInformationSnapshot))->resolve($request),
+            'addresses' => ClientAddressResource::collection($this->addresses->forUser($request->user()))->resolve($request),
             'projects' => [InquiryEditResource::make($result['inquiry'])->resolve($request)],
         ]);
     }

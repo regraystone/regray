@@ -439,7 +439,7 @@ describe('what an appointment\'s state allows', function (): void {
     it('leaves an inquiry\'s visit to its inquiry', function (string $action): void {
         $client = inquiryClient();
         $inquiry = new Inquiry;
-        $inquiry->forceFill(['reference' => 'INQ-SC1', 'client_id' => $client->id, 'name' => 'Kitchen', 'location' => 'Makati'])->save();
+        $inquiry->forceFill(['reference' => 'INQ-SC1', 'client_id' => $client->id, 'name' => 'Kitchen', 'delivery_method' => 'pickup'])->save();
         $visit = appointment($client, ScheduleStatus::Confirmed, inquiry: $inquiry);
 
         changeSchedule($this, inquiryClient(Role::Admin), $action, $visit)

@@ -26,15 +26,14 @@ export type ClientAccount = {
 export type DirectClient = {
     id: number;
     fullName: string;
-    company: string | null;
     kind: 'platform' | 'direct';
 };
 
+/** A walk-in as staff take them down: name and phone, the email when given. */
 export type DirectClientInput = {
     fullName: string;
-    company: string;
-    address: string;
-    contacts: Array<{ kind: ContactKind; value: string }>;
+    phone: string;
+    email: string;
 };
 
 /**

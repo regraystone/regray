@@ -56,14 +56,17 @@ class ClientService
      * and that client comes back with `existing` true, for staff to use
      * instead.
      *
-     * @param  array{full_name: string, company: ?string, address: ?string, contacts: list<array{kind: string, value: string}>}  $input
+     * @param  array{full_name: string, phone: string, email: ?string}  $input
      * @return array{client: Client, existing: bool, matched: array{kind: string, value: string}|null}
      *
      * @throws ValidationException When the same contact is given twice.
      */
     public function createDirect(array $input, User $by): array
     {
-        $contacts = $this->normalisedContacts($input['contacts']);
+        $contacts = $this->normalisedContacts([
+            ['kind' => ContactKind::Phone->value, 'value' => $input['phone']],
+            ...($this->blankToNull($input['email']) === null ? [] : [['kind' => ContactKind::Email->value, 'value' => (string) $input['email']]]),
+        ]);
         $existing = $this->clients->findByContacts($contacts);
 
         if ($existing !== null) {
@@ -72,8 +75,6 @@ class ClientService
 
         $attributes = [
             'full_name' => trim($input['full_name']),
-            'company' => $this->blankToNull($input['company']),
-            'address' => $this->blankToNull($input['address']),
         ];
 
         try {
@@ -103,20 +104,12 @@ class ClientService
 
     /**
      * The client's phone number, the lists' Contact column: a direct client's
-     * first phone (or WhatsApp, or Viber) number, or the account's phone.
+     * phone number, or the account's phone.
      */
     public static function phone(?Client $record, ?User $account): ?string
     {
         if ($record !== null && $record->user_id === null) {
-            foreach ([ContactKind::Phone, ContactKind::WhatsApp, ContactKind::Viber] as $kind) {
-                $number = $record->contacts->firstWhere('kind', $kind)?->value;
-
-                if ($number !== null) {
-                    return $number;
-                }
-            }
-
-            return null;
+            return $record->contacts->firstWhere('kind', ContactKind::Phone)?->value;
         }
 
         return $account?->profile?->phone;
@@ -152,13 +145,13 @@ class ClientService
         $normalised = [];
         $seen = [];
 
-        foreach ($contacts as $index => $contact) {
+        foreach ($contacts as $contact) {
             $kind = ContactKind::from($contact['kind']);
             $value = $kind->normalise($contact['value']);
             $key = "{$kind->value}:{$value}";
 
             if (isset($seen[$key])) {
-                throw ValidationException::withMessages(["contacts.{$index}.value" => 'This contact is already on the list.']);
+                throw ValidationException::withMessages([$kind === ContactKind::Email ? 'email' : 'phone' => 'This contact is already on the list.']);
             }
 
             $seen[$key] = true;

@@ -21,8 +21,8 @@ const {
 } = await import('../../resources/js/lib/inquiry-draft-storage.ts');
 
 const USER = 7;
-const KEY = `regray.inquiry-draft.v9:${USER}`;
-const OLD_KEY = `regray.inquiry-draft.v8:${USER}`;
+const KEY = `regray.inquiry-draft.v10:${USER}`;
+const OLD_KEY = `regray.inquiry-draft.v9:${USER}`;
 
 const draft = (overrides = {}) => ({
     name: '',
@@ -31,8 +31,11 @@ const draft = (overrides = {}) => ({
     stoneAdvice: false,
     stoneIds: [],
     stones: [],
+    brands: [],
+    brandNoPreference: false,
     deliveryMethod: '',
-    location: '',
+    addressId: '',
+    address: null,
     answers: {},
     neededBy: '',
     notes: '',
@@ -68,6 +71,10 @@ const versionEightRecord = () =>
 
 const catalog = {
     stones: [],
+    brands: [
+        { id: 'atlas-concorde', name: 'Atlas Concorde', logo: '' },
+        { id: 'laminam', name: 'Laminam', logo: '' },
+    ],
     serviceTypes: [
         {
             id: 'custom-stone-furniture',
@@ -178,19 +185,45 @@ describe('a stored draft', () => {
         assert.equal(readInquiryDraft(USER).draft.stoneAdvice, true);
     });
 
-    it('starts a draft saved with no delivery method on the default', () => {
+    it('keeps a draft saved with no delivery method unanswered', () => {
         writeInquiryDraft(
             USER,
             stateOf(draft({ stoneIds: ['marble'], deliveryMethod: '' })),
         );
 
-        assert.equal(readInquiryDraft(USER).draft.deliveryMethod, 'delivery');
+        assert.equal(readInquiryDraft(USER).draft.deliveryMethod, '');
     });
 
-    it('leaves nothing behind for a stepper on its default delivery method', () => {
-        writeInquiryDraft(USER, stateOf(draft({ deliveryMethod: 'delivery' })));
+    it('leaves nothing behind for a stepper on the default saved address', () => {
+        writeInquiryDraft(USER, stateOf(draft({ addressId: '12' })));
 
         assert.equal(memory.has(KEY), false);
+    });
+
+    it('comes back with its brands, dropping those no longer offered', () => {
+        writeInquiryDraft(
+            USER,
+            stateOf(draft({ brands: ['laminam', 'retired'] })),
+        );
+
+        assert.deepEqual(readInquiryDraft(USER, catalog).draft.brands, [
+            'laminam',
+        ]);
+    });
+
+    it('comes back with No preference', () => {
+        writeInquiryDraft(USER, stateOf(draft({ brandNoPreference: true })));
+
+        assert.equal(readInquiryDraft(USER).draft.brandNoPreference, true);
+    });
+
+    it('comes back with the saved address it picked', () => {
+        writeInquiryDraft(
+            USER,
+            stateOf(draft({ serviceId: 'dining-tables', addressId: '12' })),
+        );
+
+        assert.equal(readInquiryDraft(USER).draft.addressId, '12');
     });
 
     it('still leaves nothing behind for a stepper that was only opened', () => {
@@ -261,36 +294,23 @@ describe('a stored draft', () => {
         assert.equal(stored.serviceId, '');
     });
 
-    it('never writes the request-only Client Information payload to browser storage', () => {
-        const requestOnly = {
-            deliveryMethod: 'delivery',
-            location: 'Request-only site',
-            saveToProfile: true,
+    it('keeps an address entered with the picker', () => {
+        const address = {
+            region: { code: '1300000000', name: 'National Capital Region' },
+            province: null,
+            noProvince: true,
+            city: { code: '1380300000', name: 'City of Makati' },
+            barangay: { code: '1380300001', name: 'Bel-Air' },
+            postalCode: '1209',
+            lat: 14.56,
+            lng: 121.03,
         };
 
-        writeInquiryDraft(
-            USER,
-            stateOf(
-                draft({
-                    serviceId: 'dining-tables',
-                    deliveryMethod: 'delivery',
-                    location: 'Makati',
-                    clientInformation: requestOnly,
-                }),
-            ),
-        );
+        writeInquiryDraft(USER, stateOf(draft({ address })));
 
-        const raw = memory.get(KEY);
-
-        assert.notEqual(raw, null);
-        assert.equal(raw.includes('clientInformation'), false);
-        assert.equal(raw.includes('Request-only site'), false);
-        assert.equal(raw.includes('saveToProfile'), false);
-
-        // The project's own answer is a draft answer and does come back.
         const { draft: stored } = readInquiryDraft(USER, catalog);
 
-        assert.equal(stored.deliveryMethod, 'delivery');
-        assert.equal(stored.location, 'Makati');
+        assert.equal(stored.address.city.name, 'City of Makati');
+        assert.equal(stored.address.postalCode, '1209');
     });
 });

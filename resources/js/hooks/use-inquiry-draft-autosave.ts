@@ -54,7 +54,10 @@ export function useInquiryDraftAutosave({
     editingProjectId,
     methods,
     draftMethods,
-}: InquiryDraftAutosaveParams): { discardDraft: () => void } {
+}: InquiryDraftAutosaveParams): {
+    discardDraft: () => void;
+    saveDraftNow: () => void;
+} {
     const projects = useWatch({
         control: methods.control,
         name: 'projects',
@@ -234,5 +237,6 @@ export function useInquiryDraftAutosave({
         clearInquiryDraft(userId);
     }, [userId, cancelPending]);
 
-    return { discardDraft };
+    /** Write the draft now: before leaving for the address book, to come back to it. */
+    return { discardDraft, saveDraftNow: writeNow };
 }

@@ -94,8 +94,8 @@ export type InquiryFile = {
  */
 export type InquiryRequirementsRecord = {
     deliveryMethod?: string;
-    /** None on a pickup. */
-    location?: string;
+    /** "Pickup", "Delivery to {address}" or "Installation at {address}". */
+    fulfillment?: string;
     neededBy?: string;
     /**
      * The hour of the day, asked for alongside the date by the three services the
@@ -191,7 +191,7 @@ export const inquiries: Inquiry[] = [
             },
         ],
         requirements: {
-            location: 'Quezon City',
+            fulfillment: 'Delivery to Quezon City',
             neededBy: '2026-12-05',
             notes: 'The island has a waterfall end on the side facing the dining room.',
             attachments: [],
@@ -218,7 +218,7 @@ export const inquiries: Inquiry[] = [
             },
         ],
         requirements: {
-            location: 'Muntinlupa',
+            fulfillment: 'Delivery to Muntinlupa',
             neededBy: '2026-11-28',
             attachments: [],
         },
@@ -250,7 +250,7 @@ export const inquiries: Inquiry[] = [
             },
         ],
         requirements: {
-            location: 'Makati',
+            fulfillment: 'Delivery to Makati',
             neededBy: '2026-11-14',
             notes: 'The bar top has to clear the service window by 60 mm.',
             attachments: [
@@ -284,7 +284,7 @@ export const inquiries: Inquiry[] = [
             },
         ],
         requirements: {
-            location: 'Pasig',
+            fulfillment: 'Delivery to Pasig',
             neededBy: '2026-10-30',
             notes: 'The desk front is one slab, so please keep the veining running across the full width.',
             attachments: [
@@ -322,7 +322,7 @@ export const inquiries: Inquiry[] = [
             },
         ],
         requirements: {
-            location: 'Muntinlupa',
+            fulfillment: 'Delivery to Muntinlupa',
             neededBy: '2026-09-05',
             attachments: [
                 {
@@ -348,7 +348,7 @@ export const inquiries: Inquiry[] = [
         services: ['Stone Relocation, Dismantling & Reinstallation'],
         stones: [],
         requirements: {
-            location: 'Quezon City',
+            fulfillment: 'Delivery to Quezon City',
             neededBy: '2026-08-20',
             attachments: [],
         },

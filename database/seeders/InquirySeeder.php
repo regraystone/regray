@@ -4,10 +4,12 @@ namespace Database\Seeders;
 
 use App\Data\Measurement;
 use App\Data\Message\QuotationCardSnapshot;
+use App\Data\PhAddress;
 use App\Enums\ClientKind;
 use App\Enums\ContactKind;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\DeliveryMethod;
 use App\Enums\DetailFieldScope;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
@@ -21,6 +23,7 @@ use App\Enums\SalesStatus;
 use App\Enums\SizeUnit;
 use App\Enums\SystemEvent;
 use App\Enums\ThicknessUnit;
+use App\Models\Brand;
 use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\DetailField;
@@ -304,14 +307,13 @@ class InquirySeeder extends Seeder
                 'kind' => ClientKind::Direct,
                 'user_id' => null,
                 'full_name' => $clientData['full_name'],
-                'company' => $clientData['company'],
-                'address' => $clientData['address'],
                 'created_by' => $this->user($clientData['created_by'])->id,
             ]);
 
-            foreach ($clientData['contacts'] as $contact) {
-                $kind = ContactKind::from($contact['kind']);
-                $client->contacts()->create(['kind' => $kind, 'value' => $kind->normalise($contact['value'])]);
+            foreach ([ContactKind::Phone->value => $clientData['phone'], ContactKind::Email->value => $clientData['email'] ?? null] as $kind => $value) {
+                if ($value !== null) {
+                    $client->contacts()->create(['kind' => ContactKind::from($kind), 'value' => ContactKind::from($kind)->normalise($value)]);
+                }
             }
 
             $records[$clientData['id']] = ['client' => $client, 'created_by' => $clientData['created_by']];
@@ -606,7 +608,7 @@ class InquirySeeder extends Seeder
             'marketing_status_changed_at' => $this->time($final['marketing_at']),
             'name' => $project['name'],
             'service_id' => $service->id,
-            'location' => $project['location'],
+            ...$this->fulfillment($inquiryData['reference'], $project, $service),
             'notes' => $project['notes'],
             'sales_status' => $final['sales'],
             'sales_status_changed_at' => $this->time($final['changed']['sales']),
@@ -632,6 +634,8 @@ class InquirySeeder extends Seeder
             throw new RuntimeException("{$inquiryData['reference']}: a direct client has no account to upload attachments.");
         }
 
+        $brandIds = [];
+
         foreach ($project['stones'] as $stoneSort => $stoneSelection) {
             $stone = Stone::query()
                 ->whereHas('type', fn ($query) => $query->where('slug', $stoneSelection['stone_slug']))
@@ -647,8 +651,11 @@ class InquirySeeder extends Seeder
                 ...$this->measurements($asked->has(DetailField::SLAB_SIZE), $asked->has(DetailField::THICKNESS), $stoneSelection, $inquiryData['reference']),
                 'sort_order' => $stoneSort,
             ]);
+
+            $brandIds[] = $stone->brand_id;
         }
 
+        $this->seedBrands($inquiry, $project, $brandIds);
         $this->seedAnswers($inquiry, $service, $inquiryData['reference'], $project['answers']);
 
         foreach ($client === null ? [] : $project['attachments'] as $fileData) {
@@ -656,6 +663,55 @@ class InquirySeeder extends Seeder
         }
 
         return $inquiry;
+    }
+
+    /**
+     * The inquiry's delivery method and the copy of its address, as the
+     * Inquire page sends them for its service: a delivery unless the data says
+     * pickup (no place), no method for an installed service.
+     *
+     * @param  array<string, mixed>  $project
+     * @return array<string, mixed>
+     */
+    private function fulfillment(string $reference, array $project, Service $service): array
+    {
+        $method = $service->fulfillment->asksDeliveryMethod() ? DeliveryMethod::from($project['delivery_method'] ?? DeliveryMethod::Delivery->value) : null;
+        $place = $project['place'] ?? null;
+
+        if (($method === DeliveryMethod::Pickup) !== ($place === null)) {
+            throw new RuntimeException("{$reference}: a pickup has no place, and a delivery or an installation needs one.");
+        }
+
+        if (! $service->fulfillment->asksDeliveryMethod() && isset($project['delivery_method'])) {
+            throw new RuntimeException("{$reference}: {$service->slug} is installed on site and asks no delivery method.");
+        }
+
+        return [
+            'delivery_method' => $method,
+            ...($place === null ? PhAddress::emptyColumns(Inquiry::ADDRESS_PREFIX) : DemoPlaces::address($place)->toColumns(Inquiry::ADDRESS_PREFIX)),
+        ];
+    }
+
+    /**
+     * The brands the client would like: the data's `brands`, else those of
+     * its stones; No preference when it says so or has no stones.
+     *
+     * @param  array<string, mixed>  $project
+     * @param  list<int>  $stoneBrandIds
+     */
+    private function seedBrands(Inquiry $inquiry, array $project, array $stoneBrandIds): void
+    {
+        $brandIds = isset($project['brands'])
+            ? Brand::query()->whereIn('slug', $project['brands'])->pluck('id')->all()
+            : array_values(array_unique($stoneBrandIds));
+
+        if (($project['brand_no_preference'] ?? false) || $brandIds === []) {
+            $inquiry->forceFill(['brand_no_preference' => true])->saveQuietly();
+
+            return;
+        }
+
+        $inquiry->brands()->sync($brandIds);
     }
 
     /**

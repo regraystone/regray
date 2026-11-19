@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { artisan } from '../message/support/stack';
+import { inquiryFixtures } from './accounts';
 import { expect } from './fixtures';
 
 /*
@@ -43,7 +44,14 @@ export const CATALOG = {
     finishes: ['Polished', 'Honed'],
 } as const;
 
-/** The three questions of the first step, in order. Number 4 means Review. */
+/**
+ * The brand question, asked before the three below. openInquire() and
+ * openStaffInquire() answer it (No preference) and press Next, so a spec
+ * starts at What do you need? (question 1) unless it opens with `brands`.
+ */
+export const BRAND_QUESTION = 'Which brands would you like?';
+
+/** The three questions after the brands, in order. Number 4 means Review. */
 export const QUESTIONS = [
     'What do you need?',
     'Which stones?',
@@ -90,9 +98,31 @@ export const expectStep = async (page: Page, step: number): Promise<void> => {
 export const openInquire = async (
     page: Page,
     url = '/dashboard/quote/inquire',
+    { brands = 'answer' }: { brands?: 'answer' | 'leave' } = {},
 ): Promise<void> => {
     artisan('cache:clear');
     await page.goto(url);
+    await expect(
+        page.getByRole('heading', { name: BRAND_QUESTION }),
+    ).toBeVisible();
+
+    if (brands === 'answer') {
+        await answerNoBrandPreference(page);
+    }
+};
+
+/** A brand card, a toggle named after the brand (or "No preference"). */
+export const brandCard = (page: Page, name: string): Locator =>
+    page.getByRole('button', { name, exact: true });
+
+/** Answer the brand question with No preference, and go on to What do you need? */
+export const answerNoBrandPreference = async (page: Page): Promise<void> => {
+    await brandCard(page, 'No preference').click();
+    await expect(brandCard(page, 'No preference')).toHaveAttribute(
+        'aria-pressed',
+        'true',
+    );
+    await nextButton(page).click();
     await expect(
         page.getByRole('heading', { name: QUESTIONS[0] }),
     ).toBeVisible();
@@ -108,10 +138,8 @@ export const openStaffInquire = async (
     lead = 'LEAD-0007',
 ): Promise<void> => {
     await page.goto(`/dashboard/inquiry/inquire?kind=platform&lead=${lead}`);
-    await expect(
-        page.getByRole('heading', { name: QUESTIONS[0] }),
-    ).toBeVisible();
     await expect(page.getByTestId('inquire-target')).toContainText(lead);
+    await answerNoBrandPreference(page);
 };
 
 export const checkbox = (page: Page, name: string): Locator =>
@@ -163,17 +191,41 @@ export const pickStone = async (page: Page, name: string): Promise<void> => {
 
 export const DELIVERY_METHOD_ID = 'inquiry-delivery-method';
 
+/**
+ * A client's saved addresses on the details question, a radio group named
+ * "Delivery address" or "Installation address". E2EInquirySeeder gives client
+ * A two: Home (Makati, the default) and Site (Antipolo).
+ */
 export const locationField = (page: Page): Locator =>
-    page.getByRole('combobox', { name: /^Location/ });
+    page.getByRole('radiogroup', { name: /address/ });
 
+/** The saved address a city stands for in the older specs: Makati is Home, any other Site. */
+const SAVED_ADDRESS_FOR: Record<string, string> = { Makati: 'Home' };
+
+/**
+ * Say how the project is got and where: Delivery (asked only of a service
+ * delivered or picked up), then the client's saved address for `city`.
+ */
 export const chooseLocation = async (
     page: Page,
     city: string,
 ): Promise<void> => {
-    const field = locationField(page);
-    await field.fill(city.slice(0, 4));
-    await page.getByRole('option', { name: city, exact: true }).click();
-    await expect(field).toHaveValue(city);
+    const method = page.locator(`#${DELIVERY_METHOD_ID}`);
+
+    if (
+        (await method.count()) > 0 &&
+        !(await method.textContent())?.includes('Delivery')
+    ) {
+        await chooseInSelect(page, DELIVERY_METHOD_ID, 'Delivery');
+    }
+
+    const label = SAVED_ADDRESS_FOR[city] ?? 'Site';
+    const choice = locationField(page).getByRole('radio', {
+        name: new RegExp(`^${label}`),
+    });
+
+    await choice.click();
+    await expect(choice).toBeChecked();
 };
 
 /** Pick `option` in the Radix select whose trigger has `id`. */
@@ -456,8 +508,13 @@ export const projectPayload = (
             finish: CATALOG.finishes[0],
         },
     ],
+    brandNoPreference: '1',
     deliveryMethod: 'delivery',
-    location: 'Makati',
+    // Client A's default saved address (Home, Makati).
+    addressId: String(
+        inquiryFixtures().addresses?.clientA.find(({ isDefault }) => isDefault)
+            ?.id ?? '',
+    ),
     neededBy: futureDate(10),
     notes: '',
     ...overrides,
