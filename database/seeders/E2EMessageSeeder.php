@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Data\Message\QuotationCardSnapshot;
 use App\Enums\BookedByType;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
+use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\MessageType;
@@ -16,6 +18,7 @@ use App\Models\Conversation;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\Message;
@@ -28,6 +31,8 @@ use App\Services\Message\SupportConversationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Test-only data for the Playwright suite in tests/e2e/message. Runs after
@@ -196,6 +201,14 @@ class E2EMessageSeeder extends Seeder
         $long = $this->inquiry($client, 'INQ-E2E-LONG', $longName);
         $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $long->id, ...$this->snapshot(InquiryStatus::Production)]);
 
+        // No stones: the card shows the service in place of the pictures, and no Materials row.
+        $serviceOnly = $this->inquiry($client, 'INQ-E2E-SERVICE', 'Countertop repair', withStone: false);
+        $this->card($group, ['type' => MessageType::InquiryCard, 'inquiry_id' => $serviceOnly->id, ...$this->snapshot(InquiryStatus::Pending)]);
+
+        $quotation = $this->quotationCard($group, $inquiry, $sales, 'QUO-0002_Regray Stone.pdf');
+        $longFileName = substr('QUO-0003_'.str_repeat('Regray Stone kitchen island ', 5), 0, 120).'.pdf';
+        $this->quotationCard($group, $long, $sales, $longFileName);
+
         $schedules = [];
 
         // A card never announces awaiting sales: the client reads it as pending.
@@ -252,6 +265,14 @@ class E2EMessageSeeder extends Seeder
             'reference' => $inquiry->reference,
             'projectName' => 'Kitchen island',
             'statusCount' => count(InquiryStatus::cases()),
+            'serviceOnlyReference' => $serviceOnly->reference,
+            'serviceName' => (string) $serviceOnly->service?->name,
+            'quotation' => [
+                'fileName' => $quotation->original_name,
+                'storedName' => $quotation->stored_name,
+                'sizeBytes' => $quotation->size_bytes,
+            ],
+            'longQuotationFileName' => $longFileName,
             'longReference' => $long->reference,
             'longProject' => $longName,
             'longScheduleTitle' => $longTitle,
@@ -360,8 +381,43 @@ class E2EMessageSeeder extends Seeder
         ]);
     }
 
+    /**
+     * A quotation Sales sent for the inquiry, written to the inquiry disk so
+     * the card's View PDF and Download open a real file, and its card.
+     */
+    private function quotationCard(Conversation $conversation, Inquiry $inquiry, User $sales, string $fileName): InquiryFile
+    {
+        $storedName = Str::uuid()->toString().'.pdf';
+        $disk = config('inquiry.disk');
+        $path = "inquiries/{$inquiry->reference}/{$storedName}";
+        $pdf = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n";
+        Storage::disk($disk)->put($path, $pdf);
+
+        $file = $inquiry->files()->forceCreate([
+            'document_type' => DocumentType::Quotation,
+            'revision' => 1,
+            'disk' => $disk,
+            'path' => $path,
+            'stored_name' => $storedName,
+            'original_name' => $fileName,
+            'mime_type' => 'application/pdf',
+            'size_bytes' => strlen($pdf),
+            'sha256' => hash('sha256', $pdf),
+            'uploaded_by' => $sales->id,
+        ]);
+
+        $this->card($conversation, [
+            'type' => MessageType::QuotationCard,
+            'inquiry_id' => $inquiry->id,
+            'inquiry_file_id' => $file->id,
+            'card_snapshot' => QuotationCardSnapshot::of($file),
+        ]);
+
+        return $file;
+    }
+
     /** A pending inquiry: one project, with no lead and no role status started. */
-    private function inquiry(User $client, string $reference, string $projectName): Inquiry
+    private function inquiry(User $client, string $reference, string $projectName, bool $withStone = true): Inquiry
     {
         $inquiry = new Inquiry;
         $inquiry->forceFill([
@@ -371,6 +427,10 @@ class E2EMessageSeeder extends Seeder
             'service_id' => Service::query()->where('slug', 'slab-supply-only')->value('id'),
             'location' => 'Makati',
         ])->save();
+
+        if (! $withStone) {
+            return $inquiry;
+        }
 
         $stoneId = Stone::query()->orderBy('id')->value('id');
 

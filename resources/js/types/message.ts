@@ -56,12 +56,33 @@ export type InquiryCard = {
     stoneCount: number;
     /** The client asked Regray to recommend a stone instead of choosing one. */
     stoneAdviceRequested: boolean;
+    /** The one service it asks for; null only for an inquiry without one. */
+    service: { id: string; name: string } | null;
     announcedStatus: InquiryStatus;
     /** Null for a stage that had not started when the card was posted. */
     announcedSalesStatus: SalesStatus | null;
     announcedPaymentStatus: PaymentStatus | null;
     announcedProcessStatus: ProcessStatus | null;
     status: InquiryStatus | null;
+    occurredAt: string;
+};
+
+/**
+ * A quotation Sales sent, as the `quotation_card` message posted it: the
+ * document and its inquiry as they were then. Both links are the inquiry's
+ * file route, which answers 404 to a reader who may not see the document.
+ */
+export type QuotationCard = {
+    fileName: string;
+    sizeBytes: number;
+    /** Null only for a quotation stored before revisions were counted. */
+    revision: number | null;
+    /** The inquiry's stones, each once; 0 for a service-only inquiry. */
+    materialCount: number;
+    inquiryName: string;
+    reference: string;
+    viewUrl: string;
+    downloadUrl: string;
     occurredAt: string;
 };
 
@@ -105,7 +126,12 @@ export type ChatAttachment = {
 export type ChatMessage = {
     id: number;
     conversationId: number;
-    type: 'text' | 'inquiry_card' | 'schedule_card' | 'system';
+    type:
+        | 'text'
+        | 'inquiry_card'
+        | 'quotation_card'
+        | 'schedule_card'
+        | 'system';
     body: string | null;
     isRemoved: boolean;
     isEdited: boolean;
@@ -119,6 +145,7 @@ export type ChatMessage = {
         isRemoved: boolean;
     } | null;
     inquiryCard: InquiryCard | null;
+    quotationCard: QuotationCard | null;
     scheduleCard: ScheduleCard | null;
     /** Empty for a removed message and for everything but text. */
     attachments: ChatAttachment[];

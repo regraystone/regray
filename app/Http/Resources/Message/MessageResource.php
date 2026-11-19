@@ -76,6 +76,9 @@ class MessageResource extends JsonResource
             'inquiryCard' => $this->type === MessageType::InquiryCard && $this->inquiry !== null
                 ? (new InquiryCardResource($this->resource, $this->viewer))->resolve($request)
                 : null,
+            'quotationCard' => $this->type === MessageType::QuotationCard && $this->card_snapshot !== null
+                ? (new QuotationCardResource($this->resource))->resolve($request)
+                : null,
             'scheduleCard' => $this->type === MessageType::ScheduleCard && $this->mayReadSchedule()
                 ? (new ScheduleCardResource($this->resource))->resolve($request)
                 : null,

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Data\Measurement;
+use App\Data\Message\QuotationCardSnapshot;
 use App\Enums\ClientKind;
 use App\Enums\ContactKind;
 use App\Enums\ConversationMemberRole;
@@ -26,6 +27,7 @@ use App\Models\DetailField;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
+use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
 use App\Models\InquiryStatusHistory;
 use App\Models\Lead;
@@ -126,6 +128,14 @@ class InquirySeeder extends Seeder
     /** @var array<string, User> */
     private array $users = [];
 
+    /**
+     * Each inquiry's seeded quotations, by inquiry id, with the time they were
+     * sent: each posts a quotation card after the inquiry card of that move.
+     *
+     * @var array<int, list<array{file: InquiryFile, at: string}>>
+     */
+    private array $quotations = [];
+
     public function run(
         ScheduleService $scheduleService,
         SupportConversationService $support,
@@ -196,6 +206,10 @@ class InquirySeeder extends Seeder
             // A direct client has no thread for a card to go to.
             foreach ($client === null ? [] : $replay['snapshots'] as $snapshot) {
                 $snapshots[] = ['inquiry' => $inquiry, ...$snapshot];
+            }
+
+            foreach ($client === null ? [] : $this->quotations[$inquiry->id] ?? [] as $quotation) {
+                $snapshots[] = ['inquiry' => $inquiry, 'at' => $quotation['at'], 'quotation' => $quotation['file']];
             }
         }
 
@@ -747,11 +761,14 @@ class InquirySeeder extends Seeder
                 if (InquiryStatusRules::isQuote($event['sales'])) {
                     $revision++;
 
-                    $this->seedFile($fileUploads, $inquiry, $by, DocumentType::Quotation, [
-                        'name' => "{$inquiry->reference}-quotation-r{$revision}.pdf",
-                        'size_bytes' => 180224 + $revision * 4096,
-                        'mime_type' => 'application/pdf',
-                    ], $at, $revision, $history);
+                    $this->quotations[$inquiry->id][] = [
+                        'file' => $this->seedFile($fileUploads, $inquiry, $by, DocumentType::Quotation, [
+                            'name' => "{$inquiry->reference}-quotation-r{$revision}.pdf",
+                            'size_bytes' => 180224 + $revision * 4096,
+                            'mime_type' => 'application/pdf',
+                        ], $at, $revision, $history),
+                        'at' => $event['at'],
+                    ];
                 }
 
                 if ($event['sales'] === SalesStatus::Won->value && isset($event['job_order'])) {
@@ -966,12 +983,12 @@ class InquirySeeder extends Seeder
      *
      * @param  array{name: string, size_bytes: int, mime_type: string}  $fileData
      */
-    private function seedFile(InquiryFileUploads $fileUploads, Inquiry $inquiry, User $uploader, DocumentType $type, array $fileData, Carbon $at, ?int $revision = null, ?InquiryStatusHistory $update = null): void
+    private function seedFile(InquiryFileUploads $fileUploads, Inquiry $inquiry, User $uploader, DocumentType $type, array $fileData, Carbon $at, ?int $revision = null, ?InquiryStatusHistory $update = null): InquiryFile
     {
         $fileUploads->authorize($uploader, $type, $inquiry);
         $storedName = Str::uuid()->toString().'.'.strtolower(pathinfo($fileData['name'], PATHINFO_EXTENSION));
 
-        $inquiry->files()->forceCreate([
+        return $inquiry->files()->forceCreate([
             'document_type' => $type,
             'status_history_id' => $update?->id,
             'revision' => $revision,
@@ -1016,20 +1033,33 @@ class InquirySeeder extends Seeder
      * Every snapshot into the thread it would have gone to at the time (the
      * inquiry's group chat once it existed, otherwise its client's Regray Team
      * thread), oldest first across all the inquiries, so a client with several
-     * reads them in the order they happened.
+     * reads them in the order they happened. A quotation's card follows the
+     * inquiry card of the move that sent it.
      *
-     * @param  list<array{inquiry: Inquiry, at: string, status: InquiryStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}>  $snapshots
+     * @param  list<array{inquiry: Inquiry, at: string, status: InquiryStatus, sales: ?SalesStatus, payment: ?PaymentStatus, process: ?ProcessStatus}|array{inquiry: Inquiry, at: string, quotation: InquiryFile}>  $snapshots
      * @param  array<int, array{conversation: Conversation, created_at: string}>  $groups
      */
     private function postInquiryCards(SupportConversationService $support, MessageRepositoryInterface $messages, array $snapshots, array $groups): void
     {
-        usort($snapshots, fn (array $first, array $second): int => [$first['at'], $first['inquiry']->id] <=> [$second['at'], $second['inquiry']->id]);
+        usort($snapshots, fn (array $first, array $second): int => [$first['at'], $first['inquiry']->id, isset($first['quotation'])] <=> [$second['at'], $second['inquiry']->id, isset($second['quotation'])]);
 
         foreach ($snapshots as $snapshot) {
             $group = $groups[$snapshot['inquiry']->id] ?? null;
             $thread = $group !== null && strcmp($group['created_at'], $snapshot['at']) <= 0
                 ? $group['conversation']
                 : $support->ensureFor($snapshot['inquiry']->client()->firstOrFail());
+
+            if (isset($snapshot['quotation'])) {
+                $messages->createQuotationCardOnce(
+                    $thread->id,
+                    $snapshot['inquiry']->id,
+                    $snapshot['quotation']->id,
+                    QuotationCardSnapshot::of($snapshot['quotation']),
+                    Carbon::parse($snapshot['at']),
+                );
+
+                continue;
+            }
 
             $messages->createInquiryCardOnce(
                 $thread->id,
