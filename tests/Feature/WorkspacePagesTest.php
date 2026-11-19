@@ -152,6 +152,11 @@ test('guards every route with exactly these permissions', function () {
         'brands.stones.show' => [],
         'brands.furniture.show' => [],
         'stone.show' => [],
+        // The company pages answer everyone, signed in or not.
+        'company.brands' => [],
+        'company.showroom' => [],
+        'company.about' => [],
+        'company.contact' => [],
         // Signing in and up with Google happens before there is a signed-in user.
         'auth.google.redirect' => [],
         'auth.google.callback' => [],

@@ -1,15 +1,18 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
+    CONTACT,
+    JOURNAL,
     SHOWROOM,
     SOCIALS,
+    brandUrl,
     collectionUrl,
-} from '@/components/landing/landing-links';
+} from '@/components/public/public-links';
 import { login, register } from '@/routes';
-import { show as brandsShow } from '@/routes/brands';
+import { about, brands, contact, showroom } from '@/routes/company';
 import { index as inboxIndex } from '@/routes/inbox';
 import { book } from '@/routes/profile/schedule';
 import { inquire } from '@/routes/quote';
-import type { LandingBrand } from '@/types/home';
+import type { BrandCardData } from '@/types/home';
 
 type FooterLink = {
     label: string;
@@ -49,12 +52,16 @@ const FooterAnchor = ({ link }: { link: FooterLink }) => {
 };
 
 /**
- * The landing page's black footer: the collections, every brand, what a
- * client can do on the platform, and where to find Regray online and in
- * person. Pages a guest cannot open yet (the Inquire page, booking a visit,
- * Messages) go through Login first.
+ * The public pages' black footer: the collections, every brand, the company
+ * pages, what a client can do on the platform, and where to find Regray
+ * online and in person. Pages a guest cannot open yet (the Inquire page,
+ * booking a visit, Messages) go through Login first.
  */
-export default function LandingFooter({ brands }: { brands: LandingBrand[] }) {
+export default function PublicFooter() {
+    const siteBrands =
+        usePage<{ siteBrands?: BrandCardData[] | null }>().props.siteBrands ??
+        [];
+
     const columns: { title: string; links: FooterLink[] }[] = [
         {
             title: 'Collections',
@@ -63,18 +70,30 @@ export default function LandingFooter({ brands }: { brands: LandingBrand[] }) {
                 { label: 'Furniture', href: collectionUrl('furniture') },
                 {
                     label: 'Featured projects',
-                    href: '#projects',
+                    href: '/#projects',
                     kind: 'anchor',
                 },
-                { label: 'Catalogs', href: '#catalogs', kind: 'anchor' },
+                { label: 'Catalogs', href: '/#catalogs', kind: 'anchor' },
             ],
         },
         {
             title: 'Brands',
-            links: brands.map((brand) => ({
-                label: brand.name,
-                href: brandsShow.url({ brand: brand.slug }),
-            })),
+            links: [
+                { label: 'All brands', href: brands.url() },
+                ...siteBrands.map((brand) => ({
+                    label: brand.name,
+                    href: brandUrl(brand.slug),
+                })),
+            ],
+        },
+        {
+            title: 'Regray',
+            links: [
+                { label: 'About Regray', href: about.url() },
+                { label: 'Showroom', href: showroom.url() },
+                { label: 'Contact', href: contact.url() },
+                { label: 'Journal', href: JOURNAL, kind: 'external' },
+            ],
         },
         {
             title: 'Platform',
@@ -96,23 +115,21 @@ export default function LandingFooter({ brands }: { brands: LandingBrand[] }) {
 
     return (
         <footer className="flex flex-col gap-[clamp(4rem,10vw,8.75rem)] bg-black px-4 pt-10 pb-8 text-white sm:px-8">
-            <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,1.6fr)]">
-                {columns.map((column) =>
-                    column.links.length === 0 ? null : (
-                        <nav
-                            key={column.title}
-                            aria-label={column.title}
-                            className="flex flex-col gap-1.5"
-                        >
-                            <h2 className="mb-1 font-sans text-sm font-bold">
-                                {column.title}
-                            </h2>
-                            {column.links.map((link) => (
-                                <FooterAnchor key={link.label} link={link} />
-                            ))}
-                        </nav>
-                    ),
-                )}
+            <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[repeat(5,minmax(0,1fr))_minmax(0,1.5fr)]">
+                {columns.map((column) => (
+                    <nav
+                        key={column.title}
+                        aria-label={column.title}
+                        className="flex flex-col gap-1.5"
+                    >
+                        <h2 className="mb-1 font-sans text-sm font-bold">
+                            {column.title}
+                        </h2>
+                        {column.links.map((link) => (
+                            <FooterAnchor key={link.label} link={link} />
+                        ))}
+                    </nav>
+                ))}
 
                 <div className="flex flex-col gap-1.5">
                     <h2 className="mb-1 font-sans text-sm font-bold">
@@ -122,6 +139,21 @@ export default function LandingFooter({ brands }: { brands: LandingBrand[] }) {
                         {SHOWROOM.address}
                     </p>
                     <p className="text-sm text-white/80">{SHOWROOM.hours}</p>
+                    <a
+                        href={`mailto:${CONTACT.email}`}
+                        className={`mt-2 ${linkClass}`}
+                    >
+                        {CONTACT.email}
+                    </a>
+                    {CONTACT.phones.map((phone) => (
+                        <a
+                            key={phone.href}
+                            href={phone.href}
+                            className={linkClass}
+                        >
+                            {phone.label}
+                        </a>
+                    ))}
                 </div>
             </div>
 
@@ -129,9 +161,12 @@ export default function LandingFooter({ brands }: { brands: LandingBrand[] }) {
                 <span className="font-normal normal-case">
                     © {new Date().getFullYear()} Regray
                 </span>
-                <a href="#showroom" className={linkClass}>
+                <Link href={showroom.url()} className={linkClass}>
                     Showroom
-                </a>
+                </Link>
+                <Link href={contact.url()} className={linkClass}>
+                    Contact
+                </Link>
                 <Link href={login.url()} className={linkClass}>
                     Client login
                 </Link>

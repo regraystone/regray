@@ -81,7 +81,7 @@ export default function AuthBrandLayout({
 }: AuthLayoutProps) {
     const panel = useRef<HTMLElement>(null);
     const brands =
-        usePage<{ authBrands?: BrandCardData[] | null }>().props.authBrands ??
+        usePage<{ siteBrands?: BrandCardData[] | null }>().props.siteBrands ??
         [];
 
     useSubmitAboveKeyboard(panel);

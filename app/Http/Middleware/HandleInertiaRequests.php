@@ -17,7 +17,8 @@ class HandleInertiaRequests extends Middleware
 {
     /**
      * The pages drawn in the auth layout (resources/js/layouts/auth), by
-     * route name: Fortify's and Google sign-in's.
+     * route name: Fortify's and Google sign-in's. Verify Email is the one a
+     * signed-in user sees.
      */
     private const AUTH_PAGES = [
         'login',
@@ -90,10 +91,11 @@ class HandleInertiaRequests extends Middleware
                     'port' => config('broadcasting.client.port') ? (int) config('broadcasting.client.port') : null,
                     'scheme' => config('broadcasting.client.scheme') ?: null,
                 ],
-            // The auth pages' side panel shows the brands' photos and logos;
-            // null on every other page. Sent once: moving between Sign In and
-            // Sign Up keeps them.
-            'authBrands' => $request->routeIs(self::AUTH_PAGES)
+            // The active brands, for the public header's menu and footer and the
+            // auth pages' photo panel: sent to guests, on the auth pages and on
+            // the company pages (which signed-in users open too); null in the
+            // workspace. Sent once: moving between those pages keeps them.
+            'siteBrands' => $user === null || $request->routeIs([...self::AUTH_PAGES, 'company.*'])
                 ? Inertia::once(fn (): array => BrandCardResource::collection(app(ListBrandsAction::class)->execute())->resolve($request))
                 : null,
         ];
