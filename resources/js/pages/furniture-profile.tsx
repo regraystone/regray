@@ -1,4 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import { Armchair, ArrowLeft, ArrowRight, Heart } from 'lucide-react';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedFurniture } from '@/hooks/use-saved-stones';
@@ -25,6 +26,13 @@ type FurnitureProfileProps = {
 };
 
 /** A row of what the piece can be made in or with. */
+/** How many choices a row shows before "+N more". */
+const SHOWN_CHOICES = 2;
+
+/**
+ * A row of what the piece can be made in or with: its first two choices,
+ * and a "+N more" that shows the rest (and "Show less" to fold them again).
+ */
 const OptionRow = ({
     label,
     values,
@@ -33,26 +41,52 @@ const OptionRow = ({
     label: string;
     values: string[];
     action?: React.ReactNode;
-}) => (
-    <div className="flex flex-col gap-3 border-t border-border pt-5">
-        <dt className="text-xs font-semibold tracking-[0.12em] uppercase">
-            {label}
-        </dt>
-        <dd className="flex flex-col gap-3">
-            <ul className="flex flex-wrap gap-2">
-                {values.map((value) => (
-                    <li
-                        key={value}
-                        className="border border-border px-3 py-1.5 text-sm text-secondary-foreground"
-                    >
-                        {value}
-                    </li>
-                ))}
-            </ul>
-            {action}
-        </dd>
-    </div>
-);
+}) => {
+    const [expanded, setExpanded] = useState(false);
+    // Folding away a single choice saves nothing, so a row folds only from two.
+    const hidden =
+        values.length - SHOWN_CHOICES >= 2 ? values.length - SHOWN_CHOICES : 0;
+    const shown =
+        expanded || hidden <= 0 ? values : values.slice(0, SHOWN_CHOICES);
+
+    return (
+        <div className="flex flex-col gap-3 border-t border-border pt-5">
+            <dt className="text-xs font-semibold tracking-[0.12em] uppercase">
+                {label}
+            </dt>
+            <dd className="flex flex-col gap-3">
+                <ul className="flex flex-wrap items-center gap-2">
+                    {shown.map((value) => (
+                        <li
+                            key={value}
+                            className="border border-border px-3 py-1.5 text-sm text-secondary-foreground"
+                        >
+                            {value}
+                        </li>
+                    ))}
+                    {hidden > 0 ? (
+                        <li>
+                            <button
+                                type="button"
+                                onClick={() => setExpanded((open) => !open)}
+                                aria-expanded={expanded}
+                                aria-label={
+                                    expanded
+                                        ? `Show fewer ${label.toLowerCase()} choices`
+                                        : `Show ${hidden} more ${label.toLowerCase()} choices`
+                                }
+                                className="cursor-pointer px-1 py-1.5 text-sm text-foreground underline underline-offset-4 transition-opacity hover:opacity-70"
+                            >
+                                {expanded ? 'Show less' : `+${hidden} more`}
+                            </button>
+                        </li>
+                    ) : null}
+                </ul>
+                {action}
+            </dd>
+        </div>
+    );
+};
 
 /**
  * A piece of furniture: its photo beside its type, brand, name and

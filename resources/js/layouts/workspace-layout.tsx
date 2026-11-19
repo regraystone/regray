@@ -36,7 +36,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
 import {
     Tooltip,
     TooltipContent,
@@ -44,7 +43,6 @@ import {
 } from '@/components/ui/tooltip';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { getEcho, listenTo, onReconnect } from '@/lib/echo';
 import { onUnreadChanged } from '@/lib/unread-badge';
@@ -402,16 +400,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const isInboxPage = page.component === 'inbox';
     const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
 
-    // Get the stone slug from the page props when on a stone profile page
     const isStoneProfilePage = page.component === 'stone-profile';
-    const stoneSlug = isStoneProfilePage
-        ? (page.props.stone as { data: { slug: string } } | undefined)?.data
-              ?.slug
-        : undefined;
-
-    // The floating heart is a stone profile's; a furniture profile draws its
-    // own Save beside its Ask a quote.
-    const profileSlug = stoneSlug;
 
     /*
      * The stepper has no sidebar item of its own; it is nested under the list
@@ -434,14 +423,11 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const user = page.props.auth.user;
     const savedStones = useSavedStones();
     const savedFurniture = useSavedFurniture();
-    const canSave = savedStones.canSave;
-    // The Saved badge counts both kinds; the heart works on this page's kind.
+    // The Saved badge counts both kinds. The stone and furniture profiles
+    // draw their own Save beside their Ask a quote.
     const savedCount = savedStones.savedIds.size + savedFurniture.savedIds.size;
-    const profileSaves = savedStones;
     const unreadCount = page.props.unreadMessageCount ?? 0;
     const { can } = usePermissions();
-    // The profile's "Ask a Quote" button, which the heart sits above.
-    const canInquire = useInquireRoute() !== null;
     const canMessage = can(permissions.messagesView);
     const isInSupportPool = can(permissions.supportClaim);
     const realtime = page.props.realtime as Realtime | null | undefined;
@@ -503,28 +489,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             }
         };
     }, [canMessage, isInSupportPool, realtime, userId]);
-
-    const isSaved =
-        profileSlug !== undefined && profileSaves.savedIds.has(profileSlug);
-
-    /*
-     * The floating heart animates only when a tap flips `isSaved`. The slug is
-     * tracked beside it so arriving on a different profile — which also
-     * moves `isSaved` — resets the comparison instead of animating. Comparing
-     * during render keeps the class in the same commit as the flip.
-     */
-    const [previousIsSaved, setPreviousIsSaved] = useState(isSaved);
-    const [savedSlug, setSavedSlug] = useState(profileSlug);
-    const [heartAnimation, setHeartAnimation] = useState('');
-
-    if (savedSlug !== profileSlug) {
-        setSavedSlug(profileSlug);
-        setPreviousIsSaved(isSaved);
-        setHeartAnimation('');
-    } else if (previousIsSaved !== isSaved) {
-        setPreviousIsSaved(isSaved);
-        setHeartAnimation(isSaved ? 'heart-save' : 'heart-unsave');
-    }
 
     useEffect(() => {
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(
@@ -913,36 +877,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     onNavigate={() => setDrawerOpen(false)}
                 />
             </aside>
-
-            {canSave && profileSlug && (
-                <div
-                    className={`fixed right-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 ${
-                        canInquire ? 'bottom-20' : 'bottom-4 sm:bottom-5'
-                    }`}
-                >
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-11 w-11 cursor-pointer bg-background shadow-lg active:scale-90"
-                        aria-pressed={isSaved ? 'true' : 'false'}
-                        aria-label={
-                            isSaved ? 'Remove from saved' : 'Save to collection'
-                        }
-                        onClick={() => profileSaves.toggleSave(profileSlug)}
-                    >
-                        <Heart
-                            key={heartAnimation}
-                            className={`size-5 ${
-                                isSaved
-                                    ? 'fill-red-500 text-red-500'
-                                    : 'text-foreground'
-                            } ${heartAnimation}`}
-                            aria-hidden
-                        />
-                    </Button>
-                </div>
-            )}
         </div>
     );
 };
