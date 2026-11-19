@@ -49,8 +49,9 @@ return [
         'logo_path' => 'brands/fa06348dbb0ab7454f4180f30881956c.png',
         'thumbnail_path' => 'brands/2b7e3a9f1c5d8a6b4e0f2c7d9a1b5e8f.png',
         'website_url' => null,
-        'tagline' => 'Copenhagen kitchens and storage since 2014, designed with architects like David Chipperfield.',
-        'description' => 'Copenhagen kitchens and storage since 2014, designed with architects such as David Chipperfield, Norm Architects and Jean Nouvel.',
+        // re/form, the sintered stone brand, as regraystone.com describes it.
+        'tagline' => 'Sintered stone surfaces with refined contemporary design and sophisticated finishes.',
+        'description' => 'Re/form redefines materiality through advanced technology, precision engineering and refined contemporary design: sintered stone surfaces with sophisticated finishes, for architectural solutions defined by performance, craftsmanship and understated luxury.',
     ],
     [
         'slug' => 'res-italia',

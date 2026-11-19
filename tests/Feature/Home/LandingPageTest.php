@@ -47,5 +47,5 @@ test('a guest sees the active brands with what each one makes', function (): voi
             // A brand with no description shows its tagline instead.
             ->where('brands', fn ($brands): bool => collect($brands)->firstWhere('slug', 'faer')['description'] === $faer->tagline)
             ->has('brands.0', fn (Assert $brand) => $brand
-                ->hasAll(['slug', 'name', 'description', 'logo', 'thumbnail'])));
+                ->hasAll(['slug', 'name', 'description', 'websiteUrl', 'logo', 'thumbnail'])));
 });
