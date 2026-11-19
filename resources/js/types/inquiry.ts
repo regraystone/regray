@@ -84,7 +84,16 @@ export type InquirePageProps = {
     leads?: InquiryLeadOption[] | null;
     /** The lead the URL names, when it is one of `leads`. */
     lead?: string | null;
+    /**
+     * Staff who are not sales: the sales members a walk-in's inquiry may be
+     * given to, one of whom they name as its owner. Null for sales, who owns
+     * what it opens, and for a client.
+     */
+    walkInOwners?: WalkInOwnerOption[] | null;
 };
+
+/** A sales member who may own a walk-in's inquiry. */
+export type WalkInOwnerOption = { id: number; name: string };
 
 /**
  * Who staff are opening the inquiry for, once the branch is answered: a

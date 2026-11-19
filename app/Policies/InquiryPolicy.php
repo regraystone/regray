@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Enums\InquiryStatusTrack;
 use App\Enums\Permission;
+use App\Enums\Role;
 use App\Models\Inquiry;
 use App\Models\User;
 
@@ -58,5 +59,43 @@ class InquiryPolicy
     public function updateStatus(User $user, Inquiry $inquiry, InquiryStatusTrack $track): bool
     {
         return $user->can(Permission::forStatusTrack($track)->value) && $inquiry->isVisibleTo($user);
+    }
+
+    /**
+     * Assign someone of `$role` to a walk-in inquiry: technical by its owner or
+     * the marketing member who opened it; accounting and logistics by its owner
+     * alone. Only who may; whether the inquiry's state allows it (open, won
+     * for accounting and logistics, the place still free) is
+     * WalkInInquiryService::assign()'s, which the super-admin is held to as well.
+     */
+    public function assign(User $user, Inquiry $inquiry, Role $role): bool
+    {
+        if ($inquiry->owner_user_id === null || ! $inquiry->isVisibleTo($user)) {
+            return false;
+        }
+
+        $isOwner = $inquiry->owner_user_id === $user->id;
+
+        return match ($role) {
+            Role::Technical => $isOwner || $this->isMarketingCreator($user, $inquiry),
+            Role::Accounting, Role::Logistics => $isOwner,
+            default => false,
+        };
+    }
+
+    /**
+     * Decide a walk-in inquiry, won or lost: the marketing member who opened
+     * it. One on a lead is decided from the Leads page (LeadPolicy).
+     */
+    public function decideWalkIn(User $user, Inquiry $inquiry): bool
+    {
+        return $inquiry->owner_user_id !== null
+            && $user->can(Permission::LeadsUpdate->value)
+            && $this->isMarketingCreator($user, $inquiry);
+    }
+
+    private function isMarketingCreator(User $user, Inquiry $inquiry): bool
+    {
+        return $inquiry->created_by === $user->id && $user->hasRole(Role::Marketing->value);
     }
 }

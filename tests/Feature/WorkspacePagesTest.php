@@ -2,6 +2,7 @@
 
 use App\Enums\Permission;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use Database\Seeders\FurnitureSeeder;
@@ -200,6 +201,9 @@ test('guards every route with exactly these permissions', function () {
         // The track's own permission is the policy's to check.
         'inquiries.status' => $p(Permission::InquiriesView),
         'inquiries.job-order' => $p(Permission::InquiriesView),
+        // A walk-in's inquiry: who may add whom is InquiryPolicy::assign()'s; deciding it is marketing's.
+        'inquiries.handlers.store' => $p(Permission::InquiriesView),
+        'inquiries.decision' => $p(Permission::InquiriesView, Permission::LeadsUpdate),
         'leads.index' => $p(Permission::LeadsView),
         'leads.inquiries.status' => $p(Permission::LeadsUpdate),
         'leads.update' => $p(Permission::LeadsUpdate),
@@ -220,6 +224,8 @@ test('guards every route with exactly these permissions', function () {
         'inbox.index' => $messages,
         'inbox.people' => $p(Permission::MessagesView, Permission::ConversationsCreate),
         'inbox.groups.store' => $p(Permission::MessagesView, Permission::ConversationsCreate),
+        'inbox.walk-in-inquiries' => $p(Permission::MessagesView, Permission::ConversationsCreate),
+        'inbox.groups.walk-in.store' => $p(Permission::MessagesView, Permission::ConversationsCreate),
         'inbox.messages.update' => $messages,
         'inbox.messages.destroy' => $messages,
         'inbox.attachments.show' => $messages,
@@ -295,7 +301,8 @@ test('opens to each role exactly the pages its matrix entry grants', function (s
 
     if (guardsAllow($role, 'quote.show') || guardsAllow($role, 'inquiry.show')) {
         seedInquiryCatalog();
-        $inquiry = makeInquiry($user);
+        // Won, so accounting and logistics may be assigned to it (the inquiry_handlers trigger).
+        $inquiry = makeInquiry($user, attributes: ['sales_status' => SalesStatus::Won]);
         letStaffRead($inquiry, $user);
         $reference = $inquiry->reference;
     }

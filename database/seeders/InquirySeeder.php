@@ -87,7 +87,9 @@ use RuntimeException;
  * account to have a Regray Team thread.
  *
  * A direct client's inquiry records the staff member who opened it
- * (`created_by`); a client's own records nobody.
+ * (`created_by`); a client's own records nobody. It is owned
+ * (`owner_user_id`) by its data's `owner`, or by whoever opened it, who is
+ * then sales; its owner is among its handlers, as WalkInInquiryService has it.
  *
  * Then the group chats marketing made for some inquiries, by the same rules as
  * GroupConversationService: one sales and one technical member, the client,
@@ -604,6 +606,7 @@ class InquirySeeder extends Seeder
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
             'created_by' => $openedBy?->id,
+            'owner_user_id' => $client === null ? $this->user($inquiryData['owner'] ?? $inquiryData['handlers'][0] ?? throw new RuntimeException("{$inquiryData['reference']}: a walk-in's inquiry needs an owner."))->id : null,
             'marketing_status' => $final['marketing'],
             'marketing_status_changed_at' => $this->time($final['marketing_at']),
             'name' => $project['name'],

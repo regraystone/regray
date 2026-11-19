@@ -28,6 +28,8 @@ final readonly class StaffVisibility
         public bool $createdInquiries = false,
         /** The inquiries the user is assigned to. */
         public bool $assignedInquiries = false,
+        /** The walk-in inquiries the user owns (`inquiries.owner_user_id`). */
+        public bool $ownedInquiries = false,
         /** The visits booked outside an inquiry it handles: booked, assigned or queued (marketing). */
         public bool $handledVisits = false,
         /** The visits booked outside an inquiry assigned to it (sales). */
@@ -45,6 +47,7 @@ final readonly class StaffVisibility
             leadInquiries: $roles->contains(fn (Role $role): bool => $role->seesLeadInquiries()),
             createdInquiries: $roles->contains(fn (Role $role): bool => $role->seesCreatedInquiries()),
             assignedInquiries: $roles->contains(fn (Role $role): bool => $role->seesAssignedInquiries()),
+            ownedInquiries: $roles->contains(fn (Role $role): bool => $role->seesOwnedInquiries()),
             handledVisits: $roles->contains(fn (Role $role): bool => $role->seesHandledVisits()),
             assignedVisits: $roles->contains(fn (Role $role): bool => $role->seesAssignedVisits()),
         );
@@ -53,6 +56,6 @@ final readonly class StaffVisibility
     /** Whether no clause reads any inquiry, so the answer is none at all. */
     public function seesNoInquiry(): bool
     {
-        return ! $this->everything && ! $this->leadInquiries && ! $this->createdInquiries && ! $this->assignedInquiries;
+        return ! $this->everything && ! $this->leadInquiries && ! $this->createdInquiries && ! $this->assignedInquiries && ! $this->ownedInquiries;
     }
 }

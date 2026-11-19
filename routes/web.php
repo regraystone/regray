@@ -17,6 +17,7 @@ use App\Http\Controllers\Inbox\ThreadController;
 use App\Http\Controllers\Inquiry\InquiryController;
 use App\Http\Controllers\Inquiry\InquiryStatusController;
 use App\Http\Controllers\Inquiry\StaffClientController;
+use App\Http\Controllers\Inquiry\WalkInInquiryController;
 use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Notification\NotificationController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
@@ -301,6 +302,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('inquiries.job-order');
 
         /*
+         * A walk-in's inquiry, from its details page: add its staff
+         * (InquiryPolicy::assign(): technical by its owner or the marketing
+         * member who opened it, accounting and logistics by its owner once
+         * won), and marketing's decision on it (leads.update, by the
+         * marketing member who opened it).
+         */
+        Route::post('inquiries/{reference}/handlers', [WalkInInquiryController::class, 'assign'])
+            ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiries.handlers.store');
+        Route::post('inquiries/{reference}/decision', [WalkInInquiryController::class, 'decide'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiries.decision');
+
+        /*
          * The inquiry details page hangs off whichever list the user reads their
          * inquiries on, so there is one route under each and the URL says which.
          * Both are guarded by the same answer: a client reads their inquiries on
@@ -446,6 +461,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('inbox/groups', [MessageController::class, 'storeGroup'])
                 ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
                 ->name('inbox.groups.store');
+            // New group, "For a walk-in inquiry": the inquiries it may be for, and making it.
+            Route::get('inbox/walk-in-inquiries', [MessageController::class, 'walkInInquiries'])
+                ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
+                ->name('inbox.walk-in-inquiries');
+            Route::post('inbox/groups/walk-in', [MessageController::class, 'storeWalkInGroup'])
+                ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
+                ->name('inbox.groups.walk-in.store');
 
             Route::patch('inbox/messages/{message}', [ThreadController::class, 'update'])
                 ->whereNumber('message')

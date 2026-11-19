@@ -87,6 +87,12 @@ enum Role: string
         return in_array($this, [self::Sales, self::Technical, self::Accounting, self::Logistics], true);
     }
 
+    /** Reads the walk-in inquiries it owns (`inquiries.owner_user_id`). */
+    public function seesOwnedInquiries(): bool
+    {
+        return $this === self::Sales;
+    }
+
     /**
      * Reads the visits booked outside an inquiry that it handles: the ones it
      * booked or assigned, and the client bookings in its queue

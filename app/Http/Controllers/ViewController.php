@@ -28,6 +28,7 @@ use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
+use App\Services\WalkInInquiryService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -176,7 +177,7 @@ class ViewController extends Controller
      * super-admin every open lead. A client's `leads` is null: they send their
      * own.
      */
-    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses): Response
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses, WalkInInquiryService $walkIns): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -190,6 +191,8 @@ class ViewController extends Controller
             ...($pickable === null ? ['addresses' => ClientAddressResource::collection($addresses->forUser($user))->resolve($request)] : []),
             'leads' => $pickable === null ? null : LeadOptionResource::collection($pickable)->resolve($request),
             'lead' => $pickable?->firstWhere('reference', $request->query('lead'))?->reference,
+            // Who a walk-in's inquiry may be given to: null for sales, who owns what it opens, and for a client.
+            'walkInOwners' => $pickable === null ? null : $walkIns->ownerOptions($user)?->map(fn (User $owner): array => ['id' => $owner->id, 'name' => $owner->name])->values()->all(),
         ]);
     }
 

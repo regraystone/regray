@@ -768,6 +768,8 @@ return [
             'reference' => 'INQ-1062',
             'direct_client' => 'dc-carmela',
             'created_at' => '2026-10-20T03:00:00Z',
+            // Maria (sales) opened it, so it is hers.
+            'owner' => 'maria',
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Reyes Bakeshop — Display Counter',

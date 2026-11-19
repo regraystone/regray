@@ -100,19 +100,24 @@ class InquiryService
      * No attachments (the caller's request takes none), and nothing reaches a
      * client account or a Regray Team thread.
      *
+     * Each inquiry is owned by `$owner`, a sales user (the one opening it, or
+     * the one marketing named: WalkInInquiryService::ownerFor()), who is
+     * assigned to it as its sales member from the start. Two inquiries on one
+     * walk-in may have different owners.
+     *
      * @param  array{projects: list<ProjectInput>}  $input
      * @return list<Inquiry> In the order the projects were sent.
      *
      * @throws ValidationException When the record is not a direct client.
      */
-    public function createForDirectClient(Client $record, array $input, WrittenFiles $written, User $by): array
+    public function createForDirectClient(Client $record, array $input, WrittenFiles $written, User $by, User $owner): array
     {
         if ($record->kind !== ClientKind::Direct) {
             throw ValidationException::withMessages(['client' => 'This client has a Regray account. Open the inquiry from their lead instead.']);
         }
 
         return array_map(
-            fn (array $project): Inquiry => $this->createOne(null, $record, $project, $written, null, $by),
+            fn (array $project): Inquiry => $this->createOne(null, $record, $project, $written, null, $by, $owner),
             $input['projects'],
         );
     }
@@ -259,7 +264,7 @@ class InquiryService
      *
      * @param  ProjectInput  $project
      */
-    private function createOne(?User $client, Client $record, array $project, WrittenFiles $written, ?Lead $lead, ?User $by): Inquiry
+    private function createOne(?User $client, Client $record, array $project, WrittenFiles $written, ?Lead $lead, ?User $by, ?User $owner = null): Inquiry
     {
         $actor = $by ?? $client ?? throw new RuntimeException('An inquiry is sent by its client or by staff.');
 
@@ -269,8 +274,13 @@ class InquiryService
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
             'created_by' => $by?->id,
+            'owner_user_id' => $owner?->id,
             ...$this->projectColumns($project),
         ]);
+
+        if ($owner !== null) {
+            $this->inquiryRepository->addHandlers($inquiry, [$owner->id], $actor->id, Date::now());
+        }
 
         $this->inquiryRepository->replaceBrands($inquiry, $project['brand_ids']);
 

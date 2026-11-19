@@ -128,10 +128,11 @@ it('gives a user with two roles the inquiries of either', function (): void {
     $world = visibilityWorld();
     $user = $world['users']['marketing'];
     $user->assignRole(Role::Logistics->value);
-    assignInquiry($world['inquiries']['assigned'], $user);
+    // `foreign`: one with its logistics place still free (an inquiry takes one).
+    assignInquiry($world['inquiries']['foreign'], $user);
 
     expect(Inquiry::query()->visibleTo($user)->pluck('reference')->all())
-        ->toEqualCanonicalizing(referencesOf($world, ['lead', 'created', 'assigned']));
+        ->toEqualCanonicalizing(referencesOf($world, ['lead', 'created', 'foreign']));
 });
 
 it('gives a staff user with no role that reads inquiries none of them', function (): void {

@@ -37,6 +37,7 @@ use Illuminate\Support\Facades\DB;
  * @property int|null $client_record_id The client's record (`clients`), with or without an account.
  * @property int|null $lead_id Null until the client's Regray Team thread is claimed.
  * @property int|null $created_by The staff member who opened it for the client; null when the client sent it.
+ * @property int|null $owner_user_id The sales user who owns a walk-in inquiry; null on one for a client account.
  * @property LeadStatus|null $marketing_status Marketing's decision, won or lost; null while it waits for one.
  * @property Carbon|null $marketing_status_changed_at
  * @property string $name
@@ -75,7 +76,7 @@ use Illuminate\Support\Facades\DB;
  * the inquiry's schedule.
  */
 #[Fillable([
-    'reference', 'client_id', 'client_record_id', 'lead_id', 'created_by', 'marketing_status', 'marketing_status_changed_at',
+    'reference', 'client_id', 'client_record_id', 'lead_id', 'created_by', 'owner_user_id', 'marketing_status', 'marketing_status_changed_at',
     'name', 'service_id', 'brand_no_preference', 'delivery_method', 'notes', 'stone_advice_requested',
     'address_region_code', 'address_region_name', 'address_province_code', 'address_province_name', 'address_city_code', 'address_city_name',
     'address_barangay_code', 'address_barangay_name', 'address_postal_code', 'address_lat', 'address_lng',
@@ -199,8 +200,9 @@ class Inquiry extends Model
     /**
      * Only the inquiries this staff member reads (StaffVisibility): every one
      * for the admin and the owner; otherwise those of a lead marketing holds,
-     * those marketing or sales opened, and those sales, technical, accounting
-     * or logistics are assigned to, whichever of these the user's roles give.
+     * those marketing or sales opened, the walk-ins sales owns, and those
+     * sales, technical, accounting or logistics are assigned to, whichever of
+     * these the user's roles give.
      * A user with none of them reads none. Not for clients, who read their own.
      *
      * isVisibleTo() is the same rule for one loaded inquiry.
@@ -234,6 +236,10 @@ class Inquiry extends Model
             if ($visibility->createdInquiries) {
                 $query->orWhere($this->qualifyColumn('created_by'), $user->id);
             }
+
+            if ($visibility->ownedInquiries) {
+                $query->orWhere($this->qualifyColumn('owner_user_id'), $user->id);
+            }
         });
     }
 
@@ -251,11 +257,15 @@ class Inquiry extends Model
         }
 
         // Loaded without the columns the rule reads (`inquiry:id,reference`): ask the database.
-        if (! array_key_exists('created_by', $this->attributes) || ! array_key_exists('lead_id', $this->attributes)) {
+        if (! array_key_exists('created_by', $this->attributes) || ! array_key_exists('lead_id', $this->attributes) || ! array_key_exists('owner_user_id', $this->attributes)) {
             return static::query()->visibleTo($user)->whereKey($this->getKey())->exists();
         }
 
         if ($visibility->createdInquiries && $this->created_by === $user->id) {
+            return true;
+        }
+
+        if ($visibility->ownedInquiries && $this->owner_user_id === $user->id) {
             return true;
         }
 
@@ -265,6 +275,22 @@ class Inquiry extends Model
 
         return $visibility->assignedInquiries
             && $this->loadMissing('handlers')->handlers->contains(fn (InquiryHandler $handler): bool => $handler->user_id === $user->id);
+    }
+
+    /**
+     * Whether it is a walk-in's: opened by staff for a client record with no
+     * account, so no lead either. Its owner (`owner_user_id`) is the sales
+     * user it belongs to.
+     */
+    public function isWalkIn(): bool
+    {
+        return $this->client_id === null && $this->lead_id === null && $this->client_record_id !== null;
+    }
+
+    /** Whether sales has won it (the client approved the quotation). */
+    public function isWonBySales(): bool
+    {
+        return $this->sales_status === SalesStatus::Won;
     }
 
     /**
@@ -288,6 +314,16 @@ class Inquiry extends Model
         $marketingUserId = Lead::query()->whereKey($this->lead_id)->value('marketing_user_id');
 
         return $marketingUserId === null ? null : (int) $marketingUserId;
+    }
+
+    /**
+     * The sales user who owns a walk-in inquiry; none for one on a lead.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
     }
 
     /** @return BelongsTo<User, $this> */
