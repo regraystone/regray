@@ -1,12 +1,11 @@
 import { Head, usePage } from '@inertiajs/react';
 import {
-    LandingBrands,
-    LandingCatalogs,
-    LandingClients,
-    LandingCollection,
+    LandingBrandWall,
+    LandingContact,
+    LandingDiscover,
     LandingHero,
-    LandingPlatform,
-    LandingProjects,
+    LandingNews,
+    LandingOnline,
     LandingShowroom,
 } from '@/components/landing/landing-sections';
 import PublicLayout from '@/layouts/public-layout';
@@ -14,24 +13,24 @@ import type { LandingPageProps } from '@/types/home';
 
 /**
  * The public landing page, for guests only (anyone signed in is sent on to
- * their role home): Regray introduced as a platform, the group of brands it
- * brings together, then what a client does on it and where to find it.
+ * their role home), in the order of the agreed homepage layout: 01 the Regray
+ * Group and Discover, 02 Our brands, 03 Regray Online, 04 Showroom, 05 News,
+ * 06 Contact, then the footer.
  */
 export default function Landing() {
     const { brands, projects } = usePage<LandingPageProps>().props;
 
     return (
         <PublicLayout>
-            <Head title="Every brand. One platform." />
+            <Head title="Architecture of living" />
 
             <LandingHero />
-            <LandingPlatform brands={brands} />
-            <LandingBrands brands={brands} />
-            <LandingCollection />
-            <LandingProjects projects={projects} />
-            <LandingClients />
-            <LandingCatalogs brands={brands} />
+            <LandingDiscover />
+            <LandingBrandWall brands={brands} />
+            <LandingOnline />
             <LandingShowroom />
+            <LandingNews stories={projects} />
+            <LandingContact />
         </PublicLayout>
     );
 }

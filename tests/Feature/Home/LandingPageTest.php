@@ -17,7 +17,7 @@ beforeEach(function (): void {
     ]);
 });
 
-test('a guest sees the four latest published projects, newest first', function (): void {
+test('a guest sees the three latest published projects as news, newest first', function (): void {
     Project::query()->where('slug', 'ginza-one')->update(['completed_year' => 2030]);
     Project::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
 
@@ -25,7 +25,7 @@ test('a guest sees the four latest published projects, newest first', function (
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('landing')
-            ->has('projects', 4)
+            ->has('projects', 3)
             ->where('projects.0.slug', 'ginza-one')
             ->where('projects.0.completedYear', 2030)
             ->where('projects', fn ($projects): bool => collect($projects)->doesntContain('slug', 'ayala-land'))

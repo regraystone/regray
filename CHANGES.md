@@ -16,6 +16,35 @@ The Inquire flow now opens on **Which brands would you like?**, asks how the wor
 - **Tests:** feature tests for the PSGC endpoints, the address book, brands, fulfillment, the client and staff address sources, the stones brand filter and the walk-in form; JS tests for the brand and fulfillment rules, `nextQuestion`, PSGC name matching, clearing lower levels and address formatting. The Pest helpers seed a few real places (`seedTestPlaces()`) and post an address the way each flow does (`clientInquiryInput()` swaps in the client's default saved address; `clientEditInput()` keeps the held one on an edit).
 - **Browser tests:** `tests/e2e/inquiry/p-brands-addresses.spec.ts` covers the brand question, the Brand filter, fulfillment by service, the empty address book and the address dialog at 375, 768 and 1280px. Every context answers Mapbox in the browser (`support/mapbox-mock.ts`: a blank style, Geocoding always finding Bel-Air, telemetry dropped), so no test reaches Mapbox, and the geolocation is set per test. A new `noAddresses` sign-in (E2EInquirySeeder) is the client with an empty book. `openInquire()` answers the brand question with No preference; `chooseLocation()` picks Delivery and a saved address.
 
+# Saved opens with "Your Saved Collection" and a category section
+
+The client's Saved page (`/dashboard/saved`) opens the way Sir Mark asked, in his words: a heart, **Your Saved Collection**, "A personal selection of materials, furniture, and designs for your next project." and **Explore collections** (the Home catalogue).
+
+- **Explore by category** (`components/saved/saved-collection-intro.tsx`): four rounded photo cards, four to a row on desktop and two on phones, each saying what it holds from the active catalog:
+    - **Natural Stone:** Regray Stone's stones ("75 stones · Regray Stone"), opening its page on its stones.
+    - **Furniture:** Regray Stone's furniture ("6 pieces · Regray Stone"), opening its page on its furniture.
+    - **Kitchens:** Cucine Lube, with its photo, opening its page.
+    - **Wardrobes:** Faer Ambienti, with its photo, opening its page.
+
+    A brand that is not active leaves its card out.
+
+- **Your saved pieces**, with how many, then the saved stones and furniture as before: Request a quote, the heart to remove, each opening its page. Nothing saved shows the same note under the same heading.
+- **Data:** the Saved page also gets `categories`, Regray Stone's active stone and furniture counts and the Kitchens and Wardrobes brands (`ListSavedCategoriesAction`, `BrandCardResource`).
+
+# The landing page follows the agreed homepage layout, and a News page
+
+The landing page (`/`, guests only) is rebuilt from the v6 design in the agreed homepage layout: 01 Hero and Discover, 02 Our brands, 03 Regray Online, 04 Showroom, 05 News, 06 Contact, then the footer. Every word is true to the system: nothing the design invented (its sample news headlines, a virtual tour) is shown.
+
+- **01 Hero and Discover:** the photo with "The Regray Group, Architecture of living, in stone, kitchens and interiors." over it; then Discover Regray, the group in a paragraph, and Our story (About).
+- **02 Our brands:** every active brand's logo on navy (the new `navy` token), six to a row from 1280px, three on tablets, two on phones, each opening its brand page; and All brands.
+- **03 Regray Online:** the platform in three steps, Explore, Request a quotation, Track your project, beside a photo, with Explore materials (Regray Stone's stones) and Request a quotation (the Inquire page).
+- **04 Showroom:** a full-height photo of the showroom opening its page, then the address and hours, Book a visit, Gallery and Get directions.
+- **05 News:** the three latest published projects told as stories (`LandingController` now sends 3), each opening its page, and All news.
+- **06 Contact:** general, sales, architect and designer, and supplier and business inquiries.
+- The v5 sections (each brand's photo and story, premium slabs, featured projects, For clients, the catalogs row) are gone.
+- **News page** (`/news`, `company.news`): the 12 latest published projects as stories, then the Regray Journal and the social accounts. The system holds no other news.
+- **Navigation:** every tab still opens its panel; News's now leads to the News page (All news, Latest projects) beside the journal and social accounts. `menuItems` in `public-links.ts` also allows a tab to be a plain link to its page (`kind: 'page'`). The footer adds News.
+
 # Quotation cards in the thread, and a new inquiry card
 
 Every quotation Sales sends, and every revision of it, now posts a **Quotation** card of its own into the thread, right after the inquiry card that announces it ("Quotation sent", "Quotation revised"). The inquiry card itself has a new layout. **Deploy, local and production: `php artisan migrate`.** Locally, `php artisan migrate:fresh --seed` also posts the seeded quotations' cards.

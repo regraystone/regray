@@ -43,6 +43,8 @@
     --color-night: var(--night);
     --color-night-text: var(--night-text);
     --color-night-line: var(--night-line);
+    /* The landing page's brand wall. */
+    --color-navy: var(--navy);
 
     /* The auth pages' fields and notices (resources/js/layouts/auth). */
     --color-field-line: var(--field-line);
@@ -439,6 +441,7 @@
     --night: #1c1a17;
     --night-text: #c9c2b6;
     --night-line: #4a453e;
+    --navy: #0f1d2b;
     --field-line: #b9b2a7;
     --ink-faint: #a39d93;
     --success: #e6efe4;
