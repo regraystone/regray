@@ -13,6 +13,15 @@ A walk-in's inquiry (a `direct` client record, no account, no lead) now has **on
 - **Seed:** the walk-in inquiry INQ-1062 is owned by Maria (sales), who opened it.
 - **Tests:** `tests/Feature/Inquiry/WalkInOwnershipTest.php`.
 
+# The stone page puts the photo beside its details
+
+A stone's page (`/brands/{brand}/stones/{stone}`, its `/dashboard` twin, and its Saved and old flat doors) drops the full-width photo banner for the furniture page's layout, with only what the catalog holds.
+
+- **Layout** (`pages/stone-profile.tsx`): a breadcrumb (brand, stone type, the stone) with the previous and next stones of its brand and type; the photo at its own portrait shape (no wider than 32rem on large screens, click to see it large, and any other photos as thumbnails under it) beside its type and brand, its name, Best Seller, the type's description, stone type and origin, the available slabs (each size with its thicknesses) and the finishes; **Ask a quote** and **Save** together, and "Prefer to see the slabs in person? Book a showroom visit". Below: **Applications** and **Care & maintenance** side by side, **Used in** (the published projects the stone was in, up to three) and **More {type}** (up to four others of the type) with View all. On phones a bar at the bottom keeps Ask a quote and Save in reach; a guest's go through Login.
+- **Data:** every door renders through `RendersStoneProfile` (`app/Concerns`), which adds `previous`, `next`, `related` and `projects` (`StoneService::surroundings()`, `StoneRepository`).
+- **The furniture page's choices are shorter:** each row of **Made to your choice** shows its first two choices and "+N more", which shows the rest ("Show less" folds them again). A row that would hide only one choice shows them all.
+- **The floating heart and Ask a Quote are gone:** both profiles draw their own Save and Ask a quote, so the workspace's floating heart and `components/ask-quote-button.tsx` are removed, with `components/profile-facts.tsx`, which nothing uses any more.
+
 # The furniture page shows what a client may choose
 
 A piece of furniture's page (`/brands/{brand}/furniture/{furniture}`, and its `/dashboard` twin) is redesigned after the Furniture Detail design, kept minimal: only what the catalog really holds, with no invented specifications, gallery, care notes or PDFs.

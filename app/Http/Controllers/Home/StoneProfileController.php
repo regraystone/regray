@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Home;
 
 use App\Actions\Home\ShowProjectAction;
 use App\Actions\Stone\ShowStoneAction;
+use App\Concerns\RendersStoneProfile;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProjectProfileResource;
-use App\Http\Resources\StoneProfileResource;
 use App\Models\Brand;
 use App\Models\Stone;
 use App\Services\ProjectService;
@@ -20,6 +20,8 @@ use Inertia\Response;
 
 class StoneProfileController extends Controller
 {
+    use RendersStoneProfile;
+
     public function __construct(
         public readonly ShowStoneAction $showStone,
         public readonly ShowProjectAction $showProject,
@@ -28,11 +30,9 @@ class StoneProfileController extends Controller
     ) {}
 
     /** The brand's own URL: the scoped binding has already matched the stone to this brand. */
-    public function showForBrand(Brand $brand, Stone $stone): Response
+    public function showForBrand(Request $request, Brand $brand, Stone $stone): Response
     {
-        return Inertia::render('stone-profile', [
-            'stone' => new StoneProfileResource($this->showStone->execute($stone->slug)),
-        ]);
+        return $this->renderStoneProfile($request, $this->showStone->execute($stone->slug));
     }
 
     /**

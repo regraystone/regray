@@ -5,12 +5,14 @@ namespace App\Repositories\Eloquent;
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStone;
+use App\Models\Project;
 use App\Models\Size;
 use App\Models\Stone;
 use App\Models\StoneType;
 use App\Models\Thickness;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
@@ -120,5 +122,41 @@ class StoneRepository implements StoneRepositoryInterface
             ->map(fn (Thickness $thickness): array => ['value' => $thickness->key, 'label' => $thickness->label]);
 
         return ['types' => $types, 'sizes' => $sizes, 'thicknesses' => $thicknesses];
+    }
+
+    public function activeOfBrandAndType(int $brandId, int $typeId): Collection
+    {
+        return Stone::query()
+            ->active()
+            ->where('brand_id', $brandId)
+            ->where('stone_type_id', $typeId)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'slug', 'name']);
+    }
+
+    public function relatedTo(Stone $stone, int $limit): Collection
+    {
+        return Stone::query()
+            ->active()
+            ->with(['type:id,slug,name', 'brand:id,slug,name'])
+            ->where('brand_id', $stone->brand_id)
+            ->where('stone_type_id', $stone->stone_type_id)
+            ->whereKeyNot($stone->id)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->limit($limit)
+            ->get();
+    }
+
+    public function publishedProjectsUsing(Stone $stone, int $limit): Collection
+    {
+        return Project::query()
+            ->published()
+            ->whereHas('stones', fn (Builder $stones) => $stones->whereKey($stone->id))
+            ->orderByDesc('completed_year')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get(['projects.id', 'slug', 'name', 'location', 'completed_year', 'thumbnail_path']);
     }
 }
