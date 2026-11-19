@@ -124,6 +124,8 @@ export type LandingBrand = {
     slug: string;
     name: string;
     description: string | null;
+    /** The brand's own website, when it has one. */
+    websiteUrl: string | null;
     logo: string;
     thumbnail: string | null;
 };

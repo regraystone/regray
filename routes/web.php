@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Brand\ProductRedirectController;
 use App\Http\Controllers\Furniture\FurnitureController;
+use App\Http\Controllers\Guest\CompanyPageController;
 use App\Http\Controllers\Guest\LandingController;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
@@ -37,6 +38,18 @@ use Illuminate\Support\Facades\Route;
  * Public landing page: guests see the catalogue, signed-in users redirect to their role home.
  */
 Route::get('/', [LandingController::class, 'index'])->name('home');
+
+/*
+ * The company pages the public header's menu opens: the brands by category,
+ * the showroom, Regray's story and how to reach the team. Open to everyone,
+ * signed in or not.
+ */
+Route::controller(CompanyPageController::class)->name('company.')->group(function () {
+    Route::get('/our-brands', 'brands')->name('brands');
+    Route::get('/showroom', 'showroom')->name('showroom');
+    Route::get('/about', 'about')->name('about');
+    Route::get('/contact', 'contact')->name('contact');
+});
 
 /*
  * Sign in and sign up with Google. The callback is the authorised redirect URI
@@ -487,7 +500,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
  * Must be registered last, after all other routes.
  */
 Route::get('/{slug}', [HomeStoneProfileController::class, 'showFlat'])
-    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|services|projects|accounts)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|services|projects|accounts|our-brands|showroom|about|contact)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
     ->middleware('throttle:heavy-reads')
     ->name('stone.show');
 

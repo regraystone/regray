@@ -6,7 +6,7 @@ import {
     SHOWROOM,
     SHOWROOM_MAP,
     collectionUrl,
-} from '@/components/landing/landing-links';
+} from '@/components/public/public-links';
 import { register } from '@/routes';
 import { show as brandsShow } from '@/routes/brands';
 import { book } from '@/routes/profile/schedule';
