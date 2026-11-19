@@ -68,6 +68,20 @@ export type FurnitureProfile = FurnitureCardData & {
     description: string | null;
 };
 
+/**
+ * What a client may choose for a piece of furniture, from the Inquire page's
+ * service for its type (FurnitureCustomizationService).
+ */
+export type FurnitureCustomization = {
+    /** The stone types the piece can be made in. */
+    stones: string[];
+    /** Each question's answers: "Table base": Wood, Steel, Same as stone. */
+    options: { label: string; values: string[] }[];
+};
+
+/** The piece before or after this one in its brand's catalog. */
+export type FurnitureStep = { slug: string; name: string } | null;
+
 export type FilterOption = {
     value: string;
     label: string;

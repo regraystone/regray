@@ -409,13 +409,9 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
               ?.slug
         : undefined;
 
-    // A furniture profile has the same floating heart as a stone profile.
-    const isFurnitureProfilePage = page.component === 'furniture-profile';
-    const furnitureSlug = isFurnitureProfilePage
-        ? (page.props.furniture as { data: { slug: string } } | undefined)?.data
-              ?.slug
-        : undefined;
-    const profileSlug = stoneSlug ?? furnitureSlug;
+    // The floating heart is a stone profile's; a furniture profile draws its
+    // own Save beside its Ask a quote.
+    const profileSlug = stoneSlug;
 
     /*
      * The stepper has no sidebar item of its own; it is nested under the list
@@ -441,7 +437,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const canSave = savedStones.canSave;
     // The Saved badge counts both kinds; the heart works on this page's kind.
     const savedCount = savedStones.savedIds.size + savedFurniture.savedIds.size;
-    const profileSaves = isFurnitureProfilePage ? savedFurniture : savedStones;
+    const profileSaves = savedStones;
     const unreadCount = page.props.unreadMessageCount ?? 0;
     const { can } = usePermissions();
     // The profile's "Ask a Quote" button, which the heart sits above.
