@@ -113,6 +113,13 @@ export type QuoteInquiryDetails = {
     }>;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
+    /**
+     * A walk-in's inquiry, for staff: the walk-in's name, phone and email, its
+     * sales owner, and what this viewer may do: whom they may assign, by role
+     * (`technical`, `accounting`, `logistics`; a role is absent where they
+     * may not), and whether they may decide it. Null on a client's inquiry.
+     */
+    walkIn?: WalkInDetails | null;
     /** Which buttons the page shows, and which can be pressed. */
     actions: QuoteActions;
     /** The one project the inquiry is. */
@@ -157,4 +164,16 @@ export type QuoteInquiryDetails = {
             attachments: StoredInquiryFile[];
         };
     };
+};
+
+export type WalkInRole = 'technical' | 'accounting' | 'logistics';
+
+export type WalkInDetails = {
+    client: { name: string; phone: string | null; email: string | null };
+    owner: string | null;
+    marketingStatus: 'won' | 'lost' | null;
+    assignable: Partial<
+        Record<WalkInRole, Array<{ id: number; name: string }>>
+    >;
+    canDecide: boolean;
 };

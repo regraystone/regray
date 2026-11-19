@@ -2535,6 +2535,7 @@ const Inquire = (props: InquirePageProps) => {
         editor = 'client',
         leads = null,
         lead: leadInUrl = null,
+        walkInOwners = null,
     } = props;
 
     /*
@@ -2666,6 +2667,7 @@ const Inquire = (props: InquirePageProps) => {
             <StaffInquireStart
                 kind={kind}
                 leads={leads}
+                walkInOwners={walkInOwners}
                 onKind={chooseKind}
                 onTarget={chooseTarget}
             />

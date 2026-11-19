@@ -16,7 +16,11 @@ import type { StaffInquireKind } from '@/lib/staff-inquire';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { store as directInquiriesStore } from '@/routes/inquiry/direct-clients/inquiries';
 import { store as leadInquiriesStore } from '@/routes/leads/inquiries';
-import type { InquiryLeadOption, StaffInquireTarget } from '@/types/inquiry';
+import type {
+    InquiryLeadOption,
+    StaffInquireTarget,
+    WalkInOwnerOption,
+} from '@/types/inquiry';
 
 /** A lead, as the stepper's target: sent under that lead. */
 export const leadTarget = (lead: InquiryLeadOption): StaffInquireTarget => ({
@@ -34,18 +38,23 @@ export const leadTarget = (lead: InquiryLeadOption): StaffInquireTarget => ({
  *   account, then pick one of that client's leads this reader may use (the
  *   server sends only those: marketing's own idle or won leads).
  * - **Direct**: take the client down. When one of the contacts is already
- *   another client's, that client is offered instead of a second one.
+ *   a walk-in's on file, that walk-in is offered instead of a second one,
+ *   and the inquiry is opened on it. Staff who are not sales then name the
+ *   sales member who owns the inquiry (`walkInOwners`); sales owns what it
+ *   opens and is not asked.
  *
  * The branch is kept in the URL (`?kind=`) like the lead (`?lead=`).
  */
 const StaffInquireStart = ({
     kind,
     leads,
+    walkInOwners = null,
     onKind,
     onTarget,
 }: {
     kind: StaffInquireKind | null;
     leads: InquiryLeadOption[];
+    walkInOwners?: WalkInOwnerOption[] | null;
     onKind: (kind: StaffInquireKind | null) => void;
     onTarget: (target: StaffInquireTarget) => void;
 }) => {
@@ -76,7 +85,7 @@ const StaffInquireStart = ({
     return kind === 'platform' ? (
         <PlatformStart leads={leads} onBack={leave} onTarget={onTarget} />
     ) : (
-        <DirectStart onBack={leave} onTarget={onTarget} />
+        <DirectStart owners={walkInOwners} onBack={leave} onTarget={onTarget} />
     );
 };
 
@@ -185,41 +194,115 @@ const PlatformStart = ({
     );
 };
 
-/** Direct (walk-in): take the client down, then send the inquiry for them. */
+/**
+ * Direct (walk-in): take the client down, then, for staff who are not sales,
+ * name its sales owner, then send the inquiry for them. The owner goes with
+ * the inquiry as `ownerId`.
+ */
 const DirectStart = ({
+    owners,
     onBack,
     onTarget,
 }: {
+    owners: WalkInOwnerOption[] | null;
     onBack: () => void;
     onTarget: (target: StaffInquireTarget) => void;
-}) => (
-    <div className="mx-auto w-full max-w-3xl">
-        <DirectClientForm
-            useFor="Open the inquiry for them"
-            onUse={(result) =>
-                onTarget({
-                    kind: 'direct',
-                    name: result.client.fullName,
-                    detail: 'Direct (walk-in)',
-                    storeUrl: directInquiriesStore.url(result.client.id),
-                })
-            }
-            header={(offeringExisting) =>
-                offeringExisting ? (
-                    <PageHeading
-                        title="Inquire"
-                        description="This client is already on file"
+}) => {
+    const [client, setClient] = useState<{ id: number; name: string } | null>(
+        null,
+    );
+
+    const open = (
+        chosen: { id: number; name: string },
+        owner: WalkInOwnerOption | null,
+    ) =>
+        onTarget({
+            kind: 'direct',
+            name: chosen.name,
+            detail:
+                owner === null
+                    ? 'Direct (walk-in)'
+                    : `Direct (walk-in) · Owner: ${owner.name}`,
+            storeUrl: directInquiriesStore.url(
+                chosen.id,
+                owner === null
+                    ? undefined
+                    : { query: { ownerId: String(owner.id) } },
+            ),
+        });
+
+    if (client !== null && owners !== null) {
+        return (
+            <div className="mx-auto w-full max-w-3xl">
+                <PageHeading
+                    title="Inquire"
+                    description={`Who in sales owns ${client.name}'s inquiry?`}
+                    action={<BackButton onClick={() => setClient(null)} />}
+                />
+                {owners.length === 0 ? (
+                    <EmptyState
+                        title="No one in sales"
+                        description="A walk-in's inquiry is owned by a sales member. Ask an admin to add one."
                     />
                 ) : (
-                    <PageHeading
-                        title="Inquire"
-                        description="Take down the walk-in client"
-                        action={<BackButton onClick={onBack} />}
-                    />
-                )
-            }
-        />
-    </div>
-);
+                    <ul
+                        className="divide-y divide-sidebar-border rounded-md border border-sidebar-border"
+                        data-testid="walk-in-owner-picker"
+                    >
+                        {owners.map((owner) => (
+                            <li key={owner.id}>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => open(client, owner)}
+                                    className="flex h-auto w-full items-center justify-between gap-3 rounded-none px-4 py-3 text-left normal-case"
+                                >
+                                    <span className="block truncate font-semibold">
+                                        {owner.name}
+                                    </span>
+                                    <ArrowRight aria-hidden />
+                                </Button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="mx-auto w-full max-w-3xl">
+            <DirectClientForm
+                useFor="Open the inquiry for them"
+                onUse={(result) => {
+                    const chosen = {
+                        id: result.client.id,
+                        name: result.client.fullName,
+                    };
+
+                    if (owners === null) {
+                        open(chosen, null);
+                    } else {
+                        setClient(chosen);
+                    }
+                }}
+                header={(offeringExisting) =>
+                    offeringExisting ? (
+                        <PageHeading
+                            title="Inquire"
+                            description="This client is already on file"
+                        />
+                    ) : (
+                        <PageHeading
+                            title="Inquire"
+                            description="Take down the walk-in client"
+                            action={<BackButton onClick={onBack} />}
+                        />
+                    )
+                }
+            />
+        </div>
+    );
+};
 
 export default StaffInquireStart;

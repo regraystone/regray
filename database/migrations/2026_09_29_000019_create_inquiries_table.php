@@ -34,6 +34,12 @@ use Illuminate\Support\Facades\Schema;
  * - `created_by`: the staff member who opened the inquiry for the client,
  *   NULL when the client sent it. Marketing and sales read the inquiries they
  *   opened (Inquiry::scopeVisibleTo()).
+ * - `owner_user_id`: the sales user who owns a walk-in inquiry: the sales
+ *   member who opened it, or the one marketing named when it opened it. Set
+ *   only on a walk-in (a client record, no account and no lead), by a CHECK;
+ *   a trigger holds it to a sales user and refuses to change it once set.
+ *   Two inquiries on one walk-in may have different owners. NULL on an
+ *   inquiry for a client account, which marketing's lead stands for instead.
  * - `marketing_status`: marketing's decision on this inquiry, won or lost,
  *   NULL while it waits for one. Won starts its sales; lost shows it
  *   cancelled. The lead's own status is the tally of its inquiries'.
@@ -82,6 +88,8 @@ return new class extends Migration
             $table->foreignId('client_record_id')->nullable()->constrained('clients')->restrictOnDelete();
             $table->foreignId('lead_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            // Restrict, not set null: the owner never changes once set (trigger below).
+            $table->foreignId('owner_user_id')->nullable()->constrained('users')->restrictOnDelete();
             $table->string('marketing_status', 20)->nullable();
             $table->timestampTz('marketing_status_changed_at')->nullable();
             $table->string('name', 100);
@@ -118,6 +126,7 @@ return new class extends Migration
             $table->index('client_record_id');
             $table->index('lead_id');
             $table->index('created_by');
+            $table->index('owner_user_id');
             $table->index('service_id');
             $table->index('sales_status');
             $table->index('payment_status');
@@ -144,6 +153,37 @@ return new class extends Migration
         )');
         // A pickup has no address; a delivery, and an installation (no method), has one.
         DB::statement("ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_delivery_address CHECK ((delivery_method IS NOT DISTINCT FROM 'pickup') = (address_city_code IS NULL))");
+
+        // An owner only on a walk-in: a client record with no account and no lead.
+        DB::statement('ALTER TABLE inquiries ADD CONSTRAINT chk_inquiries_owner_walk_in CHECK (
+            owner_user_id IS NULL OR (client_record_id IS NOT NULL AND client_id IS NULL AND lead_id IS NULL)
+        )');
+
+        /*
+         * The owner is a sales user, and stays who it was once set. Roles are
+         * Spatie's (`model_has_roles`, `roles`), which only users hold.
+         */
+        DB::statement(<<<'SQL'
+            CREATE OR REPLACE FUNCTION inquiries_owner_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+                IF TG_OP = 'UPDATE' AND OLD.owner_user_id IS NOT NULL AND NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id THEN
+                    RAISE EXCEPTION 'The owner of inquiry % cannot change once set.', OLD.reference USING ERRCODE = 'check_violation';
+                END IF;
+
+                IF NEW.owner_user_id IS NOT NULL
+                    AND (TG_OP = 'INSERT' OR OLD.owner_user_id IS NULL)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM model_has_roles held JOIN roles role ON role.id = held.role_id
+                        WHERE held.model_id = NEW.owner_user_id AND role.name = 'sales'
+                    ) THEN
+                    RAISE EXCEPTION 'The owner of an inquiry must be a sales user.' USING ERRCODE = 'check_violation';
+                END IF;
+
+                RETURN NEW;
+            END
+            $$
+            SQL);
+        DB::statement('CREATE TRIGGER trg_inquiries_owner BEFORE INSERT OR UPDATE OF owner_user_id ON inquiries FOR EACH ROW EXECUTE FUNCTION inquiries_owner_guard()');
 
         Schema::create('inquiry_detail_answers', function (Blueprint $table) {
             $table->foreignId('inquiry_id')->constrained()->cascadeOnDelete();
@@ -175,6 +215,7 @@ return new class extends Migration
         Schema::dropIfExists('inquiry_brands');
         Schema::dropIfExists('inquiry_detail_answers');
         Schema::dropIfExists('inquiries');
+        DB::statement('DROP FUNCTION IF EXISTS inquiries_owner_guard()');
         DB::statement('DROP SEQUENCE IF EXISTS inquiry_reference_seq');
     }
 };

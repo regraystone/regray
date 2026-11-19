@@ -4,6 +4,7 @@ use App\Enums\Role;
 use App\Models\Inquiry;
 use App\Models\InquiryHandler;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
@@ -51,10 +52,11 @@ it('sends a staff reader the same list as the client', function (): void {
         ->and(array_column(assignedStaffFor($this, $sales, 'inquiry.show'), 'name'))->toBe(['Ben Cruz', 'Zoe Tan']);
 });
 
-it('sends no role label for a handler whose role has none', function (): void {
-    assignInquiry($this->inquiry, namedStaff(Role::Admin, 'Ada Admin'));
+it('never has a handler whose role has no label: the admin cannot be assigned', function (): void {
+    expect(fn () => DB::transaction(fn () => assignInquiry($this->inquiry, namedStaff(Role::Admin, 'Ada Admin'))))
+        ->toThrow(QueryException::class, 'Only sales, technical, accounting or logistics staff');
 
-    expect(assignedStaffFor($this, $this->client))->toBe([['name' => 'Ada Admin', 'roleLabel' => null]]);
+    expect(assignedStaffFor($this, $this->client))->toBe([]);
 });
 
 it('reads the assignment afresh on every load, so a replaced handler is gone', function (): void {

@@ -5,6 +5,7 @@ use App\Enums\ConversationType;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\InquiryHandler;
@@ -190,12 +191,14 @@ describe('adding accounting and logistics later', function (): void {
     beforeEach(function (): void {
         $this->group = groupConversation([$this->marketing, $this->sales, $this->technical, $this->client], [$this->marketing->id => ConversationMemberRole::Admin], ['inquiry_id' => $this->inquiry->id]);
         assignInquiry($this->inquiry, $this->sales, $this->technical);
+        // Accounting and logistics join once sales has won the inquiry.
+        $this->inquiry->forceFill(['sales_status' => SalesStatus::Won, 'sales_status_changed_at' => now()])->save();
         $this->accounting = messagingStaff(Role::Accounting, 'Accounting');
         $this->logistics = messagingStaff(Role::Logistics, 'Logistics');
     });
 
     it('offers one picker each, with their active inquiry counts', function (): void {
-        assignInquiry(makeInquiry(inquiryClient()), $this->logistics);
+        assignInquiry(makeInquiry(inquiryClient(), attributes: ['sales_status' => SalesStatus::Won]), $this->logistics);
 
         $this->actingAs($this->sales)->getJson(route('inbox.members.index', $this->group))
             ->assertOk()
@@ -235,6 +238,17 @@ describe('adding accounting and logistics later', function (): void {
         'an owner for logistics' => [fn (object $test): array => ['accountingId' => $test->accounting->id, 'logisticsId' => $test->owner->id], 'logisticsId', 'Choose one person from logistics.'],
         'a list of people' => [fn (object $test): array => ['userIds' => [$test->accounting->id, $test->logistics->id]], 'accountingId', 'Choose one person from accounting.'],
     ]);
+
+    it('refuses them before sales has won the inquiry', function (): void {
+        $this->inquiry->forceFill(['sales_status' => SalesStatus::Negotiation])->save();
+
+        $this->actingAs($this->sales)
+            ->postJson(route('inbox.members.store', $this->group), ['accountingId' => $this->accounting->id, 'logisticsId' => $this->logistics->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['accountingId' => 'INQ-G1 is not won yet. Accounting and logistics join once sales has won it.']);
+
+        expect(InquiryHandler::query()->whereIn('user_id', [$this->accounting->id, $this->logistics->id])->exists())->toBeFalse();
+    });
 
     it('refuses the request once the group has someone from accounting or logistics', function (Role $role, string $field): void {
         $taken = messagingStaff($role);

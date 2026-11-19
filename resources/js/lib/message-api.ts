@@ -2,6 +2,7 @@ import { currentSocketId } from '@/lib/echo';
 import { rateLimitFrom } from '@/lib/rate-limit';
 import { readXsrfToken } from '@/lib/xsrf';
 import { store as storeGroup } from '@/routes/inbox/groups';
+import { store as storeWalkInGroup } from '@/routes/inbox/groups/walk-in';
 import {
     index as membersRoute,
     store as storeMembersRoute,
@@ -13,6 +14,7 @@ import {
     read as readRoute,
     send as sendRoute,
     thread as threadRoute,
+    walkInInquiries as walkInInquiriesRoute,
 } from '@/routes/inbox';
 import {
     destroy as destroyMessage,
@@ -235,6 +237,45 @@ export const createGroup = (payload: {
     inquiryId: number;
 }): Promise<{ conversation: ConversationSummary }> =>
     request('POST', storeGroup.url(), payload);
+
+/**
+ * A walk-in inquiry a group may be made for: New group's "For a walk-in
+ * inquiry". Only one whose sales is won, with no group yet, and whose walk-in
+ * has a Regray account may have one. `account` is that account (found by the
+ * server from the walk-in's phone or email), null while there is none.
+ */
+export type WalkInInquiryOption = {
+    id: number;
+    reference: string;
+    name: string;
+    /** The walk-in's name. */
+    client: string;
+    /** The sales owner, who is the group's sales member. */
+    owner: string | null;
+    ownerId: number;
+    /** Sales has won it. */
+    isWon: boolean;
+    hasGroup: boolean;
+    account: { id: number; name: string; email: string } | null;
+};
+
+export const searchWalkInInquiries = (
+    search: string,
+): Promise<{ inquiries: WalkInInquiryOption[] }> =>
+    request(
+        'GET',
+        walkInInquiriesRoute.url({
+            query: search.trim() === '' ? {} : { search },
+        }),
+    );
+
+/** No client is sent: the server takes the walk-in's account. */
+export const createWalkInGroup = (payload: {
+    name: string;
+    staffIds: number[];
+    inquiryId: number;
+}): Promise<{ conversation: ConversationSummary }> =>
+    request('POST', storeWalkInGroup.url(), payload);
 
 /**
  * Accounting and logistics users not in the group yet, for a sales member to

@@ -6,6 +6,7 @@ import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import WalkInInquiryCard from '@/components/walk-in-inquiry-card';
 import type { InquiryRequirementsRecord } from '@/data/inquiries';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
@@ -871,6 +872,12 @@ const InquiryDetails = () => {
              */}
             <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <aside className="space-y-6 lg:order-2">
+                    {inquiry.walkIn ? (
+                        <WalkInInquiryCard
+                            reference={inquiry.reference}
+                            walkIn={inquiry.walkIn}
+                        />
+                    ) : null}
                     <AssignedStaffCard staff={inquiry.assignedStaff} />
                     <ActivityLogCard
                         history={inquiry.history}

@@ -6,6 +6,7 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
+use App\Enums\Role;
 use App\Enums\SalesStatus;
 use App\Events\InquiryChangedByClient;
 use App\Events\InquiryStatusChanged;
@@ -95,6 +96,10 @@ class InquiryStatusService
      * lead, undecided, and its sales has not started. Expects the inquiry to be
      * locked already, by whoever decided the change is allowed.
      *
+     * A walk-in's inquiry is the exception: it has no lead and its sales
+     * starts with it, and the marketing member who opened it decides it,
+     * while it is open (decideWalkIn()).
+     *
      * @throws ValidationException When the inquiry is not waiting for a decision, or `$to` is idle.
      */
     public function decide(Inquiry $inquiry, LeadStatus $to, ?User $by, ?string $note = null): void
@@ -105,6 +110,12 @@ class InquiryStatusService
 
         if ($inquiry->marketing_status !== null) {
             throw ValidationException::withMessages(['to' => "{$inquiry->reference} is already {$inquiry->marketing_status->value}."]);
+        }
+
+        if ($inquiry->isWalkIn()) {
+            $this->decideWalkIn($inquiry, $to, $by);
+
+            return;
         }
 
         if ($inquiry->lead_id === null || $inquiry->sales_status !== null) {
@@ -125,6 +136,35 @@ class InquiryStatusService
         $this->scheduleService->cancelForInquiry($inquiry, $now);
 
         event(new InquiryStatusChanged($inquiry, null, null, null, $by?->id, LeadStatus::Lost));
+    }
+
+    /**
+     * Marketing's decision on a walk-in's inquiry, by the marketing member who
+     * opened it: there is no lead to log it on, and sales has already started.
+     * Won is recorded, with its card. Lost shows it cancelled, as on a lead:
+     * its open visits are cancelled and its card posted.
+     *
+     * @throws ValidationException When `$by` did not open it from marketing, or it is closed or cancelled.
+     */
+    private function decideWalkIn(Inquiry $inquiry, LeadStatus $to, ?User $by): void
+    {
+        if ($by === null || $inquiry->created_by !== $by->id || ! $by->hasRole(Role::Marketing->value)) {
+            throw ValidationException::withMessages(['to' => "Only the marketing member who opened {$inquiry->reference} decides it."]);
+        }
+
+        if (! InquiryStatusRules::isOpen($inquiry)) {
+            throw ValidationException::withMessages(['to' => "{$inquiry->reference} is closed or cancelled."]);
+        }
+
+        $now = Date::now();
+
+        $this->inquiryRepository->recordMarketingStatus($inquiry, $to, $now);
+
+        if ($to === LeadStatus::Lost) {
+            $this->scheduleService->cancelForInquiry($inquiry, $now);
+        }
+
+        event(new InquiryStatusChanged($inquiry, null, null, null, $by->id, $to));
     }
 
     /**
