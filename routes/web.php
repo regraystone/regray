@@ -48,6 +48,7 @@ Route::controller(CompanyPageController::class)->name('company.')->group(functio
     Route::get('/our-brands', 'brands')->name('brands');
     Route::get('/showroom', 'showroom')->name('showroom');
     Route::get('/about', 'about')->name('about');
+    Route::get('/news', 'news')->name('news');
     Route::get('/contact', 'contact')->name('contact');
 });
 
@@ -500,7 +501,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
  * Must be registered last, after all other routes.
  */
 Route::get('/{slug}', [HomeStoneProfileController::class, 'showFlat'])
-    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|services|projects|accounts|our-brands|showroom|about|contact)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|services|projects|accounts|our-brands|showroom|about|news|contact)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
     ->middleware('throttle:heavy-reads')
     ->name('stone.show');
 

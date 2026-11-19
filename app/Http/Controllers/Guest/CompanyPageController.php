@@ -23,6 +23,9 @@ class CompanyPageController extends Controller
     /** How many finished projects the showroom's gallery shows. */
     private const GALLERY_PROJECTS = 6;
 
+    /** How many finished projects the News page tells. */
+    private const NEWS_STORIES = 12;
+
     public function __construct(
         public readonly ListBrandsAction $listBrands,
         public readonly ProjectService $projects,
@@ -48,6 +51,17 @@ class CompanyPageController extends Controller
         return Inertia::render('company/about', [
             'brands' => $this->brandsFor($request),
             'facts' => $this->facts->execute(),
+        ]);
+    }
+
+    /**
+     * News: the latest finished projects told as stories, beside the Regray
+     * Journal and the social accounts. The system holds no other news.
+     */
+    public function news(Request $request): Response
+    {
+        return Inertia::render('company/news', [
+            'stories' => LandingProjectResource::collection($this->projects->latestPublished(self::NEWS_STORIES))->resolve($request),
         ]);
     }
 

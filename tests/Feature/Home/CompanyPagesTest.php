@@ -42,8 +42,20 @@ test('anyone can open the company pages, signed in or not, with the brands for t
     'our brands' => ['company.brands', 'company/brands'],
     'showroom' => ['company.showroom', 'company/showroom'],
     'about' => ['company.about', 'company/about'],
+    'news' => ['company.news', 'company/news'],
     'contact' => ['company.contact', 'company/contact'],
 ]);
+
+test('news tells the latest published projects as stories, newest first', function (): void {
+    Project::query()->where('slug', 'ginza-one')->update(['completed_year' => 2030]);
+    Project::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
+
+    $this->get(route('company.news'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('stories', Project::query()->published()->count())
+            ->where('stories.0.slug', 'ginza-one')
+            ->where('stories', fn ($stories): bool => collect($stories)->doesntContain('slug', 'ayala-land')));
+});
 
 test('our brands lists the active brands with their descriptions and websites', function (): void {
     Brand::query()->where('slug', 'reform')->update(['is_active' => false]);
@@ -83,5 +95,6 @@ test('a company page\'s address opens the page, not a project at /{slug}', funct
     ['/our-brands', 'company/brands'],
     ['/showroom', 'company/showroom'],
     ['/about', 'company/about'],
+    ['/news', 'company/news'],
     ['/contact', 'company/contact'],
 ]);

@@ -1,3 +1,17 @@
+# The landing page follows the agreed homepage layout, and a News page
+
+The landing page (`/`, guests only) is rebuilt from the v6 design in the agreed homepage layout: 01 Hero and Discover, 02 Our brands, 03 Regray Online, 04 Showroom, 05 News, 06 Contact, then the footer. Every word is true to the system: nothing the design invented (its sample news headlines, a virtual tour) is shown.
+
+- **01 Hero and Discover:** the photo with "The Regray Group, Architecture of living, in stone, kitchens and interiors." over it; then Discover Regray, the group in a paragraph, and Our story (About).
+- **02 Our brands:** every active brand's logo on navy (the new `navy` token), six to a row from 1280px, three on tablets, two on phones, each opening its brand page; and All brands.
+- **03 Regray Online:** the platform in three steps, Explore, Request a quotation, Track your project, beside a photo, with Explore materials (Regray Stone's stones) and Request a quotation (the Inquire page).
+- **04 Showroom:** a full-height photo of the showroom opening its page, then the address and hours, Book a visit, Gallery and Get directions.
+- **05 News:** the three latest published projects told as stories (`LandingController` now sends 3), each opening its page, and All news.
+- **06 Contact:** general, sales, architect and designer, and supplier and business inquiries.
+- The v5 sections (each brand's photo and story, premium slabs, featured projects, For clients, the catalogs row) are gone.
+- **News page** (`/news`, `company.news`): the 12 latest published projects as stories, then the Regray Journal and the social accounts. The system holds no other news.
+- **Navigation:** every tab still opens its panel; News's now leads to the News page (All news, Latest projects) beside the journal and social accounts. `menuItems` in `public-links.ts` also allows a tab to be a plain link to its page (`kind: 'page'`). The footer adds News.
+
 # Quotation cards in the thread, and a new inquiry card
 
 Every quotation Sales sends, and every revision of it, now posts a **Quotation** card of its own into the thread, right after the inquiry card that announces it ("Quotation sent", "Quotation revised"). The inquiry card itself has a new layout. **Deploy, local and production: `php artisan migrate`.** Locally, `php artisan migrate:fresh --seed` also posts the seeded quotations' cards.

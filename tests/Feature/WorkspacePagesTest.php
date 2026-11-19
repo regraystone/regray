@@ -156,6 +156,7 @@ test('guards every route with exactly these permissions', function () {
         'company.brands' => [],
         'company.showroom' => [],
         'company.about' => [],
+        'company.news' => [],
         'company.contact' => [],
         // Signing in and up with Google happens before there is a signed-in user.
         'auth.google.redirect' => [],
