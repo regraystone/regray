@@ -49,13 +49,8 @@ describe('the staff Inquire modal', () => {
 });
 
 describe('direct client contacts', () => {
-    it('takes a phone, Viber, WhatsApp or email, and never a walk-in kind', () => {
-        assert.deepEqual(CONTACT_KINDS, [
-            'phone',
-            'viber',
-            'whatsapp',
-            'email',
-        ]);
-        assert.equal(CONTACT_KIND_LABELS.whatsapp, 'WhatsApp');
+    it('takes a phone and an email only', () => {
+        assert.deepEqual(CONTACT_KINDS, ['phone', 'email']);
+        assert.equal(CONTACT_KIND_LABELS.email, 'Email');
     });
 });

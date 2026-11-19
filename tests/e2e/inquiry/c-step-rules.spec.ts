@@ -490,7 +490,7 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
     ).toHaveCount(20);
 });
 
-test('14 · Requirements: location is required, and "Parañaque" survives the round trip to the server', async ({
+test('14 · Requirements: the method and the address are required, and the saved address picked is the one sent', async ({
     actors,
 }) => {
     const { clientAId } = inquiryFixtures();
@@ -500,21 +500,24 @@ test('14 · Requirements: location is required, and "Parañaque" survives the ro
     await answerDeadline(page);
 
     await addToInquiry(page).click();
-    await expect(pageError(page, 'Choose where the site is.')).toBeVisible();
-    await expect(locationField(page)).toBeFocused();
+    await expect(
+        pageError(page, 'Choose how you would like to get it.'),
+    ).toBeVisible();
 
-    await chooseLocation(page, 'Parañaque');
+    await chooseLocation(page, 'Antipolo');
     await addToInquiry(page).click();
     await expectStep(page, REVIEW);
-    await expect(page.getByText('Parañaque')).toBeVisible();
+    await expect(
+        page.getByText(/^Delivery to .*City of Antipolo/),
+    ).toBeVisible();
 
     const reference = await sendAndReadReference(page);
     expect(inquiryReferences(clientAId)[0]).toBe(reference);
     expect(
         php<string>(
-            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->value('location')`,
+            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->value('address_city_name')`,
         ),
-    ).toBe('Parañaque');
+    ).toBe('City of Antipolo');
 });
 
 test('15 · Requirements: notes take 1000 and refuse 1001, and no landmark or area is asked', async ({
@@ -562,25 +565,28 @@ test('15 · Requirements: notes take 1000 and refuse 1001, and no landmark or ar
     }
 });
 
-test('16 · a pickup is asked no location, and the location comes back with a delivery', async ({
+test('16 · a pickup is asked no address, and the saved address comes back with a delivery', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
     await openInquire(page);
     await walkToRequirements(page);
 
+    // Asked, not assumed.
     await expect(page.locator(`#${DELIVERY_METHOD_ID}`)).toContainText(
-        'Delivery',
+        'Choose one',
     );
 
-    await chooseLocation(page, 'Makati');
+    await chooseLocation(page, 'Antipolo');
 
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Pickup');
     await expect(locationField(page)).toHaveCount(0);
 
-    // Changing back brings back what was typed.
+    // Changing back brings back the address picked.
     await chooseInSelect(page, DELIVERY_METHOD_ID, 'Delivery');
-    await expect(locationField(page)).toHaveValue('Makati');
+    await expect(
+        locationField(page).getByRole('radio', { name: /^Site/ }),
+    ).toBeChecked();
 });
 
 test('16a · Installation Only skips the stones and sends with none; Wall Cladding asks an area and a finish, and no edge', async ({

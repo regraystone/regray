@@ -6,7 +6,7 @@ import {
     Coins,
     CreditCard,
     Settings,
-    UserRound,
+    MapPin,
 } from 'lucide-react';
 import { HubRow, HubSection } from '@/components/hub-rows';
 import PageHeading from '@/components/page-heading';
@@ -16,7 +16,7 @@ import {
     schedule as profileSchedule,
     settings as profileSettings,
 } from '@/routes/profile';
-import { edit as editClientInformation } from '@/routes/profile/client-information';
+import { index as profileAddresses } from '@/routes/profile/addresses';
 import { comingSoon } from '@/lib/coming-soon';
 
 /**
@@ -59,14 +59,14 @@ const Profile = () => {
                         </HubSection>
                     )}
 
-                    {can(permissions.profileClientInformationView) && (
+                    {can(permissions.profileAddressesView) && (
                         <HubSection title="Your details">
                             <HubRow
-                                icon={UserRound}
-                                title="Client Information"
-                                description="How you'd like to get it and where"
-                                href={editClientInformation.url()}
-                                dataTest="profile-client-information-link"
+                                icon={MapPin}
+                                title="Addresses"
+                                description="Where we deliver to or install at"
+                                href={profileAddresses.url()}
+                                dataTest="profile-addresses-link"
                             />
                         </HubSection>
                     )}

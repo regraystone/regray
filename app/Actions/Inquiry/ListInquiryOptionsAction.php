@@ -2,6 +2,7 @@
 
 namespace App\Actions\Inquiry;
 
+use App\Models\Brand;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\ServiceType;
@@ -15,7 +16,7 @@ class ListInquiryOptionsAction
     ) {}
 
     /**
-     * @return array{serviceTypes: Collection<int, ServiceType>, edgeProfiles: Collection<int, EdgeProfile>, finishes: Collection<int, Finish>, locations: list<string>}
+     * @return array{serviceTypes: Collection<int, ServiceType>, brands: Collection<int, Brand>, edgeProfiles: Collection<int, EdgeProfile>, finishes: Collection<int, Finish>}
      */
     public function execute(): array
     {

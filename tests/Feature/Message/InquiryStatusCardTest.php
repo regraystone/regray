@@ -100,7 +100,7 @@ it('posts nothing for an inquiry the server refuses', function (): void {
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->postJson(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['location' => 'Cebu'])]))
+        ->postJson(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['addressId' => '999999'])]))
         ->assertUnprocessable();
 
     expect(Message::query()->where('conversation_id', $thread->id)->count())->toBe(0);
@@ -121,7 +121,7 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
             ->assertJsonPath('messages.0.type', MessageType::InquiryCard->value)
             ->assertJsonPath('messages.0.inquiryCard.reference', $reference)
             ->assertJsonPath('messages.0.inquiryCard.name', 'Kitchen island')
-            ->assertJsonPath('messages.0.inquiryCard.location', 'Makati')
+            ->assertJsonPath('messages.0.inquiryCard.location', 'City of Makati')
             ->assertJsonMissingPath('messages.0.inquiryCard.projectCount')
             ->assertJsonMissingPath('messages.0.projectCard')
             ->assertJsonPath('messages.0.inquiryCard.announcedStatus', InquiryStatus::Pending->value)
@@ -176,7 +176,7 @@ it('sends the snapshot the card was posted for, not the inquiry as it is now, an
     expect($card)->toMatchArray([
         'reference' => 'INQ-P1',
         'name' => 'Kitchen island',
-        'location' => 'Makati',
+        'location' => 'City of Makati',
         'stoneCount' => 1,
         'announcedStatus' => 'production',
         'announcedSalesStatus' => 'quoted',

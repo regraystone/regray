@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\Role;
+use App\Models\ClientAddress;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -61,10 +62,37 @@ class UserSeeder extends Seeder
                 'address' => $client['address'],
             ]);
 
+            $this->seedAddressBook($user, $client['addresses'] ?? []);
+
             $clientUsers[$client['id']] = $user;
         }
 
         $this->mapClientIdsToUserIds($clientUsers);
+    }
+
+    /**
+     * The client's address book, the first address their default, as adding
+     * them one by one on the Addresses page leaves it.
+     *
+     * @param  list<array{label: string, place: string}>  $addresses
+     */
+    public static function seedAddressBook(User $user, array $addresses): void
+    {
+        if (count($addresses) > ClientAddress::LIMIT) {
+            throw new \RuntimeException("{$user->email} has more than ".ClientAddress::LIMIT.' addresses.');
+        }
+
+        foreach ($addresses as $position => $entry) {
+            ClientAddress::query()->forceCreate([
+                'user_id' => $user->id,
+                'label' => $entry['label'],
+                ...DemoPlaces::address($entry['place'])->toColumns(),
+                'is_default' => $position === 0,
+                // The default was added first, so it is the oldest.
+                'created_at' => now()->subMinutes(count($addresses) - $position),
+                'updated_at' => now()->subMinutes(count($addresses) - $position),
+            ]);
+        }
     }
 
     /**

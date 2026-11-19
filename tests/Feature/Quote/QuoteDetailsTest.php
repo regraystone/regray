@@ -84,7 +84,9 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
         ->and($project['answers'])->toBe([['label' => 'Project area (sqm)', 'value' => '12.5']])
         ->and($project['requirements'])->not->toHaveKeys(['landmark', 'areaSqm'])
         ->and($project['requirements'])->toMatchArray([
-            'location' => 'Makati',
+            // Countertop and Backsplash is installed: no method is asked.
+            'deliveryMethod' => null,
+            'fulfillment' => 'Installation at Bel-Air, City of Makati, National Capital Region, 1209',
             'neededBy' => '2030-01-02',
             'notes' => 'Ground floor',
         ])

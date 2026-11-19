@@ -14,7 +14,7 @@ use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
-use App\Http\Resources\ClientInformationResource;
+use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryRowResource;
 use App\Http\Resources\LeadOptionResource;
@@ -23,9 +23,9 @@ use App\Http\Resources\ScheduleResource;
 use App\Models\Lead;
 use App\Models\Schedule;
 use App\Models\User;
+use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
-use App\Services\ClientInformationService;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
 use Illuminate\Database\Eloquent\Collection;
@@ -160,10 +160,15 @@ class ViewController extends Controller
     }
 
     /**
-     * The Inquire page and everything it offers: the service types and their
-     * services, the stones a page at a time, the edge profiles and finishes still in
-     * use, and the locations. All of it is read here rather than imported by the page, so
-     * the flow and the validation behind it start from the same rows.
+     * The Inquire page and everything it offers: the brands, the service
+     * types and their services, the stones a page at a time, and the edge
+     * profiles and finishes still in use. All of it is read here rather than
+     * imported by the page, so the flow and the validation behind it start
+     * from the same rows.
+     *
+     * A client sending their own inquiry is also given their address book
+     * (`addresses`, the default first), which a project that needs an address
+     * picks from. Staff are not: they enter the address themselves.
      *
      * Staff open an inquiry for a lead's client, so they are also given the
      * leads they may pick (`leads`), and `lead` when the URL names one of
@@ -171,31 +176,18 @@ class ViewController extends Controller
      * super-admin every open lead. A client's `leads` is null: they send their
      * own.
      */
-    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientInformationService $clientInformation): Response
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses): Response
     {
         /** @var User $user */
         $user = $request->user();
         $pickable = $user->isClient() ? null : $this->pickableLeads($user, $leads);
 
-        /*
-         * Only the client sending their own inquiry is given these values, as
-         * one prop on this page — never in the shared Inertia props. `saved`
-         * says whether there is a row to reset to; `prefill` is what a new
-         * form starts with. Staff get no prop at all.
-         */
-        $information = $pickable === null ? [
-            'saved' => $clientInformation->savedFor($user) === null
-                ? null
-                : ClientInformationResource::make($clientInformation->prefillFor($user))->resolve($request),
-            'prefill' => ClientInformationResource::make($clientInformation->prefillFor($user))->resolve($request),
-        ] : null;
-
         return Inertia::render('inquire', [
             ...InquiryCatalogResource::make($listInquiryOptions->execute())->resolve($request),
             ...$listInquiryStones->execute($request),
             'mode' => 'create',
-            // Staff do not get the key at all: there is no block to hide.
-            ...($pickable === null ? ['clientInformation' => $information] : []),
+            // Staff do not get the key at all: there is no book to pick from.
+            ...($pickable === null ? ['addresses' => ClientAddressResource::collection($addresses->forUser($user))->resolve($request)] : []),
             'leads' => $pickable === null ? null : LeadOptionResource::collection($pickable)->resolve($request),
             'lead' => $pickable?->firstWhere('reference', $request->query('lead'))?->reference,
         ]);

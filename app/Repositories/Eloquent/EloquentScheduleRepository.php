@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Collection;
 class EloquentScheduleRepository implements ScheduleRepositoryInterface
 {
     /** What the Schedule page shows of each visit (ScheduleResource). */
-    private const DISPLAYED = ['inquiry:id,reference', 'client:id,name', 'clientRecord:id,kind,full_name,company,address', 'clientRecord.contacts:id,client_id,kind,value', 'bookedBy:id,name', 'assignee:id,name', 'declinedBy:id,name'];
+    private const DISPLAYED = ['inquiry:id,reference', 'client:id,name', 'clientRecord:id,kind,full_name', 'clientRecord.contacts:id,client_id,kind,value', 'bookedBy:id,name', 'assignee:id,name', 'declinedBy:id,name'];
 
     /** `client_id` is not fillable, so the row is filled by hand. */
     public function create(array $attributes): Schedule

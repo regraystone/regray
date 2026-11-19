@@ -153,7 +153,7 @@ it('shows a booking without an inquiry, and an inquiry visit with its reference'
         'reference' => 'INQ-S1',
         'client_id' => $client->id,
         'name' => 'Kitchen',
-        'location' => 'Makati',
+        'delivery_method' => 'pickup',
         'sales_status_changed_at' => now(),
         'payment_status_changed_at' => now(),
         'process_status_changed_at' => now(),

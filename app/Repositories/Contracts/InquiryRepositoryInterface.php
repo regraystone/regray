@@ -3,7 +3,6 @@
 namespace App\Repositories\Contracts;
 
 use App\Data\InquiryListFilters;
-use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
@@ -35,7 +34,7 @@ interface InquiryRepositoryInterface
      * `lead_id` is the client's open lead, or NULL when they have none yet.
      * `created_by` is the staff member who opened it, NULL when the client sent it.
      *
-     * @param  array{reference: string, client_id: ?int, client_record_id: int, lead_id: ?int, created_by: ?int, name: string, location: string, notes: ?string}  $attributes
+     * @param  array<string, mixed>  $attributes  The reference, client, lead and creator, and the project's own columns (InquiryService::projectColumns()).
      */
     public function create(array $attributes): Inquiry;
 
@@ -138,9 +137,16 @@ interface InquiryRepositoryInterface
     ): void;
 
     /**
-     * @param  array{name?: string, delivery_method?: DeliveryMethod, location?: ?string, notes?: ?string}  $attributes
+     * @param  array<string, mixed>  $attributes  The project's own columns (InquiryService::projectColumns()).
      */
     public function updateDetails(Inquiry $inquiry, array $attributes): void;
+
+    /**
+     * Make these the inquiry's brands, and no others.
+     *
+     * @param  list<int>  $brandIds
+     */
+    public function replaceBrands(Inquiry $inquiry, array $brandIds): void;
 
     /**
      * Replace the inquiry's stone rows with these, in the order given.

@@ -46,7 +46,15 @@
  * docs/database/regray-erd.md, and tests/Feature/Database/InquirySeedConsistencyTest.php
  * checks the result.
  *
- * `direct_clients`: walk-ins with no account, taken down by `created_by`. An
+ * A project's `place` is where it is delivered or installed (a key of
+ * data/places.php). A service that asks Delivery or Pickup
+ * (`delivery_or_pickup`) is a delivery unless it says `delivery_method`
+ * `pickup`, with no place; an installed service asks no method. Its brands are
+ * the brands of its stones unless it names `brands` (slugs) or says
+ * `brand_no_preference`; a project with no stones has no preference.
+ *
+ * `direct_clients`: walk-ins with no account, taken down by `created_by`,
+ * with a phone and maybe an email, as the Direct client form asks. An
  * inquiry names its `direct_client` instead of a `client_id` and a `lead`: it
  * has no lead, and sales starts with it, by whoever took the client down.
  *
@@ -70,14 +78,9 @@ return [
         [
             'id' => 'dc-carmela',
             'full_name' => 'Carmela Reyes',
-            'company' => 'Reyes Bakeshop',
-            'address' => '14 Caruncho Avenue, San Nicolas, Pasig',
             'created_by' => 'maria',
-            'contacts' => [
-                ['kind' => 'phone', 'value' => '+63 917 555 0142'],
-                ['kind' => 'viber', 'value' => '+63 917 555 0142'],
-                ['kind' => 'email', 'value' => 'carmela@reyesbakeshop.example'],
-            ],
+            'phone' => '+63 917 555 0142',
+            'email' => 'carmela@reyesbakeshop.example',
         ],
     ],
     'groups' => [
@@ -116,7 +119,7 @@ return [
                     ['stone_slug' => 'onyx', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
                     ['stone_slug' => 'granite', 'quantity' => 10, 'edge' => 'Half Bullnose', 'finish' => 'Honed'],
                 ],
-                'location' => 'Quezon City',
+                'place' => 'Quezon City',
                 'answers' => ['area_sqm' => 3, 'fascia' => true],
                 'deadline_date' => '2026-08-20',
                 'deadline_time' => '08:00',
@@ -143,7 +146,7 @@ return [
                     ['stone_slug' => 'granite', 'quantity' => 6, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
                     ['stone_slug' => 'marble', 'quantity' => 4, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
                 ],
-                'location' => 'Muntinlupa',
+                'place' => 'Muntinlupa',
                 'answers' => ['area_sqm' => 11.5],
                 'deadline_date' => '2026-09-05',
                 'deadline_time' => '10:00',
@@ -185,7 +188,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 20, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
-                'location' => 'Muntinlupa',
+                'place' => 'Muntinlupa',
                 'answers' => ['area_sqm' => 24.25],
                 'deadline_date' => '2026-08-28',
                 'deadline_time' => '15:00',
@@ -226,7 +229,7 @@ return [
                     ['stone_slug' => 'granite', 'quantity' => 5, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                     ['stone_slug' => 'monumental', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'San Juan',
+                'place' => 'San Juan',
                 'answers' => ['area_sqm' => 4.5, 'seaters' => 8, 'table_base' => 'same-as-stone'],
                 'deadline_date' => '2026-09-26',
                 'deadline_time' => '13:00',
@@ -261,7 +264,7 @@ return [
                     ['stone_slug' => 'travertine', 'quantity' => 8, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
                     ['stone_slug' => 'marble', 'quantity' => 5, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
                 ],
-                'location' => 'San Juan',
+                'place' => 'San Juan',
                 'answers' => ['area_sqm' => 9.75],
                 'deadline_date' => '2026-10-30',
                 'deadline_time' => '09:00',
@@ -288,7 +291,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Half Bevel', 'finish' => 'Polished'],
                 ],
-                'location' => 'Pasig',
+                'place' => 'Pasig',
                 'answers' => ['area_sqm' => 1.5, 'size' => '220 x 70 cm'],
                 'deadline_date' => '2026-10-30',
                 'deadline_time' => '10:00',
@@ -322,7 +325,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 6, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
-                'location' => 'Pasig',
+                'place' => 'Pasig',
                 'answers' => ['area_sqm' => 14],
                 'deadline_date' => '2026-11-06',
                 'deadline_time' => '09:00',
@@ -356,7 +359,7 @@ return [
                     ['stone_slug' => 'granite', 'quantity' => 4, 'edge' => 'Half Bevel', 'finish' => 'Leather'],
                     ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Makati',
+                'place' => 'Makati',
                 'answers' => ['area_sqm' => 18.5, 'fascia' => false],
                 'deadline_date' => '2026-11-14',
                 'deadline_time' => '10:00',
@@ -382,7 +385,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 9, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Makati',
+                'place' => 'Makati',
                 'answers' => ['area_sqm' => 0.4, 'size' => '60 x 60 cm'],
                 'deadline_date' => '2026-10-24',
                 'deadline_time' => '14:00',
@@ -419,7 +422,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 3, 'edge' => 'Half Bullnose', 'finish' => 'Polished', 'slab_size' => [120, 240, 'cm'], 'thickness' => [20, 'mm']],
                 ],
-                'location' => 'Quezon City',
+                'place' => 'Quezon City',
                 'answers' => [],
                 'deadline_date' => '2026-12-05',
                 'deadline_time' => '10:00',
@@ -443,7 +446,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'onyx', 'quantity' => 8, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
-                'location' => 'Taguig',
+                'place' => 'Taguig',
                 'answers' => ['area_sqm' => 16, 'fascia' => true],
                 'deadline_date' => '2026-12-12',
                 'deadline_time' => '10:00',
@@ -469,7 +472,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 14, 'edge' => 'Full Bevel', 'finish' => 'Leather'],
                 ],
-                'location' => 'San Juan',
+                'place' => 'San Juan',
                 'answers' => ['area_sqm' => 9],
                 'deadline_date' => '2026-12-01',
                 'deadline_time' => '10:00',
@@ -495,7 +498,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Reverse Chamfer', 'finish' => 'Honed'],
                 ],
-                'location' => 'Muntinlupa',
+                'place' => 'Muntinlupa',
                 'answers' => ['area_sqm' => 2.4],
                 'deadline_date' => '2026-11-28',
                 'deadline_time' => '10:00',
@@ -527,7 +530,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'cobblestone', 'quantity' => 40, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
-                'location' => 'Quezon City',
+                'place' => 'Quezon City',
                 'answers' => ['area_sqm' => 22],
                 'deadline_date' => '2026-11-10',
                 'deadline_time' => '10:00',
@@ -551,7 +554,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Pasig',
+                'place' => 'Pasig',
                 'answers' => ['area_sqm' => 2.8, 'fascia' => false],
                 'deadline_date' => '2026-11-20',
                 'deadline_time' => '10:00',
@@ -579,7 +582,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 4, 'edge' => 'Half Bevel', 'finish' => 'Honed'],
                 ],
-                'location' => 'Makati',
+                'place' => 'Makati',
                 'answers' => ['area_sqm' => 3.6],
                 'deadline_date' => '2026-11-21',
                 'deadline_time' => '10:00',
@@ -607,7 +610,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Taguig',
+                'place' => 'Taguig',
                 'answers' => ['area_sqm' => 6, 'seaters' => 10, 'table_base' => 'steel'],
                 'deadline_date' => '2026-11-14',
                 'deadline_time' => '10:00',
@@ -636,7 +639,10 @@ return [
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Leather'],
                 ],
-                'location' => 'San Juan',
+                // They collect it from the showroom: a pickup has no address.
+                'delivery_method' => 'pickup',
+                'place' => null,
+                'brand_no_preference' => true,
                 'answers' => ['area_sqm' => 1.1, 'size' => '180 x 60 cm'],
                 'deadline_date' => '2026-11-07',
                 'deadline_time' => '10:00',
@@ -667,7 +673,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 10, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
-                'location' => 'Muntinlupa',
+                'place' => 'Muntinlupa',
                 'answers' => ['area_sqm' => 0.6, 'size' => '80 x 80 cm'],
                 'deadline_date' => '2026-10-31',
                 'deadline_time' => '10:00',
@@ -700,7 +706,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 12, 'edge' => 'Straight Edge', 'finish' => 'Honed', 'slab_size' => [60, 120, 'cm'], 'thickness' => [18, 'mm']],
                 ],
-                'location' => 'Pasig',
+                'place' => 'Pasig',
                 'answers' => [],
                 'deadline_date' => '2026-10-30',
                 'deadline_time' => '10:00',
@@ -733,7 +739,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 18, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
-                'location' => 'Quezon City',
+                'place' => 'Quezon City',
                 'answers' => ['area_sqm' => 7.5, 'fascia' => true],
                 'deadline_date' => '2026-10-28',
                 'deadline_time' => '10:00',
@@ -769,7 +775,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Pasig',
+                'place' => 'Pasig',
                 'answers' => ['area_sqm' => 4.5],
                 'deadline_date' => '2026-12-12',
                 'deadline_time' => '10:00',
@@ -795,7 +801,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 3, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Makati',
+                'place' => 'Makati',
                 'answers' => ['area_sqm' => 5],
                 'deadline_date' => '2026-12-15',
                 'deadline_time' => '10:00',
@@ -826,7 +832,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Taguig',
+                'place' => 'Taguig',
                 'answers' => ['area_sqm' => 5],
                 'deadline_date' => '2026-12-15',
                 'deadline_time' => '10:00',
@@ -858,7 +864,7 @@ return [
                 'stones' => [
                     ['stone_slug' => 'granite', 'quantity' => 1, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
-                'location' => 'Pasig',
+                'place' => 'Pasig',
                 'answers' => ['area_sqm' => 5],
                 'deadline_date' => '2026-12-15',
                 'deadline_time' => '10:00',

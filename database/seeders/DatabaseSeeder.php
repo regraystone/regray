@@ -8,8 +8,8 @@ use Illuminate\Database\Seeder;
 /**
  * Seed the application's database.
  *
- * Reference data (roles, permissions, stones, edge profiles, categories,
- * services, projects) is always seeded. On production the seeder stops
+ * Reference data (roles, permissions, the Philippines' places, stones, edge
+ * profiles, categories, services, projects) is always seeded. On production the seeder stops
  * there—no demo users are created. On non-production environments the
  * demo accounts and their related sample data are added afterwards.
  */
@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RolePermissionSeeder::class);
+        $this->call(PhAddressSeeder::class);
 
         $this->call(BrandSeeder::class);
         $this->call(StoneSeeder::class);

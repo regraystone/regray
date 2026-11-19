@@ -20,7 +20,7 @@ interface ClientRepositoryInterface
      * A direct client with its contacts, already normalised. Throws on a
      * contact another client has.
      *
-     * @param  array{full_name: string, company: ?string, address: ?string}  $attributes
+     * @param  array{full_name: string}  $attributes
      * @param  list<array{kind: ContactKind, value: string}>  $contacts
      */
     public function createDirect(array $attributes, array $contacts, ?int $createdBy): Client;

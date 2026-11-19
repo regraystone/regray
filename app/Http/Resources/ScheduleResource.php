@@ -34,7 +34,7 @@ use Illuminate\Support\Facades\Gate;
 class ScheduleResource extends JsonResource
 {
     /**
-     * @return array{id: int, title: string, arrivalAt: string, status: string, notes: string|null, inquiryReference: string|null, bookedByType: string, bookedByName: string|null, clientName: string|null, walkIn: array{company: string|null, address: string|null, contacts: list<array{kind: string, value: string}>}|null, assignedSalesName: string|null, declinedByName: string|null, declineReason: string|null, cancelReason: string|null, changeReason: string|null, can: array<string, bool>}
+     * @return array{id: int, title: string, arrivalAt: string, status: string, notes: string|null, inquiryReference: string|null, bookedByType: string, bookedByName: string|null, clientName: string|null, walkIn: array{contacts: list<array{kind: string, value: string}>}|null, assignedSalesName: string|null, declinedByName: string|null, declineReason: string|null, cancelReason: string|null, changeReason: string|null, can: array<string, bool>}
      */
     public function toArray(Request $request): array
     {
@@ -63,10 +63,10 @@ class ScheduleResource extends JsonResource
     }
 
     /**
-     * A direct (walk-in) client's company, address and every way to reach
-     * them; null for a client with an account.
+     * How to reach a direct (walk-in) client: their phone and, when they gave
+     * one, their email. Null for a client with an account.
      *
-     * @return array{company: string|null, address: string|null, contacts: list<array{kind: string, value: string}>}|null
+     * @return array{contacts: list<array{kind: string, value: string}>}|null
      */
     private function walkIn(): ?array
     {
@@ -77,8 +77,6 @@ class ScheduleResource extends JsonResource
         }
 
         return [
-            'company' => $record->company,
-            'address' => $record->address,
             'contacts' => array_values($record->contacts->map(fn (ClientContact $contact): array => [
                 'kind' => $contact->kind->value,
                 'value' => $contact->value,

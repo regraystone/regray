@@ -1,14 +1,11 @@
 import type {
-    ClientInformationPageProps,
-    ClientInformationValues,
-} from '@/lib/client-information';
-import type {
     InquiryEditProject,
     InquiryMode,
     ServiceTypeOption,
     StoneFilter,
 } from '@/lib/inquiry-flow';
 import type { LeadTally } from '@/lib/lead-statuses';
+import type { PhAddressPayload } from '@/lib/ph-address';
 import type { StoneCardData } from '@/types/stone';
 
 /** A stone the Inquire page offers. */
@@ -22,6 +19,24 @@ export type InquiryStoneFilters = {
     type: string | null;
     search: string | null;
     perPage: number;
+    /** The brands' slugs the stones are kept to; none is every brand. */
+    brands: string[];
+};
+
+/** A brand the Inquire page offers, as InquiryBrandResource sends it. */
+export type InquiryBrandOption = {
+    /** Its slug. */
+    id: string;
+    name: string;
+    logo: string;
+};
+
+/** One of the client's saved addresses, as ClientAddressResource sends it. */
+export type SavedAddress = {
+    id: number;
+    label: string;
+    isDefault: boolean;
+    address: PhAddressPayload;
 };
 
 /** An edge profile or a finish. `isAdvisory` is the "advise me" answer. */
@@ -37,6 +52,8 @@ export type InquiryFinishingOption = {
  * its projects as `InquiryEditResource` describes them).
  */
 export type InquirePageProps = {
+    /** The active brands, in their home page order. */
+    brands: InquiryBrandOption[];
     serviceTypes: ServiceTypeOption[];
     /** One page of stones at a time, added to as the reader scrolls. */
     stones: { data: InquiryStoneOption[] };
@@ -46,17 +63,12 @@ export type InquirePageProps = {
     pickedStones?: InquiryStoneOption[];
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
-    locations: string[];
     /**
-     * A client sending their own inquiry: their saved details and what a new
-     * form starts from. On edit, the flat snapshot of what was sent instead.
-     * Absent on staff flows, which have no new required fields and never
-     * prefill from a Profile.
+     * A client's own address book, the default first, which a project that
+     * needs an address picks from. Absent for staff, who enter the address
+     * themselves with the address picker.
      */
-    clientInformation?:
-        | ClientInformationPageProps
-        | ClientInformationValues
-        | null;
+    addresses?: SavedAddress[];
     mode?: InquiryMode;
     reference?: string;
     projects?: InquiryEditProject[];
@@ -105,6 +117,7 @@ export type InquiryLeadOption = {
  * Everything is known by its slug, as the draft holds it.
  */
 export type InquiryCatalog = {
+    brands: InquiryBrandOption[];
     /** What the page offers, and any an inquiry being edited already has. */
     serviceTypes: ServiceTypeOption[];
     /** The stones the page has been sent so far. */
@@ -120,7 +133,6 @@ export type InquiryCatalog = {
     ) => InquiryStoneOption[];
     edgeProfiles: InquiryFinishingOption[];
     finishes: InquiryFinishingOption[];
-    locations: string[];
     /** The "Not sure yet, advise me" answers, or null if none is offered. */
     advisoryEdge: string | null;
     advisoryFinish: string | null;

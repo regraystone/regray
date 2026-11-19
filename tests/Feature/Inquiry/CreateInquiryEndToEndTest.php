@@ -38,7 +38,7 @@ it('creates the whole row graph for each inquiry sent', function (): void {
     }
 
     expect($first->name)->toBe('Kitchen counters')
-        ->and($first->location)->toBe('Makati')
+        ->and($first->address_city_name)->toBe('City of Makati')
         ->and($first->notes)->toBe('Ground floor.')
         ->and($first->delivery_method)->toBe(DeliveryMethod::Delivery)
         ->and($first->service->slug)->toBe('slab-supply-only')

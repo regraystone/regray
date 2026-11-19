@@ -78,7 +78,7 @@ enum Permission: string
     case ProfileScheduleView = 'profile-schedule.view';
 
     /**
-     * The client's own "Client Information" page under the Profile hub.
+     * The client's own address book (Addresses) under the Profile hub.
      *
      * Like `ProfileScheduleView`, a view permission with no sidebar entry: the
      * row on the Profile hub is the door. It is granted to the client alone,
@@ -86,7 +86,7 @@ enum Permission: string
      * sending their own inquiry. The super-admin reaches it through
      * `Gate::before`, as it reaches every other page.
      */
-    case ProfileClientInformationView = 'profile-client-information.view';
+    case ProfileAddressesView = 'profile-addresses.view';
 
     /**
      * The stone profile reached from the Home feed at `/home/{stone}`.

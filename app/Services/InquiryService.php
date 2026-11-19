@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Data\PhAddress;
 use App\Data\WrittenFiles;
 use App\Enums\AuditEvent;
 use App\Enums\ClientKind;
@@ -35,8 +36,8 @@ use RuntimeException;
 /**
  * @phpstan-type StoneInput array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_width: ?string, slab_length: ?string, slab_unit: ?SizeUnit, thickness: ?string, thickness_unit: ?ThicknessUnit}
  * @phpstan-type AnswerInput array{detail_field_id: int, text_value: ?string, number_value: ?string, option_id: ?int, boolean_value: ?bool}
- * @phpstan-type ProjectInput array{name: string, service_id: int, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: DeliveryMethod, location: ?string, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: DeliveryMethod, location: ?string, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type ProjectInput array{name: string, service_id: int, brand_ids: list<int>, brand_no_preference: bool, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: ?DeliveryMethod, address: ?PhAddress, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, brand_ids: list<int>, brand_no_preference: bool, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: ?DeliveryMethod, address: ?PhAddress, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -185,8 +186,8 @@ class InquiryService
 
     /**
      * Staff change an inquiry's project from the Inquiry list (Edit): its
-     * name, service, delivery method, location, notes, stones, the service's
-     * answers and deadline. Never its client, its statuses or the client's files.
+     * name, brands, service, delivery method, address, notes, stones, the
+     * service's answers and deadline. Never its client, its statuses or the client's files.
      * Refused once the inquiry is closed or cancelled, or the client has
      * approved it. An audit row records the change under the staff member.
      *
@@ -268,13 +269,10 @@ class InquiryService
             'client_record_id' => $record->id,
             'lead_id' => $lead?->id,
             'created_by' => $by?->id,
-            'name' => $project['name'],
-            'service_id' => $project['service_id'],
-            'delivery_method' => $project['delivery_method'],
-            'location' => $project['location'],
-            'notes' => $project['notes'],
-            'stone_advice_requested' => $project['stone_advice_requested'] ?? false,
+            ...$this->projectColumns($project),
         ]);
+
+        $this->inquiryRepository->replaceBrands($inquiry, $project['brand_ids']);
 
         $this->scheduleService->createForInquiry(
             $inquiry,
@@ -313,14 +311,8 @@ class InquiryService
      */
     private function applyProject(Inquiry $inquiry, ?User $client, ?User $bookedBy, array $project): void
     {
-        $this->inquiryRepository->updateDetails($inquiry, [
-            'name' => $project['name'],
-            'service_id' => $project['service_id'],
-            'delivery_method' => $project['delivery_method'],
-            'location' => $project['location'],
-            'notes' => $project['notes'],
-            'stone_advice_requested' => $project['stone_advice_requested'] ?? false,
-        ]);
+        $this->inquiryRepository->updateDetails($inquiry, $this->projectColumns($project));
+        $this->inquiryRepository->replaceBrands($inquiry, $project['brand_ids']);
 
         $this->moveVisit($inquiry, $client, $project, $bookedBy);
         $this->inquiryRepository->replaceStones($inquiry, $project['stones']);
@@ -328,8 +320,30 @@ class InquiryService
     }
 
     /**
+     * The inquiry's own columns for a project: its name, service, brand
+     * choice, how it is got and the copy of its address (every address column
+     * cleared for a pickup), its notes and whether a stone is to be
+     * recommended.
+     *
+     * @param  ProjectInput|ProjectUpdateInput  $project
+     * @return array<string, mixed>
+     */
+    private function projectColumns(array $project): array
+    {
+        return [
+            'name' => $project['name'],
+            'service_id' => $project['service_id'],
+            'brand_no_preference' => $project['brand_no_preference'],
+            'delivery_method' => $project['delivery_method'],
+            ...($project['address']?->toColumns(Inquiry::ADDRESS_PREFIX) ?? PhAddress::emptyColumns(Inquiry::ADDRESS_PREFIX)),
+            'notes' => $project['notes'],
+            'stone_advice_requested' => $project['stone_advice_requested'] ?? false,
+        ];
+    }
+
+    /**
      * Move the inquiry's visit to its edited deadline, under its edited name and
-     * location, or book one if an older
+     * place, or book one if an older
      * inquiry never had a schedule.
      *
      * A visit that is no longer pending keeps its date and time: changing them
@@ -379,8 +393,10 @@ class InquiryService
         return [
             'name' => $inquiry->name,
             'service_id' => $inquiry->service_id,
-            'delivery_method' => $inquiry->delivery_method->value,
-            'location' => $inquiry->location,
+            'brand_no_preference' => $inquiry->brand_no_preference,
+            'brand_ids' => $inquiry->brands()->pluck('brands.id')->sort()->values()->all(),
+            'delivery_method' => $inquiry->delivery_method?->value,
+            'address' => $inquiry->address()?->toColumns(),
             'notes' => $inquiry->notes,
             'stone_advice_requested' => $inquiry->stone_advice_requested,
             'stones' => $inquiry->stones()->orderBy('sort_order')->get(['stone_id', 'edge_profile_id', 'finish_id', 'quantity', 'slab_width', 'slab_length', 'slab_unit', 'thickness', 'thickness_unit'])->toArray(),

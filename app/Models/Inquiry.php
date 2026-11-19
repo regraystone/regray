@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Data\PhAddress;
 use App\Data\StaffVisibility;
 use App\Enums\ConversationType;
 use App\Enums\DeliveryMethod;
@@ -17,7 +18,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -38,8 +41,20 @@ use Illuminate\Support\Facades\DB;
  * @property Carbon|null $marketing_status_changed_at
  * @property string $name
  * @property int|null $service_id What the client asked for.
- * @property string $location
- * @property DeliveryMethod $delivery_method
+ * @property bool $brand_no_preference The client chose No preference for brands.
+ * @property DeliveryMethod|null $delivery_method Null for an installed service, which asks for none.
+ * @property string|null $address_region_code
+ * @property string|null $address_region_name
+ * @property string|null $address_province_code
+ * @property string|null $address_province_name
+ * @property string|null $address_city_code
+ * @property string|null $address_city_name
+ * @property string|null $address_barangay_code
+ * @property string|null $address_barangay_name
+ * @property string|null $address_postal_code
+ * @property string|null $address_lat
+ * @property string|null $address_lng
+ * @property-read Collection<int, Brand> $brands
  * @property string|null $notes
  * @property bool $stone_advice_requested Whether the client asked Regray to recommend a stone instead of choosing one.
  * @property SalesStatus|null $sales_status Null until marketing wins the inquiry.
@@ -61,16 +76,24 @@ use Illuminate\Support\Facades\DB;
  */
 #[Fillable([
     'reference', 'client_id', 'client_record_id', 'lead_id', 'created_by', 'marketing_status', 'marketing_status_changed_at',
-    'name', 'service_id', 'delivery_method', 'location', 'notes', 'stone_advice_requested',
+    'name', 'service_id', 'brand_no_preference', 'delivery_method', 'notes', 'stone_advice_requested',
+    'address_region_code', 'address_region_name', 'address_province_code', 'address_province_name', 'address_city_code', 'address_city_name',
+    'address_barangay_code', 'address_barangay_name', 'address_postal_code', 'address_lat', 'address_lng',
     'sales_status', 'sales_status_changed_at',
     'payment_status', 'payment_status_changed_at', 'process_status', 'process_status_changed_at', 'completed_at',
     'quoted_total', 'quote_revision', 'contract_total',
 ])]
 class Inquiry extends Model
 {
+    /** The prefix of the address columns (PhAddress). */
+    public const ADDRESS_PREFIX = 'address_';
+
     protected function casts(): array
     {
         return [
+            'brand_no_preference' => 'boolean',
+            'address_lat' => 'decimal:6',
+            'address_lng' => 'decimal:6',
             'delivery_method' => DeliveryMethod::class,
             'stone_advice_requested' => 'boolean',
             'sales_status' => SalesStatus::class,
@@ -338,15 +361,49 @@ class Inquiry extends Model
     }
 
     /**
-     * What the client sent as "Client Information" with this inquiry, if they
-     * sent their own. Staff-opened and older inquiries have none, and an edit
-     * never changes it.
+     * The brands the client would like, when they named any; none when they
+     * chose No preference (`brand_no_preference`).
      *
-     * @return HasOne<ClientInformationSnapshot, $this>
+     * @return BelongsToMany<Brand, $this>
      */
-    public function clientInformationSnapshot(): HasOne
+    public function brands(): BelongsToMany
     {
-        return $this->hasOne(ClientInformationSnapshot::class);
+        return $this->belongsToMany(Brand::class, 'inquiry_brands')->orderBy('brands.sort_order');
+    }
+
+    /**
+     * Where the work goes, as it was copied when the inquiry was sent or last
+     * edited; null for a pickup.
+     */
+    public function address(): ?PhAddress
+    {
+        return PhAddress::fromColumns($this->getAttributes(), self::ADDRESS_PREFIX);
+    }
+
+    /**
+     * How the work reaches the client, as every page and email words it:
+     * "Pickup", "Delivery to {address}", or "Installation at {address}" for a
+     * service with no delivery method to choose.
+     * resources/js/lib/ph-address.ts fulfillmentSummary() words it the same.
+     */
+    public function fulfillmentSummary(): string
+    {
+        if ($this->delivery_method === DeliveryMethod::Pickup) {
+            return 'Pickup';
+        }
+
+        $line = $this->address()?->line() ?? 'an address not given';
+
+        return $this->delivery_method === DeliveryMethod::Delivery ? "Delivery to {$line}" : "Installation at {$line}";
+    }
+
+    /**
+     * The address in one short phrase for a card or a calendar entry: the city,
+     * or null for a pickup.
+     */
+    public function placeLabel(): ?string
+    {
+        return $this->getAttribute('address_city_name');
     }
 
     /**

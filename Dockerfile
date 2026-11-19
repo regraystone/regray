@@ -39,10 +39,13 @@ RUN rm -f bootstrap/cache/*.php \
         storage/framework/views storage/logs storage/app/public storage/app/private bootstrap/cache \
     && composer dump-autoload --optimize $([ "$COMPOSER_DEV" = true ] || echo --no-dev) --no-interaction
 
-# Besides COMPOSER_DEV, this public asset URL is the only build argument.
-# Secrets belong at runtime.
+# Besides COMPOSER_DEV, the public asset URL and Mapbox's public (pk.) token
+# are the only build arguments: both end up in the browser anyway. Secrets
+# belong at runtime.
 ARG VITE_ASSET_URL
 ENV VITE_ASSET_URL=$VITE_ASSET_URL
+ARG VITE_MAPBOX_PUBLIC_TOKEN
+ENV VITE_MAPBOX_PUBLIC_TOKEN=$VITE_MAPBOX_PUBLIC_TOKEN
 
 RUN --mount=type=cache,target=/root/.npm \
     cp .env.example .env \

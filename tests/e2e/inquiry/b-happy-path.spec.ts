@@ -32,7 +32,7 @@ import {
 
 /* B. Happy path: from the first click to the saved inquiry. */
 
-test('6 · a pickup asks for no location, and sends @layout', async ({
+test('6 · a pickup asks for no address, and sends @layout', async ({
     actors,
 }, testInfo) => {
     const { page } = await actors.open('client');
@@ -48,6 +48,7 @@ test('6 · a pickup asks for no location, and sends @layout', async ({
     await shot(page, name('2-stones'), testInfo);
 
     await pressNext(page, 2);
+    await chooseInSelect(page, DELIVERY_METHOD_ID, 'Delivery');
     await expect(locationField(page)).toBeVisible();
     await fillSlabSizes(page);
     await fillThicknesses(page);
@@ -69,11 +70,11 @@ test('6 · a pickup asks for no location, and sends @layout', async ({
 
     expect(
         php<Record<string, string | null>>(
-            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first(['delivery_method', 'location'])->toArray()`,
+            `App\\Models\\Inquiry::query()->where('reference', '${reference}')->first(['delivery_method', 'address_city_code'])->toArray()`,
         ),
     ).toEqual({
         delivery_method: 'pickup',
-        location: null,
+        address_city_code: null,
     });
 });
 

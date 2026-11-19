@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use App\Data\ClientInformationValues;
 use App\Enums\DetailFieldScope;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
@@ -10,6 +9,7 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SalesStatus;
+use App\Models\Brand;
 use App\Models\DetailField;
 use App\Models\Inquiry;
 use App\Models\InquiryDetailAnswer;
@@ -82,15 +82,6 @@ class InquiryDetailsResource extends JsonResource
             'payments' => $this->payments(),
             'documents' => $this->documents($files),
             'assignedStaff' => $this->assignedStaff(),
-            /*
-             * What the client actually sent with this inquiry, not what their
-             * Profile holds now. Staff-opened and older inquiries have none.
-             * The values are read-only here: an edit keeps the snapshot as it
-             * was when the inquiry was first sent.
-             */
-            'clientInformation' => $this->clientInformationSnapshot === null
-                ? null
-                : ClientInformationResource::make(ClientInformationValues::fromSnapshot($this->clientInformationSnapshot))->resolve($request),
             'project' => $this->project($files),
             'actions' => (new InquiryActions)->for($this->resource),
             'conversation' => $this->conversationLink,
@@ -288,6 +279,12 @@ class InquiryDetailsResource extends JsonResource
      * reads as the first stone's name. `requiresStones` is false for a service
      * that asks for no stones, whose page has no Stones section.
      *
+     * `brands` are the brands the client would like, with `brandNoPreference`
+     * when they had none. `requirements.fulfillment` is how the work reaches
+     * them, worded ("Pickup", "Delivery to …", "Installation at …"), with the
+     * method (null for an installed service) and the address it was sent
+     * with (null for a pickup).
+     *
      * @param  Collection<int, InquiryFile>  $files  the files this reader may see
      * @return array<string, mixed>
      */
@@ -332,9 +329,12 @@ class InquiryDetailsResource extends JsonResource
                     'value' => $answer->displayValue($firstStone),
                 ])
                 ->all()),
+            'brands' => array_values($this->brands->map(fn (Brand $brand): array => ['id' => $brand->slug, 'name' => $brand->name])->all()),
+            'brandNoPreference' => $this->brand_no_preference,
             'requirements' => [
-                'deliveryMethod' => $this->delivery_method->value,
-                'location' => $this->location,
+                'deliveryMethod' => $this->delivery_method?->value,
+                'address' => $this->address()?->toPayload(),
+                'fulfillment' => $this->fulfillmentSummary(),
                 'neededBy' => $arrivalAt?->toDateString(),
                 'notes' => $this->notes,
                 'attachments' => $files

@@ -6,14 +6,12 @@ import { formatSize } from '@/components/file-upload';
 import { InquiryActionBar } from '@/components/inquiry-question';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import {
     attachmentMeta,
@@ -21,10 +19,8 @@ import {
     type InquiryAttachment,
 } from '@/data/inquiries';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
-import type { ClientInformationFormValues } from '@/lib/client-information';
 import {
-    DELIVERY_METHODS,
-    PICKUP,
+    asksDeliveryMethod,
     asksQuantity,
     projectFields,
     reviewActions,
@@ -33,7 +29,6 @@ import {
     stoneFieldKey,
     stoneFields,
     YES,
-    type ClientInformationErrorMessages,
     type InquiryMode,
     type ServiceField,
 } from '@/lib/inquiry-flow';
@@ -44,6 +39,7 @@ import {
     type InquiryFormInput,
     type InquiryFormValues,
 } from '@/lib/inquiry-schema';
+import { fulfillmentSummary } from '@/lib/ph-address';
 import type { InquiryStoneOption } from '@/types/inquiry';
 
 /**
@@ -257,9 +253,12 @@ const ReviewProjectCard = ({
     message,
     locked,
     onEdit,
+    addressLine,
 }: {
     index: number;
     project: ReviewProject;
+    /** The project's address as one line, or null for none (a pickup). */
+    addressLine: string | null;
     stones: Array<
         ReviewProject['stones'][number] & { stone: InquiryStoneOption }
     >;
@@ -298,9 +297,20 @@ const ReviewProjectCard = ({
     const chosenStones = [
         ...new Map(stones.map((row) => [row.stoneId, row.stone])).values(),
     ];
-    const deliveryMethodName =
-        DELIVERY_METHODS.find(({ value }) => value === project.deliveryMethod)
-            ?.title ?? '';
+    /** "Pickup", "Delivery to …", or "Installation at …" for an installed service. */
+    const howYoullGetIt = fulfillmentSummary(
+        asksDeliveryMethod(service) ? project.deliveryMethod : null,
+        addressLine,
+    );
+    const brandNames = project.brandNoPreference
+        ? 'No preference'
+        : project.brands
+              .map(
+                  (brand) =>
+                      catalog.brands.find(({ id }) => id === brand)?.name ??
+                      brand,
+              )
+              .join(', ');
     const takesStones = service?.requiresStones !== false;
     const askedOfStones = stoneFields(service);
     const countsPieces = asksQuantity(service);
@@ -323,7 +333,6 @@ const ReviewProjectCard = ({
                 )
             );
         });
-    const isPickup = project.deliveryMethod === PICKUP;
     const plural = (count: number, one: string, many: string): string =>
         `${count} ${count === 1 ? one : many}`;
 
@@ -617,15 +626,13 @@ const ReviewProjectCard = ({
 
                                 <dl>
                                     <SummaryRow
-                                        label="How you'll get it"
-                                        value={deliveryMethodName}
+                                        label="Brands"
+                                        value={brandNames}
                                     />
-                                    {isPickup ? null : (
-                                        <SummaryRow
-                                            label="Location"
-                                            value={project.location}
-                                        />
-                                    )}
+                                    <SummaryRow
+                                        label="How you'll get it"
+                                        value={howYoullGetIt}
+                                    />
                                     <SummaryRow
                                         label="When you need it"
                                         value={formatNeededBy(project.neededBy)}
@@ -671,142 +678,6 @@ const ReviewProjectCard = ({
     );
 };
 
-/**
- * The client's own "Client Information" on the Review step.
- *
- * The delivery answer is already asked on the project's details step, so this
- * card only summarises it and offers the choice to keep it for next time.
- * "Edit" returns to that question; "Reset" restores the saved answer without
- * taking the reader away from Review. A sent inquiry shows the snapshot read
- * only, as the team received it.
- */
-const ClientInformationCard = ({
-    values,
-    errors,
-    hasSaved = false,
-    showSaveChoice = false,
-    saveToProfile = false,
-    locked,
-    readOnly = false,
-    onEdit,
-    onReset,
-    onSaveToProfileChange,
-}: {
-    values: ClientInformationFormValues;
-    errors: ClientInformationErrorMessages;
-    hasSaved?: boolean;
-    showSaveChoice?: boolean;
-    saveToProfile?: boolean;
-    locked: boolean;
-    readOnly?: boolean;
-    onEdit?: () => void;
-    onReset?: () => void;
-    onSaveToProfileChange?: (checked: boolean) => void;
-}) => {
-    const orNotProvided = (value: string): string =>
-        value.trim() === '' ? 'Not provided' : value.trim();
-    const method =
-        DELIVERY_METHODS.find(({ value }) => value === values.deliveryMethod)
-            ?.title ?? values.deliveryMethod;
-
-    return (
-        <section
-            aria-labelledby="client-information-heading"
-            className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5"
-        >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <h2
-                        id="client-information-heading"
-                        className="text-base font-bold text-foreground"
-                    >
-                        Client Information
-                    </h2>
-                    <p className="mt-1 text-xs text-secondary-foreground">
-                        {readOnly
-                            ? 'As sent with this request.'
-                            : 'How you would like to get it, as answered above.'}
-                    </p>
-                </div>
-
-                {!readOnly && (onEdit !== undefined || hasSaved) ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                        {hasSaved && onReset !== undefined ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={locked}
-                                onClick={onReset}
-                            >
-                                Reset to my saved information
-                            </Button>
-                        ) : null}
-                        {onEdit !== undefined ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={locked}
-                                onClick={onEdit}
-                            >
-                                <Pencil aria-hidden />
-                                Edit
-                            </Button>
-                        ) : null}
-                    </div>
-                ) : null}
-            </div>
-
-            <dl className="mt-4 border-t border-dashed border-sidebar-border">
-                <SummaryRow
-                    label="How you'll get it"
-                    value={orNotProvided(method)}
-                />
-                {values.deliveryMethod === PICKUP ? null : (
-                    <SummaryRow
-                        label="Location"
-                        value={orNotProvided(values.location)}
-                    />
-                )}
-            </dl>
-
-            {!readOnly && Object.keys(errors).length > 0 ? (
-                <ul className="mt-3 space-y-1" role="alert">
-                    {Object.entries(errors).map(([field, message]) => (
-                        <li
-                            key={field}
-                            className="text-[0.8rem] font-semibold text-secondary-foreground"
-                        >
-                            {message}
-                        </li>
-                    ))}
-                </ul>
-            ) : null}
-
-            {showSaveChoice &&
-            !readOnly &&
-            onSaveToProfileChange !== undefined ? (
-                <div className="mt-4 flex items-start gap-3 border-t border-sidebar-border pt-4">
-                    <Checkbox
-                        id="client-saveToProfile"
-                        checked={saveToProfile}
-                        disabled={locked}
-                        onCheckedChange={(checked) =>
-                            onSaveToProfileChange(checked === true)
-                        }
-                    />
-                    <Label
-                        htmlFor="client-saveToProfile"
-                        className="cursor-pointer text-sm leading-snug font-normal text-foreground"
-                    >
-                        Save this information to my profile
-                    </Label>
-                </div>
-            ) : null}
-        </section>
-    );
-};
 type InquiryReviewProps = {
     /** Reopen one project at a question, the details unless it says, prefilled. */
     onEditProject: (id: string, step?: number) => void;
@@ -834,22 +705,8 @@ type InquiryReviewProps = {
      * saves the changes instead of requesting a quote. See `reviewActions`.
      */
     mode?: InquiryMode;
-    /**
-     * The client's own delivery answer, new requests only. A sent inquiry's
-     * edit keeps its original snapshot and staff opening one for someone get
-     * no block. Editing returns to the question on the project's details step.
-     */
-    clientInformation?: {
-        values: ClientInformationFormValues;
-        errors: ClientInformationErrorMessages;
-        hasSaved: boolean;
-        showSaveChoice: boolean;
-        saveToProfile: boolean;
-        readOnly?: boolean;
-        onEdit?: () => void;
-        onReset: () => void;
-        onSaveToProfileChange: (checked: boolean) => void;
-    };
+    /** A project's address as one line: a saved address's, or the picker's. */
+    addressLineFor: (project: ReviewProject) => string | null;
 };
 
 /**
@@ -873,7 +730,7 @@ const InquiryReview = ({
     locked,
     onRequestQuote,
     mode = 'create',
-    clientInformation,
+    addressLineFor,
 }: InquiryReviewProps) => {
     const catalog = useInquiryCatalog();
     const actions = reviewActions(mode);
@@ -963,13 +820,6 @@ const InquiryReview = ({
                     </p>
                 ) : null}
 
-                {clientInformation !== undefined ? (
-                    <ClientInformationCard
-                        {...clientInformation}
-                        locked={locked}
-                    />
-                ) : null}
-
                 {projects.length === 0 ? (
                     <div className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5">
                         <p className="text-sm text-secondary-foreground">
@@ -986,6 +836,7 @@ const InquiryReview = ({
                             message={projectMessages[project.id]}
                             locked={locked}
                             onEdit={(step) => onEditProject(project.id, step)}
+                            addressLine={addressLineFor(project)}
                         />
                     ))
                 )}
