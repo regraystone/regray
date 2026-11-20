@@ -1,7 +1,14 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Check, Search, X } from 'lucide-react';
+import {
+    type ReactNode,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import ConfirmDialog from '@/components/confirm-dialog';
@@ -30,7 +37,6 @@ import InquiryReview from '@/components/inquiry-review';
 import InquiryServiceQuestion from '@/components/inquiry-service-question';
 import InquiryStepper from '@/components/inquiry-stepper';
 import InputError from '@/components/input-error';
-import PageHeading from '@/components/page-heading';
 import StaffInquireStart, {
     leadTarget,
 } from '@/components/staff-inquire-start';
@@ -306,6 +312,47 @@ const SKELETON_MS = 700;
  * second project would have no way of telling the two apart, and walking away
  * would look like walking away from the whole inquiry.
  */
+/**
+ * The page's title in the heading face, what to do under it and, while the
+ * questions are open on a new request, a note that the answers are kept as
+ * they are given (the draft autosave). Anything else the page puts at the
+ * top, such as Change client or the way back from an edit, sits at its end.
+ */
+const InquireHeading = ({
+    title,
+    description,
+    action,
+    showSaved,
+}: {
+    title: string;
+    description: string;
+    action?: ReactNode;
+    showSaved: boolean;
+}) => (
+    <div className="mb-7 flex flex-col gap-4 sm:mb-9 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 space-y-2">
+            <h2 className="font-display text-[clamp(1.875rem,2.8vw,2.5rem)] leading-tight font-light tracking-[-0.005em]">
+                {title}
+            </h2>
+            <p className="text-base text-muted-foreground">{description}</p>
+        </div>
+        {action || showSaved ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2">
+                {showSaved ? (
+                    <span className="inline-flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
+                        <span
+                            aria-hidden
+                            className="size-1.75 rounded-full bg-success-text"
+                        />
+                        Answers saved
+                    </span>
+                ) : null}
+                {action}
+            </div>
+        ) : null}
+    </div>
+);
+
 const ProjectBanner = ({
     label,
     onCancel,
@@ -2001,7 +2048,8 @@ const InquireFlow = ({
             <InquiryAddressContext.Provider value={addressContext}>
                 <InquiryActionBarSlot.Provider value={actionBarSlot}>
                     <div className={FULL_SCREEN_PAGE}>
-                        <PageHeading
+                        <InquireHeading
+                            showSaved={edit === null && step !== REVIEW_STEP}
                             title={
                                 edit === null
                                     ? 'Inquire'
@@ -2138,12 +2186,12 @@ const InquireFlow = ({
                                         title="Which stones?"
                                         summary=""
                                     >
-                                        <div className="mb-5 flex flex-col gap-3 rounded-md border border-sidebar-border bg-secondary p-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="mb-5 flex flex-col gap-3 border border-dashed border-foreground/30 py-3 pr-3.5 pl-4.5 sm:flex-row sm:items-center sm:justify-between">
                                             <div className="min-w-0">
-                                                <p className="text-base font-bold">
+                                                <p className="text-sm font-semibold">
                                                     Not sure which stone yet?
                                                 </p>
-                                                <p className="mt-0.5 text-sm text-secondary-foreground">
+                                                <p className="mt-0.5 text-[0.8125rem] text-muted-foreground">
                                                     Our team will recommend one
                                                     for you.
                                                 </p>
@@ -2157,13 +2205,16 @@ const InquireFlow = ({
                                                 }
                                                 onClick={askForStoneAdvice}
                                                 aria-pressed={draftStoneAdvice}
-                                                className="w-full shrink-0 sm:w-auto"
+                                                className="h-10 w-full shrink-0 rounded-none border-foreground text-xs font-semibold tracking-[0.08em] uppercase sm:w-auto"
                                             >
+                                                {draftStoneAdvice ? (
+                                                    <Check aria-hidden />
+                                                ) : null}
                                                 Help me choose
                                             </Button>
                                         </div>
 
-                                        <div className="mb-6 border-b border-sidebar-border pb-4">
+                                        <div className="mb-6 border-y border-border py-3.5">
                                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                                 <div className="relative w-full sm:max-w-xs">
                                                     <Search
@@ -2201,7 +2252,7 @@ const InquireFlow = ({
                                                 </div>
 
                                                 <div
-                                                    className="hidden shrink-0 items-center gap-5 text-sm whitespace-nowrap sm:ml-auto sm:flex"
+                                                    className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap sm:flex"
                                                     role="tablist"
                                                     aria-label="Filter stones"
                                                 >
@@ -2223,10 +2274,10 @@ const InquireFlow = ({
                                                                         tab.value,
                                                                     )
                                                                 }
-                                                                className={`-my-2.5 rounded-md px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
+                                                                className={`h-11 cursor-pointer border px-3.5 text-[0.8125rem] tracking-[0.04em] uppercase transition-colors ${
                                                                     isActive
-                                                                        ? 'font-bold text-foreground underline decoration-foreground underline-offset-4'
-                                                                        : 'text-secondary-foreground'
+                                                                        ? 'border-foreground bg-foreground text-background'
+                                                                        : 'border-border bg-background text-foreground hover:border-foreground'
                                                                 }`}
                                                             >
                                                                 {tab.label}

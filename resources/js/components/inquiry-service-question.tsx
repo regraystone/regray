@@ -35,47 +35,62 @@ const InquiryServiceQuestion = ({
     const error = fieldMessage(errors.serviceId);
 
     return (
-        <div className="space-y-6">
-            <div>
-                <ServiceOptionSelect
-                    id="inquiry-service-type"
-                    label="Service type"
-                    required
-                    value={serviceTypeId}
-                    onChange={onServiceType}
-                    // With no type chosen, this is the only place to say so.
-                    error={serviceType === undefined ? error : undefined}
-                    options={serviceTypes}
-                />
-            </div>
-
-            {serviceType === undefined ? null : (
+        <div className="grid items-start gap-6 md:grid-cols-2">
+            <div className="space-y-6">
                 <div>
                     <ServiceOptionSelect
-                        id="inquiry-service"
-                        label={serviceChoiceLabel(serviceType.id)}
+                        id="inquiry-service-type"
+                        label="Service type"
                         required
-                        value={serviceId}
-                        onChange={onService}
-                        error={error}
-                        options={serviceType.services}
-                        describedBy={
-                            service === undefined ? undefined : SERVICE_INFO_ID
-                        }
+                        value={serviceTypeId}
+                        onChange={onServiceType}
+                        // With no type chosen, this is the only place to say so.
+                        error={serviceType === undefined ? error : undefined}
+                        options={serviceTypes}
                     />
                 </div>
-            )}
 
+                {serviceType === undefined ? null : (
+                    <div>
+                        <ServiceOptionSelect
+                            id="inquiry-service"
+                            label={serviceChoiceLabel(serviceType.id)}
+                            required
+                            value={serviceId}
+                            onChange={onService}
+                            error={error}
+                            options={serviceType.services}
+                            describedBy={
+                                service === undefined
+                                    ? undefined
+                                    : SERVICE_INFO_ID
+                            }
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* What the service picked includes, beside the dropdowns from tablets up. */}
             {service === undefined ? null : (
                 <div
                     id={SERVICE_INFO_ID}
-                    className="rounded-md border border-sidebar-border bg-secondary p-4 sm:max-w-md"
+                    className="flex flex-col gap-3 border-l-2 border-foreground bg-muted px-6 py-5.5"
                     data-testid="service-info"
                 >
-                    <p className="text-sm">{service.description}</p>
-                    <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-secondary-foreground">
+                    <p className="text-xs font-semibold tracking-[0.12em] text-foreground uppercase">
+                        {service.name}
+                    </p>
+                    <p className="text-[0.9375rem] leading-normal">
+                        {service.description}
+                    </p>
+                    <ul className="space-y-2">
                         {service.features.map((feature) => (
-                            <li key={feature}>{feature}</li>
+                            <li
+                                key={feature}
+                                className="flex gap-2.5 text-sm leading-normal text-secondary-foreground before:content-['—']"
+                            >
+                                {feature}
+                            </li>
                         ))}
                     </ul>
                 </div>
