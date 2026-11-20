@@ -18,7 +18,7 @@ export const InquiryActionBar = ({ children }: { children: ReactNode }) => {
     return slot === null
         ? null
         : createPortal(
-              <div className="flex flex-col gap-3 border-t border-sidebar-border bg-background py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-border bg-background py-3.5 sm:flex-row sm:items-center sm:justify-between [&_[data-slot=button]]:min-h-12 [&_[data-slot=button]]:rounded-none">
                   {children}
               </div>,
               slot,
@@ -31,8 +31,9 @@ export const inquiryQuestionId = (step: number): string =>
 
 /**
  * One question on the first step of the inquiry. Open, it shows its answers and
- * its way forward. Answered, it closes to one line saying what was picked, with
- * a Change button to open it again.
+ * its way forward, under its number in a white circle. Answered, the circle
+ * turns black with a tick and the question closes to one line saying what was
+ * picked, with a Change button to open it again.
  */
 const InquiryQuestion = ({
     step,
@@ -56,20 +57,22 @@ const InquiryQuestion = ({
     <section
         id={inquiryQuestionId(step)}
         aria-labelledby={`${inquiryQuestionId(step)}-title`}
-        className="scroll-mt-24 border-t border-sidebar-border py-5 first:border-t-0"
+        className={`scroll-mt-24 border-t border-border first:border-t-0 ${
+            isOpen ? 'py-8 sm:py-10' : 'py-5'
+        }`}
         data-testid={inquiryQuestionId(step)}
         data-state={isOpen ? 'open' : 'answered'}
     >
         <div className="flex items-start gap-3">
             <span
                 aria-hidden
-                className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold ${
+                className={`grid size-7.5 shrink-0 place-items-center rounded-full border border-foreground text-xs font-bold ${
                     isOpen
-                        ? 'bg-primary text-primary-foreground'
-                        : 'border border-primary text-foreground'
+                        ? 'bg-background text-foreground'
+                        : 'bg-foreground text-background'
                 }`}
             >
-                {isOpen ? number : <Check className="size-4" />}
+                {isOpen ? number : <Check className="size-3.5" />}
             </span>
 
             <div className="min-w-0 flex-1">
@@ -77,7 +80,7 @@ const InquiryQuestion = ({
                 <h2
                     id={`${inquiryQuestionId(step)}-title`}
                     tabIndex={-1}
-                    className="text-lg font-bold tracking-[-0.03em] outline-none"
+                    className="pt-0.5 font-display text-xl font-normal outline-none"
                 >
                     {title}
                 </h2>
@@ -106,7 +109,7 @@ const InquiryQuestion = ({
             )}
         </div>
 
-        {isOpen ? <div className="mt-5">{children}</div> : null}
+        {isOpen ? <div className="mt-6">{children}</div> : null}
     </section>
 );
 

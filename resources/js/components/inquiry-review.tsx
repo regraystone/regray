@@ -75,9 +75,9 @@ const NotProvided = () => (
  * visual alignment alone would not.
  */
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
-    <div className="flex items-baseline justify-between gap-4 border-b border-dashed border-sidebar-border py-3 last:border-b-0 sm:gap-8">
-        <dt className="text-sm text-secondary-foreground">{label}</dt>
-        <dd className="min-w-0 text-right text-sm font-bold break-words">
+    <div className="grid grid-cols-[minmax(7.5rem,13.75rem)_minmax(0,1fr)] gap-3 border-t border-border/70 py-2.5 first:border-t-0">
+        <dt className="text-sm text-muted-foreground">{label}</dt>
+        <dd className="min-w-0 text-sm leading-normal font-semibold break-words">
             {value === '' ? <NotProvided /> : value}
         </dd>
     </div>
@@ -91,7 +91,7 @@ const SectionLabel = ({
     children: string;
     count?: number;
 }) => (
-    <h4 className="text-xs font-bold tracking-[0.2em] text-secondary-foreground uppercase">
+    <h4 className="text-xs font-semibold tracking-[0.14em] text-foreground uppercase">
         {children}
         {count === undefined ? null : (
             <span className="ml-2 font-normal tracking-normal">{count}</span>
@@ -144,7 +144,7 @@ const AttachmentList = ({
                     key={attachment.id}
                     className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
                 >
-                    <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-sidebar-border text-secondary-foreground">
+                    <span className="grid size-10 shrink-0 place-items-center overflow-hidden border border-border text-secondary-foreground">
                         {attachment.status === 'saved' ? (
                             <FileText className="size-5" aria-hidden />
                         ) : (
@@ -190,6 +190,7 @@ const EditSection = ({
         size="sm"
         onClick={onClick}
         disabled={locked}
+        className="rounded-none text-xs font-semibold tracking-[0.08em] uppercase hover:border-foreground"
     >
         <Pencil aria-hidden />
         {label}
@@ -355,7 +356,7 @@ const ReviewProjectCard = ({
                         src={row.stone.thumbnail}
                         alt=""
                         loading="lazy"
-                        className="aspect-square w-full rounded-md object-cover"
+                        className="aspect-square w-full object-cover"
                     />
                     <div className="mt-2 flex items-baseline justify-between gap-x-2">
                         <p className="truncate text-sm font-bold">
@@ -409,11 +410,11 @@ const ReviewProjectCard = ({
     );
 
     return (
-        <section className="overflow-hidden rounded-md border border-sidebar-border bg-background">
+        <section className="overflow-hidden border border-border bg-background">
             <Collapsible open={open} onOpenChange={setOpen}>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-3 sm:px-5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-4 sm:px-5">
                     <h3 className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold break-words">
+                        <span className="block font-display text-[clamp(1.25rem,2vw,1.625rem)] leading-snug font-light break-words">
                             {project.name}
                         </span>
 
@@ -423,7 +424,7 @@ const ReviewProjectCard = ({
                                 onClick={() => setNewName(project.name)}
                                 disabled={locked}
                                 aria-label={`Change name: ${project.name}`}
-                                className="mt-0.5 block cursor-pointer py-1 text-xs font-normal underline underline-offset-2 disabled:cursor-not-allowed"
+                                className="mt-1 block cursor-pointer py-1 text-xs font-semibold tracking-[0.08em] uppercase underline underline-offset-4 disabled:cursor-not-allowed"
                             >
                                 Change name
                             </button>
@@ -502,7 +503,7 @@ const ReviewProjectCard = ({
                 ) : null}
 
                 <CollapsibleContent>
-                    <div className="border-t border-sidebar-border p-4 sm:p-5">
+                    <div className="border-t border-foreground p-4 sm:p-5">
                         <div className="space-y-7">
                             <section data-testid="review-service">
                                 <SectionHeader label="What you need">
@@ -550,7 +551,7 @@ const ReviewProjectCard = ({
                                                         src={stone.thumbnail}
                                                         alt=""
                                                         loading="lazy"
-                                                        className="size-14 shrink-0 rounded-md object-cover"
+                                                        className="size-14 shrink-0 object-cover"
                                                     />
                                                     <p className="min-w-0 flex-1 text-sm font-bold break-words">
                                                         {stone.name}
@@ -562,7 +563,7 @@ const ReviewProjectCard = ({
                                         <div className="mt-3 flex items-center gap-4">
                                             <span
                                                 aria-hidden
-                                                className="grid size-14 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground"
+                                                className="grid size-14 shrink-0 place-items-center bg-secondary text-secondary-foreground"
                                             >
                                                 <Sparkles className="size-5" />
                                             </span>
@@ -821,7 +822,7 @@ const InquiryReview = ({
                 ) : null}
 
                 {projects.length === 0 ? (
-                    <div className="rounded-md border border-sidebar-border bg-background p-4 sm:p-5">
+                    <div className="border border-border bg-background p-4 sm:p-5">
                         <p className="text-sm text-secondary-foreground">
                             No projects have been added yet.
                         </p>

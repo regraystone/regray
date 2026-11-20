@@ -1,3 +1,15 @@
+# The Inquire page takes the new design
+
+The Inquire page (`/dashboard/quote/inquire`, `/dashboard/inquiry/inquire`, and editing a request) is restyled after the Inquire design. Only the look changes: every question, rule, button name, saved draft and request is as before.
+
+- **Top** (`pages/inquire.tsx`): the title in the heading face over its line, and "Answers saved" while a new request's questions are open (the draft is kept as it is answered). **Progress** (`inquiry-stepper.tsx`): the two steps side by side, each over a rule that turns black once reached, with a circle (a tick once passed), "Step N" and its name; phones keep the one line "Step 1 of 2 · Your request".
+- **Questions** (`inquiry-question.tsx`): the number in a white circle while open, a black circle with a tick once answered, the title in the heading face, and more room around each. The bar at the bottom has square buttons.
+- **Brands** (`inquiry-brand-question.tsx`): each card is the brand's logo on navy with its name under it, and a tick in the corner, filled once picked (No preference shows a shuffle icon).
+- **What you need** (`inquiry-service-question.tsx`): what the service includes sits beside the dropdowns from tablets up, in a grey panel with a black left edge, the service's name over it and its points as dashes.
+- **Stones:** "Not sure which stone yet?" in a dashed box (Help me choose shows a tick once pressed), the filter tabs as bordered buttons, and each stone card (`stone-card.tsx`) with a tick circle in its picture's corner.
+- **Review** (`inquiry-review.tsx`): square cards, the project's name in the heading face, black section labels with square Edit buttons, and each answer as a two-column row.
+- Left out of the design, as features rather than looks: its side summary with a second Send button, the Best seller tag (the stones on this page carry none), and a fixed grid of stones (the row still scrolls and loads more).
+
 # Accounts: the admin manages who can sign in, and every list page shares its parts
 
 The admin's **Accounts** page (`/dashboard/accounts`) is built: the **staff** accounts the admin manages (never an admin or a client), without the archived, newest first, ten a page, searched by name or email and filtered by Active / Inactive, all in the URL. The admin adds **staff** accounts (never an admin or a client) on a temporary password set only on the server, which the new staff member must replace on their first sign-in; edits a name, email or a staff account's role; turns an account on or off; and archives one. A deactivated or archived account can't sign in, by password or Google, and is signed out on its next request. Along the way the list-page parts are pulled into shared components, and every DataTable shows a fixed 10 rows. **Deploy, local and production: `php artisan migrate`** (one new migration) **and `php artisan db:seed --class=RolePermissionSeeder`** (three new permissions).

@@ -6,9 +6,11 @@ import { Check } from 'lucide-react';
  * fills the height it is given, so a row of cards is as tall as its tallest,
  * with the picture and name kept at the top (a button centres them otherwise).
  *
- * Picked, its frame thickens inward (an outline inset just inside the border,
- * drawn over the picture) rather than outward, so a card at the end of the
- * scrolling row is not cut off and the row needs no room beyond its own width.
+ * A circle in the picture's corner is the tick: see-through until the stone
+ * is picked, then black with a check. Picked, its frame also thickens inward
+ * (an outline inset just inside the border, drawn over the picture) rather
+ * than outward, so a card at the end of the scrolling row is not cut off and
+ * the row needs no room beyond its own width.
  */
 const StoneCard = ({
     name,
@@ -26,8 +28,8 @@ const StoneCard = ({
     <article
         className={`h-full overflow-hidden rounded-none border bg-background ${
             selected
-                ? 'border-primary outline-2 -outline-offset-3 outline-primary'
-                : 'border-sidebar-border'
+                ? 'border-foreground outline-2 -outline-offset-2 outline-foreground'
+                : 'border-border hover:border-foreground'
         }`}
         data-testid="stone-card"
     >
@@ -46,23 +48,23 @@ const StoneCard = ({
                     loading="lazy"
                     className="absolute inset-0 size-full object-cover"
                 />
-                {selected ? (
-                    <span
-                        aria-hidden
-                        className="absolute top-0 right-0 rounded-none bg-primary p-2 text-white"
-                    >
-                        <Check className="size-3 shrink-0" />
-                    </span>
-                ) : null}
-            </span>
-            <span className="block min-w-0 p-3">
                 <span
-                    className="line-clamp-2 text-sm font-bold break-words text-foreground uppercase"
+                    aria-hidden
+                    className={`absolute top-2.5 right-2.5 flex size-6.5 items-center justify-center rounded-full border border-white shadow-[0_1px_4px_rgb(0_0_0/0.25)] ${
+                        selected ? 'bg-foreground text-white' : 'bg-white/35'
+                    }`}
+                >
+                    {selected ? <Check className="size-3.5 shrink-0" /> : null}
+                </span>
+            </span>
+            <span className="block min-w-0 px-3.5 pt-3 pb-3.5">
+                <span
+                    className="line-clamp-2 text-sm font-semibold tracking-[0.02em] break-words text-foreground uppercase"
                     title={name}
                 >
                     {name}
                 </span>
-                <span className="block text-xs break-words text-secondary-foreground">
+                <span className="mt-0.5 block text-[0.8125rem] break-words text-muted-foreground">
                     {typeName}
                 </span>
             </span>
