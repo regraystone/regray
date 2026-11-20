@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Actions\Profile\ProfileSummaryAction;
 use App\Enums\SocialProvider;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
@@ -19,16 +20,19 @@ class ProfileController extends Controller
      * Show the Profile hub.
      *
      * Not a form: this is the page the sidebar and the header dropdown point at,
-     * and it only lists the doors this reader has. Which of them are drawn is
-     * decided in the front end from the shared `auth.permissions` prop, the same
-     * way the sidebar decides what to hide, so there is nothing to pass here.
+     * and it lists the doors this reader has. Which of them are drawn is decided
+     * in the front end from the shared `auth.permissions` prop, the same way the
+     * sidebar decides what to hide. The summary adds the reader's phone and
+     * company and the figures beside the doors (ProfileSummaryAction).
      *
-     * Placeholder rows (Payments, Quotations, Warranties, Points and Report a Bug)
-     * are UI stubs that display a "coming soon" toast when clicked.
+     * Placeholder doors (Transaction History, Warranties, Loyalty & Rewards and
+     * Report a Bug) are UI stubs that display a "coming soon" toast when clicked.
      */
-    public function show(): Response
+    public function show(Request $request, ProfileSummaryAction $summary): Response
     {
-        return Inertia::render('profile/index');
+        return Inertia::render('profile/index', [
+            'summary' => $summary->execute($request->user()),
+        ]);
     }
 
     /**
