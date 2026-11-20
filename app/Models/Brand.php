@@ -17,7 +17,16 @@ use Illuminate\Support\Carbon;
  *
  * `logo_path` and `thumbnail_path` are paths on the public disk
  * (`config('filesystems.public_disk')`), resolved to URLs through
- * ProjectCardResource::resolveThumbnailUrl.
+ * ProjectCardResource::resolveThumbnailUrl. An uploaded image is stored under
+ * a random name (StoredFileName); its own name, type and size are kept beside
+ * the path, to show to people only.
+ *
+ * A hidden brand (`is_active` false) keeps its products but has no page. An
+ * archived one (`archived_at`) is gone everywhere a brand is read, and its
+ * stones and furniture with it (Stone::active(), Furniture::active()).
+ *
+ * Its facts, what it makes and its social links are rows of their own
+ * (BrandFact, BrandMake, BrandSocial), each in its page's order.
  *
  * @property int $id
  * @property string $slug
@@ -29,11 +38,21 @@ use Illuminate\Support\Carbon;
  * @property string|null $website_url
  * @property bool $is_active
  * @property int $sort_order
+ * @property Carbon|null $archived_at
+ * @property string|null $logo_original_name
+ * @property string|null $logo_mime_type
+ * @property int|null $logo_size_bytes
+ * @property string|null $thumbnail_original_name
+ * @property string|null $thumbnail_mime_type
+ * @property int|null $thumbnail_size_bytes
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, Stone> $stones
  * @property-read Collection<int, Furniture> $furniture
+ * @property-read Collection<int, BrandFact> $facts
+ * @property-read Collection<int, BrandMake> $makes
+ * @property-read Collection<int, BrandSocial> $socials
  */
 #[Fillable(['slug', 'name', 'logo_path', 'thumbnail_path', 'tagline', 'description', 'website_url', 'is_active', 'sort_order'])]
 class Brand extends Model
@@ -46,6 +65,9 @@ class Brand extends Model
         return [
             'is_active' => 'boolean',
             'sort_order' => 'integer',
+            'archived_at' => 'datetime',
+            'logo_size_bytes' => 'integer',
+            'thumbnail_size_bytes' => 'integer',
         ];
     }
 
@@ -80,12 +102,89 @@ class Brand extends Model
     }
 
     /**
+     * The brands shown on Regray: visible, and not archived.
+     *
      * @param  Builder<static>  $query
      */
     #[Scope]
     protected function active(Builder $query): void
     {
-        $query->where('is_active', true);
+        $query->where($query->qualifyColumn('is_active'), true)
+            ->whereNull($query->qualifyColumn('archived_at'));
+    }
+
+    /**
+     * The brands still on the admin's Brands page: hidden or not, but not
+     * archived.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function notArchived(Builder $query): void
+    {
+        $query->whereNull($query->qualifyColumn('archived_at'));
+    }
+
+    /** The relations details() reads, to load with the brand. */
+    public const DETAILS = ['facts', 'makes', 'socials'];
+
+    /**
+     * Its facts, what it makes and its social links as plain lists, in its
+     * page's order: what the pages and the audit log read. Expects them loaded
+     * (DETAILS).
+     *
+     * @return array{facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>}
+     */
+    public function details(): array
+    {
+        return [
+            'facts' => array_values($this->facts->map(fn (BrandFact $fact): array => ['label' => $fact->label, 'value' => $fact->value])->all()),
+            'makes' => array_values($this->makes->map(fn (BrandMake $make): string => $make->name)->all()),
+            'socials' => array_values($this->socials->map(fn (BrandSocial $social): array => ['platform' => $social->platform->value, 'url' => $social->url])->all()),
+        ];
+    }
+
+    /**
+     * Swap its facts, what it makes and its social links for these, numbered
+     * in the order given, and load the new ones. Run it in the transaction
+     * that saves the brand.
+     *
+     * @param  array{facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>}  $details
+     */
+    public function replaceDetails(array $details): void
+    {
+        foreach (self::DETAILS as $relation) {
+            $this->{$relation}()->delete();
+        }
+
+        $numbered = fn (array $rows, \Closure $row): array => array_map(
+            fn (int $order, mixed $item): array => [...$row($item), 'sort_order' => $order],
+            array_keys($rows), $rows,
+        );
+
+        $this->facts()->createMany($numbered($details['facts'], fn (array $fact): array => ['label' => $fact['label'], 'value' => $fact['value']]));
+        $this->makes()->createMany($numbered($details['makes'], fn (string $name): array => ['name' => $name]));
+        $this->socials()->createMany($numbered($details['socials'], fn (array $social): array => ['platform' => $social['platform'], 'url' => $social['url']]));
+
+        $this->load(self::DETAILS);
+    }
+
+    /** @return HasMany<BrandFact, $this> */
+    public function facts(): HasMany
+    {
+        return $this->hasMany(BrandFact::class)->orderBy('sort_order');
+    }
+
+    /** @return HasMany<BrandMake, $this> */
+    public function makes(): HasMany
+    {
+        return $this->hasMany(BrandMake::class)->orderBy('sort_order');
+    }
+
+    /** @return HasMany<BrandSocial, $this> */
+    public function socials(): HasMany
+    {
+        return $this->hasMany(BrandSocial::class)->orderBy('sort_order');
     }
 
     /** @return HasMany<Project, $this> */

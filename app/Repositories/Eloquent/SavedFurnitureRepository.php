@@ -15,7 +15,8 @@ class SavedFurnitureRepository implements SavedFurnitureRepositoryInterface
     public function activeFurnitureFor(User $user): Collection
     {
         return Furniture::query()
-            ->active()
+            // The piece's own flag only: one of an archived brand stays saved, as history.
+            ->where('furniture.is_active', true)
             ->with(['brand:id,slug,name', 'furnitureType:id,slug,name'])
             ->join('saved_furniture', 'saved_furniture.furniture_id', '=', 'furniture.id')
             ->where('saved_furniture.user_id', $user->id)
@@ -30,7 +31,8 @@ class SavedFurnitureRepository implements SavedFurnitureRepositoryInterface
     public function activeSlugsFor(User $user): array
     {
         return Furniture::query()
-            ->active()
+            // The piece's own flag only: one of an archived brand stays saved, as history.
+            ->where('furniture.is_active', true)
             ->whereHas('savedBy', fn (Builder $query) => $query->where('user_id', $user->id))
             ->orderBy('furniture.sort_order')
             ->orderBy('furniture.name')

@@ -28,6 +28,24 @@ class BrandRepository implements BrandRepositoryInterface
             ->get(['id', 'slug', 'name', 'tagline', 'website_url', 'logo_path', 'thumbnail_path', 'description']);
     }
 
+    /** @return LengthAwarePaginator<int, Brand> */
+    public function paginateForAdmin(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator
+    {
+        return Brand::query()
+            ->notArchived()
+            ->when($escapedSearch !== null, fn (Builder $query) => $query->where('name', 'ILIKE', "%{$escapedSearch}%"))
+            ->with(Brand::DETAILS)
+            ->withCount([
+                'stones' => fn (Builder $stones) => $stones->where('is_active', true),
+                'furniture' => fn (Builder $furniture) => $furniture->where('is_active', true),
+                'projects' => fn (Builder $projects) => $projects->where('is_published', true),
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->paginate($perPage, page: $page);
+    }
+
     /**
      * Stones and furniture live in two tables, so the page of ids is taken from
      * a union of the two and the models are loaded after. Every collection goes

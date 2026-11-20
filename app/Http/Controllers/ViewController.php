@@ -11,10 +11,12 @@ use App\Enums\PaymentStatus;
 use App\Enums\Permission;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
+use App\Enums\SocialPlatform;
 use App\Enums\ScheduleAction;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\AccountResource;
+use App\Http\Resources\AdminBrandResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryRowResource;
@@ -24,6 +26,7 @@ use App\Http\Resources\ScheduleResource;
 use App\Models\Lead;
 use App\Models\Schedule;
 use App\Models\User;
+use App\Repositories\Contracts\BrandRepositoryInterface;
 use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
@@ -31,6 +34,7 @@ use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
 use App\Services\WalkInInquiryService;
+use App\Support\ReservedSlugs;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -344,9 +348,38 @@ class ViewController extends Controller
         ]);
     }
 
-    public function brands(Request $request): Response
+    /**
+     * The admin's Brands page: every brand but the archived, hidden ones too,
+     * by display order then name, a page at a time, searched by the brand's
+     * name. There is no status filter.
+     */
+    public function brands(DataTableRequest $request, BrandRepositoryInterface $brands): Response
     {
-        return Inertia::render('brands');
+        return Inertia::render('brands', [
+            'brands' => self::page($brands->paginateForAdmin(
+                $request->escapedSearch(),
+                $request->perPage(),
+                $request->page(),
+            ), AdminBrandResource::class, $request),
+            'filters' => $request->filters(),
+            'canCreate' => $request->user()?->can(Permission::BrandsCreate->value) ?? false,
+            'limits' => [
+                'logoMaxKb' => config()->integer('brands.logo_max_kb'),
+                'thumbnailMaxKb' => config()->integer('brands.thumbnail_max_kb'),
+                'factsMax' => config()->integer('brands.facts_max'),
+                'factLabelMax' => config()->integer('brands.fact_label_max'),
+                'factValueMax' => config()->integer('brands.fact_value_max'),
+                'makesMax' => config()->integer('brands.makes_max'),
+                'makeMax' => config()->integer('brands.make_max'),
+            ],
+            // The networks a brand may link to, each with its own icon on its page.
+            'socialPlatforms' => array_map(
+                fn (SocialPlatform $platform): array => ['value' => $platform->value, 'label' => $platform->label()],
+                SocialPlatform::cases(),
+            ),
+            'reservedSlugs' => ReservedSlugs::ALL,
+            'publicBrandUrl' => route('brands.show', '__slug__'),
+        ]);
     }
 
     public function products(Request $request): Response

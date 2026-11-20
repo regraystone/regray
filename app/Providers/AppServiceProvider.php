@@ -76,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
         'inquiry-edit',
         'address-book-save',
         'account-save',
+        'brand-save',
         'ph-address-search',
         'inquiry-files',
         'booking',
@@ -229,6 +230,8 @@ class AppServiceProvider extends ServiceProvider
      *   preview a HEAD and a GET; only a script walking the files reaches it.
      * - `account-save`: the admin's Accounts page writes: add, edit, turn on
      *   or off, archive.
+     * - `brand-save`: the admin's Brands page writes: add, edit (images
+     *   included), archive.
      * - `booking`: Book an appointment.
      * - `saved-stone`: the heart on a stone card. A person taps through a
      *   feed; only a script reaches this.

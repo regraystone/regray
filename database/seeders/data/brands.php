@@ -5,7 +5,23 @@
  * `thumbnail_path` are where the images live on the public disk: committed at
  * storage/app/public/<path> locally, like the stone, project and furniture
  * photographs, and uploaded to the bucket by hand on AWS.
+ *
+ * `facts` and `makes` are what a brand's page says about the house: its facts
+ * ("Made in", "Treia, Italy") and what it makes. They were BRAND_DETAILS in
+ * public-links.ts. They are rows of their own (brand_facts, brand_makes), and
+ * the migration that made those tables copied them from here.
+ *
+ * `socials` are the brand's social links ({platform, url}, SocialPlatform;
+ * brand_socials), in the order its page shows them. Every brand's page used to show Regray's
+ * own Facebook, Instagram and TikTok, so each brand starts with those; the
+ * admin sets a brand's own on the Brands page.
  */
+$regraySocials = [
+    ['platform' => 'facebook', 'url' => 'https://www.facebook.com/Regraystone'],
+    ['platform' => 'instagram', 'url' => 'https://www.instagram.com/regraystoneph/'],
+    ['platform' => 'tiktok', 'url' => 'https://www.tiktok.com/@regraystone'],
+];
+
 return [
     [
         'slug' => 'regray-stone',
@@ -15,6 +31,13 @@ return [
         'website_url' => 'https://regraystone.com/',
         'tagline' => 'Natural stone and bespoke furniture, from sourcing to installation nationwide.',
         'description' => 'Luxury natural stone, bespoke furniture and interior solutions from Makati City, with sourcing, fabrication and installation nationwide. Over 1,000 spaces installed.',
+        'facts' => [
+            ['label' => 'Based in', 'value' => 'Makati City, Philippines'],
+            ['label' => 'Services', 'value' => 'Sourcing, fabrication and installation, nationwide'],
+            ['label' => 'Installed', 'value' => 'Over 1,000 spaces'],
+        ],
+        'makes' => ['Natural stone', 'Bespoke furniture', 'Interior solutions'],
+        'socials' => $regraySocials,
     ],
     [
         'slug' => 'cucine',
@@ -24,6 +47,14 @@ return [
         'website_url' => 'https://www.cucinelube.it/',
         'tagline' => 'Italian kitchens from Treia, founded in 1967, sold in 76 countries.',
         'description' => 'Italy\'s largest kitchen manufacturer, founded in 1967 in Treia. Around 75,000 kitchens a year, sold in 76 countries.',
+        'facts' => [
+            ['label' => 'Made in', 'value' => 'Treia, Italy'],
+            ['label' => 'Founded', 'value' => '1967'],
+            ['label' => 'Output', 'value' => 'Around 75,000 kitchens a year'],
+            ['label' => 'Sold in', 'value' => '76 countries'],
+        ],
+        'makes' => ['Kitchens'],
+        'socials' => $regraySocials,
     ],
     [
         'slug' => 'ascale',
@@ -33,6 +64,12 @@ return [
         'website_url' => 'https://www.ascale.es/',
         'tagline' => 'Large-format sintered stone from Spain, in slabs up to 162 by 324 cm.',
         'description' => 'Large-format sintered stone from Spain\'s Pamesa group, in slabs up to 162 by 324 cm for countertops, floors, walls and façades.',
+        'facts' => [
+            ['label' => 'Made in', 'value' => 'Spain, by the Pamesa group'],
+            ['label' => 'Slabs', 'value' => 'Up to 162 × 324 cm'],
+        ],
+        'makes' => ['Countertops', 'Floors', 'Walls', 'Façades'],
+        'socials' => $regraySocials,
     ],
     [
         'slug' => 'faer',
@@ -42,6 +79,12 @@ return [
         'website_url' => null,
         'tagline' => "Gruppo Lube's wall units, wardrobes, bedrooms and desks, made in Treia.",
         'description' => 'Gruppo Lube\'s brand for the rest of the home: wall units, wardrobes, bedrooms and desks, made in Treia.',
+        'facts' => [
+            ['label' => 'Made in', 'value' => 'Treia, Italy'],
+            ['label' => 'Group', 'value' => 'Gruppo Lube'],
+        ],
+        'makes' => ['Wall units', 'Wardrobes', 'Bedrooms', 'Desks'],
+        'socials' => $regraySocials,
     ],
     [
         'slug' => 'reform',
@@ -52,6 +95,11 @@ return [
         // re/form, the sintered stone brand, as regraystone.com describes it.
         'tagline' => 'Sintered stone surfaces with refined contemporary design and sophisticated finishes.',
         'description' => 'Re/form redefines materiality through advanced technology, precision engineering and refined contemporary design: sintered stone surfaces with sophisticated finishes, for architectural solutions defined by performance, craftsmanship and understated luxury.',
+        'facts' => [
+            ['label' => 'Material', 'value' => 'Sintered stone'],
+        ],
+        'makes' => ['Sintered stone surfaces', 'Architectural solutions'],
+        'socials' => $regraySocials,
     ],
     [
         'slug' => 'res-italia',
@@ -61,5 +109,11 @@ return [
         'website_url' => 'https://resitalia.it/',
         'tagline' => 'Italian interior doors and door systems, made in Brianza since 1962.',
         'description' => 'Interior doors and door systems, made in Seregno, Brianza, since 1962.',
+        'facts' => [
+            ['label' => 'Made in', 'value' => 'Seregno, Brianza, Italy'],
+            ['label' => 'Founded', 'value' => '1962'],
+        ],
+        'makes' => ['Interior doors', 'Door systems'],
+        'socials' => $regraySocials,
     ],
 ];

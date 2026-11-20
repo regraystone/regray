@@ -110,12 +110,13 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.stones' => ['nullable', 'array', 'max:'.$limits['stone_rows']],
             'projects.*.stones.*.stoneId' => [
                 'required', 'string',
-                Rule::exists('stones', 'slug')->where('is_active', true)->whereNull('deleted_at'),
+                Rule::exists('stones', 'slug')->where('is_active', true)->whereNull('deleted_at')
+                    ->where(fn ($stones) => $stones->whereIn('brand_id', Brand::query()->notArchived()->select('id'))),
             ],
             'projects.*.answers' => ['nullable', 'array'],
 
             'projects.*.brands' => ['nullable', 'array', 'max:'.self::BRANDS_MAX],
-            'projects.*.brands.*' => ['string', 'distinct', Rule::exists('brands', 'slug')->where('is_active', true)],
+            'projects.*.brands.*' => ['string', 'distinct', Rule::exists('brands', 'slug')->where('is_active', true)->whereNull('archived_at')],
             'projects.*.brandNoPreference' => ['nullable', 'boolean'],
 
             // Whether it is asked, and the address with it, is the service's: see after().

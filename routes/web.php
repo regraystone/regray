@@ -5,6 +5,7 @@ use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Address\PhPlaceController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\PasswordChangeController;
+use App\Http\Controllers\Brand\BrandAdminController;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Brand\ProductRedirectController;
 use App\Http\Controllers\Furniture\FurnitureController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Schedule\SalesPickerController;
 use App\Http\Controllers\Schedule\ScheduleChangeController;
 use App\Http\Controllers\ViewController;
 use App\Http\Middleware\RedirectSignedInToDashboard;
+use App\Support\ReservedSlugs;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -532,6 +534,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('brands', [ViewController::class, 'brands'])
             ->middleware(Permission::BrandsView->middleware())
             ->name('dashboard.brands.index');
+        /*
+         * The Brands page's writes, each behind its own permission on top of
+         * the page's. `{id}` is a plain id (BrandAdminController::find()), not
+         * the slug binding above, which finds only a visible brand. An edit
+         * is a POST with `_method=put`, since a PUT can't carry its images.
+         */
+        Route::middleware([Permission::BrandsView->middleware(), 'throttle:brand-save'])->group(function () {
+            Route::post('brands', [BrandAdminController::class, 'store'])
+                ->middleware(Permission::BrandsCreate->middleware())
+                ->name('dashboard.brands.store');
+            Route::put('brands/{id}', [BrandAdminController::class, 'update'])
+                ->middleware(Permission::BrandsUpdate->middleware())
+                ->name('dashboard.brands.update');
+            Route::post('brands/{id}/archive', [BrandAdminController::class, 'archive'])
+                ->middleware(Permission::BrandsArchive->middleware())
+                ->name('dashboard.brands.archive');
+        });
         Route::get('products', [ViewController::class, 'products'])
             ->middleware(Permission::ProductsView->middleware())
             ->name('products.index');
@@ -590,11 +609,11 @@ Route::middleware(['auth', 'verified', 'throttle:ph-address-search'])
 
 /*
  * Public catch-all: a project's profile, or a stone's old address, at /{slug}.
- * Reserved single-segment names are excluded via negative lookahead.
+ * Reserved single-segment names (App\Support\ReservedSlugs) are excluded via negative lookahead.
  * Must be registered last, after all other routes.
  */
 Route::get('/{slug}', [HomeStoneProfileController::class, 'showFlat'])
-    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|products|services|projects|accounts|our-brands|showroom|about|news|contact)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+    ->where('slug', ReservedSlugs::catchAllPattern())
     ->middleware('throttle:heavy-reads')
     ->name('stone.show');
 

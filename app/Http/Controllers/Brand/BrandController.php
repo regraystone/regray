@@ -38,7 +38,7 @@ class BrandController extends Controller
         $result = $this->listProducts->execute($brand, BrandProductFilterData::fromRequest($request));
 
         return Inertia::render('brand-profile', [
-            'brand' => new BrandProfileResource($brand),
+            'brand' => new BrandProfileResource($brand->load(Brand::DETAILS)),
             'products' => Inertia::scroll(BrandProductResource::collection($result['products'])),
             'hasProducts' => $result['hasProducts'],
             'filters' => $result['filters'],

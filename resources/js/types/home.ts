@@ -49,10 +49,30 @@ export type ProductBrand = {
     name: string;
 };
 
+/** One fact about a brand, such as "Made in" / "Treia, Italy". */
+export type BrandFact = { label: string; value: string };
+
+/** The social networks a brand can link to (SocialPlatform on the server). */
+export type SocialPlatform =
+    | 'facebook'
+    | 'twitter'
+    | 'x'
+    | 'instagram'
+    | 'tiktok';
+
+/** One of a brand's social links, in the order its page shows them. */
+export type BrandSocial = { platform: SocialPlatform; url: string };
+
 export type BrandProfile = BrandCardData & {
     description: string | null;
     websiteUrl: string | null;
     thumbnail: string | null;
+    /** Set on the admin's Brands page, in the order they show. */
+    facts: BrandFact[];
+    /** What the brand makes, such as "Kitchens". */
+    makes: string[];
+    /** Its social links, one per network, each shown with that network's icon. */
+    socials: BrandSocial[];
     projects: ProjectCardData[];
 };
 

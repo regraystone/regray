@@ -15,6 +15,7 @@ use App\Models\InquiryStatusHistory;
 use App\Models\User;
 use App\Policies\InquiryFileUploads;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
+use App\Support\StoredFileName;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Date;
@@ -302,7 +303,7 @@ class InquiryStatusUpdateService
         $this->fileUploads->authorize($by, $type, $inquiry);
 
         $disk = config('inquiry.disk');
-        $name = InquiryFile::storedNameFor($file);
+        $name = StoredFileName::for($file);
         $path = Storage::disk($disk)->putFileAs("inquiries/{$inquiry->reference}", $file, $name);
 
         if ($path === false) {

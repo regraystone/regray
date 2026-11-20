@@ -61,12 +61,16 @@ class Stone extends Model
     }
 
     /**
+     * The stones shown on Regray: active, of a brand that is not archived. A
+     * saved stone or a past inquiry's keeps reading it without this.
+     *
      * @param  Builder<static>  $query
      */
     #[Scope]
     protected function active(Builder $query): void
     {
-        $query->where('is_active', true);
+        $query->where($query->qualifyColumn('is_active'), true)
+            ->whereIn($query->qualifyColumn('brand_id'), Brand::query()->notArchived()->select('id'));
     }
 
     /**
@@ -80,6 +84,7 @@ class Stone extends Model
     protected function offeredFor(Builder $query, Service $service): void
     {
         $query->where('stones.is_active', true)
+            ->whereIn('stones.brand_id', Brand::query()->notArchived()->select('id'))
             ->whereIn('stones.stone_type_id', $service->stoneTypes()->getQuery()->select('stone_types.id'));
     }
 

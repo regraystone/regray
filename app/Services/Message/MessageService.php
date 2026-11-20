@@ -15,6 +15,7 @@ use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use App\Services\Notification\MessageNotificationService;
+use App\Support\StoredFileName;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Date;
@@ -189,9 +190,7 @@ class MessageService
 
         try {
             foreach ($files as $file) {
-                // From the bytes, not the name: a PDF sent as `x.html` is stored as `.pdf`.
-                $extension = strtolower((string) $file->guessExtension());
-                $name = Str::uuid()->toString().($extension === '' ? '' : '.'.$extension);
+                $name = StoredFileName::for($file);
                 $path = Storage::disk($disk)->putFileAs("messages/{$conversation->id}", $file, $name);
 
                 if ($path === false) {

@@ -20,6 +20,17 @@ interface BrandRepositoryInterface
     public function active(): Collection;
 
     /**
+     * The admin's Brands page: every brand but the archived, hidden ones too,
+     * by display order then name, a page at a time. The search (already
+     * escaped for ILIKE) matches the brand's name only. Each
+     * comes with how many active stones and furniture and published projects
+     * it has.
+     *
+     * @return LengthAwarePaginator<int, Brand>
+     */
+    public function paginateForAdmin(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator;
+
+    /**
      * One page of the brand's active products: its stones, its furniture, or
      * both in one list ordered by name.
      *

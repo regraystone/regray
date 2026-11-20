@@ -245,6 +245,26 @@ enum Permission: string
     case AccountsArchive = 'accounts.archive';
 
     /**
+     * Adding a brand from the Brands page: its name, slug, images, facts and
+     * what it makes. An action permission: it guards the endpoint and the Add
+     * brand button, not a page. The admin's alone.
+     */
+    case BrandsCreate = 'brands.create';
+
+    /**
+     * Changing a brand from the Brands page, its images included, and whether
+     * it is visible on Regray. The admin's alone.
+     */
+    case BrandsUpdate = 'brands.update';
+
+    /**
+     * Archiving a brand from the Brands page: it leaves the page and goes
+     * offline everywhere, and its stones and furniture with it. Saved items
+     * and past inquiries keep them. The admin's alone.
+     */
+    case BrandsArchive = 'brands.archive';
+
+    /**
      * The `can:` middleware string that guards a route with this permission.
      *
      * Laravel hands middleware its parameters as strings, so a route cannot

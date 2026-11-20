@@ -6,9 +6,7 @@ use App\Enums\DocumentType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 
 /**
  * @property int $id
@@ -56,15 +54,6 @@ class InquiryFile extends Model
         return [
             'document_type' => DocumentType::class,
         ];
-    }
-
-    /**
-     * The name a new upload is stored under: a fresh UUID, with the extension
-     * of the type validation read from its content, never the uploader's name.
-     */
-    public static function storedNameFor(UploadedFile $file): string
-    {
-        return Str::uuid()->toString().'.'.($file->guessExtension() ?? 'bin');
     }
 
     public function isPreviewable(): bool

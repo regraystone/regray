@@ -3,11 +3,12 @@
 namespace App\Data;
 
 /**
- * The files an inquiry write has put on disk so far.
+ * The files a write has put on disk so far: an inquiry's, or a brand's
+ * images (BrandAdminService).
  *
- * Handed to the service by the action so the action can remove them again when
- * the write fails part-way: a file lands on disk before the database knows
- * about it, so a rolled-back transaction cannot take it back on its own.
+ * Kept so the write can remove them again when it fails part-way: a file
+ * lands on disk before the database knows about it, so a rolled-back
+ * transaction cannot take it back on its own.
  */
 class WrittenFiles
 {

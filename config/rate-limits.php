@@ -34,6 +34,10 @@ return [
         // turning off and archiving accounts.
         'account-save' => (int) env('RATE_LIMIT_ACCOUNT_SAVE', 20),
 
+        // POST, PUT dashboard/brands/*: the admin adding, changing and
+        // archiving brands, images included.
+        'brand-save' => (int) env('RATE_LIMIT_BRAND_SAVE', 20),
+
         // GET api/ph/*: the address picker's searches, debounced as the reader types.
         'ph-address-search' => (int) env('RATE_LIMIT_PH_ADDRESS_SEARCH', 120),
 

@@ -50,12 +50,16 @@ class Furniture extends Model
     }
 
     /**
+     * The furniture shown on Regray: active, of a brand that is not archived.
+     * A saved piece keeps reading it without this.
+     *
      * @param  Builder<static>  $query
      */
     #[Scope]
     protected function active(Builder $query): void
     {
-        $query->where('is_active', true);
+        $query->where($query->qualifyColumn('is_active'), true)
+            ->whereIn($query->qualifyColumn('brand_id'), Brand::query()->notArchived()->select('id'));
     }
 
     /** @return BelongsTo<FurnitureType, $this> */
