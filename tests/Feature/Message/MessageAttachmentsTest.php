@@ -216,11 +216,14 @@ it('serves a file to a member, under its own name and type', function (): void {
     $group = groupConversation([$sales, $client]);
     $url = sendFiles($client, $group, [floorPlan()])->json('message.attachments.0.url');
 
-    $this->actingAs($sales)->get($url)
+    $response = $this->actingAs($sales)->get($url)
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf')
         ->assertHeader('Content-Disposition', 'inline; filename="Floor plan.pdf"')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
+
+    // Never kept by the browser: each showing asks for access again.
+    expect($response->headers->get('Cache-Control'))->toContain('no-store')->toContain('private');
 
     $this->actingAs($sales)->get($url.'?download=1')
         ->assertOk()

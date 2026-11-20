@@ -1,3 +1,14 @@
+# Real-time chat only reaches those who may read the conversation now
+
+A chat channel is authorized once, when it is joined (and again on a reconnect), never in between, so a connection opened before someone lost access (an inquiry no longer theirs, a Regray Team thread claimed by someone else, an account turned off) kept receiving every message broadcast after. Now the channels carry no message content, and access is checked every time content is fetched.
+
+- **Ids only** (`MessageCreated`, `MessageUpdated`): `message.created` sends `{messageId, needsFetch: true}` for every kind of message (text and system ones used to travel whole), and `message.updated` / `message.removed` send `{messageId}`. No body, sender or attachment is on the channel.
+- **Fetched under the policy:** the open thread (`use-conversation-thread.ts`) fetches what is new (`inbox.thread`, `after`) and an edited or removed message by id (new `GET /dashboard/inbox/{conversation}/messages/{message}`, `inbox.message`, `can:view,conversation`; a removed message comes back as its tombstone, one of another conversation is a 404). The incoming-message notice and clearing the sender's typing still happen, once per message. A 403 leaves the thread with a notice: who is handling it now for a Regray Team thread, otherwise "You no longer have access to that conversation."
+- **Channels** (`routes/channels.php`): each rule also requires an account that may still sign in (`canSignIn()`), besides `EnsureAccountActive`, which signs a turned-off account out before `/broadcasting/auth` runs. A reconnect joins the channels again, so it is authorized again, and catches up over HTTP.
+- **Attachments:** still served only through the download route, which asks the conversation's policy each time (S3 links expire after 5 minutes); now `Cache-Control: private, no-store`, so the browser keeps no copy to show without asking.
+- Still on a thread's channel, as before: read receipts (`pointer.moved`: a name and message ids), claims (`support.claimed`: the assignee's name, already told to the pool) and the typing whisper (a name).
+- **Tests:** `tests/Feature/Message/RealtimeAccessTest.php`; `MessageAttachmentsTest` checks `no-store`.
+
 # Deleting an account with records says why, instead of a server error
 
 Deleting one's own account (Account & Security) used to sign the reader out and then hit a 500 when the database refused, because an inquiry, booking or lead still pointed to the account. Now the account is kept, the reader stays signed in, and they are told why in plain words; nothing technical is shown.

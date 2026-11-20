@@ -54,6 +54,21 @@ class ThreadController extends Controller
         ]);
     }
 
+    /**
+     * One message, as the conversation's channel announced it: the channel
+     * carries ids only, so its content is always fetched here, under the
+     * conversation's own policy, and stops reaching anyone who has lost
+     * access, whatever connection they still hold.
+     */
+    public function message(Request $request, Conversation $conversation, int $message): JsonResponse
+    {
+        $found = $this->conversationService->message($conversation, $message) ?? abort(404);
+
+        return response()->json([
+            'message' => (new MessageResource($found, $conversation, $request->user()))->resolve($request),
+        ]);
+    }
+
     public function send(SendMessageRequest $request, Conversation $conversation): JsonResponse
     {
         $user = $request->user();
