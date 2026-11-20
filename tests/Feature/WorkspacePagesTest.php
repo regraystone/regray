@@ -231,6 +231,7 @@ test('guards every route with exactly these permissions', function () {
         'inbox.messages.destroy' => $messages,
         'inbox.attachments.show' => $messages,
         'inbox.thread' => $messages,
+        'inbox.message' => $messages,
         'inbox.send' => $messages,
         'inbox.read' => $messages,
         'inbox.delivered' => $messages,
