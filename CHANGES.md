@@ -1,3 +1,7 @@
+# The fonts ship with the app, so a build no longer downloads them
+
+A Docker build failed whenever `fonts.bunny.net` was down (a 504 on 2026-11-20), because the build fetched Hanken Grotesk and Lexend from it each time. The two fonts are now files in the repo: `resources/fonts/` (weights 300 to 700, Latin, `.woff2`, the same files Bunny served), loaded by `resources/css/fonts.css`, which `app.css` imports. `vite.config.ts` no longer lists them, and the layout drops `@fonts`. Nothing changes on screen.
+
 # Projects: the admin adds, edits and archives the projects
 
 The admin's **Projects** page (`/dashboard/projects`) is built like Brands: every project but the archived, drafts too, as cards two to a row (one on a phone), newest completed first then by name, ten a page, searched by project name, all in the URL. The admin adds a project, edits one (its thumbnail, gallery, stones and categories included) and archives one. An archived project's page goes offline everywhere; a saved stone's projects keep showing it. The Brands card and its drawer parts are now shared. **Deploy, local and production: `php artisan migrate`** (one new migration) **and `php artisan db:seed --class=RolePermissionSeeder`** (three new permissions).
