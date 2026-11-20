@@ -102,6 +102,12 @@ interface InquiryRepositoryInterface
     public function clientHasActive(User $client): bool;
 
     /**
+     * How many of this client's inquiries are under the Quote list's Pending
+     * or In progress tabs: neither closed nor cancelled.
+     */
+    public function countOpenForClient(User $client): int;
+
+    /**
      * One page of this client's inquiries. The scope is the `$client` argument
      * and nothing else: it is never read from the filters.
      *

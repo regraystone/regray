@@ -1,3 +1,16 @@
+# The Profile page is redesigned
+
+The Profile hub (`/dashboard/profile`) is redesigned after Sir Mark's reference, in the app's own style, with only what the system holds.
+
+- **Header** (`pages/profile/index.tsx`): "My Profile", then who is signed in: their initials, name, email (with a mark when verified), the phone and company they gave and, for staff, their role, with **Edit profile** opening Account & Security. Beside it, **Loyalty & Rewards**, coming soon.
+- **Account:** Profile Details, opening Account & Security.
+- **Activity**, three cards in this order: **Quotations** with how many are open ("5 Active": under the Quote list's Pending or In progress tabs) and View quotations, for those with the Quote list; **Transaction History** and **Warranties**, both Soon.
+- **Schedule & Locations:** Schedule, and Delivery Addresses with "★ Default" when the reader has a default address. **Saved & Preferences:** Saved Items (with what is saved) and Settings. **Feedback:** Report a Bug, Soon. Each door shows only for those who may open it, as before.
+- **Data** (`ProfileSummaryAction`, sent as `summary`): `phone` and `company` from the user's profile; `openQuotations` (`InquiryRepository::countOpenForClient()`) and `hasDefaultAddress`, each null for a reader without that page.
+- **Soon** doors still only say "coming soon"; Points is now the Loyalty & Rewards card. Help & Support and Switch account on Settings carry the same Soon tag.
+- **The hub rows** (`components/hub-rows.tsx`), shared by Profile, Settings and Account & Security, sit in bordered boxes with each icon in a grey circle, take an optional `tag`, and a section may set its rows side by side (`grid`).
+- **Tests:** `tests/Feature/Settings/ProfileHubTest.php`.
+
 # Every brand's page is redesigned
 
 A brand's page (`/brands/{brand}` and its `/dashboard` twin) is rebuilt after the Brand Detail design, for all six brands, with only what the system holds: no invented catalogs, PDFs or products.
