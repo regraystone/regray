@@ -265,6 +265,26 @@ enum Permission: string
     case BrandsArchive = 'brands.archive';
 
     /**
+     * Adding a project from the Projects page: its name, slug, details,
+     * thumbnail and gallery, stones and categories. An action permission: it
+     * guards the endpoint and the Add project button, not a page. The admin's
+     * alone.
+     */
+    case ProjectsCreate = 'projects.create';
+
+    /**
+     * Changing a project from the Projects page, its images included, and
+     * whether it is published on Regray. The admin's alone.
+     */
+    case ProjectsUpdate = 'projects.update';
+
+    /**
+     * Archiving a project from the Projects page: it leaves the page and its
+     * page goes offline everywhere. Saved projects keep it. The admin's alone.
+     */
+    case ProjectsArchive = 'projects.archive';
+
+    /**
      * The `can:` middleware string that guards a route with this permission.
      *
      * Laravel hands middleware its parameters as strings, so a route cannot

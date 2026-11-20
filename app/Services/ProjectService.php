@@ -24,9 +24,9 @@ class ProjectService
     }
 
     /** Keep a missing published project a domain lookup failure; the HTTP handler renders its 404. */
-    public function getPublishedProject(string $stoneSlug, string $projectSlug): Project
+    public function getPublishedProject(string $stoneSlug, string $projectSlug, bool $withArchived = false): Project
     {
-        $project = $this->projectRepository->findPublishedInStone($stoneSlug, $projectSlug);
+        $project = $this->projectRepository->findPublishedInStone($stoneSlug, $projectSlug, $withArchived);
 
         if ($project === null) {
             throw (new ModelNotFoundException)->setModel(Project::class, [$projectSlug]);

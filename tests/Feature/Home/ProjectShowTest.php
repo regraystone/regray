@@ -36,7 +36,7 @@ test('a client reads the published database profile with ordered public fields',
     $images = $project->images()->orderBy('sort_order')->get();
     $images[0]->update(['path' => 'projects/last.jpg', 'sort_order' => 20]);
     $images[1]->update(['path' => '/storage/projects/middle.jpg', 'sort_order' => 10]);
-    $images[2]->update(['path' => 'projects/first.jpg', 'sort_order' => 5]);
+    $images[2]->update(['path' => 'projects/first.jpg', 'sort_order' => 5, 'original_name' => 'Kitchen island.jpg']);
     Stone::query()->where('slug', 'glacier-white')->update(['sort_order' => -1, 'thumbnail_path' => 'stones/patagonia.jpg']);
     $user = User::factory()->role(Role::Client)->create();
 
@@ -62,9 +62,10 @@ test('a client reads the published database profile with ordered public fields',
                     ->has('stones', 2)
                     ->where('stones.0', ['slug' => 'glacier-white', 'name' => 'Glacier White', 'thumbnail' => '/storage/stones/patagonia.jpg', 'type' => ['slug' => 'patagonia-quartzite', 'name' => 'Patagonia Quartzite']])
                     ->where('gallery', [
-                        ['src' => '/storage/projects/first.jpg'],
-                        ['src' => '/storage/projects/middle.jpg'],
-                        ['src' => '/storage/projects/last.jpg'],
+                        // Its file's own name is its alt text; a committed photo has none.
+                        ['src' => '/storage/projects/first.jpg', 'name' => 'Kitchen island'],
+                        ['src' => '/storage/projects/middle.jpg', 'name' => null],
+                        ['src' => '/storage/projects/last.jpg', 'name' => null],
                     ])
                 )
             )

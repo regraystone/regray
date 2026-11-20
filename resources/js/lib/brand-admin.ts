@@ -2,24 +2,10 @@ import type { SocialPlatform } from '@/types/home';
 
 /**
  * The admin Brands page's own rules, kept apart from the page so they can be
- * tested: the slug a name makes, the tags the "What it makes" input takes,
- * and how a brand's catalogue is counted in words.
+ * tested: the tags the "What it makes" input takes, how a brand's catalogue
+ * is counted in words, and which sites a social link may be on. The slug
+ * rules are shared with Projects (lib/slug.ts).
  */
-
-/** A slug: lower-case letters and numbers, in words joined by single hyphens. */
-export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-/** The slug a brand's name makes: "Cucine Lube" is "cucine-lube", "Façades & Co." is "facades-co". */
-export const slugify = (name: string): string =>
-    name
-        .normalize('NFKD')
-        .replace(/[̀-ͯ]/g, '')
-        .toLowerCase()
-        .replace(/&/g, ' ')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 100)
-        .replace(/-+$/g, '');
 
 /**
  * The tags typed so far, plus those in `input`: split at commas, trimmed,
@@ -96,15 +82,6 @@ export const websiteDomain = (url: string): string => {
         return url;
     }
 };
-
-/** The letters a brand without a thumbnail shows: "Cucine Lube" is "CL". */
-export const brandInitials = (name: string): string =>
-    name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((word) => word[0]?.toUpperCase() ?? '')
-        .join('');
 
 /** The sites each network's links are on (SocialPlatform::hosts() on the server). */
 export const SOCIAL_HOSTS: Record<SocialPlatform, string[]> = {
