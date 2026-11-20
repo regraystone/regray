@@ -98,6 +98,78 @@ export const BRAND_CATEGORIES = [
     },
 ] as const;
 
+/**
+ * What a brand's page says about the house itself, by slug: its facts and
+ * what it makes. Every line restates the brand's own description (the
+ * brands' seed data, from regraystone.com and the makers' sites); what it
+ * has in the catalog is counted on the page instead.
+ */
+export const BRAND_DETAILS: Record<
+    string,
+    { facts: Array<{ label: string; value: string }>; makes: string[] }
+> = {
+    'regray-stone': {
+        facts: [
+            { label: 'Based in', value: 'Makati City, Philippines' },
+            {
+                label: 'Services',
+                value: 'Sourcing, fabrication and installation, nationwide',
+            },
+            { label: 'Installed', value: 'Over 1,000 spaces' },
+        ],
+        makes: ['Natural stone', 'Bespoke furniture', 'Interior solutions'],
+    },
+    cucine: {
+        facts: [
+            { label: 'Made in', value: 'Treia, Italy' },
+            { label: 'Founded', value: '1967' },
+            { label: 'Output', value: 'Around 75,000 kitchens a year' },
+            { label: 'Sold in', value: '76 countries' },
+        ],
+        makes: ['Kitchens'],
+    },
+    ascale: {
+        facts: [
+            { label: 'Made in', value: 'Spain, by the Pamesa group' },
+            { label: 'Slabs', value: 'Up to 162 × 324 cm' },
+        ],
+        makes: ['Countertops', 'Floors', 'Walls', 'Façades'],
+    },
+    faer: {
+        facts: [
+            { label: 'Made in', value: 'Treia, Italy' },
+            { label: 'Group', value: 'Gruppo Lube' },
+        ],
+        makes: ['Wall units', 'Wardrobes', 'Bedrooms', 'Desks'],
+    },
+    reform: {
+        facts: [{ label: 'Material', value: 'Sintered stone' }],
+        makes: ['Sintered stone surfaces', 'Architectural solutions'],
+    },
+    'res-italia': {
+        facts: [
+            { label: 'Made in', value: 'Seregno, Brianza, Italy' },
+            { label: 'Founded', value: '1962' },
+        ],
+        makes: ['Interior doors', 'Door systems'],
+    },
+};
+
+/**
+ * Each brand logo's height in px at full size, by slug, so the names read at
+ * about one size: the square Lube badge is tallest, the long Faer wordmark
+ * lowest. The landing page's brand wall and a brand's page scale it.
+ */
+export const BRAND_LOGO_HEIGHT: Record<string, number> = {
+    'regray-stone': 26,
+    cucine: 84,
+    reform: 52,
+    ascale: 30,
+    faer: 18,
+    'res-italia': 56,
+};
+export const DEFAULT_BRAND_LOGO_HEIGHT = 40;
+
 export type MenuLink = { label: string; href: string; external?: boolean };
 
 /** A tab that opens a panel: what it holds, its main link, its links and a photo. */

@@ -1,5 +1,7 @@
 import { Link } from '@inertiajs/react';
 import {
+    BRAND_LOGO_HEIGHT,
+    DEFAULT_BRAND_LOGO_HEIGHT,
     SHOWROOM,
     SHOWROOM_MAP,
     brandUrl,
@@ -114,21 +116,6 @@ export function LandingDiscover() {
     );
 }
 
-/**
- * Each logo's height on the brand wall, in px at full size (three quarters
- * on phones), by brand slug, so the names read at about one size: the square
- * Lube badge is tallest, the long Faer wordmark lowest.
- */
-const WALL_LOGO_HEIGHT: Record<string, number> = {
-    'regray-stone': 26,
-    cucine: 84,
-    reform: 52,
-    ascale: 30,
-    faer: 18,
-    'res-italia': 56,
-};
-const DEFAULT_WALL_LOGO_HEIGHT = 40;
-
 /** 02. The brands as a wall of logos on navy, each opening its page. */
 export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
     return (
@@ -162,7 +149,8 @@ export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
                                     loading="lazy"
                                     className="max-w-full object-contain"
                                     style={{
-                                        height: `calc(${WALL_LOGO_HEIGHT[brand.slug] ?? DEFAULT_WALL_LOGO_HEIGHT}px * var(--wall))`,
+                                        // At full size from sm up, three quarters on phones.
+                                        height: `calc(${BRAND_LOGO_HEIGHT[brand.slug] ?? DEFAULT_BRAND_LOGO_HEIGHT}px * var(--wall))`,
                                     }}
                                 />
                             </Link>
