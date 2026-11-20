@@ -509,9 +509,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     ->name('inbox.members.store');
             });
         });
-        Route::get('stones', [ViewController::class, 'stones'])
-            ->middleware(Permission::StonesView->middleware())
-            ->name('stones.index');
+        /*
+         * The admin's catalogue pages: the brands, and their products (stones
+         * and furniture alike). Brands sits beside the catalogue's own
+         * `brands/{brand}` above, which a reader opens from Home.
+         */
+        Route::get('brands', [ViewController::class, 'brands'])
+            ->middleware(Permission::BrandsView->middleware())
+            ->name('dashboard.brands.index');
+        Route::get('products', [ViewController::class, 'products'])
+            ->middleware(Permission::ProductsView->middleware())
+            ->name('products.index');
+        // Products was Stones.
+        Route::redirect('stones', '/dashboard/products', 301);
         Route::get('services', [ViewController::class, 'services'])
             ->middleware(Permission::ServicesView->middleware())
             ->name('services.index');
@@ -548,7 +558,7 @@ Route::middleware(['auth', 'verified', 'throttle:ph-address-search'])
  * Must be registered last, after all other routes.
  */
 Route::get('/{slug}', [HomeStoneProfileController::class, 'showFlat'])
-    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|services|projects|accounts|our-brands|showroom|about|news|contact)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|products|services|projects|accounts|our-brands|showroom|about|news|contact)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
     ->middleware('throttle:heavy-reads')
     ->name('stone.show');
 
@@ -577,7 +587,8 @@ Route::redirect('/message/{conversation}', '/dashboard/inbox/{conversation}', 30
 Route::redirect('/dashboard/message', '/dashboard/inbox', 301);
 Route::redirect('/dashboard/message/{conversation}', '/dashboard/inbox/{conversation}', 301);
 
-Route::redirect('/stones', '/dashboard/stones', 301);
+Route::redirect('/stones', '/dashboard/products', 301);
+Route::redirect('/products', '/dashboard/products', 301);
 Route::redirect('/services', '/dashboard/services', 301);
 Route::redirect('/projects', '/dashboard/projects', 301);
 Route::redirect('/accounts', '/dashboard/accounts', 301);
