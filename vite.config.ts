@@ -4,25 +4,15 @@ import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
-import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 
 export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
+            // The fonts are files in resources/fonts, loaded by
+            // resources/css/fonts.css, so the build downloads none.
             refresh: true,
-            fonts: [
-                // Text, everywhere: the design's stand-in for Neue Montreal.
-                bunny('Hanken Grotesk', {
-                    weights: [300, 400, 500, 600, 700],
-                }),
-                // Headings and big titles (`font-display`): the design's
-                // stand-in for Garet, the Regray Stone brand font.
-                bunny('Lexend', {
-                    weights: [300, 400, 500, 600, 700],
-                }),
-            ],
         }),
         inertia(),
         react(),

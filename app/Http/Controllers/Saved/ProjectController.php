@@ -17,7 +17,8 @@ class ProjectController extends Controller
 
     public function show(ProjectShowRequest $request): Response
     {
-        $project = $this->showProject->execute($request->validated('stone'), $request->validated('project'));
+        // A saved stone's project stays, as history, after it is archived.
+        $project = $this->showProject->execute($request->validated('stone'), $request->validated('project'), withArchived: true);
 
         return Inertia::render('project-profile', [
             'project' => new ProjectProfileResource($project),

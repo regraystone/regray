@@ -9,7 +9,7 @@ import {
     Plus,
     Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Controller,
     useFieldArray,
@@ -19,10 +19,12 @@ import {
 } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import BrandAdminCard, {
-    BrandAdminCardSkeleton,
-    BrandCover,
-} from '@/components/brand-admin-card';
+import AdminCard, {
+    AdminCardCover,
+    AdminCardSkeleton,
+    type AdminCardCoverData,
+} from '@/components/admin-card';
+import { Detail, Section } from '@/components/admin-drawer-parts';
 import ConfirmDialog from '@/components/confirm-dialog';
 import DataTablePagination from '@/components/data-table/data-table-pagination';
 import DataTableSearch from '@/components/data-table/data-table-search';
@@ -51,20 +53,28 @@ import {
     archiveDescription,
     catalogueCount,
     isSocialLinkFor,
-    SLUG_PATTERN,
-    slugify,
     websiteDomain,
 } from '@/lib/brand-admin';
 import { DEFAULT_PAGE_SIZE } from '@/lib/data-table';
 import { formatDate } from '@/lib/format-date';
-import { formatFileSize } from '@/lib/message-attachments';
+import {
+    fileLine,
+    imageAccept,
+    imageFileSchema,
+    imageHint as imageTypesHint,
+    JPG,
+    PNG,
+    SVG,
+    WEBP,
+} from '@/lib/image-upload';
+import { initials } from '@/lib/initials';
+import { SLUG_PATTERN, slugify } from '@/lib/slug';
 import {
     archive as archiveBrand,
     store as storeBrand,
     update as updateBrand,
 } from '@/routes/dashboard/brands';
 import type {
-    BrandImageFile,
     BrandLimits,
     BrandRow,
     BrandsPageProps,
@@ -74,8 +84,8 @@ import type { SocialPlatform } from '@/types/home';
 const ONLY = ['brands', 'filters'];
 
 /** The image types a logo and a thumbnail may be (config/brands.php). */
-const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
-const IMAGE_ACCEPT = '.png,.jpg,.jpeg,.webp,.svg,' + IMAGE_TYPES.join(',');
+const IMAGE_TYPES = [PNG, JPG, WEBP, SVG];
+const IMAGE_ACCEPT = imageAccept(IMAGE_TYPES);
 
 type BrandValues = {
     name: string;
@@ -139,27 +149,6 @@ const isWebsite = (value: string) => {
     }
 };
 
-const imageSchema = (maxKb: number, what: string) =>
-    z
-        .custom<File | null>((value) => value === null || value instanceof File)
-        .superRefine((file, ctx) => {
-            if (file === null) {
-                return;
-            }
-
-            if (!IMAGE_TYPES.includes(file.type)) {
-                ctx.addIssue({
-                    code: 'custom',
-                    message: `The ${what} has to be a PNG, JPG, WebP or SVG.`,
-                });
-            } else if (file.size > maxKb * 1024) {
-                ctx.addIssue({
-                    code: 'custom',
-                    message: `The ${what} can be ${formatFileSize(maxKb * 1024)} at most.`,
-                });
-            }
-        });
-
 /**
  * The form's rules, the server's own (BrandValidationRules) so the drawer
  * says what is wrong before it sends anything. The logo is required only
@@ -205,8 +194,12 @@ const brandSchema = (
                     (value) => value === '' || isWebsite(value),
                     'Enter a web address, such as www.cucinelube.it.',
                 ),
-            logo: imageSchema(limits.logoMaxKb, 'logo'),
-            thumbnail: imageSchema(limits.thumbnailMaxKb, 'thumbnail'),
+            logo: imageFileSchema(IMAGE_TYPES, limits.logoMaxKb, 'logo'),
+            thumbnail: imageFileSchema(
+                IMAGE_TYPES,
+                limits.thumbnailMaxKb,
+                'thumbnail',
+            ),
             remove_thumbnail: z.boolean(),
             facts: z
                 .array(
@@ -308,50 +301,12 @@ type Drawer =
     | { mode: 'view'; brand: BrandRow }
     | { mode: 'edit'; brand: BrandRow };
 
-/** A label and its value in the View drawer. */
-const Detail = ({
-    label,
-    children,
-}: {
-    label: string;
-    children: ReactNode;
-}) => (
-    <div className="min-w-0">
-        <p className="mb-1 text-xs font-bold tracking-[0.05em] text-secondary-foreground uppercase">
-            {label}
-        </p>
-        <div className="text-sm break-words">{children}</div>
-    </div>
-);
-
-/** A part of the View drawer or the form, under its own small heading. */
-const Section = ({
-    title,
-    children,
-    as: Tag = 'section',
-}: {
-    title: string;
-    children: ReactNode;
-    as?: 'section' | 'fieldset';
-}) => (
-    <Tag className="space-y-4 border-t border-sidebar-border pt-5 first:border-t-0 first:pt-0">
-        {Tag === 'fieldset' ? (
-            <legend className="mb-4 text-xs font-bold tracking-[0.12em] text-secondary-foreground uppercase">
-                {title}
-            </legend>
-        ) : (
-            <h3 className="text-xs font-bold tracking-[0.12em] text-secondary-foreground uppercase">
-                {title}
-            </h3>
-        )}
-        {children}
-    </Tag>
-);
-
-const fileLine = (file: BrandImageFile | null) =>
-    file === null
-        ? '—'
-        : `${file.originalName}${file.sizeBytes ? ` · ${formatFileSize(file.sizeBytes)}` : ''}`;
+/** A brand's cover: its thumbnail, with its logo over it. */
+const brandCover = (brand: BrandRow): AdminCardCoverData => ({
+    image: brand.thumbnail,
+    logo: brand.logo,
+    initials: initials(brand.name),
+});
 
 /**
  * The admin's Brands page: every brand on Regray but the archived, as cards
@@ -539,7 +494,7 @@ const Brands = () => {
     const publicUrlFor = (value: string) =>
         props.publicBrandUrl.replace('__slug__', value || 'your-brand');
     const imageHint = (maxKb: number, extra?: string) =>
-        `PNG, JPG, WebP or SVG, up to ${formatFileSize(maxKb * 1024)}.${extra ? ` ${extra}` : ''}`;
+        imageTypesHint(IMAGE_TYPES, maxKb, extra);
 
     return (
         <div className="w-full min-w-0">
@@ -596,15 +551,29 @@ const Brands = () => {
                                       ),
                                   },
                                   (_, index) => (
-                                      <BrandAdminCardSkeleton
+                                      <AdminCardSkeleton
                                           key={`skeleton-${index}`}
+                                          testId="brand-card"
                                       />
                                   ),
                               )
                             : rows.map((brand) => (
-                                  <BrandAdminCard
+                                  <AdminCard
                                       key={brand.id}
-                                      brand={brand}
+                                      testId="brand-card"
+                                      title={brand.name}
+                                      subtitle={brand.tagline}
+                                      subtitlePlaceholder="No tagline yet"
+                                      cover={brandCover(brand)}
+                                      status={{
+                                          active: brand.isActive,
+                                          labels: ['Visible', 'Hidden'],
+                                      }}
+                                      meta={catalogueCount(
+                                          brand.stonesCount,
+                                          brand.furnitureCount,
+                                      )}
+                                      actions={brand.actions}
                                       onView={() =>
                                           setDrawer({ mode: 'view', brand })
                                       }
@@ -671,8 +640,8 @@ const Brands = () => {
                 {viewing !== null ? (
                     <div className="space-y-6" data-testid="brand-details">
                         <div className="-mx-1">
-                            <BrandCover
-                                brand={viewing}
+                            <AdminCardCover
+                                cover={brandCover(viewing)}
                                 className="border border-sidebar-border"
                             />
                             <div className="mt-4 flex flex-wrap items-start justify-between gap-3 px-1">

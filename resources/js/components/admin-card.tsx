@@ -3,53 +3,59 @@ import type { ReactNode } from 'react';
 import StatusBadge from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { brandInitials, catalogueCount } from '@/lib/brand-admin';
 import { cn } from '@/lib/utils';
-import type { BrandRow } from '@/types/brand-admin';
+
+/** What a card's cover shows: its image, a logo over it, and the letters to fall back on. */
+export type AdminCardCoverData = {
+    image: string | null;
+    logo?: string | null;
+    initials: string;
+};
 
 /**
- * A brand's cover: its thumbnail, or its logo (else its initials) on a muted
+ * A card's cover: its image, or its logo (else its initials) on a muted
  * ground when it has none, with the logo on its own, no chip, in the center
- * of the thumbnail (shown once when there is no thumbnail, as the placeholder
- * already has it there). The card and the View drawer both open with it.
+ * of the image (shown once when there is no image, as the placeholder already
+ * has it there). The cards and the View drawers of the admin's Brands and
+ * Projects pages open with it.
  */
-export const BrandCover = ({
-    brand,
+export const AdminCardCover = ({
+    cover,
     className,
 }: {
-    brand: Pick<BrandRow, 'name' | 'logo' | 'thumbnail'>;
+    cover: AdminCardCoverData;
     className?: string;
 }) => (
     <div className={cn('relative', className)}>
         <div className="aspect-[16/9] w-full overflow-hidden bg-muted">
-            {brand.thumbnail ? (
+            {cover.image ? (
                 <img
-                    src={brand.thumbnail}
+                    src={cover.image}
                     alt=""
                     loading="lazy"
                     className="size-full object-cover"
                 />
             ) : (
                 <div className="flex size-full items-center justify-center">
-                    {brand.logo ? (
+                    {cover.logo ? (
                         <img
-                            src={brand.logo}
+                            src={cover.logo}
                             alt=""
                             loading="lazy"
                             className="max-h-[40%] max-w-[50%] object-contain opacity-80"
                         />
                     ) : (
                         <span className="text-3xl font-bold tracking-[-0.03em] text-secondary-foreground">
-                            {brandInitials(brand.name)}
+                            {cover.initials}
                         </span>
                     )}
                 </div>
             )}
         </div>
-        {brand.logo && brand.thumbnail ? (
+        {cover.logo && cover.image ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <img
-                    src={brand.logo}
+                    src={cover.logo}
                     alt=""
                     loading="lazy"
                     className="h-auto max-h-12 w-auto max-w-[35%] object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]"
@@ -59,7 +65,7 @@ export const BrandCover = ({
     </div>
 );
 
-/** One of a card's footer actions, named with the brand for a screen reader. */
+/** One of a card's footer actions, named with its subject for a screen reader. */
 const CardAction = ({
     icon,
     label,
@@ -94,38 +100,54 @@ const CardAction = ({
 );
 
 /**
- * A brand on the admin's Brands page, as a catalogue tile: its cover, name
- * and tagline, whether it is visible and what it has in the catalogue, then
- * the actions the server allows (View, Edit, and Archive on the right).
+ * A record on an admin page as a catalogue tile (a brand, a project): its
+ * cover, title and subtitle, its status and a short count, then the actions
+ * the server allows (View, Edit, and Archive on the right).
  *
- * The name is the card's link to View, with the focus ring; the cover opens
+ * The title is the card's link to View, with the focus ring; the cover opens
  * View too, for the mouse, without a second stop for the keyboard.
  */
-const BrandAdminCard = ({
-    brand,
+const AdminCard = ({
+    title,
+    subtitle,
+    subtitlePlaceholder,
+    cover,
+    status,
+    meta,
+    actions,
     onView,
     onEdit,
     onArchive,
+    testId = 'admin-card',
 }: {
-    brand: BrandRow;
+    title: string;
+    subtitle: string | null;
+    /** Shown, lighter, when there is no subtitle. */
+    subtitlePlaceholder: string;
+    cover: AdminCardCoverData;
+    status: { active: boolean; labels: [string, string] };
+    meta: ReactNode;
+    /** What this reader may do: `view`, `edit`, `archive`, from the server. */
+    actions: string[];
     onView: () => void;
     onEdit: () => void;
     onArchive: () => void;
+    testId?: string;
 }) => {
-    const can = (action: string) => brand.actions.includes(action);
+    const can = (action: string) => actions.includes(action);
 
     return (
         <article
             className="flex min-w-0 flex-col border border-sidebar-border bg-background"
-            data-testid="brand-card"
+            data-testid={testId}
         >
             <div
                 className="cursor-pointer"
                 onClick={onView}
                 aria-hidden
-                data-testid="brand-card-cover"
+                data-testid={`${testId}-cover`}
             >
-                <BrandCover brand={brand} />
+                <AdminCardCover cover={cover} />
             </div>
 
             <div className="flex flex-1 flex-col gap-3 p-4">
@@ -134,35 +156,30 @@ const BrandAdminCard = ({
                         <button
                             type="button"
                             onClick={onView}
-                            title={brand.name}
+                            title={title}
                             className="block max-w-full truncate text-left underline-offset-4 hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                         >
-                            {brand.name}
+                            {title}
                         </button>
                     </h2>
                     <p
                         className={cn(
                             'mt-1 line-clamp-2 text-sm',
-                            brand.tagline
+                            subtitle
                                 ? 'text-secondary-foreground'
                                 : 'text-secondary-foreground/60 italic',
                         )}
                     >
-                        {brand.tagline ?? 'No tagline yet'}
+                        {subtitle || subtitlePlaceholder}
                     </p>
                 </div>
 
                 <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-foreground">
                     <StatusBadge
-                        active={brand.isActive}
-                        labels={['Visible', 'Hidden']}
+                        active={status.active}
+                        labels={status.labels}
                     />
-                    <span>
-                        {catalogueCount(
-                            brand.stonesCount,
-                            brand.furnitureCount,
-                        )}
-                    </span>
+                    <span>{meta}</span>
                 </div>
             </div>
 
@@ -171,7 +188,7 @@ const BrandAdminCard = ({
                     <CardAction
                         icon={<Eye aria-hidden />}
                         label="View"
-                        subject={brand.name}
+                        subject={title}
                         onClick={onView}
                     />
                 ) : null}
@@ -179,7 +196,7 @@ const BrandAdminCard = ({
                     <CardAction
                         icon={<Pencil aria-hidden />}
                         label="Edit"
-                        subject={brand.name}
+                        subject={title}
                         onClick={onEdit}
                     />
                 ) : null}
@@ -187,7 +204,7 @@ const BrandAdminCard = ({
                     <CardAction
                         icon={<Archive aria-hidden />}
                         label="Archive"
-                        subject={brand.name}
+                        subject={title}
                         onClick={onArchive}
                         destructive
                         className="ml-auto"
@@ -199,10 +216,14 @@ const BrandAdminCard = ({
 };
 
 /** A card's shape while the list reloads. */
-export const BrandAdminCardSkeleton = () => (
+export const AdminCardSkeleton = ({
+    testId = 'admin-card',
+}: {
+    testId?: string;
+}) => (
     <div
         className="flex flex-col border border-sidebar-border"
-        data-testid="brand-card-skeleton"
+        data-testid={`${testId}-skeleton`}
     >
         <Skeleton className="aspect-[16/9] w-full rounded-none" />
         <div className="space-y-2 p-4">
@@ -217,4 +238,4 @@ export const BrandAdminCardSkeleton = () => (
     </div>
 );
 
-export default BrandAdminCard;
+export default AdminCard;

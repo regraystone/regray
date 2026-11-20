@@ -13,6 +13,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
+ * A finished project, with its public page at `/{slug}`, set on the admin's
+ * Projects page.
+ *
+ * `thumbnail_path` and each gallery photo's `path` are paths on the public
+ * disk (`config('filesystems.public_disk')`). An uploaded image is stored
+ * under a random name (StoredFileName); its own name, type and size are kept
+ * beside the path, to show to people only.
+ *
+ * A draft (`is_published` false) has no page; `published_at` is when it was
+ * first published. Archiving is the soft delete (`deleted_at`): an archived
+ * project is gone from every reader but the saved one (saved/{stone}/{project}).
+ * Its slug stays taken.
+ *
  * @property int $id
  * @property int|null $brand_id
  * @property string $slug
@@ -21,6 +34,9 @@ use Illuminate\Support\Carbon;
  * @property string $location
  * @property string $overview
  * @property string $thumbnail_path
+ * @property string|null $thumbnail_original_name
+ * @property string|null $thumbnail_mime_type
+ * @property int|null $thumbnail_size_bytes
  * @property bool $is_published
  * @property Carbon|null $published_at
  * @property Carbon $created_at
@@ -42,6 +58,7 @@ class Project extends Model
         return [
             'is_published' => 'boolean',
             'published_at' => 'datetime',
+            'thumbnail_size_bytes' => 'integer',
         ];
     }
 
@@ -69,6 +86,16 @@ class Project extends Model
     public function images(): HasMany
     {
         return $this->hasMany(ProjectImage::class);
+    }
+
+    /**
+     * Its gallery, in the order its page shows it.
+     *
+     * @return HasMany<ProjectImage, $this>
+     */
+    public function gallery(): HasMany
+    {
+        return $this->hasMany(ProjectImage::class)->orderBy('sort_order');
     }
 
     /** @return BelongsToMany<Stone, $this> */

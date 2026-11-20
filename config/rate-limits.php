@@ -37,6 +37,7 @@ return [
         // POST, PUT dashboard/brands/*: the admin adding, changing and
         // archiving brands, images included.
         'brand-save' => (int) env('RATE_LIMIT_BRAND_SAVE', 20),
+        'project-save' => (int) env('RATE_LIMIT_PROJECT_SAVE', 20),
 
         // GET api/ph/*: the address picker's searches, debounced as the reader types.
         'ph-address-search' => (int) env('RATE_LIMIT_PH_ADDRESS_SEARCH', 120),

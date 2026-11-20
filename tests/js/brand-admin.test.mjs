@@ -4,13 +4,12 @@ import { describe, it } from 'node:test';
 import {
     addTags,
     archiveDescription,
-    brandInitials,
     catalogueCount,
     isSocialLinkFor,
-    SLUG_PATTERN,
-    slugify,
     websiteDomain,
 } from '../../resources/js/lib/brand-admin.ts';
+import { initials } from '../../resources/js/lib/initials.ts';
+import { SLUG_PATTERN, slugify } from '../../resources/js/lib/slug.ts';
 
 describe('slugify', () => {
     it('makes a lower-case, hyphenated slug from a name', () => {
@@ -94,7 +93,7 @@ describe('archiveDescription', () => {
     });
 });
 
-describe('websiteDomain and brandInitials', () => {
+describe('websiteDomain and initials', () => {
     it('shows a website as its domain', () => {
         assert.equal(
             websiteDomain('https://www.cucinelube.it/'),
@@ -105,9 +104,9 @@ describe('websiteDomain and brandInitials', () => {
     });
 
     it('takes the first letters of the first two words', () => {
-        assert.equal(brandInitials('Cucine Lube'), 'CL');
-        assert.equal(brandInitials('reform'), 'R');
-        assert.equal(brandInitials('Res Italia Doors'), 'RI');
+        assert.equal(initials('Cucine Lube'), 'CL');
+        assert.equal(initials('reform'), 'R');
+        assert.equal(initials('Res Italia Doors'), 'RI');
     });
 });
 

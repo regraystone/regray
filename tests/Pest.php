@@ -27,6 +27,8 @@ use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\Message;
+use App\Models\Project;
+use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
@@ -702,4 +704,43 @@ function walkInClient(string $name = 'Wanda Walk-in'): Client
     $client->contacts()->create(['kind' => 'phone', 'value' => '+63917'.random_int(1000000, 9999999)]);
 
     return $client;
+}
+
+/**
+ * A project as if the admin's Projects page had added it: published, with no
+ * brand, stones, categories or gallery unless given. The slug is random.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function makeProject(array $attributes = []): Project
+{
+    return Project::query()->forceCreate([
+        'brand_id' => null,
+        'slug' => 'project-'.Str::lower(Str::random(10)),
+        'name' => 'Project '.Str::random(6),
+        'completed_year' => 2024,
+        'location' => 'Makati City',
+        'overview' => 'A kitchen in stone.',
+        'thumbnail_path' => 'projects/cover.jpg',
+        'is_published' => true,
+        'published_at' => now(),
+        ...$attributes,
+    ]);
+}
+
+/**
+ * A project category, active unless told otherwise.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function makeProjectCategory(string $name, array $attributes = []): ProjectCategory
+{
+    return ProjectCategory::query()->create([
+        'slug' => Str::slug($name),
+        'name' => $name,
+        'image_path' => 'categories/'.Str::slug($name).'.jpg',
+        'is_active' => true,
+        'sort_order' => ProjectCategory::query()->count(),
+        ...$attributes,
+    ]);
 }

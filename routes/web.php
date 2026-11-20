@@ -23,6 +23,7 @@ use App\Http\Controllers\Inquiry\StaffClientController;
 use App\Http\Controllers\Inquiry\WalkInInquiryController;
 use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Notification\NotificationController;
+use App\Http\Controllers\Project\ProjectAdminController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\InquiryFileController;
@@ -590,6 +591,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('projects', [ViewController::class, 'projects'])
             ->middleware(Permission::ProjectsView->middleware())
             ->name('projects.index');
+        /*
+         * The Projects page's writes, each behind its own permission on top of
+         * the page's. `{id}` is a plain id (ProjectAdminController::find()),
+         * not the slug a project's public page is found by. An edit is a POST
+         * with `_method=put`, since a PUT can't carry its images.
+         */
+        Route::middleware([Permission::ProjectsView->middleware(), 'throttle:project-save'])->group(function () {
+            Route::post('projects', [ProjectAdminController::class, 'store'])
+                ->middleware(Permission::ProjectsCreate->middleware())
+                ->name('dashboard.projects.store');
+            Route::put('projects/{id}', [ProjectAdminController::class, 'update'])
+                ->middleware(Permission::ProjectsUpdate->middleware())
+                ->name('dashboard.projects.update');
+            Route::post('projects/{id}/archive', [ProjectAdminController::class, 'archive'])
+                ->middleware(Permission::ProjectsArchive->middleware())
+                ->name('dashboard.projects.archive');
+        });
     });
 });
 

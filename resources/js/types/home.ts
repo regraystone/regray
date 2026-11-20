@@ -15,6 +15,8 @@ export type ProjectProfileStone = {
 
 export type ProjectProfileImage = {
     src: string;
+    /** Its file's own name, for its alt text; null for a committed photo. */
+    name: string | null;
 };
 
 export type ProjectProfile = {
