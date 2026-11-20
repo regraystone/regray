@@ -61,7 +61,7 @@ type ThreadProps = {
     isTouch: boolean;
     realtime: Realtime | undefined;
     onBack: () => void;
-    onLostAccess: (conversationId: number, assigneeName: string) => void;
+    onLostAccess: (conversationId: number, assigneeName: string | null) => void;
     onSummaryChange: (conversation: ConversationSummary) => void;
 };
 

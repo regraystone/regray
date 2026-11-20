@@ -18,7 +18,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * On S3 (production) the answer is a redirect to a link that expires after
  * `messaging.attachments.link_minutes`, so the file does not pass through
- * PHP. On a local disk the file is streamed.
+ * PHP. On a local disk the file is streamed. Neither is kept by the browser
+ * (`no-store`), so a file is fetched, and access asked, every time it is shown.
  *
  * A removed message's files stay on the disk, as the message stays as a row
  * (see Message), but are no longer served: 404.
@@ -49,7 +50,7 @@ class AttachmentController extends Controller
             'Content-Type' => $attachment->mime_type,
             'Content-Disposition' => $disposition,
             'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control' => 'private, max-age=300',
+            'Cache-Control' => 'private, no-store',
         ]);
     }
 }

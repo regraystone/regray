@@ -501,6 +501,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('messages', [ThreadController::class, 'messages'])
                     ->middleware('can:view,conversation')
                     ->name('inbox.thread');
+                Route::get('messages/{message}', [ThreadController::class, 'message'])
+                    ->whereNumber('message')
+                    ->middleware('can:view,conversation')
+                    ->name('inbox.message');
                 Route::post('messages', [ThreadController::class, 'send'])
                     ->middleware(['can:send,conversation', 'throttle:messages'])
                     ->name('inbox.send');
