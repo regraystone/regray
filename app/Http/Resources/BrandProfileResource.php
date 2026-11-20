@@ -7,11 +7,18 @@ use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin Brand */
+/**
+ * A brand's page: who it is, its facts, what it makes and its social links
+ * (set on the admin's Brands page), and its published projects.
+ *
+ * Expects Brand::DETAILS loaded (BrandController::show()).
+ *
+ * @mixin Brand
+ */
 class BrandProfileResource extends JsonResource
 {
     /**
-     * @return array{slug: string, name: string, tagline: string|null, description: string|null, websiteUrl: string|null, logo: string, thumbnail: string|null, projects: array<int, array{slug: string, name: string, thumbnail: string}>}
+     * @return array{slug: string, name: string, tagline: string|null, description: string|null, websiteUrl: string|null, logo: string, thumbnail: string|null, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>, projects: array<int, array{slug: string, name: string, thumbnail: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -23,6 +30,7 @@ class BrandProfileResource extends JsonResource
             'websiteUrl' => $this->website_url,
             'logo' => ProjectCardResource::resolveThumbnailUrl($this->logo_path),
             'thumbnail' => $this->thumbnail_path === null ? null : ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            ...$this->details(),
             'projects' => $this->projects()
                 ->where('is_published', true)
                 ->get()

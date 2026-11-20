@@ -4,12 +4,11 @@ import { useEffect, useState } from 'react';
 import BrandCollection from '@/components/home/brand-collection';
 import {
     BRAND_CATEGORIES,
-    BRAND_DETAILS,
     BRAND_LOGO_HEIGHT,
     DEFAULT_BRAND_LOGO_HEIGHT,
     SHOWROOM,
-    SOCIALS,
 } from '@/components/public/public-links';
+import SocialIcon, { SOCIAL_LABELS } from '@/components/social-icon';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { collectionQuery } from '@/lib/brand-collection';
 import { login } from '@/routes';
@@ -42,60 +41,6 @@ const lightButton =
 
 /** Where a section starts once the header and the section bar are above it. */
 const sectionScroll = 'scroll-mt-40';
-
-const SOCIAL_ICONS = ['Facebook', 'Instagram', 'TikTok'] as const;
-
-const SocialIcon = ({ name }: { name: (typeof SOCIAL_ICONS)[number] }) => {
-    if (name === 'Facebook') {
-        return (
-            <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden
-            >
-                <path d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H7.8v3h2.6V21h3.1z" />
-            </svg>
-        );
-    }
-
-    if (name === 'Instagram') {
-        return (
-            <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                aria-hidden
-            >
-                <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
-                <circle cx="12" cy="12" r="4" />
-                <circle
-                    cx="17.3"
-                    cy="6.7"
-                    r=".9"
-                    fill="currentColor"
-                    stroke="none"
-                />
-            </svg>
-        );
-    }
-
-    return (
-        <svg
-            width="17"
-            height="17"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden
-        >
-            <path d="M16.6 3h-3.1v12.2a2.8 2.8 0 1 1-2-2.7V9.3a6 6 0 1 0 5.1 5.9V9.1a7.6 7.6 0 0 0 4.4 1.4V7.4a4.4 4.4 0 0 1-4.4-4.4z" />
-        </svg>
-    );
-};
 
 const plural = (count: number, one: string, many: string) =>
     `${count.toLocaleString()} ${count === 1 ? one : many}`;
@@ -241,7 +186,8 @@ const BrandProfile = () => {
     } = usePage<BrandPageProps & { auth: { user: unknown } }>().props;
     const isSignedIn = auth?.user != null;
     const inquireRoute = useInquireRoute();
-    const details = BRAND_DETAILS[brand.slug] ?? { facts: [], makes: [] };
+    // Set on the admin's Brands page.
+    const details = { facts: brand.facts ?? [], makes: brand.makes ?? [] };
 
     const brandHref = (slug: string, query?: Record<string, string>) =>
         isSignedIn
@@ -372,21 +318,17 @@ const BrandProfile = () => {
                                     </span>
                                 </a>
                             ) : null}
-                            {SOCIAL_ICONS.map((name) => (
+                            {brand.socials.map((social) => (
                                 <a
-                                    key={name}
-                                    href={
-                                        SOCIALS.find(
-                                            (social) => social.label === name,
-                                        )?.href
-                                    }
+                                    key={social.platform}
+                                    href={social.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label={`Regray on ${name} (opens in a new tab)`}
-                                    title={`Regray on ${name}`}
+                                    aria-label={`${brand.name} on ${SOCIAL_LABELS[social.platform]} (opens in a new tab)`}
+                                    title={`${brand.name} on ${SOCIAL_LABELS[social.platform]}`}
                                     className={`${lightButton} w-12.5`}
                                 >
-                                    <SocialIcon name={name} />
+                                    <SocialIcon platform={social.platform} />
                                 </a>
                             ))}
                         </div>

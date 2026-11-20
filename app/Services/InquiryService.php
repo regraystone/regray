@@ -18,13 +18,13 @@ use App\Events\InquiryStatusChanged;
 use App\Events\InquirySubmitted;
 use App\Models\Client;
 use App\Models\Inquiry;
-use App\Models\InquiryFile;
 use App\Models\Lead;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Policies\InquiryFileUploads;
 use App\Repositories\Contracts\AuditLogRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
+use App\Support\StoredFileName;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
@@ -427,7 +427,7 @@ class InquiryService
         $this->fileUploads->authorize($client, DocumentType::ClientAttachment, $inquiry);
 
         $disk = config('inquiry.disk');
-        $name = InquiryFile::storedNameFor($file);
+        $name = StoredFileName::for($file);
 
         $path = Storage::disk($disk)->putFileAs("inquiries/{$inquiry->reference}", $file, $name);
 

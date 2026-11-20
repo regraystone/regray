@@ -17,7 +17,8 @@ class SavedStoneRepository implements SavedStoneRepositoryInterface
     public function activeStonesFor(User $user): Collection
     {
         return Stone::query()
-            ->active()
+            // The stone's own flag only: one of an archived brand stays saved, as history.
+            ->where('stones.is_active', true)
             ->with(['type:id,slug,name', 'brand:id,slug,name'])
             ->join('saved_stones', 'saved_stones.stone_id', '=', 'stones.id')
             ->where('saved_stones.user_id', $user->id)
@@ -32,7 +33,8 @@ class SavedStoneRepository implements SavedStoneRepositoryInterface
     public function activeSlugsFor(User $user): array
     {
         return Stone::query()
-            ->active()
+            // The stone's own flag only: one of an archived brand stays saved, as history.
+            ->where('stones.is_active', true)
             ->whereHas('savedBy', fn (Builder $query) => $query->where('user_id', $user->id))
             ->orderBy('stones.sort_order')
             ->orderBy('stones.name')
