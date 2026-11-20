@@ -63,6 +63,7 @@ const Settings = () => {
                             description="Get support, guides, and answers to common questions"
                             onClick={comingSoon}
                             dataTest="help-support-button"
+                            tag="Soon"
                         />
                     </HubSection>
 
@@ -74,6 +75,7 @@ const Settings = () => {
                             description="Sign in with a different account"
                             onClick={comingSoon}
                             dataTest="switch-account-button"
+                            tag="Soon"
                         />
                         <HubRow
                             icon={LogOut}

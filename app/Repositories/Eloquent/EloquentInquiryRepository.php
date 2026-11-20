@@ -5,6 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
+use App\Enums\InquiryStatusGroup;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
@@ -179,6 +180,14 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->where(fn (Builder $query) => $query->whereNull('sales_status')->orWhere('sales_status', '!=', SalesStatus::Rejected))
             ->where(fn (Builder $query) => $query->whereNull('process_status')->orWhere('process_status', '!=', ProcessStatus::Completed))
             ->exists();
+    }
+
+    public function countOpenForClient(User $client): int
+    {
+        return Inquiry::query()
+            ->whereBelongsTo($client, 'client')
+            ->whereDisplayStatus(...InquiryStatusGroup::Pending->statuses(), ...InquiryStatusGroup::InProgress->statuses())
+            ->count();
     }
 
     public function paginateForClient(User $client, InquiryListFilters $filters, ?string $escapedSearch, int $perPage): LengthAwarePaginator

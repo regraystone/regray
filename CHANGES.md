@@ -17,6 +17,31 @@ The admin's **Accounts** page (`/dashboard/accounts`) is built: the **staff** ac
 - **Local Docker image:** GD (JPEG, PNG, WebP, FreeType) in the local image only, behind the `COMPOSER_DEV` build arg `docker-compose.override.yml` already sets, for the tests' `UploadedFile::fake()->image()`. The production image is unchanged. Rebuild locally with `docker compose --env-file .env.docker up -d --build`.
 - **Tests:** `tests/Feature/Account/` (list, create, update, status and archive, guards, access, sign-in, first password, client-only profiles), Google cases in `GoogleSignInTest`, `WorkspacePagesTest` and `RateLimitsTest` for the new routes, `LeadsPageTest` now expects 10 rows whatever `perPage` asks, `InquiryDashboardTest` adds accounting and logistics only once sales has won (as `inquiry_handlers_guard()` requires; the file had stopped running at all without GD, which hid it), and `tests/js/dashboard.test.mjs` for `pageNumbers`, `splitRowActions` with a threshold and `nextQuery`.
 
+# The Profile page is redesigned
+
+The Profile hub (`/dashboard/profile`) is redesigned after Sir Mark's reference, in the app's own style, with only what the system holds.
+
+- **Header** (`pages/profile/index.tsx`): "My Profile", then who is signed in: their initials, name, email (with a mark when verified), the phone and company they gave and, for staff, their role, with **Edit profile** opening Account & Security. Beside it, **Loyalty & Rewards**, coming soon.
+- **Account:** Profile Details, opening Account & Security.
+- **Activity**, three cards in this order: **Quotations** with how many are open ("5 Active": under the Quote list's Pending or In progress tabs) and View quotations, for those with the Quote list; **Transaction History** and **Warranties**, both Soon.
+- **Schedule & Locations:** Schedule, and Delivery Addresses with "★ Default" when the reader has a default address. **Saved & Preferences:** Saved Items (with what is saved) and Settings. **Feedback:** Report a Bug, Soon. Each door shows only for those who may open it, as before.
+- **Data** (`ProfileSummaryAction`, sent as `summary`): `phone` and `company` from the user's profile; `openQuotations` (`InquiryRepository::countOpenForClient()`) and `hasDefaultAddress`, each null for a reader without that page.
+- **Soon** doors still only say "coming soon"; Points is now the Loyalty & Rewards card. Help & Support and Switch account on Settings carry the same Soon tag.
+- **The hub rows** (`components/hub-rows.tsx`), shared by Profile, Settings and Account & Security, sit in bordered boxes with each icon in a grey circle, take an optional `tag`, and a section may set its rows side by side (`grid`).
+- **Tests:** `tests/Feature/Settings/ProfileHubTest.php`.
+
+# Every brand's page is redesigned
+
+A brand's page (`/brands/{brand}` and its `/dashboard` twin) is rebuilt after the Brand Detail design, for all six brands, with only what the system holds: no invented catalogs, PDFs or products.
+
+- **Layout** (`pages/brand-profile.tsx`): the brand's photo with a breadcrumb back to the brands, its logo, tagline, Visit website (when it has one) and Regray's Facebook, Instagram and TikTok; a sticky bar of the page's sections (it marks the one being read) with Request a quote; **About** (its description and website) beside its facts; **What we offer**; **Our Collection**; **Projects**; **See {brand} in person** (the showroom's address and hours, Book a visit and Request a quotation); and **More from the Regray Group**, the other brands' logos. A section with nothing to show, and its place in the bar, is left out. A guest's Book a visit opens the Showroom page and Request a quote goes through Login.
+- **Facts** (`BRAND_DETAILS` in `public-links.ts`): where it is made, founded and so on, each restating the brand's own description, then its categories (as Our brands groups it), what it has in the catalog (counted: "75 stones · 6 pieces of furniture", or "Coming online soon") and where to see it.
+- **What we offer** (`BrandService::offerings()`, sent as `offer`): each stone and furniture type the brand's active products come in, with how many and a photo of one of them; a card opens the collection filtered to that type. A brand with no products online yet lists what it makes instead (from `BRAND_DETAILS`), with Book a visit and Request a quote.
+- **Projects** (`projects`): up to four published projects of the brand or made with its stones, latest first (`BrandRepository::publishedProjects()`).
+- **Our Collection** loads its next page on **Show more** instead of on scroll, so the sections under it stay in reach; its search, filters and saving are unchanged. Brands with no products online skip it.
+- The brand logos' sizes are shared by the landing page's brand wall and the brand page (`BRAND_LOGO_HEIGHT`).
+- **Tests:** `tests/Feature/Home/BrandDetailTest.php`.
+
 # Walk-in inquiries are owned, and only their own people read them
 
 A walk-in's inquiry (a `direct` client record, no account, no lead) now has **one owner**, a sales user (`inquiries.owner_user_id`), and is read only by its owner, its handlers, the marketing member who opened it, the admin and the owner role. Everyone else gets a 404 by reference. Two inquiries on one walk-in may have different owners. **Deploy, local and production: `php artisan migrate:fresh --seed`** (the original migrations were edited; no backfill).
