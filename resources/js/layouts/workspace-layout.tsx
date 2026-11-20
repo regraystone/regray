@@ -20,6 +20,7 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
+    Store,
     Users,
     Wrench,
 } from 'lucide-react';
@@ -49,7 +50,10 @@ import { onUnreadChanged } from '@/lib/unread-badge';
 import type { Realtime } from '@/types/message';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
-import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
+import {
+    index as dashboardBrandsIndex,
+    show as dashboardBrandShow,
+} from '@/routes/dashboard/brands';
 import { index as homeIndex } from '@/routes/home';
 import { index as leadsIndex } from '@/routes/leads';
 import {
@@ -58,8 +62,8 @@ import {
 } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
 import { index as overviewIndex } from '@/routes/overview';
+import { index as productsIndex } from '@/routes/products';
 import { index as projectsIndex } from '@/routes/projects';
-import { index as stonesIndex } from '@/routes/stones';
 import {
     schedule as profileSchedule,
     edit as editAccountSecurity,
@@ -100,7 +104,8 @@ export const permissions = {
     inquiriesView: 'inquiries.view',
     scheduleView: 'schedule.view',
     messagesView: 'messages.view',
-    stonesView: 'stones.view',
+    brandsView: 'brands.view',
+    productsView: 'products.view',
     servicesView: 'services.view',
     accountsView: 'accounts.view',
     projectsView: 'projects.view',
@@ -205,11 +210,18 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 permission: permissions.messagesView,
             },
             {
-                slug: 'stones',
-                label: 'Stones',
-                href: stonesIndex.url(),
+                slug: 'brands',
+                label: 'Brands',
+                href: dashboardBrandsIndex.url(),
+                icon: Store,
+                permission: permissions.brandsView,
+            },
+            {
+                slug: 'products',
+                label: 'Products',
+                href: productsIndex.url(),
                 icon: Package,
-                permission: permissions.stonesView,
+                permission: permissions.productsView,
             },
             {
                 slug: 'services',

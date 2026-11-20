@@ -44,7 +44,8 @@ enum Permission: string
     case InquiriesView = 'inquiries.view';
     case ScheduleView = 'schedule.view';
     case MessagesView = 'messages.view';
-    case StonesView = 'stones.view';
+    case BrandsView = 'brands.view';
+    case ProductsView = 'products.view';
     case ServicesView = 'services.view';
     case AccountsView = 'accounts.view';
     case ProjectsView = 'projects.view';

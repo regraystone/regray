@@ -342,9 +342,14 @@ class ViewController extends Controller
         ]);
     }
 
-    public function stones(Request $request): Response
+    public function brands(Request $request): Response
     {
-        return Inertia::render('stones');
+        return Inertia::render('brands');
+    }
+
+    public function products(Request $request): Response
+    {
+        return Inertia::render('products');
     }
 
     public function services(Request $request): Response
