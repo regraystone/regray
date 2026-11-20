@@ -6,6 +6,7 @@ import {
     ApiError,
     claimConversation,
     editMessage,
+    fetchMessage,
     fetchThread,
     markRead,
     newClientKey,
@@ -73,7 +74,8 @@ type Options = {
     /** A new message from someone else arrived; the page decides whether to scroll. */
     onIncoming?: (message: ChatMessage) => void;
     /** Someone else claimed the thread and this viewer can no longer read it. */
-    onLostAccess?: (assigneeName: string) => void;
+    /** The thread can no longer be read: who claimed it, for a Regray Team thread, else null. */
+    onLostAccess?: (assigneeName: string | null) => void;
     /** The list row for this conversation changed (assignment, last message). */
     onSummaryChange?: (conversation: ConversationSummary) => void;
 };
@@ -126,6 +128,13 @@ export function useConversationThread(
      */
     const hasLostAccess = useRef(false);
 
+    /*
+     * The messages this viewer was already told about. Two announcements in
+     * quick succession each fetch what is new, and both answers can hold the
+     * same message; it is told once.
+     */
+    const toldAbout = useRef(new Set<number>());
+
     const lastId = (): number => stateRef.current.messages.at(-1)?.id ?? 0;
 
     /** Say once that the thread was taken away, and stop asking about it. */
@@ -135,15 +144,27 @@ export function useConversationThread(
         }
 
         hasLostAccess.current = true;
+
+        // A Regray Team thread is lost to whoever claimed it; anything else
+        // (an inquiry no longer assigned, an account turned off) just is.
+        const conversation = stateRef.current.conversation;
+
         callbacks.current.onLostAccess?.(
-            stateRef.current.conversation?.assignee?.name ?? 'Someone else',
+            conversation?.isSupport
+                ? (conversation.assignee?.name ?? 'Someone else')
+                : null,
         );
     }, []);
 
-    /** Fetch everything newer than what is held: reconnects and card announcements. */
-    const catchUp = useCallback(async () => {
+    /**
+     * Fetch everything newer than what is held: every new message the channel
+     * announces (it carries ids only), and reconnects. Answers with what came
+     * in, so the caller can tell the reader; a 403 means the reader may no
+     * longer open the thread.
+     */
+    const catchUp = useCallback(async (): Promise<ChatMessage[]> => {
         if (conversationId === null || hasLostAccess.current) {
-            return;
+            return [];
         }
 
         try {
@@ -161,12 +182,46 @@ export function useConversationThread(
                 canRequestQuote: payload.canRequestQuote,
             }));
             callbacks.current.onSummaryChange?.(payload.conversation);
+
+            return payload.messages;
         } catch (error) {
             if (error instanceof ApiError && error.status === 403) {
                 loseAccess();
             }
+
+            return [];
         }
     }, [conversationId, loseAccess]);
+
+    /**
+     * Fetch one message the channel says was edited or removed, and put it in
+     * place of the copy held. A 403 means the reader may no longer open the
+     * thread; a message gone missing meanwhile is left as it was.
+     */
+    const refreshMessage = useCallback(
+        async (messageId: number) => {
+            if (conversationId === null || hasLostAccess.current) {
+                return;
+            }
+
+            try {
+                const { message } = await fetchMessage(
+                    conversationId,
+                    messageId,
+                );
+
+                setState((previous) => ({
+                    ...previous,
+                    messages: mergeMessages(previous.messages, [message]),
+                }));
+            } catch (error) {
+                if (error instanceof ApiError && error.status === 403) {
+                    loseAccess();
+                }
+            }
+        },
+        [conversationId, loseAccess],
+    );
 
     // The first page: the latest messages.
     useEffect(() => {
@@ -179,6 +234,7 @@ export function useConversationThread(
         let cancelled = false;
         readRequestedUpTo.current = 0;
         hasLostAccess.current = false;
+        toldAbout.current.clear();
         setState(EMPTY);
         setTyping([]);
 
@@ -230,44 +286,47 @@ export function useConversationThread(
         const timers = typingTimers.current;
 
         const stopListening = listenTo(echo.private(channelName), {
-            '.message.created': (event: {
-                message?: ChatMessage;
-                needsFetch?: boolean;
-            }) => {
-                if (event.message === undefined || event.needsFetch) {
-                    void catchUp();
+            /*
+             * The channel announces messages by id only; their content is
+             * fetched over HTTP, where the server checks this reader may still
+             * open the thread, so nobody who has lost access goes on receiving
+             * messages on a connection opened before.
+             */
+            '.message.created': () => {
+                void catchUp().then((incoming) => {
+                    const arrived = new Set(
+                        incoming.map((message) => message.clientKey),
+                    );
 
-                    return;
-                }
+                    setState((previous) => ({
+                        ...previous,
+                        pending: previous.pending.filter(
+                            (item) => !arrived.has(item.clientKey),
+                        ),
+                    }));
 
-                const message = event.message;
+                    for (const message of incoming) {
+                        if (
+                            message.sender === null ||
+                            toldAbout.current.has(message.id)
+                        ) {
+                            continue;
+                        }
 
-                setState((previous) => ({
-                    ...previous,
-                    messages: mergeMessages(previous.messages, [message]),
-                    pending: previous.pending.filter(
-                        (item) => item.clientKey !== message.clientKey,
-                    ),
-                }));
+                        toldAbout.current.add(message.id);
 
-                if (message.sender?.id !== currentUserId) {
-                    callbacks.current.onIncoming?.(message);
-                }
+                        clearTyping(message.sender.id);
 
-                if (message.sender !== null) {
-                    clearTyping(message.sender.id);
-                }
+                        if (message.sender.id !== currentUserId) {
+                            callbacks.current.onIncoming?.(message);
+                        }
+                    }
+                });
             },
-            '.message.updated': (event: { message: ChatMessage }) =>
-                setState((previous) => ({
-                    ...previous,
-                    messages: mergeMessages(previous.messages, [event.message]),
-                })),
-            '.message.removed': (event: { message: ChatMessage }) =>
-                setState((previous) => ({
-                    ...previous,
-                    messages: mergeMessages(previous.messages, [event.message]),
-                })),
+            '.message.updated': (event: { messageId: number }) =>
+                void refreshMessage(event.messageId),
+            '.message.removed': (event: { messageId: number }) =>
+                void refreshMessage(event.messageId),
             '.pointer.moved': (event: Pointer) =>
                 setState((previous) => ({
                     ...previous,
@@ -321,7 +380,7 @@ export function useConversationThread(
             timers.forEach((timer) => window.clearTimeout(timer));
             timers.clear();
         };
-    }, [conversationId, realtime, currentUserId, catchUp]);
+    }, [conversationId, realtime, currentUserId, catchUp, refreshMessage]);
 
     /** Older messages, from the top. Stops once the oldest is in. */
     const loadOlder = useCallback(async () => {

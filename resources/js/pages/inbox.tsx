@@ -176,7 +176,7 @@ const Inbox = () => {
     };
 
     const handleLostAccess = useCallback(
-        (conversationId: number, assigneeName: string) => {
+        (conversationId: number, assigneeName: string | null) => {
             if (selectedRef.current?.id === conversationId) {
                 setSelected(null);
                 window.history.replaceState(
@@ -185,7 +185,9 @@ const Inbox = () => {
                     urlWithConversation(null),
                 );
                 toast.info(
-                    `${assigneeName} is handling that conversation now.`,
+                    assigneeName === null
+                        ? 'You no longer have access to that conversation.'
+                        : `${assigneeName} is handling that conversation now.`,
                 );
             }
 

@@ -10,6 +10,7 @@ import {
 import {
     claim as claimRoute,
     delivered as deliveredRoute,
+    message as messageRoute,
     people as peopleRoute,
     read as readRoute,
     send as sendRoute,
@@ -113,6 +114,20 @@ export const fetchThread = (
                 ),
             ),
         }),
+    );
+
+/**
+ * One message of a conversation, as its channel announced it: the channel
+ * carries ids only, so the content is always fetched here, where the server
+ * checks the reader may still open the conversation (403 when not).
+ */
+export const fetchMessage = (
+    conversationId: number,
+    messageId: number,
+): Promise<{ message: ChatMessage }> =>
+    request<{ message: ChatMessage }>(
+        'GET',
+        messageRoute.url({ conversation: conversationId, message: messageId }),
     );
 
 export const sendMessage = (

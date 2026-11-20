@@ -117,6 +117,22 @@ class ConversationService
     }
 
     /**
+     * One message of the conversation, removed or not, ready to show: what an
+     * open thread fetches when the conversation's channel announces it. Null
+     * when there is no such message in this conversation.
+     */
+    public function message(Conversation $conversation, int $messageId): ?Message
+    {
+        $message = $this->messages->findWithTrashed($messageId);
+
+        if ($message === null || $message->conversation_id !== $conversation->id) {
+            return null;
+        }
+
+        return $this->messages->loadForDisplay($message);
+    }
+
+    /**
      * A page of messages, who has read how far, and the assignment state.
      *
      * A pool member opening an unassigned Regray Team thread is given a viewer

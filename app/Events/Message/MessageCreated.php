@@ -2,8 +2,6 @@
 
 namespace App\Events\Message;
 
-use App\Enums\MessageType;
-use App\Http\Resources\Message\MessageResource;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -22,8 +20,13 @@ use Illuminate\Queue\SerializesModels;
  * every broadcast-now event here, a failure is reported, never answered as a
  * 500 to the person who sent it.
  *
- * Text and system messages travel whole. A card is announced by id only: what a
- * card shows depends on who is reading it, so each open thread fetches it.
+ * Announced by id only, whatever kind it is: each open thread fetches it over
+ * HTTP, under the conversation's policy (ThreadController::messages()). A
+ * channel is authorized once, when it is joined, and a connection opened then
+ * would keep receiving whatever is broadcast on it after its owner lost
+ * access (a reassignment, a claim, a deactivated account). With no content on
+ * the channel, the fetch is where access is checked, every time. A card's
+ * content also depends on who is reading it.
  */
 class MessageCreated implements ShouldBroadcastNow, ShouldRescue
 {
@@ -48,10 +51,6 @@ class MessageCreated implements ShouldBroadcastNow, ShouldRescue
     /** @return array<string, mixed> */
     public function broadcastWith(): array
     {
-        if (in_array($this->message->type, [MessageType::Text, MessageType::System], true)) {
-            return ['message' => (new MessageResource($this->message, $this->conversation))->resolve(request())];
-        }
-
         return ['messageId' => $this->message->id, 'needsFetch' => true];
     }
 }
