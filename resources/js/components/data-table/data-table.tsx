@@ -1,24 +1,12 @@
-import { router } from '@inertiajs/react';
-import { Search } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import DataTableFilter, {
+    type DataTableFilterOption,
+} from '@/components/data-table/data-table-filter';
+import DataTablePagination from '@/components/data-table/data-table-pagination';
+import DataTableSearch from '@/components/data-table/data-table-search';
+import DataTableToolbar from '@/components/data-table/data-table-toolbar';
+import { useDataTableQuery } from '@/components/data-table/use-data-table-query';
 import EmptyState from '@/components/empty-state';
-import { Input } from '@/components/ui/input';
-import {
-    Pagination,
-    PaginationButton,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
@@ -28,15 +16,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import {
-    clampPage,
-    DEFAULT_PAGE_SIZE,
-    pageNumbers,
-    rangeText,
-    type TableMeta,
-} from '@/lib/data-table';
+import { DEFAULT_PAGE_SIZE, type TableMeta } from '@/lib/data-table';
 
-const SEARCH_DEBOUNCE_MS = 300;
+export type { DataTableFilterOption };
 
 export type DataTableColumn<T> = {
     key: string;
@@ -45,25 +27,24 @@ export type DataTableColumn<T> = {
     className?: string;
 };
 
-export type DataTableFilterOption = {
-    value: string;
-    label: string;
-};
-
 /** The query a server list reads: what the toolbar and the pager hold. */
 export type DataTableFilters = {
     search: string;
     page: number;
+    status?: string;
 };
 
 /**
- * A server-side table: search on the left of the toolbar, optional status filter
- * on the right, rows, and pager below.
+ * A server-side table: search on the left of the toolbar, an optional status
+ * filter on the right, rows, and the pager below. Built from the pieces beside
+ * it (DataTableToolbar, DataTableSearch, DataTableFilter, DataTablePagination),
+ * which a page may also use on their own.
  *
- * Search (debounced) and page go in the query string, and the page is reloaded
- * partially (`only`), so only the list and its filters are read again. Skeleton
- * rows stand in while a reload runs; an empty list shows the page's EmptyState.
- * Uses a fixed page size (DEFAULT_PAGE_SIZE).
+ * Search (debounced), status and page go in the query string through
+ * useDataTableQuery, and the page is reloaded partially (`only`), so only the
+ * list and its filters are read again. Skeleton rows stand in while a reload
+ * runs; an empty list shows the page's EmptyState, or its "no match" one
+ * while a search or filter is on. Every table shows DEFAULT_PAGE_SIZE rows.
  * Every column is at least as wide as its widest value: where the screen is
  * narrower than that, the table scrolls sideways instead of squeezing them.
  */
@@ -77,6 +58,8 @@ function DataTable<T>({
     searchPlaceholder = 'Search',
     emptyTitle,
     emptyDescription,
+    filteredEmptyTitle,
+    filteredEmptyDescription,
     statusFilter,
     statusOptions,
     onStatusFilterChange,
@@ -91,100 +74,70 @@ function DataTable<T>({
     searchPlaceholder?: string;
     emptyTitle: string;
     emptyDescription: string;
+    /** What an empty list says while a search or filter is on. */
+    filteredEmptyTitle?: string;
+    filteredEmptyDescription?: string;
+    /** The status shown; the page's `filters.status` when left out. */
     statusFilter?: string;
     statusOptions?: DataTableFilterOption[];
+    /** A page's own handling; the table reloads by itself when left out. */
     onStatusFilterChange?: (value: string) => void;
 }) {
-    const [search, setSearch] = useState(filters.search);
-    const [isLoading, setIsLoading] = useState(false);
-    const lastSearch = useRef(filters.search);
+    const { update, isLoading } = useDataTableQuery(only);
+    const [status, setStatus] = useState(
+        statusFilter ?? filters.status ?? 'all',
+    );
+    const shownStatus = statusFilter ?? status;
+    const isFiltered =
+        filters.search.trim() !== '' ||
+        (shownStatus !== 'all' && shownStatus !== '');
 
-    const reload = (query: Partial<DataTableFilters>) => {
-        const next = { ...filters, search, ...query };
+    const changeStatus = (value: string) => {
+        if (onStatusFilterChange) {
+            onStatusFilterChange(value);
 
-        router.get(
-            window.location.pathname,
-            {
-                ...(next.search.trim() === ''
-                    ? {}
-                    : { search: next.search.trim() }),
-                // A search or a page change keeps the status filter.
-                ...(statusFilter === undefined || statusFilter === 'all'
-                    ? {}
-                    : { status: statusFilter }),
-                page: next.page,
-            },
-            {
-                only,
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-                onStart: () => setIsLoading(true),
-                onFinish: () => setIsLoading(false),
-            },
-        );
-    };
-
-    useEffect(() => {
-        if (search === lastSearch.current) {
             return;
         }
 
-        const timer = window.setTimeout(() => {
-            lastSearch.current = search;
-            reload({ search, page: 1 });
-        }, SEARCH_DEBOUNCE_MS);
-
-        return () => window.clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search]);
-
-    const goTo = (page: number) =>
-        reload({ page: clampPage(page, meta.lastPage) });
+        setStatus(value);
+        update({ status: value });
+    };
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:max-w-xs">
-                    <Search
-                        aria-hidden
-                        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
-                    />
-                    <Input
-                        type="search"
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
+            <DataTableToolbar
+                search={
+                    <DataTableSearch
+                        value={filters.search}
                         placeholder={searchPlaceholder}
-                        aria-label={searchPlaceholder}
-                        className="rounded-none pl-9"
+                        onSearch={(search) => update({ search })}
                     />
-                </div>
-                {statusOptions && statusOptions.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        <Select
-                            value={statusFilter || 'all'}
-                            onValueChange={onStatusFilterChange}
-                        >
-                            <SelectTrigger className="w-40 rounded-none">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {statusOptions.map((option) => (
-                                    <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                    >
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
-            </div>
+                }
+                filters={
+                    statusOptions && statusOptions.length > 0 ? (
+                        <DataTableFilter
+                            label="Status"
+                            options={statusOptions}
+                            value={shownStatus || 'all'}
+                            onChange={changeStatus}
+                        />
+                    ) : null
+                }
+            />
 
             {!isLoading && rows.length === 0 ? (
-                <EmptyState title={emptyTitle} description={emptyDescription} />
+                <EmptyState
+                    title={
+                        isFiltered && filteredEmptyTitle
+                            ? filteredEmptyTitle
+                            : emptyTitle
+                    }
+                    description={
+                        isFiltered && filteredEmptyDescription
+                            ? filteredEmptyDescription
+                            : emptyDescription
+                    }
+                />
             ) : (
                 <div className="overflow-x-auto border border-sidebar-border">
                     <Table aria-busy={isLoading} className="w-full min-w-max">
@@ -206,11 +159,7 @@ function DataTable<T>({
                                       {
                                           length: Math.max(
                                               1,
-                                              Math.min(
-                                                  rows.length ||
-                                                      DEFAULT_PAGE_SIZE,
-                                                  10,
-                                              ),
+                                              rows.length || DEFAULT_PAGE_SIZE,
                                           ),
                                       },
                                       (_, index) => (
@@ -246,52 +195,10 @@ function DataTable<T>({
                 </div>
             )}
 
-            <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-                <p
-                    className="text-sm text-secondary-foreground"
-                    aria-live="polite"
-                >
-                    {rangeText(meta)}
-                </p>
-                {meta.lastPage > 1 ? (
-                    <Pagination>
-                        <PaginationContent>
-                            <PaginationItem>
-                                <PaginationPrevious
-                                    disabled={meta.currentPage <= 1}
-                                    onClick={() => goTo(meta.currentPage - 1)}
-                                />
-                            </PaginationItem>
-                            {pageNumbers(meta.currentPage, meta.lastPage).map(
-                                (page, index) => (
-                                    <PaginationItem
-                                        key={page ?? `gap-${index}`}
-                                    >
-                                        {page === null ? (
-                                            <PaginationEllipsis />
-                                        ) : (
-                                            <PaginationButton
-                                                isActive={
-                                                    page === meta.currentPage
-                                                }
-                                                onClick={() => goTo(page)}
-                                            >
-                                                {page}
-                                            </PaginationButton>
-                                        )}
-                                    </PaginationItem>
-                                ),
-                            )}
-                            <PaginationItem>
-                                <PaginationNext
-                                    disabled={meta.currentPage >= meta.lastPage}
-                                    onClick={() => goTo(meta.currentPage + 1)}
-                                />
-                            </PaginationItem>
-                        </PaginationContent>
-                    </Pagination>
-                ) : null}
-            </div>
+            <DataTablePagination
+                meta={meta}
+                onPageChange={(page) => update({ page })}
+            />
         </div>
     );
 }

@@ -9,7 +9,7 @@ import DataTable, {
 import RowActions from '@/components/data-table/row-actions';
 import { DueBadge, type DueStatus } from '@/components/due-badge';
 import { StatusBadge } from '@/components/inquiry-status-badge';
-import PageHeading from '@/components/page-heading';
+import PageHeader from '@/components/page-header';
 import StatusUpdateDialog from '@/components/status-update-dialog';
 import { Button } from '@/components/ui/button';
 import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
@@ -88,30 +88,6 @@ const Inquiry = () => {
     /** The won inquiry whose job order sales is uploading on its own. */
     const [uploadingJobOrder, setUploadingJobOrder] =
         useState<InquiryRow | null>(null);
-    const [statusFilter, setStatusFilter] = useState(
-        props.filters.status || 'all',
-    );
-
-    const handleStatusFilterChange = (value: string) => {
-        setStatusFilter(value);
-        router.get(
-            window.location.pathname,
-            {
-                ...(props.filters.search.trim() !== '' && {
-                    search: props.filters.search,
-                }),
-                ...(value !== 'all' && { status: value }),
-                page: 1,
-            },
-            {
-                only: ['inquiries', 'filters'],
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            },
-        );
-    };
-
     const columns: DataTableColumn<InquiryRow>[] = [
         {
             key: 'date',
@@ -185,18 +161,24 @@ const Inquiry = () => {
 
     return (
         <div className="w-full min-w-0">
-            <PageHeading
-                title="Inquiry"
-                description="Every inquiry, where it stands, and what you can do with it"
-                action={
-                    inquire ? (
+            {inquire ? (
+                <PageHeader
+                    variant="action"
+                    title="Inquiry"
+                    subtitle="Every inquiry, where it stands, and what you can do with it"
+                    action={
                         <Button type="button" onClick={onInquireClick}>
                             <Plus aria-hidden />
                             Add inquiry
                         </Button>
-                    ) : undefined
-                }
-            />
+                    }
+                />
+            ) : (
+                <PageHeader
+                    title="Inquiry"
+                    subtitle="Every inquiry, where it stands, and what you can do with it"
+                />
+            )}
 
             <DataTable
                 rows={props.inquiries.data}
@@ -208,9 +190,7 @@ const Inquiry = () => {
                 searchPlaceholder="Search inquiries"
                 emptyTitle="No inquiries found"
                 emptyDescription="No inquiry matches this search."
-                statusFilter={statusFilter}
                 statusOptions={props.statusOptions}
-                onStatusFilterChange={handleStatusFilterChange}
             />
 
             {editing !== null && track !== null ? (

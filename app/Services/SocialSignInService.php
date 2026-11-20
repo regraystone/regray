@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\SocialProvider;
 use App\Exceptions\SocialSignInException;
+use App\Http\Middleware\EnsureAccountActive;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -130,6 +131,19 @@ class SocialSignInService
     public function findByEmail(string $email): ?User
     {
         return User::query()->whereRaw('lower(email) = ?', [mb_strtolower(trim($email))])->first();
+    }
+
+    /**
+     * The same rule as the Sign In form: an account deactivated or archived on
+     * the Accounts page may not sign in with Google either.
+     *
+     * @throws SocialSignInException
+     */
+    public function assertCanSignIn(User $user): void
+    {
+        if (! $user->canSignIn()) {
+            throw new SocialSignInException(__(EnsureAccountActive::MESSAGE));
+        }
     }
 
     /** @throws SocialSignInException */

@@ -40,6 +40,11 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $terms_version
  * @property Carbon|null $marketing_emails_opted_in_at
  * @property string|null $remember_token
+ * @property bool $is_active
+ * @property Carbon|null $deactivated_at
+ * @property Carbon|null $archived_at
+ * @property bool $must_change_password
+ * @property Carbon|null $password_changed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -49,6 +54,18 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable;
+
+    /**
+     * The column defaults, on the model too, so a user just made in memory
+     * (by registration, Google or a factory) already reads as active and not
+     * due a password change, before it is ever read back from the database.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
+        'must_change_password' => false,
+    ];
 
     public function sendEmailVerificationNotification(): void
     {
@@ -73,6 +90,28 @@ class User extends Authenticatable implements MustVerifyEmail
         $name = $this->getRoleNames()->first();
 
         return $name === null ? null : Role::tryFrom($name);
+    }
+
+    /**
+     * Whether this user may sign in: active and not archived. The sign-in form,
+     * Google sign-in and EnsureAccountActive all ask this.
+     */
+    public function canSignIn(): bool
+    {
+        return $this->is_active && $this->archived_at === null;
+    }
+
+    /**
+     * Their own password is set: the temporary one is gone, and the first
+     * sign-in prompt (EnsurePasswordChanged) is over. Every way a user sets a
+     * password calls this: the prompt itself, Account & Security, and a reset.
+     */
+    public function markPasswordChanged(): void
+    {
+        $this->forceFill([
+            'must_change_password' => false,
+            'password_changed_at' => now(),
+        ]);
     }
 
     /**
@@ -288,6 +327,11 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_confirmed_at' => 'datetime',
             'terms_accepted_at' => 'datetime',
             'marketing_emails_opted_in_at' => 'datetime',
+            'is_active' => 'boolean',
+            'deactivated_at' => 'datetime',
+            'archived_at' => 'datetime',
+            'must_change_password' => 'boolean',
+            'password_changed_at' => 'datetime',
         ];
     }
 }

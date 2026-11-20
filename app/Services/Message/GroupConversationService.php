@@ -124,7 +124,7 @@ class GroupConversationService
         $inquiry = Inquiry::query()->visibleTo($creator)->whereKey($inquiryId)->whereNotNull('owner_user_id')->with('clientRecord', 'owner:id,name')->first();
 
         if ($inquiry === null) {
-            throw ValidationException::withMessages(['inquiryId' => 'Choose one of the walk-in inquiries you can see.']);
+            throw ValidationException::withMessages(['inquiryId' => 'Choose one of the direct inquiries you can see.']);
         }
 
         if (! $inquiry->isWonBySales()) {
@@ -132,7 +132,7 @@ class GroupConversationService
         }
 
         $accounts = $this->walkInAccounts($inquiry);
-        $walkIn = $inquiry->clientRecord->full_name ?? 'This walk-in';
+        $walkIn = $inquiry->clientRecord->full_name ?? 'This direct client';
 
         if ($accounts->isEmpty()) {
             throw ValidationException::withMessages(['inquiryId' => "{$walkIn} has no Regray account yet. Their group chat waits for an account with their phone number or email."]);

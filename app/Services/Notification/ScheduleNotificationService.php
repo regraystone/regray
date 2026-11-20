@@ -249,7 +249,7 @@ class ScheduleNotificationService
     /** Whose appointment it is, for staff: the account's name, else the walk-in's. */
     private function clientName(Schedule $schedule): string
     {
-        return $schedule->clientName() ?? 'a walk-in client';
+        return $schedule->clientName() ?? 'a direct client';
     }
 
     /** @param  iterable<User>  $recipients */

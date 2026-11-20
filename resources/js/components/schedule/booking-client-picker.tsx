@@ -100,13 +100,13 @@ const BookingClientPicker = ({
                 <>
                     <div
                         role="radiogroup"
-                        aria-label="Does the client have a Regray account?"
+                        aria-label="Platform or direct client"
                         className="mt-2 inline-flex rounded-md border border-sidebar-border p-0.5"
                     >
                         {(
                             [
-                                ['account', 'Regray account'],
-                                ['walkIn', 'Walk-in'],
+                                ['account', 'Platform'],
+                                ['walkIn', 'Direct'],
                             ] as const
                         ).map(([option, label]) => (
                             <button
@@ -145,7 +145,7 @@ const BookingClientPicker = ({
                                 hasSearched ? (
                                     <p className="mt-2 text-sm text-secondary-foreground">
                                         No client account matches. A client with
-                                        no account is a walk-in.
+                                        no account is a direct client.
                                     </p>
                                 ) : null
                             ) : (
@@ -176,8 +176,8 @@ const BookingClientPicker = ({
                     ) : (
                         <div className="mt-2 space-y-2">
                             <p className="text-sm text-secondary-foreground">
-                                A walk-in has no Regray account, so they are not
-                                told in the app: let them know yourself.
+                                A direct client has no Regray account, so they
+                                are not told in the app: let them know yourself.
                             </p>
                             <Button
                                 type="button"
@@ -185,7 +185,7 @@ const BookingClientPicker = ({
                                 onClick={() => setIsTakingDown(true)}
                                 aria-describedby={error ? errorId : undefined}
                             >
-                                Take down the walk-in client
+                                Take down the direct client
                             </Button>
                         </div>
                     )}
@@ -202,7 +202,7 @@ const BookingClientPicker = ({
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold tracking-[-0.03em]">
-                            Walk-in client
+                            Direct client
                         </DialogTitle>
                         <DialogDescription>
                             Who the appointment is for, and how to reach them.
@@ -216,7 +216,7 @@ const BookingClientPicker = ({
                                 kind: 'walkIn',
                                 id: result.client.id,
                                 name: result.client.fullName,
-                                detail: 'Walk-in',
+                                detail: 'Direct',
                             });
                         }}
                     />

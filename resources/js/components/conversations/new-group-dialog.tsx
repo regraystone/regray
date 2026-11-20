@@ -36,7 +36,7 @@ type GroupSource = 'lead' | 'walk-in';
 
 const SOURCES: { value: GroupSource; label: string }[] = [
     { value: 'lead', label: 'From a lead' },
-    { value: 'walk-in', label: 'For a walk-in inquiry' },
+    { value: 'walk-in', label: 'For a direct inquiry' },
 ];
 
 /** Why a walk-in inquiry cannot have a group yet, or null when it can. */
@@ -262,7 +262,7 @@ const NewGroupDialog = ({
                 {isWalkIn ? (
                     <fieldset className="space-y-1">
                         <legend className="text-sm font-bold">
-                            Walk-in inquiry
+                            Direct inquiry
                         </legend>
                         <Input
                             type="search"
@@ -271,12 +271,12 @@ const NewGroupDialog = ({
                                 setWalkInSearch(event.target.value)
                             }
                             placeholder="Search by reference, project or name"
-                            aria-label="Search walk-in inquiries"
+                            aria-label="Search direct inquiries"
                             className="mb-1 rounded-none"
                         />
                         {walkIns.length === 0 ? (
                             <p className="text-xs text-secondary-foreground">
-                                No walk-in inquiries you can see match.
+                                No direct inquiries you can see match.
                             </p>
                         ) : (
                             <ul

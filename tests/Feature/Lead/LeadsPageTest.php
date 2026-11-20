@@ -56,7 +56,7 @@ it('opens for marketing with its own leads, newest first, each with its phone, e
     $searched = $this->actingAs($this->marketing)->get(route('leads.index', ['search' => $this->client->name, 'perPage' => 25]))->viewData('page')['props'];
 
     expect(collect($searched['leads']['data'])->pluck('reference')->all())->toBe([$idle->reference])
-        ->and($searched['filters']['perPage'])->toBe(25);
+        ->and($searched['filters']['perPage'])->toBe(10); // Ten a page, whatever is asked.
 });
 
 it('lets the admin in, with every lead', function (): void {

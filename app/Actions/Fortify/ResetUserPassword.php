@@ -24,6 +24,9 @@ class ResetUserPassword implements ResetsUserPasswords
 
         $user->forceFill([
             'password' => $input['password'],
-        ])->save();
+        ]);
+        // A reset is their own password too: the first sign-in prompt is over.
+        $user->markPasswordChanged();
+        $user->save();
     }
 }

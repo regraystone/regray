@@ -274,6 +274,12 @@ class GoogleController extends Controller
      */
     private function signInAs(Request $request, User $user): RedirectResponse
     {
+        try {
+            $this->signIn->assertCanSignIn($user);
+        } catch (SocialSignInException $exception) {
+            return $this->fail(route('login'), $exception->getMessage());
+        }
+
         if (Features::enabled(Features::twoFactorAuthentication()) && $user->hasEnabledTwoFactorAuthentication()) {
             $request->session()->put(['login.id' => $user->getKey(), 'login.remember' => false]);
 

@@ -72,7 +72,7 @@ class StoreBookingRequest extends FormRequest
 
                 if ($this->filled('directClientId')) {
                     if (! $validator->errors()->has('directClientId') && $this->directClient() === null) {
-                        $validator->errors()->add('clientId', 'Choose a walk-in client on file');
+                        $validator->errors()->add('clientId', 'Choose a direct client on file');
                     }
                 } elseif (! $validator->errors()->has('clientId') && $this->client() === null) {
                     $validator->errors()->add('clientId', 'Choose a client with a Regray account');

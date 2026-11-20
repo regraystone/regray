@@ -14,6 +14,7 @@ use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
+use App\Http\Resources\AccountResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryRowResource;
@@ -26,6 +27,7 @@ use App\Models\User;
 use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
 use App\Services\WalkInInquiryService;
@@ -357,9 +359,34 @@ class ViewController extends Controller
         return Inertia::render('services');
     }
 
-    public function accounts(Request $request): Response
+    /**
+     * The admin's Accounts page: the staff accounts the admin manages (never an
+     * admin or a client), but the archived, newest first, a page at a time, searched by name or email and filtered by status
+     * (`all`, `active`, `inactive`; anything else is `all`).
+     *
+     * Also what the Add and Edit drawers offer: the staff roles an account may
+     * be given (`assignableRoles`), and the temporary password a new account
+     * starts with (`defaultPassword`), shown read-only and never sent back.
+     */
+    public function accounts(DataTableRequest $request, UserRepositoryInterface $users): Response
     {
-        return Inertia::render('accounts');
+        $status = in_array($request->query('status'), ['active', 'inactive'], true) ? (string) $request->query('status') : 'all';
+
+        return Inertia::render('accounts', [
+            'accounts' => self::page($users->paginateAccounts(
+                $request->escapedSearch(),
+                $status === 'all' ? null : $status === 'active',
+                $request->perPage(),
+                $request->page(),
+            ), AccountResource::class, $request),
+            'filters' => array_merge($request->filters(), ['status' => $status]),
+            'assignableRoles' => array_map(fn (Role $role): array => [
+                'value' => $role->value,
+                'label' => AccountResource::roleLabel($role),
+            ], Role::staffRoles()),
+            'defaultPassword' => config()->string('accounts.default_password'),
+            'canCreate' => $request->user()?->can(Permission::AccountsCreate->value) ?? false,
+        ]);
     }
 
     public function projects(Request $request): Response
