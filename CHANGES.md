@@ -1,3 +1,13 @@
+# Deleting an account with records says why, instead of a server error
+
+Deleting one's own account (Account & Security) used to sign the reader out and then hit a 500 when the database refused, because an inquiry, booking or lead still pointed to the account. Now the account is kept, the reader stays signed in, and they are told why in plain words; nothing technical is shown.
+
+- **The rule** (`AccountDeletionService`): an account can be deleted only when none of the records the database protects (its RESTRICT foreign keys to `users`) point to it: as a client, their inquiries, bookings (schedules), leads and client record; as staff, the inquiries they handle or own and the leads they hold (`UserRepository::deletionBlockers()`). The data and its restrictions are unchanged.
+- **The message:** a client is told "Account deletion is currently unavailable because your account has existing inquiries or bookings associated with it. Please contact our support team for assistance."; staff, that their account is linked to inquiries or leads they handle, and to ask an administrator.
+- **Up front** (`components/delete-user.tsx`): when the account cannot be deleted, the Delete account panel says so instead of offering the button: the message, what holds it ("5 inquiries · 5 bookings · 1 lead"), that these have to be resolved under the account deletion policy, and, for a client, **Contact support** (their Regray Team inbox, or the support email without one). Account & Security sends it as `accountDeletion`.
+- **Deleting** (`ProfileController::destroy()`): the password is checked first, as before; then the rule; then the account is deleted, and only then signed out (`logoutCurrentDevice()`, since `logout()` would save the deleted user back while renewing its remember token). Should the database still refuse (a record made since the page opened), the refusal is reported to the log and the reader gets the same message on the form (`account`).
+- **Tests:** `tests/Feature/Settings/AccountDeletionTest.php`.
+
 # The Inquire page takes the new design
 
 The Inquire page (`/dashboard/quote/inquire`, `/dashboard/inquiry/inquire`, and editing a request) is restyled after the Inquire design. Only the look changes: every question, rule, button name, saved draft and request is as before.

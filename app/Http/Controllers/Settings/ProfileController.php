@@ -7,6 +7,7 @@ use App\Enums\SocialProvider;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Services\AccountDeletionService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,9 +54,10 @@ class ProfileController extends Controller
      * The name, email, security and delete-account settings, which is what the
      * old /profile page showed and what it still shows.
      */
-    public function edit(Request $request): Response
+    public function edit(Request $request, AccountDeletionService $accountDeletion): Response
     {
         $google = $request->user()->socialAccounts()->where('provider', SocialProvider::Google)->first();
+        $deletion = $accountDeletion->check($request->user());
 
         return Inertia::render('profile/account-security', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
@@ -72,6 +74,8 @@ class ProfileController extends Controller
                 'termsAcceptedAt' => $request->user()->terms_accepted_at?->toIso8601String(),
                 'termsVersion' => config('legal.terms_version'),
             ],
+            // Whether Delete account can go ahead, and if not, what holds it.
+            'accountDeletion' => $deletion,
         ]);
     }
 
@@ -94,15 +98,25 @@ class ProfileController extends Controller
     }
 
     /**
-     * Delete the user's profile.
+     * Delete the user's account, once the password is confirmed.
+     *
+     * An account the studio's records still point to is kept, and the reader
+     * stays signed in and is told why on the form (`account`), in plain
+     * words (AccountDeletionService). Only a deleted account is signed out.
      */
-    public function destroy(ProfileDeleteRequest $request): RedirectResponse
+    public function destroy(ProfileDeleteRequest $request, AccountDeletionService $accountDeletion): RedirectResponse
     {
         $user = $request->user();
 
-        Auth::logout();
+        $refusal = $accountDeletion->delete($user);
 
-        $user->delete();
+        if ($refusal !== null) {
+            return back()->withErrors(['account' => $refusal]);
+        }
+
+        // Not logout(): it renews the remember token by saving the user, which
+        // would write the deleted account back.
+        Auth::logoutCurrentDevice();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
