@@ -110,6 +110,23 @@ export type BrandProduct =
     | (StoneCardData & { kind: 'stone' })
     | (FurnitureCardData & { kind: 'furniture' });
 
+/** A stone or furniture type a brand's products come in, with how many. */
+export type BrandOffering = {
+    collection: 'stones' | 'furniture';
+    /** What the collection's type filter takes for it. */
+    value: string;
+    name: string;
+    count: number;
+    thumbnail: string | null;
+};
+
+/** What a brand offers, counted from its active products. */
+export type BrandOffer = {
+    stones: number;
+    furniture: number;
+    types: BrandOffering[];
+};
+
 export type BrandPageProps = {
     brand: { data: BrandProfile };
     products?: {
@@ -118,6 +135,11 @@ export type BrandPageProps = {
     hasProducts: boolean;
     filters: BrandFilters;
     filterOptions: FilterOptions;
+    offer: BrandOffer;
+    /** Its published projects, or those made with its stones, latest first. */
+    projects: LandingProject[];
+    /** The group's other brands, in their home page order. */
+    otherBrands: LandingBrand[];
 };
 
 export type HomePageProps = {
