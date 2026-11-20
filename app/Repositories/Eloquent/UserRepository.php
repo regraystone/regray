@@ -3,6 +3,9 @@
 namespace App\Repositories\Eloquent;
 
 use App\Enums\Role;
+use App\Models\Client;
+use App\Models\Inquiry;
+use App\Models\Lead;
 use App\Models\User;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,5 +54,21 @@ class UserRepository implements UserRepositoryInterface
             ->where('is_active', true)
             ->whereNull('archived_at')
             ->count();
+    }
+
+    /**
+     * @return array{inquiries: int, bookings: int, leads: int, clientRecord: bool, handled: int, owned: int, heldLeads: int}
+     */
+    public function deletionBlockers(User $user): array
+    {
+        return [
+            'inquiries' => $user->inquiries()->count(),
+            'bookings' => $user->schedules()->count(),
+            'leads' => $user->leads()->count(),
+            'clientRecord' => Client::query()->whereBelongsTo($user)->exists(),
+            'handled' => $user->handledInquiries()->distinct('inquiry_id')->count('inquiry_id'),
+            'owned' => Inquiry::query()->where('owner_user_id', $user->id)->count(),
+            'heldLeads' => Lead::query()->where('marketing_user_id', $user->id)->count(),
+        ];
     }
 }

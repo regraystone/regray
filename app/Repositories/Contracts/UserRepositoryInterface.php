@@ -35,4 +35,14 @@ interface UserRepositoryInterface
      * keeps the last one from being turned off or archived.
      */
     public function countActiveAdminsExcept(User $user): int;
+
+    /**
+     * The records that keep the database from deleting the user (each of
+     * them a RESTRICT foreign key to `users`): as a client, their inquiries,
+     * bookings (schedules), leads and client record; as staff, the inquiries
+     * they handle or own and the leads they hold.
+     *
+     * @return array{inquiries: int, bookings: int, leads: int, clientRecord: bool, handled: int, owned: int, heldLeads: int}
+     */
+    public function deletionBlockers(User $user): array;
 }
