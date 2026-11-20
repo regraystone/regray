@@ -308,7 +308,7 @@ describe('a walk-in', function (): void {
         foreach ([$platform->id, 999999] as $id) {
             $this->actingAs($marketing)
                 ->post(route('schedule.book.store'), bookingInput(['directClientId' => $id, 'salesId' => $sales->id]))
-                ->assertSessionHasErrors(['clientId' => 'Choose a walk-in client on file']);
+                ->assertSessionHasErrors(['clientId' => 'Choose a direct client on file']);
         }
 
         expect(Schedule::query()->count())->toBe(0);

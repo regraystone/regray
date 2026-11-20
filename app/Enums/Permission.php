@@ -223,6 +223,28 @@ enum Permission: string
     case SupportClaim = 'support.claim';
 
     /**
+     * Adding a staff account from the Accounts page, with the temporary
+     * password (config/accounts.php). An action permission: it guards the
+     * endpoint and the Add account button, not a page. The admin's alone.
+     */
+    case AccountsCreate = 'accounts.create';
+
+    /**
+     * Changing an account from the Accounts page: its name, email, a staff
+     * account's role, and whether it is active. The admin's alone.
+     * AccountService refuses turning off your own account or the last
+     * active admin, whoever asks.
+     */
+    case AccountsUpdate = 'accounts.update';
+
+    /**
+     * Archiving an account from the Accounts page: it leaves the list and can
+     * never sign in again. The admin's alone, with the same guards as
+     * turning an account off.
+     */
+    case AccountsArchive = 'accounts.archive';
+
+    /**
      * The `can:` middleware string that guards a route with this permission.
      *
      * Laravel hands middleware its parameters as strings, so a route cannot

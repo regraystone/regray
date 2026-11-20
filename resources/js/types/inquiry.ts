@@ -104,7 +104,7 @@ export type StaffInquireTarget = {
     kind: 'platform' | 'direct';
     /** The client's name. */
     name: string;
-    /** The lead's reference, or "Direct (walk-in)". */
+    /** The lead's reference, or "Direct". */
     detail: string;
     storeUrl: string;
 };

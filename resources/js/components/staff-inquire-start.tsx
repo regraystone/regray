@@ -161,7 +161,7 @@ const PlatformStart = ({
             {accounts.length === 0 ? (
                 <EmptyState
                     title="No client accounts found"
-                    description="Try another name or email. A client with no account is a Direct (walk-in) client."
+                    description="Try another name or email. A client with no account is a direct client."
                 />
             ) : (
                 <ul
@@ -219,10 +219,7 @@ const DirectStart = ({
         onTarget({
             kind: 'direct',
             name: chosen.name,
-            detail:
-                owner === null
-                    ? 'Direct (walk-in)'
-                    : `Direct (walk-in) · Owner: ${owner.name}`,
+            detail: owner === null ? 'Direct' : `Direct · Owner: ${owner.name}`,
             storeUrl: directInquiriesStore.url(
                 chosen.id,
                 owner === null
@@ -242,7 +239,7 @@ const DirectStart = ({
                 {owners.length === 0 ? (
                     <EmptyState
                         title="No one in sales"
-                        description="A walk-in's inquiry is owned by a sales member. Ask an admin to add one."
+                        description="A direct client's inquiry is owned by a sales member. Ask an admin to add one."
                     />
                 ) : (
                     <ul
@@ -295,7 +292,7 @@ const DirectStart = ({
                     ) : (
                         <PageHeading
                             title="Inquire"
-                            description="Take down the walk-in client"
+                            description="Take down the direct client"
                             action={<BackButton onClick={onBack} />}
                         />
                     )

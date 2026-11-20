@@ -4,12 +4,16 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Http\Middleware\EnsureAccountActive;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Contracts\RegisterResponse;
 use Laravel\Fortify\Features;
@@ -51,6 +55,26 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        /*
+         * The Sign In form, with one rule on top of the email and password: an
+         * account deactivated or archived on the Accounts page is refused, and
+         * told so, once its password is right (so a wrong guess learns
+         * nothing). Fortify asks this before the two-factor challenge too.
+         */
+        Fortify::authenticateUsing(function (Request $request): ?User {
+            $user = User::query()->where('email', Str::lower((string) $request->input(Fortify::username())))->first();
+
+            if ($user === null || ! Hash::check((string) $request->input('password'), $user->password)) {
+                return null;
+            }
+
+            if (! $user->canSignIn()) {
+                throw ValidationException::withMessages([Fortify::username() => __(EnsureAccountActive::MESSAGE)]);
+            }
+
+            return $user;
+        });
     }
 
     /**

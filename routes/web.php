@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Address\PhPlaceController;
 use App\Http\Controllers\Auth\GoogleController;
+use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Brand\ProductRedirectController;
 use App\Http\Controllers\Furniture\FurnitureController;
@@ -87,6 +89,19 @@ Route::middleware(['throttle:heavy-reads', RedirectSignedInToDashboard::class])
 
 Route::get('/furniture/{furniture}', [ProductRedirectController::class, 'furniture'])
     ->middleware('throttle:heavy-reads');
+
+/*
+ * Set your password: where an account made on the Accounts page lands until
+ * its holder replaces the temporary password (EnsurePasswordChanged). Behind
+ * `auth` only, with no `verified` and no permission, so a brand-new staff
+ * member reaches it before anything else.
+ */
+Route::middleware('auth')->prefix('dashboard')->group(function () {
+    Route::get('password/change', [PasswordChangeController::class, 'edit'])->name('password.change');
+    Route::put('password/change', [PasswordChangeController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('password.change.update');
+});
 
 /*
  * The sidebar already hides the links a user may not follow, so it only hides
@@ -525,9 +540,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('services', [ViewController::class, 'services'])
             ->middleware(Permission::ServicesView->middleware())
             ->name('services.index');
+        /*
+         * The admin's Accounts page: the list, and its writes, each behind its
+         * own permission on top of the page's. `{user}` stays a plain id
+         * (AccountController::find()) so the permissions are checked before
+         * anything says whether an account exists; AccountService then refuses
+         * turning off or archiving yourself or the last active admin.
+         */
         Route::get('accounts', [ViewController::class, 'accounts'])
             ->middleware(Permission::AccountsView->middleware())
             ->name('accounts.index');
+        Route::middleware([Permission::AccountsView->middleware(), 'throttle:account-save'])->group(function () {
+            Route::post('accounts', [AccountController::class, 'store'])
+                ->middleware(Permission::AccountsCreate->middleware())
+                ->name('accounts.store');
+            Route::put('accounts/{user}', [AccountController::class, 'update'])
+                ->middleware(Permission::AccountsUpdate->middleware())
+                ->name('accounts.update');
+            Route::patch('accounts/{user}/status', [AccountController::class, 'status'])
+                ->middleware(Permission::AccountsUpdate->middleware())
+                ->name('accounts.status');
+            Route::post('accounts/{user}/archive', [AccountController::class, 'archive'])
+                ->middleware(Permission::AccountsArchive->middleware())
+                ->name('accounts.archive');
+        });
         Route::get('projects', [ViewController::class, 'projects'])
             ->middleware(Permission::ProjectsView->middleware())
             ->name('projects.index');

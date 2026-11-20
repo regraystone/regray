@@ -85,6 +85,33 @@ class UserFactory extends Factory
         ]);
     }
 
+    /** Turned off from the Accounts page: may not sign in. */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+            'deactivated_at' => now(),
+        ]);
+    }
+
+    /** Archived from the Accounts page: off the list, and may not sign in. */
+    public function archived(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+            'deactivated_at' => now(),
+            'archived_at' => now(),
+        ]);
+    }
+
+    /** Made on the Accounts page and not signed in yet: still on the temporary password. */
+    public function mustChangePassword(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'must_change_password' => true,
+        ]);
+    }
+
     /**
      * Indicate that the model has two-factor authentication configured.
      */

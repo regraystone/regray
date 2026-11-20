@@ -10,12 +10,12 @@ import {
 } from '../../resources/js/lib/staff-inquire.ts';
 
 describe('the staff Inquire modal', () => {
-    it('offers exactly two options: Platform and Direct (walk-in)', () => {
+    it('offers exactly two options: Platform and Direct', () => {
         assert.deepEqual(
             STAFF_INQUIRE_OPTIONS.map((option) => [option.kind, option.label]),
             [
                 ['platform', 'Platform'],
-                ['direct', 'Direct (walk-in)'],
+                ['direct', 'Direct'],
             ],
         );
         assert.equal(

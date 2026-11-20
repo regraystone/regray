@@ -34,7 +34,7 @@ class CreateWalkInGroupRequest extends FormRequest
             'name.required' => 'Give the group a name.',
             'staffIds.required' => 'Choose one technical member.',
             'staffIds.size' => 'Choose one technical member.',
-            'inquiryId.required' => 'Choose the walk-in inquiry this group is for.',
+            'inquiryId.required' => 'Choose the direct inquiry this group is for.',
         ];
     }
 

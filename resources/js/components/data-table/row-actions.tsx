@@ -1,4 +1,5 @@
 import {
+    Archive,
     ArrowRightLeft,
     Check,
     Eye,
@@ -37,7 +38,8 @@ export type RowActionKey =
     | 'status.process'
     | 'job_order'
     | 'won'
-    | 'lost';
+    | 'lost'
+    | 'archive';
 
 const ACTIONS: Record<RowActionKey, { icon: LucideIcon; label: string }> = {
     view: { icon: Eye, label: 'View' },
@@ -48,6 +50,7 @@ const ACTIONS: Record<RowActionKey, { icon: LucideIcon; label: string }> = {
     job_order: { icon: FileUp, label: 'Upload job order' },
     won: { icon: Check, label: 'Mark won' },
     lost: { icon: X, label: 'Mark lost' },
+    archive: { icon: Archive, label: 'Archive' },
 };
 
 /** The order the buttons sit in, whatever order the server sent them in. */
@@ -60,21 +63,26 @@ const ORDER: RowActionKey[] = [
     'job_order',
     'won',
     'lost',
+    'archive',
 ];
 
 /**
- * A row's actions: one or two as icon buttons; three or more as the first
- * (view) beside a dropdown menu (three dots) with the rest (splitRowActions).
+ * A row's actions: up to `maxInline` (two, unless the page says more) as icon
+ * buttons; past that, the first (view) beside a dropdown menu (three dots)
+ * with the rest (splitRowActions).
  */
 const RowActions = ({
     actions,
     handlers,
     subject,
+    maxInline = 2,
 }: {
     actions: readonly string[];
     handlers: Partial<Record<RowActionKey, () => void>>;
     /** What the row is, for the labels: "View INQ-1049". */
     subject: string;
+    /** How many may sit as buttons before a menu takes the rest. */
+    maxInline?: number;
 }) => {
     const availableActions = ORDER.filter(
         (key) => actions.includes(key) && handlers[key] !== undefined,
@@ -84,10 +92,13 @@ const RowActions = ({
         return null;
     }
 
-    const { inline, menu: dropdownActions } = splitRowActions(availableActions);
+    const { inline, menu: dropdownActions } = splitRowActions(
+        availableActions,
+        maxInline,
+    );
 
     return (
-        <div className="flex items-center justify-end gap-0.5">
+        <div className="flex items-center justify-end gap-0">
             {inline.map((key) => {
                 const { icon: Icon, label } = ACTIONS[key];
 
@@ -98,7 +109,7 @@ const RowActions = ({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-9 w-9"
+                                className="size-8"
                                 aria-label={`${label} · ${subject}`}
                                 data-row-action={key}
                                 onClick={handlers[key]}
@@ -120,7 +131,7 @@ const RowActions = ({
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9"
+                                    className="size-8"
                                     aria-label={`More actions for ${subject}`}
                                 >
                                     <MoreVertical
