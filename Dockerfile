@@ -73,6 +73,22 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
+# GD in the local image only (docker-compose.override.yml sets COMPOSER_DEV):
+# the app never draws an image, but the tests' UploadedFile::fake()->image()
+# does. Production stays without it.
+ARG COMPOSER_DEV=false
+RUN if [ "$COMPOSER_DEV" = true ]; then \
+        apt-get update \
+        && apt-get install -y --no-install-recommends \
+            $PHPIZE_DEPS libpng-dev libjpeg62-turbo-dev libfreetype-dev libwebp-dev \
+            libpng16-16t64 libjpeg62-turbo libfreetype6 libwebp7 \
+        && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
+        && docker-php-ext-install -j"$(nproc)" gd \
+        && apt-get purge -y --auto-remove $PHPIZE_DEPS libpng-dev libjpeg62-turbo-dev libfreetype-dev libwebp-dev \
+        && rm -rf /var/lib/apt/lists/* \
+        && php -r 'exit(extension_loaded("gd") ? 0 : 1);'; \
+    fi
+
 # PHP 8.5 compiles OPcache into PHP; it must not be installed as a shared extension.
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 # Replace, rather than extend, the default pool so it has no user/group directives.

@@ -8,4 +8,5 @@ enum AuditEvent: string
     case Updated = 'updated';
     case Deleted = 'deleted';
     case StatusChanged = 'status_changed';
+    case Archived = 'archived';
 }

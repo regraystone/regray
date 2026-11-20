@@ -22,7 +22,7 @@ export const STAFF_INQUIRE_OPTIONS: readonly StaffInquireOption[] = [
     },
     {
         kind: 'direct',
-        label: 'Direct (walk-in)',
+        label: 'Direct',
         description: 'The client has no account.',
     },
 ];

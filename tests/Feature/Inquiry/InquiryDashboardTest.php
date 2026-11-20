@@ -15,6 +15,7 @@ use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Services\InquiryStatusUpdateService;
 use App\Services\ScheduleService;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,20 @@ beforeEach(function (): void {
 function pdf(string $name): UploadedFile
 {
     return UploadedFile::fake()->create($name, 12, 'application/pdf');
+}
+
+/**
+ * letStaffRead(), but accounting and logistics only on an inquiry sales has
+ * won: before then the database refuses them as its handlers
+ * (inquiry_handlers_guard()), so they never read it.
+ */
+function letStaffReadIfAllowed(Inquiry $inquiry, User $member): void
+{
+    $joinsOnceWon = $member->hasAnyRole([Role::Accounting->value, Role::Logistics->value]);
+
+    if (! $joinsOnceWon || in_array($inquiry->sales_status, [SalesStatus::Won, SalesStatus::ForRefund], true)) {
+        letStaffRead($inquiry, $member);
+    }
 }
 
 /** Won with the job order and its total, payment not started (so logistics has not either). */
@@ -77,9 +92,9 @@ it('lists to each role only its own share of the inquiries', function (Role $rol
     makeInquiry($this->client, attributes: ['reference' => 'INQ-W1', 'status' => InquiryStatus::Won])->forceFill(['quote_revision' => 1])->save();
     // Partly paid, so logistics has received it.
     makeInquiry($this->client, attributes: ['reference' => 'INQ-L1', 'status' => InquiryStatus::Measure])->forceFill(['quote_revision' => 1, 'payment_status' => PaymentStatus::Partial])->save();
-    // Each reads every one of them, so what is left out is the role's own filter.
+    // Each reads every one it may be part of, so what is left out is the role's own filter.
     $user = User::factory()->role($role)->create();
-    Inquiry::query()->each(fn (Inquiry $inquiry) => letStaffRead($inquiry, $user));
+    Inquiry::query()->each(fn (Inquiry $inquiry) => letStaffReadIfAllowed($inquiry, $user));
 
     $page = $this->actingAs($user)->get(route('inquiry.index'))->viewData('page')['props'];
 
@@ -100,7 +115,7 @@ it('filters accounting by payment, logistics by process, and everyone else by th
     makeInquiry($this->client, attributes: ['reference' => 'INQ-W1', 'status' => InquiryStatus::Won])->forceFill(['quote_revision' => 1])->save();
     makeInquiry($this->client, attributes: ['reference' => 'INQ-M1', 'status' => InquiryStatus::Measure])->forceFill(['quote_revision' => 1, 'payment_status' => PaymentStatus::Partial])->save();
     $user = User::factory()->role($role)->create();
-    Inquiry::query()->each(fn (Inquiry $inquiry) => letStaffRead($inquiry, $user));
+    Inquiry::query()->each(fn (Inquiry $inquiry) => letStaffReadIfAllowed($inquiry, $user));
 
     $page = fn (array $query) => $this->actingAs($user)->get(route('inquiry.index', $query))->viewData('page')['props'];
     $filtered = $page(['status' => $filter]);
@@ -247,11 +262,18 @@ describe('Update Status', function (): void {
 
     it('starts payment only once the client has approved the quotation', function (): void {
         ($this->move)('quoted')->assertRedirect();
-        $accounting = User::factory()->role(Role::Accounting)->create();
-        letStaffRead($this->inquiry, $accounting);
+        $billing = ['track' => 'payment', 'to' => 'awaiting', 'note' => 'Deposit billed.', 'files' => ['billing_statement' => [pdf('billing.pdf')]]];
 
-        $this->actingAs($accounting)
-            ->postJson(route('inquiries.status', 'INQ-S1'), ['track' => 'payment', 'to' => 'awaiting', 'note' => 'Deposit billed.', 'files' => ['billing_statement' => [pdf('billing.pdf')]]])
+        // Accounting joins once sales has won it, so it is not theirs to bill yet.
+        $accounting = User::factory()->role(Role::Accounting)->create();
+        // In a savepoint: Postgres refuses the rest of a transaction after an error.
+        expect(fn () => DB::transaction(fn () => assignInquiry($this->inquiry, $accounting)))->toThrow(QueryException::class, 'accounting joins once sales has won it');
+        $this->actingAs($accounting)->postJson(route('inquiries.status', 'INQ-S1'), $billing)->assertNotFound();
+
+        // The admin reads every inquiry, and is refused by the rule itself.
+        $admin = User::factory()->role(Role::Admin)->create();
+        $this->actingAs($admin)
+            ->postJson(route('inquiries.status', 'INQ-S1'), $billing)
             ->assertJsonValidationErrors(['to' => 'Payment starts once the client has approved the quotation.']);
     });
 
@@ -307,7 +329,8 @@ describe('Update Status', function (): void {
     });
 
     it('lets each track be moved only with its own permission', function (): void {
-        // Accounting reads the inquiry, so what refuses it is the track's permission.
+        // Accounting reads the inquiry (won, so they may join it), so what refuses it is the track's permission.
+        $this->inquiry->forceFill(['sales_status' => SalesStatus::Won, 'quote_revision' => 1, 'quoted_total' => '1500.00'])->save();
         $accounting = User::factory()->role(Role::Accounting)->create();
         letStaffRead($this->inquiry, $accounting);
 
@@ -485,12 +508,14 @@ it('hands an inquiry to logistics only once it has the job order and a payment',
     $accounting = User::factory()->role(Role::Accounting)->create();
     $logistics = User::factory()->role(Role::Logistics)->create();
     $inquiry = makeInquiry($this->client, attributes: ['reference' => 'INQ-G1', 'status' => InquiryStatus::Negotiation]);
-    letStaffRead($inquiry, $sales, $accounting, $logistics);
+    letStaffRead($inquiry, $sales);
     $listedFor = fn (User $user): bool => collect($this->actingAs($user)->get(route('inquiry.index'))->viewData('page')['props']['inquiries']['data'])->contains('reference', 'INQ-G1');
     $move = fn (User $by, array $data) => $this->actingAs($by)->post(route('inquiries.status', 'INQ-G1'), ['note' => 'Moved.', ...$data])->assertRedirect();
 
     $move($sales, ['track' => 'sales', 'to' => 'quoted', 'quotedTotal' => '1000.00', 'files' => ['quotation' => [pdf('quote.pdf')]]]);
     $move($sales, ['track' => 'sales', 'to' => 'won', 'files' => ['job_order' => [pdf('jo.pdf')]]]);
+    // Accounting and logistics join once sales has won it.
+    letStaffRead($inquiry->refresh(), $accounting, $logistics);
     $move($accounting, ['track' => 'payment', 'to' => 'awaiting', 'contractTotal' => '1000.00', 'files' => ['billing_statement' => [pdf('billing.pdf')]]]);
 
     expect($inquiry->refresh()->process_status)->toBeNull()

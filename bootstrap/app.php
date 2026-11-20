@@ -2,6 +2,8 @@
 
 use App\Console\Commands\CreateAdminCommand;
 use App\Http\Middleware\AuthorizeAnyPermission;
+use App\Http\Middleware\EnsureAccountActive;
+use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -32,7 +34,14 @@ return Application::configure(basePath: dirname(__DIR__))
          */
         $middleware->encryptCookies(except: ['sidebar_state', 'grid_page_size']);
 
+        /*
+         * A deactivated or archived account is signed out on its next request,
+         * and one still on the temporary password the Accounts page gave it is
+         * kept on Set your password; both run before the route's own `auth`.
+         */
         $middleware->web(append: [
+            EnsureAccountActive::class,
+            EnsurePasswordChanged::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);

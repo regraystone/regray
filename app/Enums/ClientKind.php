@@ -16,7 +16,7 @@ enum ClientKind: string
     {
         return match ($this) {
             self::Platform => 'Platform',
-            self::Direct => 'Direct (walk-in)',
+            self::Direct => 'Direct',
         };
     }
 }

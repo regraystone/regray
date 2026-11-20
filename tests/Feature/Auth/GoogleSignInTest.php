@@ -289,3 +289,24 @@ it('disconnects Google, and shows where the account stands on Account & Security
 
     expect($user->socialAccounts()->count())->toBe(0);
 });
+
+it('refuses to sign in a deactivated or archived account with Google', function (string $state): void {
+    $user = User::factory()->role(Role::Sales)->{$state}()->create();
+    linkGoogle($user);
+    googleAnswers();
+
+    $this->get(route('auth.google.callback'))
+        ->assertRedirect(route('login'))
+        ->assertSessionHas('socialNotice', ['type' => 'error', 'message' => 'This account has been deactivated.']);
+
+    $this->assertGuest();
+})->with(['inactive', 'archived']);
+
+it('sends a new staff member signing in with Google to Set your password', function (): void {
+    $user = User::factory()->role(Role::Sales)->mustChangePassword()->create();
+    linkGoogle($user);
+    googleAnswers();
+
+    $this->get(route('auth.google.callback'))->assertRedirect(route('dashboard'));
+    $this->get(route('dashboard'))->assertRedirect(route('password.change'));
+});

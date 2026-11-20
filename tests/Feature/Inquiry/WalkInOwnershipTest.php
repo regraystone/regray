@@ -402,6 +402,6 @@ describe('walk-in group chat', function (): void {
         $this->actingAs($this->otherMarketing)
             ->postJson(route('inbox.groups.walk-in.store'), $payload([$this->sales->id, $this->technical->id]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['inquiryId' => 'Choose one of the walk-in inquiries you can see.']);
+            ->assertJsonValidationErrors(['inquiryId' => 'Choose one of the direct inquiries you can see.']);
     });
 });

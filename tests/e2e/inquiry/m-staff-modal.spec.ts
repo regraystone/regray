@@ -1,7 +1,7 @@
 import { expect, test } from '../support/fixtures';
 
 /*
- * M. The staff Inquire modal: Platform or Direct (walk-in), staff only.
+ * M. The staff Inquire modal: Platform or Direct, staff only.
  * Demo seed: Lucas Moreau has marketing's idle lead LEAD-0007, and Carmela
  * Reyes is a direct client with carmela@reyesbakeshop.example.
  */
@@ -78,9 +78,7 @@ test('49 · the Direct branch offers the client already on file instead of a sec
     await expect(
         page.getByRole('heading', { name: 'What do you need?' }),
     ).toBeVisible();
-    await expect(page.getByTestId('inquire-target')).toContainText(
-        'Direct (walk-in)',
-    );
+    await expect(page.getByTestId('inquire-target')).toContainText('Direct');
 });
 
 test('49b · marketing names the sales owner of a walk-in inquiry before the stepper', async ({

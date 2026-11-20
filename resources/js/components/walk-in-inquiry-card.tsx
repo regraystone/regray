@@ -184,7 +184,7 @@ const WalkInInquiryCard = ({
                     id="inquiry-walk-in-title"
                     className="block truncate text-sm font-bold tracking-[0.08em] uppercase"
                 >
-                    Walk-in client
+                    Direct client
                 </span>
             </h2>
 

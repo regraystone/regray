@@ -1,10 +1,13 @@
 /*
  * The paging rules every DataTable shares. Pure, with no imports, for tests/js.
- * The server applies the same page sizes (App\Http\Requests\DataTableRequest).
+ * The server applies the same page size (App\Http\Requests\DataTableRequest).
  */
 
-/** Fixed page size: removed rows-per-page selector. */
-export const DEFAULT_PAGE_SIZE = 20 as const;
+/**
+ * Every DataTable shows 10 rows a page, with no other size to pick; the server
+ * ignores any `perPage` it is sent.
+ */
+export const DEFAULT_PAGE_SIZE = 10 as const;
 
 /** The pagination block a server list sends beside its rows. */
 export type TableMeta = {
@@ -35,9 +38,14 @@ export const rangeText = (meta: TableMeta): string =>
         : `Showing ${meta.from}–${meta.to} of ${meta.total}`;
 
 /**
- * The page numbers to draw: first page, current page with one neighbor on each
- * side, last page, with gaps (`null`) wherever pages are skipped. Adaptive based
- * on current page position.
+ * The page numbers to draw, with a gap (`null`) where pages are skipped.
+ *
+ * Seven pages or fewer are all shown. Past that: the first two, the last two,
+ * and the current page with one neighbour each side; near either end, the
+ * third page from it as well, so the run there is three long. A gap that
+ * would hide a single page shows that page instead.
+ *
+ * 10 pages: on 1, `1 2 3 … 9 10`; on 6, `1 2 … 5 6 7 8 9 10`.
  */
 export const pageNumbers = (
     current: number,
@@ -51,24 +59,79 @@ export const pageNumbers = (
         return Array.from({ length: last }, (_, index) => index + 1);
     }
 
-    // For larger ranges, show: first, current±1, last, with gaps
-    const pages = new Set([1, last, current - 1, current, current + 1]);
+    const pages = new Set([
+        1,
+        2,
+        last - 1,
+        last,
+        current - 1,
+        current,
+        current + 1,
+    ]);
+
+    if (current <= 2) {
+        pages.add(3);
+    }
+
+    if (current >= last - 1) {
+        pages.add(last - 2);
+    }
+
     const shown = [...pages]
         .filter((page) => page >= 1 && page <= last)
         .sort((a, b) => a - b);
 
-    return shown.flatMap((page, index) =>
-        index > 0 && page - shown[index - 1] > 1 ? [null, page] : [page],
-    );
+    return shown.flatMap((page, index) => {
+        const gap = index === 0 ? 1 : page - shown[index - 1];
+
+        if (gap === 2) {
+            return [page - 1, page];
+        }
+
+        return gap > 2 ? [null, page] : [page];
+    });
 };
 
 /**
- * How a row's actions are drawn: up to two as icon buttons, side by side; three
- * or more as the first (view) beside a menu holding the rest.
+ * How a row's actions are drawn: up to `maxInline` as icon buttons, side by
+ * side; more than that as the first (view) beside a menu holding the rest.
  */
 export const splitRowActions = <T>(
     actions: readonly T[],
+    maxInline = 2,
 ): { inline: T[]; menu: T[] } =>
-    actions.length <= 2
+    actions.length <= maxInline
         ? { inline: [...actions], menu: [] }
         : { inline: actions.slice(0, 1), menu: actions.slice(1) };
+
+/** A query value a list page keeps in its URL; empty ones are left out. */
+export type QueryValue = string | number | null | undefined;
+
+/**
+ * The query a list reloads with: the one it has, with `changes` on top. A
+ * search or filter starts again from page 1 unless `changes` names a page;
+ * an empty value (`''`, null, or the filter's `all`) drops its key, so the URL
+ * only holds what narrows the list.
+ */
+export const nextQuery = (
+    current: Readonly<Record<string, string>>,
+    changes: Readonly<Record<string, QueryValue>>,
+): Record<string, string> => {
+    const merged: Record<string, QueryValue> = {
+        ...current,
+        page: 1,
+        ...changes,
+    };
+
+    return Object.fromEntries(
+        Object.entries(merged)
+            .filter(
+                (entry): entry is [string, string | number] =>
+                    entry[1] !== null &&
+                    entry[1] !== undefined &&
+                    String(entry[1]).trim() !== '' &&
+                    entry[1] !== 'all',
+            )
+            .map(([key, value]) => [key, String(value).trim()]),
+    );
+};

@@ -643,7 +643,7 @@ const Page = ({
                                       {result.salesName ?? 'The sales member'}{' '}
                                       has been asked to confirm it;{' '}
                                       {result.isWalkIn
-                                          ? 'a walk-in has no Regray account, so let them know yourself once it is confirmed.'
+                                          ? 'a direct client has no Regray account, so let them know yourself once it is confirmed.'
                                           : 'the client is told in their Regray chat once it is confirmed.'}
                                   </>
                               ) : (

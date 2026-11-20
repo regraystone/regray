@@ -30,6 +30,10 @@ return [
         // POST, PUT and DELETE dashboard/profile/addresses: changing the client's address book.
         'address-book-save' => (int) env('RATE_LIMIT_ADDRESS_BOOK_SAVE', 20),
 
+        // POST, PUT, PATCH dashboard/accounts/*: the admin adding, changing,
+        // turning off and archiving accounts.
+        'account-save' => (int) env('RATE_LIMIT_ACCOUNT_SAVE', 20),
+
         // GET api/ph/*: the address picker's searches, debounced as the reader types.
         'ph-address-search' => (int) env('RATE_LIMIT_PH_ADDRESS_SEARCH', 120),
 

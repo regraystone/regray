@@ -128,6 +128,21 @@ enum Role: string
     }
 
     /**
+     * The roles an admin may give an account from the Accounts page: every
+     * staff role. Never the admin, which is made from the console
+     * (CreateAdminCommand), nor the client, who signs up for themselves.
+     *
+     * @return list<self>
+     */
+    public static function staffRoles(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $role): bool => $role !== self::Admin && $role !== self::Client,
+        ));
+    }
+
+    /**
      * Every role name, as the seeder and the tests read them.
      *
      * @return array<int, string>
