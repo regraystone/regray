@@ -233,6 +233,7 @@ test('guards every route with exactly these permissions', function () {
         'inbox.thread' => $messages,
         'inbox.message' => $messages,
         'inbox.send' => $messages,
+        'inbox.typing' => $messages,
         'inbox.read' => $messages,
         'inbox.delivered' => $messages,
         'inbox.claim' => $messages,

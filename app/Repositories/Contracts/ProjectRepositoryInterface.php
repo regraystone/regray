@@ -3,8 +3,8 @@
 namespace App\Repositories\Contracts;
 
 use App\Models\Project;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 interface ProjectRepositoryInterface
 {

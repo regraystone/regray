@@ -7,10 +7,10 @@ use App\Models\Project;
 use App\Models\ProjectCategory;
 use App\Models\Stone;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ProjectRepository implements ProjectRepositoryInterface
 {
