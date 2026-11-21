@@ -509,6 +509,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('messages', [ThreadController::class, 'send'])
                     ->middleware(['can:send,conversation', 'throttle:messages'])
                     ->name('inbox.send');
+                Route::post('typing', [ThreadController::class, 'typing'])
+                    ->middleware(['can:send,conversation', 'throttle:message-typing'])
+                    ->name('inbox.typing');
                 Route::post('read', [ThreadController::class, 'pointer'])
                     ->middleware(['can:view,conversation', 'throttle:message-receipts'])
                     ->name('inbox.read');

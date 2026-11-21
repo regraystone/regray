@@ -12,6 +12,7 @@ import {
     newClientKey,
     removeMessage,
     sendMessage,
+    signalTyping as signalTypingRequest,
 } from '@/lib/message-api';
 import type {
     Assignment,
@@ -103,7 +104,7 @@ export function useConversationThread(
     >([]);
     const stateRef = useRef(state);
     const typingTimers = useRef(new Map<number, number>());
-    const lastWhisper = useRef(0);
+    const lastTypingSignal = useRef(0);
     const callbacks = useRef({ onIncoming, onLostAccess, onSummaryChange });
 
     useEffect(() => {
@@ -341,8 +342,9 @@ export function useConversationThread(
             // client and the super-admin keep it. The catch-up settles which,
             // by answering or by a 403.
             '.support.claimed': () => void catchUp(),
-            // The `typing` whisper.
-            '.client-typing': (event: { userId: number; name: string }) => {
+            // Announced by the server under the typist's own account, and only
+            // for someone who may write in the thread now (UserTyping).
+            '.typing': (event: { userId: number; name: string }) => {
                 if (event.userId === currentUserId) {
                     return;
                 }
@@ -608,28 +610,26 @@ export function useConversationThread(
         }
     }, [conversationId, applyAssignment]);
 
-    /** Let the others know the viewer is typing, at most every 1.5 s. */
-    const signalTyping = useCallback(
-        (name: string) => {
-            const echo = getEcho(realtime);
-            const now = Date.now();
+    /**
+     * Let the others know the viewer is typing, at most every 1.5 s. Nothing
+     * comes of a refusal: the indicator is a courtesy, and a send settles
+     * whether the viewer may write.
+     */
+    const signalTyping = useCallback(() => {
+        const now = Date.now();
 
-            if (
-                conversationId === null ||
-                echo === null ||
-                now - lastWhisper.current < TYPING_THROTTLE_MS
-            ) {
-                return;
-            }
+        if (
+            conversationId === null ||
+            getEcho(realtime) === null ||
+            hasLostAccess.current ||
+            now - lastTypingSignal.current < TYPING_THROTTLE_MS
+        ) {
+            return;
+        }
 
-            lastWhisper.current = now;
-            echo.private(`conversation.${conversationId}`).whisper('typing', {
-                userId: currentUserId,
-                name,
-            });
-        },
-        [conversationId, currentUserId, realtime],
-    );
+        lastTypingSignal.current = now;
+        void signalTypingRequest(conversationId).catch(() => undefined);
+    }, [conversationId, realtime]);
 
     return {
         state,
