@@ -71,6 +71,16 @@ interface MessageRepositoryInterface
      */
     public function createScheduleCardOnce(int $conversationId, int $scheduleId, string $announcedStatus, int $revision, CarbonInterface $arrivalAt, ?string $reason): ?Message;
 
+    /**
+     * Post a quotation card once per conversation and quotation document, with
+     * what it shows (QuotationCardSnapshot). Returns null when that document's
+     * card is already in the conversation, which is what a retried listener
+     * will find. Posted now unless `$postedAt` says when.
+     *
+     * @param  array<string, mixed>  $snapshot
+     */
+    public function createQuotationCardOnce(int $conversationId, int $inquiryId, int $inquiryFileId, array $snapshot, ?CarbonInterface $postedAt = null): ?Message;
+
     /** Whether the message belongs to the conversation. */
     public function belongsTo(int $messageId, int $conversationId): bool;
 

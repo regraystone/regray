@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * How to reach a client who has no account: one row per phone number, Viber,
- * WhatsApp or email address. `value` is stored normalised by the app (an
+ * How to reach a client who has no account: their phone number and, when
+ * they gave one, their email address. `value` is stored normalised by the app (an
  * email lowercased, a number without spaces or dashes), and a kind and value
  * belong to one client only (`idx_client_contacts_once`): the duplicate check
  * offers that client rather than creating a second one.
@@ -27,7 +27,7 @@ return new class extends Migration
             $table->unique(['kind', 'value'], 'idx_client_contacts_once');
         });
 
-        DB::statement("ALTER TABLE client_contacts ADD CONSTRAINT chk_client_contacts_kind CHECK (kind IN ('phone','viber','whatsapp','email'))");
+        DB::statement("ALTER TABLE client_contacts ADD CONSTRAINT chk_client_contacts_kind CHECK (kind IN ('phone','email'))");
     }
 
     public function down(): void

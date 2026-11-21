@@ -5,17 +5,15 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Validator as ValidatorFactory;
-use Illuminate\Validation\Rule;
 
 /**
- * The query a DataTable sends: `search`, `page` and `perPage` (10, 25, 50 or
- * 100, as resources/js/lib/data-table.ts offers). A bad value on a list page
- * is not worth a page of its own: it falls back to its default.
+ * The query a DataTable sends: `search` and `page`. Every DataTable shows a
+ * fixed 10 rows a page, as resources/js/lib/data-table.ts does, so a
+ * `perPage` in the query is ignored. A bad value on a list page is not worth
+ * a page of its own: it falls back to its default.
  */
 class DataTableRequest extends FormRequest
 {
-    public const PAGE_SIZES = [10, 25, 50, 100];
-
     public const DEFAULT_PAGE_SIZE = 10;
 
     /** The route middleware decides access before this request is resolved. */
@@ -30,7 +28,6 @@ class DataTableRequest extends FormRequest
         return [
             'search' => ['nullable', 'string', 'max:100'],
             'page' => ['nullable', 'integer', 'min:1'],
-            'perPage' => ['nullable', 'integer', Rule::in(self::PAGE_SIZES)],
         ];
     }
 
@@ -49,9 +46,10 @@ class DataTableRequest extends FormRequest
         return (int) ($this->valid()['page'] ?? 1);
     }
 
+    /** Always DEFAULT_PAGE_SIZE: there is no other page size to ask for. */
     public function perPage(): int
     {
-        return (int) ($this->valid()['perPage'] ?? self::DEFAULT_PAGE_SIZE);
+        return self::DEFAULT_PAGE_SIZE;
     }
 
     /**

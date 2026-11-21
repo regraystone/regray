@@ -28,6 +28,7 @@ const field = (slug, label, scope, answerType, overrides = {}) => ({
 const services = {
     'countertop-backsplash': {
         requiresStones: true,
+        fulfillment: 'installed',
         fields: [
             field('area_sqm', 'Project area (sqm)', 'project', 'number'),
             field('edge_profile', 'Edge profile', 'stone', 'choice'),
@@ -36,15 +37,21 @@ const services = {
     },
     'kitchen-islands': {
         requiresStones: true,
+        fulfillment: 'installed',
         fields: [
             field('area_sqm', 'Project area (sqm)', 'project', 'number'),
             field('finish', 'Finish', 'stone', 'choice'),
             field('waterfall_effect', 'Waterfall effect', 'project', 'boolean'),
         ],
     },
-    'installation-only': { requiresStones: false, fields: [] },
+    'installation-only': {
+        requiresStones: false,
+        fulfillment: 'installed',
+        fields: [],
+    },
     'slab-supply-only': {
         requiresStones: true,
+        fulfillment: 'delivery_or_pickup',
         fields: [
             field('quantity', 'How many pieces?', 'stone', 'number'),
             field('slab_size', 'Slab size', 'stone', 'text'),
@@ -85,8 +92,12 @@ const project = (overrides = {}) => ({
         },
     ],
     answers: { area_sqm: '12.5' },
+    brands: ['laminam'],
+    brandNoPreference: false,
+    // Installed: asks no method, so a left-over one is not sent.
     deliveryMethod: 'delivery',
-    location: 'Makati',
+    addressId: '12',
+    address: null,
     neededBy: '2030-01-02',
     notes: 'Ground floor.',
     attachments: [],
@@ -110,8 +121,8 @@ describe('buildInquiryFormData', () => {
             'projects[0][stones][1][edge]': 'Half Bevel',
             'projects[0][stones][1][finish]': 'Polished',
             'projects[0][answers][area_sqm]': '12.5',
-            'projects[0][deliveryMethod]': 'delivery',
-            'projects[0][location]': 'Makati',
+            'projects[0][brands][0]': 'laminam',
+            'projects[0][addressId]': '12',
             'projects[0][neededBy]': '2030-01-02',
             'projects[0][notes]': 'Ground floor.',
         });
@@ -216,18 +227,86 @@ describe('buildInquiryFormData', () => {
         );
     });
 
-    it('sends a pickup with no location', () => {
+    it('sends a pickup with no address', () => {
         const body = send({
             projects: [
                 project({
+                    serviceId: 'slab-supply-only',
                     deliveryMethod: 'pickup',
-                    location: '',
                 }),
             ],
         });
 
         assert.equal(body.get('projects[0][deliveryMethod]'), 'pickup');
-        assert.equal(body.get('projects[0][location]'), '');
+        assert.equal(body.get('projects[0][addressId]'), null);
+        assert.equal(
+            keys(body).some((name) => name.includes('[address]')),
+            false,
+        );
+    });
+
+    it('sends a delivery with its method and its saved address', () => {
+        const body = send({
+            projects: [project({ serviceId: 'slab-supply-only' })],
+        });
+
+        assert.equal(body.get('projects[0][deliveryMethod]'), 'delivery');
+        assert.equal(body.get('projects[0][addressId]'), '12');
+    });
+
+    it('sends an installed service with its address and no method', () => {
+        const body = send({ projects: [project()] });
+
+        assert.equal(body.get('projects[0][deliveryMethod]'), null);
+        assert.equal(body.get('projects[0][addressId]'), '12');
+    });
+
+    it('sends the picked address by its codes for staff, never a saved one', () => {
+        const body = send(
+            {
+                projects: [
+                    project({
+                        address: {
+                            region: { code: '1300000000', name: 'NCR' },
+                            province: { code: 'stale', name: 'Stale' },
+                            noProvince: true,
+                            city: { code: '1380300000', name: 'Makati' },
+                            barangay: { code: '1380300001', name: 'Bel-Air' },
+                            postalCode: '1209',
+                            lat: 14.5601234567,
+                            lng: 121.03,
+                        },
+                    }),
+                ],
+            },
+            { addressSource: 'picker' },
+        );
+
+        assert.equal(body.get('projects[0][addressId]'), null);
+        assert.equal(
+            body.get('projects[0][address][regionCode]'),
+            '1300000000',
+        );
+        assert.equal(body.get('projects[0][address][provinceCode]'), '');
+        assert.equal(body.get('projects[0][address][cityCode]'), '1380300000');
+        assert.equal(
+            body.get('projects[0][address][barangayCode]'),
+            '1380300001',
+        );
+        assert.equal(body.get('projects[0][address][postalCode]'), '1209');
+        assert.equal(body.get('projects[0][address][lat]'), '14.560123');
+    });
+
+    it('sends No preference instead of brands', () => {
+        const body = send({
+            projects: [project({ brands: [], brandNoPreference: true })],
+        });
+
+        assert.equal(body.get('projects[0][brandNoPreference]'), '1');
+        assert.equal(
+            keys(body).some((name) => name.includes('[brands]')),
+            false,
+        );
     });
 
     it('appends each file as projects[i][attachments][j], in the order attached', () => {
@@ -316,7 +395,7 @@ describe('mapInquiryErrors', () => {
         const { projectMessages } = mapInquiryErrors(
             {
                 'projects.0.name': 'Give this project a name.',
-                'projects.0.location': 'Choose where the site is.',
+                'projects.0.addressId': 'Choose the delivery address.',
             },
             projects,
         );
@@ -381,14 +460,14 @@ describe('mapInquiryErrors', () => {
             {
                 'projects.0.name': 'Give this project a name.',
                 'projects.1.name': 'Give this project a name.',
-                'projects.1.location': 'Choose where the site is.',
+                'projects.1.addressId': 'Choose the delivery address.',
             },
             projects,
         );
 
         assert.deepEqual(alertErrors, [
             'Give this project a name.',
-            'Choose where the site is.',
+            'Choose the delivery address.',
         ]);
     });
 

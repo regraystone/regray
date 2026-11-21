@@ -50,7 +50,7 @@ it('posts a "New inquiry" card with no role status in its snapshot into the Regr
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect();
 
     $inquiry = Inquiry::query()->where('client_id', $client->id)->sole();
@@ -72,7 +72,7 @@ it('posts one card per inquiry when a client sends several', function (): void {
 
     foreach (['Kitchen', 'Bath'] as $name) {
         $this->actingAs($client)
-            ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => $name])]])
+            ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['name' => $name])]))
             ->assertRedirect();
     }
 
@@ -86,7 +86,7 @@ it('creates the Regray Team thread for a client who has none yet', function (): 
     expect(regrayTeamThreadOf($client))->toBeNull();
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect();
 
     $thread = regrayTeamThreadOf($client);
@@ -100,7 +100,7 @@ it('posts nothing for an inquiry the server refuses', function (): void {
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->postJson(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['location' => 'Cebu'])]])
+        ->postJson(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['addressId' => '999999'])]))
         ->assertUnprocessable();
 
     expect(Message::query()->where('conversation_id', $thread->id)->count())->toBe(0);
@@ -111,7 +111,7 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => 'Kitchen island'])]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['name' => 'Kitchen island'])]))
         ->assertRedirect();
     $reference = Inquiry::query()->where('client_id', $client->id)->value('reference');
 
@@ -121,7 +121,7 @@ it('shows the card to the client and to the support pool, and previews it as "Ne
             ->assertJsonPath('messages.0.type', MessageType::InquiryCard->value)
             ->assertJsonPath('messages.0.inquiryCard.reference', $reference)
             ->assertJsonPath('messages.0.inquiryCard.name', 'Kitchen island')
-            ->assertJsonPath('messages.0.inquiryCard.location', 'Makati')
+            ->assertJsonPath('messages.0.inquiryCard.location', 'City of Makati')
             ->assertJsonMissingPath('messages.0.inquiryCard.projectCount')
             ->assertJsonMissingPath('messages.0.projectCard')
             ->assertJsonPath('messages.0.inquiryCard.announcedStatus', InquiryStatus::Pending->value)
@@ -176,7 +176,7 @@ it('sends the snapshot the card was posted for, not the inquiry as it is now, an
     expect($card)->toMatchArray([
         'reference' => 'INQ-P1',
         'name' => 'Kitchen island',
-        'location' => 'Makati',
+        'location' => 'City of Makati',
         'stoneCount' => 1,
         'announcedStatus' => 'production',
         'announcedSalesStatus' => 'quoted',
@@ -257,7 +257,7 @@ it('keeps the sent and the cancelled card in order in one thread', function (): 
     $thread = supportThreadFor($client);
 
     $this->actingAs($client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect();
     $reference = Inquiry::query()->where('client_id', $client->id)->value('reference');
     $this->actingAs($client)->patchJson(route('quote.cancel', $reference))->assertRedirect();
@@ -266,4 +266,34 @@ it('keeps the sent and the cancelled card in order in one thread', function (): 
         InquiryStatus::Pending->value,
         InquiryStatus::Cancelled->value,
     ]);
+});
+
+it('sends the inquiry\'s one service, and up to three stone pictures with the rest counted', function (): void {
+    $client = inquiryClient();
+    $stones = array_map(fn (int $skip): string => offeredStoneSlug('slab-supply-only', $skip), range(0, 3));
+    $inquiry = makeInquiry($client, ['name' => 'Kitchen island', 'stones' => $stones], ['reference' => 'INQ-SV1']);
+    $thread = supportThreadFor($client);
+    app(MessageRepositoryInterface::class)->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Pending, null, null, null);
+    $service = inquiryService('slab-supply-only');
+
+    $card = $this->actingAs($client)->getJson(route('inbox.thread', $thread))
+        ->assertOk()
+        ->json('messages.0.inquiryCard');
+
+    expect($card['service'])->toBe(['id' => $service->slug, 'name' => $service->name])
+        ->and($card['stones'])->toHaveCount(3)
+        ->and(array_column($card['stones'], 'slug'))->toBe(array_slice($stones, 0, 3))
+        ->and($card['stoneCount'])->toBe(4);
+});
+
+it('sends no service for an inquiry without one', function (): void {
+    $client = inquiryClient();
+    $inquiry = makeInquiry($client, attributes: ['reference' => 'INQ-SV2']);
+    $inquiry->forceFill(['service_id' => null])->save();
+    $thread = supportThreadFor($client);
+    app(MessageRepositoryInterface::class)->createInquiryCardOnce($thread->id, $inquiry->id, InquiryStatus::Pending, null, null, null);
+
+    $this->actingAs($client)->getJson(route('inbox.thread', $thread))
+        ->assertOk()
+        ->assertJsonPath('messages.0.inquiryCard.service', null);
 });

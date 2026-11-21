@@ -11,8 +11,9 @@ class ShowProjectAction
         public readonly ProjectService $projectService,
     ) {}
 
-    public function execute(string $stoneSlug, string $projectSlug): Project
+    /** `$withArchived` finds an archived project too: only the saved stone's projects keep it. */
+    public function execute(string $stoneSlug, string $projectSlug, bool $withArchived = false): Project
     {
-        return $this->projectService->getPublishedProject($stoneSlug, $projectSlug);
+        return $this->projectService->getPublishedProject($stoneSlug, $projectSlug, $withArchived);
     }
 }

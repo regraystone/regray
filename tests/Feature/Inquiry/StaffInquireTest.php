@@ -31,12 +31,8 @@ function walkInInput(array $overrides = []): array
 {
     return [
         'fullName' => 'Carmela Reyes',
-        'company' => 'Reyes Bakeshop',
-        'address' => 'Pasig',
-        'contacts' => [
-            ['kind' => 'phone', 'value' => '+63 917 555-0142'],
-            ['kind' => 'email', 'value' => 'Carmela@ReyesBakeshop.example'],
-        ],
+        'phone' => '+63 917 555-0142',
+        'email' => 'Carmela@ReyesBakeshop.example',
         ...$overrides,
     ];
 }
@@ -84,14 +80,14 @@ describe('platform', function (): void {
     it('files a client\'s own inquiry under their platform record too', function (): void {
         $client = inquiryClient();
 
-        $this->actingAs($client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertRedirect();
+        $this->actingAs($client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))->assertRedirect();
 
         expect(Inquiry::query()->sole()->clientRecord->user_id)->toBe($client->id);
     });
 });
 
 describe('direct (walk-in)', function (): void {
-    it('takes the client down with their contacts, normalised', function (): void {
+    it('takes the client down by name, phone and email, normalised, and nothing else', function (): void {
         $this->actingAs($this->sales)->postJson(route('inquiry.direct-clients.store'), walkInInput())
             ->assertCreated()
             ->assertJsonPath('existing', false)
@@ -107,6 +103,13 @@ describe('direct (walk-in)', function (): void {
             ->toBe(['phone:+639175550142', 'email:carmela@reyesbakeshop.example']);
     });
 
+    it('takes a client who gives no email', function (): void {
+        $this->actingAs($this->sales)->postJson(route('inquiry.direct-clients.store'), walkInInput(['email' => '']))
+            ->assertCreated();
+
+        expect(ClientContact::query()->pluck('kind')->map->value->all())->toBe(['phone']);
+    });
+
     it('offers the client who already has one of the contacts instead of creating another', function (): void {
         $this->actingAs($this->marketing)->postJson(route('inquiry.direct-clients.store'), walkInInput())->assertCreated();
         $first = Client::query()->sole();
@@ -114,7 +117,8 @@ describe('direct (walk-in)', function (): void {
         $this->actingAs($this->sales)
             ->postJson(route('inquiry.direct-clients.store'), walkInInput([
                 'fullName' => 'C. Reyes',
-                'contacts' => [['kind' => 'phone', 'value' => '+63 918 000 0000'], ['kind' => 'email', 'value' => ' carmela@reyesbakeshop.EXAMPLE ']],
+                'phone' => '+63 918 000 0000',
+                'email' => ' carmela@reyesbakeshop.EXAMPLE ',
             ]))
             ->assertOk()
             ->assertJsonPath('existing', true)
@@ -128,18 +132,18 @@ describe('direct (walk-in)', function (): void {
 
     it('needs the client\'s phone number', function (): void {
         $this->actingAs($this->sales)
-            ->postJson(route('inquiry.direct-clients.store'), walkInInput(['contacts' => [['kind' => 'email', 'value' => 'carmela@reyesbakeshop.example']]]))
+            ->postJson(route('inquiry.direct-clients.store'), walkInInput(['phone' => '']))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['contacts.0.value' => "Enter the client's phone number."]);
+            ->assertJsonValidationErrors(['phone' => "Enter the client's phone number."]);
 
         expect(Client::query()->exists())->toBeFalse();
     });
 
-    it('needs a name and at least one valid contact', function (): void {
+    it('needs a name, a valid phone, and a valid email when one is given', function (): void {
         $this->actingAs($this->sales)
-            ->postJson(route('inquiry.direct-clients.store'), ['fullName' => '', 'contacts' => [['kind' => 'email', 'value' => 'not-an-email'], ['kind' => 'walk_in', 'value' => 'x']]])
+            ->postJson(route('inquiry.direct-clients.store'), ['fullName' => '', 'phone' => 'call me', 'email' => 'not-an-email'])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['fullName', 'contacts.0.value', 'contacts.1.kind']);
+            ->assertJsonValidationErrors(['fullName', 'phone', 'email']);
 
         expect(Client::query()->exists())->toBeFalse();
     });

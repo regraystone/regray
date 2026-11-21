@@ -6,7 +6,7 @@ import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileCo
 import ConnectedAccounts, {
     type GoogleConnection,
 } from '@/components/connected-accounts';
-import DeleteUser from '@/components/delete-user';
+import DeleteUser, { type AccountDeletion } from '@/components/delete-user';
 import { HubRow, HubSection } from '@/components/hub-rows';
 import TermsDialog from '@/components/terms-dialog';
 import { Button } from '@/components/ui/button';
@@ -43,12 +43,14 @@ export default function AccountSecurity({
     emailPreferences,
     google,
     socialNotice,
+    accountDeletion,
 }: {
     mustVerifyEmail: boolean;
     status?: string;
     emailPreferences: EmailPreferences;
     google: GoogleConnection;
     socialNotice?: SocialNotice | null;
+    accountDeletion: AccountDeletion;
 }) {
     const { auth } = usePage<PageProps>().props;
     const [marketingEmails, setMarketingEmails] = useState(
@@ -292,7 +294,7 @@ export default function AccountSecurity({
                         </CardHeader>
 
                         <CardContent className="px-4 sm:px-6">
-                            <DeleteUser />
+                            <DeleteUser deletion={accountDeletion} />
                         </CardContent>
                     </Card>
                 </div>

@@ -8,6 +8,7 @@ use App\Events\Message\ConversationActivity;
 use App\Events\Message\MessageCreated;
 use App\Events\Message\MessageUpdated;
 use App\Events\Message\PointerMoved;
+use App\Events\Message\UserTyping;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
@@ -15,6 +16,7 @@ use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use App\Services\Notification\MessageNotificationService;
+use App\Support\StoredFileName;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Date;
@@ -132,6 +134,21 @@ class MessageService
     }
 
     /**
+     * Tell the others in the thread the user is typing. Only someone who may
+     * send in it now is announced, under the same rules as a send: on a Regray
+     * Team thread nobody has claimed, no staff member is (409), so no staff
+     * name reaches the client before the thread is someone's. The id and name
+     * are the signed-in account's.
+     */
+    public function signalTyping(User $user, Conversation $conversation): void
+    {
+        $conversation->loadMissing('assignee:id,name');
+        $this->support->assertCanSend($user, $conversation);
+
+        broadcast(new UserTyping($conversation->id, $user->id, $user->name))->toOthers();
+    }
+
+    /**
      * Move the user's read pointer, and the delivered one with it: a message
      * that has been read has been delivered. Pointers only move forward.
      * Reading the thread cancels the user's message notification for it.
@@ -189,9 +206,7 @@ class MessageService
 
         try {
             foreach ($files as $file) {
-                // From the bytes, not the name: a PDF sent as `x.html` is stored as `.pdf`.
-                $extension = strtolower((string) $file->guessExtension());
-                $name = Str::uuid()->toString().($extension === '' ? '' : '.'.$extension);
+                $name = StoredFileName::for($file);
                 $path = Storage::disk($disk)->putFileAs("messages/{$conversation->id}", $file, $name);
 
                 if ($path === false) {

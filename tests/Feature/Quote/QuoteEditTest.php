@@ -38,7 +38,7 @@ beforeEach(function (): void {
 function sentInquiry(mixed $test, array $projects): Inquiry
 {
     $test->actingAs($test->client)
-        ->post(route('quote.inquire.store'), ['projects' => $projects])
+        ->post(route('quote.inquire.store'), clientInquiryInput($projects))
         ->assertSessionHasNoErrors();
 
     return Inquiry::query()->latest('id')->with('files', 'schedule')->firstOrFail();
@@ -59,6 +59,26 @@ function projectEdit(Inquiry $inquiry, array $overrides = []): array
         'keepFileIds' => $inquiry->files->pluck('id')->all(),
         ...$overrides,
     ]);
+}
+
+/**
+ * The same edit as a client sends it: their project keeps the address it has
+ * (`keepAddress`) rather than sending the picker's, which only staff use.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function clientProjectEdit(Inquiry $inquiry, array $overrides = []): array
+{
+    $project = projectEdit($inquiry, $overrides);
+
+    if (! array_key_exists('address', $overrides)) {
+        unset($project['address']);
+        // A pickup sends no address at all.
+        $project += isset($overrides['addressId']) || ($overrides['deliveryMethod'] ?? null) === 'pickup' ? [] : ['keepAddress' => '1'];
+    }
+
+    return $project;
 }
 
 describe('the edit page', function (): void {
@@ -156,7 +176,7 @@ describe('saving the edit', function (): void {
         $row = inquiryStoneRow('slab-supply-only');
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['stones' => [[...$row, 'slabSize' => '1.6 x 3.2 m', 'thickness' => '0.75 in']]])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['stones' => [[...$row, 'slabSize' => '1.6 x 3.2 m', 'thickness' => '0.75 in']]])]])
             ->assertSessionHasNoErrors();
 
         $stone = $inquiry->stones()->sole();
@@ -171,12 +191,12 @@ describe('saving the edit', function (): void {
         $historyRows = InquiryStatusHistory::query()->count();
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
                 'name' => 'Kitchen and island',
                 'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => $otherStone])],
                 'serviceId' => 'countertop-backsplash',
                 'answers' => ['area_sqm' => '20', 'fascia' => '0'],
-                'location' => 'Taguig',
+                'addressId' => (string) saveTestAddress($this->client, 'Site', 'Kapitolyo')->id,
                 'neededBy' => '2030-05-06',
             ])]])
             ->assertSessionHasNoErrors()
@@ -187,7 +207,7 @@ describe('saving the edit', function (): void {
         $inquiry->refresh();
 
         expect($inquiry->name)->toBe('Kitchen and island')
-            ->and($inquiry->location)->toBe('Taguig')
+            ->and($inquiry->address_city_name)->toBe('City of Pasig')
             ->and($inquiry->service->slug)->toBe('countertop-backsplash')
             // The new service asks no slab size, thickness or pieces, so the row holds none of them.
             ->and($inquiry->stones()->sole()->quantity)->toBeNull()
@@ -198,7 +218,7 @@ describe('saving the edit', function (): void {
             ->and($inquiry->stones()->sole()->stone->slug)->toBe($otherStone)
             ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-05-06 10:00', 'Asia/Manila')))->toBeTrue()
             ->and($inquiry->schedule->title)->toBe('Kitchen and island')
-            ->and($inquiry->schedule->notes)->toBe("Inquiry {$inquiry->reference} · Kitchen and island · Taguig")
+            ->and($inquiry->schedule->notes)->toBe("Inquiry {$inquiry->reference} · Kitchen and island · City of Pasig")
             ->and($inquiry->status)->toBe(InquiryStatus::Pending)
             ->and(InquiryStatusHistory::query()->count())->toBe($historyRows);
 
@@ -218,7 +238,7 @@ describe('saving the edit', function (): void {
         $before = $inquiry->service_id;
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
                 'serviceId' => 'flooring',
             ])]])
             ->assertSessionHasNoErrors();
@@ -234,14 +254,14 @@ describe('saving the edit', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['notes' => 'Second floor.'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['notes' => 'Second floor.'])]])
             ->assertSessionHasNoErrors();
 
         $stone = $inquiry->stones()->sole()->stone;
         Service::query()->where('slug', 'slab-supply-only')->firstOrFail()->stoneTypes()->detach($stone->stone_type_id);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['notes' => 'Third floor.', 'stones' => [inquiryStoneRow(overrides: ['stoneId' => $stone->slug])]])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['notes' => 'Third floor.', 'stones' => [inquiryStoneRow(overrides: ['stoneId' => $stone->slug])]])]])
             ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
 
         expect($inquiry->fresh()->notes)->toBe('Second floor.');
@@ -250,14 +270,15 @@ describe('saving the edit', function (): void {
     it('refuses a change of service that leaves a stone the new service does not offer, for the client and for staff', function (): void {
         $row = inquiryProjectInput()['stones'][0];
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'stones' => [[...$row, 'stoneId' => unofferedStoneSlug('countertop-backsplash')]]])]);
-        $edit = projectEdit($inquiry, ['serviceId' => 'countertop-backsplash', 'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => unofferedStoneSlug('countertop-backsplash')])]]);
+        $changes = ['serviceId' => 'countertop-backsplash', 'stones' => [inquiryStoneRow('countertop-backsplash', ['stoneId' => unofferedStoneSlug('countertop-backsplash')])]];
+        $edit = clientProjectEdit($inquiry, $changes);
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [$edit]])
             ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
 
         $this->actingAs(User::factory()->role(Role::Sales)->create())
-            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [[...$edit, 'keepFileIds' => []]]])
+            ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [[...projectEdit($inquiry, $changes), 'keepFileIds' => []]]])
             ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
 
         expect($inquiry->fresh()->service->slug)->toBe('slab-supply-only');
@@ -278,7 +299,7 @@ describe('saving the edit', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['serviceId' => ''])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['serviceId' => ''])]])
             ->assertSessionHasErrors(['projects.0.serviceId' => 'Choose what you need.']);
     });
 
@@ -293,34 +314,41 @@ describe('saving the edit', function (): void {
                 ->where('projects.0.heldServiceType.services.0.id', 'slab-supply-only'));
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry)]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry)]])
             ->assertSessionHasNoErrors();
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
                 'serviceId' => 'countertop-backsplash',
             ])]])
             ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
     });
 
-    it('moves an inquiry to pickup and back, keeping the location to the delivery', function (): void {
+    it('moves an inquiry to pickup and back, a delivery needing a saved address again', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
                 'deliveryMethod' => 'pickup',
-                'location' => '',
             ])]])
             ->assertSessionHasNoErrors();
 
-        expect($inquiry->refresh()->location)->toBeNull()
+        expect($inquiry->refresh()->address_city_code)->toBeNull()
             ->and($inquiry->schedule->notes)->toEndWith('· Pickup');
 
+        // Nothing is held any more, so keeping it is refused.
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['location' => 'Taguig'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['deliveryMethod' => 'delivery'])]])
+            ->assertSessionHasErrors(['projects.0.addressId' => 'Choose one of your saved addresses.']);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'deliveryMethod' => 'delivery',
+                'addressId' => (string) saveTestAddress($this->client, 'Site', 'San Isidro')->id,
+            ])]])
             ->assertSessionHasNoErrors();
 
-        expect($inquiry->refresh()->location)->toBe('Taguig');
+        expect($inquiry->refresh()->address_city_name)->toBe('City of Antipolo');
     });
 
     it('moves its confirmed visit with the due date, and refuses to move one already served while saving the rest', function (): void {
@@ -330,7 +358,7 @@ describe('saving the edit', function (): void {
         expect($inquiry->schedule->status)->toBe(ScheduleStatus::Confirmed);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['neededBy' => '2030-05-07'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-07'])]])
             ->assertSessionHasNoErrors();
 
         expect($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse('2030-05-07 10:00', 'Asia/Manila')))->toBeTrue();
@@ -338,11 +366,11 @@ describe('saving the edit', function (): void {
         $inquiry->schedule->forceFill(['status' => ScheduleStatus::Served])->save();
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['neededBy' => '2030-05-08'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-08'])]])
             ->assertSessionHasErrors('projects.0.neededBy');
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['neededBy' => '2030-05-07', 'notes' => 'Back door'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-07', 'notes' => 'Back door'])]])
             ->assertSessionHasNoErrors();
 
         expect($inquiry->fresh()->notes)->toBe('Back door')
@@ -354,11 +382,11 @@ describe('saving the edit', function (): void {
         $theirs = sentInquiry($this, [inquiryProjectInput(['name' => 'Not mine'])]);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $mine->reference), ['projects' => [projectEdit($theirs, ['name' => 'Taken'])]])
+            ->patch(route('quote.update', $mine->reference), ['projects' => [clientProjectEdit($theirs, ['name' => 'Taken'])]])
             ->assertSessionHasErrors('projects');
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $mine->reference), ['projects' => [projectEdit($mine), projectEdit($theirs, ['name' => 'Taken'])]])
+            ->patch(route('quote.update', $mine->reference), ['projects' => [clientProjectEdit($mine), clientProjectEdit($theirs, ['name' => 'Taken'])]])
             ->assertSessionHasErrors('projects');
 
         expect($theirs->fresh()->name)->toBe('Not mine');
@@ -374,7 +402,7 @@ describe('saving the edit', function (): void {
         addInquiryFile($inquiry, DocumentType::Quotation, revision: 1);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
                 'keepFileIds' => [$keep->id],
                 'attachments' => [UploadedFile::fake()->create('new.pdf', 10, 'application/pdf')],
             ])]])
@@ -399,7 +427,7 @@ describe('saving the edit', function (): void {
         $old = $inquiry->files->sole();
         $this->app->bind(InquiryRepositoryInterface::class, FailsOnSecondNewFileRepository::class);
 
-        $this->actingAs($this->client)->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, [
+        $this->actingAs($this->client)->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
             'name' => 'Changed',
             'keepFileIds' => [],
             'attachments' => [
@@ -422,7 +450,7 @@ describe('saving the edit', function (): void {
         showInquiryAs($inquiry, InquiryStatus::Won);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['name' => 'Changed'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['name' => 'Changed'])]])
             ->assertSessionHasErrors(['status' => InquiryActions::UPDATE_LOCKED_WHEN_QUOTED]);
 
         expect($inquiry->fresh()->name)->toBe('Kitchen');

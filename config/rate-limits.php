@@ -27,6 +27,21 @@ return [
         // PATCH quote/{reference} and quote/{reference}/cancel.
         'inquiry-edit' => (int) env('RATE_LIMIT_INQUIRY_EDIT', 10),
 
+        // POST, PUT and DELETE dashboard/profile/addresses: changing the client's address book.
+        'address-book-save' => (int) env('RATE_LIMIT_ADDRESS_BOOK_SAVE', 20),
+
+        // POST, PUT, PATCH dashboard/accounts/*: the admin adding, changing,
+        // turning off and archiving accounts.
+        'account-save' => (int) env('RATE_LIMIT_ACCOUNT_SAVE', 20),
+
+        // POST, PUT dashboard/brands/*: the admin adding, changing and
+        // archiving brands, images included.
+        'brand-save' => (int) env('RATE_LIMIT_BRAND_SAVE', 20),
+        'project-save' => (int) env('RATE_LIMIT_PROJECT_SAVE', 20),
+
+        // GET api/ph/*: the address picker's searches, debounced as the reader types.
+        'ph-address-search' => (int) env('RATE_LIMIT_PH_ADDRESS_SEARCH', 120),
+
         // GET inquiry/{reference}/files/{storedName}: a preview checks the file
         // with HEAD and then opens it, so each one is two requests.
         'inquiry-files' => (int) env('RATE_LIMIT_INQUIRY_FILES', 120),
@@ -57,6 +72,7 @@ return [
         // The Message page. See AppServiceProvider::configureRateLimits().
         'messages' => (int) env('RATE_LIMIT_MESSAGES', 60),
         'message-receipts' => (int) env('RATE_LIMIT_MESSAGE_RECEIPTS', 120),
+        'message-typing' => (int) env('RATE_LIMIT_MESSAGE_TYPING', 60),
         'message-assignment' => (int) env('RATE_LIMIT_MESSAGE_ASSIGNMENT', 10),
         'message-people' => (int) env('RATE_LIMIT_MESSAGE_PEOPLE', 60),
         'message-attachments' => (int) env('RATE_LIMIT_MESSAGE_ATTACHMENTS', 300),

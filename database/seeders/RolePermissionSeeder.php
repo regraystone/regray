@@ -78,6 +78,11 @@ class RolePermissionSeeder extends Seeder
      * their idle or won lead, and to sales, who may open one only from a won
      * lead.
      *
+     * `profile-addresses.view` is the client's own address book under their
+     * Profile hub, which their inquiries pick an address from: the client
+     * alone, since `inquiries.create` is shared with the staff who open
+     * inquiries for others, and staff always enter an address themselves.
+     *
      * `home-projects.view` goes to the client and to the super-admin and to
      * nobody else: it names the project profile and the stone profile nested
      * under it, which are portfolio pages a client reads from Home. The
@@ -98,6 +103,7 @@ class RolePermissionSeeder extends Seeder
             Permission::MessagesView->value,
             Permission::ProfileView->value,
             Permission::ProfileScheduleView->value,
+            Permission::ProfileAddressesView->value,
             Permission::InquiriesCreate->value,
             Permission::ScheduleCreate->value,
             Permission::ScheduleUpdate->value,
@@ -117,13 +123,24 @@ class RolePermissionSeeder extends Seeder
             Permission::InquiriesView->value,
             Permission::ScheduleView->value,
             Permission::MessagesView->value,
-            Permission::StonesView->value,
+            Permission::BrandsView->value,
+            Permission::BrandsCreate->value,
+            Permission::BrandsUpdate->value,
+            Permission::BrandsArchive->value,
+            Permission::ProductsView->value,
             Permission::ServicesView->value,
             Permission::AccountsView->value,
+            Permission::AccountsCreate->value,
+            Permission::AccountsUpdate->value,
+            Permission::AccountsArchive->value,
             Permission::ProjectsView->value,
+            Permission::ProjectsCreate->value,
+            Permission::ProjectsUpdate->value,
+            Permission::ProjectsArchive->value,
             Permission::ProfileView->value,
             Permission::LeadsView->value,
             Permission::ProfileScheduleView->value,
+            Permission::ProfileAddressesView->value,
             Permission::InquiriesCreate->value,
             Permission::InquiriesCreatePlatform->value,
             Permission::ScheduleCreate->value,

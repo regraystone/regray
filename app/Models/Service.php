@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Fulfillment;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $description
  * @property bool $requires_stones Whether it asks for stones; Installation Only does not.
+ * @property Fulfillment $fulfillment Whether it asks how the client would like to get it, or only where it is installed.
  * @property int $sort_order
  * @property bool $is_active
  * @property Carbon $created_at
@@ -28,13 +30,14 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ServiceFeature> $features
  * @property-read Collection<int, DetailField> $detailFields
  */
-#[Fillable(['service_type_id', 'slug', 'name', 'description', 'requires_stones', 'sort_order', 'is_active'])]
+#[Fillable(['service_type_id', 'slug', 'name', 'description', 'requires_stones', 'fulfillment', 'sort_order', 'is_active'])]
 class Service extends Model
 {
     protected function casts(): array
     {
         return [
             'requires_stones' => 'boolean',
+            'fulfillment' => Fulfillment::class,
             'is_active' => 'boolean',
         ];
     }

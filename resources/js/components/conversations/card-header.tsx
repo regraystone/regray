@@ -8,13 +8,19 @@ const timestampFormatter = new Intl.DateTimeFormat(undefined, {
     minute: '2-digit',
 });
 
-/** The time and the headline above a card, centred like the card itself. */
+/**
+ * The time and the headline above a card, centred like the card itself. A
+ * `label` headline names what the card is (the quotation card's "Quotation")
+ * rather than announcing a change, and is set as a small uppercase label.
+ */
 const CardHeader = ({
     headline,
     occurredAt,
+    label = false,
 }: {
     headline: string;
     occurredAt: string;
+    label?: boolean;
 }) => (
     <div className="space-y-0.5 text-center">
         <p className="text-xs text-secondary-foreground">
@@ -23,7 +29,11 @@ const CardHeader = ({
             </time>
         </p>
         <p
-            className="truncate text-xs font-bold text-secondary-foreground"
+            className={
+                label
+                    ? 'truncate text-[0.65rem] font-bold tracking-wider text-secondary-foreground uppercase'
+                    : 'truncate text-xs font-bold text-secondary-foreground'
+            }
             data-testid="card-headline"
         >
             {headline}

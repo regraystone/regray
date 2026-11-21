@@ -84,8 +84,6 @@ export type ScheduleItem = {
  * app: how staff reach them themselves.
  */
 export type ScheduleWalkIn = {
-    company: string | null;
-    address: string | null;
     contacts: { kind: ContactKind; value: string }[];
 };
 

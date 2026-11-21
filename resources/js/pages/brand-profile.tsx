@@ -1,110 +1,607 @@
-import { router, usePage } from '@inertiajs/react';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { ArrowUpRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import BrandCollection from '@/components/home/brand-collection';
-import { Button } from '@/components/ui/button';
-import { home } from '@/routes';
-import { index as homeIndex } from '@/routes/home';
-import type { BrandProfile as BrandProfileData } from '@/types/home';
+import {
+    BRAND_CATEGORIES,
+    BRAND_LOGO_HEIGHT,
+    DEFAULT_BRAND_LOGO_HEIGHT,
+    SHOWROOM,
+} from '@/components/public/public-links';
+import SocialIcon, { SOCIAL_LABELS } from '@/components/social-icon';
+import { useInquireRoute } from '@/hooks/use-inquire-route';
+import { collectionQuery } from '@/lib/brand-collection';
+import { login } from '@/routes';
+import { show as brandsShow } from '@/routes/brands';
+import { brands as brandsPage, news, showroom } from '@/routes/company';
+import {
+    index as dashboardBrandsIndex,
+    show as dashboardBrandShow,
+} from '@/routes/dashboard/brands';
+import { show as dashboardProjectShow } from '@/routes/home';
+import { book } from '@/routes/profile/schedule';
+import { show as projectShow } from '@/routes/stone';
+import type {
+    BrandOffering,
+    BrandPageProps,
+    LandingBrand,
+    LandingProject,
+} from '@/types/home';
 
-type BrandProfileProps = {
-    brand: { data: BrandProfileData };
+/** A section's title: spaced capitals in the heading face. */
+const sectionTitle =
+    'font-display text-[clamp(1.5rem,2vw,2rem)] font-light tracking-[0.06em] uppercase';
+
+/** A small spaced label. */
+const eyebrow = 'text-[0.8125rem] tracking-[0.14em] uppercase';
+
+/** A square button on the photo or on navy. */
+const lightButton =
+    'flex h-12.5 items-center justify-center gap-2.5 border border-white text-[0.8125rem] font-semibold tracking-[0.08em] text-white uppercase transition-colors hover:bg-white hover:text-foreground';
+
+/** Where a section starts once the header and the section bar are above it. */
+const sectionScroll = 'scroll-mt-40';
+
+const plural = (count: number, one: string, many: string) =>
+    `${count.toLocaleString()} ${count === 1 ? one : many}`;
+
+/** How many of a type the brand has, in the type's own words. */
+const offeringCount = (offering: BrandOffering) =>
+    offering.collection === 'stones'
+        ? plural(offering.count, 'stone', 'stones')
+        : plural(offering.count, 'piece', 'pieces');
+
+/** The section the reader is in: the last one whose top has passed under the bar. */
+const useCurrentSection = (ids: string[]) => {
+    const [current, setCurrent] = useState('');
+    const key = ids.join(' ');
+
+    useEffect(() => {
+        const sections = key.split(' ');
+        const update = () => {
+            let found = '';
+
+            for (const id of sections) {
+                const element = document.getElementById(id);
+
+                if (element && element.getBoundingClientRect().top <= 170) {
+                    found = id;
+                }
+            }
+
+            setCurrent(found);
+        };
+
+        update();
+        window.addEventListener('scroll', update, { passive: true });
+
+        return () => window.removeEventListener('scroll', update);
+    }, [key]);
+
+    return current;
 };
 
-/*
- * A brand's page, laid out like the stone profile: a full-width hero (its
- * thumbnail, or a neutral background without one) with the logo and
- * tagline, then the description and the brand's collection.
- */
-const BrandProfile = ({ brand: { data: brand } }: BrandProfileProps) => {
-    const pageProps = usePage<{ auth: { user: unknown } }>().props;
-    const isSignedIn = pageProps.auth?.user != null;
+/** A type the brand's products come in: its photo, name and count, opening it in the collection. */
+const OfferingCard = ({
+    offering,
+    href,
+}: {
+    offering: BrandOffering;
+    href: string;
+}) => (
+    <Link
+        href={href}
+        preserveScroll={false}
+        className="group flex flex-col gap-3.5"
+    >
+        <span className="block aspect-4/5 overflow-hidden bg-muted">
+            {offering.thumbnail ? (
+                <img
+                    src={offering.thumbnail}
+                    alt=""
+                    loading="lazy"
+                    className="size-full object-cover transition-transform duration-1400 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.04] motion-reduce:transition-none"
+                />
+            ) : null}
+        </span>
+        <span className="flex items-baseline justify-between gap-3">
+            <span className="font-display text-[1.0625rem] font-normal tracking-[0.04em] uppercase">
+                {offering.name}
+            </span>
+            <span className="text-[0.8125rem] whitespace-nowrap text-muted-foreground">
+                {offeringCount(offering)}
+            </span>
+        </span>
+        <span className="text-[0.8125rem] tracking-[0.04em] text-muted-foreground uppercase transition-colors group-hover:text-foreground">
+            View in the collection →
+        </span>
+    </Link>
+);
 
-    const goBack = () => {
-        if (window.history.length > 1) {
-            window.history.back();
-        } else {
-            router.visit(isSignedIn ? homeIndex.url() : home.url());
-        }
-    };
+/** A finished project: its photo, where and when, and its name. */
+const ProjectCard = ({
+    project,
+    href,
+}: {
+    project: LandingProject;
+    href: string;
+}) => (
+    <Link href={href} className="group flex flex-col gap-4">
+        <span className="block aspect-4/3 overflow-hidden bg-muted">
+            <img
+                src={project.thumbnail}
+                alt=""
+                loading="lazy"
+                className="size-full object-cover transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.03] motion-reduce:transition-none"
+            />
+        </span>
+        <span className="flex flex-col gap-1.5">
+            <span className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
+                {project.location} · {project.completedYear}
+            </span>
+            <span className="font-display text-[clamp(1.1875rem,1.6vw,1.5rem)] font-light">
+                {project.name}
+            </span>
+        </span>
+    </Link>
+);
+
+/** Another brand of the group, by its logo. */
+const OtherBrand = ({ brand, href }: { brand: LandingBrand; href: string }) => (
+    <li className="flex justify-center">
+        <Link
+            href={href}
+            title={brand.name}
+            className="flex min-h-18 w-full items-center justify-center opacity-85 transition-opacity duration-300 hover:opacity-100"
+        >
+            <img
+                src={brand.logo}
+                alt={brand.name}
+                loading="lazy"
+                className="max-w-full object-contain"
+                style={{
+                    height: `calc(${BRAND_LOGO_HEIGHT[brand.slug] ?? DEFAULT_BRAND_LOGO_HEIGHT}px * var(--other))`,
+                }}
+            />
+        </Link>
+    </li>
+);
+
+/*
+ * A brand's page, for every brand: its photo with the logo and tagline, a bar
+ * of its sections, then who it is, what it offers (each type its products
+ * come in, counted from the catalog, or, before it has products online, what
+ * it makes), its collection, the projects of it or made with its stones, a
+ * visit to the showroom and the group's other brands. A section with nothing
+ * real to show is left out, and so is its place in the bar.
+ */
+const BrandProfile = () => {
+    const {
+        brand: { data: brand },
+        hasProducts,
+        offer,
+        projects,
+        otherBrands,
+        auth,
+    } = usePage<BrandPageProps & { auth: { user: unknown } }>().props;
+    const isSignedIn = auth?.user != null;
+    const inquireRoute = useInquireRoute();
+    // Set on the admin's Brands page.
+    const details = { facts: brand.facts ?? [], makes: brand.makes ?? [] };
+
+    const brandHref = (slug: string, query?: Record<string, string>) =>
+        isSignedIn
+            ? dashboardBrandShow.url({ brand: slug }, { query })
+            : brandsShow.url({ brand: slug }, { query });
+    const projectHref = (slug: string) =>
+        isSignedIn
+            ? dashboardProjectShow.url({ slug })
+            : projectShow.url({ slug });
+    const allBrandsHref = isSignedIn
+        ? dashboardBrandsIndex.url()
+        : brandsPage.url();
+    const quoteUrl = isSignedIn ? (inquireRoute?.url() ?? null) : login.url();
+    const visitUrl = isSignedIn ? book.url() : `${showroom.url()}#book`;
+
+    // The page's own frame, for the bands that run edge to edge.
+    const bleed = isSignedIn
+        ? '-mx-4 px-4 sm:-mx-5 sm:px-5 lg:-mx-8 lg:px-8'
+        : '-mx-4 px-4 sm:-mx-8 sm:px-8';
+    const barTop = isSignedIn ? 'top-14 lg:top-16' : 'top-20';
+
+    const categories = BRAND_CATEGORIES.filter((category) =>
+        (category.slugs as readonly string[]).includes(brand.slug),
+    ).map((category) => category.label);
+    const inCatalog = [
+        offer.stones > 0 ? plural(offer.stones, 'stone', 'stones') : null,
+        offer.furniture > 0
+            ? plural(
+                  offer.furniture,
+                  'piece of furniture',
+                  'pieces of furniture',
+              )
+            : null,
+    ].filter((part): part is string => part !== null);
+    const facts = [
+        ...details.facts,
+        ...(categories.length > 0
+            ? [{ label: 'Category', value: categories.join(', ') }]
+            : []),
+        {
+            label: 'In our catalog',
+            value:
+                inCatalog.length > 0
+                    ? inCatalog.join(' · ')
+                    : 'Coming online soon',
+        },
+        { label: 'See it at', value: 'Regray showroom, Makati City' },
+    ];
+
+    const sections = [
+        { id: 'overview', label: 'Overview' },
+        ...(offer.types.length > 0 || details.makes.length > 0
+            ? [{ id: 'offer', label: 'What we offer' }]
+            : []),
+        ...(hasProducts ? [{ id: 'collection', label: 'Collection' }] : []),
+        ...(projects.length > 0 ? [{ id: 'projects', label: 'Projects' }] : []),
+        { id: 'visit', label: 'Visit' },
+    ];
+    const current = useCurrentSection(sections.map((section) => section.id));
 
     return (
-        <div className="w-full">
-            <section
-                className={`relative flex min-h-[280px] items-center overflow-hidden sm:min-h-[400px] ${
-                    brand.thumbnail
-                        ? 'text-on-image'
-                        : 'bg-muted text-foreground'
-                }`}
-            >
-                {brand.thumbnail ? (
-                    <>
+        <div className="w-full font-light">
+            <Head title={brand.name} />
+
+            <section aria-label={brand.name}>
+                <div className="relative h-[72svh] min-h-105 overflow-hidden bg-night text-white sm:h-[calc(100svh-10.5rem)]">
+                    {brand.thumbnail ? (
                         <img
                             src={brand.thumbnail}
                             alt=""
-                            aria-hidden
                             className="absolute inset-0 size-full object-cover"
                         />
-                        <div
-                            className="image-tint absolute inset-0"
-                            aria-hidden
-                        />
-                    </>
-                ) : null}
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={goBack}
-                    aria-label="Back"
-                    className="group absolute top-4 left-4 z-20 h-11 w-11 cursor-pointer justify-center gap-2.5 border-white/25 bg-black/55 px-0 tracking-[0.12em] text-white backdrop-blur-md transition-colors duration-200 hover:border-white/40 hover:bg-black/75 hover:opacity-100 focus-visible:ring-white/60 sm:top-6 sm:left-6 sm:w-auto sm:px-4 lg:left-8"
-                >
-                    <ArrowLeft
-                        className="size-4 transition-transform duration-200 group-hover:-translate-x-0.5"
-                        aria-hidden
-                    />
-                    <span className="hidden sm:inline">Back</span>
-                </Button>
-                <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-5 py-16 text-center sm:py-24">
-                    <img
-                        src={brand.logo}
-                        alt=""
-                        aria-hidden
-                        className="h-12 w-auto max-w-full object-contain sm:h-16"
-                    />
-                    {brand.tagline ? (
-                        <p className="mt-4 text-base sm:text-lg">
-                            {brand.tagline}
-                        </p>
                     ) : null}
+                    <div
+                        aria-hidden
+                        className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0.25)_0%,rgb(0_0_0/0)_30%,rgb(0_0_0/0)_45%,rgb(0_0_0/0.6)_100%)]"
+                    />
+                    <nav
+                        aria-label="Breadcrumb"
+                        className="absolute top-[clamp(1.25rem,2.5vw,2.25rem)] left-[clamp(1.25rem,3vw,3rem)] text-xs tracking-[0.08em] uppercase"
+                    >
+                        <ol className="flex flex-wrap gap-2">
+                            <li>
+                                <Link
+                                    href={allBrandsHref}
+                                    className="hover:underline"
+                                >
+                                    ← {isSignedIn ? 'Brands' : 'Our brands'}
+                                </Link>
+                            </li>
+                            <li aria-hidden>/</li>
+                            <li aria-current="page">{brand.name}</li>
+                        </ol>
+                    </nav>
+                    <div className="absolute inset-x-[clamp(1.25rem,3vw,3rem)] bottom-[clamp(1.75rem,4vw,3.5rem)] flex flex-wrap items-end justify-between gap-6">
+                        <div className="flex max-w-180 flex-col gap-4.5">
+                            <h1 className="leading-none [--logo:1.1] sm:[--logo:1.5]">
+                                <img
+                                    src={brand.logo}
+                                    alt={brand.name}
+                                    className="max-h-28 max-w-[80vw] object-contain object-left"
+                                    style={{
+                                        height: `calc(${BRAND_LOGO_HEIGHT[brand.slug] ?? DEFAULT_BRAND_LOGO_HEIGHT}px * var(--logo))`,
+                                    }}
+                                />
+                            </h1>
+                            {brand.tagline ? (
+                                <p className="font-display text-[clamp(1.125rem,1.6vw,1.5rem)] leading-[1.35] font-light text-balance">
+                                    {brand.tagline}
+                                </p>
+                            ) : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            {brand.websiteUrl ? (
+                                <a
+                                    href={brand.websiteUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`${lightButton} px-5.5`}
+                                >
+                                    Visit website
+                                    <ArrowUpRight
+                                        className="size-4"
+                                        aria-hidden
+                                    />
+                                    <span className="sr-only">
+                                        (opens in a new tab)
+                                    </span>
+                                </a>
+                            ) : null}
+                            {brand.socials.map((social) => (
+                                <a
+                                    key={social.platform}
+                                    href={social.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={`${brand.name} on ${SOCIAL_LABELS[social.platform]} (opens in a new tab)`}
+                                    title={`${brand.name} on ${SOCIAL_LABELS[social.platform]}`}
+                                    className={`${lightButton} w-12.5`}
+                                >
+                                    <SocialIcon platform={social.platform} />
+                                </a>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            {brand.description || brand.websiteUrl ? (
-                <section className="flex flex-col items-center gap-6 py-12 sm:py-16">
-                    {brand.description ? (
-                        <p className="mx-auto max-w-4xl text-center text-sm leading-relaxed text-secondary-foreground sm:text-xl">
-                            {brand.description}
-                        </p>
+            <nav
+                aria-label="On this page"
+                className={`sticky ${barTop} z-20 border-y border-border bg-background/95 backdrop-blur-md ${bleed}`}
+            >
+                <div className="flex items-center justify-between gap-6">
+                    <span className="hidden flex-none font-display text-sm font-normal tracking-[0.1em] uppercase lg:block">
+                        {brand.name}
+                    </span>
+                    <ul className="flex [scrollbar-width:none] items-stretch gap-[clamp(1.125rem,2.6vw,2.25rem)] overflow-x-auto text-xs tracking-[0.1em] uppercase">
+                        {sections.map((section) => (
+                            <li key={section.id} className="flex">
+                                <a
+                                    href={`#${section.id}`}
+                                    aria-current={
+                                        current === section.id
+                                            ? 'true'
+                                            : undefined
+                                    }
+                                    className={`flex h-14 items-center whitespace-nowrap transition-[color,box-shadow] hover:text-foreground ${
+                                        current === section.id
+                                            ? 'font-semibold text-foreground shadow-[inset_0_-2px_0_currentColor]'
+                                            : 'text-muted-foreground'
+                                    }`}
+                                >
+                                    {section.label}
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                    {quoteUrl ? (
+                        <Link
+                            href={quoteUrl}
+                            className="hidden h-9.5 flex-none items-center bg-foreground px-4 text-xs font-semibold tracking-[0.08em] text-background uppercase transition-colors hover:bg-foreground/80 lg:flex"
+                        >
+                            Request a quote
+                        </Link>
                     ) : null}
+                </div>
+            </nav>
+
+            <section
+                id="overview"
+                className={`grid gap-[clamp(2.5rem,6vw,7.5rem)] py-[clamp(4rem,8vw,7.5rem)] lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] ${sectionScroll}`}
+            >
+                <div className="flex max-w-190 flex-col gap-6">
+                    <p className={`${eyebrow} text-muted-foreground`}>
+                        About {brand.name}
+                    </p>
+                    <p className="font-display text-[clamp(1.5rem,2.3vw,2.25rem)] leading-[1.3] font-light text-pretty">
+                        {brand.description ?? brand.tagline}
+                    </p>
                     {brand.websiteUrl ? (
-                        <Button asChild variant="outline">
-                            <a
-                                href={brand.websiteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Visit website
-                                <ExternalLink aria-hidden />
-                                <span className="sr-only">
-                                    (opens in a new tab)
-                                </span>
-                            </a>
-                        </Button>
+                        <a
+                            href={brand.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="self-start border-b border-current pb-1 text-[0.8125rem] tracking-[0.04em] uppercase transition-opacity hover:opacity-70"
+                        >
+                            {new URL(brand.websiteUrl).hostname.replace(
+                                /^www\./,
+                                '',
+                            )}
+                            <ArrowUpRight
+                                className="ml-1 inline size-3.5 align-[-0.125em]"
+                                aria-hidden
+                            />
+                            <span className="sr-only">
+                                {' '}
+                                (opens in a new tab)
+                            </span>
+                        </a>
                     ) : null}
+                </div>
+                <dl className="self-start border-t border-foreground">
+                    {facts.map((fact) => (
+                        <div
+                            key={fact.label}
+                            className="grid grid-cols-[8.75rem_1fr] gap-4 border-b border-border py-4"
+                        >
+                            <dt className="pt-0.5 text-xs tracking-[0.1em] text-muted-foreground uppercase">
+                                {fact.label}
+                            </dt>
+                            <dd className="text-base leading-normal">
+                                {fact.value}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+            </section>
+
+            {offer.types.length > 0 ? (
+                <section
+                    id="offer"
+                    aria-labelledby="brand-offer"
+                    className={`pb-[clamp(4.5rem,8vw,7.5rem)] ${sectionScroll}`}
+                >
+                    <h2 id="brand-offer" className={`mb-7 ${sectionTitle}`}>
+                        What we offer
+                    </h2>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 sm:gap-x-6 xl:grid-cols-5">
+                        {offer.types.map((offering) => (
+                            <OfferingCard
+                                key={`${offering.collection}-${offering.value}`}
+                                offering={offering}
+                                href={`${brandHref(
+                                    brand.slug,
+                                    collectionQuery({
+                                        collection: offering.collection,
+                                        search: '',
+                                        filter: offering.value,
+                                    }),
+                                )}#collection`}
+                            />
+                        ))}
+                    </div>
+                </section>
+            ) : details.makes.length > 0 ? (
+                <section
+                    id="offer"
+                    aria-labelledby="brand-offer"
+                    className={`grid gap-[clamp(2rem,5vw,6rem)] pb-[clamp(4.5rem,8vw,7.5rem)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] ${sectionScroll}`}
+                >
+                    <div className="flex flex-col gap-4">
+                        <h2 id="brand-offer" className={sectionTitle}>
+                            What we offer
+                        </h2>
+                        <p className="max-w-105 text-base leading-relaxed text-pretty text-muted-foreground">
+                            The {brand.name} range isn&rsquo;t in our online
+                            catalog yet. See it at our Makati showroom, or ask
+                            the team for a quotation.
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-3">
+                            <Link
+                                href={visitUrl}
+                                className="bg-foreground px-6 py-3.5 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80"
+                            >
+                                Book a visit
+                            </Link>
+                            {quoteUrl ? (
+                                <Link
+                                    href={quoteUrl}
+                                    className="border border-foreground px-6 py-3.25 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-foreground hover:text-background"
+                                >
+                                    Request a quote
+                                </Link>
+                            ) : null}
+                        </div>
+                    </div>
+                    <ul className="grid grid-cols-1 border-t border-foreground sm:grid-cols-2 sm:gap-x-8">
+                        {details.makes.map((item, index) => (
+                            <li
+                                key={item}
+                                className="flex items-baseline gap-5 border-b border-border py-5"
+                            >
+                                <span className="text-xs tracking-[0.1em] text-muted-foreground">
+                                    {String(index + 1).padStart(2, '0')}
+                                </span>
+                                <span className="font-display text-[clamp(1.0625rem,1.4vw,1.25rem)] font-light">
+                                    {item}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
                 </section>
             ) : null}
 
-            <BrandCollection />
+            {hasProducts ? (
+                <div id="collection" className={sectionScroll}>
+                    <BrandCollection />
+                </div>
+            ) : null}
+
+            {projects.length > 0 ? (
+                <section
+                    id="projects"
+                    aria-labelledby="brand-projects"
+                    className={`py-[clamp(4.5rem,8vw,7.5rem)] ${sectionScroll}`}
+                >
+                    <div className="mb-7 flex items-end justify-between gap-4">
+                        <h2 id="brand-projects" className={sectionTitle}>
+                            Projects
+                        </h2>
+                        <Link
+                            href={news.url()}
+                            className="border-b border-foreground pb-2 text-[0.8125rem] tracking-[0.04em] whitespace-nowrap uppercase transition-opacity hover:opacity-70"
+                        >
+                            More projects
+                        </Link>
+                    </div>
+                    <div className="grid gap-x-6 gap-y-10 md:grid-cols-2">
+                        {projects.map((project) => (
+                            <ProjectCard
+                                key={project.slug}
+                                project={project}
+                                href={projectHref(project.slug)}
+                            />
+                        ))}
+                    </div>
+                </section>
+            ) : null}
+
+            <section
+                id="visit"
+                aria-labelledby="brand-visit"
+                className={`${projects.length > 0 ? '' : 'pt-[clamp(1rem,3vw,2.5rem)]'} ${sectionScroll}`}
+            >
+                <div className="grid bg-navy text-white lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+                    <img
+                        src="/images/regray-showroom.jpg"
+                        alt="The Regray showroom in Makati City"
+                        loading="lazy"
+                        className="h-full min-h-80 w-full object-cover"
+                    />
+                    <div className="flex flex-col justify-center gap-5.5 p-[clamp(2.25rem,5vw,5rem)]">
+                        <p className={eyebrow}>Showroom · Makati City</p>
+                        <h2
+                            id="brand-visit"
+                            className="font-display text-[clamp(1.625rem,2.4vw,2.375rem)] leading-[1.2] font-light text-balance"
+                        >
+                            See {brand.name} in person
+                        </h2>
+                        <p className="max-w-115 text-base leading-relaxed">
+                            {SHOWROOM.address}. {SHOWROOM.hours}.
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-3">
+                            <Link
+                                href={visitUrl}
+                                className="bg-white px-6 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-foreground uppercase transition-colors hover:bg-white/85"
+                            >
+                                Book a visit
+                            </Link>
+                            {quoteUrl ? (
+                                <Link
+                                    href={quoteUrl}
+                                    className="border border-white px-6 py-3.75 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-white hover:text-foreground"
+                                >
+                                    Request a quotation
+                                </Link>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {otherBrands.length > 0 ? (
+                <section
+                    aria-labelledby="brand-others"
+                    className={`mt-[clamp(4.5rem,8vw,7.5rem)] -mb-6 flex flex-col items-center gap-10 bg-navy py-[clamp(4.5rem,8vw,7.5rem)] text-white sm:-mb-8 ${bleed}`}
+                >
+                    <h2
+                        id="brand-others"
+                        className="text-[0.8125rem] font-semibold tracking-[0.14em] uppercase"
+                    >
+                        More from the Regray Group
+                    </h2>
+                    <ul className="grid w-full max-w-275 grid-cols-2 items-center gap-x-8 gap-y-10 [--other:0.6] sm:grid-cols-3 sm:[--other:0.8] lg:grid-cols-5">
+                        {otherBrands.map((other) => (
+                            <OtherBrand
+                                key={other.slug}
+                                brand={other}
+                                href={brandHref(other.slug)}
+                            />
+                        ))}
+                    </ul>
+                </section>
+            ) : null}
         </div>
     );
 };

@@ -24,7 +24,8 @@ function schemaInquiry(): int
         'reference' => 'INQ-S'.random_int(100000, 999999),
         'client_id' => User::factory()->create()->id,
         'name' => 'Kitchen',
-        'location' => 'Makati',
+        // A pickup: the one inquiry with no address.
+        'delivery_method' => 'pickup',
         'created_at' => now(),
         'updated_at' => now(),
     ]);
@@ -128,6 +129,22 @@ function schemaCard(): array
         'announced_sales_status' => 'quoted',
         'announced_payment_status' => 'partial',
         'announced_process_status' => 'production',
+        'created_at' => now(),
+    ];
+}
+
+/** @return array<string, mixed> A quotation card on a quotation of its own. */
+function schemaQuotationCard(): array
+{
+    $inquiryId = schemaInquiry();
+    schemaFile($inquiryId, 'quotation', 1);
+
+    return [
+        'conversation_id' => schemaConversation(),
+        'type' => 'quotation_card',
+        'inquiry_id' => $inquiryId,
+        'inquiry_file_id' => DB::table('inquiry_files')->where('inquiry_id', $inquiryId)->value('id'),
+        'card_snapshot' => json_encode(['fileName' => 'x.pdf']),
         'created_at' => now(),
     ];
 }
@@ -326,6 +343,21 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
         DB::table('messages')->insert($card);
         DB::table('messages')->insert($card);
     }],
+    'quotation card: no document' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'inquiry_file_id' => null])],
+    'quotation card: no snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'card_snapshot' => null])],
+    'quotation card: no inquiry' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'inquiry_id' => null])],
+    'quotation card: with a display status' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'announced_status' => 'quoted'])],
+    'quotation card: the same document twice' => ['idx_messages_quotation_card_once', function () {
+        $card = schemaQuotationCard();
+        DB::table('messages')->insert($card);
+        DB::table('messages')->insert($card);
+    }],
+    'inquiry card: with a quotation snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'card_snapshot' => json_encode(['fileName' => 'x.pdf'])])],
+    'deleting a quotation a card is about' => ['messages_inquiry_file_id_foreign', function () {
+        $card = schemaQuotationCard();
+        DB::table('messages')->insert($card);
+        DB::table('inquiry_files')->where('id', $card['inquiry_file_id'])->delete();
+    }],
     'schedule card: with a snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert(['conversation_id' => schemaConversation(), 'type' => 'schedule_card', 'schedule_id' => schemaSchedule(User::factory()->create()->id, null), 'announced_status' => 'confirmed', 'announced_payment_status' => 'awaiting', 'created_at' => now()])],
     'text message: with a snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert(['conversation_id' => schemaConversation(), 'type' => 'text', 'body' => 'Hello', 'announced_sales_status' => 'quoted', 'created_at' => now()])],
     'the old project card' => ['chk_messages_type', fn () => DB::table('messages')->insert(['conversation_id' => schemaConversation(), 'type' => 'project_card', 'inquiry_id' => schemaInquiry(), 'announced_status' => 'pending', 'created_at' => now()])],
@@ -346,7 +378,7 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
     'contact: an unknown kind' => ['chk_client_contacts_kind', fn () => DB::table('client_contacts')->insert(['client_id' => schemaClient(), 'kind' => 'fax', 'value' => '123', 'created_at' => now()])],
     'deleting a direct client with an inquiry' => ['inquiries_client_record_id_foreign', function () {
         $clientId = schemaClient();
-        DB::table('inquiries')->insert(['reference' => 'INQ-SD1', 'client_id' => null, 'client_record_id' => $clientId, 'name' => 'Counter', 'location' => 'Pasig', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('inquiries')->insert(['reference' => 'INQ-SD1', 'client_id' => null, 'client_record_id' => $clientId, 'name' => 'Counter', 'delivery_method' => 'pickup', 'created_at' => now(), 'updated_at' => now()]);
         DB::table('clients')->where('id', $clientId)->delete();
     }],
 
@@ -478,14 +510,20 @@ test('allows as many inquiries on a lead, bookings, unbound groups and new snaps
     DB::table('messages')->insert($card);
     DB::table('messages')->insert([...$card, 'announced_payment_status' => 'fully_paid']);
 
+    // The same quotation in another thread is another card.
+    $quotation = schemaQuotationCard();
+    DB::table('messages')->insert($quotation);
+    DB::table('messages')->insert([...$quotation, 'conversation_id' => schemaConversation()]);
+
     // The same number as another kind is another contact.
     $contact = ['client_id' => schemaClient(), 'value' => '+639175550142', 'created_at' => now()];
     DB::table('client_contacts')->insert([...$contact, 'kind' => 'phone']);
-    DB::table('client_contacts')->insert([...$contact, 'kind' => 'viber']);
+    DB::table('client_contacts')->insert([...$contact, 'kind' => 'email']);
 
     expect(DB::table('inquiries')->where('lead_id', $leadId)->count())->toBe(3)
         ->and(DB::table('schedules')->whereNull('inquiry_id')->count())->toBe(2)
         ->and(DB::table('messages')->where('type', 'inquiry_card')->count())->toBe(2)
+        ->and(DB::table('messages')->where('type', 'quotation_card')->count())->toBe(2)
         ->and(DB::table('client_contacts')->count())->toBe(2);
 });
 

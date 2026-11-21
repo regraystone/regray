@@ -40,7 +40,7 @@ beforeEach(function (): void {
 
 function submitInquiry(mixed $test, User $client): Inquiry
 {
-    $test->actingAs($client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])->assertSessionHasNoErrors();
+    $test->actingAs($client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))->assertSessionHasNoErrors();
 
     return Inquiry::query()->latest('id')->firstOrFail();
 }
@@ -87,7 +87,7 @@ it('confirms the client\'s update and cancel to them and tells the assigned staf
     $inquiry = claimedInquiry($this);
     $edit = ['id' => $inquiry->id, 'name' => $inquiry->name, 'keepFileIds' => []];
 
-    $this->actingAs($this->client)->patch(route('quote.update', 'INQ-N1'), ['projects' => [inquiryProjectInput([...$edit, 'notes' => 'Changed.'])]])->assertSessionHasNoErrors();
+    $this->actingAs($this->client)->patch(route('quote.update', 'INQ-N1'), clientEditInput([inquiryProjectInput([...$edit, 'notes' => 'Changed.'])]))->assertSessionHasNoErrors();
     $this->actingAs($this->client)->patch(route('quote.cancel', 'INQ-N1'))->assertSessionHasNoErrors();
 
     foreach (['client', 'mara', 'sales', 'technical', 'owner', 'admin'] as $who) {
@@ -191,7 +191,7 @@ it('emails the client a confirmation of their own inquiry, whatever their email 
         expect($notification)->toBeInstanceOf(ShouldQueue::class)
             ->and($mail->subject)->toBe("We received your inquiry {$ref}")
             ->and($mail->actionUrl)->toBe(route('quote.show', $ref))
-            ->and($body)->toContain("Reference: {$ref}", 'Project: Kitchen counters', 'Delivery: to Makati', 'Needed by: '.now('Asia/Manila')->addDays(10)->format('M j, Y'));
+            ->and($body)->toContain("Reference: {$ref}", 'Project: Kitchen counters', 'Delivery: Bel-Air, City of Makati', 'Needed by: '.now('Asia/Manila')->addDays(10)->format('M j, Y'));
 
         return true;
     });
@@ -200,11 +200,11 @@ it('emails the client a confirmation of their own inquiry, whatever their email 
 it('lists each stone with its slab size and thickness, and the project\'s answers, in the confirmation', function (): void {
     Notification::fake();
 
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5 x 10 ft', 'thickness' => '0.75 in'])]])]])
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5 x 10 ft', 'thickness' => '0.75 in'])]])]))
         ->assertSessionHasNoErrors();
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'area_sqm' => '3.75']])]])
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'area_sqm' => '3.75']])]))
         ->assertSessionHasNoErrors();
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => '1']])]])
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => '1']])]))
         ->assertSessionHasNoErrors();
 
     $bodies = Inquiry::query()->orderBy('id')->get()->map(fn (Inquiry $inquiry): string => (string) (new InquiryReceivedNotification($inquiry))->toMail($this->client)->render())->all();

@@ -1,5 +1,6 @@
 <?php
 
+use App\Data\PhAddress;
 use App\Enums\ClientKind;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
@@ -16,6 +17,7 @@ use App\Enums\SalesStatus;
 use App\Enums\SizeUnit;
 use App\Enums\ThicknessUnit;
 use App\Models\Client;
+use App\Models\ClientAddress;
 use App\Models\Conversation;
 use App\Models\DetailField;
 use App\Models\EdgeProfile;
@@ -25,18 +27,23 @@ use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\Message;
+use App\Models\Project;
+use App\Models\ProjectCategory;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Services\Message\SupportConversationService;
+use App\Services\PhAddressService;
+use App\Support\PhPlaceName;
 use Database\Seeders\EdgeProfileSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\ServiceStoneTypeSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -200,12 +207,149 @@ function inquiryProjectInput(array $overrides = []): array
         'serviceId' => $service,
         'stones' => $stones,
         'answers' => inquiryAnswers($service),
-        'deliveryMethod' => 'delivery',
-        'location' => 'Makati',
+        'brandNoPreference' => '1',
+        // Asked only of a service that is delivered or picked up.
+        ...(inquiryService($service)->fulfillment->asksDeliveryMethod() ? ['deliveryMethod' => 'delivery'] : []),
+        // As staff send it (the picker); clientInquiryInput() swaps in a saved one.
+        'address' => testAddressInput(),
         'neededBy' => now()->addDays(10)->toDateString(),
         'notes' => 'Ground floor.',
         ...$overrides,
     ];
+}
+
+/**
+ * The whole body a client posts to send their own inquiry. A client picks a
+ * project's address from their address book, so each project's picker
+ * address becomes `addressId`, the id of `$client`'s default saved address
+ * (the signed-in user's unless given), saved first when they have none. A
+ * project that already names one (`addressId`, `keepAddress`) or has none
+ * (a pickup) sends no picker address either way.
+ *
+ * @param  list<array<string, mixed>>  $projects
+ * @return array{projects: list<array<string, mixed>>}
+ */
+function clientInquiryInput(array $projects, ?User $client = null): array
+{
+    $client ??= auth()->user();
+
+    return [
+        'projects' => array_map(function (array $project) use ($client): array {
+            $picked = $project['address'] ?? null;
+            unset($project['address']);
+
+            // A pickup sends none, and a project that names its address keeps it.
+            if ($picked === null || isset($project['addressId']) || isset($project['keepAddress']) || ! $client instanceof User) {
+                return $project;
+            }
+
+            return [...$project, 'addressId' => (string) defaultTestAddress($client)->id];
+        }, $projects),
+    ];
+}
+
+/**
+ * An edit as a client saves it (quote.update): the address the inquiry holds
+ * is kept (keepAddress) unless a project names a saved address of its own. A
+ * client never sends the picker's codes.
+ *
+ * @param  list<array<string, mixed>>  $projects
+ * @return array{projects: list<array<string, mixed>>}
+ */
+function clientEditInput(array $projects): array
+{
+    return [
+        'projects' => array_map(function (array $project): array {
+            $picked = $project['address'] ?? null;
+            unset($project['address']);
+
+            if ($picked === null || isset($project['addressId']) || isset($project['keepAddress'])) {
+                return $project;
+            }
+
+            return [...$project, 'keepAddress' => '1'];
+        }, $projects),
+    ];
+}
+
+/**
+ * The PSGC places the tests' addresses are in, inserted when missing: Bel-Air
+ * (City of Makati, NCR, no province), Kapitolyo (City of Pasig) and San
+ * Isidro (City of Antipolo, Rizal), each with one postal code.
+ */
+function seedTestPlaces(): void
+{
+    $row = fn (array $place): array => [...$place, 'search_name' => PhPlaceName::fold($place['name'])];
+
+    DB::table('ph_regions')->insertOrIgnore([
+        $row(['code' => '130000000', 'name' => 'National Capital Region', 'designation' => 'National Capital Region']),
+        $row(['code' => '040000000', 'name' => 'CALABARZON', 'designation' => 'Region IV-A']),
+    ]);
+    DB::table('ph_provinces')->insertOrIgnore([
+        $row(['code' => '045800000', 'name' => 'Rizal', 'region_code' => '040000000']),
+    ]);
+    DB::table('ph_cities')->insertOrIgnore([
+        $row(['code' => '137602000', 'name' => 'City of Makati', 'region_code' => '130000000', 'province_code' => null, 'is_city' => true]),
+        $row(['code' => '137403000', 'name' => 'City of Pasig', 'region_code' => '130000000', 'province_code' => null, 'is_city' => true]),
+        $row(['code' => '045802000', 'name' => 'City of Antipolo', 'region_code' => '040000000', 'province_code' => '045800000', 'is_city' => true]),
+    ]);
+    DB::table('ph_barangays')->insertOrIgnore([
+        $row(['code' => '137602002', 'name' => 'Bel-Air', 'city_code' => '137602000']),
+        $row(['code' => '137403009', 'name' => 'Kapitolyo', 'city_code' => '137403000']),
+        $row(['code' => '045802007', 'name' => 'San Isidro (Pob.)', 'city_code' => '045802000']),
+    ]);
+    DB::table('ph_postal_codes')->insertOrIgnore([
+        ['postal_code' => '1209', 'city_code' => '137602000'],
+        ['postal_code' => '1603', 'city_code' => '137403000'],
+        ['postal_code' => '1870', 'city_code' => '045802000'],
+    ]);
+}
+
+/**
+ * An address as the picker posts it (PhAddressService::FIELDS): `Bel-Air`
+ * (Makati), `Kapitolyo` (Pasig) or `San Isidro` (Antipolo, Rizal), with
+ * `$overrides` laid over it. Its places are seeded first.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function testAddressInput(string $place = 'Bel-Air', array $overrides = []): array
+{
+    seedTestPlaces();
+
+    return [
+        ...match ($place) {
+            'Bel-Air' => ['regionCode' => '130000000', 'provinceCode' => null, 'cityCode' => '137602000', 'barangayCode' => '137602002', 'postalCode' => '1209', 'lat' => '14.561800', 'lng' => '121.029600'],
+            'Kapitolyo' => ['regionCode' => '130000000', 'provinceCode' => null, 'cityCode' => '137403000', 'barangayCode' => '137403009', 'postalCode' => '1603', 'lat' => '14.568700', 'lng' => '121.062400'],
+            'San Isidro' => ['regionCode' => '040000000', 'provinceCode' => '045800000', 'cityCode' => '045802000', 'barangayCode' => '045802007', 'postalCode' => '1870', 'lat' => '14.586400', 'lng' => '121.176000'],
+        },
+        ...$overrides,
+    ];
+}
+
+/** The same address as the app holds it, checked against the seeded places. */
+function testAddress(string $place = 'Bel-Air'): PhAddress
+{
+    return app(PhAddressService::class)->check(testAddressInput($place))['address']
+        ?? throw new LogicException("The test place {$place} did not check.");
+}
+
+/** Save an address to `$client`'s book; the first one saved is the default. */
+function saveTestAddress(User $client, string $label = 'Home', string $place = 'Bel-Air', ?bool $default = null): ClientAddress
+{
+    return ClientAddress::query()->forceCreate([
+        'user_id' => $client->id,
+        'label' => $label,
+        ...testAddress($place)->toColumns(),
+        'is_default' => $default ?? ! ClientAddress::query()->where('user_id', $client->id)->exists(),
+    ]);
+}
+
+/** `$client`'s default saved address, saved (Home, Bel-Air) when they have none. */
+function defaultTestAddress(User $client): ClientAddress
+{
+    return ClientAddress::query()->where('user_id', $client->id)->where('is_default', true)->first()
+        ?? saveTestAddress($client);
 }
 
 /**
@@ -291,7 +435,9 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
         'marketing_status_changed_at' => $marketing === null ? null : now(),
         'name' => $project['name'] ?? 'Project '.$sequence,
         'service_id' => ($service = inquiryService($project['service'] ?? 'slab-supply-only'))->id,
-        'location' => 'Makati',
+        'brand_no_preference' => true,
+        'delivery_method' => $service->fulfillment->asksDeliveryMethod() ? 'delivery' : null,
+        ...testAddress()->toColumns(Inquiry::ADDRESS_PREFIX),
         'sales_status' => $statuses['sales_status'] ?? null,
         'sales_status_changed_at' => isset($statuses['sales_status']) ? now() : null,
         'payment_status' => $statuses['payment_status'] ?? null,
@@ -558,4 +704,43 @@ function walkInClient(string $name = 'Wanda Walk-in'): Client
     $client->contacts()->create(['kind' => 'phone', 'value' => '+63917'.random_int(1000000, 9999999)]);
 
     return $client;
+}
+
+/**
+ * A project as if the admin's Projects page had added it: published, with no
+ * brand, stones, categories or gallery unless given. The slug is random.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function makeProject(array $attributes = []): Project
+{
+    return Project::query()->forceCreate([
+        'brand_id' => null,
+        'slug' => 'project-'.Str::lower(Str::random(10)),
+        'name' => 'Project '.Str::random(6),
+        'completed_year' => 2024,
+        'location' => 'Makati City',
+        'overview' => 'A kitchen in stone.',
+        'thumbnail_path' => 'projects/cover.jpg',
+        'is_published' => true,
+        'published_at' => now(),
+        ...$attributes,
+    ]);
+}
+
+/**
+ * A project category, active unless told otherwise.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function makeProjectCategory(string $name, array $attributes = []): ProjectCategory
+{
+    return ProjectCategory::query()->create([
+        'slug' => Str::slug($name),
+        'name' => $name,
+        'image_path' => 'categories/'.Str::slug($name).'.jpg',
+        'is_active' => true,
+        'sort_order' => ProjectCategory::query()->count(),
+        ...$attributes,
+    ]);
 }

@@ -1,10 +1,15 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Account\AccountController;
+use App\Http\Controllers\Address\PhPlaceController;
 use App\Http\Controllers\Auth\GoogleController;
+use App\Http\Controllers\Auth\PasswordChangeController;
+use App\Http\Controllers\Brand\BrandAdminController;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Brand\ProductRedirectController;
 use App\Http\Controllers\Furniture\FurnitureController;
+use App\Http\Controllers\Guest\CompanyPageController;
 use App\Http\Controllers\Guest\LandingController;
 use App\Http\Controllers\Home\StoneController;
 use App\Http\Controllers\Home\StoneProfileController as HomeStoneProfileController;
@@ -15,8 +20,10 @@ use App\Http\Controllers\Inbox\ThreadController;
 use App\Http\Controllers\Inquiry\InquiryController;
 use App\Http\Controllers\Inquiry\InquiryStatusController;
 use App\Http\Controllers\Inquiry\StaffClientController;
+use App\Http\Controllers\Inquiry\WalkInInquiryController;
 use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Notification\NotificationController;
+use App\Http\Controllers\Project\ProjectAdminController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\InquiryFileController;
@@ -31,12 +38,26 @@ use App\Http\Controllers\Schedule\SalesPickerController;
 use App\Http\Controllers\Schedule\ScheduleChangeController;
 use App\Http\Controllers\ViewController;
 use App\Http\Middleware\RedirectSignedInToDashboard;
+use App\Support\ReservedSlugs;
 use Illuminate\Support\Facades\Route;
 
 /*
  * Public landing page: guests see the catalogue, signed-in users redirect to their role home.
  */
 Route::get('/', [LandingController::class, 'index'])->name('home');
+
+/*
+ * The company pages the public header's menu opens: the brands by category,
+ * the showroom, Regray's story and how to reach the team. Open to everyone,
+ * signed in or not.
+ */
+Route::controller(CompanyPageController::class)->name('company.')->group(function () {
+    Route::get('/our-brands', 'brands')->name('brands');
+    Route::get('/showroom', 'showroom')->name('showroom');
+    Route::get('/about', 'about')->name('about');
+    Route::get('/news', 'news')->name('news');
+    Route::get('/contact', 'contact')->name('contact');
+});
 
 /*
  * Sign in and sign up with Google. The callback is the authorised redirect URI
@@ -71,6 +92,19 @@ Route::middleware(['throttle:heavy-reads', RedirectSignedInToDashboard::class])
 
 Route::get('/furniture/{furniture}', [ProductRedirectController::class, 'furniture'])
     ->middleware('throttle:heavy-reads');
+
+/*
+ * Set your password: where an account made on the Accounts page lands until
+ * its holder replaces the temporary password (EnsurePasswordChanged). Behind
+ * `auth` only, with no `verified` and no permission, so a brand-new staff
+ * member reaches it before anything else.
+ */
+Route::middleware('auth')->prefix('dashboard')->group(function () {
+    Route::get('password/change', [PasswordChangeController::class, 'edit'])->name('password.change');
+    Route::put('password/change', [PasswordChangeController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('password.change.update');
+});
 
 /*
  * The sidebar already hides the links a user may not follow, so it only hides
@@ -157,7 +191,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('saved/furniture/{furniture}', [FurnitureController::class, 'show'])
             ->middleware([Permission::SavedView->middleware(), 'throttle:heavy-reads'])
             ->name('saved.furniture.show');
-        Route::redirect('saved/{stone}', 'saved/stones/{stone}', 301);
+        /*
+         * The stone profile's old address. GET only: Route::redirect answers every
+         * method, and with the routes cached it would take the PUT and DELETE below
+         * (saving and unsaving a stone) before they are reached.
+         */
+        Route::get('saved/{stone}', fn (string $stone) => redirect("/dashboard/saved/stones/{$stone}", 301))
+            ->where('stone', '[a-z0-9-]+');
         Route::get('saved/{stone}/{project}', [SavedProjectController::class, 'show'])
             ->middleware(Permission::SavedProjectsView->middleware())
             ->name('saved.project');
@@ -278,6 +318,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('inquiries/{reference}/job-order', [InquiryStatusController::class, 'jobOrder'])
             ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
             ->name('inquiries.job-order');
+
+        /*
+         * A walk-in's inquiry, from its details page: add its staff
+         * (InquiryPolicy::assign(): technical by its owner or the marketing
+         * member who opened it, accounting and logistics by its owner once
+         * won), and marketing's decision on it (leads.update, by the
+         * marketing member who opened it).
+         */
+        Route::post('inquiries/{reference}/handlers', [WalkInInquiryController::class, 'assign'])
+            ->middleware([Permission::InquiriesView->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiries.handlers.store');
+        Route::post('inquiries/{reference}/decision', [WalkInInquiryController::class, 'decide'])
+            ->middleware([Permission::InquiriesView->middleware(), Permission::LeadsUpdate->middleware(), 'throttle:inquiry-edit'])
+            ->name('inquiries.decision');
 
         /*
          * The inquiry details page hangs off whichever list the user reads their
@@ -425,6 +479,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('inbox/groups', [MessageController::class, 'storeGroup'])
                 ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
                 ->name('inbox.groups.store');
+            // New group, "For a walk-in inquiry": the inquiries it may be for, and making it.
+            Route::get('inbox/walk-in-inquiries', [MessageController::class, 'walkInInquiries'])
+                ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:message-people'])
+                ->name('inbox.walk-in-inquiries');
+            Route::post('inbox/groups/walk-in', [MessageController::class, 'storeWalkInGroup'])
+                ->middleware([Permission::ConversationsCreate->middleware(), 'throttle:group-create'])
+                ->name('inbox.groups.walk-in.store');
 
             Route::patch('inbox/messages/{message}', [ThreadController::class, 'update'])
                 ->whereNumber('message')
@@ -441,9 +502,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('messages', [ThreadController::class, 'messages'])
                     ->middleware('can:view,conversation')
                     ->name('inbox.thread');
+                Route::get('messages/{message}', [ThreadController::class, 'message'])
+                    ->whereNumber('message')
+                    ->middleware('can:view,conversation')
+                    ->name('inbox.message');
                 Route::post('messages', [ThreadController::class, 'send'])
                     ->middleware(['can:send,conversation', 'throttle:messages'])
                     ->name('inbox.send');
+                Route::post('typing', [ThreadController::class, 'typing'])
+                    ->middleware(['can:send,conversation', 'throttle:message-typing'])
+                    ->name('inbox.typing');
                 Route::post('read', [ThreadController::class, 'pointer'])
                     ->middleware(['can:view,conversation', 'throttle:message-receipts'])
                     ->name('inbox.read');
@@ -466,28 +534,111 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     ->name('inbox.members.store');
             });
         });
-        Route::get('stones', [ViewController::class, 'stones'])
-            ->middleware(Permission::StonesView->middleware())
-            ->name('stones.index');
+        /*
+         * The admin's catalogue pages: the brands, and their products (stones
+         * and furniture alike). Brands sits beside the catalogue's own
+         * `brands/{brand}` above, which a reader opens from Home.
+         */
+        Route::get('brands', [ViewController::class, 'brands'])
+            ->middleware(Permission::BrandsView->middleware())
+            ->name('dashboard.brands.index');
+        /*
+         * The Brands page's writes, each behind its own permission on top of
+         * the page's. `{id}` is a plain id (BrandAdminController::find()), not
+         * the slug binding above, which finds only a visible brand. An edit
+         * is a POST with `_method=put`, since a PUT can't carry its images.
+         */
+        Route::middleware([Permission::BrandsView->middleware(), 'throttle:brand-save'])->group(function () {
+            Route::post('brands', [BrandAdminController::class, 'store'])
+                ->middleware(Permission::BrandsCreate->middleware())
+                ->name('dashboard.brands.store');
+            Route::put('brands/{id}', [BrandAdminController::class, 'update'])
+                ->middleware(Permission::BrandsUpdate->middleware())
+                ->name('dashboard.brands.update');
+            Route::post('brands/{id}/archive', [BrandAdminController::class, 'archive'])
+                ->middleware(Permission::BrandsArchive->middleware())
+                ->name('dashboard.brands.archive');
+        });
+        Route::get('products', [ViewController::class, 'products'])
+            ->middleware(Permission::ProductsView->middleware())
+            ->name('products.index');
+        // Products was Stones.
+        Route::redirect('stones', '/dashboard/products', 301);
         Route::get('services', [ViewController::class, 'services'])
             ->middleware(Permission::ServicesView->middleware())
             ->name('services.index');
+        /*
+         * The admin's Accounts page: the list, and its writes, each behind its
+         * own permission on top of the page's. `{user}` stays a plain id
+         * (AccountController::find()) so the permissions are checked before
+         * anything says whether an account exists; AccountService then refuses
+         * turning off or archiving yourself or the last active admin.
+         */
         Route::get('accounts', [ViewController::class, 'accounts'])
             ->middleware(Permission::AccountsView->middleware())
             ->name('accounts.index');
+        Route::middleware([Permission::AccountsView->middleware(), 'throttle:account-save'])->group(function () {
+            Route::post('accounts', [AccountController::class, 'store'])
+                ->middleware(Permission::AccountsCreate->middleware())
+                ->name('accounts.store');
+            Route::put('accounts/{user}', [AccountController::class, 'update'])
+                ->middleware(Permission::AccountsUpdate->middleware())
+                ->name('accounts.update');
+            Route::patch('accounts/{user}/status', [AccountController::class, 'status'])
+                ->middleware(Permission::AccountsUpdate->middleware())
+                ->name('accounts.status');
+            Route::post('accounts/{user}/archive', [AccountController::class, 'archive'])
+                ->middleware(Permission::AccountsArchive->middleware())
+                ->name('accounts.archive');
+        });
         Route::get('projects', [ViewController::class, 'projects'])
             ->middleware(Permission::ProjectsView->middleware())
             ->name('projects.index');
+        /*
+         * The Projects page's writes, each behind its own permission on top of
+         * the page's. `{id}` is a plain id (ProjectAdminController::find()),
+         * not the slug a project's public page is found by. An edit is a POST
+         * with `_method=put`, since a PUT can't carry its images.
+         */
+        Route::middleware([Permission::ProjectsView->middleware(), 'throttle:project-save'])->group(function () {
+            Route::post('projects', [ProjectAdminController::class, 'store'])
+                ->middleware(Permission::ProjectsCreate->middleware())
+                ->name('dashboard.projects.store');
+            Route::put('projects/{id}', [ProjectAdminController::class, 'update'])
+                ->middleware(Permission::ProjectsUpdate->middleware())
+                ->name('dashboard.projects.update');
+            Route::post('projects/{id}/archive', [ProjectAdminController::class, 'archive'])
+                ->middleware(Permission::ProjectsArchive->middleware())
+                ->name('dashboard.projects.archive');
+        });
     });
 });
 
 /*
+ * The address picker's searches, one PSGC level at a time under its parent
+ * (PhPlaceController). Any signed-in user: a client for their address book,
+ * staff for the address they enter on an inquiry.
+ */
+Route::middleware(['auth', 'verified', 'throttle:ph-address-search'])
+    ->prefix('api/ph')
+    ->name('ph.')
+    ->controller(PhPlaceController::class)
+    ->group(function () {
+        Route::get('regions', 'regions')->name('regions');
+        Route::get('provinces', 'provinces')->name('provinces');
+        Route::get('cities', 'cities')->name('cities');
+        Route::get('barangays', 'barangays')->name('barangays');
+        Route::get('postal-codes', 'postalCodes')->name('postal-codes');
+        Route::get('resolve', 'resolve')->name('resolve');
+    });
+
+/*
  * Public catch-all: a project's profile, or a stone's old address, at /{slug}.
- * Reserved single-segment names are excluded via negative lookahead.
+ * Reserved single-segment names (App\Support\ReservedSlugs) are excluded via negative lookahead.
  * Must be registered last, after all other routes.
  */
 Route::get('/{slug}', [HomeStoneProfileController::class, 'showFlat'])
-    ->where('slug', '(?!^(login|register|logout|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|dashboard|brands|furniture|settings|profile|up|images|build|robots\.txt|favicon\.ico|sitemap\.xml|home|overview|saved|sales|quote|inquiry|leads|schedule|message|stones|services|projects|accounts)$)[a-z0-9]([a-z0-9-]*[a-z0-9])?')
+    ->where('slug', ReservedSlugs::catchAllPattern())
     ->middleware('throttle:heavy-reads')
     ->name('stone.show');
 
@@ -516,7 +667,8 @@ Route::redirect('/message/{conversation}', '/dashboard/inbox/{conversation}', 30
 Route::redirect('/dashboard/message', '/dashboard/inbox', 301);
 Route::redirect('/dashboard/message/{conversation}', '/dashboard/inbox/{conversation}', 301);
 
-Route::redirect('/stones', '/dashboard/stones', 301);
+Route::redirect('/stones', '/dashboard/products', 301);
+Route::redirect('/products', '/dashboard/products', 301);
 Route::redirect('/services', '/dashboard/services', 301);
 Route::redirect('/projects', '/dashboard/projects', 301);
 Route::redirect('/accounts', '/dashboard/accounts', 301);

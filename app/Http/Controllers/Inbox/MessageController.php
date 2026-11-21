@@ -8,11 +8,13 @@ use App\Actions\Message\SearchPeopleAction;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\CreateGroupRequest;
+use App\Http\Requests\Message\CreateWalkInGroupRequest;
 use App\Http\Requests\Message\ListConversationsRequest;
 use App\Http\Requests\Message\SearchPeopleRequest;
 use App\Http\Resources\Message\ConversationResource;
 use App\Http\Resources\Message\PersonResource;
 use App\Services\Message\ConversationService;
+use App\Services\Message\GroupConversationService;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,6 +31,7 @@ class MessageController extends Controller
         public readonly CreateGroupAction $createGroup,
         public readonly SearchPeopleAction $searchPeople,
         public readonly ConversationService $conversationService,
+        public readonly GroupConversationService $groupService,
     ) {}
 
     public function index(ListConversationsRequest $request): Response
@@ -68,6 +71,28 @@ class MessageController extends Controller
     {
         $user = $request->user();
         $conversation = $this->createGroup->execute($user, $request->name(), $request->staffIds(), $request->clientId(), $request->inquiryId());
+
+        return response()->json([
+            'conversation' => ConversationResource::make($this->conversationService->summary($user, $conversation))->viewedBy($user)->resolve($request),
+        ], 201);
+    }
+
+    /**
+     * The walk-in inquiries a group may be made for, matching a search
+     * (GroupConversationService::walkInInquiries()).
+     */
+    public function walkInInquiries(SearchPeopleRequest $request): JsonResponse
+    {
+        return response()->json([
+            'inquiries' => $this->groupService->walkInInquiries($request->user(), $request->search()),
+        ]);
+    }
+
+    /** A walk-in inquiry's group chat, once sales has won it and the walk-in has an account. */
+    public function storeWalkInGroup(CreateWalkInGroupRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $conversation = $this->createGroup->executeForWalkIn($user, $request->name(), $request->staffIds(), $request->inquiryId());
 
         return response()->json([
             'conversation' => ConversationResource::make($this->conversationService->summary($user, $conversation))->viewedBy($user)->resolve($request),

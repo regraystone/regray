@@ -17,6 +17,7 @@ import Composer, {
 import DateSeparator from '@/components/conversations/date-separator';
 import InquiryCard from '@/components/conversations/inquiry-card';
 import MessageBubble from '@/components/conversations/message-bubble';
+import QuotationCard from '@/components/conversations/quotation-card';
 import QuotePrompt from '@/components/conversations/quote-prompt';
 import AddMembersDialog from '@/components/conversations/add-members-dialog';
 import Receipts from '@/components/conversations/receipts';
@@ -55,12 +56,11 @@ type ThreadProps = {
     /** The list row, drawn as the header until the thread's own arrives. */
     initialSummary: ConversationSummary | null;
     currentUserId: number;
-    currentUserName: string;
     isClient: boolean;
     isTouch: boolean;
     realtime: Realtime | undefined;
     onBack: () => void;
-    onLostAccess: (conversationId: number, assigneeName: string) => void;
+    onLostAccess: (conversationId: number, assigneeName: string | null) => void;
     onSummaryChange: (conversation: ConversationSummary) => void;
 };
 
@@ -91,7 +91,6 @@ const Thread = ({
     conversationId,
     initialSummary,
     currentUserId,
-    currentUserName,
     isClient,
     isTouch,
     realtime,
@@ -541,6 +540,15 @@ const Thread = ({
                             ) : null;
                         }
 
+                        if (message.type === 'quotation_card') {
+                            return message.quotationCard ? (
+                                <QuotationCard
+                                    key={item.key}
+                                    card={message.quotationCard}
+                                />
+                            ) : null;
+                        }
+
                         if (message.type === 'schedule_card') {
                             return message.scheduleCard ? (
                                 <ScheduleCard
@@ -678,7 +686,7 @@ const Thread = ({
                     }}
                     onCancelReply={() => setReplyTo(null)}
                     onCancelEdit={() => setEditing(null)}
-                    onTyping={() => thread.signalTyping(currentUserName)}
+                    onTyping={thread.signalTyping}
                 />
             ) : null}
 

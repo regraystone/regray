@@ -2,6 +2,7 @@ import { currentSocketId } from '@/lib/echo';
 import { rateLimitFrom } from '@/lib/rate-limit';
 import { readXsrfToken } from '@/lib/xsrf';
 import { store as storeGroup } from '@/routes/inbox/groups';
+import { store as storeWalkInGroup } from '@/routes/inbox/groups/walk-in';
 import {
     index as membersRoute,
     store as storeMembersRoute,
@@ -9,10 +10,13 @@ import {
 import {
     claim as claimRoute,
     delivered as deliveredRoute,
+    message as messageRoute,
     people as peopleRoute,
     read as readRoute,
     send as sendRoute,
     thread as threadRoute,
+    typing as typingRoute,
+    walkInInquiries as walkInInquiriesRoute,
 } from '@/routes/inbox';
 import {
     destroy as destroyMessage,
@@ -95,6 +99,10 @@ const request = async <T>(
         );
     }
 
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
     return (await response.json()) as T;
 };
 
@@ -112,6 +120,28 @@ export const fetchThread = (
             ),
         }),
     );
+
+/**
+ * One message of a conversation, as its channel announced it: the channel
+ * carries ids only, so the content is always fetched here, where the server
+ * checks the reader may still open the conversation (403 when not).
+ */
+export const fetchMessage = (
+    conversationId: number,
+    messageId: number,
+): Promise<{ message: ChatMessage }> =>
+    request<{ message: ChatMessage }>(
+        'GET',
+        messageRoute.url({ conversation: conversationId, message: messageId }),
+    );
+
+/**
+ * Tell the others in the thread the viewer is typing. The server announces it
+ * under the signed-in account, and only for someone who may write in the
+ * thread now; the browser sends no name.
+ */
+export const signalTyping = (conversationId: number): Promise<void> =>
+    request<void>('POST', typingRoute.url(conversationId));
 
 export const sendMessage = (
     conversationId: number,
@@ -235,6 +265,45 @@ export const createGroup = (payload: {
     inquiryId: number;
 }): Promise<{ conversation: ConversationSummary }> =>
     request('POST', storeGroup.url(), payload);
+
+/**
+ * A walk-in inquiry a group may be made for: New group's "For a walk-in
+ * inquiry". Only one whose sales is won, with no group yet, and whose walk-in
+ * has a Regray account may have one. `account` is that account (found by the
+ * server from the walk-in's phone or email), null while there is none.
+ */
+export type WalkInInquiryOption = {
+    id: number;
+    reference: string;
+    name: string;
+    /** The walk-in's name. */
+    client: string;
+    /** The sales owner, who is the group's sales member. */
+    owner: string | null;
+    ownerId: number;
+    /** Sales has won it. */
+    isWon: boolean;
+    hasGroup: boolean;
+    account: { id: number; name: string; email: string } | null;
+};
+
+export const searchWalkInInquiries = (
+    search: string,
+): Promise<{ inquiries: WalkInInquiryOption[] }> =>
+    request(
+        'GET',
+        walkInInquiriesRoute.url({
+            query: search.trim() === '' ? {} : { search },
+        }),
+    );
+
+/** No client is sent: the server takes the walk-in's account. */
+export const createWalkInGroup = (payload: {
+    name: string;
+    staffIds: number[];
+    inquiryId: number;
+}): Promise<{ conversation: ConversationSummary }> =>
+    request('POST', storeWalkInGroup.url(), payload);
 
 /**
  * Accounting and logistics users not in the group yet, for a sales member to

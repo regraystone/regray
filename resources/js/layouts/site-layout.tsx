@@ -17,14 +17,10 @@ export default function SiteLayout({
         return <WorkspaceLayout>{children}</WorkspaceLayout>;
     }
 
-    // The landing page draws its own header and footer (components/landing).
+    // The landing page wraps itself in the public frame (PublicLayout).
     if (component === 'landing') {
         return children;
     }
 
-    return (
-        <GuestLayout>
-            <div className="px-4 py-6 sm:px-5 lg:px-8 lg:py-8">{children}</div>
-        </GuestLayout>
-    );
+    return <GuestLayout>{children}</GuestLayout>;
 }

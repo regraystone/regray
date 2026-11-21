@@ -1,12 +1,28 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Check, Search, X } from 'lucide-react';
+import {
+    type ReactNode,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
 import { fieldMessage } from '@/components/form-field';
+import {
+    INQUIRY_ADDRESS_ID,
+    InquiryAddressContext,
+    projectAddressLine,
+    type InquiryAddressContextValue,
+} from '@/components/inquiry-address-field';
+import InquiryBrandQuestion, {
+    INQUIRY_BRANDS_ID,
+} from '@/components/inquiry-brand-question';
 import { INQUIRY_DELIVERY_METHOD_ID } from '@/components/inquiry-project-details';
 import InquiryProjectForm from '@/components/inquiry-project-form';
 import InquiryQuestion, {
@@ -21,7 +37,6 @@ import InquiryReview from '@/components/inquiry-review';
 import InquiryServiceQuestion from '@/components/inquiry-service-question';
 import InquiryStepper from '@/components/inquiry-stepper';
 import InputError from '@/components/input-error';
-import PageHeading from '@/components/page-heading';
 import StaffInquireStart, {
     leadTarget,
 } from '@/components/staff-inquire-start';
@@ -33,6 +48,7 @@ import {
 import InquiryStoneGrid, {
     StoneGridSkeleton,
 } from '@/components/inquiry-stone-grid';
+import StoneBrandFilter from '@/components/stone-brand-filter';
 import {
     StoneTypePills,
     StoneTypeSelect,
@@ -63,25 +79,33 @@ import type { RateLimit } from '@/lib/rate-limit';
 import {
     ALL_STONE_TYPES,
     autoProjectName,
+    BRAND_STEP,
     furthestQuestion,
     buildCommittedProject,
     buildInquiryFormData,
     clampRestoredStep,
     deadlineLocks,
-    DELIVERY,
     findService,
+    fulfillmentAfterServiceChange,
+    HELD_ADDRESS,
     INQUIRY_STEP_LABELS,
     mapInquiryErrors,
     nextQuestion,
     questionProblem,
     readInquiryFlash,
+    removedBrandStonesNotice,
     removedStonesNotice,
     REVIEW_STEP,
     seedStoneRows,
     stepperPosition,
+    stoneBrandsQuery,
     stoneFilterQuery,
+    stonesOutsideBrands,
     stoneTypeOptions,
     toEditFormProjects,
+    toggleBrandFilter,
+    allowedStoneBrands,
+    type AddressSource,
     type InquiryEditProject,
     type InquiryFlash,
     type ServiceTypeOption,
@@ -102,6 +126,12 @@ import {
     type InquiryFormValues,
 } from '@/lib/inquiry-schema';
 import { PROJECT_NAME_MAX } from '@/data/inquiries';
+import {
+    addressFromPayload,
+    addressValueLine,
+    type PhAddressPayload,
+} from '@/lib/ph-address';
+import { index as profileAddresses } from '@/routes/profile/addresses';
 import { permissions } from '@/layouts/workspace-layout';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as quoteIndex, update as quoteUpdate } from '@/routes/quote';
@@ -110,6 +140,7 @@ import type { Auth } from '@/types';
 import type {
     InquirePageProps,
     InquiryStoneOption,
+    SavedAddress,
     StaffInquireTarget,
 } from '@/types/inquiry';
 
@@ -232,11 +263,13 @@ const sendInquiryRequest = (
     values: InquiryFormValues,
     serviceTypes: ServiceTypeOption[],
     method: 'post' | 'patch' = 'post',
+    addressSource: AddressSource = 'book',
 ): Promise<SendOutcome> =>
     new Promise((resolve) => {
         const body = buildInquiryFormData(values, {
             withProjectIds: method === 'patch',
             serviceFor: (serviceId) => findService(serviceTypes, serviceId),
+            addressSource,
         });
 
         if (method === 'patch') {
@@ -279,6 +312,47 @@ const SKELETON_MS = 700;
  * second project would have no way of telling the two apart, and walking away
  * would look like walking away from the whole inquiry.
  */
+/**
+ * The page's title in the heading face, what to do under it and, while the
+ * questions are open on a new request, a note that the answers are kept as
+ * they are given (the draft autosave). Anything else the page puts at the
+ * top, such as Change client or the way back from an edit, sits at its end.
+ */
+const InquireHeading = ({
+    title,
+    description,
+    action,
+    showSaved,
+}: {
+    title: string;
+    description: string;
+    action?: ReactNode;
+    showSaved: boolean;
+}) => (
+    <div className="mb-7 flex flex-col gap-4 sm:mb-9 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 space-y-2">
+            <h2 className="font-display text-[clamp(1.875rem,2.8vw,2.5rem)] leading-tight font-light tracking-[-0.005em]">
+                {title}
+            </h2>
+            <p className="text-base text-muted-foreground">{description}</p>
+        </div>
+        {action || showSaved ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2">
+                {showSaved ? (
+                    <span className="inline-flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
+                        <span
+                            aria-hidden
+                            className="size-1.75 rounded-full bg-success-text"
+                        />
+                        Answers saved
+                    </span>
+                ) : null}
+                {action}
+            </div>
+        ) : null}
+    </div>
+);
+
 const ProjectBanner = ({
     label,
     onCancel,
@@ -406,22 +480,29 @@ type InquiryEdit = {
  * `target` is set when staff open the inquiry for someone: a Platform client's
  * lead or a Direct (walk-in) client. It is sent there rather than for the
  * reader, and takes no attachments.
+ *
+ * `addresses` is a client's own address book, which a project's address is
+ * picked from, the default first and already picked. Staff have none (null):
+ * they enter the address with the address picker.
  */
 const InquireFlow = ({
     edit,
     target = null,
     onChangeTarget,
     rememberStones,
+    addresses = null,
 }: {
     edit: InquiryEdit | null;
     target?: StaffInquireTarget | null;
     onChangeTarget?: () => void;
     rememberStones: (found: InquiryStoneOption[]) => void;
+    addresses?: SavedAddress[] | null;
 }) => {
     const catalog = useInquiryCatalog();
+    const addressSource: AddressSource = addresses === null ? 'picker' : 'book';
     const { inquirySchema, projectDraftSchema } = useMemo(
-        () => createInquirySchemas(catalog),
-        [catalog],
+        () => createInquirySchemas(catalog, addressSource),
+        [catalog, addressSource],
     );
     const ownStoreUrl = useInquireStoreUrl();
     const inquireStoreUrl = target === null ? ownStoreUrl : target.storeUrl;
@@ -459,13 +540,13 @@ const InquireFlow = ({
      * Both start on the first step. An edit opens the inquiry's one project
      * there as soon as it is loaded (see the effect after `openProject`).
      */
-    const [step, setStep] = useState<number>(SERVICE_STEP);
+    const [step, setStep] = useState<number>(BRAND_STEP);
     /**
      * How many questions are shown: the first alone at the start, and one more
      * each time Next is pressed under the last. Every question shown stays open
      * with all its fields, so an earlier answer is changed where it was given.
      */
-    const [shownQuestions, setShownQuestions] = useState<number>(SERVICE_STEP);
+    const [shownQuestions, setShownQuestions] = useState<number>(BRAND_STEP);
     /** The question Next has just shown, brought into view once it is drawn. */
     const revealedQuestionRef = useRef<number | null>(null);
     const {
@@ -482,6 +563,10 @@ const InquireFlow = ({
         stoneFilters.type ?? ALL_STONE_TYPES,
     );
     const [search, setSearch] = useState(stoneFilters.search ?? '');
+    /** The stones' own Brand filter: none is All brands. */
+    const [brandFilter, setBrandFilter] = useState<string[]>(
+        stoneFilters.brands ?? [],
+    );
     const [isLoadingStones, setIsLoadingStones] = useState(false);
     const searchTimerRef = useRef<number | null>(null);
     /** While a restored draft asks the server about its stones. */
@@ -560,6 +645,35 @@ const InquireFlow = ({
     );
 
     /*
+     * A new project starts on the client's default address: a saved address
+     * is the only kind they pick. An id no longer in the book (deleted while
+     * the draft waited) is no answer.
+     */
+    const defaultAddressId = useMemo(() => {
+        const saved =
+            addresses?.find(({ isDefault }) => isDefault) ?? addresses?.[0];
+
+        return saved === undefined ? '' : String(saved.id);
+    }, [addresses]);
+
+    const knownAddressId = useCallback(
+        (id: string): string =>
+            addresses === null
+                ? ''
+                : id === HELD_ADDRESS && edit !== null
+                  ? id
+                  : addresses.some((saved) => String(saved.id) === id)
+                    ? id
+                    : defaultAddressId,
+        [addresses, defaultAddressId, edit],
+    );
+
+    const initialDraftDefaults = useMemo(
+        () => ({ ...draftDefaults, addressId: defaultAddressId }),
+        [defaultAddressId],
+    );
+
+    /*
      * The project in progress, as a second form.
      *
      * A second form rather than a corner of the first because a draft is not part
@@ -576,7 +690,7 @@ const InquireFlow = ({
         resolver: zodResolver(projectDraftSchema),
         mode: 'onTouched',
         reValidateMode: 'onChange',
-        defaultValues: draftDefaults,
+        defaultValues: initialDraftDefaults,
         shouldUnregister: false,
     });
 
@@ -588,6 +702,8 @@ const InquireFlow = ({
 
     const draftStoneIds = watchDraft('stoneIds');
     const draftStoneAdvice = watchDraft('stoneAdvice');
+    const draftBrands = watchDraft('brands');
+    const draftBrandNoPreference = watchDraft('brandNoPreference');
 
     /*
      * Whether Continue has been pressed at all, once. A card is checked once there
@@ -653,29 +769,29 @@ const InquireFlow = ({
              * taken off here, with the notice, rather than refused on save.
              */
             const removed: string[] = [];
-            const projects = toEditFormProjects(edit.projects).map(
-                (project) => {
-                    const misfits = new Set(
-                        catalog
-                            .stonesNotOfferedFor(
-                                project.stones.map(({ stoneId }) => stoneId),
-                                project.serviceId,
-                            )
-                            .map((stone) => {
-                                removed.push(stone.name);
+            const projects = toEditFormProjects(edit.projects, (address) =>
+                addressFromPayload(address as unknown as PhAddressPayload),
+            ).map((project) => {
+                const misfits = new Set(
+                    catalog
+                        .stonesNotOfferedFor(
+                            project.stones.map(({ stoneId }) => stoneId),
+                            project.serviceId,
+                        )
+                        .map((stone) => {
+                            removed.push(stone.name);
 
-                                return stone.slug;
-                            }),
-                    );
+                            return stone.slug;
+                        }),
+                );
 
-                    return {
-                        ...project,
-                        stones: project.stones.filter(
-                            ({ stoneId }) => !misfits.has(stoneId),
-                        ),
-                    };
-                },
-            );
+                return {
+                    ...project,
+                    stones: project.stones.filter(
+                        ({ stoneId }) => !misfits.has(stoneId),
+                    ),
+                };
+            });
 
             reset({ projects });
 
@@ -702,10 +818,18 @@ const InquireFlow = ({
                     attachments: [],
                 })),
             });
+            /*
+             * The draft's saved address comes back while it is still in the
+             * book; one deleted meanwhile, or none yet (a client back from
+             * adding their first), is the default.
+             */
             draftMethods.reset({
                 ...stored.draft,
+                addressId: knownAddressId(stored.draft.addressId),
+                address: addresses === null ? stored.draft.address : null,
                 attachments: [],
             });
+
             setEditingProjectId(
                 stored.editingProjectId !== null &&
                     stored.projects.some(
@@ -809,6 +933,8 @@ const InquireFlow = ({
         edit,
         rememberStones,
         serviceName,
+        knownAddressId,
+        addresses,
     ]);
 
     /*
@@ -820,7 +946,7 @@ const InquireFlow = ({
      * save of that would put the stored draft to death while its owner was
      * still on the skeleton.
      */
-    const { discardDraft } = useInquiryDraftAutosave({
+    const { discardDraft, saveDraftNow } = useInquiryDraftAutosave({
         userId,
         isRestored,
         step,
@@ -867,6 +993,19 @@ const InquireFlow = ({
     );
     const visibleStones = stonePage.data;
 
+    /*
+     * The Brand answer keeps the stones to the brands it chose: the Brand
+     * filter offers only those, and with none of them picked asks for all of
+     * them. No preference (or no answer yet) leaves every brand.
+     */
+    const allowedBrands = allowedStoneBrands(catalog.brands, {
+        brands: draftBrands,
+        brandNoPreference: draftBrandNoPreference,
+    });
+    const stoneBrandOptions = catalog.brands.filter(({ id }) =>
+        allowedBrands.ids.includes(id),
+    );
+
     const clearSearchTimer = () => {
         if (searchTimerRef.current !== null) {
             window.clearTimeout(searchTimerRef.current);
@@ -887,15 +1026,34 @@ const InquireFlow = ({
 
         requestedServiceRef.current = service;
 
-        [
-            'stone_service',
-            'stone_tab',
-            'stone_type',
-            'stone_search',
-            'page',
-        ].forEach((name) => url.searchParams.delete(name));
-        Object.entries(stoneFilterQuery({ ...query, service })).forEach(
-            ([name, value]) => url.searchParams.set(name, value),
+        [...url.searchParams.keys()]
+            .filter(
+                (name) =>
+                    [
+                        'stone_service',
+                        'stone_tab',
+                        'stone_type',
+                        'stone_search',
+                        'page',
+                    ].includes(name) || name.startsWith('stone_brands'),
+            )
+            .forEach((name) => url.searchParams.delete(name));
+        Object.entries(
+            stoneFilterQuery({
+                ...query,
+                // Never outside the Brand answer: with none picked, every brand it chose.
+                brands: stoneBrandsQuery(
+                    query.brands ?? brandFilter,
+                    allowedBrands,
+                ),
+                service,
+            }),
+        ).forEach(([name, value]) =>
+            Array.isArray(value)
+                ? value.forEach((entry) =>
+                      url.searchParams.append(`${name}[]`, entry),
+                  )
+                : url.searchParams.set(name, value),
         );
 
         /*
@@ -920,14 +1078,33 @@ const InquireFlow = ({
      */
     const clearStoneFilters = () => {
         const tab =
-            search.trim() === '' && stoneType === ALL_STONE_TYPES
+            search.trim() === '' &&
+            stoneType === ALL_STONE_TYPES &&
+            brandFilter.length === 0
                 ? 'all'
                 : filter;
 
         setFilter(tab);
         setSearch('');
         setStoneType(ALL_STONE_TYPES);
-        loadStones({ tab, stoneType: ALL_STONE_TYPES, search: '' });
+        setBrandFilter([]);
+        loadStones({
+            tab,
+            stoneType: ALL_STONE_TYPES,
+            search: '',
+            brands: [],
+        });
+    };
+
+    const changeBrandFilter = (brand: string | null) => {
+        const next = toggleBrandFilter(
+            brandFilter.filter((id) => allowedBrands.ids.includes(id)),
+            brand,
+            allowedBrands.ids,
+        );
+
+        setBrandFilter(next);
+        loadStones({ tab: filter, stoneType, search, brands: next });
     };
 
     const changeTab = (tab: StoneFilter) => {
@@ -1007,6 +1184,53 @@ const InquireFlow = ({
     }, [draftServiceId]);
 
     /*
+     * A new Brand answer: the filter keeps only the brands still allowed, the
+     * picked stones of the brands it now keeps out come off (said on step 2,
+     * as a change of service says), and the stones are asked for again.
+     */
+    const allowedBrandsKey = allowedBrands.restricted
+        ? allowedBrands.ids.join(',')
+        : '';
+    const hasWatchedBrandsRef = useRef(false);
+
+    useEffect(() => {
+        // Not on mount: the answer is still blank then, as with the service.
+        if (!hasWatchedBrandsRef.current) {
+            hasWatchedBrandsRef.current = true;
+
+            return;
+        }
+
+        const kept = brandFilter.filter((id) => allowedBrands.ids.includes(id));
+        const misfits = stonesOutsideBrands(
+            getDraftValues('stoneIds'),
+            catalog.stones,
+            allowedBrands,
+        );
+
+        setBrandFilter(kept);
+
+        if (misfits.length > 0) {
+            const gone = new Set(misfits.map(({ slug }) => slug));
+
+            setDraftValue(
+                'stoneIds',
+                getDraftValues('stoneIds').filter((id) => !gone.has(id)),
+                { shouldDirty: true },
+            );
+            setStoneNotice(
+                removedBrandStonesNotice(misfits.map(({ name }) => name)),
+            );
+        }
+
+        if (requiresStones(getDraftValues('serviceId'))) {
+            loadStones({ tab: filter, stoneType, search, brands: kept });
+        }
+        // Only a change of the answer asks again.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allowedBrandsKey]);
+
+    /*
      * A type the service does not list, from an address kept from another
      * service, is no filter: back to All Type.
      */
@@ -1045,8 +1269,27 @@ const InquireFlow = ({
             serviceId,
         );
 
+        const previous = findService(
+            catalog.serviceTypes,
+            getDraftValues('serviceId'),
+        );
+        const next = findService(catalog.serviceTypes, serviceId);
+        const fulfillment = fulfillmentAfterServiceChange(
+            {
+                deliveryMethod: getDraftValues('deliveryMethod'),
+                addressId: getDraftValues('addressId'),
+                address: getDraftValues('address'),
+            },
+            previous,
+            next,
+        );
+
         setDraftValue('serviceId', serviceId, { shouldDirty: true });
-        draftMethods.clearErrors('serviceId');
+        // What no longer applies to the new service goes: a method it does not ask.
+        setDraftValue('deliveryMethod', fulfillment.deliveryMethod, {
+            shouldDirty: true,
+        });
+        draftMethods.clearErrors(['serviceId', 'deliveryMethod']);
 
         // A service that asks for no stones takes none, and no recommendation either.
         if (!requiresStones(serviceId)) {
@@ -1155,7 +1398,11 @@ const InquireFlow = ({
         }
 
         draftMethods.clearErrors(
-            question === SERVICE_STEP ? 'serviceId' : 'stoneIds',
+            question === BRAND_STEP
+                ? 'brands'
+                : question === SERVICE_STEP
+                  ? 'serviceId'
+                  : 'stoneIds',
         );
         revealQuestion(nextQuestion(question, takesStones));
     };
@@ -1181,11 +1428,11 @@ const InquireFlow = ({
      * project would quietly make the next one overwrite an existing one.
      */
     const clearDraft = () => {
-        draftMethods.reset(draftDefaults);
+        draftMethods.reset(initialDraftDefaults);
         hasDraftContinued.current = false;
         setEditingProjectId(null);
         setStoneNotice(null);
-        setShownQuestions(SERVICE_STEP);
+        setShownQuestions(BRAND_STEP);
     };
 
     /**
@@ -1231,8 +1478,11 @@ const InquireFlow = ({
             ],
             stones: project.stones.map((selection) => ({ ...selection })),
             answers: { ...project.answers },
-            deliveryMethod: project.deliveryMethod || DELIVERY,
-            location: project.location,
+            brands: [...project.brands],
+            brandNoPreference: project.brandNoPreference,
+            deliveryMethod: project.deliveryMethod,
+            addressId: knownAddressId(project.addressId),
+            address: project.address === null ? null : { ...project.address },
             neededBy: project.neededBy,
             notes: project.notes,
             attachments: project.attachments.map((attachment) => ({
@@ -1266,7 +1516,7 @@ const InquireFlow = ({
         }
 
         hasOpenedEditRef.current = true;
-        openProject(project.id, SERVICE_STEP);
+        openProject(project.id, BRAND_STEP);
     });
 
     /**
@@ -1370,13 +1620,26 @@ const InquireFlow = ({
              * the reader is taken to where it can be answered.
              */
             (errors) => {
-                if (errors.serviceId !== undefined) {
+                if (errors.brands !== undefined) {
+                    showQuestion(BRAND_STEP);
+                    document.getElementById(INQUIRY_BRANDS_ID)?.focus();
+                } else if (errors.serviceId !== undefined) {
                     showQuestion(SERVICE_STEP);
                 } else if (errors.stoneIds !== undefined) {
                     showQuestion(STONES_STEP);
                 } else if (errors.deliveryMethod !== undefined) {
                     document
                         .getElementById(INQUIRY_DELIVERY_METHOD_ID)
+                        ?.scrollIntoView({
+                            block: 'center',
+                            behavior: 'smooth',
+                        });
+                } else if (
+                    errors.addressId !== undefined ||
+                    errors.address !== undefined
+                ) {
+                    document
+                        .getElementById(INQUIRY_ADDRESS_ID)
                         ?.scrollIntoView({
                             block: 'center',
                             behavior: 'smooth',
@@ -1557,6 +1820,8 @@ const InquireFlow = ({
                       inquireStoreUrl,
                       getValues(),
                       catalog.serviceTypes,
+                      'post',
+                      addressSource,
                   );
 
         isSendingRef.current = false;
@@ -1598,12 +1863,14 @@ const InquireFlow = ({
         const { title, reference } = outcome.flash;
 
         /*
-         * A fresh inquiry starts empty rather than from the request just sent,
-         * and the draft goes with it: a half-built project is the one thing that
+         * A fresh inquiry starts empty rather than from the request just sent.
+         * The draft goes with it: a half-built project is the one thing that
          * must not survive into the next inquiry.
          */
         reset(inquiryDefaults);
+
         clearDraft();
+
         /*
          * The draft is no longer a draft once it has been sent. Forgetting it
          * here — with any write still waiting behind it cancelled — is what
@@ -1614,11 +1881,17 @@ const InquireFlow = ({
         setSearch('');
         setFilter('all');
         setStoneType(ALL_STONE_TYPES);
-        loadStones({ tab: 'all', stoneType: ALL_STONE_TYPES, search: '' });
+        loadStones({
+            tab: 'all',
+            stoneType: ALL_STONE_TYPES,
+            search: '',
+            brands: [],
+        });
         setValidationAlertErrors([]);
         setSectionMessages({});
         setProjectMessages({});
-        setStep(SERVICE_STEP);
+        setBrandFilter([]);
+        setStep(BRAND_STEP);
         setResult({ status: 'success', title, reference });
     };
 
@@ -1643,6 +1916,7 @@ const InquireFlow = ({
             getValues(),
             catalog.serviceTypes,
             'patch',
+            addressSource,
         );
 
         isSendingRef.current = false;
@@ -1675,7 +1949,7 @@ const InquireFlow = ({
      */
     const inquireAgain = () => {
         setResult(null);
-        setStep(SERVICE_STEP);
+        setStep(BRAND_STEP);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -1684,6 +1958,25 @@ const InquireFlow = ({
     }
 
     const hasSelection = draftStoneIds.length > 0;
+
+    /*
+     * Where the details question's address comes from. "Manage addresses"
+     * saves the draft first: the address book sends the client back here,
+     * where it is restored.
+     */
+    const addressContext: InquiryAddressContextValue = {
+        source: addressSource,
+        addresses: addresses ?? [],
+        heldAddress:
+            edit !== null && addresses !== null
+                ? ((edit.projects[0]?.address ??
+                      null) as PhAddressPayload | null)
+                : null,
+        onManageAddresses: () => {
+            saveDraftNow();
+            router.visit(profileAddresses.url({ query: { from: 'inquire' } }));
+        },
+    };
     const canChat = can(permissions.messagesView);
     const canSeeQuotation = can(permissions.quotationsView);
     const canSeeInquiry = can(permissions.inquiriesView);
@@ -1699,8 +1992,8 @@ const InquireFlow = ({
           : null;
 
     const stoneTabs: Array<{ value: StoneFilter; label: string }> = [
-        { value: 'saved', label: 'Saved' },
         { value: 'all', label: 'All' },
+        { value: 'saved', label: 'Saved' },
         { value: 'bestSellers', label: 'Best Seller' },
     ];
 
@@ -1728,8 +2021,8 @@ const InquireFlow = ({
      */
     const draftTakesStones = requiresStones(draftServiceId);
     const questions = draftTakesStones
-        ? [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP]
-        : [SERVICE_STEP, REQUIREMENTS_STEP];
+        ? [BRAND_STEP, SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP]
+        : [BRAND_STEP, SERVICE_STEP, REQUIREMENTS_STEP];
 
     /**
      * The questions shown so far, every one open with all its fields; the rest
@@ -1745,256 +2038,328 @@ const InquireFlow = ({
                   onChange: () => undefined,
               };
 
+    const brandQuestion = question(BRAND_STEP);
     const serviceQuestion = question(SERVICE_STEP);
     const stonesQuestion = question(STONES_STEP);
     const detailsQuestion = question(REQUIREMENTS_STEP);
 
     return (
         <FormProvider {...methods}>
-            <InquiryActionBarSlot.Provider value={actionBarSlot}>
-                <div className={FULL_SCREEN_PAGE}>
-                    <PageHeading
-                        title={
-                            edit === null
-                                ? 'Inquire'
-                                : `Update ${edit.reference}`
-                        }
-                        description={
-                            edit !== null && step === REVIEW_STEP
-                                ? 'Choose a project to edit, then save your changes'
-                                : step === REVIEW_STEP
-                                  ? REVIEW_DESCRIPTION
-                                  : REQUEST_DESCRIPTION
-                        }
-                        action={
-                            edit === null ? (
-                                target !== null && onChangeTarget ? (
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span
-                                            className="text-sm"
-                                            data-testid="inquire-target"
-                                        >
-                                            For{' '}
-                                            <span className="font-bold">
-                                                {target.name}
-                                            </span>{' '}
-                                            · {target.detail}
-                                        </span>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={onChangeTarget}
-                                        >
-                                            Change client
-                                        </Button>
-                                    </div>
-                                ) : undefined
-                            ) : (
-                                <Button asChild variant="outline">
-                                    {/* Back to the list the edit was started from. */}
-                                    <Link href={edit.back.url}>
-                                        <ArrowLeft aria-hidden />
-                                        {edit.back.label}
-                                    </Link>
-                                </Button>
-                            )
-                        }
-                    />
-
-                    <InquiryStepper
-                        steps={STEPS}
-                        current={stepperPosition(step)}
-                    />
-
-                    {step === REVIEW_STEP ? (
-                        <InquiryReview
-                            onEditProject={openProject}
-                            sectionMessages={sectionMessages}
-                            projectMessages={projectMessages}
-                            validationErrors={validationAlertErrors}
-                            locked={isSending}
-                            onRequestQuote={requestQuote}
-                            mode={edit === null ? 'create' : 'edit'}
-                        />
-                    ) : (
-                        /*
-                         * Steps 1 to 3 with a project open all read the draft form, so
-                         * they sit inside its own provider. Shadowing the inquiry's
-                         * provider for this subtree is the point: neither can reach an
-                         * answer the other owns.
-                         */
-                        <FormProvider {...draftMethods}>
-                            {showDraftBanner ? (
-                                <ProjectBanner
-                                    label="Changing your request"
-                                    onCancel={cancelExcursion}
-                                />
-                            ) : null}
-
-                            {serviceQuestion !== null ? (
-                                <InquiryQuestion
-                                    {...serviceQuestion}
-                                    title="What do you need?"
-                                    summary=""
-                                >
-                                    <InquiryServiceQuestion
-                                        onServiceType={chooseServiceType}
-                                        onService={chooseService}
-                                    />
-                                    {shownQuestions === SERVICE_STEP ? (
-                                        <NextBar
-                                            nextTitle={
-                                                draftTakesStones
-                                                    ? 'Which stones?'
-                                                    : 'Other details'
-                                            }
-                                            onNext={() =>
-                                                goToNextQuestion(SERVICE_STEP)
-                                            }
-                                        />
-                                    ) : null}
-                                </InquiryQuestion>
-                            ) : null}
-
-                            {stonesQuestion !== null ? (
-                                <InquiryQuestion
-                                    {...stonesQuestion}
-                                    title="Which stones?"
-                                    summary=""
-                                >
-                                    <div className="mb-5 flex flex-col gap-3 rounded-md border border-sidebar-border bg-secondary p-4 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="min-w-0">
-                                            <p className="text-base font-bold">
-                                                Not sure which stone yet?
-                                            </p>
-                                            <p className="mt-0.5 text-sm text-secondary-foreground">
-                                                Our team will recommend one for
-                                                you.
-                                            </p>
+            <InquiryAddressContext.Provider value={addressContext}>
+                <InquiryActionBarSlot.Provider value={actionBarSlot}>
+                    <div className={FULL_SCREEN_PAGE}>
+                        <InquireHeading
+                            showSaved={edit === null && step !== REVIEW_STEP}
+                            title={
+                                edit === null
+                                    ? 'Inquire'
+                                    : `Update ${edit.reference}`
+                            }
+                            description={
+                                edit !== null && step === REVIEW_STEP
+                                    ? 'Choose a project to edit, then save your changes'
+                                    : step === REVIEW_STEP
+                                      ? REVIEW_DESCRIPTION
+                                      : REQUEST_DESCRIPTION
+                            }
+                            action={
+                                edit === null ? (
+                                    target !== null && onChangeTarget ? (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span
+                                                className="text-sm"
+                                                data-testid="inquire-target"
+                                            >
+                                                For{' '}
+                                                <span className="font-bold">
+                                                    {target.name}
+                                                </span>{' '}
+                                                · {target.detail}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={onChangeTarget}
+                                            >
+                                                Change client
+                                            </Button>
                                         </div>
-                                        <Button
-                                            type="button"
-                                            variant={
-                                                draftStoneAdvice
-                                                    ? 'default'
-                                                    : 'outline'
-                                            }
-                                            onClick={askForStoneAdvice}
-                                            aria-pressed={draftStoneAdvice}
-                                            className="w-full shrink-0 sm:w-auto"
-                                        >
-                                            Help me choose
-                                        </Button>
-                                    </div>
+                                    ) : undefined
+                                ) : (
+                                    <Button asChild variant="outline">
+                                        {/* Back to the list the edit was started from. */}
+                                        <Link href={edit.back.url}>
+                                            <ArrowLeft aria-hidden />
+                                            {edit.back.label}
+                                        </Link>
+                                    </Button>
+                                )
+                            }
+                        />
 
-                                    <div className="mb-6 border-b border-sidebar-border pb-4">
-                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                            <div className="relative w-full sm:max-w-xs">
-                                                <Search
-                                                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
-                                                    aria-hidden
-                                                />
-                                                <Input
-                                                    type="search"
-                                                    value={search}
-                                                    onChange={(event) =>
-                                                        changeSearch(
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                    placeholder="Search stones"
-                                                    aria-label="Search stones"
-                                                    className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
-                                                />
-                                                {search ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={clearSearch}
-                                                        aria-label="Clear search"
-                                                        className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                                                    >
-                                                        <X
-                                                            className="size-4"
-                                                            aria-hidden
-                                                        />
-                                                    </button>
+                        <InquiryStepper
+                            steps={STEPS}
+                            current={stepperPosition(step)}
+                        />
+
+                        {step === REVIEW_STEP ? (
+                            <InquiryReview
+                                onEditProject={openProject}
+                                sectionMessages={sectionMessages}
+                                projectMessages={projectMessages}
+                                validationErrors={validationAlertErrors}
+                                locked={isSending}
+                                onRequestQuote={requestQuote}
+                                mode={edit === null ? 'create' : 'edit'}
+                                addressLineFor={(project) =>
+                                    projectAddressLine(
+                                        addressContext,
+                                        project,
+                                        addressValueLine,
+                                    )
+                                }
+                            />
+                        ) : (
+                            /*
+                             * Steps 1 to 3 with a project open all read the draft form, so
+                             * they sit inside its own provider. Shadowing the inquiry's
+                             * provider for this subtree is the point: neither can reach an
+                             * answer the other owns.
+                             */
+                            <FormProvider {...draftMethods}>
+                                {showDraftBanner ? (
+                                    <ProjectBanner
+                                        label="Changing your request"
+                                        onCancel={cancelExcursion}
+                                    />
+                                ) : null}
+
+                                {brandQuestion !== null ? (
+                                    <InquiryQuestion
+                                        {...brandQuestion}
+                                        title="Which brands would you like?"
+                                        summary=""
+                                    >
+                                        <InquiryBrandQuestion />
+                                        {shownQuestions === BRAND_STEP ? (
+                                            <NextBar
+                                                nextTitle="What do you need?"
+                                                onNext={() =>
+                                                    goToNextQuestion(BRAND_STEP)
+                                                }
+                                            />
+                                        ) : null}
+                                    </InquiryQuestion>
+                                ) : null}
+
+                                {serviceQuestion !== null ? (
+                                    <InquiryQuestion
+                                        {...serviceQuestion}
+                                        title="What do you need?"
+                                        summary=""
+                                    >
+                                        <InquiryServiceQuestion
+                                            onServiceType={chooseServiceType}
+                                            onService={chooseService}
+                                        />
+                                        {shownQuestions === SERVICE_STEP ? (
+                                            <NextBar
+                                                nextTitle={
+                                                    draftTakesStones
+                                                        ? 'Which stones?'
+                                                        : 'Other details'
+                                                }
+                                                onNext={() =>
+                                                    goToNextQuestion(
+                                                        SERVICE_STEP,
+                                                    )
+                                                }
+                                            />
+                                        ) : null}
+                                    </InquiryQuestion>
+                                ) : null}
+
+                                {stonesQuestion !== null ? (
+                                    <InquiryQuestion
+                                        {...stonesQuestion}
+                                        title="Which stones?"
+                                        summary=""
+                                    >
+                                        <div className="mb-5 flex flex-col gap-3 border border-dashed border-foreground/30 py-3 pr-3.5 pl-4.5 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold">
+                                                    Not sure which stone yet?
+                                                </p>
+                                                <p className="mt-0.5 text-[0.8125rem] text-muted-foreground">
+                                                    Our team will recommend one
+                                                    for you.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant={
+                                                    draftStoneAdvice
+                                                        ? 'default'
+                                                        : 'outline'
+                                                }
+                                                onClick={askForStoneAdvice}
+                                                aria-pressed={draftStoneAdvice}
+                                                className="h-10 w-full shrink-0 rounded-none border-foreground text-xs font-semibold tracking-[0.08em] uppercase sm:w-auto"
+                                            >
+                                                {draftStoneAdvice ? (
+                                                    <Check aria-hidden />
+                                                ) : null}
+                                                Help me choose
+                                            </Button>
+                                        </div>
+
+                                        <div className="mb-6 border-y border-border py-3.5">
+                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="relative w-full sm:max-w-xs">
+                                                    <Search
+                                                        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
+                                                        aria-hidden
+                                                    />
+                                                    <Input
+                                                        type="search"
+                                                        value={search}
+                                                        onChange={(event) =>
+                                                            changeSearch(
+                                                                event.target
+                                                                    .value,
+                                                            )
+                                                        }
+                                                        placeholder="Search stones"
+                                                        aria-label="Search stones"
+                                                        className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                                                    />
+                                                    {search ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={
+                                                                clearSearch
+                                                            }
+                                                            aria-label="Clear search"
+                                                            className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary-foreground transition-opacity hover:opacity-70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                                                        >
+                                                            <X
+                                                                className="size-4"
+                                                                aria-hidden
+                                                            />
+                                                        </button>
+                                                    ) : null}
+                                                </div>
+
+                                                <div
+                                                    className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap sm:flex"
+                                                    role="tablist"
+                                                    aria-label="Filter stones"
+                                                >
+                                                    {stoneTabs.map((tab) => {
+                                                        const isActive =
+                                                            filter ===
+                                                            tab.value;
+
+                                                        return (
+                                                            <button
+                                                                key={tab.value}
+                                                                type="button"
+                                                                role="tab"
+                                                                aria-selected={
+                                                                    isActive
+                                                                }
+                                                                onClick={() =>
+                                                                    changeTab(
+                                                                        tab.value,
+                                                                    )
+                                                                }
+                                                                className={`h-11 cursor-pointer border px-3.5 text-[0.8125rem] tracking-[0.04em] uppercase transition-colors ${
+                                                                    isActive
+                                                                        ? 'border-foreground bg-foreground text-background'
+                                                                        : 'border-border bg-background text-foreground hover:border-foreground'
+                                                                }`}
+                                                            >
+                                                                {tab.label}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                <div
+                                                    className="flex items-center gap-2.5 sm:hidden"
+                                                    role="tablist"
+                                                    aria-label="Filter stones"
+                                                >
+                                                    {stoneTabs.map((tab) => {
+                                                        const isActive =
+                                                            filter ===
+                                                            tab.value;
+
+                                                        return (
+                                                            <Button
+                                                                key={tab.value}
+                                                                type="button"
+                                                                role="tab"
+                                                                aria-selected={
+                                                                    isActive
+                                                                }
+                                                                variant={
+                                                                    isActive
+                                                                        ? 'default'
+                                                                        : 'secondary'
+                                                                }
+                                                                size="sm"
+                                                                className="px-3 py-1.5"
+                                                                onClick={() =>
+                                                                    changeTab(
+                                                                        tab.value,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {tab.label}
+                                                            </Button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {stoneBrandOptions.length >
+                                                0 ? (
+                                                    <StoneBrandFilter
+                                                        brands={
+                                                            stoneBrandOptions
+                                                        }
+                                                        value={brandFilter.filter(
+                                                            (id) =>
+                                                                allowedBrands.ids.includes(
+                                                                    id,
+                                                                ),
+                                                        )}
+                                                        restricted={
+                                                            allowedBrands.restricted
+                                                        }
+                                                        onChange={
+                                                            changeBrandFilter
+                                                        }
+                                                    />
+                                                ) : null}
+
+                                                {/* The service's own types; with none there is nothing to filter by. */}
+                                                {stoneTypes.length > 0 ? (
+                                                    <StoneTypeSelect
+                                                        options={
+                                                            stoneTypeChoices
+                                                        }
+                                                        value={stoneType}
+                                                        onChange={
+                                                            changeStoneType
+                                                        }
+                                                    />
                                                 ) : null}
                                             </div>
 
-                                            <div
-                                                className="hidden shrink-0 items-center gap-5 text-sm whitespace-nowrap sm:ml-auto sm:flex"
-                                                role="tablist"
-                                                aria-label="Filter stones"
-                                            >
-                                                {stoneTabs.map((tab) => {
-                                                    const isActive =
-                                                        filter === tab.value;
-
-                                                    return (
-                                                        <button
-                                                            key={tab.value}
-                                                            type="button"
-                                                            role="tab"
-                                                            aria-selected={
-                                                                isActive
-                                                            }
-                                                            onClick={() =>
-                                                                changeTab(
-                                                                    tab.value,
-                                                                )
-                                                            }
-                                                            className={`-my-2.5 rounded-md px-2.5 py-2.5 transition-opacity hover:opacity-70 ${
-                                                                isActive
-                                                                    ? 'font-bold text-foreground underline decoration-foreground underline-offset-4'
-                                                                    : 'text-secondary-foreground'
-                                                            }`}
-                                                        >
-                                                            {tab.label}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            <div
-                                                className="flex items-center gap-2.5 sm:hidden"
-                                                role="tablist"
-                                                aria-label="Filter stones"
-                                            >
-                                                {stoneTabs.map((tab) => {
-                                                    const isActive =
-                                                        filter === tab.value;
-
-                                                    return (
-                                                        <Button
-                                                            key={tab.value}
-                                                            type="button"
-                                                            role="tab"
-                                                            aria-selected={
-                                                                isActive
-                                                            }
-                                                            variant={
-                                                                isActive
-                                                                    ? 'default'
-                                                                    : 'secondary'
-                                                            }
-                                                            size="sm"
-                                                            className="px-3 py-1.5"
-                                                            onClick={() =>
-                                                                changeTab(
-                                                                    tab.value,
-                                                                )
-                                                            }
-                                                        >
-                                                            {tab.label}
-                                                        </Button>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            {/* The service's own types; with none there is nothing to filter by. */}
                                             {stoneTypes.length > 0 ? (
-                                                <StoneTypeSelect
+                                                <StoneTypePills
                                                     options={stoneTypeChoices}
                                                     value={stoneType}
                                                     onChange={changeStoneType}
@@ -2002,188 +2367,212 @@ const InquireFlow = ({
                                             ) : null}
                                         </div>
 
-                                        {stoneTypes.length > 0 ? (
-                                            <StoneTypePills
-                                                options={stoneTypeChoices}
-                                                value={stoneType}
-                                                onChange={changeStoneType}
+                                        {stoneNotice !== null ? (
+                                            <p
+                                                role="status"
+                                                className="mb-4 rounded-md border border-sidebar-border bg-secondary px-3 py-2 text-sm"
+                                                data-testid="stone-notice"
+                                            >
+                                                {stoneNotice}
+                                            </p>
+                                        ) : null}
+
+                                        {/*
+                                         * What is picked so far, and why Continue was
+                                         * refused if it was: a grid of cards is not a
+                                         * field, so there is no control to say it on.
+                                         */}
+                                        <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                                            <p
+                                                aria-live="polite"
+                                                className="text-sm font-bold text-foreground"
+                                                data-testid="stones-selected"
+                                            >
+                                                {draftStoneIds.length}{' '}
+                                                {draftStoneIds.length === 1
+                                                    ? 'stone'
+                                                    : 'stones'}{' '}
+                                                selected
+                                            </p>
+                                            {hasSelection ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        setStones([])
+                                                    }
+                                                    className="h-7 cursor-pointer px-1.5 text-xs"
+                                                >
+                                                    Clear
+                                                </Button>
+                                            ) : null}
+                                            <InputError
+                                                message={fieldMessage(
+                                                    draftMethods.formState
+                                                        .errors.stoneIds,
+                                                )}
+                                                role="alert"
+                                            />
+                                        </div>
+
+                                        {isLoadingStones ? (
+                                            <StoneGridSkeleton />
+                                        ) : draftServiceId === '' ? (
+                                            <EmptyState
+                                                title="Choose what you need first"
+                                                description="The stones for that service will show here."
+                                            />
+                                        ) : filter === 'saved' &&
+                                          search.trim() === '' &&
+                                          stoneType === ALL_STONE_TYPES &&
+                                          visibleStones.length === 0 ? (
+                                            <EmptyState
+                                                title="You haven't saved any stones yet"
+                                                description="Save a stone from a brand's collection and it will show up here."
+                                                action={
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() =>
+                                                            changeTab('all')
+                                                        }
+                                                    >
+                                                        Browse all stones
+                                                    </Button>
+                                                }
+                                            />
+                                        ) : visibleStones.length === 0 &&
+                                          allowedBrands.restricted &&
+                                          brandFilter.length === 0 &&
+                                          search.trim() === '' &&
+                                          stoneType === ALL_STONE_TYPES ? (
+                                            <EmptyState
+                                                title="No stones from the brands you chose"
+                                                description="None of them has a stone for this service. Choose other brands above, or press Help me choose and Regray will recommend one."
+                                            />
+                                        ) : visibleStones.length === 0 &&
+                                          brandFilter.length > 0 ? (
+                                            <EmptyState
+                                                title="No stones from these brands"
+                                                description="None of the chosen brands has a stone for this service under these filters."
+                                                action={
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={
+                                                            clearStoneFilters
+                                                        }
+                                                    >
+                                                        Clear filters
+                                                    </Button>
+                                                }
+                                            />
+                                        ) : visibleStones.length === 0 &&
+                                          stoneTypes.length === 0 ? (
+                                            <EmptyState
+                                                title="No stones listed for this service yet"
+                                                description="Press Help me choose and Regray will recommend one."
+                                            />
+                                        ) : visibleStones.length === 0 ? (
+                                            <EmptyState
+                                                title="No stones found"
+                                                description="No stone matches these filters."
+                                                action={
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={
+                                                            clearStoneFilters
+                                                        }
+                                                    >
+                                                        Clear filters
+                                                    </Button>
+                                                }
+                                            />
+                                        ) : (
+                                            <InquiryStoneGrid
+                                                stones={visibleStones}
+                                                selectedIds={draftStoneIds}
+                                                onToggle={toggleStone}
+                                            />
+                                        )}
+
+                                        {shownQuestions === STONES_STEP ? (
+                                            <NextBar
+                                                nextTitle="Other details"
+                                                onNext={() =>
+                                                    goToNextQuestion(
+                                                        STONES_STEP,
+                                                    )
+                                                }
                                             />
                                         ) : null}
-                                    </div>
+                                    </InquiryQuestion>
+                                ) : null}
 
-                                    {stoneNotice !== null ? (
-                                        <p
-                                            role="status"
-                                            className="mb-4 rounded-md border border-sidebar-border bg-secondary px-3 py-2 text-sm"
-                                            data-testid="stone-notice"
-                                        >
-                                            {stoneNotice}
-                                        </p>
-                                    ) : null}
-
-                                    {/*
-                                     * What is picked so far, and why Continue was
-                                     * refused if it was: a grid of cards is not a
-                                     * field, so there is no control to say it on.
-                                     */}
-                                    <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                                        <p
-                                            aria-live="polite"
-                                            className="text-sm font-bold text-foreground"
-                                            data-testid="stones-selected"
-                                        >
-                                            {draftStoneIds.length}{' '}
-                                            {draftStoneIds.length === 1
-                                                ? 'stone'
-                                                : 'stones'}{' '}
-                                            selected
-                                        </p>
-                                        {hasSelection ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setStones([])}
-                                                className="h-7 cursor-pointer px-1.5 text-xs"
-                                            >
-                                                Clear
-                                            </Button>
-                                        ) : null}
-                                        <InputError
-                                            message={fieldMessage(
-                                                draftMethods.formState.errors
-                                                    .stoneIds,
-                                            )}
-                                            role="alert"
-                                        />
-                                    </div>
-
-                                    {isLoadingStones ? (
-                                        <StoneGridSkeleton />
-                                    ) : draftServiceId === '' ? (
-                                        <EmptyState
-                                            title="Choose what you need first"
-                                            description="The stones for that service will show here."
-                                        />
-                                    ) : filter === 'saved' &&
-                                      search.trim() === '' &&
-                                      stoneType === ALL_STONE_TYPES &&
-                                      visibleStones.length === 0 ? (
-                                        <EmptyState
-                                            title="You haven't saved any stones yet"
-                                            description="Save a stone from a brand's collection and it will show up here."
-                                            action={
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        changeTab('all')
-                                                    }
-                                                >
-                                                    Browse all stones
-                                                </Button>
+                                {detailsQuestion !== null ? (
+                                    <InquiryQuestion
+                                        {...detailsQuestion}
+                                        title="Other details"
+                                        summary=""
+                                    >
+                                        <InquiryProjectForm
+                                            onChooseStones={() =>
+                                                showQuestion(STONES_STEP)
+                                            }
+                                            projectNumber={
+                                                editingProjectNumber > 0
+                                                    ? editingProjectNumber
+                                                    : projects.length + 1
+                                            }
+                                            allowAttachments={
+                                                target === null &&
+                                                (edit?.allowAttachments ?? true)
+                                            }
+                                            onCommit={commitDraft}
+                                            deadlineLockReason={
+                                                editingProjectId === null
+                                                    ? null
+                                                    : (lockedDeadlines[
+                                                          editingProjectId
+                                                      ] ?? null)
                                             }
                                         />
-                                    ) : visibleStones.length === 0 &&
-                                      stoneTypes.length === 0 ? (
-                                        <EmptyState
-                                            title="No stones listed for this service yet"
-                                            description="Press Help me choose and Regray will recommend one."
-                                        />
-                                    ) : visibleStones.length === 0 ? (
-                                        <EmptyState
-                                            title="No stones found"
-                                            description="No stone matches these filters."
-                                            action={
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={clearStoneFilters}
-                                                >
-                                                    Clear filters
-                                                </Button>
-                                            }
-                                        />
-                                    ) : (
-                                        <InquiryStoneGrid
-                                            stones={visibleStones}
-                                            selectedIds={draftStoneIds}
-                                            onToggle={toggleStone}
-                                        />
-                                    )}
+                                    </InquiryQuestion>
+                                ) : null}
+                            </FormProvider>
+                        )}
 
-                                    {shownQuestions === STONES_STEP ? (
-                                        <NextBar
-                                            nextTitle="Other details"
-                                            onNext={() =>
-                                                goToNextQuestion(STONES_STEP)
-                                            }
-                                        />
-                                    ) : null}
-                                </InquiryQuestion>
-                            ) : null}
+                        {/* The gap above the bar, and what pushes it down the screen. */}
+                        <div aria-hidden className="min-h-6 flex-1" />
+                        <div ref={setActionBarSlot} className={BOTTOM_BAR} />
+                    </div>
+                </InquiryActionBarSlot.Provider>
 
-                            {detailsQuestion !== null ? (
-                                <InquiryQuestion
-                                    {...detailsQuestion}
-                                    title="Other details"
-                                    summary=""
-                                >
-                                    <InquiryProjectForm
-                                        onChooseStones={() =>
-                                            showQuestion(STONES_STEP)
-                                        }
-                                        projectNumber={
-                                            editingProjectNumber > 0
-                                                ? editingProjectNumber
-                                                : projects.length + 1
-                                        }
-                                        allowAttachments={
-                                            target === null &&
-                                            (edit?.allowAttachments ?? true)
-                                        }
-                                        onCommit={commitDraft}
-                                        deadlineLockReason={
-                                            editingProjectId === null
-                                                ? null
-                                                : (lockedDeadlines[
-                                                      editingProjectId
-                                                  ] ?? null)
-                                        }
-                                    />
-                                </InquiryQuestion>
-                            ) : null}
-                        </FormProvider>
-                    )}
+                <InquiryResult
+                    result={result}
+                    canChat={canChat}
+                    inquiriesHref={inquiriesHref}
+                    onTryAgain={sendInquiry}
+                    onClose={() => setResult(null)}
+                    onInquireAgain={inquireAgain}
+                    submitting={isSending}
+                />
 
-                    {/* The gap above the bar, and what pushes it down the screen. */}
-                    <div aria-hidden className="min-h-6 flex-1" />
-                    <div ref={setActionBarSlot} className={BOTTOM_BAR} />
-                </div>
-            </InquiryActionBarSlot.Provider>
-
-            <InquiryResult
-                result={result}
-                canChat={canChat}
-                inquiriesHref={inquiriesHref}
-                onTryAgain={sendInquiry}
-                onClose={() => setResult(null)}
-                onInquireAgain={inquireAgain}
-                submitting={isSending}
-            />
-
-            <ConfirmDialog
-                open={lostAttachments > 0}
-                onOpenChange={() => setLostAttachments(0)}
-                title="Your draft is back"
-                description={
-                    lostAttachments === 1
-                        ? 'Its attachment could not be saved here. Attach the file again.'
-                        : `${lostAttachments} attachments could not be saved here. Attach the files again.`
-                }
-                confirmLabel="OK"
-                onConfirm={() => setLostAttachments(0)}
-            />
+                <ConfirmDialog
+                    open={lostAttachments > 0}
+                    onOpenChange={() => setLostAttachments(0)}
+                    title="Your draft is back"
+                    description={
+                        lostAttachments === 1
+                            ? 'Its attachment could not be saved here. Attach the file again.'
+                            : `${lostAttachments} attachments could not be saved here. Attach the files again.`
+                    }
+                    confirmLabel="OK"
+                    onConfirm={() => setLostAttachments(0)}
+                />
+            </InquiryAddressContext.Provider>
         </FormProvider>
     );
 };
@@ -2197,6 +2586,7 @@ const Inquire = (props: InquirePageProps) => {
         editor = 'client',
         leads = null,
         lead: leadInUrl = null,
+        walkInOwners = null,
     } = props;
 
     /*
@@ -2328,6 +2718,7 @@ const Inquire = (props: InquirePageProps) => {
             <StaffInquireStart
                 kind={kind}
                 leads={leads}
+                walkInOwners={walkInOwners}
                 onKind={chooseKind}
                 onTarget={chooseTarget}
             />
@@ -2341,6 +2732,16 @@ const Inquire = (props: InquirePageProps) => {
                 target={edit === null ? target : null}
                 onChangeTarget={() => chooseKind(kind)}
                 rememberStones={rememberStones}
+                /*
+                 * A client's own book, on their new inquiry and their edit;
+                 * staff (a lead, a walk-in, an edit from the Inquiry list)
+                 * enter the address themselves.
+                 */
+                addresses={
+                    leads === null && editor !== 'staff'
+                        ? (props.addresses ?? [])
+                        : null
+                }
             />
         </InquiryCatalogProvider>
     );

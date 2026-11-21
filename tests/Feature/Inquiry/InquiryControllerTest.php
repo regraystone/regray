@@ -44,7 +44,7 @@ it('flashes an error and keeps the page when the write fails', function (): void
 
     $this->actingAs(inquiryClient())
         ->from(route('quote.inquire'))
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertRedirect(route('quote.inquire'))
         ->assertSessionHas(SessionKey::FLASH_DATA.'.inquiry.status', 'error');
 });
@@ -71,6 +71,7 @@ it('sends the Inquire page its options', function (): void {
                 'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'],
                 'stoneTypes' => $slabSupplyTypes,
                 'requiresStones' => true,
+                'fulfillment' => 'delivery_or_pickup',
                 'fields' => [
                     [
                         'slug' => 'quantity', 'label' => 'How many pieces?', 'scope' => 'stone', 'answerType' => 'number', 'required' => true, 'allowsCustom' => true,
@@ -115,7 +116,7 @@ it('sends the Inquire page its options', function (): void {
             ->has('stones.data.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail', 'brand', 'type', 'variants', 'sizes', 'thicknesses', 'sizeNote']))
             ->has('edgeProfiles', 8)
             ->has('finishes.0', fn ($finish) => $finish->hasAll(['id', 'name', 'isAdvisory']))
-            ->where('locations', config('inquiry.locations')));
+            ->missing('locations'));
 });
 
 it('leaves an inactive edge profile off the Inquire page', function (): void {

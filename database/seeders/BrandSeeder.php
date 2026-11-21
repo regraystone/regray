@@ -9,11 +9,11 @@ class BrandSeeder extends Seeder
 {
     public function run(): void
     {
-        /** @var list<array{slug: string, name: string, logo_path: string, thumbnail_path: string, website_url: string|null, tagline: string, description: string}> $brands */
+        /** @var list<array{slug: string, name: string, logo_path: string, thumbnail_path: string, website_url: string|null, tagline: string, description: string, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>}> $brands */
         $brands = require database_path('seeders/data/brands.php');
 
         foreach ($brands as $sort => $data) {
-            Brand::query()->updateOrCreate(['slug' => $data['slug']], [
+            $brand = Brand::query()->updateOrCreate(['slug' => $data['slug']], [
                 'name' => $data['name'],
                 'logo_path' => $data['logo_path'],
                 'thumbnail_path' => $data['thumbnail_path'],
@@ -23,6 +23,9 @@ class BrandSeeder extends Seeder
                 'is_active' => true,
                 'sort_order' => $sort,
             ]);
+
+            // Its facts, what it makes and its social links, as the data lists them.
+            $brand->replaceDetails($data);
         }
     }
 }

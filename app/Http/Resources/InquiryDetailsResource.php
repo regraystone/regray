@@ -9,6 +9,7 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SalesStatus;
+use App\Models\Brand;
 use App\Models\DetailField;
 use App\Models\Inquiry;
 use App\Models\InquiryDetailAnswer;
@@ -20,7 +21,11 @@ use App\Models\StoneVariant;
 use App\Models\User;
 use App\Policies\InquiryActions;
 use App\Policies\InquiryFileVisibility;
+use App\Policies\InquiryPolicy;
+use App\Services\ClientService;
+use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
+use App\Services\WalkInInquiryService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -59,7 +64,7 @@ class InquiryDetailsResource extends JsonResource
     }
 
     /**
-     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string, url: string, previewable: bool, uploadedAt: string, format: string}>}>, assignedStaff: list<array{name: string, roleLabel: string|null}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null}
+     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string, url: string, previewable: bool, uploadedAt: string, format: string}>}>, assignedStaff: list<array{name: string, roleLabel: string|null}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null, walkIn: array<string, mixed>|null}
      */
     public function toArray(Request $request): array
     {
@@ -84,6 +89,43 @@ class InquiryDetailsResource extends JsonResource
             'project' => $this->project($files),
             'actions' => (new InquiryActions)->for($this->resource),
             'conversation' => $this->conversationLink,
+            'walkIn' => $this->walkIn($viewer),
+        ];
+    }
+
+    /**
+     * A walk-in's inquiry, for the staff who read it: the walk-in's name,
+     * phone and email (every staff member who reads the inquiry reads these),
+     * its owner, and what this viewer may do to it: whom they may assign
+     * (WalkInInquiryService::candidates(), by role, with user ids, the one
+     * place this page sends any), and whether they may decide it. Null for an
+     * inquiry on a client account.
+     *
+     * @return array{client: array{name: string, phone: string|null, email: string|null}, owner: string|null, marketingStatus: string|null, assignable: array<string, list<array{id: int, name: string}>>, canDecide: bool}|null
+     */
+    private function walkIn(User $viewer): ?array
+    {
+        if ($this->owner_user_id === null || $viewer->isClient()) {
+            return null;
+        }
+
+        $record = $this->clientRecord()->with('contacts')->first();
+        $candidates = app(WalkInInquiryService::class)->candidates($viewer, $this->resource);
+
+        return [
+            'client' => [
+                'name' => $record->full_name ?? '',
+                'phone' => ClientService::phone($record, null),
+                'email' => ClientService::email($record, null),
+            ],
+            'owner' => $this->owner()->value('name'),
+            'marketingStatus' => $this->marketing_status?->value,
+            'assignable' => array_map(
+                fn ($users): array => array_values($users->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name])->all()),
+                $candidates,
+            ),
+            'canDecide' => $this->marketing_status === null && InquiryStatusRules::isOpen($this->resource) // The policy itself, not the gate: the super-admin passes the gate, and decide() still refuses anyone but the marketing member who opened it.
+                && (new InquiryPolicy)->decideWalkIn($viewer, $this->resource),
         ];
     }
 
@@ -278,6 +320,12 @@ class InquiryDetailsResource extends JsonResource
      * reads as the first stone's name. `requiresStones` is false for a service
      * that asks for no stones, whose page has no Stones section.
      *
+     * `brands` are the brands the client would like, with `brandNoPreference`
+     * when they had none. `requirements.fulfillment` is how the work reaches
+     * them, worded ("Pickup", "Delivery to …", "Installation at …"), with the
+     * method (null for an installed service) and the address it was sent
+     * with (null for a pickup).
+     *
      * @param  Collection<int, InquiryFile>  $files  the files this reader may see
      * @return array<string, mixed>
      */
@@ -322,9 +370,12 @@ class InquiryDetailsResource extends JsonResource
                     'value' => $answer->displayValue($firstStone),
                 ])
                 ->all()),
+            'brands' => array_values($this->brands->map(fn (Brand $brand): array => ['id' => $brand->slug, 'name' => $brand->name])->all()),
+            'brandNoPreference' => $this->brand_no_preference,
             'requirements' => [
-                'deliveryMethod' => $this->delivery_method->value,
-                'location' => $this->location,
+                'deliveryMethod' => $this->delivery_method?->value,
+                'address' => $this->address()?->toPayload(),
+                'fulfillment' => $this->fulfillmentSummary(),
                 'neededBy' => $arrivalAt?->toDateString(),
                 'notes' => $this->notes,
                 'attachments' => $files

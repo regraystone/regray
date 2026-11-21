@@ -1,13 +1,10 @@
 ﻿import type { MouseEvent } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import FileUpload from '@/components/file-upload';
-import FormField, {
-    chooseFromList,
-    fieldMessage,
-} from '@/components/form-field';
+import FormField, { fieldMessage } from '@/components/form-field';
+import InquiryAddressField from '@/components/inquiry-address-field';
 import InquiryDetailField from '@/components/inquiry-detail-field';
 import InputError from '@/components/input-error';
-import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -21,12 +18,14 @@ import { NOTES_MAX } from '@/data/inquiries';
 import {
     DELIVERY_METHODS,
     PICKUP,
+    addressLabel,
+    asksDeliveryMethod,
     findService,
+    needsAddress,
     projectFields,
     type ServiceField,
 } from '@/lib/inquiry-flow';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
-import { searchLocations } from '@/lib/inquiry-catalog';
 import {
     todayIsoDate,
     type InquiryDraftInput,
@@ -117,7 +116,9 @@ const formatLockedDeadline = (date: string): string =>
  * too short to read a label in.
  *
  * What is always asked comes first: the questions the project's service has
- * to have answered (in its order), when, then how it is got and where. Under
+ * to have answered (in its order), when, then how it is got and where: a
+ * service that is delivered or picked up asks which, and a delivery its
+ * address; an installed service asks only the installation address. Under
  * them, always on show, is what may be left out: any question the service
  * marks optional, the files and the notes.
  */
@@ -143,7 +144,7 @@ const InquiryProjectDetails = ({
      */
     deadlineLockReason?: string | null;
 }) => {
-    const { locations, serviceTypes } = useInquiryCatalog();
+    const { serviceTypes } = useInquiryCatalog();
     const {
         register,
         control,
@@ -153,7 +154,8 @@ const InquiryProjectDetails = ({
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
     const serviceId = useWatch({ control, name: 'serviceId' });
-    const questions = projectFields(findService(serviceTypes, serviceId));
+    const service = findService(serviceTypes, serviceId);
+    const questions = projectFields(service);
     const requiredQuestions = questions.filter(({ required }) => required);
     const optionalQuestions = questions.filter(({ required }) => !required);
 
@@ -196,8 +198,10 @@ const InquiryProjectDetails = ({
     const neededBy = useWatch({ control, name: 'neededBy' });
     const deliveryMethod = useWatch({ control, name: 'deliveryMethod' });
 
-    /* A pickup is at the studio, so it has no site to locate. */
-    const isPickup = deliveryMethod === PICKUP;
+    const asksMethod = asksDeliveryMethod(service);
+    /* A pickup is at the studio, so it has no address to ask for. */
+    const asksAddress =
+        service !== undefined && needsAddress(service, deliveryMethod);
 
     const chooseDeliveryMethod = (next: string) => {
         setValue('deliveryMethod', next, {
@@ -206,7 +210,7 @@ const InquiryProjectDetails = ({
         });
 
         if (next === PICKUP) {
-            clearErrors('location');
+            clearErrors(['addressId', 'address']);
         }
     };
 
@@ -265,85 +269,48 @@ const InquiryProjectDetails = ({
                     </FormField>
                 )}
 
-                <FormField
-                    id={INQUIRY_DELIVERY_METHOD_ID}
-                    label="How would you like to get it?"
-                    required
-                    error={fieldMessage(errors.deliveryMethod)}
-                >
-                    {(accessibility) => (
-                        <Select
-                            value={deliveryMethod}
-                            onValueChange={chooseDeliveryMethod}
-                        >
-                            <SelectTrigger
-                                id={INQUIRY_DELIVERY_METHOD_ID}
-                                aria-describedby={accessibility.describedBy}
-                                aria-invalid={accessibility.invalid}
-                                className="w-full rounded-none text-base data-[size=default]:h-11"
-                            >
-                                <SelectValue placeholder="Choose one" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {DELIVERY_METHODS.map((option) => (
-                                    <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                        className="rounded-none"
-                                    >
-                                        {option.title}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </FormField>
-
-                {isPickup ? null : (
+                {asksMethod ? (
                     <FormField
-                        id={id('location')}
-                        label="Location"
+                        id={INQUIRY_DELIVERY_METHOD_ID}
+                        label="How would you like to get it?"
                         required
-                        error={errors.location?.message}
+                        error={fieldMessage(errors.deliveryMethod)}
                     >
                         {(accessibility) => (
-                            /*
-                             * The combobox owns its own input, so it cannot be
-                             * `register`ed: what it hands back is a string it has
-                             * already decided is the value. The ref is forwarded to
-                             * its text input so a failed check can still send focus
-                             * here, exactly as it would for a plain input.
-                             */
-                            <Controller
-                                control={control}
-                                name="location"
-                                render={({ field }) => (
-                                    <Combobox
-                                        id={id('location')}
-                                        ref={field.ref}
-                                        value={field.value}
-                                        options={locations}
-                                        filter={(query) =>
-                                            searchLocations(locations, query)
-                                        }
-                                        listLabel="Cities and municipalities"
-                                        placeholder="Search a city or municipality"
-                                        emptyMessage="No city or municipality matches that."
-                                        aria-describedby={
-                                            accessibility.describedBy
-                                        }
-                                        aria-invalid={accessibility.invalid}
-                                        className="rounded-none"
-                                        onChange={chooseFromList(
-                                            field.onChange,
-                                            field.onBlur,
-                                        )}
-                                    />
-                                )}
-                            />
+                            <Select
+                                value={deliveryMethod}
+                                onValueChange={chooseDeliveryMethod}
+                            >
+                                <SelectTrigger
+                                    id={INQUIRY_DELIVERY_METHOD_ID}
+                                    aria-describedby={accessibility.describedBy}
+                                    aria-invalid={accessibility.invalid}
+                                    className="w-full rounded-none text-base data-[size=default]:h-11"
+                                >
+                                    <SelectValue placeholder="Choose one" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {DELIVERY_METHODS.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                            className="rounded-none"
+                                        >
+                                            {option.title}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         )}
                     </FormField>
-                )}
+                ) : null}
+
+                {asksAddress ? (
+                    <InquiryAddressField
+                        label={addressLabel(service)}
+                        projectNumber={projectNumber}
+                    />
+                ) : null}
             </div>
 
             {/*

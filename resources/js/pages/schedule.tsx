@@ -306,7 +306,7 @@ const Schedule = () => {
             description: (item: ScheduleItem) =>
                 `${item.title}${item.clientName ? ` with ${item.clientName}` : ''}. ${
                     item.walkIn
-                        ? 'A walk-in is not told in the app: let them know yourself.'
+                        ? 'A direct client is not told in the app: let them know yourself.'
                         : 'The client is told in their Regray chat that it is confirmed.'
                 }${
                     ownClash

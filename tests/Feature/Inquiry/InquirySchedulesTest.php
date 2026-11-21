@@ -17,12 +17,15 @@ beforeEach(function (): void {
 });
 
 it('gives each inquiry sent one confirmed schedule, at 10:00', function (): void {
+    // Home (Makati) is the default; the survey goes to the Pasig site.
+    defaultTestAddress($this->client);
+
     foreach ([
         inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04']),
-        inquiryProjectInput(['name' => 'Survey', 'location' => 'Taguig', 'neededBy' => '2030-03-05']),
+        inquiryProjectInput(['name' => 'Survey', 'neededBy' => '2030-03-05', 'addressId' => (string) saveTestAddress($this->client, 'Site', 'Kapitolyo')->id]),
     ] as $project) {
         $this->actingAs($this->client)
-            ->post(route('quote.inquire.store'), ['projects' => [$project]])
+            ->post(route('quote.inquire.store'), clientInquiryInput([$project]))
             ->assertSessionHasNoErrors();
     }
 
@@ -41,19 +44,19 @@ it('gives each inquiry sent one confirmed schedule, at 10:00', function (): void
             // An inquiry's visit needs no approval: it is confirmed from the start.
             'status' => ScheduleStatus::Confirmed->value,
             'title' => 'Kitchen',
-            'notes' => "Inquiry {$kitchen->reference} · Kitchen · Makati",
+            'notes' => "Inquiry {$kitchen->reference} · Kitchen · City of Makati",
         ])
         ->and($kitchen->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-03-04 10:00', 'Asia/Manila')))->toBeTrue()
         ->and($survey->schedule->inquiry_id)->toBe($survey->id)
         ->and($survey->schedule->title)->toBe('Survey')
-        ->and($survey->schedule->notes)->toBe("Inquiry {$survey->reference} · Survey · Taguig")
+        ->and($survey->schedule->notes)->toBe("Inquiry {$survey->reference} · Survey · City of Pasig")
         ->and($survey->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-03-05 10:00', 'Asia/Manila')))->toBeTrue();
 });
 
 it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leaves others alone', function (): void {
     foreach ([1, 2] as $inquiryNumber) {
         $this->actingAs($this->client)
-            ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+            ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
             ->assertSessionHasNoErrors();
     }
 
@@ -74,7 +77,7 @@ it('cancels the inquiry\'s open schedule when the inquiry is cancelled, and leav
 
 it('leaves a served schedule alone when the inquiry is cancelled', function (): void {
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]))
         ->assertSessionHasNoErrors();
 
     $inquiry = Inquiry::query()->sole();
@@ -91,9 +94,9 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
     $thread = supportThreadFor($this->client);
 
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [
+        ->post(route('quote.inquire.store'), clientInquiryInput([
             inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2026-10-20']),
-        ]])
+        ]))
         ->assertSessionHasNoErrors();
 
     $inquiry = Inquiry::query()->with('schedule')->sole();
@@ -110,7 +113,7 @@ it('shows a sent inquiry as a card in the Regray Team chat and as a visit on the
         'title' => 'Kitchen',
         'arrivalAt' => CarbonImmutable::parse('2026-10-20 10:00', 'Asia/Manila')->toIso8601String(),
         'status' => ScheduleStatus::Confirmed->value,
-        'notes' => "Inquiry {$inquiry->reference} · Kitchen · Makati",
+        'notes' => "Inquiry {$inquiry->reference} · Kitchen · City of Makati",
         'inquiryReference' => $inquiry->reference,
         // An inquiry's visit follows its inquiry: no schedule action applies.
         'can' => ['update' => false, 'cancel' => false, 'assign' => false, 'confirm' => false, 'decline' => false, 'serve' => false, 'noShow' => false],

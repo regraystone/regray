@@ -32,10 +32,13 @@ use Illuminate\Notifications\Notification;
  *
  * - The client sends, updates or cancels one: the client is sent a
  *   confirmation; its assigned staff are told, or, while it is unclaimed, every
- *   marketing and sales user. A new one is also confirmed to the client by
+ *   marketing and sales user. Never for a walk-in's inquiry, which only its
+ *   owner, its handlers and the marketing member who opened it hear about
+ *   (with the owner and the admin), assigned or not. A new one is also confirmed to the client by
  *   email (InquiryReceivedNotification), whatever their email box says.
  * - Staff open one: the staff member is told, and its client too when it is
- *   for a client account (not for a walk-in).
+ *   for a client account (not for a walk-in), and a walk-in's owner when
+ *   someone else opened it for them.
  * - A status moves: its assigned staff are told the role status that moved,
  *   and the client the status they see (InquiryStatusCalculator) when it
  *   changed, or the payment status, which they are told about every time.
@@ -75,6 +78,12 @@ class InquiryNotificationService
 
         if ($client !== null) {
             $this->send([$client], $inquiry, "Inquiry {$reference} has been created for you.");
+        }
+
+        $owner = $inquiry->owner_user_id === null || $inquiry->owner_user_id === $createdBy ? null : User::query()->find($inquiry->owner_user_id);
+
+        if ($owner !== null) {
+            $this->send([$owner], $inquiry, ($creator->name ?? 'Regray')." has created inquiry {$reference} for {$clientName} and made you its owner.");
         }
 
         $this->send($this->ownerAndAdmin()->reject(fn (User $user): bool => $user->id === $createdBy), $inquiry, ($creator->name ?? 'Regray')." has created inquiry {$reference} for {$clientName}.");
@@ -176,28 +185,37 @@ class InquiryNotificationService
     /**
      * Who hears about the client's own changes, the owner and the admin
      * included: its assigned staff, or every marketing and sales user while
-     * it is unclaimed.
+     * it is unclaimed. A walk-in's inquiry is never anyone's but its own
+     * people's: its owner, handlers and the marketing member who opened it,
+     * even while none of them is assigned.
      *
      * @return Collection<int, User>
      */
     private function concerned(Inquiry $inquiry): Collection
     {
         $assigned = $this->assigned($inquiry);
-        $staff = $assigned->isNotEmpty()
+        $staff = $assigned->isNotEmpty() || $inquiry->isWalkIn()
             ? $assigned
             : User::role([Role::Marketing->value, Role::Sales->value])->get();
 
         return $staff->merge($this->ownerAndAdmin())->reject(fn (User $user): bool => $user->isClient())->values();
     }
 
-    /** @return Collection<int, User> */
+    /**
+     * Its handlers, and the marketing user holding its lead; for a walk-in's,
+     * its owner and the staff member who opened it instead of a lead holder.
+     *
+     * @return Collection<int, User>
+     */
     private function assigned(Inquiry $inquiry): Collection
     {
         $leadHolder = $inquiry->lead_id === null ? null : Lead::query()->whereKey($inquiry->lead_id)->value('marketing_user_id');
+        $walkInPeople = $inquiry->isWalkIn() ? array_values(array_filter([$inquiry->owner_user_id, $inquiry->created_by])) : [];
 
         return User::query()
             ->whereIn('id', InquiryHandler::query()->where('inquiry_id', $inquiry->id)->select('user_id'))
             ->when($leadHolder !== null, fn ($query) => $query->orWhere('id', $leadHolder))
+            ->when($walkInPeople !== [], fn ($query) => $query->orWhereIn('id', $walkInPeople))
             ->get();
     }
 

@@ -14,6 +14,8 @@ use Throwable;
 
 /**
  * @phpstan-import-type ProjectInput from InquiryService
+ *
+ * @phpstan-type InquiryInput array{projects: list<ProjectInput>}
  */
 class CreateInquiryAction
 {
@@ -29,8 +31,10 @@ class CreateInquiryAction
      * neither a row without its files nor a file without its row.
      *
      * Staff opening one for a lead's client pass the lead and themselves.
+     * Each inquiry carries its own copy of the address it was sent with, so
+     * nothing else is written beside it.
      *
-     * @param  array{projects: list<ProjectInput>}  $input
+     * @param  InquiryInput  $input
      * @return list<Inquiry>
      */
     public function execute(User $client, array $input, ?Lead $lead = null, ?User $by = null): array
@@ -40,14 +44,14 @@ class CreateInquiryAction
 
     /**
      * Staff open the inquiries for a direct (walk-in) client, in one
-     * transaction, the same way.
+     * transaction, the same way, each owned by `$owner`.
      *
      * @param  array{projects: list<ProjectInput>}  $input
      * @return list<Inquiry>
      */
-    public function executeForDirectClient(Client $record, array $input, User $by): array
+    public function executeForDirectClient(Client $record, array $input, User $by, User $owner): array
     {
-        return $this->writing(fn (WrittenFiles $written): array => $this->inquiryService->createForDirectClient($record, $input, $written, $by));
+        return $this->writing(fn (WrittenFiles $written): array => $this->inquiryService->createForDirectClient($record, $input, $written, $by, $owner));
     }
 
     /**

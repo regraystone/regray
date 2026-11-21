@@ -11,10 +11,11 @@ import {
 export type ProfileGalleryImage = {
     src: string;
     /**
-     * The caption a stone's image carries. A project's images have none, so
-     * the alt text falls back to the image's place in the gallery.
+     * The caption a stone's image carries, or a project photo's file name.
+     * Without one, the alt text falls back to the image's place in the
+     * gallery.
      */
-    name?: string;
+    name?: string | null;
 };
 
 const ProfileGallery = ({

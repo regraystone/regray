@@ -6,6 +6,7 @@ use App\Data\BrandProductFilterData;
 use App\Http\Requests\Brand\BrandCollectionRequest;
 use App\Models\Brand;
 use App\Models\Furniture;
+use App\Models\Project;
 use App\Models\Stone;
 use App\Repositories\Contracts\BrandRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +26,24 @@ class BrandRepository implements BrandRepositoryInterface
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get(['id', 'slug', 'name', 'tagline', 'website_url', 'logo_path', 'thumbnail_path', 'description']);
+    }
+
+    /** @return LengthAwarePaginator<int, Brand> */
+    public function paginateForAdmin(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator
+    {
+        return Brand::query()
+            ->notArchived()
+            ->when($escapedSearch !== null, fn (Builder $query) => $query->where('name', 'ILIKE', "%{$escapedSearch}%"))
+            ->with(Brand::DETAILS)
+            ->withCount([
+                'stones' => fn (Builder $stones) => $stones->where('is_active', true),
+                'furniture' => fn (Builder $furniture) => $furniture->where('is_active', true),
+                'projects' => fn (Builder $projects) => $projects->where('is_published', true),
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->paginate($perPage, page: $page);
     }
 
     /**
@@ -63,6 +82,40 @@ class BrandRepository implements BrandRepositoryInterface
     public function hasActiveProducts(Brand $brand): bool
     {
         return $brand->stones()->active()->exists() || $brand->furniture()->active()->exists();
+    }
+
+    /**
+     * @return array{stones: Collection<int, Stone>, furniture: Collection<int, Furniture>}
+     */
+    public function activeProductsWithTypes(Brand $brand): array
+    {
+        return [
+            'stones' => $brand->stones()->active()
+                ->with(['types' => fn ($types) => $types->where('is_active', true)])
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['stones.id', 'stones.brand_id', 'stones.name', 'stones.thumbnail_path', 'stones.sort_order']),
+            'furniture' => $brand->furniture()->active()
+                ->whereHas('furnitureType', fn (Builder $type) => $type->where('is_active', true))
+                ->with('furnitureType')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'brand_id', 'furniture_type_id', 'name', 'thumbnail_path', 'sort_order']),
+        ];
+    }
+
+    /** @return Collection<int, Project> */
+    public function publishedProjects(Brand $brand, int $limit): Collection
+    {
+        return Project::query()
+            ->published()
+            ->where(fn (Builder $projects) => $projects
+                ->where('brand_id', $brand->id)
+                ->orWhereHas('stones', fn (Builder $stones) => $stones->where('stones.brand_id', $brand->id)))
+            ->orderByDesc('completed_year')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get(['projects.id', 'slug', 'name', 'location', 'completed_year', 'thumbnail_path']);
     }
 
     private function stoneRows(Brand $brand, BrandProductFilterData $filters): QueryBuilder

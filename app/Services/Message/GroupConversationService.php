@@ -2,9 +2,12 @@
 
 namespace App\Services\Message;
 
+use App\Enums\ContactKind;
 use App\Enums\ConversationMemberRole;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Events\Message\GroupCreated;
+use App\Models\ClientContact;
 use App\Models\Conversation;
 use App\Models\Inquiry;
 use App\Models\User;
@@ -37,6 +40,12 @@ use Illuminate\Validation\ValidationException;
  * never members and never assigned: they read every group through
  * ConversationPolicy, and write in none. Marketing is not assigned either: it
  * reads the inquiry through its lead.
+ *
+ * A walk-in's inquiry has a group too, once sales has won it and the walk-in
+ * has made a Regray account (createForWalkIn()): its client member is that
+ * account, matched by the walk-in's phone or email, its sales member is the
+ * inquiry's owner, and the inquiry stays the walk-in record's. Accounting and
+ * logistics join any group only once sales has won its inquiry.
  *
  * The clients a creator finds and may choose are only those they are
  * authorized for (User::scopeClientsVisibleTo()): the clients whose lead they
@@ -90,6 +99,143 @@ class GroupConversationService
             throw ValidationException::withMessages(['inquiryId' => "{$inquiry->reference} is not won yet. Mark it won before making its group chat."]);
         }
 
+        return $this->open($creator, $name, $staff, $client, $inquiry);
+    }
+
+    /**
+     * A walk-in inquiry's group chat, once the walk-in has made a Regray
+     * account: from the Inbox page's New group, "For a walk-in inquiry".
+     *
+     * The inquiry is one of the walk-in inquiries `$creator` reads, its sales
+     * has won it, and it has no group yet. The client member is the account
+     * holder whose phone or email is the walk-in's (walkInAccounts()), found
+     * here, never sent; the inquiry stays the walk-in record's. Its staff are
+     * one sales and one technical member, as for any group, and its sales
+     * member is its owner.
+     *
+     * Has to run inside a transaction, as create() does.
+     *
+     * @param  list<int>  $staffIds  Exactly one sales (the owner) and one technical user.
+     *
+     * @throws ValidationException When the inquiry, its account or the staff may not be chosen.
+     */
+    public function createForWalkIn(User $creator, string $name, array $staffIds, int $inquiryId): Conversation
+    {
+        $inquiry = Inquiry::query()->visibleTo($creator)->whereKey($inquiryId)->whereNotNull('owner_user_id')->with('clientRecord', 'owner:id,name')->first();
+
+        if ($inquiry === null) {
+            throw ValidationException::withMessages(['inquiryId' => 'Choose one of the direct inquiries you can see.']);
+        }
+
+        if (! $inquiry->isWonBySales()) {
+            throw ValidationException::withMessages(['inquiryId' => "{$inquiry->reference} is not won yet. Its group chat waits for sales to win it."]);
+        }
+
+        $accounts = $this->walkInAccounts($inquiry);
+        $walkIn = $inquiry->clientRecord->full_name ?? 'This direct client';
+
+        if ($accounts->isEmpty()) {
+            throw ValidationException::withMessages(['inquiryId' => "{$walkIn} has no Regray account yet. Their group chat waits for an account with their phone number or email."]);
+        }
+
+        if ($accounts->count() > 1) {
+            throw ValidationException::withMessages(['inquiryId' => "More than one Regray account has {$walkIn}'s phone number or email, so the client cannot be told apart."]);
+        }
+
+        $staff = $this->groupStaff($staffIds);
+
+        if (! $staff->contains('id', $inquiry->owner_user_id)) {
+            throw ValidationException::withMessages(['staffIds' => 'Its sales member is the inquiry\'s owner, '.($inquiry->owner->name ?? 'its owner').'.']);
+        }
+
+        return $this->open($creator, $name, $staff, $accounts->first(), $inquiry);
+    }
+
+    /**
+     * The walk-in inquiries `$creator` reads, newest first, matching a search
+     * on the reference, the project or the walk-in's name: each with its
+     * owner, whether sales has won it, whether it has a group already, and the
+     * account its group's client would be (null when there is none, or more
+     * than one).
+     *
+     * @return list<array{id: int, reference: string, name: string, client: string, owner: string|null, ownerId: int, isWon: bool, hasGroup: bool, account: array{id: int, name: string, email: string}|null}>
+     */
+    public function walkInInquiries(User $creator, ?string $search): array
+    {
+        $search = $search === null ? '' : trim($search);
+        $pattern = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search).'%';
+
+        return array_values(Inquiry::query()
+            ->visibleTo($creator)
+            ->whereNotNull('owner_user_id')
+            ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
+                ->where('reference', 'ILIKE', $pattern)
+                ->orWhere('name', 'ILIKE', $pattern)
+                ->orWhereHas('clientRecord', fn (Builder $record) => $record->where('full_name', 'ILIKE', $pattern))))
+            ->with(['clientRecord:id,full_name', 'owner:id,name'])
+            ->withExists('conversation as has_group')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(self::PEOPLE_LIMIT)
+            ->get()
+            ->map(function (Inquiry $inquiry): array {
+                $accounts = $this->walkInAccounts($inquiry);
+                $account = $accounts->count() === 1 ? $accounts->first() : null;
+
+                return [
+                    'id' => $inquiry->id,
+                    'reference' => $inquiry->reference,
+                    'name' => $inquiry->name,
+                    'client' => $inquiry->clientRecord->full_name ?? '',
+                    'owner' => $inquiry->owner?->name,
+                    'ownerId' => (int) $inquiry->owner_user_id,
+                    'isWon' => $inquiry->isWonBySales(),
+                    'hasGroup' => (bool) $inquiry->getAttribute('has_group'),
+                    'account' => $account === null ? null : ['id' => $account->id, 'name' => $account->name, 'email' => $account->email],
+                ];
+            })
+            ->all());
+    }
+
+    /**
+     * The client accounts that are this walk-in: those whose email, or whose
+     * profile's phone number, is one of the walk-in record's contacts, both
+     * compared as contacts are stored (ContactKind::normalise()).
+     *
+     * @return Collection<int, User>
+     */
+    public function walkInAccounts(Inquiry $inquiry): Collection
+    {
+        if ($inquiry->client_record_id === null) {
+            return new Collection;
+        }
+
+        $contacts = ClientContact::query()->where('client_id', $inquiry->client_record_id)->get(['kind', 'value']);
+        $emails = array_values($contacts->where('kind', ContactKind::Email)->pluck('value')->all());
+        $phones = array_values($contacts->where('kind', ContactKind::Phone)->pluck('value')->all());
+
+        if ($emails === [] && $phones === []) {
+            return new Collection;
+        }
+
+        return User::query()
+            ->whereHas('roles', fn (Builder $role) => $role->where('name', Role::Client->value))
+            ->where(fn (Builder $query) => $query
+                ->when($emails !== [], fn (Builder $query) => $query->orWhereIn(DB::raw('LOWER(users.email)'), $emails))
+                ->when($phones !== [], fn (Builder $query) => $query->orWhereHas('profile', fn (Builder $profile) => $profile
+                    ->whereIn(DB::raw("regexp_replace(user_profiles.phone, '[[:space:]().-]', '', 'g')"), $phones))))
+            ->orderBy('users.id')
+            ->get(['users.id', 'users.name', 'users.email']);
+    }
+
+    /**
+     * Make the inquiry's one group: the group, its staff assigned to the
+     * inquiry, the client as a member and the creator as its admin.
+     *
+     * @param  Collection<int, User>  $staff
+     */
+    private function open(User $creator, string $name, Collection $staff, User $client, Inquiry $inquiry): Conversation
+    {
         if ($this->conversations->groupForInquiry($inquiry->id) !== null) {
             throw ValidationException::withMessages(['inquiryId' => "{$inquiry->reference} already has a group chat."]);
         }
@@ -154,6 +300,11 @@ class GroupConversationService
         }
 
         $inquiry = $conversation->inquiry ?? throw ValidationException::withMessages(['accountingId' => 'This group is not bound to an inquiry.']);
+
+        // The `inquiry_handlers` trigger refuses them before this too.
+        if (! in_array($inquiry->sales_status, [SalesStatus::Won, SalesStatus::ForRefund], true)) {
+            throw ValidationException::withMessages(['accountingId' => "{$inquiry->reference} is not won yet. Accounting and logistics join once sales has won it."]);
+        }
 
         $this->assign($conversation, $inquiry, new Collection([$accounting, $logistics]), $by);
 

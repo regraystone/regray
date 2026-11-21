@@ -8,9 +8,11 @@ import {
 } from './support/fixtures';
 
 /*
- * D. Inquiry and schedule cards (R5, R5b). "E2E Cards" holds an inquiry card
- * for each display status, one with a 100-character project name, a visit card
- * for each status and booking type, and one with a 150-character title.
+ * D. Inquiry, quotation and schedule cards (R5, R5b). "E2E Cards" holds an
+ * inquiry card for each display status, one with a 100-character project name,
+ * one for a service-only inquiry, two quotation cards (one with a long file
+ * name), a visit card for each status and booking type, and one with a
+ * 150-character title.
  */
 
 const HEADLINES: Record<string, Record<'client' | 'staff', string>> = {
@@ -26,8 +28,9 @@ const openCards = async (page: Page): Promise<void> => {
     const { cards } = fixtures();
     await openConversation(page, cards.conversationId);
     await expect(page.getByTestId('inquiry-card')).toHaveCount(
-        cards.statusCount + 1,
+        cards.statusCount + 2,
     );
+    await expect(page.getByTestId('quotation-card')).toHaveCount(2);
     await expect(page.getByTestId('schedule-card')).toHaveCount(9);
 };
 
@@ -61,6 +64,7 @@ test('12 · every inquiry card and every visit card is the same size @layout', a
     const { page } = await sessions.open('sales');
     await openCards(page);
 
+    // The service-only card too: the inquiry card is one fixed height.
     const inquiry = await boxes(page.getByTestId('inquiry-card'));
     const visit = await boxes(page.getByTestId('schedule-card'));
 
@@ -106,17 +110,35 @@ test('13 · long names truncate on one line and the badge row does not wrap @lay
     const longInquiry = page
         .getByTestId('inquiry-card')
         .filter({ hasText: cards.longReference });
-    // The heading is the reference, never the project name, so even an
-    // inquiry with a long project name keeps a one-line heading.
+    // The heading is the inquiry's name: a 100-character one truncates on one line.
     const title = longInquiry.getByTestId('inquiry-card-title');
     await title.scrollIntoViewIfNeeded();
-    await expect(title).toHaveText(cards.longReference);
+    await expect(title).toHaveText(cards.longProject);
 
     const titleMetrics = await title.evaluate((node) => ({
         height: node.getBoundingClientRect().height,
+        overflows: node.scrollWidth > node.clientWidth,
     }));
+    expect(titleMetrics.overflows).toBe(true);
     expect(titleMetrics.height).toBeLessThanOrEqual(
         (await lineHeight(title)) + 1,
+    );
+
+    const longFile = page
+        .getByTestId('quotation-card-filename')
+        .filter({ hasText: cards.longQuotationFileName });
+    await longFile.scrollIntoViewIfNeeded();
+    await expect(longFile).toHaveAttribute(
+        'title',
+        cards.longQuotationFileName,
+    );
+    const fileMetrics = await longFile.evaluate((node) => ({
+        height: node.getBoundingClientRect().height,
+        overflows: node.scrollWidth > node.clientWidth,
+    }));
+    expect(fileMetrics.overflows).toBe(true);
+    expect(fileMetrics.height).toBeLessThanOrEqual(
+        (await lineHeight(longFile)) + 1,
     );
 
     const badge = longInquiry.getByTestId('inquiry-card-status');
@@ -148,7 +170,7 @@ test('13 · long names truncate on one line and the badge row does not wrap @lay
     );
 });
 
-test('14 · the inquiry heading is the reference, the sub-line is the project, and the status row is two badges', async ({
+test('14 · the inquiry heading is the project, the reference is the label, the rows are Materials and Service, and the status row is two badges', async ({
     sessions,
 }) => {
     const { cards } = fixtures();
@@ -162,11 +184,19 @@ test('14 · the inquiry heading is the reference, the sub-line is the project, a
 
     for (const card of await statusCards.all()) {
         await expect(card.getByTestId('inquiry-card-title')).toHaveText(
-            cards.reference,
-        );
-        await expect(card.getByTestId('inquiry-card-subline')).toHaveText(
             cards.projectName,
         );
+        await expect(card.getByTestId('inquiry-card-reference')).toHaveText(
+            cards.reference,
+        );
+        await expect(card.getByTestId('inquiry-card-materials')).toHaveText(
+            /Materials\s*1 item$/,
+        );
+        await expect(card.getByTestId('inquiry-card-service')).toContainText(
+            'Service',
+        );
+        await expect(card).not.toContainText('Application');
+        await expect(card).not.toContainText('Estimated Area');
         // The inquiry status, then the payment status once accounting's stage
         // had started: before the client's approval there is no payment badge.
         const status = card.getByTestId('inquiry-card-status');
@@ -260,13 +290,188 @@ test('17 · the cards show the seeded rows, not sample data', async ({
         ].sort(),
     );
 
-    const inquiryTitles = await page
-        .getByTestId('inquiry-card-title')
+    const inquiryReferences = await page
+        .getByTestId('inquiry-card-reference')
         .allTextContents();
     expect(
-        inquiryTitles.filter((title) => title === cards.reference),
+        inquiryReferences.filter((reference) => reference === cards.reference),
     ).toHaveLength(cards.statusCount);
     expect(
-        inquiryTitles.filter((title) => title === cards.longReference),
+        inquiryReferences.filter(
+            (reference) => reference === cards.longReference,
+        ),
     ).toHaveLength(1);
+
+    const fileNames = await page
+        .getByTestId('quotation-card-filename')
+        .allTextContents();
+    expect(fileNames.sort()).toEqual(
+        [cards.quotation.fileName, cards.longQuotationFileName].sort(),
+    );
+});
+
+/** The quotation card for the Kitchen island inquiry's document. */
+const quotationCard = (page: Page) =>
+    page.getByTestId('quotation-card').filter({
+        has: page
+            .getByTestId('quotation-card-filename')
+            .getByText(fixtures().cards.quotation.fileName, { exact: true }),
+    });
+
+test('18 · a quotation card has the file, the sub-line, the size, and exactly View PDF and Download', async ({
+    sessions,
+}) => {
+    const { cards } = fixtures();
+    const { page } = await sessions.open('cardClient');
+    await openCards(page);
+
+    const card = quotationCard(page);
+    await card.scrollIntoViewIfNeeded();
+
+    await expect(card.getByTestId('card-headline')).toHaveText('Quotation');
+    await expect(card.getByTestId('quotation-card-subline')).toHaveText(
+        `1 material · ${cards.projectName}`,
+    );
+    await expect(card.getByTestId('quotation-card-size')).toHaveText(/^\d+ B$/);
+    // The PDF icon, never a picture of the document.
+    await expect(card.getByTestId('quotation-card-preview')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+    );
+    await expect(card.locator('img')).toHaveCount(0);
+
+    await expect(card.getByRole('link')).toHaveCount(2);
+    await expect(card.getByRole('button')).toHaveCount(0);
+    await expect(
+        card.getByRole('link', {
+            name: `View PDF ${cards.quotation.fileName} (opens in new tab)`,
+        }),
+    ).toHaveAttribute('target', '_blank');
+    await expect(
+        card.getByRole('link', {
+            name: new RegExp(`^Download ${cards.quotation.fileName}, `),
+        }),
+    ).toHaveAttribute('download', cards.quotation.fileName);
+    await expect(card).not.toContainText('Valid for');
+    await expect(card).not.toContainText('Request Revision');
+});
+
+test('19 · View PDF opens the document in a new tab and Download saves it', async ({
+    sessions,
+}) => {
+    const { cards } = fixtures();
+    const { page } = await sessions.open('cardClient');
+    await openCards(page);
+
+    const card = quotationCard(page);
+    await card.scrollIntoViewIfNeeded();
+
+    const [tab] = await Promise.all([
+        page.context().waitForEvent('page'),
+        card.getByTestId('quotation-card-view').click(),
+    ]);
+    await tab.waitForLoadState('domcontentloaded');
+    expect(new URL(tab.url()).pathname).toContain(
+        `/files/${cards.quotation.storedName}`,
+    );
+    await tab.close();
+
+    const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        card.getByTestId('quotation-card-download').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe(cards.quotation.fileName);
+    expect(new URL(download.url()).searchParams.get('download')).toBe('1');
+});
+
+test('20 · a service-only inquiry card shows the service in place of pictures and no Materials row', async ({
+    sessions,
+}) => {
+    const { cards } = fixtures();
+    const { page } = await sessions.open('sales');
+    await openCards(page);
+
+    const card = page
+        .getByTestId('inquiry-card')
+        .filter({ hasText: cards.serviceOnlyReference });
+    await card.scrollIntoViewIfNeeded();
+
+    await expect(card.getByTestId('inquiry-card-service-tile')).toHaveText(
+        cards.serviceName,
+    );
+    await expect(card.getByTestId('inquiry-card-stones')).toHaveCount(0);
+    await expect(card.getByTestId('inquiry-card-materials')).toHaveCount(0);
+    await expect(card).not.toContainText('0 items');
+    await expect(card.getByTestId('inquiry-card-service')).toContainText(
+        cards.serviceName,
+    );
+});
+
+/**
+ * The card is one row once it has room for it (a 512px container, `@lg`),
+ * whatever the window: at 768 the thread pane beside the list is narrower.
+ */
+const ROW_FROM = 512;
+
+test('21 · inquiry and quotation cards stack in a narrow thread and sit in one row in a wide one, never scrolling sideways', async ({
+    sessions,
+}, testInfo) => {
+    const { page } = await sessions.open('sales');
+
+    for (const width of [375, 768, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await openCards(page);
+
+        const inquiry = page
+            .getByTestId('inquiry-card')
+            .filter({ has: page.getByTestId('inquiry-card-materials') })
+            .first();
+        const quotation = quotationCard(page);
+
+        for (const card of [inquiry, quotation]) {
+            await card.scrollIntoViewIfNeeded();
+            const surface = card.locator(':scope > :nth-child(2)');
+            const [box, media, details] = await Promise.all([
+                card.boundingBox(),
+                surface.locator(':scope > :nth-child(1)').boundingBox(),
+                surface.locator(':scope > :nth-child(2)').boundingBox(),
+            ]);
+            expect(media).not.toBeNull();
+            expect(details).not.toBeNull();
+
+            if (box!.width < ROW_FROM) {
+                // Stacked: the media on top, the details under it.
+                expect(details!.y).toBeGreaterThanOrEqual(
+                    media!.y + media!.height - 1,
+                );
+            } else {
+                // One row: the media on the left, the details beside it.
+                expect(details!.x).toBeGreaterThanOrEqual(
+                    media!.x + media!.width - 1,
+                );
+                expect(Math.abs(details!.y - media!.y)).toBeLessThanOrEqual(1);
+            }
+
+            const overflows = await card.evaluate(
+                (node) => node.scrollWidth > node.clientWidth + 1,
+            );
+            expect(overflows, `card overflows at ${width}px`).toBe(false);
+        }
+
+        // One family: both cards are the same width.
+        const [inquiryBox, quotationBox] = await Promise.all([
+            inquiry.boundingBox(),
+            quotation.boundingBox(),
+        ]);
+        expect(Math.round(inquiryBox!.width)).toBe(
+            Math.round(quotationBox!.width),
+        );
+
+        const scrolls = await page
+            .getByTestId('thread-scroll')
+            .evaluate((node) => node.scrollWidth > node.clientWidth + 1);
+        expect(scrolls, `thread scrolls sideways at ${width}px`).toBe(false);
+
+        await shot(page, `21-cards-${width}`, testInfo.project.name);
+    }
 });

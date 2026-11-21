@@ -74,7 +74,10 @@
             "npm run check",
             "npm run types:check",
             "npm run test",
-            "@test"
+            "@php artisan config:clear --ansi",
+            "@lint:check",
+            "@types:check",
+            "@php artisan test --parallel --processes=4"
         ],
         "types:check": [
             "phpstan analyse"

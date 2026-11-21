@@ -16,15 +16,15 @@ it('creates the whole row graph for each inquiry sent', function (): void {
     $plan = UploadedFile::fake()->create('plan.pdf', 50, 'application/pdf');
 
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [
+        ->post(route('quote.inquire.store'), clientInquiryInput([
             inquiryProjectInput([
                 'attachments' => [$plan],
             ]),
-        ]])
+        ]))
         ->assertSessionHasNoErrors();
 
     $this->actingAs($this->client)
-        ->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['stones' => [], 'stoneAdvice' => '1'])]])
+        ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['stones' => [], 'stoneAdvice' => '1'])]))
         ->assertSessionHasNoErrors();
 
     [$first, $advice] = Inquiry::query()->with(['service', 'stones', 'files', 'schedule', 'statusHistory'])->orderBy('id')->get()->all();
@@ -38,7 +38,7 @@ it('creates the whole row graph for each inquiry sent', function (): void {
     }
 
     expect($first->name)->toBe('Kitchen counters')
-        ->and($first->location)->toBe('Makati')
+        ->and($first->address_city_name)->toBe('City of Makati')
         ->and($first->notes)->toBe('Ground floor.')
         ->and($first->delivery_method)->toBe(DeliveryMethod::Delivery)
         ->and($first->service->slug)->toBe('slab-supply-only')
@@ -55,7 +55,7 @@ it('creates the whole row graph for each inquiry sent', function (): void {
 
 it('numbers inquiries from the sequence', function (): void {
     foreach ([1, 2] as $_) {
-        $this->actingAs($this->client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput()]]);
+        $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput()]));
     }
 
     $numbers = Inquiry::query()->orderBy('id')->pluck('reference')->map(fn (string $reference): int => (int) substr($reference, 4));

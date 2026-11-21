@@ -6,6 +6,7 @@ import type {
     SalesStatus,
     SharedDocumentType,
 } from '@/lib/inquiry-statuses';
+import type { PhAddressPayload } from '@/lib/ph-address';
 import type { QuoteActions } from '@/lib/quote-actions';
 import type { QuoteFilters } from '@/lib/quote-filters';
 
@@ -112,12 +113,22 @@ export type QuoteInquiryDetails = {
     }>;
     /** The inquiry's group chat, only when the viewer is in it. */
     conversation: { id: number; name: string } | null;
+    /**
+     * A walk-in's inquiry, for staff: the walk-in's name, phone and email, its
+     * sales owner, and what this viewer may do: whom they may assign, by role
+     * (`technical`, `accounting`, `logistics`; a role is absent where they
+     * may not), and whether they may decide it. Null on a client's inquiry.
+     */
+    walkIn?: WalkInDetails | null;
     /** Which buttons the page shows, and which can be pressed. */
     actions: QuoteActions;
     /** The one project the inquiry is. */
     project: {
         name: string;
         stoneAdviceRequested: boolean;
+        /** The brands the client would like, in the brands' order; empty with no preference. */
+        brands: Array<{ id: string; name: string }>;
+        brandNoPreference: boolean;
         serviceType: string | null;
         service: string | null;
         /** False for a service that asks for no stones, which has no Stones section. */
@@ -142,12 +153,27 @@ export type QuoteInquiryDetails = {
         /** The project-scope answers, labelled and already worded. */
         answers: Array<{ label: string; value: string }>;
         requirements: {
-            deliveryMethod: string;
-            /** Null on a pickup. */
-            location: string | null;
+            /** Null for an installed service, which asks no method. */
+            deliveryMethod: string | null;
+            /** The copy kept with the inquiry; null on a pickup. */
+            address: PhAddressPayload | null;
+            /** "Pickup", "Delivery to {address}" or "Installation at {address}". */
+            fulfillment: string;
             neededBy: string | null;
             notes: string | null;
             attachments: StoredInquiryFile[];
         };
     };
+};
+
+export type WalkInRole = 'technical' | 'accounting' | 'logistics';
+
+export type WalkInDetails = {
+    client: { name: string; phone: string | null; email: string | null };
+    owner: string | null;
+    marketingStatus: 'won' | 'lost' | null;
+    assignable: Partial<
+        Record<WalkInRole, Array<{ id: number; name: string }>>
+    >;
+    canDecide: boolean;
 };

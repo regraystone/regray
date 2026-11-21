@@ -2,21 +2,36 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    allowedStoneBrands,
+    removedBrandStonesNotice,
+    stoneBrandsQuery,
+    stonesOutsideBrands,
     ALL_STONE_TYPES,
+    BRAND_STEP,
     DELIVERY,
+    DELIVERY_OR_PICKUP,
+    HELD_ADDRESS,
+    INSTALLED,
+    NO_BRAND_PREFERENCE,
     INQUIRY_STEP_LABELS,
     PICKUP,
     REQUIREMENTS_STEP,
     REVIEW_STEP,
     SERVICE_STEP,
     STONES_STEP,
+    addressLabel,
     autoProjectName,
     answerProblem,
+    asksDeliveryMethod,
     asksQuantity,
+    brandProblem,
     buildCommittedProject,
     clampRestoredStep,
+    fulfillmentAfterServiceChange,
+    fulfillmentProblems,
     furthestQuestion,
     linkedToStoneProblem,
+    needsAddress,
     nextQuestion,
     quantityProblem,
     questionProblem,
@@ -28,6 +43,8 @@ import {
     stoneFitsService,
     stonesNotOffered,
     stoneTypeOptions,
+    toggleBrand,
+    toggleBrandFilter,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
 const draft = (overrides = {}) => ({
@@ -43,7 +60,7 @@ const regular = draft({
 
 /** Every question a reader is shown, following Next from the first. */
 const walk = () => {
-    const seen = [SERVICE_STEP];
+    const seen = [BRAND_STEP];
 
     while (seen.at(-1) !== REVIEW_STEP) {
         seen.push(nextQuestion(seen.at(-1)));
@@ -61,7 +78,12 @@ describe('the steps', () => {
     });
 
     it('show every question as the first step and Review as the second', () => {
-        for (const question of [SERVICE_STEP, STONES_STEP, REQUIREMENTS_STEP]) {
+        for (const question of [
+            BRAND_STEP,
+            SERVICE_STEP,
+            STONES_STEP,
+            REQUIREMENTS_STEP,
+        ]) {
             assert.equal(stepperPosition(question), 1);
         }
 
@@ -70,8 +92,9 @@ describe('the steps', () => {
 });
 
 describe('moving between the questions', () => {
-    it('asks what is needed, then the stones, then the details, then Review', () => {
+    it('asks the brands, what is needed, the stones, the details, then Review', () => {
         assert.deepEqual(walk(), [
+            BRAND_STEP,
             SERVICE_STEP,
             STONES_STEP,
             REQUIREMENTS_STEP,
@@ -208,8 +231,24 @@ describe('clampRestoredStep', () => {
     });
 
     it('treats a step number that is not a number as the first', () => {
-        assert.equal(clampRestoredStep(Number.NaN, 0, regular), SERVICE_STEP);
-        assert.equal(clampRestoredStep(-3, 0, regular), SERVICE_STEP);
+        assert.equal(clampRestoredStep(Number.NaN, 0, regular), BRAND_STEP);
+        assert.equal(clampRestoredStep(-3, 0, regular), BRAND_STEP);
+    });
+
+    it('lands on the brands until one, or No preference, is chosen', () => {
+        const unanswered = { ...regular, brands: [], brandNoPreference: false };
+
+        assert.equal(
+            clampRestoredStep(REQUIREMENTS_STEP, 0, unanswered),
+            BRAND_STEP,
+        );
+        assert.equal(
+            clampRestoredStep(REQUIREMENTS_STEP, 0, {
+                ...unanswered,
+                brandNoPreference: true,
+            }),
+            REQUIREMENTS_STEP,
+        );
     });
 });
 
@@ -352,8 +391,11 @@ describe('committing a draft', () => {
             },
         ],
         answers: { area_sqm: '12.5' },
+        brands: ['laminam'],
+        brandNoPreference: false,
         deliveryMethod: DELIVERY,
-        location: 'Makati',
+        addressId: '12',
+        address: null,
         neededBy: '2030-01-02',
         notes: '',
         attachments: [],
@@ -377,21 +419,23 @@ describe('committing a draft', () => {
         assert.equal(project.stoneAdvice, true);
     });
 
-    it('keeps the location of a delivery', () => {
+    it('keeps the address and the brands of a delivery', () => {
         const project = buildCommittedProject(filled(), { id: 'p-6' });
 
         assert.equal(project.deliveryMethod, DELIVERY);
-        assert.equal(project.location, 'Makati');
+        assert.equal(project.addressId, '12');
+        assert.deepEqual(project.brands, ['laminam']);
         assert.deepEqual(project.answers, { area_sqm: '12.5' });
     });
 
-    it('commits no location for a pickup, and leaves the draft holding it', () => {
+    it('commits no address for a pickup, and leaves the draft holding it', () => {
         const source = filled({ deliveryMethod: PICKUP });
         const project = buildCommittedProject(source, { id: 'p-7' });
 
         assert.equal(project.deliveryMethod, PICKUP);
-        assert.equal(project.location, '');
-        assert.equal(source.location, 'Makati');
+        assert.equal(project.addressId, '');
+        assert.equal(project.address, null);
+        assert.equal(source.addressId, '12');
     });
 
     it('does not share rows with the draft it was built from', () => {
@@ -642,5 +686,313 @@ describe('seedStoneRows', () => {
                 finish: 'Advise me',
             },
         ]);
+    });
+});
+
+describe('the brand question', () => {
+    const none = { brands: [], brandNoPreference: false };
+
+    it('adds and removes brands, in the order picked', () => {
+        const one = toggleBrand(none, 'laminam');
+        const two = toggleBrand(one, 'atlas-concorde');
+
+        assert.deepEqual(two.brands, ['laminam', 'atlas-concorde']);
+        assert.deepEqual(toggleBrand(two, 'laminam').brands, [
+            'atlas-concorde',
+        ]);
+    });
+
+    it('makes No preference and the brands exclude each other', () => {
+        const picked = toggleBrand(none, 'laminam');
+        const noPreference = toggleBrand(picked, NO_BRAND_PREFERENCE);
+
+        assert.deepEqual(noPreference, { brands: [], brandNoPreference: true });
+        assert.deepEqual(toggleBrand(noPreference, 'laminam'), {
+            brands: ['laminam'],
+            brandNoPreference: false,
+        });
+        assert.deepEqual(toggleBrand(noPreference, NO_BRAND_PREFERENCE), none);
+    });
+
+    it('is required, and refuses both at once', () => {
+        assert.equal(
+            brandProblem(none),
+            'Choose at least one brand, or No preference.',
+        );
+        assert.equal(
+            brandProblem({ brands: ['laminam'], brandNoPreference: true }),
+            'Choose brands or No preference, not both.',
+        );
+        assert.equal(
+            brandProblem({ brands: ['laminam'], brandNoPreference: false }),
+            null,
+        );
+        assert.equal(
+            brandProblem({ brands: [], brandNoPreference: true }),
+            null,
+        );
+    });
+
+    it('holds Next under the brands until it is answered', () => {
+        const offered = new Set(['countertop-backsplash']);
+
+        assert.equal(
+            questionProblem(BRAND_STEP, { ...regular, ...none }, offered)
+                ?.field,
+            'brands',
+        );
+        assert.equal(
+            questionProblem(
+                BRAND_STEP,
+                { ...regular, brands: [], brandNoPreference: true },
+                offered,
+            ),
+            null,
+        );
+    });
+});
+
+describe('the stones brand filter', () => {
+    const order = ['atlas-concorde', 'laminam', 'neolith'];
+
+    it('starts at All brands and keeps the brands in their own order', () => {
+        const one = toggleBrandFilter([], 'neolith', order);
+        const two = toggleBrandFilter(one, 'atlas-concorde', order);
+
+        assert.deepEqual(two, ['atlas-concorde', 'neolith']);
+        assert.deepEqual(toggleBrandFilter(two, 'neolith', order), [
+            'atlas-concorde',
+        ]);
+        assert.deepEqual(toggleBrandFilter(two, null, order), []);
+    });
+
+    it('asks the server for the brands as stone_brands, and for none on All brands', () => {
+        assert.deepEqual(
+            stoneFilterQuery({
+                tab: 'all',
+                stoneType: ALL_STONE_TYPES,
+                search: '',
+                brands: ['laminam'],
+            }),
+            { stone_brands: ['laminam'] },
+        );
+        assert.deepEqual(
+            stoneFilterQuery({
+                tab: 'all',
+                stoneType: ALL_STONE_TYPES,
+                search: '',
+                brands: [],
+            }),
+            {},
+        );
+    });
+});
+
+describe('how the work is got', () => {
+    const delivered = { fulfillment: DELIVERY_OR_PICKUP };
+    const installed = { fulfillment: INSTALLED };
+    const complete = () => true;
+    const answers = (overrides = {}) => ({
+        deliveryMethod: '',
+        addressId: '',
+        address: null,
+        ...overrides,
+    });
+
+    it('asks Delivery or Pickup only of a service delivered or picked up', () => {
+        assert.equal(asksDeliveryMethod(delivered), true);
+        assert.equal(asksDeliveryMethod(installed), false);
+    });
+
+    it('needs an address for a delivery and an installation, not for a pickup', () => {
+        assert.equal(needsAddress(delivered, DELIVERY), true);
+        assert.equal(needsAddress(delivered, PICKUP), false);
+        assert.equal(needsAddress(delivered, ''), false);
+        assert.equal(needsAddress(installed, ''), true);
+    });
+
+    it('calls the address what it is for', () => {
+        assert.equal(addressLabel(delivered), 'Delivery address');
+        assert.equal(addressLabel(installed), 'Installation address');
+    });
+
+    it('requires the method, then the delivery address, for a delivered service', () => {
+        assert.deepEqual(
+            fulfillmentProblems(answers(), delivered, 'book', complete).map(
+                ({ field }) => field,
+            ),
+            ['deliveryMethod'],
+        );
+        assert.deepEqual(
+            fulfillmentProblems(
+                answers({ deliveryMethod: DELIVERY }),
+                delivered,
+                'book',
+                complete,
+            ).map(({ field }) => field),
+            ['addressId'],
+        );
+        assert.deepEqual(
+            fulfillmentProblems(
+                answers({ deliveryMethod: PICKUP }),
+                delivered,
+                'book',
+                complete,
+            ),
+            [],
+        );
+    });
+
+    it('requires only the installation address of an installed service', () => {
+        assert.deepEqual(
+            fulfillmentProblems(answers(), installed, 'book', complete).map(
+                ({ field }) => field,
+            ),
+            ['addressId'],
+        );
+        assert.deepEqual(
+            fulfillmentProblems(
+                answers({ addressId: HELD_ADDRESS }),
+                installed,
+                'book',
+                complete,
+            ),
+            [],
+        );
+    });
+
+    it('requires a complete picked address from staff', () => {
+        const half = { region: { code: '13', name: 'NCR' } };
+
+        assert.deepEqual(
+            fulfillmentProblems(answers(), installed, 'picker', complete).map(
+                ({ field }) => field,
+            ),
+            ['address'],
+        );
+        assert.deepEqual(
+            fulfillmentProblems(
+                answers({ address: half }),
+                installed,
+                'picker',
+                () => false,
+            ).map(({ field }) => field),
+            ['address'],
+        );
+        assert.deepEqual(
+            fulfillmentProblems(
+                answers({ address: half }),
+                installed,
+                'picker',
+                complete,
+            ),
+            [],
+        );
+    });
+
+    it('clears the method when the new service asks none, or the old one asked none', () => {
+        const chosen = answers({ deliveryMethod: PICKUP, addressId: '12' });
+
+        assert.equal(
+            fulfillmentAfterServiceChange(chosen, delivered, installed)
+                .deliveryMethod,
+            '',
+        );
+        assert.equal(
+            fulfillmentAfterServiceChange(chosen, installed, delivered)
+                .deliveryMethod,
+            '',
+        );
+        assert.equal(
+            fulfillmentAfterServiceChange(chosen, delivered, delivered)
+                .deliveryMethod,
+            PICKUP,
+        );
+        assert.equal(
+            fulfillmentAfterServiceChange(chosen, delivered, installed)
+                .addressId,
+            '12',
+        );
+    });
+});
+
+describe('the stones kept to the Brand answer', () => {
+    const catalogBrands = [
+        { id: 'regray' },
+        { id: 'cucine' },
+        { id: 'reform' },
+    ];
+    const allBrands = {
+        ids: ['regray', 'cucine', 'reform'],
+        restricted: false,
+    };
+
+    it('allows every brand with No preference, or before it is answered', () => {
+        assert.deepEqual(
+            allowedStoneBrands(catalogBrands, {
+                brands: [],
+                brandNoPreference: true,
+            }),
+            allBrands,
+        );
+        assert.deepEqual(
+            allowedStoneBrands(catalogBrands, {
+                brands: [],
+                brandNoPreference: false,
+            }),
+            allBrands,
+        );
+    });
+
+    it('allows only the brands chosen, in the catalog order', () => {
+        assert.deepEqual(
+            allowedStoneBrands(catalogBrands, {
+                brands: ['reform', 'regray'],
+                brandNoPreference: false,
+            }),
+            { ids: ['regray', 'reform'], restricted: true },
+        );
+    });
+
+    it('asks for every chosen brand when the filter picks none, and never one outside them', () => {
+        const chosen = { ids: ['regray', 'reform'], restricted: true };
+
+        assert.deepEqual(stoneBrandsQuery([], chosen), ['regray', 'reform']);
+        assert.deepEqual(stoneBrandsQuery(['reform'], chosen), ['reform']);
+        assert.deepEqual(stoneBrandsQuery(['cucine'], chosen), [
+            'regray',
+            'reform',
+        ]);
+        assert.deepEqual(stoneBrandsQuery([], allBrands), []);
+        assert.deepEqual(stoneBrandsQuery(['cucine'], allBrands), ['cucine']);
+    });
+
+    it('finds the picked stones of a brand the answer keeps out', () => {
+        const stones = [
+            { slug: 'calacatta', name: 'Calacatta', brand: { slug: 'regray' } },
+            { slug: 'nero', name: 'Nero', brand: { slug: 'reform' } },
+            { slug: 'bianco', name: 'Bianco', brand: { slug: 'reform' } },
+        ];
+        const chosen = { ids: ['regray'], restricted: true };
+
+        assert.deepEqual(
+            stonesOutsideBrands(['calacatta', 'nero'], stones, chosen).map(
+                ({ slug }) => slug,
+            ),
+            ['nero'],
+        );
+        assert.deepEqual(stonesOutsideBrands(['nero'], stones, allBrands), []);
+    });
+
+    it('says which stones came off', () => {
+        assert.equal(removedBrandStonesNotice([]), '');
+        assert.equal(
+            removedBrandStonesNotice(['Nero']),
+            'Removed Nero; it is not from the brands you chose.',
+        );
+        assert.equal(
+            removedBrandStonesNotice(['Nero', 'Bianco', 'Onyx']),
+            'Removed Nero, Bianco and Onyx; they are not from the brands you chose.',
+        );
     });
 });

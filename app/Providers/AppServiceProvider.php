@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Models\User;
 use App\Repositories\Contracts\AuditLogRepositoryInterface;
 use App\Repositories\Contracts\BrandRepositoryInterface;
+use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\ClientRepositoryInterface;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
 use App\Repositories\Contracts\ConversationRepositoryInterface;
@@ -14,6 +15,7 @@ use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
+use App\Repositories\Contracts\PhAddressRepositoryInterface;
 use App\Repositories\Contracts\ProjectCategoryRepositoryInterface;
 use App\Repositories\Contracts\ProjectRepositoryInterface;
 use App\Repositories\Contracts\SavedFurnitureRepositoryInterface;
@@ -23,6 +25,7 @@ use App\Repositories\Contracts\StoneRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\Eloquent\BrandRepository;
 use App\Repositories\Eloquent\EloquentAuditLogRepository;
+use App\Repositories\Eloquent\EloquentClientAddressRepository;
 use App\Repositories\Eloquent\EloquentClientRepository;
 use App\Repositories\Eloquent\EloquentConversationMemberRepository;
 use App\Repositories\Eloquent\EloquentConversationRepository;
@@ -30,6 +33,7 @@ use App\Repositories\Eloquent\EloquentInquiryCatalogRepository;
 use App\Repositories\Eloquent\EloquentInquiryRepository;
 use App\Repositories\Eloquent\EloquentLeadRepository;
 use App\Repositories\Eloquent\EloquentMessageRepository;
+use App\Repositories\Eloquent\EloquentPhAddressRepository;
 use App\Repositories\Eloquent\EloquentScheduleRepository;
 use App\Repositories\Eloquent\FurnitureRepository;
 use App\Repositories\Eloquent\ProjectCategoryRepository;
@@ -64,12 +68,18 @@ class AppServiceProvider extends ServiceProvider
     private const RATE_LIMITERS = [
         'messages',
         'message-receipts',
+        'message-typing',
         'message-assignment',
         'message-people',
         'message-attachments',
         'notifications',
         'inquiry-submit',
         'inquiry-edit',
+        'address-book-save',
+        'account-save',
+        'brand-save',
+        'project-save',
+        'ph-address-search',
         'inquiry-files',
         'booking',
         'saved-stone',
@@ -96,6 +106,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(InquiryRepositoryInterface::class, EloquentInquiryRepository::class);
         $this->app->bind(LeadRepositoryInterface::class, EloquentLeadRepository::class);
         $this->app->bind(ClientRepositoryInterface::class, EloquentClientRepository::class);
+        $this->app->bind(PhAddressRepositoryInterface::class, EloquentPhAddressRepository::class);
+        $this->app->bind(ClientAddressRepositoryInterface::class, EloquentClientAddressRepository::class);
         $this->app->bind(InquiryCatalogRepositoryInterface::class, EloquentInquiryCatalogRepository::class);
         $this->app->bind(ConversationRepositoryInterface::class, EloquentConversationRepository::class);
         $this->app->bind(ConversationMemberRepositoryInterface::class, EloquentConversationMemberRepository::class);
@@ -203,6 +215,8 @@ class AppServiceProvider extends ServiceProvider
      * - `message-receipts`, read and delivered pointers: the page sends one
      *   per incoming message and per thread opened, so this is the highest,
      *   and only a loop reaches it.
+     * - `message-typing`, "{name} is typing…": the page sends at most one
+     *   every 1.5 s while the viewer types, about 40 a minute.
      * - `message-assignment`, claiming a Regray Team thread: a person does this
      *   a few times an hour.
      * - `notifications`, the bell: a page as the list scrolls, opening one,
@@ -218,6 +232,12 @@ class AppServiceProvider extends ServiceProvider
      *   share one count.
      * - `inquiry-files`: previewing and downloading an inquiry's files, each
      *   preview a HEAD and a GET; only a script walking the files reaches it.
+     * - `account-save`: the admin's Accounts page writes: add, edit, turn on
+     *   or off, archive.
+     * - `brand-save`: the admin's Brands page writes: add, edit (images
+     *   included), archive.
+     * - `project-save`: the admin's Projects page writes: add, edit (the
+     *   thumbnail and gallery included), archive.
      * - `booking`: Book an appointment.
      * - `saved-stone`: the heart on a stone card. A person taps through a
      *   feed; only a script reaches this.

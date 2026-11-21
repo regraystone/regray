@@ -16,14 +16,13 @@ import { onUnreadChanged } from '@/lib/unread-badge';
 import { markDelivered } from '@/lib/message-api';
 import { cn } from '@/lib/utils';
 import { index as inboxIndex } from '@/routes/inbox';
-import type { Auth } from '@/types';
 import type {
     ConversationSummary,
     InboxPageProps,
     Realtime,
 } from '@/types/message';
 
-type PageProps = InboxPageProps & { auth: Auth; realtime?: Realtime };
+type PageProps = InboxPageProps & { realtime?: Realtime };
 
 type Filters = InboxPageProps['filters'];
 
@@ -93,7 +92,6 @@ const Inbox = () => {
         currentUserId,
         isClient,
         canCreateGroup,
-        auth,
     } = props;
     const realtime = props.realtime;
     const isInPool = usePermissions().can(permissions.supportClaim);
@@ -176,7 +174,7 @@ const Inbox = () => {
     };
 
     const handleLostAccess = useCallback(
-        (conversationId: number, assigneeName: string) => {
+        (conversationId: number, assigneeName: string | null) => {
             if (selectedRef.current?.id === conversationId) {
                 setSelected(null);
                 window.history.replaceState(
@@ -185,7 +183,9 @@ const Inbox = () => {
                     urlWithConversation(null),
                 );
                 toast.info(
-                    `${assigneeName} is handling that conversation now.`,
+                    assigneeName === null
+                        ? 'You no longer have access to that conversation.'
+                        : `${assigneeName} is handling that conversation now.`,
                 );
             }
 
@@ -299,7 +299,6 @@ const Inbox = () => {
                         conversationId={selected.id}
                         initialSummary={selected}
                         currentUserId={currentUserId}
-                        currentUserName={auth.user.name}
                         isClient={isClient}
                         isTouch={isTouch}
                         realtime={realtime}

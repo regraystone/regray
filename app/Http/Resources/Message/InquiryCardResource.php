@@ -10,8 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * An inquiry as a card in a thread: which project it is, which stones it is
- * about, and the snapshot the card announces. Built from the `inquiry_card`
+ * An inquiry as a card in a thread: which project it is, which stones and
+ * which service it is about, and the snapshot the card announces. Built from the `inquiry_card`
  * message, so the statuses are the ones the card was posted for, not whatever
  * the inquiry is now. The headline is read from the announced display status.
  *
@@ -23,8 +23,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class InquiryCardResource extends JsonResource
 {
-    /** How many stone pictures the card draws; the rest are counted. */
-    public const HERO_STONES = 2;
+    /** How many stone pictures the card draws; the rest are counted ("+N"). */
+    public const HERO_STONES = 3;
 
     public function __construct(Message $message, private readonly ?User $viewer = null)
     {
@@ -32,7 +32,7 @@ class InquiryCardResource extends JsonResource
     }
 
     /**
-     * @return array{reference: string, name: string, location: string, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, stoneAdviceRequested: bool, announcedStatus: string, announcedSalesStatus: string|null, announcedPaymentStatus: string|null, announcedProcessStatus: string|null, status: string|null, occurredAt: string}
+     * @return array{reference: string, name: string, location: string|null, stones: list<array{slug: string, name: string, thumbnail: string}>, stoneCount: int, stoneAdviceRequested: bool, service: array{id: string, name: string}|null, announcedStatus: string, announcedSalesStatus: string|null, announcedPaymentStatus: string|null, announcedProcessStatus: string|null, status: string|null, occurredAt: string}
      */
     public function toArray(Request $request): array
     {
@@ -54,10 +54,15 @@ class InquiryCardResource extends JsonResource
         return [
             'reference' => $inquiry->reference,
             'name' => $inquiry->name,
-            'location' => $inquiry->location,
+            'location' => $inquiry->placeLabel(),
             'stones' => array_slice(array_values($stones), 0, self::HERO_STONES),
             'stoneCount' => count($stones),
             'stoneAdviceRequested' => $inquiry->stone_advice_requested,
+            // The one service it asks for, as on the Quote page's card (ClientInquiryService).
+            'service' => $inquiry->service === null ? null : [
+                'id' => $inquiry->service->slug,
+                'name' => $inquiry->service->name,
+            ],
             'announcedStatus' => (string) $this->announced_status,
             // Null for a stage that had not started when the card was posted.
             'announcedSalesStatus' => $this->announced_sales_status,

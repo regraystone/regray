@@ -22,7 +22,7 @@ export const STAFF_INQUIRE_OPTIONS: readonly StaffInquireOption[] = [
     },
     {
         kind: 'direct',
-        label: 'Direct (walk-in)',
+        label: 'Direct',
         description: 'The client has no account.',
     },
 ];
@@ -44,12 +44,10 @@ export const staffInquireKindFor = (
 ): StaffInquireKind | null => (canUsePlatform ? requested : 'direct');
 
 /** The ways a direct client can be reached, as `client_contacts.kind`. */
-export type ContactKind = 'phone' | 'viber' | 'whatsapp' | 'email';
+export type ContactKind = 'phone' | 'email';
 
 export const CONTACT_KIND_LABELS: Record<ContactKind, string> = {
     phone: 'Phone',
-    viber: 'Viber',
-    whatsapp: 'WhatsApp',
     email: 'Email',
 };
 

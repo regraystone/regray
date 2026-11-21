@@ -7,6 +7,7 @@ export type ProfileUrls = {
     security: string;
     schedule: string;
     scheduleBook: string;
+    addresses: string;
 };
 
 /**
@@ -57,6 +58,10 @@ export const profileCrumbs = (
 
     if (url === urls.schedule) {
         return trail({ label: 'Schedule' });
+    }
+
+    if (url === urls.addresses) {
+        return trail({ label: 'Addresses' });
     }
 
     if (url === urls.scheduleBook) {

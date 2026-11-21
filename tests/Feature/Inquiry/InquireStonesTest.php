@@ -2,6 +2,7 @@
 
 use App\Enums\HomeGridPageSize;
 use App\Enums\InquiryStatus;
+use App\Models\Brand;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Models\StoneType;
@@ -238,4 +239,23 @@ it('carries each stone\'s slabs on its card: every combination, its sizes and th
             ['value' => '0.75 in', 'label' => '0.75 in'],
         ])
         ->and($card['sizeNote'])->toBeNull();
+});
+
+it('filters the stones by brand on the server, with the other filters, and pages them', function (): void {
+    $type = Stone::query()->active()->firstOrFail()->type;
+    $other = Brand::factory()->create(['slug' => 'other-brand', 'is_active' => true, 'sort_order' => 99]);
+    $theirs = Stone::factory()->count(2)->create(['brand_id' => $other->id, 'stone_type_id' => $type->id]);
+
+    expect(inquireStones($this, ['stone_brands' => ['other-brand']]))
+        ->toEqualCanonicalizing($theirs->pluck('slug')->all());
+
+    // ANDed with the type: none of theirs is of another type.
+    $elsewhere = StoneType::query()->whereKeyNot($type->id)->whereHas('stones')->value('slug');
+
+    expect(inquireStones($this, ['stone_brands' => ['other-brand'], 'stone_type' => $elsewhere]))->toBe([]);
+
+    // An unknown brand is no filter at all, and the page says which brands it used.
+    $this->actingAs($this->client)
+        ->get(route('quote.inquire', ['stone_service' => 'slab-supply-only', 'stone_brands' => ['nobody', 'other-brand']]))
+        ->assertInertia(fn (Assert $page) => $page->where('stoneFilters.brands', ['other-brand']));
 });

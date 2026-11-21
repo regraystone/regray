@@ -29,7 +29,8 @@ class EloquentMessageRepository implements MessageRepositoryInterface
         'replyTo:id,conversation_id,sender_id,type,body,deleted_at',
         'replyTo.sender:id,name',
         // client_id and created_by: what InquiryPolicy::view() reads to show the card's status now.
-        'inquiry:id,reference,client_id,created_by,lead_id,marketing_status,name,location,stone_advice_requested,sales_status,payment_status,process_status',
+        'inquiry:id,reference,client_id,created_by,lead_id,marketing_status,name,address_city_name,service_id,stone_advice_requested,sales_status,payment_status,process_status',
+        'inquiry.service:id,slug,name',
         'inquiry.stones:id,inquiry_id,stone_id,sort_order',
         'inquiry.stones.stone:id,slug,name,thumbnail_path',
         'inquiry.files:id,inquiry_id,document_type,deleted_at',
@@ -166,6 +167,29 @@ class EloquentMessageRepository implements MessageRepositoryInterface
             ->where('schedule_id', $scheduleId)
             ->where('announced_status', $announcedStatus)
             ->where('schedule_revision', $revision)
+            ->first();
+    }
+
+    public function createQuotationCardOnce(int $conversationId, int $inquiryId, int $inquiryFileId, array $snapshot, ?CarbonInterface $postedAt = null): ?Message
+    {
+        $inserted = Message::query()->insertOrIgnore([
+            'conversation_id' => $conversationId,
+            'type' => MessageType::QuotationCard->value,
+            'inquiry_id' => $inquiryId,
+            'inquiry_file_id' => $inquiryFileId,
+            'card_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR),
+            // In the app's zone, as for an inquiry card.
+            'created_at' => Date::instance($postedAt ?? Date::now())->setTimezone(config('app.timezone')),
+        ]);
+
+        if ($inserted === 0) {
+            return null;
+        }
+
+        return Message::query()
+            ->where('conversation_id', $conversationId)
+            ->where('type', MessageType::QuotationCard->value)
+            ->where('inquiry_file_id', $inquiryFileId)
             ->first();
     }
 

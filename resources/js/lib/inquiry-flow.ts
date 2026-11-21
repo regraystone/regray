@@ -10,12 +10,14 @@
 
 /*
  * The reader sees two steps: Your request and Review and send. The first is
- * questions on one page, one open at a time: what they need, the stones, then the
- * details. Stored drafts hold the same numbers.
+ * questions on one page, one open at a time: the brands they would like, what
+ * they need, the stones, then the details. Stored drafts hold the same
+ * numbers.
  */
-export const SERVICE_STEP = 1;
-export const STONES_STEP = 2;
-export const REQUIREMENTS_STEP = 3;
+export const BRAND_STEP = 1;
+export const SERVICE_STEP = 2;
+export const STONES_STEP = 3;
+export const REQUIREMENTS_STEP = 4;
 
 /** Review is the last step, and owns no fields of its own to validate. */
 export const REVIEW_STEP = REQUIREMENTS_STEP + 1;
@@ -28,7 +30,7 @@ export const stepperPosition = (step: number): number =>
 
 export type InquiryMode = 'create' | 'edit';
 
-/** How the project reaches the client. A pickup has no location to ask for. */
+/** How the project reaches the client. A pickup has no address to ask for. */
 export const DELIVERY = 'delivery';
 export const PICKUP = 'pickup';
 
@@ -37,9 +39,186 @@ export const DELIVERY_METHODS = [
     { value: PICKUP, title: 'Pickup' },
 ];
 
+/*
+ * How a service reaches the client (`services.fulfillment`): one that is
+ * delivered or picked up asks which, and an address only for a delivery; one
+ * that is installed asks no method and always needs the installation address.
+ */
+export const DELIVERY_OR_PICKUP = 'delivery_or_pickup';
+export const INSTALLED = 'installed';
+
+export type Fulfillment = typeof DELIVERY_OR_PICKUP | typeof INSTALLED;
+
+/** Whether the service asks Delivery or Pickup. Unknown asks it, as most do. */
+export const asksDeliveryMethod = (
+    service: { fulfillment?: Fulfillment } | undefined,
+): boolean => service?.fulfillment !== INSTALLED;
+
+/** Whether the project needs an address: an installation, or a delivery. */
+export const needsAddress = (
+    service: { fulfillment?: Fulfillment } | undefined,
+    deliveryMethod: string,
+): boolean =>
+    service?.fulfillment === INSTALLED ||
+    (asksDeliveryMethod(service) && deliveryMethod === DELIVERY);
+
+/** What the address is called for this service. */
+export const addressLabel = (
+    service: { fulfillment?: Fulfillment } | undefined,
+): string =>
+    service?.fulfillment === INSTALLED
+        ? 'Installation address'
+        : 'Delivery address';
+
+/*
+ * Where a project's address comes from. A client picks one of their saved
+ * addresses (`book`); staff enter one with the address picker (`picker`) and
+ * never see the client's book. StoreInquiryRequest::addressSource() says the
+ * same on the server.
+ */
+export type AddressSource = 'book' | 'picker';
+
+/** A client's edit that keeps the address the inquiry already has. */
+export const HELD_ADDRESS = 'held';
+
 /**
- * The question after this one. A service that asks for no stones (Installation
- * Only) goes from What do you need? straight to the details.
+ * The picker's value as far as the request goes (lib/ph-address.ts
+ * AddressValue, which this file cannot import).
+ */
+export type PickedAddress = {
+    region: { code: string; name: string } | null;
+    province: { code: string; name: string } | null;
+    noProvince: boolean;
+    city: { code: string; name: string } | null;
+    barangay: { code: string; name: string } | null;
+    postalCode: string;
+    lat: number | null;
+    lng: number | null;
+    needsPostalCode?: boolean;
+};
+
+/** The brands a project names, or No preference: one or the other, never both. */
+export type BrandChoice = { brands: string[]; brandNoPreference: boolean };
+
+/**
+ * Picking a brand card or No preference: No preference clears the brands, and
+ * a brand clears No preference. Picking a chosen brand again unpicks it.
+ */
+export const toggleBrand = (
+    choice: BrandChoice,
+    /** A brand's slug, or NO_BRAND_PREFERENCE. */
+    brand: string,
+): BrandChoice => {
+    if (brand === NO_BRAND_PREFERENCE) {
+        return { brands: [], brandNoPreference: !choice.brandNoPreference };
+    }
+
+    return {
+        brands: choice.brands.includes(brand)
+            ? choice.brands.filter((id) => id !== brand)
+            : [...choice.brands, brand],
+        brandNoPreference: false,
+    };
+};
+
+export const NO_BRAND_PREFERENCE = '__no_preference__';
+
+/** Why the brand answer cannot be sent, or null. Worded as StoreInquiryRequest words it. */
+export const brandProblem = (choice: BrandChoice): string | null =>
+    choice.brands.length === 0 && !choice.brandNoPreference
+        ? 'Choose at least one brand, or No preference.'
+        : choice.brands.length > 0 && choice.brandNoPreference
+          ? 'Choose brands or No preference, not both.'
+          : null;
+
+/** The answers about getting the work to the client. */
+export type FulfillmentAnswers = {
+    deliveryMethod: string;
+    /** A saved address's id, HELD_ADDRESS, or '' (the address book). */
+    addressId: string;
+    /** The address entered with the picker, or null. */
+    address: PickedAddress | null;
+};
+
+/**
+ * What a project's delivery answers still mean once its service is `next`:
+ * an installed service asks no method, and one that asks a method starts
+ * unanswered if the last asked none. The address is kept: an installation
+ * and a delivery both need one.
+ */
+export const fulfillmentAfterServiceChange = <T extends FulfillmentAnswers>(
+    answers: T,
+    previous: { fulfillment?: Fulfillment } | undefined,
+    next: { fulfillment?: Fulfillment } | undefined,
+): T =>
+    !asksDeliveryMethod(next)
+        ? { ...answers, deliveryMethod: '' }
+        : !asksDeliveryMethod(previous)
+          ? { ...answers, deliveryMethod: '' }
+          : answers;
+
+/**
+ * The complaints about a project's delivery answers, each on the field it is
+ * about, as StoreInquiryRequest words them. `addressComplete` says whether the
+ * picker's value has every level (lib/ph-address.ts isAddressComplete).
+ */
+export const fulfillmentProblems = (
+    answers: FulfillmentAnswers,
+    service: { fulfillment?: Fulfillment } | undefined,
+    source: AddressSource,
+    addressComplete: (address: PickedAddress) => boolean,
+): Array<{
+    field: 'deliveryMethod' | 'addressId' | 'address';
+    message: string;
+}> => {
+    if (service === undefined) {
+        return [];
+    }
+
+    if (asksDeliveryMethod(service) && answers.deliveryMethod === '') {
+        return [
+            {
+                field: 'deliveryMethod',
+                message: 'Choose how you would like to get it.',
+            },
+        ];
+    }
+
+    if (!needsAddress(service, answers.deliveryMethod)) {
+        return [];
+    }
+
+    const isDelivery = service.fulfillment !== INSTALLED;
+
+    if (source === 'book') {
+        return answers.addressId === ''
+            ? [
+                  {
+                      field: 'addressId',
+                      message: isDelivery
+                          ? 'Choose the delivery address.'
+                          : 'Choose the installation address.',
+                  },
+              ]
+            : [];
+    }
+
+    return answers.address === null || !addressComplete(answers.address)
+        ? [
+              {
+                  field: 'address',
+                  message: isDelivery
+                      ? 'Enter the delivery address.'
+                      : 'Enter the installation address.',
+              },
+          ]
+        : [];
+};
+
+/**
+ * The question after this one: the brands, What do you need?, the stones,
+ * the details. A service that asks for no stones (Installation Only) goes
+ * from What do you need? straight to the details.
  */
 export const nextQuestion = (
     step: number,
@@ -51,6 +230,9 @@ export const nextQuestion = (
 
 /** The answers that decide how far the questions go. */
 export type DraftProgress = {
+    /** Unknown counts as answered, for a draft saved before the brand question. */
+    brands?: string[];
+    brandNoPreference?: boolean;
     serviceId: string;
     stoneIds: string[];
     stoneAdvice?: boolean;
@@ -58,20 +240,29 @@ export type DraftProgress = {
     requiresStones?: boolean;
 };
 
+/** Whether the brand question is answered: a brand, or No preference. */
+const brandAnswered = (draft: DraftProgress): boolean =>
+    draft.brands === undefined ||
+    draft.brands.length > 0 ||
+    draft.brandNoPreference === true;
+
 /**
- * The furthest question the draft's answers reach: What do you need? until a
- * service is chosen, the stones until one is picked or left to Regray, then
- * the details. A service that asks for no stones reaches the details as soon
- * as it is chosen. A restored draft shows every question up to it.
+ * The furthest question the draft's answers reach: the brands until one or No
+ * preference is chosen, What do you need? until a service is, the stones
+ * until one is picked or left to Regray, then the details. A service that
+ * asks for no stones reaches the details as soon as it is chosen. A restored
+ * draft shows every question up to it.
  */
 export const furthestQuestion = (draft: DraftProgress): number =>
-    draft.serviceId === ''
-        ? SERVICE_STEP
-        : draft.requiresStones === false ||
-            draft.stoneIds.length > 0 ||
-            draft.stoneAdvice === true
-          ? REQUIREMENTS_STEP
-          : STONES_STEP;
+    !brandAnswered(draft)
+        ? BRAND_STEP
+        : draft.serviceId === ''
+          ? SERVICE_STEP
+          : draft.requiresStones === false ||
+              draft.stoneIds.length > 0 ||
+              draft.stoneAdvice === true
+            ? REQUIREMENTS_STEP
+            : STONES_STEP;
 
 /**
  * Why Next cannot show the question after this one yet, or null when it can.
@@ -81,7 +272,14 @@ export const questionProblem = (
     question: number,
     draft: DraftProgress,
     offeredServiceIds: ReadonlySet<string>,
-): { field: 'serviceId' | 'stoneIds'; message: string } | null => {
+): { field: 'brands' | 'serviceId' | 'stoneIds'; message: string } | null => {
+    if (question === BRAND_STEP && !brandAnswered(draft)) {
+        return {
+            field: 'brands',
+            message: 'Choose at least one brand, or No preference.',
+        };
+    }
+
     if (question === SERVICE_STEP && !offeredServiceIds.has(draft.serviceId)) {
         return { field: 'serviceId', message: 'Choose what you need.' };
     }
@@ -114,7 +312,7 @@ export const autoProjectName = (
  * The stored step is a number the draft behind it may no longer justify: a
  * Review with no projects left to review, a Stones question with no service
  * chosen, details with no stones. So the stored step is held to the furthest step
- * the draft still justifies, and What do you need? is the floor. A service that
+ * the draft still justifies, and the brand question is the floor. A service that
  * asks for no stones justifies the details with none, and never lands on the
  * stones question it does not ask.
  */
@@ -128,10 +326,8 @@ export const clampRestoredStep = (
     }
 
     const furthest = furthestQuestion(draft);
-    const requested = Number.isFinite(stored)
-        ? Math.trunc(stored)
-        : SERVICE_STEP;
-    const landed = Math.min(Math.max(requested, SERVICE_STEP), furthest);
+    const requested = Number.isFinite(stored) ? Math.trunc(stored) : BRAND_STEP;
+    const landed = Math.min(Math.max(requested, BRAND_STEP), furthest);
 
     return landed === STONES_STEP && draft.requiresStones === false
         ? REQUIREMENTS_STEP
@@ -175,8 +371,9 @@ export type ServiceField = {
 /**
  * One entry of the second dropdown, as InquiryServiceResource sends it.
  * `stoneTypes` are the slugs of the stone types it is made from;
- * `requiresStones` is false for a service that asks for no stones; `fields`
- * are the questions it asks besides them, in order.
+ * `requiresStones` is false for a service that asks for no stones;
+ * `fulfillment` is how it reaches the client; `fields` are the questions it
+ * asks besides them, in order.
  */
 export type ServiceOption = {
     id: string;
@@ -185,6 +382,7 @@ export type ServiceOption = {
     features: string[];
     stoneTypes: string[];
     requiresStones: boolean;
+    fulfillment: Fulfillment;
     fields: ServiceField[];
 };
 
@@ -702,20 +900,109 @@ export type StoneQuery = {
     tab: StoneFilter;
     stoneType: string;
     search: string;
+    /** The brands' slugs to keep; none is "All brands". */
+    brands?: string[];
 };
 
-/** The filters as the query the server reads, leaving out what is no filter. */
+/**
+ * The filters as the query the server reads, leaving out what is no filter.
+ * The brands go as `stone_brands[]`, in the order the brands are listed.
+ */
 export const stoneFilterQuery = ({
     service,
     tab,
     stoneType,
     search,
-}: StoneQuery): Record<string, string> => ({
+    brands = [],
+}: StoneQuery): Record<string, string | string[]> => ({
     ...(!service ? {} : { stone_service: service }),
     ...(tab === 'all' ? {} : { stone_tab: tab }),
     ...(stoneType === ALL_STONE_TYPES ? {} : { stone_type: stoneType }),
     ...(search.trim() === '' ? {} : { stone_search: search.trim() }),
+    ...(brands.length === 0 ? {} : { stone_brands: [...brands] }),
 });
+
+/**
+ * The brands the stones may come from, by the project's Brand answer: the
+ * brands it chose (in the catalog's order), or every brand with No preference
+ * or before it is answered. `restricted` says the answer keeps the rest out.
+ */
+export type AllowedStoneBrands = { ids: string[]; restricted: boolean };
+
+export const allowedStoneBrands = (
+    catalogBrands: readonly { id: string }[],
+    answer: { brands: readonly string[]; brandNoPreference: boolean },
+): AllowedStoneBrands => {
+    const all = catalogBrands.map(({ id }) => id);
+    const chosen = answer.brandNoPreference
+        ? []
+        : all.filter((id) => answer.brands.includes(id));
+
+    return chosen.length === 0
+        ? { ids: all, restricted: false }
+        : { ids: chosen, restricted: true };
+};
+
+/**
+ * The brands the stones are asked for: the reader's own pick on the Brand
+ * filter, within the allowed ones; with none picked, every allowed brand when
+ * the answer restricts them, else none (every brand).
+ */
+export const stoneBrandsQuery = (
+    filter: readonly string[],
+    allowed: AllowedStoneBrands,
+): string[] => {
+    const picked = allowed.ids.filter((id) => filter.includes(id));
+
+    return picked.length > 0 ? picked : allowed.restricted ? allowed.ids : [];
+};
+
+/** The picked stones the page knows to be from a brand the answer keeps out. */
+export const stonesOutsideBrands = <
+    T extends { slug: string; brand: { slug: string } },
+>(
+    stoneIds: readonly string[],
+    stones: readonly T[],
+    allowed: AllowedStoneBrands,
+): T[] =>
+    allowed.restricted
+        ? stones.filter(
+              (stone) =>
+                  stoneIds.includes(stone.slug) &&
+                  !allowed.ids.includes(stone.brand.slug),
+          )
+        : [];
+
+/** What step 2 says of the stones a new Brand answer took off. */
+export const removedBrandStonesNotice = (names: readonly string[]): string => {
+    if (names.length === 0) {
+        return '';
+    }
+
+    const listed =
+        names.length === 1
+            ? names[0]
+            : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+    return `Removed ${listed}; ${names.length === 1 ? 'it is' : 'they are'} not from the brands you chose.`;
+};
+
+/** Picking an entry of the stones' Brand filter; "All brands" is none. */
+export const toggleBrandFilter = (
+    current: string[],
+    brand: string | null,
+    order: readonly string[],
+): string[] => {
+    if (brand === null) {
+        return [];
+    }
+
+    const next = current.includes(brand)
+        ? current.filter((id) => id !== brand)
+        : [...current, brand];
+
+    return order.filter((id) => next.includes(id));
+};
 
 /**
  * The stone rows for the picks.
@@ -781,16 +1068,19 @@ export type CommitDraft = {
     stones: StoneRow[];
     /** The project-scope answers, by question slug. */
     answers: Record<string, string>;
+    brands: string[];
+    brandNoPreference: boolean;
     deliveryMethod: string;
-    location: string;
+    addressId: string;
+    address: PickedAddress | null;
     neededBy: string;
     notes: string;
     attachments: unknown[];
 };
 
 /**
- * One committed project. A pickup keeps no location: what was typed before changing
- * to it stays on the draft, in case they change back.
+ * One committed project. A pickup keeps no address: what was picked before
+ * changing to it stays on the draft, in case they change back.
  */
 export const buildCommittedProject = <T extends CommitDraft>(
     draft: T,
@@ -799,6 +1089,8 @@ export const buildCommittedProject = <T extends CommitDraft>(
     const isPickup = draft.deliveryMethod === PICKUP;
 
     return {
+        brands: [...draft.brands],
+        brandNoPreference: draft.brandNoPreference,
         id: context.id,
         name: draft.name,
         serviceTypeId: draft.serviceTypeId,
@@ -807,7 +1099,9 @@ export const buildCommittedProject = <T extends CommitDraft>(
         stones: draft.stones.map((row) => ({ ...row })),
         answers: { ...draft.answers },
         deliveryMethod: draft.deliveryMethod,
-        location: isPickup ? '' : draft.location,
+        addressId: isPickup ? '' : draft.addressId,
+        address:
+            isPickup || draft.address === null ? null : { ...draft.address },
         neededBy: draft.neededBy,
         notes: draft.notes,
         attachments: draft.attachments.map((attachment) =>
@@ -838,8 +1132,11 @@ export type RequestProject = {
     stoneAdvice: boolean;
     stones: StoneRow[];
     answers: Record<string, string>;
+    brands: string[];
+    brandNoPreference: boolean;
     deliveryMethod: string;
-    location: string;
+    addressId: string;
+    address: PickedAddress | null;
     neededBy: string;
     notes: string;
     attachments: RequestAttachment[];
@@ -857,6 +1154,12 @@ export type RequestProject = {
  * no Help me choose. What the reader typed for a question the service no
  * longer asks stays on the page but is not sent, since the server refuses it.
  *
+ * The brands go as `projects[i][brands][k]` (slugs), or
+ * `projects[i][brandNoPreference]` 1. The delivery method only where the
+ * service asks one; the address only where it needs one: a saved address's
+ * `addressId` (or `keepAddress` 1 to keep the one an edit already has) from
+ * the address book, or the picker's `address[regionCode]` … `address[lng]`.
+ *
  * Multipart rather than JSON because the attachments are `File` objects.
  *
  * When editing (`withProjectIds`), each project also carries its database id
@@ -868,11 +1171,15 @@ export const buildInquiryFormData = (
     {
         withProjectIds = false,
         serviceFor,
+        addressSource = 'book',
     }: {
         withProjectIds?: boolean;
-        serviceFor: (
-            serviceId: string,
-        ) => Pick<ServiceOption, 'fields' | 'requiresStones'> | undefined;
+        serviceFor: (serviceId: string) =>
+            | (Pick<ServiceOption, 'fields' | 'requiresStones'> & {
+                  fulfillment?: Fulfillment;
+              })
+            | undefined;
+        addressSource?: AddressSource;
     },
 ): FormData => {
     const body = new FormData();
@@ -929,8 +1236,49 @@ export const buildInquiryFormData = (
             );
         }
 
-        body.append(field('deliveryMethod'), project.deliveryMethod);
-        body.append(field('location'), project.location);
+        if (project.brandNoPreference) {
+            body.append(field('brandNoPreference'), '1');
+        } else {
+            project.brands.forEach((brand, k) =>
+                body.append(`${field('brands')}[${k}]`, brand),
+            );
+        }
+
+        const method = asksDeliveryMethod(service)
+            ? project.deliveryMethod
+            : '';
+
+        if (method !== '') {
+            body.append(field('deliveryMethod'), method);
+        }
+
+        if (needsAddress(service, method)) {
+            if (addressSource === 'book') {
+                if (project.addressId === HELD_ADDRESS) {
+                    body.append(field('keepAddress'), '1');
+                } else if (project.addressId !== '') {
+                    body.append(field('addressId'), project.addressId);
+                }
+            } else if (project.address !== null) {
+                const picked = project.address;
+                const parts: Record<string, string> = {
+                    regionCode: picked.region?.code ?? '',
+                    provinceCode: picked.noProvince
+                        ? ''
+                        : (picked.province?.code ?? ''),
+                    cityCode: picked.city?.code ?? '',
+                    barangayCode: picked.barangay?.code ?? '',
+                    postalCode: picked.postalCode,
+                    lat: picked.lat === null ? '' : picked.lat.toFixed(6),
+                    lng: picked.lng === null ? '' : picked.lng.toFixed(6),
+                };
+
+                for (const [name, value] of Object.entries(parts)) {
+                    body.append(`${field('address')}[${name}]`, value);
+                }
+            }
+        }
+
         body.append(field('neededBy'), project.neededBy);
         body.append(field('notes'), project.notes);
 
@@ -1015,7 +1363,11 @@ export const mapInquiryErrors = (
         }
     }
 
-    return { projectMessages, sectionMessages, alertErrors };
+    return {
+        projectMessages,
+        sectionMessages,
+        alertErrors,
+    };
 };
 
 /** What the backend flashes after a send. */
@@ -1085,8 +1437,12 @@ export type InquiryEditProject = {
     }>;
     /** The project answers by question slug: text, a number, an option's slug, yes or no. */
     answers: Record<string, string | number | boolean | null>;
-    deliveryMethod: string;
-    location: string | null;
+    brands: string[];
+    brandNoPreference: boolean;
+    /** Null for an installed service. */
+    deliveryMethod: string | null;
+    /** The address it was sent with (PhAddressPayload), null for a pickup. */
+    address: ({ line: string } & Record<string, unknown>) | null;
     notes: string | null;
     neededBy: string | null;
     deadlineLocked: boolean;
@@ -1109,8 +1465,11 @@ export type EditFormProject = {
     stoneAdvice: boolean;
     stones: StoneRow[];
     answers: Record<string, string>;
+    brands: string[];
+    brandNoPreference: boolean;
     deliveryMethod: string;
-    location: string;
+    addressId: string;
+    address: PickedAddress | null;
     neededBy: string;
     notes: string;
     attachments: Array<{
@@ -1139,9 +1498,18 @@ const formAnswer = (value: string | number | boolean | null): string =>
  *
  * The project's id becomes the form id, as a string, which is also what is
  * sent back as `projects[i][id]`. Missing answers become the form's blank `''`.
+ *
+ * The address it was sent with is kept as it is: a client's edit holds it as
+ * HELD_ADDRESS (keepAddress), and staff start the picker from it
+ * (`toPicked`, lib/ph-address.ts addressFromPayload).
  */
 export const toEditFormProjects = (
     projects: InquiryEditProject[],
+    toPicked: (
+        address: NonNullable<InquiryEditProject['address']>,
+    ) => PickedAddress = () => {
+        throw new Error('No address reader given.');
+    },
 ): EditFormProject[] =>
     projects.map((project) => ({
         id: String(project.id),
@@ -1163,8 +1531,11 @@ export const toEditFormProjects = (
                 formAnswer(value),
             ]),
         ),
-        deliveryMethod: project.deliveryMethod,
-        location: project.location ?? '',
+        brands: [...project.brands],
+        brandNoPreference: project.brandNoPreference,
+        deliveryMethod: project.deliveryMethod ?? '',
+        addressId: project.address === null ? '' : HELD_ADDRESS,
+        address: project.address === null ? null : toPicked(project.address),
         neededBy: project.neededBy ?? '',
         notes: project.notes ?? '',
         attachments: project.attachments.map((file) => ({

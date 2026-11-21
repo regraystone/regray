@@ -35,6 +35,13 @@ export type Fixtures = {
         projectName: string;
         /** How many display statuses there are: one card each. */
         statusCount: number;
+        /** A pending inquiry with no stones: the service in place of pictures. */
+        serviceOnlyReference: string;
+        serviceName: string;
+        /** The quotation card's document, on the Kitchen island inquiry. */
+        quotation: { fileName: string; storedName: string; sizeBytes: number };
+        /** A second quotation card's file name, long enough to truncate. */
+        longQuotationFileName: string;
         longReference: string;
         longProject: string;
         longScheduleTitle: string;

@@ -37,6 +37,10 @@ void createInertiaApp({
             case name === 'forbidden':
             case name === 'not-found':
                 return null;
+            // The company pages draw the public frame themselves (PublicLayout),
+            // for guests and signed-in users alike.
+            case name.startsWith('company/'):
+                return null;
             // Pages that work for both guests and signed-in users use SiteLayout
             // which picks between GuestLayout and WorkspaceLayout based on auth state
             case name === 'landing':

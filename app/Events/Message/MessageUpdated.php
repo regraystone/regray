@@ -2,7 +2,6 @@
 
 namespace App\Events\Message;
 
-use App\Http\Resources\Message\MessageResource;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -13,8 +12,11 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * A text message was edited or removed. A removed one travels as its tombstone.
- * Rescued when Reverb is down, as MessageCreated is.
+ * A text message was edited or removed. Announced by id only, as
+ * MessageCreated is, so each open thread fetches the edit, or the removed
+ * message's tombstone, under the conversation's policy
+ * (ThreadController::message()). Rescued when Reverb is down, as
+ * MessageCreated is.
  */
 class MessageUpdated implements ShouldBroadcastNow, ShouldRescue
 {
@@ -39,6 +41,6 @@ class MessageUpdated implements ShouldBroadcastNow, ShouldRescue
     /** @return array<string, mixed> */
     public function broadcastWith(): array
     {
-        return ['message' => (new MessageResource($this->message, $this->conversation))->resolve(request())];
+        return ['messageId' => $this->message->id];
     }
 }

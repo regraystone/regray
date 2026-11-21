@@ -10,12 +10,12 @@ import {
 } from '../../resources/js/lib/staff-inquire.ts';
 
 describe('the staff Inquire modal', () => {
-    it('offers exactly two options: Platform and Direct (walk-in)', () => {
+    it('offers exactly two options: Platform and Direct', () => {
         assert.deepEqual(
             STAFF_INQUIRE_OPTIONS.map((option) => [option.kind, option.label]),
             [
                 ['platform', 'Platform'],
-                ['direct', 'Direct (walk-in)'],
+                ['direct', 'Direct'],
             ],
         );
         assert.equal(
@@ -49,13 +49,8 @@ describe('the staff Inquire modal', () => {
 });
 
 describe('direct client contacts', () => {
-    it('takes a phone, Viber, WhatsApp or email, and never a walk-in kind', () => {
-        assert.deepEqual(CONTACT_KINDS, [
-            'phone',
-            'viber',
-            'whatsapp',
-            'email',
-        ]);
-        assert.equal(CONTACT_KIND_LABELS.whatsapp, 'WhatsApp');
+    it('takes a phone and an email only', () => {
+        assert.deepEqual(CONTACT_KINDS, ['phone', 'email']);
+        assert.equal(CONTACT_KIND_LABELS.email, 'Email');
     });
 });

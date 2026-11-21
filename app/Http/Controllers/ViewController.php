@@ -12,8 +12,13 @@ use App\Enums\Permission;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
 use App\Enums\ScheduleAction;
+use App\Enums\SocialPlatform;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
+use App\Http\Resources\AccountResource;
+use App\Http\Resources\AdminBrandResource;
+use App\Http\Resources\AdminProjectResource;
+use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryRowResource;
 use App\Http\Resources\LeadOptionResource;
@@ -22,10 +27,16 @@ use App\Http\Resources\ScheduleResource;
 use App\Models\Lead;
 use App\Models\Schedule;
 use App\Models\User;
+use App\Repositories\Contracts\BrandRepositoryInterface;
+use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Repositories\Contracts\ProjectRepositoryInterface;
+use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
+use App\Services\WalkInInquiryService;
+use App\Support\ReservedSlugs;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -158,10 +169,15 @@ class ViewController extends Controller
     }
 
     /**
-     * The Inquire page and everything it offers: the service types and their
-     * services, the stones a page at a time, the edge profiles and finishes still in
-     * use, and the locations. All of it is read here rather than imported by the page, so
-     * the flow and the validation behind it start from the same rows.
+     * The Inquire page and everything it offers: the brands, the service
+     * types and their services, the stones a page at a time, and the edge
+     * profiles and finishes still in use. All of it is read here rather than
+     * imported by the page, so the flow and the validation behind it start
+     * from the same rows.
+     *
+     * A client sending their own inquiry is also given their address book
+     * (`addresses`, the default first), which a project that needs an address
+     * picks from. Staff are not: they enter the address themselves.
      *
      * Staff open an inquiry for a lead's client, so they are also given the
      * leads they may pick (`leads`), and `lead` when the URL names one of
@@ -169,7 +185,7 @@ class ViewController extends Controller
      * super-admin every open lead. A client's `leads` is null: they send their
      * own.
      */
-    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads): Response
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses, WalkInInquiryService $walkIns): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -179,8 +195,12 @@ class ViewController extends Controller
             ...InquiryCatalogResource::make($listInquiryOptions->execute())->resolve($request),
             ...$listInquiryStones->execute($request),
             'mode' => 'create',
+            // Staff do not get the key at all: there is no book to pick from.
+            ...($pickable === null ? ['addresses' => ClientAddressResource::collection($addresses->forUser($user))->resolve($request)] : []),
             'leads' => $pickable === null ? null : LeadOptionResource::collection($pickable)->resolve($request),
             'lead' => $pickable?->firstWhere('reference', $request->query('lead'))?->reference,
+            // Who a walk-in's inquiry may be given to: null for sales, who owns what it opens, and for a client.
+            'walkInOwners' => $pickable === null ? null : $walkIns->ownerOptions($user)?->map(fn (User $owner): array => ['id' => $owner->id, 'name' => $owner->name])->values()->all(),
         ]);
     }
 
@@ -330,9 +350,43 @@ class ViewController extends Controller
         ]);
     }
 
-    public function stones(Request $request): Response
+    /**
+     * The admin's Brands page: every brand but the archived, hidden ones too,
+     * by display order then name, a page at a time, searched by the brand's
+     * name. There is no status filter.
+     */
+    public function brands(DataTableRequest $request, BrandRepositoryInterface $brands): Response
     {
-        return Inertia::render('stones');
+        return Inertia::render('brands', [
+            'brands' => self::page($brands->paginateForAdmin(
+                $request->escapedSearch(),
+                $request->perPage(),
+                $request->page(),
+            ), AdminBrandResource::class, $request),
+            'filters' => $request->filters(),
+            'canCreate' => $request->user()?->can(Permission::BrandsCreate->value) ?? false,
+            'limits' => [
+                'logoMaxKb' => config()->integer('brands.logo_max_kb'),
+                'thumbnailMaxKb' => config()->integer('brands.thumbnail_max_kb'),
+                'factsMax' => config()->integer('brands.facts_max'),
+                'factLabelMax' => config()->integer('brands.fact_label_max'),
+                'factValueMax' => config()->integer('brands.fact_value_max'),
+                'makesMax' => config()->integer('brands.makes_max'),
+                'makeMax' => config()->integer('brands.make_max'),
+            ],
+            // The networks a brand may link to, each with its own icon on its page.
+            'socialPlatforms' => array_map(
+                fn (SocialPlatform $platform): array => ['value' => $platform->value, 'label' => $platform->label()],
+                SocialPlatform::cases(),
+            ),
+            'reservedSlugs' => ReservedSlugs::ALL,
+            'publicBrandUrl' => route('brands.show', '__slug__'),
+        ]);
+    }
+
+    public function products(Request $request): Response
+    {
+        return Inertia::render('products');
     }
 
     public function services(Request $request): Response
@@ -340,13 +394,67 @@ class ViewController extends Controller
         return Inertia::render('services');
     }
 
-    public function accounts(Request $request): Response
+    /**
+     * The admin's Accounts page: the staff accounts the admin manages (never an
+     * admin or a client), but the archived, newest first, a page at a time, searched by name or email and filtered by status
+     * (`all`, `active`, `inactive`; anything else is `all`).
+     *
+     * Also what the Add and Edit drawers offer: the staff roles an account may
+     * be given (`assignableRoles`), and the temporary password a new account
+     * starts with (`defaultPassword`), shown read-only and never sent back.
+     */
+    public function accounts(DataTableRequest $request, UserRepositoryInterface $users): Response
     {
-        return Inertia::render('accounts');
+        $status = in_array($request->query('status'), ['active', 'inactive'], true) ? (string) $request->query('status') : 'all';
+
+        return Inertia::render('accounts', [
+            'accounts' => self::page($users->paginateAccounts(
+                $request->escapedSearch(),
+                $status === 'all' ? null : $status === 'active',
+                $request->perPage(),
+                $request->page(),
+            ), AccountResource::class, $request),
+            'filters' => array_merge($request->filters(), ['status' => $status]),
+            'assignableRoles' => array_map(fn (Role $role): array => [
+                'value' => $role->value,
+                'label' => AccountResource::roleLabel($role),
+            ], Role::staffRoles()),
+            'defaultPassword' => config()->string('accounts.default_password'),
+            'canCreate' => $request->user()?->can(Permission::AccountsCreate->value) ?? false,
+        ]);
     }
 
-    public function projects(Request $request): Response
+    /**
+     * The admin's Projects page: every project but the archived, drafts too,
+     * newest completed first, then by name, a page at a time, searched by the
+     * project's name. There is no status filter.
+     *
+     * Also what the Add and Edit drawers offer: the active brands, stones and
+     * categories, and the limits the form checks.
+     */
+    public function projects(DataTableRequest $request, ProjectRepositoryInterface $projects): Response
     {
-        return Inertia::render('projects');
+        $options = $projects->adminOptions();
+
+        return Inertia::render('projects', [
+            'projects' => self::page($projects->paginateForAdmin(
+                $request->escapedSearch(),
+                $request->perPage(),
+                $request->page(),
+            ), AdminProjectResource::class, $request),
+            'filters' => $request->filters(),
+            'canCreate' => $request->user()?->can(Permission::ProjectsCreate->value) ?? false,
+            'limits' => [
+                'thumbnailMaxKb' => config()->integer('projects.thumbnail_max_kb'),
+                'photoMaxKb' => config()->integer('projects.photo_max_kb'),
+                'galleryMax' => config()->integer('projects.gallery_max'),
+                'overviewMax' => config()->integer('projects.overview_max'),
+            ],
+            'reservedSlugs' => ReservedSlugs::ALL,
+            'publicProjectUrl' => route('stone.show', '__slug__'),
+            'brandOptions' => $options['brands'],
+            'stoneOptions' => $options['stones'],
+            'categoryOptions' => $options['categories'],
+        ]);
     }
 }

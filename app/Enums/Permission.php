@@ -44,7 +44,8 @@ enum Permission: string
     case InquiriesView = 'inquiries.view';
     case ScheduleView = 'schedule.view';
     case MessagesView = 'messages.view';
-    case StonesView = 'stones.view';
+    case BrandsView = 'brands.view';
+    case ProductsView = 'products.view';
     case ServicesView = 'services.view';
     case AccountsView = 'accounts.view';
     case ProjectsView = 'projects.view';
@@ -76,6 +77,17 @@ enum Permission: string
      * Profile hub.
      */
     case ProfileScheduleView = 'profile-schedule.view';
+
+    /**
+     * The client's own address book (Addresses) under the Profile hub.
+     *
+     * Like `ProfileScheduleView`, a view permission with no sidebar entry: the
+     * row on the Profile hub is the door. It is granted to the client alone,
+     * since `inquiries.create` is also held by staff and cannot say who is
+     * sending their own inquiry. The super-admin reaches it through
+     * `Gate::before`, as it reaches every other page.
+     */
+    case ProfileAddressesView = 'profile-addresses.view';
 
     /**
      * The stone profile reached from the Home feed at `/home/{stone}`.
@@ -209,6 +221,68 @@ enum Permission: string
      * answer it, for good: a claim is never released or reassigned.
      */
     case SupportClaim = 'support.claim';
+
+    /**
+     * Adding a staff account from the Accounts page, with the temporary
+     * password (config/accounts.php). An action permission: it guards the
+     * endpoint and the Add account button, not a page. The admin's alone.
+     */
+    case AccountsCreate = 'accounts.create';
+
+    /**
+     * Changing an account from the Accounts page: its name, email, a staff
+     * account's role, and whether it is active. The admin's alone.
+     * AccountService refuses turning off your own account or the last
+     * active admin, whoever asks.
+     */
+    case AccountsUpdate = 'accounts.update';
+
+    /**
+     * Archiving an account from the Accounts page: it leaves the list and can
+     * never sign in again. The admin's alone, with the same guards as
+     * turning an account off.
+     */
+    case AccountsArchive = 'accounts.archive';
+
+    /**
+     * Adding a brand from the Brands page: its name, slug, images, facts and
+     * what it makes. An action permission: it guards the endpoint and the Add
+     * brand button, not a page. The admin's alone.
+     */
+    case BrandsCreate = 'brands.create';
+
+    /**
+     * Changing a brand from the Brands page, its images included, and whether
+     * it is visible on Regray. The admin's alone.
+     */
+    case BrandsUpdate = 'brands.update';
+
+    /**
+     * Archiving a brand from the Brands page: it leaves the page and goes
+     * offline everywhere, and its stones and furniture with it. Saved items
+     * and past inquiries keep them. The admin's alone.
+     */
+    case BrandsArchive = 'brands.archive';
+
+    /**
+     * Adding a project from the Projects page: its name, slug, details,
+     * thumbnail and gallery, stones and categories. An action permission: it
+     * guards the endpoint and the Add project button, not a page. The admin's
+     * alone.
+     */
+    case ProjectsCreate = 'projects.create';
+
+    /**
+     * Changing a project from the Projects page, its images included, and
+     * whether it is published on Regray. The admin's alone.
+     */
+    case ProjectsUpdate = 'projects.update';
+
+    /**
+     * Archiving a project from the Projects page: it leaves the page and its
+     * page goes offline everywhere. Saved projects keep it. The admin's alone.
+     */
+    case ProjectsArchive = 'projects.archive';
 
     /**
      * The `can:` middleware string that guards a route with this permission.

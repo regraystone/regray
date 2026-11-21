@@ -2,6 +2,7 @@
 
 use App\Enums\Permission;
 use App\Enums\Role;
+use App\Enums\SalesStatus;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use Database\Seeders\FurnitureSeeder;
@@ -62,7 +63,8 @@ function workspacePages(): array
         'schedule.index' => [],
         'schedule.book' => [],
         'inbox.index' => [],
-        'stones.index' => [],
+        'dashboard.brands.index' => [],
+        'products.index' => [],
         'services.index' => [],
         'accounts.index' => [],
         'projects.index' => [],
@@ -152,6 +154,12 @@ test('guards every route with exactly these permissions', function () {
         'brands.stones.show' => [],
         'brands.furniture.show' => [],
         'stone.show' => [],
+        // The company pages answer everyone, signed in or not.
+        'company.brands' => [],
+        'company.showroom' => [],
+        'company.about' => [],
+        'company.news' => [],
+        'company.contact' => [],
         // Signing in and up with Google happens before there is a signed-in user.
         'auth.google.redirect' => [],
         'auth.google.callback' => [],
@@ -194,6 +202,9 @@ test('guards every route with exactly these permissions', function () {
         // The track's own permission is the policy's to check.
         'inquiries.status' => $p(Permission::InquiriesView),
         'inquiries.job-order' => $p(Permission::InquiriesView),
+        // A walk-in's inquiry: who may add whom is InquiryPolicy::assign()'s; deciding it is marketing's.
+        'inquiries.handlers.store' => $p(Permission::InquiriesView),
+        'inquiries.decision' => $p(Permission::InquiriesView, Permission::LeadsUpdate),
         'leads.index' => $p(Permission::LeadsView),
         'leads.inquiries.status' => $p(Permission::LeadsUpdate),
         'leads.update' => $p(Permission::LeadsUpdate),
@@ -214,20 +225,35 @@ test('guards every route with exactly these permissions', function () {
         'inbox.index' => $messages,
         'inbox.people' => $p(Permission::MessagesView, Permission::ConversationsCreate),
         'inbox.groups.store' => $p(Permission::MessagesView, Permission::ConversationsCreate),
+        'inbox.walk-in-inquiries' => $p(Permission::MessagesView, Permission::ConversationsCreate),
+        'inbox.groups.walk-in.store' => $p(Permission::MessagesView, Permission::ConversationsCreate),
         'inbox.messages.update' => $messages,
         'inbox.messages.destroy' => $messages,
         'inbox.attachments.show' => $messages,
         'inbox.thread' => $messages,
+        'inbox.message' => $messages,
         'inbox.send' => $messages,
+        'inbox.typing' => $messages,
         'inbox.read' => $messages,
         'inbox.delivered' => $messages,
         'inbox.claim' => $messages,
         'inbox.members.index' => $messages,
         'inbox.members.store' => $messages,
-        'stones.index' => $p(Permission::StonesView),
+        'dashboard.brands.index' => $p(Permission::BrandsView),
+        'dashboard.brands.store' => $p(Permission::BrandsView, Permission::BrandsCreate),
+        'dashboard.brands.update' => $p(Permission::BrandsView, Permission::BrandsUpdate),
+        'dashboard.brands.archive' => $p(Permission::BrandsView, Permission::BrandsArchive),
+        'products.index' => $p(Permission::ProductsView),
         'services.index' => $p(Permission::ServicesView),
         'accounts.index' => $p(Permission::AccountsView),
+        'accounts.store' => $p(Permission::AccountsView, Permission::AccountsCreate),
+        'accounts.update' => $p(Permission::AccountsView, Permission::AccountsUpdate),
+        'accounts.status' => $p(Permission::AccountsView, Permission::AccountsUpdate),
+        'accounts.archive' => $p(Permission::AccountsView, Permission::AccountsArchive),
         'projects.index' => $p(Permission::ProjectsView),
+        'dashboard.projects.store' => $p(Permission::ProjectsView, Permission::ProjectsCreate),
+        'dashboard.projects.update' => $p(Permission::ProjectsView, Permission::ProjectsUpdate),
+        'dashboard.projects.archive' => $p(Permission::ProjectsView, Permission::ProjectsArchive),
         'profile.show' => $p(Permission::ProfileView),
         'profile.settings' => $p(Permission::ProfileView),
         'profile.edit' => $p(Permission::ProfileView),
@@ -238,6 +264,11 @@ test('guards every route with exactly these permissions', function () {
         'profile.destroy' => $p(Permission::ProfileView),
         'security.edit' => $p(Permission::ProfileView),
         'user-password.update' => $p(Permission::ProfileView),
+        'profile.addresses.index' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.store' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.update' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.default' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
+        'profile.addresses.destroy' => $p(Permission::ProfileView, Permission::ProfileAddressesView),
         'profile.schedule' => $p(Permission::ProfileView, Permission::ProfileScheduleView),
         'profile.schedule.book' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleCreate),
         'profile.schedule.edit' => $p(Permission::ProfileView, Permission::ProfileScheduleView, Permission::ScheduleUpdate),
@@ -245,6 +276,13 @@ test('guards every route with exactly these permissions', function () {
         'notifications.index' => [],
         'notifications.read-all' => [],
         'notifications.open' => [],
+        // The address picker's place searches: any signed-in user.
+        'ph.regions' => [],
+        'ph.provinces' => [],
+        'ph.cities' => [],
+        'ph.barangays' => [],
+        'ph.postal-codes' => [],
+        'ph.resolve' => [],
     ];
 
     expect(pageRoutes()->mapWithKeys(fn (RoutingRoute $route) => [$route->getName() => guardsFor($route->getName())])->all())
@@ -277,7 +315,8 @@ test('opens to each role exactly the pages its matrix entry grants', function (s
 
     if (guardsAllow($role, 'quote.show') || guardsAllow($role, 'inquiry.show')) {
         seedInquiryCatalog();
-        $inquiry = makeInquiry($user);
+        // Won, so accounting and logistics may be assigned to it (the inquiry_handlers trigger).
+        $inquiry = makeInquiry($user, attributes: ['sales_status' => SalesStatus::Won]);
         letStaffRead($inquiry, $user);
         $reference = $inquiry->reference;
     }

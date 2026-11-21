@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
     clampPage,
     DEFAULT_PAGE_SIZE,
+    nextQuery,
     pageNumbers,
     rangeText,
     splitRowActions,
@@ -171,8 +172,8 @@ describe('required file groups', () => {
 });
 
 describe('page sizes', () => {
-    it('use one fixed page size of 20', () => {
-        assert.equal(DEFAULT_PAGE_SIZE, 20);
+    it('use one fixed page size of 10', () => {
+        assert.equal(DEFAULT_PAGE_SIZE, 10);
     });
 
     it('keep the page between the first and the last', () => {
@@ -209,10 +210,31 @@ describe('pagination', () => {
         );
     });
 
-    it('draws the first, last and nearby pages, with a gap for the rest', () => {
+    it('draws every page up to seven', () => {
+        assert.deepEqual(pageNumbers(1, 1), []);
         assert.deepEqual(pageNumbers(1, 3), [1, 2, 3]);
-        assert.deepEqual(pageNumbers(5, 10), [1, null, 4, 5, 6, null, 10]);
-        assert.deepEqual(pageNumbers(1, 10), [1, 2, null, 10]);
+        assert.deepEqual(pageNumbers(4, 7), [1, 2, 3, 4, 5, 6, 7]);
+    });
+
+    it('draws the first two, the last two and the current page with its neighbours', () => {
+        const draw = (current, last) =>
+            pageNumbers(current, last)
+                .map((page) => page ?? '…')
+                .join(' ');
+
+        assert.equal(draw(1, 10), '1 2 3 … 9 10');
+        assert.equal(draw(3, 10), '1 2 3 4 … 9 10');
+        assert.equal(draw(6, 10), '1 2 … 5 6 7 8 9 10');
+        assert.equal(draw(8, 10), '1 2 … 7 8 9 10');
+        assert.equal(draw(10, 10), '1 2 … 8 9 10');
+        assert.equal(draw(10, 20), '1 2 … 9 10 11 … 19 20');
+    });
+
+    it('shows a single skipped page rather than a gap', () => {
+        // 1 2 _ 4 5 6 7 8: the 3 is shown, not hidden behind an ellipsis.
+        assert.deepEqual(pageNumbers(5, 8), [1, 2, 3, 4, 5, 6, 7, 8]);
+        // Two or more skipped pages are a gap.
+        assert.deepEqual(pageNumbers(3, 8), [1, 2, 3, 4, null, 7, 8]);
     });
 });
 
@@ -230,5 +252,50 @@ describe('row actions', () => {
             inline: ['view'],
             menu: ['edit', 'won', 'lost'],
         });
+    });
+
+    it('takes a threshold: three inline when the page allows three', () => {
+        assert.deepEqual(splitRowActions(['view', 'edit', 'archive'], 3), {
+            inline: ['view', 'edit', 'archive'],
+            menu: [],
+        });
+        assert.deepEqual(
+            splitRowActions(['view', 'edit', 'archive', 'lost'], 3),
+            { inline: ['view'], menu: ['edit', 'archive', 'lost'] },
+        );
+    });
+});
+
+describe('list query', () => {
+    it('keeps the other filters and starts again from page 1', () => {
+        assert.deepEqual(
+            nextQuery(
+                { search: 'ana', status: 'active', page: '4' },
+                {
+                    search: 'ben',
+                },
+            ),
+            { search: 'ben', status: 'active', page: '1' },
+        );
+    });
+
+    it('keeps the page it is told to go to', () => {
+        assert.deepEqual(nextQuery({ status: 'active' }, { page: 3 }), {
+            status: 'active',
+            page: '3',
+        });
+    });
+
+    it('drops an empty search and the all filter', () => {
+        assert.deepEqual(
+            nextQuery(
+                { search: 'ana', status: 'inactive' },
+                {
+                    search: '  ',
+                    status: 'all',
+                },
+            ),
+            { page: '1' },
+        );
     });
 });

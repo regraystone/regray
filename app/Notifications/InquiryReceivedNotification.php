@@ -106,9 +106,9 @@ class InquiryReceivedNotification extends Notification implements ShouldQueue
             $lines[] = "{$answer->detailField->name}: {$answer->displayValue($firstStone)}";
         }
 
-        $lines[] = $inquiry->delivery_method === DeliveryMethod::Delivery
-            ? "Delivery: to {$inquiry->location}"
-            : 'Delivery: you will pick it up';
+        $lines[] = $inquiry->delivery_method === DeliveryMethod::Pickup
+            ? 'Delivery: you will pick it up'
+            : ($inquiry->delivery_method === DeliveryMethod::Delivery ? 'Delivery' : 'Installation').': '.($inquiry->address()?->line() ?? '');
 
         if ($inquiry->schedule !== null) {
             $lines[] = 'Needed by: '.$inquiry->schedule->arrival_at->copy()->setTimezone((string) config('schedule.timezone'))->format('M j, Y');

@@ -6,6 +6,7 @@ import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import WalkInInquiryCard from '@/components/walk-in-inquiry-card';
 import type { InquiryRequirementsRecord } from '@/data/inquiries';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
@@ -20,7 +21,6 @@ import { buildCardActions } from '@/lib/quote-actions';
 import { index as inquiryIndex } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
 import { index as quoteIndex } from '@/routes/quote';
-import { DELIVERY_METHODS, PICKUP } from '@/lib/inquiry-flow';
 import type { QuoteInquiryDetails, StoredInquiryFile } from '@/types/quote';
 
 type InquiryDetailsProps = {
@@ -55,6 +55,8 @@ type ResolvedProject = {
     name: string;
     /** The client asked Regray to recommend a stone instead of choosing one. */
     stoneAdviceRequested: boolean;
+    brands: Array<{ id: string; name: string }>;
+    brandNoPreference: boolean;
     serviceType: string | null;
     service: string | null;
     /** False for a service that asks for no stones. */
@@ -67,10 +69,6 @@ type ResolvedProject = {
         attachments: StoredInquiryFile[];
     };
 };
-
-/** Pieces rather than types: how much was asked for, not how many kinds of it. */
-const inquiryDeliveryMethod = (project: ResolvedProject): string | undefined =>
-    project.requirements.deliveryMethod;
 
 /** Null when the service asked no piece count, which only the slab services ask. */
 const countPieces = (
@@ -629,6 +627,16 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 
                     <dl>
                         <SummaryRow
+                            label="Brands"
+                            value={
+                                project.brandNoPreference
+                                    ? 'No preference'
+                                    : project.brands
+                                          .map(({ name }) => name)
+                                          .join(', ') || undefined
+                            }
+                        />
+                        <SummaryRow
                             label="Service type"
                             value={project.serviceType ?? undefined}
                         />
@@ -661,20 +669,8 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                     <dl>
                         <SummaryRow
                             label="How you'll get it"
-                            value={
-                                DELIVERY_METHODS.find(
-                                    ({ value }) =>
-                                        value ===
-                                        inquiryDeliveryMethod(project),
-                                )?.title
-                            }
+                            value={project.requirements.fulfillment}
                         />
-                        {inquiryDeliveryMethod(project) === PICKUP ? null : (
-                            <SummaryRow
-                                label="Location"
-                                value={project.requirements.location}
-                            />
-                        )}
                         <SummaryRow label="Target deadline" value={neededBy} />
                     </dl>
 
@@ -728,8 +724,8 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
 const toRequirements = (
     requirements: QuoteInquiryDetails['project']['requirements'],
 ): ResolvedProject['requirements'] => ({
-    deliveryMethod: requirements.deliveryMethod,
-    location: requirements.location ?? undefined,
+    deliveryMethod: requirements.deliveryMethod ?? undefined,
+    fulfillment: requirements.fulfillment,
     neededBy: requirements.neededBy ?? undefined,
     notes: requirements.notes ?? undefined,
     attachments: requirements.attachments,
@@ -752,6 +748,8 @@ const InquiryDetails = () => {
     const project: ResolvedProject = {
         name: inquiry.project.name,
         stoneAdviceRequested: inquiry.project.stoneAdviceRequested,
+        brands: inquiry.project.brands,
+        brandNoPreference: inquiry.project.brandNoPreference,
         serviceType: inquiry.project.serviceType,
         service: inquiry.project.service,
         requiresStones: inquiry.project.requiresStones,
@@ -874,6 +872,12 @@ const InquiryDetails = () => {
              */}
             <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <aside className="space-y-6 lg:order-2">
+                    {inquiry.walkIn ? (
+                        <WalkInInquiryCard
+                            reference={inquiry.reference}
+                            walkIn={inquiry.walkIn}
+                        />
+                    ) : null}
                     <AssignedStaffCard staff={inquiry.assignedStaff} />
                     <ActivityLogCard
                         history={inquiry.history}

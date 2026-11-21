@@ -14,7 +14,7 @@ import {
     LeadStatusBadge,
     LeadTallyBadges,
 } from '@/components/lead-status-badge';
-import PageHeading from '@/components/page-heading';
+import PageHeader from '@/components/page-header';
 import StatusUpdateDialog from '@/components/status-update-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -104,30 +104,6 @@ const Leads = () => {
         to: 'won' | 'lost';
     } | null>(null);
     const [groupPreset, setGroupPreset] = useState<GroupPreset | null>(null);
-    const [statusFilter, setStatusFilter] = useState(
-        props.filters.status || 'all',
-    );
-
-    const handleStatusFilterChange = (value: string) => {
-        setStatusFilter(value);
-        router.get(
-            window.location.pathname,
-            {
-                ...(props.filters.search.trim() !== '' && {
-                    search: props.filters.search,
-                }),
-                ...(value !== 'all' && { status: value }),
-                page: 1,
-            },
-            {
-                only: ['leads', 'filters'],
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            },
-        );
-    };
-
     const statusOptions: DataTableFilterOption[] = [
         { value: 'all', label: 'All statuses' },
         ...LEAD_STATUSES.map((status) => ({
@@ -185,9 +161,9 @@ const Leads = () => {
 
     return (
         <div className="w-full min-w-0">
-            <PageHeading
+            <PageHeader
                 title="Leads"
-                description="Your clients, and where each one stands"
+                subtitle="Your clients, and where each one stands"
             />
 
             <DataTable
@@ -200,9 +176,7 @@ const Leads = () => {
                 searchPlaceholder="Search by name, email or inquiry no."
                 emptyTitle="No leads found"
                 emptyDescription="A lead is created when you take a client's Regray conversation."
-                statusFilter={statusFilter}
                 statusOptions={statusOptions}
-                onStatusFilterChange={handleStatusFilterChange}
             />
 
             {/* View Modal - Redesigned */}

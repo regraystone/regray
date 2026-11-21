@@ -96,6 +96,7 @@ const ScrollFooter = ({
     loading,
     loadingPrevious,
     hasMore,
+    onShowMore,
     isUpdating,
     itemCount,
     listKey,
@@ -106,6 +107,7 @@ const ScrollFooter = ({
     loading: boolean;
     loadingPrevious: boolean;
     hasMore: boolean;
+    onShowMore: () => void;
     isUpdating: boolean;
     itemCount: number;
     listKey: string;
@@ -193,6 +195,26 @@ const ScrollFooter = ({
 
     if (isUpdating || loading) {
         return <SkeletonRow showHeart={showHeart} />;
+    }
+
+    if (hasMore) {
+        return (
+            <div className="mt-12 flex justify-center">
+                <button
+                    type="button"
+                    onClick={onShowMore}
+                    className="cursor-pointer border-b border-foreground px-3 pb-3.5 text-[0.8125rem] tracking-[0.04em] uppercase transition-opacity hover:opacity-70"
+                >
+                    {
+                        {
+                            all: 'Show more products',
+                            stones: 'Show more stones',
+                            furniture: 'Show more furniture',
+                        }[mode]
+                    }
+                </button>
+            </div>
+        );
     }
 
     return !hasMore && !loadingPrevious && itemCount > perPage ? (
@@ -399,7 +421,7 @@ export default function BrandCollection() {
             <div className="mb-6 border-b border-sidebar-border pb-4">
                 <h2
                     id="brand-collection-heading"
-                    className="text-2xl font-bold tracking-[-0.04em] uppercase sm:text-3xl"
+                    className="font-display text-[clamp(1.5rem,2vw,2rem)] font-light tracking-[0.06em] uppercase"
                 >
                     Our Collection
                 </h2>
@@ -539,15 +561,19 @@ export default function BrandCollection() {
                         ) : (
                             <InfiniteScroll
                                 data="products"
+                                // Each next page on a button, so the sections under the collection stay in reach.
+                                manual
                                 next={({
                                     loading,
                                     loadingPrevious,
                                     hasMore,
+                                    fetch,
                                 }) => (
                                     <ScrollFooter
                                         loading={loading}
                                         loadingPrevious={loadingPrevious}
                                         hasMore={hasMore}
+                                        onShowMore={fetch}
                                         isUpdating={isUpdating}
                                         itemCount={products.length}
                                         listKey={listKey}

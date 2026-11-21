@@ -20,6 +20,7 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
+    Store,
     Users,
     Wrench,
 } from 'lucide-react';
@@ -36,7 +37,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
 import {
     Tooltip,
     TooltipContent,
@@ -44,14 +44,16 @@ import {
 } from '@/components/ui/tooltip';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
 import { getEcho, listenTo, onReconnect } from '@/lib/echo';
 import { onUnreadChanged } from '@/lib/unread-badge';
 import type { Realtime } from '@/types/message';
 import { index as accountsIndex } from '@/routes/accounts';
 import { index as scheduleIndex } from '@/routes/schedule';
-import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
+import {
+    index as dashboardBrandsIndex,
+    show as dashboardBrandShow,
+} from '@/routes/dashboard/brands';
 import { index as homeIndex } from '@/routes/home';
 import { index as leadsIndex } from '@/routes/leads';
 import {
@@ -60,14 +62,15 @@ import {
 } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
 import { index as overviewIndex } from '@/routes/overview';
+import { index as productsIndex } from '@/routes/products';
 import { index as projectsIndex } from '@/routes/projects';
-import { index as stonesIndex } from '@/routes/stones';
 import {
     schedule as profileSchedule,
     edit as editAccountSecurity,
     settings as profileSettings,
     show as showProfile,
 } from '@/routes/profile';
+import { index as profileAddresses } from '@/routes/profile/addresses';
 import { book as profileScheduleBook } from '@/routes/profile/schedule';
 import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
@@ -101,13 +104,15 @@ export const permissions = {
     inquiriesView: 'inquiries.view',
     scheduleView: 'schedule.view',
     messagesView: 'messages.view',
-    stonesView: 'stones.view',
+    brandsView: 'brands.view',
+    productsView: 'products.view',
     servicesView: 'services.view',
     accountsView: 'accounts.view',
     projectsView: 'projects.view',
     profileView: 'profile.view',
     leadsView: 'leads.view',
     profileScheduleView: 'profile-schedule.view',
+    profileAddressesView: 'profile-addresses.view',
     homeProjectsView: 'home-projects.view',
     inquiriesCreate: 'inquiries.create',
     scheduleCreate: 'schedule.create',
@@ -205,11 +210,18 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 permission: permissions.messagesView,
             },
             {
-                slug: 'stones',
-                label: 'Stones',
-                href: stonesIndex.url(),
+                slug: 'brands',
+                label: 'Brands',
+                href: dashboardBrandsIndex.url(),
+                icon: Store,
+                permission: permissions.brandsView,
+            },
+            {
+                slug: 'products',
+                label: 'Products',
+                href: productsIndex.url(),
                 icon: Package,
-                permission: permissions.stonesView,
+                permission: permissions.productsView,
             },
             {
                 slug: 'services',
@@ -400,20 +412,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const isInboxPage = page.component === 'inbox';
     const effectiveUrl = isConfirmPassword ? editSecurity.url() : url;
 
-    // Get the stone slug from the page props when on a stone profile page
     const isStoneProfilePage = page.component === 'stone-profile';
-    const stoneSlug = isStoneProfilePage
-        ? (page.props.stone as { data: { slug: string } } | undefined)?.data
-              ?.slug
-        : undefined;
-
-    // A furniture profile has the same floating heart as a stone profile.
-    const isFurnitureProfilePage = page.component === 'furniture-profile';
-    const furnitureSlug = isFurnitureProfilePage
-        ? (page.props.furniture as { data: { slug: string } } | undefined)?.data
-              ?.slug
-        : undefined;
-    const profileSlug = stoneSlug ?? furnitureSlug;
 
     /*
      * The stepper has no sidebar item of its own; it is nested under the list
@@ -436,14 +435,11 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
     const user = page.props.auth.user;
     const savedStones = useSavedStones();
     const savedFurniture = useSavedFurniture();
-    const canSave = savedStones.canSave;
-    // The Saved badge counts both kinds; the heart works on this page's kind.
+    // The Saved badge counts both kinds. The stone and furniture profiles
+    // draw their own Save beside their Ask a quote.
     const savedCount = savedStones.savedIds.size + savedFurniture.savedIds.size;
-    const profileSaves = isFurnitureProfilePage ? savedFurniture : savedStones;
     const unreadCount = page.props.unreadMessageCount ?? 0;
     const { can } = usePermissions();
-    // The profile's "Ask a Quote" button, which the heart sits above.
-    const canInquire = useInquireRoute() !== null;
     const canMessage = can(permissions.messagesView);
     const isInSupportPool = can(permissions.supportClaim);
     const realtime = page.props.realtime as Realtime | null | undefined;
@@ -506,28 +502,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         };
     }, [canMessage, isInSupportPool, realtime, userId]);
 
-    const isSaved =
-        profileSlug !== undefined && profileSaves.savedIds.has(profileSlug);
-
-    /*
-     * The floating heart animates only when a tap flips `isSaved`. The slug is
-     * tracked beside it so arriving on a different profile — which also
-     * moves `isSaved` — resets the comparison instead of animating. Comparing
-     * during render keeps the class in the same commit as the flip.
-     */
-    const [previousIsSaved, setPreviousIsSaved] = useState(isSaved);
-    const [savedSlug, setSavedSlug] = useState(profileSlug);
-    const [heartAnimation, setHeartAnimation] = useState('');
-
-    if (savedSlug !== profileSlug) {
-        setSavedSlug(profileSlug);
-        setPreviousIsSaved(isSaved);
-        setHeartAnimation('');
-    } else if (previousIsSaved !== isSaved) {
-        setPreviousIsSaved(isSaved);
-        setHeartAnimation(isSaved ? 'heart-save' : 'heart-unsave');
-    }
-
     useEffect(() => {
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(
             !collapsed,
@@ -584,6 +558,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         security: editSecurity.url(),
         schedule: profileSchedule.url(),
         scheduleBook: profileScheduleBook.url(),
+        addresses: profileAddresses.url(),
     });
 
     const crumbs: Crumb[] = catalogueTrail ??
@@ -914,36 +889,6 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                     onNavigate={() => setDrawerOpen(false)}
                 />
             </aside>
-
-            {canSave && profileSlug && (
-                <div
-                    className={`fixed right-4 z-40 flex flex-col items-end gap-2 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] sm:right-5 ${
-                        canInquire ? 'bottom-20' : 'bottom-4 sm:bottom-5'
-                    }`}
-                >
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-11 w-11 cursor-pointer bg-background shadow-lg active:scale-90"
-                        aria-pressed={isSaved ? 'true' : 'false'}
-                        aria-label={
-                            isSaved ? 'Remove from saved' : 'Save to collection'
-                        }
-                        onClick={() => profileSaves.toggleSave(profileSlug)}
-                    >
-                        <Heart
-                            key={heartAnimation}
-                            className={`size-5 ${
-                                isSaved
-                                    ? 'fill-red-500 text-red-500'
-                                    : 'text-foreground'
-                            } ${heartAnimation}`}
-                            aria-hidden
-                        />
-                    </Button>
-                </div>
-            )}
         </div>
     );
 };

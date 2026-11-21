@@ -128,7 +128,7 @@ const EventDialog = ({
                                     </dt>
                                     <dd className="mt-1.5 text-sm text-secondary-foreground">
                                         {item.clientName}
-                                        {item.walkIn ? ' (walk-in)' : ''}
+                                        {item.walkIn ? ' (direct)' : ''}
                                     </dd>
                                 </div>
                             ) : null}
@@ -142,8 +142,8 @@ const EventDialog = ({
                                     </dt>
                                     <dd className="mt-1.5 space-y-1 text-sm text-secondary-foreground">
                                         <p className="text-xs">
-                                            A walk-in has no Regray account and
-                                            is not told in the app.
+                                            A direct client has no Regray
+                                            account and is not told in the app.
                                         </p>
                                         {item.walkIn.contacts.map((contact) => (
                                             <p
@@ -173,22 +173,6 @@ const EventDialog = ({
                                                 )}
                                             </p>
                                         ))}
-                                        {item.walkIn.company ? (
-                                            <p>
-                                                <span className="font-bold text-foreground">
-                                                    Company:
-                                                </span>{' '}
-                                                {item.walkIn.company}
-                                            </p>
-                                        ) : null}
-                                        {item.walkIn.address ? (
-                                            <p>
-                                                <span className="font-bold text-foreground">
-                                                    Address:
-                                                </span>{' '}
-                                                {item.walkIn.address}
-                                            </p>
-                                        ) : null}
                                     </dd>
                                 </div>
                             ) : null}

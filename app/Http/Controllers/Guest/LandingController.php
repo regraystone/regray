@@ -18,8 +18,8 @@ use Inertia\Response;
  */
 class LandingController extends Controller
 {
-    /** How many finished projects the landing page features. */
-    private const PROJECT_COUNT = 4;
+    /** How many finished projects the landing page's News tells. */
+    private const PROJECT_COUNT = 3;
 
     public function __construct(
         public readonly ListBrandsAction $listBrands,

@@ -7,6 +7,7 @@ use App\Actions\Message\ChangeMessageAction;
 use App\Actions\Message\MovePointerAction;
 use App\Actions\Message\SendMessageAction;
 use App\Actions\Message\ShowThreadAction;
+use App\Actions\Message\SignalTypingAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\MovePointerRequest;
 use App\Http\Requests\Message\SendMessageRequest;
@@ -20,10 +21,11 @@ use App\Models\User;
 use App\Services\Message\ConversationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 /**
- * One thread, as JSON: its messages, writing in it, the receipts, and claiming
- * a Regray Team thread.
+ * One thread, as JSON: its messages, writing in it, typing, the receipts, and
+ * claiming a Regray Team thread.
  *
  * Access is settled by the route's `can:` middleware against ConversationPolicy
  * before any of these run.
@@ -35,6 +37,7 @@ class ThreadController extends Controller
         public readonly SendMessageAction $sendMessage,
         public readonly ChangeMessageAction $changeMessage,
         public readonly MovePointerAction $movePointer,
+        public readonly SignalTypingAction $signalTyping,
         public readonly AssignSupportConversationAction $assignSupport,
         public readonly ConversationService $conversationService,
     ) {}
@@ -51,6 +54,21 @@ class ThreadController extends Controller
             'pointers' => $thread['pointers'],
             'assignment' => $thread['assignment'],
             'canRequestQuote' => $thread['canRequestQuote'],
+        ]);
+    }
+
+    /**
+     * One message, as the conversation's channel announced it: the channel
+     * carries ids only, so its content is always fetched here, under the
+     * conversation's own policy, and stops reaching anyone who has lost
+     * access, whatever connection they still hold.
+     */
+    public function message(Request $request, Conversation $conversation, int $message): JsonResponse
+    {
+        $found = $this->conversationService->message($conversation, $message) ?? abort(404);
+
+        return response()->json([
+            'message' => (new MessageResource($found, $conversation, $request->user()))->resolve($request),
         ]);
     }
 
@@ -89,6 +107,14 @@ class ThreadController extends Controller
         $this->movePointer->execute($request->user(), $conversation, $request->messageId(), $request->isRead());
 
         return response()->json(['pointers' => $this->conversationService->pointers($conversation)]);
+    }
+
+    /** "{name} is typing…", announced under the sender's own account. */
+    public function typing(Request $request, Conversation $conversation): Response
+    {
+        $this->signalTyping->execute($request->user(), $conversation);
+
+        return response()->noContent();
     }
 
     public function claim(Request $request, Conversation $conversation): JsonResponse

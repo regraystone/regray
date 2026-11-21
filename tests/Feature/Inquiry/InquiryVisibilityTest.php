@@ -128,10 +128,11 @@ it('gives a user with two roles the inquiries of either', function (): void {
     $world = visibilityWorld();
     $user = $world['users']['marketing'];
     $user->assignRole(Role::Logistics->value);
-    assignInquiry($world['inquiries']['assigned'], $user);
+    // `foreign`: one with its logistics place still free (an inquiry takes one).
+    assignInquiry($world['inquiries']['foreign'], $user);
 
     expect(Inquiry::query()->visibleTo($user)->pluck('reference')->all())
-        ->toEqualCanonicalizing(referencesOf($world, ['lead', 'created', 'assigned']));
+        ->toEqualCanonicalizing(referencesOf($world, ['lead', 'created', 'foreign']));
 });
 
 it('gives a staff user with no role that reads inquiries none of them', function (): void {
@@ -179,7 +180,7 @@ it('records the staff member who opens an inquiry, and nobody for a client\'s ow
     $client = inquiryClient();
 
     $this->actingAs($marketing)->post(route('leads.inquiries.store', $lead->reference), ['projects' => [inquiryProjectInput(['name' => 'By staff'])]])->assertRedirect();
-    $this->actingAs($client)->post(route('quote.inquire.store'), ['projects' => [inquiryProjectInput(['name' => 'By client'])]])->assertRedirect();
+    $this->actingAs($client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['name' => 'By client'])]))->assertRedirect();
 
     expect(Inquiry::query()->where('name', 'By staff')->value('created_by'))->toBe($marketing->id)
         ->and(Inquiry::query()->where('name', 'By client')->value('created_by'))->toBeNull();

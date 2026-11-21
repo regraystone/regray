@@ -20,4 +20,14 @@ class CreateGroupAction
     {
         return DB::transaction(fn (): Conversation => $this->groupService->create($creator, $name, $staffIds, $clientId, $inquiryId));
     }
+
+    /**
+     * A walk-in inquiry's group chat, in one transaction (GroupConversationService::createForWalkIn()).
+     *
+     * @param  list<int>  $staffIds
+     */
+    public function executeForWalkIn(User $creator, string $name, array $staffIds, int $inquiryId): Conversation
+    {
+        return DB::transaction(fn (): Conversation => $this->groupService->createForWalkIn($creator, $name, $staffIds, $inquiryId));
+    }
 }

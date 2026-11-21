@@ -7,10 +7,10 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { HubRow, HubSection } from '@/components/hub-rows';
 import LogoutDialog from '@/components/logout-dialog';
 import PageHeading from '@/components/page-heading';
+import { comingSoon } from '@/lib/coming-soon';
 import {
     edit as editAccountSecurity,
     show as showProfile,
@@ -61,10 +61,9 @@ const Settings = () => {
                             icon={LifeBuoy}
                             title="Help & Support"
                             description="Get support, guides, and answers to common questions"
-                            onClick={() => {
-                                toast.info('Help & Support is coming soon.');
-                            }}
+                            onClick={comingSoon}
                             dataTest="help-support-button"
+                            tag="Soon"
                         />
                     </HubSection>
 
@@ -74,10 +73,9 @@ const Settings = () => {
                             icon={ArrowLeftRight}
                             title="Switch account"
                             description="Sign in with a different account"
-                            onClick={() => {
-                                toast.info('Switch account is coming soon.');
-                            }}
+                            onClick={comingSoon}
                             dataTest="switch-account-button"
+                            tag="Soon"
                         />
                         <HubRow
                             icon={LogOut}

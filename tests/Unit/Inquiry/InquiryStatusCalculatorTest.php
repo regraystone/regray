@@ -84,7 +84,8 @@ it('agrees with the SQL scope on every combination of marketing\'s decision and 
                             'reference' => $reference,
                             'client_id' => $client->id,
                             'name' => $reference,
-                            'location' => 'Makati',
+                            // A pickup: the one inquiry with no address.
+                            'delivery_method' => 'pickup',
                             'lead_id' => $lead->id,
                             'marketing_status' => $marketing?->value,
                             'sales_status' => $sales?->value,

@@ -87,6 +87,12 @@ enum Role: string
         return in_array($this, [self::Sales, self::Technical, self::Accounting, self::Logistics], true);
     }
 
+    /** Reads the walk-in inquiries it owns (`inquiries.owner_user_id`). */
+    public function seesOwnedInquiries(): bool
+    {
+        return $this === self::Sales;
+    }
+
     /**
      * Reads the visits booked outside an inquiry that it handles: the ones it
      * booked or assigned, and the client bookings in its queue
@@ -119,6 +125,21 @@ enum Role: string
             self::Owner => 'Owner',
             self::Admin, self::Client => null,
         };
+    }
+
+    /**
+     * The roles an admin may give an account from the Accounts page: every
+     * staff role. Never the admin, which is made from the console
+     * (CreateAdminCommand), nor the client, who signs up for themselves.
+     *
+     * @return list<self>
+     */
+    public static function staffRoles(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $role): bool => $role !== self::Admin && $role !== self::Client,
+        ));
     }
 
     /**
