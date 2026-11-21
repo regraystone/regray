@@ -15,6 +15,7 @@ import {
     read as readRoute,
     send as sendRoute,
     thread as threadRoute,
+    typing as typingRoute,
     walkInInquiries as walkInInquiriesRoute,
 } from '@/routes/inbox';
 import {
@@ -98,6 +99,10 @@ const request = async <T>(
         );
     }
 
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
     return (await response.json()) as T;
 };
 
@@ -129,6 +134,14 @@ export const fetchMessage = (
         'GET',
         messageRoute.url({ conversation: conversationId, message: messageId }),
     );
+
+/**
+ * Tell the others in the thread the viewer is typing. The server announces it
+ * under the signed-in account, and only for someone who may write in the
+ * thread now; the browser sends no name.
+ */
+export const signalTyping = (conversationId: number): Promise<void> =>
+    request<void>('POST', typingRoute.url(conversationId));
 
 export const sendMessage = (
     conversationId: number,

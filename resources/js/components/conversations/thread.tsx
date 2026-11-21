@@ -56,7 +56,6 @@ type ThreadProps = {
     /** The list row, drawn as the header until the thread's own arrives. */
     initialSummary: ConversationSummary | null;
     currentUserId: number;
-    currentUserName: string;
     isClient: boolean;
     isTouch: boolean;
     realtime: Realtime | undefined;
@@ -92,7 +91,6 @@ const Thread = ({
     conversationId,
     initialSummary,
     currentUserId,
-    currentUserName,
     isClient,
     isTouch,
     realtime,
@@ -688,7 +686,7 @@ const Thread = ({
                     }}
                     onCancelReply={() => setReplyTo(null)}
                     onCancelEdit={() => setEditing(null)}
-                    onTyping={() => thread.signalTyping(currentUserName)}
+                    onTyping={thread.signalTyping}
                 />
             ) : null}
 

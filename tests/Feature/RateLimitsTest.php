@@ -37,6 +37,7 @@ it('starts from the agreed limits', function (): void {
         'password-reset' => 5,
         'messages' => 60,
         'message-receipts' => 120,
+        'message-typing' => 60,
         'message-assignment' => 10,
         'message-people' => 60,
         'message-attachments' => 300,

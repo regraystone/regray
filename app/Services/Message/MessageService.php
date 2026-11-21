@@ -8,6 +8,7 @@ use App\Events\Message\ConversationActivity;
 use App\Events\Message\MessageCreated;
 use App\Events\Message\MessageUpdated;
 use App\Events\Message\PointerMoved;
+use App\Events\Message\UserTyping;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
@@ -130,6 +131,21 @@ class MessageService
         $this->announceActivity($conversation);
 
         return $message;
+    }
+
+    /**
+     * Tell the others in the thread the user is typing. Only someone who may
+     * send in it now is announced, under the same rules as a send: on a Regray
+     * Team thread nobody has claimed, no staff member is (409), so no staff
+     * name reaches the client before the thread is someone's. The id and name
+     * are the signed-in account's.
+     */
+    public function signalTyping(User $user, Conversation $conversation): void
+    {
+        $conversation->loadMissing('assignee:id,name');
+        $this->support->assertCanSend($user, $conversation);
+
+        broadcast(new UserTyping($conversation->id, $user->id, $user->name))->toOthers();
     }
 
     /**
