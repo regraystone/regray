@@ -17,8 +17,8 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 /*
  * A brand's page tells what the brand offers, counted from its active
- * products, the published projects of it or made with its stones, and the
- * group's other brands, for every brand and through both its doors.
+ * products, and the group's other brands, for every brand and through both
+ * its doors. It lists no projects.
  */
 beforeEach(function (): void {
     $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
@@ -66,28 +66,18 @@ test('a brand with no products yet offers nothing counted, and its page still op
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('hasProducts', false)
-            ->where('offer', ['stones' => 0, 'furniture' => 0, 'types' => []])
-            ->where('projects', []));
+            ->where('offer', ['stones' => 0, 'furniture' => 0, 'types' => []]));
 });
 
-test('the projects are the published ones of the brand or made with its stones, latest first', function (): void {
+test('a brand\'s page lists no projects, even one made with its stones', function (): void {
     $brand = Brand::query()->where('slug', 'regray-stone')->firstOrFail();
-    $own = Project::query()->where('brand_id', $brand->id)->firstOrFail();
-    $withItsStones = Project::query()->whereNull('brand_id')->whereHas('stones', fn ($stones) => $stones->where('brand_id', $brand->id))->firstOrFail();
-    Project::query()->whereKey($own->id)->update(['completed_year' => 2099]);
-    Project::query()->whereKey($withItsStones->id)->update(['completed_year' => 2098]);
+    expect(Project::query()->published()->whereHas('stones', fn ($stones) => $stones->where('brand_id', $brand->id))->exists())->toBeTrue();
 
     brandDetailPage('regray-stone')
+        ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('projects', 4)
-            ->where('projects.0.slug', $own->slug)
-            ->where('projects.1.slug', $withItsStones->slug)
-            ->has('projects.0', fn (Assert $card) => $card->hasAll(['slug', 'name', 'location', 'completedYear', 'thumbnail'])));
-
-    Project::query()->whereKey($own->id)->update(['is_published' => false]);
-
-    brandDetailPage('regray-stone')
-        ->assertInertia(fn (Assert $page) => $page->where('projects', fn ($projects): bool => collect($projects)->doesntContain('slug', $own->slug)));
+            ->missing('projects')
+            ->missing('brand.data.projects'));
 });
 
 test('the other brands are the active ones besides this one, through both doors', function (): void {
@@ -104,5 +94,5 @@ test('the other brands are the active ones besides this one, through both doors'
             ->component('brand-profile')
             ->where('otherBrands', fn ($brands): bool => collect($brands)->pluck('slug')->all() === $expected)
             ->has('offer.types')
-            ->has('projects'));
+            ->missing('projects'));
 });

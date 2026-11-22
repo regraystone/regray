@@ -2,7 +2,6 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Models\Brand;
 use App\Models\Project;
 use App\Models\ProjectCategory;
 use App\Models\Stone;
@@ -87,7 +86,6 @@ class ProjectRepository implements ProjectRepositoryInterface
         return Project::query()
             ->when($escapedSearch !== null, fn (Builder $query) => $query->where('name', 'ILIKE', "%{$escapedSearch}%"))
             ->with([
-                'brand:id,name',
                 'stones' => fn (Relation $stones) => $stones->getQuery()->select(['stones.id', 'stones.name'])->orderBy('stones.name'),
                 'categories' => fn (Relation $categories) => $categories->getQuery()->select(['project_categories.id', 'project_categories.name'])->orderBy('project_categories.sort_order'),
                 'gallery',
@@ -101,8 +99,6 @@ class ProjectRepository implements ProjectRepositoryInterface
     public function adminOptions(): array
     {
         return [
-            'brands' => array_values(Brand::query()->active()->orderBy('sort_order')->orderBy('name')->get(['id', 'name'])
-                ->map(fn (Brand $brand): array => ['id' => $brand->id, 'name' => $brand->name])->all()),
             'stones' => array_values(Stone::query()->active()->with('brand:id,name')->orderBy('name')->orderBy('id')->get(['id', 'brand_id', 'name'])
                 ->map(fn (Stone $stone): array => ['id' => $stone->id, 'name' => $stone->name, 'brand' => $stone->brand->name])->all()),
             'categories' => array_values(ProjectCategory::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name'])

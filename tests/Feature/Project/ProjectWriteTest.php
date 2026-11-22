@@ -42,7 +42,6 @@ function projectForm(array $overrides = []): array
         'location' => 'Makati City',
         'completed_year' => '2025',
         'overview' => "A kitchen in stone.\n\nAnd a bath.",
-        'brand_id' => (string) test()->brand->id,
         'thumbnail' => UploadedFile::fake()->image('Ginza cover.jpg', 1600, 900),
         'gallery' => [
             ['file' => UploadedFile::fake()->image('island.png', 800, 600)],
@@ -82,7 +81,7 @@ describe('adding a project', function (): void {
             ->and($project->location)->toBe('Makati City')
             ->and($project->completed_year)->toBe(2025)
             ->and($project->overview)->toBe("A kitchen in stone.\n\nAnd a bath.")
-            ->and($project->brand_id)->toBe($this->brand->id)
+            ->and($project->getAttributes())->not->toHaveKey('brand_id')
             ->and($project->is_published)->toBeTrue()
             ->and($project->published_at)->not->toBeNull()
             ->and($project->stones()->pluck('stones.id')->sort()->values()->all())->toBe(collect([$this->marble->id, $this->agate->id])->sort()->values()->all())
@@ -110,10 +109,9 @@ describe('adding a project', function (): void {
             ->and($audit->new_values['gallery'])->toBe([$photos[0]->path, $photos[1]->path]);
     });
 
-    it('saves a draft with no brand, categories or gallery, and no publish date', function (): void {
+    it('saves a draft with no categories or gallery, and no publish date', function (): void {
         $this->actingAs($this->admin)
             ->post(route('dashboard.projects.store'), projectForm([
-                'brand_id' => '',
                 'gallery' => [],
                 'categories' => [],
                 'is_published' => '0',
@@ -122,8 +120,7 @@ describe('adding a project', function (): void {
 
         $project = Project::query()->sole();
 
-        expect($project->brand_id)->toBeNull()
-            ->and($project->is_published)->toBeFalse()
+        expect($project->is_published)->toBeFalse()
             ->and($project->published_at)->toBeNull()
             ->and($project->categories()->count())->toBe(0)
             ->and($project->images()->count())->toBe(0)
@@ -154,7 +151,6 @@ describe('adding a project', function (): void {
         'a year that is not one' => [['completed_year' => 'soon'], 'completed_year', 'Enter a year, such as 2026.'],
         'no overview' => [['overview' => ''], 'overview', 'Write a short overview of the project.'],
         'an overview too long' => [['overview' => str_repeat('a', 10001)], 'overview', 'Keep the overview to 10000 characters.'],
-        'a hidden brand' => [fn () => ['brand_id' => (string) Brand::factory()->create(['is_active' => false])->id], 'brand_id', 'That brand is no longer on Regray. Choose another, or none.'],
         'no stones' => [['stones' => []], 'stones', 'Choose at least one stone used in the project.'],
         'a stone out of the catalogue' => [fn () => ['stones' => [Stone::factory()->for(test()->brand)->create(['is_active' => false])->id]], 'stones.0', 'That stone is no longer in the catalogue. Remove it.'],
         'a category not offered' => [fn () => ['categories' => [makeProjectCategory('Retired', ['is_active' => false])->id]], 'categories.0', 'That category is no longer offered. Remove it.'],
@@ -212,7 +208,7 @@ describe('editing a project', function (): void {
     it('changes its fields, stones and categories, and keeps its images when none are sent', function (): void {
         $baths = makeProjectCategory('Bathrooms');
 
-        ($this->edit)(['name' => 'Ginza Two', 'slug' => 'ginza-two', 'location' => 'Taguig City', 'brand_id' => '', 'stones' => [$this->agate->id], 'categories' => [$baths->id]])
+        ($this->edit)(['name' => 'Ginza Two', 'slug' => 'ginza-two', 'location' => 'Taguig City', 'stones' => [$this->agate->id], 'categories' => [$baths->id]])
             ->assertSessionHasNoErrors()
             ->assertInertiaFlash('toast', ['type' => 'success', 'message' => 'Ginza Two is updated.']);
 
@@ -221,7 +217,6 @@ describe('editing a project', function (): void {
         expect($project->name)->toBe('Ginza Two')
             ->and($project->slug)->toBe('ginza-two')
             ->and($project->location)->toBe('Taguig City')
-            ->and($project->brand_id)->toBeNull()
             ->and($project->stones()->pluck('stones.id')->all())->toBe([$this->agate->id])
             ->and($project->categories()->pluck('project_categories.id')->all())->toBe([$baths->id])
             ->and($project->thumbnail_path)->toBe($this->oldThumbnail)

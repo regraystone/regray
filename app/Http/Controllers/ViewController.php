@@ -452,7 +452,6 @@ class ViewController extends Controller
             ],
             'reservedSlugs' => ReservedSlugs::ALL,
             'publicProjectUrl' => route('stone.show', '__slug__'),
-            'brandOptions' => $options['brands'],
             'stoneOptions' => $options['stones'],
             'categoryOptions' => $options['categories'],
         ]);

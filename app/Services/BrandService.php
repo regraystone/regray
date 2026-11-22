@@ -7,7 +7,6 @@ use App\Http\Resources\ProjectCardResource;
 use App\Models\Brand;
 use App\Models\Furniture;
 use App\Models\FurnitureType;
-use App\Models\Project;
 use App\Models\Stone;
 use App\Models\StoneType;
 use App\Repositories\Contracts\BrandRepositoryInterface;
@@ -90,16 +89,6 @@ class BrandService
             'furniture' => $products['furniture']->count(),
             'types' => $types,
         ];
-    }
-
-    /**
-     * The published projects of the brand, or made with its stones, latest first.
-     *
-     * @return Collection<int, Project>
-     */
-    public function publishedProjects(Brand $brand, int $limit): Collection
-    {
-        return $this->brandRepository->publishedProjects($brand, $limit);
     }
 
     /**

@@ -708,14 +708,13 @@ function walkInClient(string $name = 'Wanda Walk-in'): Client
 
 /**
  * A project as if the admin's Projects page had added it: published, with no
- * brand, stones, categories or gallery unless given. The slug is random.
+ * stones, categories or gallery unless given. The slug is random.
  *
  * @param  array<string, mixed>  $attributes
  */
 function makeProject(array $attributes = []): Project
 {
     return Project::query()->forceCreate([
-        'brand_id' => null,
         'slug' => 'project-'.Str::lower(Str::random(10)),
         'name' => 'Project '.Str::random(6),
         'completed_year' => 2024,

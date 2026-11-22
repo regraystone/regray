@@ -5,7 +5,6 @@ namespace App\Repositories\Contracts;
 use App\Data\BrandProductFilterData;
 use App\Models\Brand;
 use App\Models\Furniture;
-use App\Models\Project;
 use App\Models\Stone;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -23,8 +22,7 @@ interface BrandRepositoryInterface
      * The admin's Brands page: every brand but the archived, hidden ones too,
      * by display order then name, a page at a time. The search (already
      * escaped for ILIKE) matches the brand's name only. Each
-     * comes with how many active stones and furniture and published projects
-     * it has.
+     * comes with how many active stones and furniture it has.
      *
      * @return LengthAwarePaginator<int, Brand>
      */
@@ -48,12 +46,4 @@ interface BrandRepositoryInterface
      * @return array{stones: Collection<int, Stone>, furniture: Collection<int, Furniture>}
      */
     public function activeProductsWithTypes(Brand $brand): array;
-
-    /**
-     * The published projects of the brand, or made with its stones, latest
-     * first.
-     *
-     * @return Collection<int, Project>
-     */
-    public function publishedProjects(Brand $brand, int $limit): Collection;
 }

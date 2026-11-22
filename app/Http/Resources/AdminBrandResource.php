@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\Gate;
 class AdminBrandResource extends JsonResource
 {
     /**
-     * @return array{id: int, slug: string, name: string, tagline: string|null, description: string|null, websiteUrl: string|null, logo: string, thumbnail: string|null, isActive: bool, sortOrder: int, stonesCount: int, furnitureCount: int, projectsCount: int, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>, logoFile: array{originalName: string, sizeBytes: int|null}|null, thumbnailFile: array{originalName: string, sizeBytes: int|null}|null, createdAt: string, updatedAt: string, publicUrl: string|null, actions: list<string>}
+     * @return array{id: int, slug: string, name: string, tagline: string|null, description: string|null, websiteUrl: string|null, logo: string, thumbnail: string|null, isActive: bool, sortOrder: int, stonesCount: int, furnitureCount: int, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>, logoFile: array{originalName: string, sizeBytes: int|null}|null, thumbnailFile: array{originalName: string, sizeBytes: int|null}|null, createdAt: string, updatedAt: string, publicUrl: string|null, actions: list<string>}
      */
     public function toArray(Request $request): array
     {
@@ -45,7 +45,6 @@ class AdminBrandResource extends JsonResource
             'sortOrder' => $this->sort_order,
             'stonesCount' => (int) ($this->stones_count ?? 0),
             'furnitureCount' => (int) ($this->furniture_count ?? 0),
-            'projectsCount' => (int) ($this->projects_count ?? 0),
             ...$this->details(),
             'logoFile' => self::file($this->logo_original_name, $this->logo_size_bytes),
             'thumbnailFile' => $this->thumbnail_path === null ? null : self::file($this->thumbnail_original_name, $this->thumbnail_size_bytes),

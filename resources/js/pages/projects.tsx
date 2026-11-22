@@ -39,13 +39,6 @@ import PageHeader from '@/components/page-header';
 import StatusBadge from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { DEFAULT_PAGE_SIZE } from '@/lib/data-table';
@@ -83,9 +76,6 @@ const ONLY = ['projects', 'filters'];
 const IMAGE_TYPES = [PNG, JPG, WEBP];
 const IMAGE_ACCEPT = imageAccept(IMAGE_TYPES);
 
-/** The Select's value for "No brand": a Radix item can't have an empty value. */
-const NO_BRAND = 'none';
-
 /**
  * One photo of the gallery in the form: a saved one (`photo_id`, `url`) or a
  * new one (`file`). Not `id`: the field array keeps that name for its own.
@@ -103,7 +93,6 @@ type ProjectValues = {
     location: string;
     completed_year: string;
     overview: string;
-    brand_id: string;
     thumbnail: File | null;
     gallery: GalleryRow[];
     stones: number[];
@@ -117,7 +106,6 @@ const EMPTY: ProjectValues = {
     location: '',
     completed_year: String(new Date().getFullYear()),
     overview: '',
-    brand_id: NO_BRAND,
     thumbnail: null,
     gallery: [],
     stones: [],
@@ -131,7 +119,6 @@ const fromRow = (project: ProjectRow): ProjectValues => ({
     location: project.location,
     completed_year: String(project.completedYear),
     overview: project.overview,
-    brand_id: project.brand === null ? NO_BRAND : String(project.brand.id),
     thumbnail: null,
     gallery: project.images.map((image) => ({
         photo_id: image.id,
@@ -196,7 +183,6 @@ const projectSchema = (
                     limits.overviewMax,
                     `Keep the overview to ${limits.overviewMax.toLocaleString('en-PH')} characters.`,
                 ),
-            brand_id: z.string(),
             thumbnail: imageFileSchema(
                 IMAGE_TYPES,
                 limits.thumbnailMaxKb,
@@ -385,7 +371,6 @@ const Projects = () => {
             location: values.location,
             completed_year: Number(values.completed_year),
             overview: values.overview,
-            brand_id: values.brand_id === NO_BRAND ? '' : values.brand_id,
             is_published: values.is_published,
             stones: values.stones,
             categories: values.categories,
@@ -762,9 +747,6 @@ const Projects = () => {
                                         {viewing.slug}
                                     </span>
                                 </Detail>
-                                <Detail label="Brand">
-                                    {viewing.brand?.name ?? 'No brand'}
-                                </Detail>
                                 <Detail label="Thumbnail file">
                                     {fileLine(viewing.thumbnailFile)}
                                 </Detail>
@@ -919,53 +901,6 @@ const Projects = () => {
                                     aria-describedby={describedBy}
                                     aria-invalid={invalid}
                                     {...register('overview')}
-                                />
-                            )}
-                        </FormField>
-
-                        <FormField
-                            id="project-brand"
-                            label="Brand"
-                            error={formState.errors.brand_id?.message}
-                            hint="The brand it shows under on that brand's page, if any."
-                        >
-                            {({ describedBy, invalid }) => (
-                                <Controller
-                                    control={control}
-                                    name="brand_id"
-                                    render={({ field }) => (
-                                        <Select
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                        >
-                                            <SelectTrigger
-                                                id="project-brand"
-                                                className="mt-2 w-full rounded-none text-base data-[size=default]:h-11"
-                                                aria-describedby={describedBy}
-                                                aria-invalid={invalid}
-                                                onBlur={field.onBlur}
-                                            >
-                                                <SelectValue placeholder="No brand" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value={NO_BRAND}>
-                                                    No brand
-                                                </SelectItem>
-                                                {props.brandOptions.map(
-                                                    (brand) => (
-                                                        <SelectItem
-                                                            key={brand.id}
-                                                            value={String(
-                                                                brand.id,
-                                                            )}
-                                                        >
-                                                            {brand.name}
-                                                        </SelectItem>
-                                                    ),
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
                                 />
                             )}
                         </FormField>

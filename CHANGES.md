@@ -1,3 +1,13 @@
+# A brand's page lists no projects, and a project no longer has a brand
+
+A brand's page drops its **Projects** section (and its tab in the page's section menu), and its **Visit** section (the showroom photo with "Book a visit") goes too. The page is now the brand's intro, its offer, its collection and the group's other brands. A project is no longer tied to a brand: the admin's Projects form loses its optional **Brand** field, View loses its "Brand" line, and the Brands drawer loses its project count. **Deploy, local and production: `php artisan migrate`** (one new migration, which drops `projects.brand_id`; the link is lost).
+
+- **Database:** `2026_11_22_000002_drop_brand_from_projects` drops `projects.brand_id` and its foreign key. `down()` adds it back as a nullable foreign key, empty.
+- **Backend:** `Brand::projects()`, `Project::brand()`, `BrandRepository::publishedProjects()` and `BrandService::publishedProjects()` go. `BrandController` no longer sends `projects`, and `BrandProfileResource` no longer has them. `AdminBrandResource` loses `projectsCount`, `AdminProjectResource` loses `brand`, and the Projects page loses `brandOptions`. `ProjectValidationRules` and `ProjectAdminService` no longer take or audit `brand_id`.
+- **Seeders:** `ProjectSeeder` and `data/projects.php` no longer set a brand (`brand_slug` is gone).
+- **Front end:** in `pages/brand-profile.tsx`, `ProjectCard` and the Projects and Visit sections are removed. The `projects` prop leaves `BrandPageProps`, `brand` and `brandOptions` leave the project admin types, and `projectsCount` leaves `BrandRow`.
+- **Tests:** `BrandDetailTest` checks that a brand's page sends no projects, even ones made with its stones. `BrandListTest`, `ProjectListTest` and `ProjectWriteTest` check that no brand is sent or saved. `ProjectArchiveTest` no longer checks the brand's page, and `makeProject()` sets no brand.
+
 # The fonts ship with the app, so a build no longer downloads them
 
 A Docker build failed whenever `fonts.bunny.net` was down (a 504 on 2026-11-20), because the build fetched Hanken Grotesk and Lexend from it each time. The two fonts are now files in the repo: `resources/fonts/` (weights 300 to 700, Latin, `.woff2`, the same files Bunny served), loaded by `resources/css/fonts.css`, which `app.css` imports. `vite.config.ts` no longer lists them, and the layout drops `@fonts`. Nothing changes on screen.

@@ -31,7 +31,6 @@ beforeEach(function (): void {
     $this->stone = Stone::factory()->for($this->brand)->create(['slug' => 'acme-stone']);
     $this->other = makeProject(['slug' => 'other-project', 'name' => 'Other Project', 'completed_year' => 2020]);
     $this->project = makeProject([
-        'brand_id' => $this->brand->id,
         'slug' => 'archived-acme',
         'name' => 'Archived Acme',
         'thumbnail_path' => 'projects/acme-cover.jpg',
@@ -99,7 +98,6 @@ it('takes it off every page that lists projects', function (string $route, array
     expect(mentionsArchivedProject($visit()))->toBeFalse();
 })->with([
     'the landing page' => ['home', [], false],
-    'the brand\'s page' => ['brands.show', ['brand' => 'acme-house'], false],
     'the stone\'s page' => ['brands.stones.show', ['brand' => 'acme-house', 'stone' => 'acme-stone'], false],
 ]);
 

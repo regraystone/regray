@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -27,7 +26,6 @@ use Illuminate\Support\Carbon;
  * Its slug stays taken.
  *
  * @property int $id
- * @property int|null $brand_id
  * @property string $slug
  * @property string $name
  * @property int $completed_year
@@ -46,9 +44,8 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Stone> $stones
  * @property-read Stone $parentStone The active stone this profile was requested under.
  * @property-read Collection<int, ProjectCategory> $categories
- * @property-read Brand|null $brand
  */
-#[Fillable(['brand_id', 'slug', 'name', 'completed_year', 'location', 'overview', 'thumbnail_path', 'is_published', 'published_at'])]
+#[Fillable(['slug', 'name', 'completed_year', 'location', 'overview', 'thumbnail_path', 'is_published', 'published_at'])]
 class Project extends Model
 {
     use SoftDeletes;
@@ -74,12 +71,6 @@ class Project extends Model
     protected function published(Builder $query): void
     {
         $query->where('is_published', true);
-    }
-
-    /** @return BelongsTo<Brand, $this> */
-    public function brand(): BelongsTo
-    {
-        return $this->belongsTo(Brand::class);
     }
 
     /** @return HasMany<ProjectImage, $this> */

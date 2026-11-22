@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Brand;
 use App\Models\Project;
 use App\Models\ProjectCategory;
 use App\Models\Stone;
@@ -13,14 +12,11 @@ class ProjectSeeder extends Seeder
     public function run(): void
     {
         $data = require database_path('seeders/data/projects.php');
-        // Null when BrandSeeder has not run, as in tests that seed projects alone.
-        $brandIds = Brand::query()->pluck('id', 'slug');
 
         foreach ($data['projects'] as $projectData) {
             $project = Project::query()->firstOrCreate(
                 ['slug' => $projectData['slug']],
                 [
-                    'brand_id' => $brandIds->get($projectData['brand_slug'] ?? ''),
                     'name' => $projectData['name'],
                     'completed_year' => $projectData['completed_year'],
                     'location' => $projectData['location'],

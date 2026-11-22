@@ -47,7 +47,6 @@ use Illuminate\Support\Carbon;
  * @property int|null $thumbnail_size_bytes
  * @property Carbon $created_at
  * @property Carbon $updated_at
- * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, Stone> $stones
  * @property-read Collection<int, Furniture> $furniture
  * @property-read Collection<int, BrandFact> $facts
@@ -185,12 +184,6 @@ class Brand extends Model
     public function socials(): HasMany
     {
         return $this->hasMany(BrandSocial::class)->orderBy('sort_order');
-    }
-
-    /** @return HasMany<Project, $this> */
-    public function projects(): HasMany
-    {
-        return $this->hasMany(Project::class);
     }
 
     /** @return HasMany<Stone, $this> */

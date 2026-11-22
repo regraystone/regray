@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Gate;
  * people; null for an image that was committed rather than uploaded.
  * `publicUrl` is the project's public page, or null while it is a draft.
  *
- * Expects its brand, stones, categories and gallery loaded
+ * Expects its stones, categories and gallery loaded
  * (ProjectRepositoryInterface::paginateForAdmin()).
  *
  * @mixin Project
@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Gate;
 class AdminProjectResource extends JsonResource
 {
     /**
-     * @return array{id: int, slug: string, name: string, location: string, completedYear: int, overview: string, thumbnail: string, thumbnailFile: array{originalName: string, sizeBytes: int|null}|null, brand: array{id: int, name: string}|null, stones: list<array{id: int, name: string}>, categories: list<array{id: int, name: string}>, images: list<array{id: int, url: string, name: string|null, file: array{originalName: string, sizeBytes: int|null}|null}>, isPublished: bool, publishedAt: string|null, createdAt: string, updatedAt: string, publicUrl: string|null, actions: list<string>}
+     * @return array{id: int, slug: string, name: string, location: string, completedYear: int, overview: string, thumbnail: string, thumbnailFile: array{originalName: string, sizeBytes: int|null}|null, stones: list<array{id: int, name: string}>, categories: list<array{id: int, name: string}>, images: list<array{id: int, url: string, name: string|null, file: array{originalName: string, sizeBytes: int|null}|null}>, isPublished: bool, publishedAt: string|null, createdAt: string, updatedAt: string, publicUrl: string|null, actions: list<string>}
      */
     public function toArray(Request $request): array
     {
@@ -44,7 +44,6 @@ class AdminProjectResource extends JsonResource
             'overview' => $this->overview,
             'thumbnail' => ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
             'thumbnailFile' => self::file($this->thumbnail_original_name, $this->thumbnail_size_bytes),
-            'brand' => $this->brand === null ? null : ['id' => $this->brand->id, 'name' => $this->brand->name],
             'stones' => array_values($this->stones->map(fn (Stone $stone): array => ['id' => $stone->id, 'name' => $stone->name])->all()),
             'categories' => array_values($this->categories->map(fn (ProjectCategory $category): array => ['id' => $category->id, 'name' => $category->name])->all()),
             'images' => array_values($this->gallery->map(fn (ProjectImage $image): array => [

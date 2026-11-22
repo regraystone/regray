@@ -54,7 +54,7 @@ class ProjectAdminService
     ) {}
 
     /**
-     * @param  array{name: string, slug: string, location: string, completed_year: int, overview: string, brand_id: int|null, is_published: bool, stones: list<int>, categories: list<int>}  $data
+     * @param  array{name: string, slug: string, location: string, completed_year: int, overview: string, is_published: bool, stones: list<int>, categories: list<int>}  $data
      * @param  list<array{id: int|null, file: UploadedFile|null}>  $gallery
      */
     public function create(array $data, UploadedFile $thumbnail, array $gallery, User $by, ?string $ipAddress, ?string $userAgent): Project
@@ -84,7 +84,7 @@ class ProjectAdminService
      * keeps it. The gallery becomes `$gallery`, in its order: saved photos
      * kept by id, new ones added, the rest taken off.
      *
-     * @param  array{name: string, slug: string, location: string, completed_year: int, overview: string, brand_id: int|null, is_published: bool, stones: list<int>, categories: list<int>}  $data
+     * @param  array{name: string, slug: string, location: string, completed_year: int, overview: string, is_published: bool, stones: list<int>, categories: list<int>}  $data
      * @param  list<array{id: int|null, file: UploadedFile|null}>  $gallery
      */
     public function update(Project $project, array $data, ?UploadedFile $thumbnail, array $gallery, User $by, ?string $ipAddress, ?string $userAgent): Project
@@ -309,7 +309,6 @@ class ProjectAdminService
             'location' => $project->location,
             'completed_year' => $project->completed_year,
             'overview' => $project->overview,
-            'brand_id' => $project->brand_id,
             'thumbnail_path' => $project->thumbnail_path,
             'gallery' => $project->images()->orderBy('sort_order')->pluck('path')->all(),
             'stones' => $project->stones()->orderBy('stones.id')->pluck('stones.id')->all(),

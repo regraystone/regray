@@ -16,7 +16,7 @@ export type ProjectPhoto = {
     file: ProjectImageFile | null;
 };
 
-/** A brand, stone or category as the form offers it and a project lists it. */
+/** A stone or category as the form offers it and a project lists it. */
 export type ProjectOption = { id: number; name: string };
 
 /** One project as a card on the admin's Projects page, as `AdminProjectResource` sends it. */
@@ -29,7 +29,6 @@ export type ProjectRow = {
     overview: string;
     thumbnail: string;
     thumbnailFile: ProjectImageFile | null;
-    brand: ProjectOption | null;
     stones: ProjectOption[];
     categories: ProjectOption[];
     images: ProjectPhoto[];
@@ -62,7 +61,6 @@ export type ProjectsPageProps = {
     reservedSlugs: string[];
     /** A project's public page, with `__slug__` where its slug goes. */
     publicProjectUrl: string;
-    brandOptions: ProjectOption[];
     /** The active stones, each with its brand's name to tell alike names apart. */
     stoneOptions: (ProjectOption & { brand: string })[];
     categoryOptions: ProjectOption[];

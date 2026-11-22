@@ -6,26 +6,22 @@ import {
     BRAND_CATEGORIES,
     BRAND_LOGO_HEIGHT,
     DEFAULT_BRAND_LOGO_HEIGHT,
-    SHOWROOM,
 } from '@/components/public/public-links';
 import SocialIcon, { SOCIAL_LABELS } from '@/components/social-icon';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { collectionQuery } from '@/lib/brand-collection';
 import { login } from '@/routes';
 import { show as brandsShow } from '@/routes/brands';
-import { brands as brandsPage, news, showroom } from '@/routes/company';
+import { brands as brandsPage, showroom } from '@/routes/company';
 import {
     index as dashboardBrandsIndex,
     show as dashboardBrandShow,
 } from '@/routes/dashboard/brands';
-import { show as dashboardProjectShow } from '@/routes/home';
 import { book } from '@/routes/profile/schedule';
-import { show as projectShow } from '@/routes/stone';
 import type {
     BrandOffering,
     BrandPageProps,
     LandingBrand,
-    LandingProject,
 } from '@/types/home';
 
 /** A section's title: spaced capitals in the heading face. */
@@ -118,34 +114,6 @@ const OfferingCard = ({
     </Link>
 );
 
-/** A finished project: its photo, where and when, and its name. */
-const ProjectCard = ({
-    project,
-    href,
-}: {
-    project: LandingProject;
-    href: string;
-}) => (
-    <Link href={href} className="group flex flex-col gap-4">
-        <span className="block aspect-4/3 overflow-hidden bg-muted">
-            <img
-                src={project.thumbnail}
-                alt=""
-                loading="lazy"
-                className="size-full object-cover transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.03] motion-reduce:transition-none"
-            />
-        </span>
-        <span className="flex flex-col gap-1.5">
-            <span className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
-                {project.location} · {project.completedYear}
-            </span>
-            <span className="font-display text-[clamp(1.1875rem,1.6vw,1.5rem)] font-light">
-                {project.name}
-            </span>
-        </span>
-    </Link>
-);
-
 /** Another brand of the group, by its logo. */
 const OtherBrand = ({ brand, href }: { brand: LandingBrand; href: string }) => (
     <li className="flex justify-center">
@@ -171,8 +139,7 @@ const OtherBrand = ({ brand, href }: { brand: LandingBrand; href: string }) => (
  * A brand's page, for every brand: its photo with the logo and tagline, a bar
  * of its sections, then who it is, what it offers (each type its products
  * come in, counted from the catalog, or, before it has products online, what
- * it makes), its collection, the projects of it or made with its stones, a
- * visit to the showroom and the group's other brands. A section with nothing
+ * it makes), its collection and the group's other brands. A section with nothing
  * real to show is left out, and so is its place in the bar.
  */
 const BrandProfile = () => {
@@ -180,7 +147,6 @@ const BrandProfile = () => {
         brand: { data: brand },
         hasProducts,
         offer,
-        projects,
         otherBrands,
         auth,
     } = usePage<BrandPageProps & { auth: { user: unknown } }>().props;
@@ -193,10 +159,6 @@ const BrandProfile = () => {
         isSignedIn
             ? dashboardBrandShow.url({ brand: slug }, { query })
             : brandsShow.url({ brand: slug }, { query });
-    const projectHref = (slug: string) =>
-        isSignedIn
-            ? dashboardProjectShow.url({ slug })
-            : projectShow.url({ slug });
     const allBrandsHref = isSignedIn
         ? dashboardBrandsIndex.url()
         : brandsPage.url();
@@ -243,8 +205,6 @@ const BrandProfile = () => {
             ? [{ id: 'offer', label: 'What we offer' }]
             : []),
         ...(hasProducts ? [{ id: 'collection', label: 'Collection' }] : []),
-        ...(projects.length > 0 ? [{ id: 'projects', label: 'Projects' }] : []),
-        { id: 'visit', label: 'Visit' },
     ];
     const current = useCurrentSection(sections.map((section) => section.id));
 
@@ -507,78 +467,6 @@ const BrandProfile = () => {
                     <BrandCollection />
                 </div>
             ) : null}
-
-            {projects.length > 0 ? (
-                <section
-                    id="projects"
-                    aria-labelledby="brand-projects"
-                    className={`py-[clamp(4.5rem,8vw,7.5rem)] ${sectionScroll}`}
-                >
-                    <div className="mb-7 flex items-end justify-between gap-4">
-                        <h2 id="brand-projects" className={sectionTitle}>
-                            Projects
-                        </h2>
-                        <Link
-                            href={news.url()}
-                            className="border-b border-foreground pb-2 text-[0.8125rem] tracking-[0.04em] whitespace-nowrap uppercase transition-opacity hover:opacity-70"
-                        >
-                            More projects
-                        </Link>
-                    </div>
-                    <div className="grid gap-x-6 gap-y-10 md:grid-cols-2">
-                        {projects.map((project) => (
-                            <ProjectCard
-                                key={project.slug}
-                                project={project}
-                                href={projectHref(project.slug)}
-                            />
-                        ))}
-                    </div>
-                </section>
-            ) : null}
-
-            <section
-                id="visit"
-                aria-labelledby="brand-visit"
-                className={`${projects.length > 0 ? '' : 'pt-[clamp(1rem,3vw,2.5rem)]'} ${sectionScroll}`}
-            >
-                <div className="grid bg-navy text-white lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-                    <img
-                        src="/images/regray-showroom.jpg"
-                        alt="The Regray showroom in Makati City"
-                        loading="lazy"
-                        className="h-full min-h-80 w-full object-cover"
-                    />
-                    <div className="flex flex-col justify-center gap-5.5 p-[clamp(2.25rem,5vw,5rem)]">
-                        <p className={eyebrow}>Showroom · Makati City</p>
-                        <h2
-                            id="brand-visit"
-                            className="font-display text-[clamp(1.625rem,2.4vw,2.375rem)] leading-[1.2] font-light text-balance"
-                        >
-                            See {brand.name} in person
-                        </h2>
-                        <p className="max-w-115 text-base leading-relaxed">
-                            {SHOWROOM.address}. {SHOWROOM.hours}.
-                        </p>
-                        <div className="mt-1.5 flex flex-wrap gap-3">
-                            <Link
-                                href={visitUrl}
-                                className="bg-white px-6 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-foreground uppercase transition-colors hover:bg-white/85"
-                            >
-                                Book a visit
-                            </Link>
-                            {quoteUrl ? (
-                                <Link
-                                    href={quoteUrl}
-                                    className="border border-white px-6 py-3.75 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-white hover:text-foreground"
-                                >
-                                    Request a quotation
-                                </Link>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             {otherBrands.length > 0 ? (
                 <section

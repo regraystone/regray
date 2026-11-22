@@ -158,8 +158,6 @@ export type BrandPageProps = {
     filters: BrandFilters;
     filterOptions: FilterOptions;
     offer: BrandOffer;
-    /** Its published projects, or those made with its stones, latest first. */
-    projects: LandingProject[];
     /** The group's other brands, in their home page order. */
     otherBrands: LandingBrand[];
 };

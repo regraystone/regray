@@ -25,8 +25,8 @@ use Illuminate\Validation\Validator;
  * A saved photo left out is taken off. A photo's alt text is its file's own
  * name (ProjectImage::label()), so the form asks for none.
  *
- * The brand, stones and categories must be ones Regray shows: an active
- * brand, active stones of brands not archived, active categories.
+ * The stones and categories must be ones Regray shows: active stones of
+ * brands not archived, active categories.
  *
  * Validation runs before anything touches storage, so a bad upload never
  * deletes or writes a file.
@@ -54,10 +54,6 @@ trait ProjectValidationRules
             'location' => ['required', 'string', 'max:255'],
             'completed_year' => ['required', 'integer', 'between:1900,2100'],
             'overview' => ['required', 'string', 'max:'.config('projects.overview_max')],
-            'brand_id' => [
-                'nullable', 'integer',
-                Rule::exists('brands', 'id')->where('is_active', true)->whereNull('archived_at'),
-            ],
             'thumbnail' => [$this->project() === null ? 'required' : 'nullable', ...$images, 'max:'.config('projects.thumbnail_max_kb')],
             'gallery' => ['nullable', 'array', 'max:'.config('projects.gallery_max')],
             'gallery.*' => ['array:id,file'],
@@ -81,8 +77,8 @@ trait ProjectValidationRules
     }
 
     /**
-     * Trim what was typed, lower-case the slug, read an empty brand as none,
-     * and number the gallery, stones and categories from 0.
+     * Trim what was typed, lower-case the slug, and number the gallery, stones
+     * and categories from 0.
      */
     protected function prepareForValidation(): void
     {
@@ -97,7 +93,6 @@ trait ProjectValidationRules
             'slug' => is_string($this->input('slug')) ? mb_strtolower(trim($this->input('slug'))) : $this->input('slug'),
             'location' => $text($this->input('location')),
             'overview' => $text($this->input('overview')),
-            'brand_id' => in_array($this->input('brand_id'), ['', null], true) ? null : $this->input('brand_id'),
             'stones' => $list($this->input('stones')),
             'categories' => $list($this->input('categories')),
         ]);
@@ -136,7 +131,6 @@ trait ProjectValidationRules
             'completed_year.between' => __('Enter a year from 1900 to 2100.'),
             'overview.required' => __('Write a short overview of the project.'),
             'overview.max' => __('Keep the overview to :max characters.'),
-            'brand_id.exists' => __('That brand is no longer on Regray. Choose another, or none.'),
             'thumbnail.required' => __('Add the project\'s thumbnail.'),
             'thumbnail.mimes' => __('The thumbnail has to be a PNG, JPG or WebP.'),
             'thumbnail.max' => __('The thumbnail can be :max KB at most.'),
@@ -189,12 +183,11 @@ trait ProjectValidationRules
      * the service writes. The images are read on their own (thumbnail(),
      * gallery()).
      *
-     * @return array{name: string, slug: string, location: string, completed_year: int, overview: string, brand_id: int|null, is_published: bool, stones: list<int>, categories: list<int>}
+     * @return array{name: string, slug: string, location: string, completed_year: int, overview: string, is_published: bool, stones: list<int>, categories: list<int>}
      */
     public function projectData(): array
     {
         $ids = fn (string $key): array => array_values(array_map(fn (mixed $id): int => (int) $id, $this->validated($key) ?? []));
-        $brand = $this->validated('brand_id');
 
         return [
             'name' => (string) $this->validated('name'),
@@ -202,7 +195,6 @@ trait ProjectValidationRules
             'location' => (string) $this->validated('location'),
             'completed_year' => (int) $this->validated('completed_year'),
             'overview' => (string) $this->validated('overview'),
-            'brand_id' => $brand === null ? null : (int) $brand,
             'is_published' => $this->boolean('is_published'),
             'stones' => $ids('stones'),
             'categories' => $ids('categories'),

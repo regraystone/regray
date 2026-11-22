@@ -71,13 +71,11 @@ it('searches by the project name only, and pages ten at a time', function (): vo
             ->has('projects.data', 2));
 });
 
-it('sends what a card and its drawer show: brand, stones, categories, gallery, files and links', function (): void {
-    $brand = Brand::factory()->create(['name' => 'Cucine Lube']);
+it('sends what a card and its drawer show: stones, categories, gallery, files and links', function (): void {
     $marble = Stone::factory()->create(['name' => 'Marble']);
     $agate = Stone::factory()->create(['name' => 'Agate']);
     $kitchens = makeProjectCategory('Kitchens');
     $project = makeProject([
-        'brand_id' => $brand->id,
         'slug' => 'ginza-one',
         'name' => 'Ginza One',
         'completed_year' => 2025,
@@ -97,7 +95,7 @@ it('sends what a card and its drawer show: brand, stones, categories, gallery, f
             ->where('projects.data.0.completedYear', 2025)
             ->where('projects.data.0.thumbnail', '/storage/projects/ginza.jpg')
             ->where('projects.data.0.thumbnailFile', ['originalName' => 'Ginza cover.jpg', 'sizeBytes' => 4096])
-            ->where('projects.data.0.brand', ['id' => $brand->id, 'name' => 'Cucine Lube'])
+            ->missing('projects.data.0.brand')
             ->where('projects.data.0.stones', [['id' => $agate->id, 'name' => 'Agate'], ['id' => $marble->id, 'name' => 'Marble']])
             ->where('projects.data.0.categories', [['id' => $kitchens->id, 'name' => 'Kitchens']])
             ->where('projects.data.0.images.0.url', '/storage/projects/a.jpg')
@@ -118,7 +116,7 @@ it('sends what a card and its drawer show: brand, stones, categories, gallery, f
             ]));
 });
 
-it('offers only the brands, stones and categories Regray shows', function (): void {
+it('offers only the stones and categories Regray shows, and no brand', function (): void {
     $shown = Brand::factory()->create(['name' => 'Shown']);
     Brand::factory()->create(['name' => 'Hidden', 'is_active' => false]);
     $archived = Brand::factory()->create(['name' => 'Archived']);
@@ -132,7 +130,7 @@ it('offers only the brands, stones and categories Regray shows', function (): vo
     $this->actingAs($this->admin)
         ->get(route('projects.index'))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('brandOptions', [['id' => $shown->id, 'name' => 'Shown']])
+            ->missing('brandOptions')
             ->where('stoneOptions', [['id' => $stone->id, 'name' => 'Agate', 'brand' => 'Shown']])
             ->where('categoryOptions', [['id' => $kitchens->id, 'name' => 'Kitchens']]));
 });
@@ -151,7 +149,6 @@ it('reads a page of projects in the same few queries however many there are', fu
         $project->stones()->attach(Stone::factory()->create()->id);
         $project->categories()->attach(makeProjectCategory('Category '.$project->id)->id);
         $project->images()->create(['path' => 'projects/p.jpg', 'sort_order' => 0]);
-        $project->forceFill(['brand_id' => Brand::factory()->create()->id])->save();
     };
 
     $add();

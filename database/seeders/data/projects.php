@@ -2,13 +2,11 @@
 
 /**
  * stone_slugs are the slugs of the stones a project used, one or two each.
- * brand_slug, where set, is the brand whose page lists the project.
  */
 return [
     'projects' => [
         [
             'slug' => 'recidencia-del-hamor',
-            'brand_slug' => 'regray-stone',
             'name' => 'Recidencia Del Hamor',
             'completed_year' => 2025,
             'location' => 'Casiguran, Sorsogon',
@@ -24,7 +22,6 @@ return [
         ],
         [
             'slug' => 'belo-medical-group',
-            'brand_slug' => 'regray-stone',
             'name' => 'Belo Medical Group',
             'completed_year' => 2026,
             'location' => 'Proscenium Rockwell, Makati City',
