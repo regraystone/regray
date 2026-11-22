@@ -1,177 +1,128 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import {
     CONTACT,
-    JOURNAL,
     SHOWROOM,
     SOCIALS,
-    brandUrl,
-    collectionUrl,
 } from '@/components/public/public-links';
-import { login, register } from '@/routes';
+import { home, login } from '@/routes';
 import { about, brands, contact, news, showroom } from '@/routes/company';
-import { index as inboxIndex } from '@/routes/inbox';
-import { book } from '@/routes/profile/schedule';
-import { inquire } from '@/routes/quote';
-import type { BrandCardData } from '@/types/home';
 
-type FooterLink = {
-    label: string;
-    href: string;
-    kind?: 'page' | 'anchor' | 'external';
-};
+/** Regray Stone's own website. */
+const REGRAY_SITE = 'https://regraystone.com/';
 
-const linkClass = 'text-base text-white transition-colors hover:text-white/70';
+/** The wordmark, painted white: the transparent PNG masks the colour. */
+const WORDMARK = '/images/regray_logo.png';
 
-const FooterAnchor = ({ link }: { link: FooterLink }) => {
-    if (link.kind === 'external') {
-        return (
-            <a
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={linkClass}
-            >
-                {link.label}
-            </a>
-        );
-    }
+const links: { label: string; href: string; external?: boolean }[] = [
+    { label: 'The group', href: about.url() },
+    { label: 'Our brands', href: brands.url() },
+    { label: 'Showroom', href: showroom.url() },
+    { label: 'News', href: news.url() },
+    { label: 'Contact', href: contact.url() },
+    { label: 'Client login', href: login.url() },
+    { label: 'Regraystone.com', href: REGRAY_SITE, external: true },
+];
 
-    if (link.kind === 'anchor') {
-        return (
-            <a href={link.href} className={linkClass}>
-                {link.label}
-            </a>
-        );
-    }
-
-    return (
-        <Link href={link.href} className={linkClass}>
-            {link.label}
-        </Link>
-    );
-};
+const linkClass =
+    'text-[1.0625rem] tracking-[0.04em] uppercase transition-opacity hover:opacity-70';
 
 /**
- * The public pages' black footer: the collections, every brand, the company
- * pages, what a client can do on the platform, and where to find Regray
- * online and in person. Pages a guest cannot open yet (the Inquire page,
- * booking a visit, Messages) go through Login first.
+ * The public pages' black footer, kept short: the wordmark, one centred
+ * column of the main pages, Regray's social accounts and the copyright, then
+ * the showroom's address, hours and how to reach the team.
  */
 export default function PublicFooter() {
-    const siteBrands =
-        usePage<{ siteBrands?: BrandCardData[] | null }>().props.siteBrands ??
-        [];
-
-    const columns: { title: string; links: FooterLink[] }[] = [
-        {
-            title: 'Collections',
-            links: [
-                { label: 'Natural stone', href: collectionUrl('stones') },
-                { label: 'Furniture', href: collectionUrl('furniture') },
-                {
-                    label: 'Featured projects',
-                    href: '/#projects',
-                    kind: 'anchor',
-                },
-                { label: 'Catalogs', href: '/#catalogs', kind: 'anchor' },
-            ],
-        },
-        {
-            title: 'Brands',
-            links: [
-                { label: 'All brands', href: brands.url() },
-                ...siteBrands.map((brand) => ({
-                    label: brand.name,
-                    href: brandUrl(brand.slug),
-                })),
-            ],
-        },
-        {
-            title: 'Regray',
-            links: [
-                { label: 'About Regray', href: about.url() },
-                { label: 'News', href: news.url() },
-                { label: 'Showroom', href: showroom.url() },
-                { label: 'Contact', href: contact.url() },
-                { label: 'Journal', href: JOURNAL, kind: 'external' },
-            ],
-        },
-        {
-            title: 'Get started',
-            links: [
-                { label: 'Request a quotation', href: inquire.url() },
-                { label: 'Book a site visit', href: book.url() },
-                { label: 'Message us', href: inboxIndex.url() },
-                { label: 'Create an account', href: register.url() },
-            ],
-        },
-        {
-            title: 'Find us on',
-            links: SOCIALS.map((social) => ({
-                ...social,
-                kind: 'external' as const,
-            })),
-        },
-    ];
-
     return (
-        <footer className="flex flex-col gap-[clamp(4rem,10vw,8.75rem)] bg-black px-4 pt-10 pb-8 text-white sm:px-8">
-            <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[repeat(5,minmax(0,1fr))_minmax(0,1.5fr)]">
-                {columns.map((column) => (
-                    <nav
-                        key={column.title}
-                        aria-label={column.title}
-                        className="flex flex-col gap-1.5"
-                    >
-                        <h2 className="mb-1 font-sans text-base font-bold">
-                            {column.title}
-                        </h2>
-                        {column.links.map((link) => (
-                            <FooterAnchor key={link.label} link={link} />
-                        ))}
-                    </nav>
-                ))}
+        <footer className="flex flex-col gap-[clamp(4rem,8vw,6.5rem)] bg-black px-5 pt-[clamp(4.5rem,9vw,7.5rem)] pb-28 text-white sm:px-8 lg:pb-10">
+            <div className="flex flex-col items-center gap-[clamp(3rem,6vw,4.5rem)] text-center">
+                <Link href={home()} aria-label="Regray home">
+                    <span
+                        aria-hidden
+                        className="block aspect-[426/76.5] h-[clamp(1.75rem,3vw,2.5rem)] bg-white"
+                        style={{
+                            maskImage: `url(${WORDMARK})`,
+                            maskSize: 'contain',
+                            maskRepeat: 'no-repeat',
+                            maskPosition: 'center',
+                            WebkitMaskImage: `url(${WORDMARK})`,
+                            WebkitMaskSize: 'contain',
+                            WebkitMaskRepeat: 'no-repeat',
+                            WebkitMaskPosition: 'center',
+                        }}
+                    />
+                </Link>
 
-                <div className="flex flex-col gap-1.5">
-                    <h2 className="mb-1 font-sans text-base font-bold">
-                        The Regray showroom
-                    </h2>
-                    <p className="max-w-80 text-base leading-relaxed text-white/85">
-                        {SHOWROOM.address}
-                    </p>
-                    <p className="text-base text-white/85">{SHOWROOM.hours}</p>
-                    <a
-                        href={`mailto:${CONTACT.email}`}
-                        className={`mt-2 ${linkClass}`}
+                <nav aria-label="Footer">
+                    <ul className="flex flex-col items-center gap-5">
+                        {links.map((link) => (
+                            <li key={link.label}>
+                                {link.external ? (
+                                    <a
+                                        href={link.href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={linkClass}
+                                    >
+                                        {link.label}
+                                    </a>
+                                ) : (
+                                    <Link href={link.href} className={linkClass}>
+                                        {link.label}
+                                    </Link>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </nav>
+
+                <div className="flex flex-col items-center gap-5">
+                    <ul
+                        aria-label="Follow Regray"
+                        className="flex flex-wrap justify-center gap-x-7 gap-y-2 text-[1.0625rem] font-medium"
                     >
-                        {CONTACT.email}
-                    </a>
+                        {SOCIALS.map((social) => (
+                            <li key={social.label}>
+                                <a
+                                    href={social.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="transition-opacity hover:opacity-70"
+                                >
+                                    {social.label}
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                    <p className="text-[0.9375rem] tracking-[0.04em] text-white/75 uppercase">
+                        © Regray {new Date().getFullYear()}
+                    </p>
+                </div>
+            </div>
+
+            <address className="flex flex-col gap-2 text-base leading-relaxed text-white/85 not-italic">
+                <span className="font-semibold tracking-[0.04em] text-white uppercase">
+                    Regray Stone & Furniture
+                </span>
+                <span>{SHOWROOM.address}</span>
+                <span>{SHOWROOM.hours}</span>
+                <span className="flex flex-wrap gap-x-2">
                     {CONTACT.phones.map((phone) => (
                         <a
                             key={phone.href}
                             href={phone.href}
-                            className={linkClass}
+                            className="text-white underline-offset-4 after:ml-2 after:text-white/50 after:content-['·'] hover:underline"
                         >
                             {phone.label}
                         </a>
                     ))}
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-[0.9375rem] font-semibold sm:grid-cols-2 lg:grid-cols-4">
-                <span className="font-normal normal-case">
-                    © {new Date().getFullYear()} Regray
+                    <a
+                        href={`mailto:${CONTACT.email}`}
+                        className="text-white underline-offset-4 hover:underline"
+                    >
+                        {CONTACT.email}
+                    </a>
                 </span>
-                <Link href={showroom.url()} className={linkClass}>
-                    Showroom
-                </Link>
-                <Link href={contact.url()} className={linkClass}>
-                    Contact
-                </Link>
-                <Link href={login.url()} className={linkClass}>
-                    Client login
-                </Link>
-            </div>
+            </address>
         </footer>
     );
 }
