@@ -10,8 +10,6 @@ import {
 import {
     BRAND_LOGO_HEIGHT,
     DEFAULT_BRAND_LOGO_HEIGHT,
-    SHOWROOM,
-    SHOWROOM_MAP,
     brandUrl,
     collectionUrl,
 } from '@/components/public/public-links';
@@ -22,7 +20,6 @@ import {
     news,
     showroom,
 } from '@/routes/company';
-import { book } from '@/routes/profile/schedule';
 import { inquire } from '@/routes/quote';
 import { show as projectShow } from '@/routes/stone';
 import type { LandingBrand, LandingProject } from '@/types/home';
@@ -232,56 +229,47 @@ export function LandingOnline() {
     );
 }
 
-/** 04. The showroom: a full-height photo, then where it is and the ways in. */
+/**
+ * 04. The showroom, promoted: one large photo with a single message and a
+ * single way in, the showroom's page (where to find it, the gallery and
+ * booking a visit).
+ */
 export function LandingShowroom() {
     return (
         <section
             id="showroom"
             aria-labelledby="landing-showroom"
-            className="scroll-mt-20"
+            className={`scroll-mt-20 pb-[clamp(5rem,9vw,8.5rem)] ${frame}`}
         >
-            <div className={frame}>
-                <Link
-                    href={showroom.url()}
-                    className="group relative block h-[calc(100svh-5rem)] min-h-115 overflow-hidden rounded-md bg-night text-white"
-                >
-                    <img
-                        src="/images/regray-showroom.jpg"
-                        alt=""
-                        loading="lazy"
-                        className={`size-full object-cover object-[center_60%] ${zoom}`}
-                    />
-                    <div aria-hidden className="absolute inset-0 bg-black/30" />
-                    <span className="absolute inset-x-6 top-1/2 flex -translate-y-1/2 flex-col items-center gap-4 text-center">
-                        <span className={label}>Showroom</span>
-                        <span
-                            id="landing-showroom"
-                            className="font-display text-[clamp(1.875rem,3.6vw,3.5rem)] font-light tracking-[0.02em] text-balance"
-                        >
-                            Experience every brand in person
-                        </span>
-                    </span>
-                </Link>
-            </div>
-            <div className="flex flex-col items-center gap-7 px-5 pt-[clamp(3.5rem,7vw,6rem)] pb-[clamp(5rem,9vw,8rem)] text-center">
-                <p className={lead}>
-                    {SHOWROOM.address}. {SHOWROOM.hours}.
-                </p>
-                <div className="mt-2 flex flex-wrap justify-center gap-x-10 gap-y-4">
-                    <Link href={book.url()} className={textLink}>
-                        Book a visit
-                    </Link>
-                    <a href={`${showroom.url()}#gallery`} className={textLink}>
-                        Gallery
-                    </a>
-                    <a
-                        href={SHOWROOM_MAP}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={textLink}
+            <div className="relative flex h-[min(calc(100svh-5rem),52rem)] min-h-115 flex-col items-center justify-center overflow-hidden rounded-md bg-night px-6 text-center text-white">
+                <img
+                    src="/images/regray-showroom.jpg"
+                    alt="The Regray showroom in Makati, with stone slabs on display"
+                    loading="lazy"
+                    className="absolute inset-0 size-full object-cover object-[center_60%]"
+                />
+                <div
+                    aria-hidden
+                    className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgb(0_0_0/0.62)_0%,rgb(0_0_0/0.5)_45%,rgb(0_0_0/0.3)_100%)]"
+                />
+                <div className="relative flex max-w-170 flex-col items-center gap-5">
+                    <p className={label}>Our showroom in Makati</p>
+                    <h2
+                        id="landing-showroom"
+                        className="font-display text-[clamp(2rem,3.8vw,3.5rem)] leading-[1.1] font-light text-balance"
                     >
-                        Get directions
-                    </a>
+                        Come and see it in person
+                    </h2>
+                    <p className="text-[clamp(1.125rem,1.4vw,1.3125rem)] leading-relaxed text-pretty text-white/90">
+                        Touch the stone, open the kitchens and talk to our team.
+                        Open every day, 10AM to 6PM.
+                    </p>
+                    <Link
+                        href={showroom.url()}
+                        className="mt-3 inline-flex min-h-13 items-center justify-center rounded-md bg-white px-8 py-3.5 text-base font-semibold text-black transition-colors hover:bg-white/85"
+                    >
+                        Plan your visit
+                    </Link>
                 </div>
             </div>
         </section>
