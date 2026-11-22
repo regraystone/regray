@@ -123,7 +123,7 @@ export default function CompanyAbout({
                         <li key={brand.slug}>
                             <Link
                                 href={brandUrl(brand.slug)}
-                                className="group relative flex aspect-3/2 items-center justify-center overflow-hidden bg-night"
+                                className="group relative flex aspect-3/2 items-center justify-center overflow-hidden rounded-md bg-night"
                             >
                                 {brand.thumbnail ? (
                                     <img

@@ -14,11 +14,11 @@ export const textLink =
 
 /** The black button. */
 export const solidButton =
-    'bg-foreground px-6.5 py-4 text-center text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80';
+    'rounded-md bg-foreground px-6.5 py-4 text-center text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80';
 
 /** The outlined button. */
 export const outlineButton =
-    'border border-foreground px-6.5 py-3.75 text-center text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-foreground hover:text-background';
+    'rounded-md border border-foreground px-6.5 py-3.75 text-center text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-foreground hover:text-background';
 
 /** The page's opening: a small label, its title and a line on what it holds. */
 export const PageIntro = ({
@@ -79,7 +79,7 @@ export const WidePhoto = ({
     position?: string;
 }) => (
     <div className={frame}>
-        <div className="aspect-4/3 overflow-hidden bg-muted min-[700px]:aspect-[21/9]">
+        <div className="aspect-4/3 overflow-hidden rounded-md bg-muted min-[700px]:aspect-[21/9]">
             <img
                 src={src}
                 alt={alt}

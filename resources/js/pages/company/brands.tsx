@@ -15,7 +15,7 @@ const BrandCard = ({ brand }: { brand: LandingBrand }) => (
         <Link
             href={brandUrl(brand.slug)}
             aria-label={`Discover ${brand.name}`}
-            className="group relative block aspect-4/3 overflow-hidden bg-night"
+            className="group relative block aspect-4/3 overflow-hidden rounded-md bg-night"
         >
             {brand.thumbnail ? (
                 <img
@@ -33,9 +33,6 @@ const BrandCard = ({ brand }: { brand: LandingBrand }) => (
             />
         </Link>
         <div className="flex flex-col items-center gap-3 text-center">
-            <h3 className="font-display text-[clamp(1.375rem,1.8vw,1.75rem)] font-light">
-                {brand.name}
-            </h3>
             {brand.description ? (
                 <p className="max-w-120 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
                     {brand.description}
@@ -95,28 +92,10 @@ export default function CompanyBrands({ brands }: { brands: LandingBrand[] }) {
 
             <PageIntro eyebrow="Our brands" title="Every brand. One platform.">
                 <p>
-                    Regray brings {brands.length} houses together under one
-                    roof: its own Regray Stone, and European makers of surfaces,
-                    kitchens, wardrobes, doors and furniture. Browse them by
-                    what they make, open each one&rsquo;s collection, or visit
-                    its official website.
+                    Regray Stone and leading European makers of surfaces,
+                    kitchens, wardrobes, doors and furniture, under one roof.
                 </p>
             </PageIntro>
-
-            <nav
-                aria-label="Brand categories"
-                className="flex flex-wrap justify-center gap-x-8 gap-y-3 px-5 pb-[clamp(3rem,6vw,5rem)]"
-            >
-                {categories.map((category) => (
-                    <a
-                        key={category.id}
-                        href={`#${category.id}`}
-                        className="border-b border-transparent pb-1 text-[0.8125rem] tracking-[0.04em] uppercase transition-colors hover:border-foreground"
-                    >
-                        {category.label}
-                    </a>
-                ))}
-            </nav>
 
             {categories.map((category) => (
                 <section

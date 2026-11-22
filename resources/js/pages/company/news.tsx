@@ -60,7 +60,7 @@ export default function CompanyNews({
                     href={JOURNAL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 bg-foreground px-6.5 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80"
+                    className="mt-2 rounded-md bg-foreground px-6.5 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80"
                 >
                     Read the Regray Journal ↗
                 </a>

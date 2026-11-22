@@ -101,7 +101,7 @@ export default function CompanyShowroom({
                                     })}
                                     className="group flex flex-col gap-3"
                                 >
-                                    <div className="aspect-4/5 overflow-hidden bg-muted">
+                                    <div className="aspect-4/5 overflow-hidden rounded-md bg-muted">
                                         <img
                                             src={project.thumbnail}
                                             alt=""
@@ -174,7 +174,7 @@ export default function CompanyShowroom({
                         Get directions ↗
                     </a>
                 </div>
-                <div className="aspect-4/3 overflow-hidden bg-muted lg:aspect-auto lg:min-h-105">
+                <div className="aspect-4/3 overflow-hidden rounded-md bg-muted lg:aspect-auto lg:min-h-105">
                     <iframe
                         title="Map of the Regray showroom in Makati"
                         src={SHOWROOM_MAP_EMBED}

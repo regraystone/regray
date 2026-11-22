@@ -43,9 +43,9 @@ const zoom =
 
 /** The black button and the outlined one. */
 const solidButton =
-    'bg-foreground px-6.5 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80';
+    'rounded-md bg-foreground px-6.5 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80';
 const outlineButton =
-    'border border-foreground px-6.5 py-3.75 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-foreground hover:text-background';
+    'rounded-md border border-foreground px-6.5 py-3.75 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-foreground hover:text-background';
 
 /** A row of the contact list. */
 const contactRow =
@@ -58,7 +58,7 @@ const contactRow =
 export function LandingHero() {
     return (
         <section aria-label="The Regray Group" className={frame}>
-            <div className="relative h-[calc(100svh-8.5rem)] min-h-115 overflow-hidden bg-[#d8d4cd] text-white">
+            <div className="relative h-[calc(100svh-8.5rem)] min-h-115 overflow-hidden rounded-md bg-[#d8d4cd] text-white">
                 <img
                     src="/images/regray-hero.jpg"
                     alt="A living room with a book-matched marble wall and a travertine table"
@@ -135,9 +135,12 @@ export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
                 </p>
             </div>
             {brands.length > 0 ? (
-                <ul className="grid w-full max-w-330 grid-cols-2 items-center gap-x-[clamp(1.5rem,3vw,3rem)] gap-y-[clamp(2.5rem,5vw,4.5rem)] [--wall:0.75] sm:grid-cols-3 sm:[--wall:1] xl:grid-cols-6">
+                <ul className="grid w-full max-w-330 grid-cols-2 items-center gap-x-[clamp(1.5rem,3vw,3rem)] gap-y-[clamp(2.5rem,5vw,4.5rem)] [--wall:0.6] md:grid-cols-3 md:[--wall:0.85] lg:grid-cols-6 lg:[--wall:1]">
                     {brands.map((brand) => (
-                        <li key={brand.slug} className="flex justify-center">
+                        <li
+                            key={brand.slug}
+                            className="flex min-w-0 justify-center"
+                        >
                             <Link
                                 href={brandUrl(brand.slug)}
                                 title={brand.name}
@@ -149,7 +152,7 @@ export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
                                     loading="lazy"
                                     className="max-w-full object-contain"
                                     style={{
-                                        // At full size from sm up, three quarters on phones.
+                                        // Full size on laptops, scaled down on tablets and phones.
                                         height: `calc(${BRAND_LOGO_HEIGHT[brand.slug] ?? DEFAULT_BRAND_LOGO_HEIGHT}px * var(--wall))`,
                                     }}
                                 />
@@ -191,7 +194,7 @@ export function LandingOnline() {
             <Link
                 href={collectionUrl('stones')}
                 aria-label="Explore the stones"
-                className="group block aspect-4/3 w-full self-center overflow-hidden bg-[#d8d4cd]"
+                className="group block aspect-4/3 w-full self-center overflow-hidden rounded-md bg-[#d8d4cd]"
             >
                 <img
                     src="/images/regray-slabs.jpg"
@@ -258,7 +261,7 @@ export function LandingShowroom() {
             <div className={frame}>
                 <Link
                     href={showroom.url()}
-                    className="group relative block h-[calc(100svh-5rem)] min-h-115 overflow-hidden bg-night text-white"
+                    className="group relative block h-[calc(100svh-5rem)] min-h-115 overflow-hidden rounded-md bg-night text-white"
                 >
                     <img
                         src="/images/regray-showroom.jpg"
@@ -340,7 +343,7 @@ export const StoryCard = ({ story }: { story: LandingProject }) => (
         href={projectShow.url({ slug: story.slug })}
         className="group flex flex-col gap-4.5"
     >
-        <div className="aspect-4/3 overflow-hidden bg-[#d8d4cd]">
+        <div className="aspect-4/3 overflow-hidden rounded-md bg-[#d8d4cd]">
             <img
                 src={story.thumbnail}
                 alt=""

@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
     HOME_BRAND,
@@ -71,20 +72,19 @@ const MenuAnchor = ({
     );
 };
 
-/** The "+" that turns into an "×" when its tab is open. */
-const Plus = ({
+/** The chevron that turns to point up when its tab is open. */
+const Chevron = ({
     open,
     className = '',
 }: {
     open: boolean;
     className?: string;
 }) => (
-    <span
+    <ChevronDown
         aria-hidden
-        className={`inline-block font-light transition-transform duration-300 motion-reduce:transition-none ${open ? 'rotate-45' : ''} ${className}`}
-    >
-        +
-    </span>
+        strokeWidth={1.5}
+        className={`shrink-0 transition-transform duration-300 motion-reduce:transition-none ${open ? 'rotate-180' : ''} ${className}`}
+    />
 );
 
 /**
@@ -232,9 +232,9 @@ export default function PublicHeader() {
                                     }`}
                                 >
                                     {item.label}
-                                    <Plus
+                                    <Chevron
                                         open={open === index}
-                                        className="text-sm"
+                                        className="size-3.5"
                                     />
                                 </button>
                             ),
@@ -251,7 +251,7 @@ export default function PublicHeader() {
                                 href={link.href}
                                 className={
                                     link.primary
-                                        ? 'bg-foreground px-4 py-2.5 font-semibold text-background transition-colors hover:bg-foreground/80'
+                                        ? 'rounded-md bg-foreground px-4 py-2.5 font-semibold text-background transition-colors hover:bg-foreground/80'
                                         : 'border-b border-transparent py-1.5 transition-colors hover:border-foreground'
                                 }
                             >
@@ -326,7 +326,7 @@ export default function PublicHeader() {
                                 </li>
                             ))}
                         </ul>
-                        <div className="aspect-4/3 overflow-hidden bg-muted">
+                        <div className="aspect-4/3 overflow-hidden rounded-md bg-muted">
                             <img
                                 src={current.image}
                                 alt=""
@@ -389,9 +389,9 @@ export default function PublicHeader() {
                                     className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-4 text-left font-display text-2xl font-light uppercase"
                                 >
                                     {section.label}
-                                    <Plus
+                                    <Chevron
                                         open={expanded}
-                                        className="text-[1.375rem]"
+                                        className="size-6"
                                     />
                                 </button>
                                 <div
@@ -453,8 +453,8 @@ export default function PublicHeader() {
                                 onClick={closeAll}
                                 className={
                                     link.primary
-                                        ? 'bg-foreground p-4.5 text-center text-background'
-                                        : 'border border-foreground p-4.5 text-center'
+                                        ? 'rounded-md bg-foreground p-4.5 text-center text-background'
+                                        : 'rounded-md border border-foreground p-4.5 text-center'
                                 }
                             >
                                 {link.label}

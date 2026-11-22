@@ -24,7 +24,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         <div className="min-h-screen bg-background font-light text-foreground">
             <a
                 href="#main"
-                className="sr-only bg-foreground px-4.5 py-3 text-sm text-background focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-60"
+                className="sr-only rounded-md bg-foreground px-4.5 py-3 text-sm text-background focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-60"
             >
                 Skip to content
             </a>
