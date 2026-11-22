@@ -144,7 +144,13 @@ function schemaQuotationCard(): array
         'type' => 'quotation_card',
         'inquiry_id' => $inquiryId,
         'inquiry_file_id' => DB::table('inquiry_files')->where('inquiry_id', $inquiryId)->value('id'),
-        'card_snapshot' => json_encode(['fileName' => 'x.pdf']),
+        'card_file_name' => 'x.pdf',
+        'card_stored_name' => 'x-stored.pdf',
+        'card_size_bytes' => 1024,
+        'card_revision' => 1,
+        'card_material_count' => 0,
+        'card_inquiry_name' => 'Kitchen',
+        'card_reference' => 'INQ-0001',
         'created_at' => now(),
     ];
 }
@@ -344,7 +350,9 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
         DB::table('messages')->insert($card);
     }],
     'quotation card: no document' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'inquiry_file_id' => null])],
-    'quotation card: no snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'card_snapshot' => null])],
+    'quotation card: no snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'card_file_name' => null])],
+    'quotation card: no reference' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'card_reference' => null])],
+    'quotation card: a negative size' => ['chk_messages_card_counts', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'card_size_bytes' => -1])],
     'quotation card: no inquiry' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'inquiry_id' => null])],
     'quotation card: with a display status' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaQuotationCard(), 'announced_status' => 'quoted'])],
     'quotation card: the same document twice' => ['idx_messages_quotation_card_once', function () {
@@ -352,7 +360,7 @@ test('refuses a row that breaks a constraint', function (string $constraint, Clo
         DB::table('messages')->insert($card);
         DB::table('messages')->insert($card);
     }],
-    'inquiry card: with a quotation snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'card_snapshot' => json_encode(['fileName' => 'x.pdf'])])],
+    'inquiry card: with a quotation snapshot' => ['chk_messages_type', fn () => DB::table('messages')->insert([...schemaCard(), 'card_file_name' => 'x.pdf'])],
     'deleting a quotation a card is about' => ['messages_inquiry_file_id_foreign', function () {
         $card = schemaQuotationCard();
         DB::table('messages')->insert($card);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Data\Message\QuotationCardSnapshot;
 use App\Enums\DocumentType;
 use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
@@ -13,6 +14,7 @@ use App\Models\User;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 
@@ -83,8 +85,7 @@ it('posts a quotation card after the "Quotation sent" inquiry card when Sales se
         ->and($card->inquiry_id)->toBe($inquiry->id)
         ->and($card->inquiry_file_id)->toBe($file->id)
         ->and($card->sender_id)->toBeNull()
-        // jsonb keeps its own key order, so the keys are compared as a set.
-        ->and($card->card_snapshot)->toEqual([
+        ->and($card->card_snapshot)->toBe([
             'fileName' => 'QUO-0002_Regray Stone.pdf',
             'storedName' => $file->stored_name,
             'sizeBytes' => $file->size_bytes,
@@ -134,7 +135,7 @@ it('posts one card per document however often the listener runs', function (): v
     QuotationSent::dispatch($file);
 
     expect(Message::query()->where('conversation_id', $thread->id)->where('type', MessageType::QuotationCard->value)->count())->toBe(1)
-        ->and(app(MessageRepositoryInterface::class)->createQuotationCardOnce($thread->id, $inquiry->id, $file->id, ['fileName' => 'x']))->toBeNull();
+        ->and(app(MessageRepositoryInterface::class)->createQuotationCardOnce($thread->id, $inquiry->id, $file->id, QuotationCardSnapshot::of($file)))->toBeNull();
 });
 
 it('posts into the inquiry\'s group chat once it has one', function (): void {
@@ -283,4 +284,24 @@ it('stores no card for a quotation the database would not take as one', function
         'created_at' => now(),
     ]))->toThrow(QueryException::class, 'chk_messages_type')
         ->and($file)->toBeInstanceOf(InquiryFile::class);
+});
+
+it('keeps a card\'s snapshot in columns, and moves it to JSON and back without a change', function (): void {
+    quotableInquiry($this->client, $this->sales);
+    $thread = supportThreadFor($this->client);
+    sendQuotation($this->sales, 'INQ-Q1', 'quoted', 'QUO-0002_Regray Stone.pdf');
+    $card = Message::query()->where('conversation_id', $thread->id)->where('type', MessageType::QuotationCard->value)->sole();
+    $snapshot = $card->card_snapshot;
+    $migration = require database_path('migrations/2026_11_22_000005_store_quotation_card_snapshot_in_columns.php');
+
+    expect($card->card_file_name)->toBe('QUO-0002_Regray Stone.pdf')
+        ->and($card->card_material_count)->toBe(3);
+
+    $migration->down();
+
+    expect(json_decode((string) DB::table('messages')->where('id', $card->id)->value('card_snapshot'), true))->toEqual($snapshot);
+
+    $migration->up();
+
+    expect(Message::query()->findOrFail($card->id)->card_snapshot)->toBe($snapshot);
 });

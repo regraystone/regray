@@ -1,3 +1,24 @@
+# No JSON in the database: audit values and quotation cards are normalized
+
+Regray's own tables keep no JSON now. Laravel's sessions, cache and jobs tables still store serialized data, as the framework writes them. The two places that used JSON are now plain columns and rows, with what was already stored copied across. **Deploy, local and production: `php artisan migrate`** (two new migrations). Nothing to reseed.
+
+- **Quotation cards** (`2026_11_22_000005_store_quotation_card_snapshot_in_columns`): `messages.card_snapshot` (JSON) becomes typed columns, as a schedule card's snapshot already was:
+  - the document as it was posted: `card_file_name`, `card_stored_name`, `card_size_bytes`, `card_revision`;
+  - the inquiry as it was: `card_material_count`, `card_inquiry_name`, `card_reference`.
+
+  The type CHECK requires every column but the revision on a quotation card, and none on any other message. A new `chk_messages_card_counts` keeps the size and count at 0 or more and the revision at 1 or more. `QuotationCardSnapshot::columns()` writes the snapshot, and `Message`'s `card_snapshot` attribute reads the columns back in the same shape, so the cards, the inbox preview and their resources are unchanged.
+- **Audit log** (`2026_11_22_000006_store_audit_values_in_rows`): `audit_logs.old_values` and `new_values` (JSON) become rows in a new `audit_log_values` table: one row per value, with its entry, its side (`old` or `new`), its path, its type and its value as text.
+  - A nested value is one row per leaf, e.g. `gallery.1` or `answers.0.value`.
+  - The type (`string`, `integer`, `float`, `boolean`, `null`, or `array` for an empty list) means it reads back exactly as written.
+  - CHECKs keep the side and type to those, and only a string, number or boolean carries a value. A path is unique within an entry's side.
+  - `EloquentAuditLogRepository::record()` writes the entry and its rows in one transaction. `AuditLog`'s `old_values` and `new_values` rebuild the arrays from the rows, which load with the entry, so nothing that reads an audit changes. `AuditLogValue` holds the conversion both ways.
+- **Both migrations** copy what is there and can be undone: `down()` rebuilds the JSON from the columns and rows.
+- **Tests:** `Database/NormalizedValuesTest` checks that no JSON column is left in Regray's own tables, that an audit's values (text, numbers, flags, nulls, lists, nesting, empty lists, an enum) read back as written, and that the audit migration goes down and up without loss. `QuotationCardTest` does the same for a card's snapshot. `SchemaTest` uses the new columns and checks their constraints.
+
+# CI fixes: import order and a type in the brand-facts migration
+
+`composer ci:check` failed on the branch as pushed. Pint found imports out of order in 11 files the Showcase rename touched, now sorted. PHPStan found that `2026_11_22_000004_move_brand_overview_rows_into_facts` passed its facts as an array it could not prove was a list, now wrapped in `array_values()`. No behaviour changes.
+
 # A brand's Overview is all set on the Brands page
 
 A brand page's Overview used to add two rows of its own, **Category** (from a list in `public-links.ts`) and **See it at** ("Regray showroom, Makati City"), which the admin couldn't change. Both are now ordinary facts, set like any other on the Brands page. Regray Stone's **Based in** and **Installed** facts are removed. The one line still built by the page is **In our catalog**, a live count of the brand's active stones and furniture; the Brands drawer shows the same count. **Deploy, local and production: `php artisan migrate`** (one new migration).
