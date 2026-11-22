@@ -3,7 +3,6 @@ import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import BrandCollection from '@/components/home/brand-collection';
 import {
-    BRAND_CATEGORIES,
     BRAND_LOGO_HEIGHT,
     DEFAULT_BRAND_LOGO_HEIGHT,
 } from '@/components/public/public-links';
@@ -171,9 +170,6 @@ const BrandProfile = () => {
         : '-mx-4 px-4 sm:-mx-8 sm:px-8';
     const barTop = isSignedIn ? 'top-14 lg:top-16' : 'top-20';
 
-    const categories = BRAND_CATEGORIES.filter((category) =>
-        (category.slugs as readonly string[]).includes(brand.slug),
-    ).map((category) => category.label);
     const inCatalog = [
         offer.stones > 0 ? plural(offer.stones, 'stone', 'stones') : null,
         offer.furniture > 0
@@ -184,11 +180,10 @@ const BrandProfile = () => {
               )
             : null,
     ].filter((part): part is string => part !== null);
+    // Its facts, every one set on the admin's Brands page, then the one line
+    // counted live from its products.
     const facts = [
         ...details.facts,
-        ...(categories.length > 0
-            ? [{ label: 'Category', value: categories.join(', ') }]
-            : []),
         {
             label: 'In our catalog',
             value:
@@ -196,7 +191,6 @@ const BrandProfile = () => {
                     ? inCatalog.join(' · ')
                     : 'Coming online soon',
         },
-        { label: 'See it at', value: 'Regray showroom, Makati City' },
     ];
 
     const sections = [

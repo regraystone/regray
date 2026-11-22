@@ -1,3 +1,12 @@
+# A brand's Overview is all set on the Brands page
+
+A brand page's Overview used to add two rows of its own, **Category** (from a list in `public-links.ts`) and **See it at** ("Regray showroom, Makati City"), which the admin couldn't change. Both are now ordinary facts, set like any other on the Brands page. Regray Stone's **Based in** and **Installed** facts are removed. The one line still built by the page is **In our catalog**, a live count of the brand's active stones and furniture; the Brands drawer shows the same count. **Deploy, local and production: `php artisan migrate`** (one new migration).
+
+- **Seed data** (`data/brands.php`): each brand's facts end with Category and See it at. Regray Stone's are Services, Category and See it at. Cucine Lube is now at the six-fact limit.
+- **Migration** (`2026_11_22_000004_move_brand_overview_rows_into_facts`): brings an existing database to the same facts. It only touches these rows: a Category or See it at already there under that label is kept, a reworded Based in or Installed is left alone, and a brand with six facts gets nothing more. Running it twice changes nothing; `down()` puts the old facts back.
+- **Brand page** (`pages/brand-profile.tsx`): the Overview is the brand's facts plus In our catalog, and no longer reads `BRAND_CATEGORIES`. The Our brands page still groups by those categories.
+- **Tests:** `Database/BrandOverviewFactsTest` covers the fresh seed, the migration up, twice and down, and the admin's own facts being kept. `BrandFactsTest` has the new fact counts.
+
 # Projects are now Showcases, everywhere
 
 The admin's **Projects** page is now **Showcase** (`/dashboard/showcases`), since what it holds feeds the News page, the landing page's news and the showroom's gallery. The name changes everywhere: labels, code, routes, permissions and the database. The inquiry's own "project" (the client's job on the Inquire page) keeps its name. **Deploy, local and production: `php artisan migrate`** (one new migration; it renames in place and keeps every row, role and audit entry). **Rebuild the front end** (new page files). Nothing to reseed.
