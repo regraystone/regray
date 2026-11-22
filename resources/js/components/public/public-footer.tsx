@@ -20,7 +20,7 @@ type FooterLink = {
     kind?: 'page' | 'anchor' | 'external';
 };
 
-const linkClass = 'text-sm text-white transition-colors hover:text-white/70';
+const linkClass = 'text-base text-white transition-colors hover:text-white/70';
 
 const FooterAnchor = ({ link }: { link: FooterLink }) => {
     if (link.kind === 'external') {
@@ -97,9 +97,9 @@ export default function PublicFooter() {
             ],
         },
         {
-            title: 'Platform',
+            title: 'Get started',
             links: [
-                { label: 'Send an inquiry', href: inquire.url() },
+                { label: 'Request a quotation', href: inquire.url() },
                 { label: 'Book a site visit', href: book.url() },
                 { label: 'Message us', href: inboxIndex.url() },
                 { label: 'Create an account', href: register.url() },
@@ -123,7 +123,7 @@ export default function PublicFooter() {
                         aria-label={column.title}
                         className="flex flex-col gap-1.5"
                     >
-                        <h2 className="mb-1 font-sans text-sm font-bold">
+                        <h2 className="mb-1 font-sans text-base font-bold">
                             {column.title}
                         </h2>
                         {column.links.map((link) => (
@@ -133,13 +133,13 @@ export default function PublicFooter() {
                 ))}
 
                 <div className="flex flex-col gap-1.5">
-                    <h2 className="mb-1 font-sans text-sm font-bold">
+                    <h2 className="mb-1 font-sans text-base font-bold">
                         The Regray showroom
                     </h2>
-                    <p className="max-w-80 text-sm leading-relaxed text-white/80">
+                    <p className="max-w-80 text-base leading-relaxed text-white/85">
                         {SHOWROOM.address}
                     </p>
-                    <p className="text-sm text-white/80">{SHOWROOM.hours}</p>
+                    <p className="text-base text-white/85">{SHOWROOM.hours}</p>
                     <a
                         href={`mailto:${CONTACT.email}`}
                         className={`mt-2 ${linkClass}`}
@@ -158,7 +158,7 @@ export default function PublicFooter() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-[0.8125rem] font-semibold uppercase sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-[0.9375rem] font-semibold sm:grid-cols-2 lg:grid-cols-4">
                 <span className="font-normal normal-case">
                     © {new Date().getFullYear()} Regray
                 </span>

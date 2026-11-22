@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import {
     PageIntro,
     SectionTitle,
+    body,
     frame,
     textLink,
 } from '@/components/public/company-ui';
@@ -34,7 +35,7 @@ const BrandCard = ({ brand }: { brand: LandingBrand }) => (
         </Link>
         <div className="flex flex-col items-center gap-3 text-center">
             {brand.description ? (
-                <p className="max-w-120 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
+                <p className={`max-w-120 text-muted-foreground ${body}`}>
                     {brand.description}
                 </p>
             ) : null}
@@ -58,7 +59,7 @@ const BrandCard = ({ brand }: { brand: LandingBrand }) => (
 );
 
 /**
- * Our brands: Regray's houses grouped by what they make (Stone & Surfaces,
+ * Our brands: Regray's brands grouped by what they make (Stone & Surfaces,
  * Kitchens, Wardrobes & Doors, Furniture & Interiors), each with its photo,
  * logo, description, page and official website. A brand in no group is
  * listed at the end.
@@ -80,7 +81,7 @@ export default function CompanyBrands({ brands }: { brands: LandingBrand[] }) {
         })),
         {
             id: 'more',
-            label: 'More houses',
+            label: 'More brands',
             description: 'The rest of the Regray group.',
             brands: others,
         },

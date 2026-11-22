@@ -3,7 +3,9 @@ import {
     PageIntro,
     SectionTitle,
     WidePhoto,
+    body,
     frame,
+    label,
     outlineButton,
     solidButton,
 } from '@/components/public/company-ui';
@@ -29,7 +31,7 @@ export default function CompanyAbout({
 }) {
     const figures = [
         { value: '1,000+', label: 'Spaces installed' },
-        { value: String(facts.brands), label: 'Houses in the group' },
+        { value: String(facts.brands), label: 'Brands in the group' },
         { value: String(facts.stones), label: 'Stones in the collection' },
         { value: String(facts.projects), label: 'Featured projects' },
     ];
@@ -40,10 +42,9 @@ export default function CompanyAbout({
 
             <PageIntro eyebrow="Discover" title="About Regray">
                 <p>
-                    Regray is a platform for stone and interiors: its own Regray
-                    Stone and a group of European design houses, with one
-                    showroom, one team and one account for every inquiry, from
-                    the first idea to the final installation.
+                    Regray brings natural stone, kitchens and interiors together
+                    in one place, with one showroom and one team to help you
+                    from the first idea to the finished room.
                 </p>
             </PageIntro>
 
@@ -63,7 +64,7 @@ export default function CompanyAbout({
                 >
                     Our story
                 </h2>
-                <div className="flex flex-col gap-5 text-[1.0625rem] leading-relaxed text-pretty">
+                <div className={`flex flex-col gap-5 ${body}`}>
                     <p>
                         Regray Stone was established in 2022, and it started
                         because we really love natural stone. We wanted to share
@@ -79,11 +80,10 @@ export default function CompanyAbout({
                         years.
                     </p>
                     <p>
-                        Today Regray brings that same care to a group of
-                        European houses in kitchens, wardrobes, doors and
-                        sintered stone, and to one platform where clients send
-                        an inquiry and follow it all the way to installation:
-                        one client, and one stone, at a time.
+                        Today Regray brings that same care to trusted European
+                        brands of kitchens, wardrobes, doors and sintered stone.
+                        Our team looks after each client from the first visit
+                        to the final installation.
                     </p>
                 </div>
             </section>
@@ -101,7 +101,7 @@ export default function CompanyAbout({
                             <dd className="order-first font-display text-[clamp(2rem,3vw,2.75rem)] font-light tabular-nums">
                                 {figure.value}
                             </dd>
-                            <dt className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
+                            <dt className={`${label} text-muted-foreground`}>
                                 {figure.label}
                             </dt>
                         </div>
@@ -115,8 +115,8 @@ export default function CompanyAbout({
                 className={`scroll-mt-24 pb-[clamp(5rem,9vw,8rem)] ${frame}`}
             >
                 <SectionTitle id="about-group" title="The Regray Group">
-                    Each house keeps its craft and identity; together they share
-                    one showroom, one team and one platform.
+                    Each brand keeps its own craft. Together they share one
+                    showroom and one team.
                 </SectionTitle>
                 <ul className="mx-auto grid max-w-6xl grid-cols-2 gap-4 min-[700px]:gap-7 sm:grid-cols-3">
                     {brands.map((brand) => (
@@ -172,7 +172,7 @@ export default function CompanyAbout({
                             key={statement.title}
                             className="flex flex-col gap-5 border-t border-white/40 pt-6"
                         >
-                            <p className="text-xs tracking-[0.14em] text-white/70 uppercase">
+                            <p className={`${label} text-white/75`}>
                                 {statement.title}
                             </p>
                             <p className="font-display text-[clamp(1.375rem,2vw,1.875rem)] leading-snug font-light text-pretty">
@@ -195,7 +195,7 @@ export default function CompanyAbout({
                     >
                         Partnerships
                     </h2>
-                    <p className="text-[1.0625rem] leading-relaxed text-pretty">
+                    <p className={body}>
                         Architects, interior designers, contractors and
                         suppliers: we would be glad to work with you, from
                         specifying a stone to supplying a whole project.
@@ -218,7 +218,7 @@ export default function CompanyAbout({
                     >
                         Careers
                     </h2>
-                    <p className="text-[1.0625rem] leading-relaxed text-pretty">
+                    <p className={body}>
                         Interested in joining the Regray team? Email us at{' '}
                         <a
                             href={mailTo('Careers at Regray')}

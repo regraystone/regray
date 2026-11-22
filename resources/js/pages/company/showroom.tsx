@@ -3,7 +3,9 @@ import {
     PageIntro,
     SectionTitle,
     WidePhoto,
+    body,
     frame,
+    label,
     outlineButton,
     solidButton,
     textLink,
@@ -36,11 +38,9 @@ export default function CompanyShowroom({
 
             <PageIntro eyebrow="Showroom" title="See the stone in person">
                 <p>
-                    The Regray showroom in Makati is where our houses meet. Walk
-                    among natural stone slabs, from quartzite and marble to
-                    backlit onyx, see how they are finished, and talk your
-                    project through with our team, then carry your choice
-                    straight into an inquiry.
+                    Visit our showroom in Makati to see and touch real stone
+                    slabs, from quartzite and marble to backlit onyx, and talk
+                    to our team about your home.
                 </p>
             </PageIntro>
 
@@ -64,18 +64,18 @@ export default function CompanyShowroom({
                         text: 'Our team helps you choose the stone, the finish and the service for your project.',
                     },
                     {
-                        title: 'Start your inquiry',
-                        text: 'Send an inquiry from your Regray account, and follow it to installation.',
+                        title: 'Get a quotation',
+                        text: 'When you are ready, we measure your space and send you a quotation.',
                     },
                 ].map((point) => (
                     <div
                         key={point.title}
                         className="flex flex-col gap-3 border-t border-foreground pt-5"
                     >
-                        <h2 className="font-display text-[1.0625rem] tracking-[0.04em] uppercase">
+                        <h2 className="font-display text-[clamp(1.1875rem,1.4vw,1.3125rem)]">
                             {point.title}
                         </h2>
-                        <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">
+                        <p className={`text-muted-foreground ${body}`}>
                             {point.text}
                         </p>
                     </div>
@@ -109,7 +109,7 @@ export default function CompanyShowroom({
                                             className="size-full object-cover transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.02] motion-reduce:transition-none"
                                         />
                                     </div>
-                                    <span className="flex justify-between gap-4 border-t border-border pt-3 text-[0.9375rem]">
+                                    <span className="flex justify-between gap-4 border-t border-border pt-3 text-[1.0625rem]">
                                         <span>{project.name}</span>
                                         <span className="text-right text-muted-foreground">
                                             {project.location} ·{' '}
@@ -135,21 +135,21 @@ export default function CompanyShowroom({
                     >
                         Location & directions
                     </h2>
-                    <dl className="flex flex-col gap-5 text-[0.9375rem] leading-relaxed">
+                    <dl className="flex flex-col gap-5 text-[1.0625rem] leading-relaxed">
                         <div>
-                            <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                            <dt className={`${label} text-muted-foreground`}>
                                 Address
                             </dt>
                             <dd>{SHOWROOM.address}</dd>
                         </div>
                         <div>
-                            <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                            <dt className={`${label} text-muted-foreground`}>
                                 Hours
                             </dt>
                             <dd>{SHOWROOM.hours}</dd>
                         </div>
                         <div>
-                            <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                            <dt className={`${label} text-muted-foreground`}>
                                 Call us
                             </dt>
                             <dd className="flex flex-wrap gap-x-4">
@@ -169,7 +169,7 @@ export default function CompanyShowroom({
                         href={SHOWROOM_MAP}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`self-start ${textLink} px-0`}
+                        className={`self-start ${textLink}`}
                     >
                         Get directions ↗
                     </a>
@@ -196,10 +196,9 @@ export default function CompanyShowroom({
                 >
                     Book a visit
                 </h2>
-                <p className="max-w-150 text-[1.0625rem] leading-relaxed text-pretty">
-                    Book a time with our team from your Regray account, or ask
-                    for a site visit and our technical team comes to measure
-                    your space.
+                <p className={`max-w-150 ${body}`}>
+                    Choose a time to visit the showroom, or ask us to come and
+                    measure your space.
                 </p>
                 <div className="mt-2 flex flex-wrap justify-center gap-4">
                     <Link href={book.url()} className={solidButton}>

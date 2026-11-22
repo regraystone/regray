@@ -1,5 +1,10 @@
 import { Head } from '@inertiajs/react';
-import { PageIntro, frame } from '@/components/public/company-ui';
+import {
+    PageIntro,
+    body,
+    frame,
+    solidButton,
+} from '@/components/public/company-ui';
 import { StoryCard } from '@/components/landing/landing-sections';
 import { JOURNAL, SOCIALS } from '@/components/public/public-links';
 import PublicLayout from '@/layouts/public-layout';
@@ -21,9 +26,8 @@ export default function CompanyNews({
 
             <PageIntro eyebrow="News" title="The latest from Regray">
                 <p>
-                    Spaces we have recently finished in stone, across the
-                    Philippines. For launches, events and design stories, read
-                    the Regray Journal or follow us.
+                    Homes and spaces we have recently finished across the
+                    Philippines.
                 </p>
             </PageIntro>
 
@@ -52,19 +56,19 @@ export default function CompanyNews({
                 >
                     More from Regray
                 </h2>
-                <p className="max-w-150 text-[1.0625rem] leading-relaxed text-pretty">
-                    The Regray Journal has our stones, projects and design
-                    stories, and our social accounts have what is new each week.
+                <p className={`max-w-150 ${body}`}>
+                    Read about our stones and projects in the Regray Journal, or
+                    follow us for what is new each week.
                 </p>
                 <a
                     href={JOURNAL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 rounded-md bg-foreground px-6.5 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80"
+                    className={`mt-2 ${solidButton}`}
                 >
                     Read the Regray Journal ↗
                 </a>
-                <ul className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[0.9375rem]">
+                <ul className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[1.0625rem]">
                     {SOCIALS.map((social) => (
                         <li key={social.label}>
                             <a

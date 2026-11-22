@@ -2,7 +2,9 @@ import { Head, Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import {
     PageIntro,
+    body,
     frame,
+    label,
     outlineButton,
     solidButton,
 } from '@/components/public/company-ui';
@@ -41,7 +43,7 @@ const Channel = ({
         >
             {title}
         </h2>
-        <p className="text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
+        <p className={`text-muted-foreground ${body}`}>
             {children}
         </p>
         <div className="mt-1 flex flex-wrap gap-3">{actions}</div>
@@ -61,9 +63,8 @@ export default function CompanyContact() {
 
             <PageIntro eyebrow="Contact" title="Connect with the Regray team">
                 <p>
-                    Call, email or visit us, or send an inquiry from your Regray
-                    account and follow it from the first quotation to the final
-                    installation.
+                    Call, email or visit us. We are happy to help with any
+                    question.
                 </p>
             </PageIntro>
 
@@ -72,9 +73,9 @@ export default function CompanyContact() {
                 aria-label="Contact information"
                 className={`scroll-mt-24 pb-[clamp(4rem,8vw,7rem)] ${frame}`}
             >
-                <dl className="mx-auto grid max-w-6xl grid-cols-1 gap-8 text-[0.9375rem] leading-relaxed sm:grid-cols-2 lg:grid-cols-4">
+                <dl className="mx-auto grid max-w-6xl grid-cols-1 gap-8 text-[1.0625rem] leading-relaxed sm:grid-cols-2 lg:grid-cols-4">
                     <div className="flex flex-col gap-2 border-t border-border pt-5">
-                        <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                        <dt className={`${label} text-muted-foreground`}>
                             Call us
                         </dt>
                         {CONTACT.phones.map((phone) => (
@@ -89,7 +90,7 @@ export default function CompanyContact() {
                         ))}
                     </div>
                     <div className="flex flex-col gap-2 border-t border-border pt-5">
-                        <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                        <dt className={`${label} text-muted-foreground`}>
                             Email us
                         </dt>
                         <dd>
@@ -102,7 +103,7 @@ export default function CompanyContact() {
                         </dd>
                     </div>
                     <div className="flex flex-col gap-2 border-t border-border pt-5">
-                        <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                        <dt className={`${label} text-muted-foreground`}>
                             Visit the showroom
                         </dt>
                         <dd>{SHOWROOM.address}</dd>
@@ -119,7 +120,7 @@ export default function CompanyContact() {
                         </dd>
                     </div>
                     <div className="flex flex-col gap-2 border-t border-border pt-5">
-                        <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                        <dt className={`${label} text-muted-foreground`}>
                             Follow us
                         </dt>
                         <dd className="flex flex-wrap gap-x-4 gap-y-1">
@@ -162,8 +163,8 @@ export default function CompanyContact() {
                         </>
                     }
                 >
-                    Questions about our stones, brands or services. Email us, or
-                    message the team from your Regray account.
+                    Questions about our stones, brands or services? Email or
+                    message our team.
                 </Channel>
 
                 <Channel
@@ -172,7 +173,7 @@ export default function CompanyContact() {
                     actions={
                         <>
                             <Link href={inquire.url()} className={solidButton}>
-                                Send an inquiry
+                                Request a quotation
                             </Link>
                             <Link href={book.url()} className={outlineButton}>
                                 Book a visit
@@ -180,9 +181,8 @@ export default function CompanyContact() {
                         </>
                     }
                 >
-                    Choose a service and your stones and send an inquiry: our
-                    team visits and measures when needed, sends your quotation,
-                    and keeps you updated by email at every step.
+                    Tell us what you need. We visit to measure your space, send
+                    you a clear price, and keep you updated by email.
                 </Channel>
 
                 <Channel

@@ -65,7 +65,7 @@ export const SOCIALS = [
 
 /**
  * The brands by what they make, by slug, as Our brands groups them. A brand
- * may sit in more than one group; one in none is listed under "More houses".
+ * may sit in more than one group; one in none is listed under "More brands".
  */
 export const BRAND_CATEGORIES = [
     {
@@ -140,7 +140,7 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
         kind: 'panel',
         label: 'Our brands',
         description:
-            'Six houses in stone, kitchens, wardrobes, doors and interiors, each with its own collection and official website.',
+            'Six brands of stone, kitchens, wardrobes, doors and furniture, each with its own collection.',
         cta: { label: 'All brands', href: brands.url() },
         links: BRAND_CATEGORIES.map((category) => ({
             label: category.label,
@@ -152,7 +152,7 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
         kind: 'panel',
         label: 'Showroom',
         description:
-            'Discover and experience Regray’s brands in person, at our showroom in Makati.',
+            'See and touch our stones and furniture in person, at our showroom in Makati.',
         cta: { label: 'Visit the showroom', href: showroom.url() },
         links: [
             { label: 'Showroom overview', href: showroom.url() },
@@ -169,7 +169,7 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
         kind: 'panel',
         label: 'Discover',
         description:
-            'Learn about Regray: its story, its vision and how to work with us.',
+            'Who we are, what we believe in, and how to work with us.',
         cta: { label: 'About Regray', href: about.url() },
         links: [
             { label: 'Our story', href: `${about.url()}#story` },
@@ -184,7 +184,7 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
         kind: 'panel',
         label: 'News',
         description:
-            'The latest from Regray and its brands: finished projects, new stones and design stories.',
+            'Homes we have recently finished, and what is new at Regray.',
         cta: { label: 'All news', href: news.url() },
         links: [
             { label: 'Latest projects', href: news.url() },
@@ -197,7 +197,7 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
     {
         kind: 'panel',
         label: 'Contact',
-        description: 'Connect with the Regray team.',
+        description: 'Call, email or visit us. We are happy to help.',
         cta: { label: 'Contact us', href: contact.url() },
         links: [
             { label: 'General inquiries', href: `${contact.url()}#general` },
