@@ -28,9 +28,9 @@ export const fieldStyles: Record<
     },
     line: {
         row: 'flex items-baseline justify-between gap-3',
-        label: 'block text-xs font-medium tracking-[0.16em] text-ink uppercase',
+        label: 'block text-[0.9375rem] font-semibold text-ink',
         input: 'mt-2.5 h-12 w-full rounded-none border-0 border-b border-field-line bg-transparent px-0 text-[1.0625rem] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-ink read-only:border-line read-only:text-ink-muted aria-invalid:border-ink [&:-webkit-autofill]:shadow-[inset_0_0_0_40px_var(--paper)]',
-        error: 'mt-2 text-[0.8125rem] font-medium text-ink-soft',
+        error: 'mt-2 text-[0.9375rem] font-medium text-ink-soft',
     },
 };
 

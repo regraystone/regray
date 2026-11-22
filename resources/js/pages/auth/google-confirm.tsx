@@ -23,7 +23,7 @@ export default function GoogleConfirm({ email }: { email: string }) {
             <Head title="Connect your Google account" />
 
             <div className="flex flex-col gap-1.5 border-y border-line py-5">
-                <span className="text-xs font-medium tracking-[0.16em] text-ink-muted uppercase">
+                <span className="text-[0.9375rem] font-semibold text-ink-soft">
                     Your account
                 </span>
                 <span className="text-lg break-all">{email}</span>
