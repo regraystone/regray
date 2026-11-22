@@ -26,9 +26,21 @@ COPY composer.json composer.lock ./
 # only) sets this to true so the local stack has Faker for the demo seeders.
 ARG COMPOSER_DEV=false
 
+# Packages download from GitHub, which now and then answers 502/503/504 for a
+# minute. Composer 2.10 no longer falls back to a git clone (source-fallback
+# is off for security and goes away in 2.11), so one bad response fails the
+# build. Try up to three times, waiting longer each time: the cache mount
+# keeps what already arrived, so a retry fetches only what failed. A real
+# error (a bad lock file) fails all three and stops the build as before.
 RUN --mount=type=cache,target=/root/.cache/composer \
-    composer install $([ "$COMPOSER_DEV" = true ] || echo --no-dev) \
-        --no-scripts --no-autoloader --prefer-dist --no-interaction
+    for attempt in 1 2 3; do \
+        composer install $([ "$COMPOSER_DEV" = true ] || echo --no-dev) \
+            --no-scripts --no-autoloader --prefer-dist --no-interaction \
+        && exit 0; \
+        [ "$attempt" = 3 ] && exit 1; \
+        echo "composer install failed (attempt $attempt of 3); retrying in $((attempt * 20))s" >&2; \
+        sleep $((attempt * 20)); \
+    done
 
 # Host storage may contain private backups, uploads, keys, or test artifacts.
 COPY --exclude=storage --exclude=bootstrap/cache . .
