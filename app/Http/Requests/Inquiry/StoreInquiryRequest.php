@@ -523,7 +523,8 @@ class StoreInquiryRequest extends FormRequest
     /**
      * What one answer has to be, by its question's answer type. A closed list
      * is checked against its active options (edge profile and finish against
-     * their own tables, by name); a free entry only by its type.
+     * their own tables, by name, neither switched off nor archived); a free
+     * entry only by its type.
      *
      * @return list<mixed>
      */
@@ -542,7 +543,8 @@ class StoreInquiryRequest extends FormRequest
         if ($field->answersFromCatalog()) {
             $table = $field->slug === DetailField::EDGE_PROFILE ? 'edge_profiles' : 'finishes';
 
-            return ['string', Rule::exists($table, 'name')->where('is_active', true)];
+            // Archived from its Products page is no longer offered, as switched off isn't.
+            return ['string', Rule::exists($table, 'name')->where('is_active', true)->whereNull('deleted_at')];
         }
 
         $listed = $field->allows_custom ? [] : [Rule::in($field->suggestions()->pluck('name')->all())];

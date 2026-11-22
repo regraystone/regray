@@ -200,7 +200,7 @@ test('the saved doors keep working and carry the brand', function (): void {
 
 test('the seeder puts every stone and furniture piece under Regray Stone and leaves the rest empty', function (): void {
     Stone::query()->forceDelete();
-    Furniture::query()->delete();
+    Furniture::query()->forceDelete();
     Brand::query()->delete();
 
     $this->seed([BrandSeeder::class, StoneSeeder::class, FurnitureSeeder::class]);

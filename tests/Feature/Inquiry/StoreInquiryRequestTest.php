@@ -147,6 +147,19 @@ describe('stone rows', function (): void {
         postInquiry($this, [inquiryProjectInput(['stones' => [$row, [...$row, 'finish' => $other]]])])->assertSessionHasNoErrors();
     });
 
+    it('refuses an archived finish or edge profile, still switched on, as no longer offered', function (string $answer, string $model): void {
+        $row = inquiryProjectInput()['stones'][0];
+        // Archived from its Products page while a client had the Inquire page open.
+        $model::query()->where('name', $row[$answer])->firstOrFail()->delete();
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [$row]])])
+            ->assertSessionHasErrors("projects.0.stones.0.{$answer}");
+        expect(Inquiry::query()->count())->toBe(0);
+    })->with([
+        'finish' => ['finish', Finish::class],
+        'edge profile' => ['edge', EdgeProfile::class],
+    ]);
+
     it('saves a slab size and thickness as numbers and a unit, read whatever their case and spacing', function (string $size, string $thickness, array $stored, array $labels): void {
         $row = inquiryProjectInput()['stones'][0];
 

@@ -5,6 +5,7 @@ use App\Actions\Stone\ShowStoneAction;
 use App\Enums\Role;
 use App\Models\Application;
 use App\Models\CareTip;
+use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Stone;
 use App\Models\StoneType;
@@ -47,10 +48,9 @@ test('a client reads the full database stone profile through either door', funct
         'origin' => 'Database origin',
         'thumbnail_path' => 'stones/hero.jpg',
     ]);
-    $stone->images()->create(['path' => 'stones/second.jpg', 'sort_order' => 1]);
-    $images = $stone->images()->orderBy('sort_order')->get();
-    $images[0]->update(['alt_text' => 'Last photo', 'path' => '/storage/stones/last.jpg', 'sort_order' => 50]);
-    $images[1]->update(['alt_text' => 'First photo', 'path' => 'stones/first.jpg', 'sort_order' => -1]);
+    // Read in their order, whatever order they were written in.
+    $stone->images()->create(['alt_text' => 'Last photo', 'path' => '/storage/stones/last.jpg', 'sort_order' => 50]);
+    $stone->images()->create(['alt_text' => 'First photo', 'path' => 'stones/first.jpg', 'sort_order' => 0]);
 
     $lastApplication = Application::create(['name' => 'Last application']);
     $firstApplication = Application::create(['name' => 'First application']);
@@ -73,6 +73,16 @@ test('a client reads the full database stone profile through either door', funct
         $firstFinish->id => ['sort_order' => 1],
         $inactiveFinish->id => ['sort_order' => 0],
         $advisoryFinish->id => ['sort_order' => 0],
+    ]);
+    $lastEdge = EdgeProfile::create(['name' => 'Last edge', 'is_active' => true, 'is_advisory' => false, 'sort_order' => 0]);
+    $firstEdge = EdgeProfile::create(['name' => 'First edge', 'is_active' => true, 'is_advisory' => false, 'sort_order' => 9]);
+    $inactiveEdge = EdgeProfile::create(['name' => 'Inactive edge', 'is_active' => false, 'is_advisory' => false, 'sort_order' => 0]);
+    $advisoryEdge = EdgeProfile::create(['name' => 'Advise me edge', 'is_active' => true, 'is_advisory' => true, 'sort_order' => 0]);
+    $type->edgeProfiles()->sync([
+        $lastEdge->id => ['sort_order' => 9],
+        $firstEdge->id => ['sort_order' => 1],
+        $inactiveEdge->id => ['sort_order' => 0],
+        $advisoryEdge->id => ['sort_order' => 0],
     ]);
 
     $user = User::factory()->role(Role::Client)->create();
@@ -101,6 +111,7 @@ test('a client reads the full database stone profile through either door', funct
                     'sizeNote' => null,
                 ])
                 ->where('finishes', ['First finish', 'Last finish'])
+                ->where('edgeProfiles', ['First edge', 'Last edge'])
                 ->where('applications', ['First application', 'Last application'])
                 ->where('care', ['First care tip', 'Last care tip'])
                 ->where('gallery', [
@@ -150,7 +161,7 @@ test('answers a malformed stone or showcase slug with 404 without looking it up'
     }
 });
 
-test('stones in one type share its facts but have their own galleries', function (): void {
+test('stones in one type share its facts but have their own photos', function (): void {
     $type = StoneType::query()->where('slug', 'granite')->firstOrFail();
     $type->update(['description' => 'Shared type description']);
     $user = User::factory()->role(Role::Client)->create();
@@ -160,7 +171,8 @@ test('stones in one type share its facts but have their own galleries', function
             ->where('stone.data.slug', $slug)
             ->where('stone.data.description', 'Shared type description')
             ->where('stone.data.type', ['slug' => 'granite', 'name' => 'Granite'])
-            ->has('stone.data.gallery', 1)
+            ->where('stone.data.thumbnail', fn (string $thumbnail): bool => $thumbnail === '/storage/'.Stone::query()->where('slug', $slug)->value('thumbnail_path'))
+            ->has('stone.data.gallery', 0)
         );
     }
 });

@@ -88,6 +88,8 @@ export type FurnitureCardData = {
 
 export type FurnitureProfile = FurnitureCardData & {
     description: string | null;
+    /** Its photos besides the thumbnail, in order. */
+    gallery: { src: string; name: string }[];
 };
 
 /**

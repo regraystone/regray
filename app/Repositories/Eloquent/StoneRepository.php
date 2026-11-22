@@ -59,7 +59,7 @@ class StoneRepository implements StoneRepositoryInterface
 
     /**
      * Both doors expose the same profile. Keep their eager loads together and retain matching keys.
-     * The model already orders the fact lists by pivot; advisory finishes belong only to inquiries.
+     * The model already orders the fact lists by pivot; advisory finishes and edge profiles belong only to inquiries.
      *
      * @return Builder<Stone>
      */
@@ -79,6 +79,10 @@ class StoneRepository implements StoneRepositoryInterface
                 ->select(['care_tips.id', 'tip']),
             'type.finishes' => fn (Relation $finishes) => $finishes->getQuery()
                 ->select(['finishes.id', 'name'])
+                ->where('is_active', true)
+                ->where('is_advisory', false),
+            'type.edgeProfiles' => fn (Relation $edges) => $edges->getQuery()
+                ->select(['edge_profiles.id', 'name'])
                 ->where('is_active', true)
                 ->where('is_advisory', false),
         ]);

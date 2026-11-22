@@ -5,6 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Models\Furniture;
 use App\Repositories\Contracts\FurnitureRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 class FurnitureRepository implements FurnitureRepositoryInterface
 {
@@ -12,7 +13,13 @@ class FurnitureRepository implements FurnitureRepositoryInterface
     {
         return Furniture::query()
             ->active()
-            ->with(['brand:id,slug,name', 'furnitureType:id,slug,name'])
+            ->with([
+                'brand:id,slug,name',
+                'furnitureType:id,slug,name',
+                'images' => fn (Relation $images) => $images->getQuery()
+                    ->select(['id', 'furniture_id', 'alt_text', 'path'])
+                    ->orderBy('sort_order'),
+            ])
             ->where('slug', $slug)
             ->first();
     }

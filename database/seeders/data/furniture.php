@@ -5,6 +5,10 @@
  * the photograph lives on the public disk: committed at
  * storage/app/public/<thumbnail_path> locally, like the stone and project
  * photographs, and uploaded to the bucket by hand on AWS.
+ *
+ * A piece's other photographs go in an optional `images` list of paths,
+ * kept the same way: its page shows the thumbnail large and, with them, every
+ * photo below it to pick from.
  */
 return [
     [

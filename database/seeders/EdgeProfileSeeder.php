@@ -3,8 +3,15 @@
 namespace Database\Seeders;
 
 use App\Models\EdgeProfile;
+use App\Models\StoneType;
 use Illuminate\Database\Seeder;
 
+/**
+ * The edge profiles, and the ones each stone type is cut with: a type with
+ * none yet gets every one but the "advise me" choice, in the list's order,
+ * as the migration that added them did. A type that has its own (set on the
+ * Stone types page) keeps them.
+ */
 class EdgeProfileSeeder extends Seeder
 {
     public function run(): void
@@ -26,5 +33,11 @@ class EdgeProfileSeeder extends Seeder
                 ['is_advisory' => $profile['is_advisory'], 'is_active' => true, 'sort_order' => $profile['sort_order']]
             );
         }
+
+        $edges = EdgeProfile::query()->where('is_advisory', false)->orderBy('sort_order')->pluck('id')->values();
+
+        StoneType::query()->whereDoesntHave('edgeProfiles')->get()->each(
+            fn (StoneType $type) => $type->edgeProfiles()->sync($edges->mapWithKeys(fn (int $id, int $order): array => [$id => ['sort_order' => $order]])->all()),
+        );
     }
 }

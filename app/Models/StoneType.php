@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Stone> $stones
  * @property-read Collection<int, Application> $applications
  * @property-read Collection<int, Finish> $finishes
+ * @property-read Collection<int, EdgeProfile> $edgeProfiles
  * @property-read Collection<int, CareTip> $careTips
  * @property-read Collection<int, Service> $services
  */
@@ -89,6 +90,18 @@ class StoneType extends Model
     public function finishes(): BelongsToMany
     {
         return $this->belongsToMany(Finish::class, 'finish_stone_type')
+            ->withPivot('sort_order')->orderByPivot('sort_order');
+    }
+
+    /**
+     * The edge profiles its stones can be cut with, in the order their pages
+     * list them.
+     *
+     * @return BelongsToMany<EdgeProfile, $this>
+     */
+    public function edgeProfiles(): BelongsToMany
+    {
+        return $this->belongsToMany(EdgeProfile::class, 'edge_profile_stone_type')
             ->withPivot('sort_order')->orderByPivot('sort_order');
     }
 

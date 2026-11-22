@@ -105,13 +105,8 @@ class StoneSeeder extends Seeder
             $stone->forceFill(['size_note' => $spec['size_note'] ?? null])->save();
             $this->writeVariants($stone, $this->variants($sizes, $thicknesses, $position, $spec));
 
-            $stone->images()->updateOrCreate(
-                ['sort_order' => 0],
-                [
-                    'path' => $imageData['path'],
-                    'alt_text' => $name,
-                ]
-            );
+            // The gallery is the photos besides the thumbnail; the data has none.
+            $stone->images()->where('path', $imageData['path'])->delete();
         }
 
         foreach ($specs as $typeSlug => $stones) {

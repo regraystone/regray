@@ -1,3 +1,65 @@
+# A stone's page lists the edge profiles its type is cut with
+
+A stone's page now shows **Edge profiles** under Finishes, chips like the finishes: its stone type's, in their order. They are set per stone type on the Stone types page, next to its finishes, applications and care tips. A piece of furniture still shows only the choices its own Inquire service asks for (a dining table its edge, finish, seats and base; "other customized furniture" only a finish), so it is unchanged. **Deploy, local and production: `php artisan migrate`** (one new migration). Nothing to reseed.
+
+- **Database** (`2026_11_22_000009_create_edge_profile_stone_type_table`): `edge_profile_stone_type`, built like `finish_stone_type` (the type, the edge profile, the order). The migration gives every stone type every edge profile but the "advise me" one, in the list's order, so no stone page starts empty; narrow them per type on the Stone types page. `EdgeProfileSeeder` does the same for a type that has none.
+- **Stone types page:** a new Edge profiles field. The Finishes and Edge profiles fields no longer offer the "advise me" choices, which a stone's page never shows, and the server refuses them there.
+- **Edge profiles page:** it shows how many stone types list each one, and an edge profile a stone type lists can't be archived, as a finish can't.
+- **Stone page:** `StoneRepository` loads the type's active edge profiles (not the "advise me" one), and `StoneProfileResource` sends them as `edgeProfiles`.
+- **Tests:** `StoneProfileTest` and `Catalog/CatalogListTest` cover the list on the page, its order, what is left out, setting them on a stone type, and the archive refusal.
+
+# Products: add, edit and archive stones and furniture, and the lists they are built from
+
+The admin's **Products** page (`/dashboard/products`) is no longer a placeholder. It lists every stone and piece of furniture in one table, 10 a page: by name, searched by name, and filtered by kind, brand and status, all in the URL. The admin adds a product, edits one (its thumbnail, other photos and a stone's sizes included), turns it on or off, and archives it. The lists products are built from each have a page under Products too: stone types, sizes, thicknesses, finishes, edge profiles, furniture types, applications and care tips. In the sidebar, Products opens as an accordion of these pages. **Deploy, local and production: `php artisan migrate`** (two new migrations) **and `php artisan db:seed --class=RolePermissionSeeder`** (three new permissions). **Rebuild the front end** (new page files).
+
+- **Permissions:** `products.create`, `products.update` and `products.archive` are new and given to the admin. Every page needs `products.view`, and each write also needs its own permission. The list pages use the same permissions as products. Writes are throttled by the new `product-save` limiter (30 a minute, `RATE_LIMIT_PRODUCT_SAVE`).
+- **The table** (`pages/products.tsx`):
+    - Columns: the product (its thumbnail, or a placeholder, with its name and slug), its kind, brand and type, its details (a stone's sizes, a piece's photos), a status switch, and its actions (View page while it is shown, Edit, Archive).
+    - The Kind and Brand filters go into the new `extraFilters` slot of `DataTable`, before Status.
+    - The list is a `UNION ALL` of stones and furniture (`ProductAdminRepository`), so one page holds both. It runs a fixed number of queries however many products there are. Archived products, and those of an archived brand, are left out.
+- **Add and Edit** (one form in the large drawer, `react-hook-form` and `zod`). **Add product** first asks the kind, from a menu as wide as the button.
+    - **A stone:** brand, name, slug (follows the name while adding), type, the other types it is also listed under, origin, thumbnail (required), other photos, and its **sizes**. Each size is a sub-item of one size (or "No set size") and one thickness, one of its variants, so a size cut in two thicknesses is two rows. A pair is listed once. When "No set size" is used, a size note says how big the pieces run.
+    - **A piece of furniture:** brand, name, slug, furniture type, description, thumbnail (optional), other photos.
+    - Its dropdowns are the new `components/choice-select.tsx`, the same height and text size as the text fields. A list of more than 8 options (brands, sizes, thicknesses as they grow) is a search field over the list instead.
+    - Edit is a POST with `_method=put`. A saved photo is sent by its id, a new one as a file, and server errors show on their fields.
+- **Rules** (`StoneValidationRules`, `FurnitureValidationRules`, `ProductImageRules`):
+    - **Slug:** lower-case words and single hyphens, none of `ReservedSlugs`, and unique among every product of its kind, archived ones included. A stone's slug can't be a showcase's either.
+    - **Name:** a stone's is unique, ignoring case.
+    - **Brand and lists:** the brand can't be archived. The type must be active (or the product's own), and nothing chosen can be archived.
+    - **Images:** PNG, JPG or WebP, up to 5 MB, and 12 other photos at most (`config/products.php`).
+- **Writes** (`StoneAdminService`, `FurnitureAdminService`, `ProductGallery`, `PublicImageStore`) run in one transaction, and each is audited (created, updated, status changed, archived).
+    - Images go under `stones/` or `furniture/` with a random name. A file a failed save stored is deleted again.
+    - A replaced thumbnail or a photo taken off is deleted once the save has committed, unless some row of the catalog still uses it (`CatalogImages`).
+    - A new product goes last in its brand.
+    - Archiving is the soft delete: the product's page goes offline, and past inquiries keep it.
+- **The list pages** (`pages/catalog-list.tsx`, one page for all eight; `CatalogList` and one definition per list in `app/Catalog/Lists`; `CatalogListController`, `CatalogListService`). Each list has a table searched by name, with what uses each item, and a drawer built from the list's fields.
+    - Stone types: name, slug, description, thumbnail, and the finishes, applications and care tips its stones' pages list, in order. A brand's page now shows each stone type's tile with the type's own thumbnail, rather than the brand's first stone of that type (`BrandService::offerings()`; a furniture type has no thumbnail, so its tile keeps the first piece's photo).
+    - Sizes: width × length and a unit. Thicknesses: a value and a unit. A size or thickness comes once, archived ones included.
+    - Finishes and edge profiles: name, whether it is an "advise me" choice, order, and whether it is offered.
+    - Furniture types: name, slug, order, and whether it is offered.
+    - Applications: a name. Care tips: the tip.
+    - An item can be archived only once no product or stone type uses it; the server says what does. Past inquiries keep an archived finish or edge profile.
+- **Database** (`2026_11_22_000008_add_archiving_to_catalog`):
+    - `deleted_at` on furniture and the seven lists that had none (stones and stone types already had it).
+    - A stone's thumbnail is no longer also its first gallery photo: the copies are removed, and the rest renumbered from 0.
+- **Sidebar** (`workspace-layout.tsx`): Products opens as an accordion of All products and the eight lists. It opens by itself on any of them and lights the page shown. With the sidebar folded to icons, Products links to All products. The breadcrumbs name each list.
+- **Tests:**
+    - `Product/ProductListTest`, `StoneWriteTest` and `FurnitureWriteTest` cover the table, its filters, every write, the rules, the files, the audit and the permissions.
+    - `Catalog/CatalogListTest` covers every list's page, adding (each list), changing, the switch, duplicates, archiving and its refusal while in use, an archived finish on a past inquiry, and the permissions.
+    - `WorkspacePagesTest` lists the new routes' guards.
+
+# A piece of furniture has a gallery, and its page shows photos as a stone's does
+
+A piece of furniture can have photos besides its thumbnail now, as a stone does, and both pages show them the same way. The thumbnail sticks beside the details from a tablet up, and opens larger on a click. With other photos, all of them show in a row below it, thumbnail first, and a click on one makes it the large one. With only the thumbnail, there is no row. **Deploy, local and production: `php artisan migrate`** (one new migration). Nothing to reseed.
+
+- **Database** (`2026_11_22_000007_create_furniture_images_table`): a new `furniture_images` table, built like `stone_images`, with the piece, path, alt text and order (unique within a piece).
+- **Model and page data:** `FurnitureImage`, and `Furniture::images()` in order. `FurnitureRepository::findActiveBySlug()` loads them, and `FurnitureProfileResource` sends them as `gallery` (`{src, name}`, the caption or the piece's name), as `StoneProfileResource` does. The gallery is the photos besides the thumbnail.
+- **Seeders:** neither `StoneSeeder` nor `FurnitureSeeder` writes the thumbnail as a gallery photo any more. An optional `images` list of paths in `data/furniture.php` adds photos, and a run removes photos the data no longer lists. No piece has other photos today, so each page shows its thumbnail alone until some are added on the Products page.
+- **Front end:** the new `components/product-photos.tsx` (`ProductPhotos`, and `productPhotos()`, which puts the thumbnail first and lists each photo once) is the stone page's photo column, moved out so both pages share it. It also holds the lightbox, and it starts each product on its first photo.
+    - `stone-profile.tsx` looks as before.
+    - `furniture-profile.tsx` now has the stone page's layout: the photo column sticks, rather than the details, at the same widths, with the photo kept square. A piece with no photo shows the chair placeholder.
+- **Tests:** `FurnitureDetailTest` covers a seeded piece (its thumbnail, no other photos), photos in order with their captions or the piece's name, and the seeder removing a photo its data no longer lists. `StoneProfileTest` checks that a stone's thumbnail isn't repeated in its gallery.
+
 # No JSON in the database: audit values and quotation cards are normalized
 
 Regray's own tables keep no JSON now. Laravel's sessions, cache and jobs tables still store serialized data, as the framework writes them. The two places that used JSON are now plain columns and rows, with what was already stored copied across. **Deploy, local and production: `php artisan migrate`** (two new migrations). Nothing to reseed.

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Schedule\ListSchedulesAction;
+use App\Data\Product\ProductListFilters;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
@@ -14,9 +15,11 @@ use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Enums\SocialPlatform;
 use App\Http\Requests\DataTableRequest;
+use App\Http\Requests\Product\ProductListRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\AccountResource;
 use App\Http\Resources\AdminBrandResource;
+use App\Http\Resources\AdminProductResource;
 use App\Http\Resources\AdminShowcaseResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
@@ -31,6 +34,7 @@ use App\Repositories\Contracts\BrandRepositoryInterface;
 use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Repositories\Contracts\ProductAdminRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InquiryStatusRules;
@@ -384,9 +388,38 @@ class ViewController extends Controller
         ]);
     }
 
-    public function products(Request $request): Response
+    /**
+     * The admin's Products page: every stone and piece of furniture but the
+     * archived (and those of an archived brand), inactive ones too, as one
+     * list by name, ten a page, searched by name and filtered by kind, brand
+     * and status, all in the URL.
+     *
+     * Also what the Add and Edit drawers choose from (`options`), the upload
+     * limits, and the public links a slug makes, with `__brand__` and
+     * `__slug__` to fill in.
+     */
+    public function products(ProductListRequest $request, ProductAdminRepositoryInterface $products): Response
     {
-        return Inertia::render('products');
+        $filters = new ProductListFilters($request->escapedSearch(), $request->kind(), $request->brand(), $request->active());
+
+        return Inertia::render('products', [
+            'products' => self::page($products->paginate($filters, $request->perPage(), $request->page()), AdminProductResource::class, $request),
+            'filters' => $request->productFilters(),
+            'canCreate' => $request->user()?->can(Permission::ProductsCreate->value) ?? false,
+            'limits' => [
+                'thumbnailMaxKb' => config()->integer('products.thumbnail_max_kb'),
+                'photoMaxKb' => config()->integer('products.photo_max_kb'),
+                'galleryMax' => config()->integer('products.gallery_max'),
+                'sizesMax' => config()->integer('products.sizes_max'),
+                'descriptionMax' => config()->integer('products.description_max'),
+            ],
+            'options' => $products->formOptions(),
+            'reservedSlugs' => ReservedSlugs::ALL,
+            'publicUrls' => [
+                'stone' => route('brands.stones.show', ['brand' => '__brand__', 'stone' => '__slug__']),
+                'furniture' => route('brands.furniture.show', ['brand' => '__brand__', 'furniture' => '__slug__']),
+            ],
+        ]);
     }
 
     public function services(Request $request): Response

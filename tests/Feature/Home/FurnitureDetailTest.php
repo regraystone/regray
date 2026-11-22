@@ -99,3 +99,37 @@ test('a signed-in client sees the same page under the dashboard', function (): v
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('furniture-profile')->has('customization.stones')->has('related'));
 });
+
+test('a seeded piece has its thumbnail and no other photos', function (): void {
+    $piece = Furniture::query()->where('slug', 'alora')->firstOrFail();
+
+    furniturePage('alora')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('furniture.data.thumbnail', "/storage/{$piece->thumbnail_path}")
+            ->where('furniture.data.gallery', []));
+});
+
+test('a piece\'s gallery lists its photos in their order, each with its caption or the piece\'s name', function (): void {
+    $piece = Furniture::query()->where('slug', 'alora')->firstOrFail();
+    $piece->images()->delete();
+    $piece->images()->create(['path' => 'furniture/third.jpg', 'alt_text' => null, 'sort_order' => 2]);
+    $piece->images()->create(['path' => 'furniture/first.jpg', 'alt_text' => 'Alora, from above', 'sort_order' => 0]);
+    $piece->images()->create(['path' => 'furniture/second.jpg', 'alt_text' => 'Alora, the base', 'sort_order' => 1]);
+
+    furniturePage('alora')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('furniture.data.gallery', [
+                ['src' => '/storage/furniture/first.jpg', 'name' => 'Alora, from above'],
+                ['src' => '/storage/furniture/second.jpg', 'name' => 'Alora, the base'],
+                ['src' => '/storage/furniture/third.jpg', 'name' => 'Alora'],
+            ]));
+});
+
+test('the seeder keeps a piece\'s gallery to what its data lists when run again', function (): void {
+    $piece = Furniture::query()->where('slug', 'alora')->firstOrFail();
+    $piece->images()->create(['path' => 'furniture/stale.jpg', 'alt_text' => null, 'sort_order' => 1]);
+
+    $this->seed(FurnitureSeeder::class);
+
+    expect($piece->images()->count())->toBe(0);
+});

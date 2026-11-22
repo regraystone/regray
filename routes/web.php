@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CatalogList;
 use App\Enums\Permission;
 use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Address\PhPlaceController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Brand\BrandAdminController;
 use App\Http\Controllers\Brand\BrandController;
 use App\Http\Controllers\Brand\ProductRedirectController;
+use App\Http\Controllers\Catalog\CatalogListController;
 use App\Http\Controllers\Furniture\FurnitureController;
 use App\Http\Controllers\Guest\CompanyPageController;
 use App\Http\Controllers\Guest\LandingController;
@@ -23,6 +25,8 @@ use App\Http\Controllers\Inquiry\StaffClientController;
 use App\Http\Controllers\Inquiry\WalkInInquiryController;
 use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Notification\NotificationController;
+use App\Http\Controllers\Product\FurnitureAdminController;
+use App\Http\Controllers\Product\StoneAdminController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\InquiryFileController;
@@ -562,6 +566,53 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('products', [ViewController::class, 'products'])
             ->middleware(Permission::ProductsView->middleware())
             ->name('products.index');
+        /*
+         * The Products page's writes, stones and furniture alike, each behind
+         * its own permission on top of the page's. `{id}` is a plain id
+         * (StoneAdminController::find()), not the slug a product's page is
+         * found by. An edit is a POST with `_method=put`, since a PUT can't
+         * carry its images.
+         */
+        Route::middleware([Permission::ProductsView->middleware(), 'throttle:product-save'])->group(function () {
+            foreach (['stones' => StoneAdminController::class, 'furniture' => FurnitureAdminController::class] as $kind => $controller) {
+                Route::post("products/{$kind}", [$controller, 'store'])
+                    ->middleware(Permission::ProductsCreate->middleware())
+                    ->name("dashboard.products.{$kind}.store");
+                Route::put("products/{$kind}/{id}", [$controller, 'update'])
+                    ->middleware(Permission::ProductsUpdate->middleware())
+                    ->name("dashboard.products.{$kind}.update");
+                Route::patch("products/{$kind}/{id}/status", [$controller, 'status'])
+                    ->middleware(Permission::ProductsUpdate->middleware())
+                    ->name("dashboard.products.{$kind}.status");
+                Route::post("products/{$kind}/{id}/archive", [$controller, 'archive'])
+                    ->middleware(Permission::ProductsArchive->middleware())
+                    ->name("dashboard.products.{$kind}.archive");
+            }
+        });
+        /*
+         * The lists products are built from, each its own page under
+         * Products (CatalogList), with the same permissions as products.
+         */
+        $lists = implode('|', CatalogList::values());
+        Route::get('products/{list}', [CatalogListController::class, 'index'])
+            ->where('list', $lists)
+            ->middleware(Permission::ProductsView->middleware())
+            ->name('dashboard.products.lists.index');
+        Route::middleware([Permission::ProductsView->middleware(), 'throttle:product-save'])->where(['list' => $lists])->group(function () {
+            Route::post('products/{list}', [CatalogListController::class, 'store'])
+                ->middleware(Permission::ProductsCreate->middleware())
+                ->name('dashboard.products.lists.store');
+            Route::put('products/{list}/{id}', [CatalogListController::class, 'update'])
+                ->middleware(Permission::ProductsUpdate->middleware())
+                ->name('dashboard.products.lists.update');
+            Route::patch('products/{list}/{id}/status', [CatalogListController::class, 'status'])
+                ->middleware(Permission::ProductsUpdate->middleware())
+                ->name('dashboard.products.lists.status');
+            Route::post('products/{list}/{id}/archive', [CatalogListController::class, 'archive'])
+                ->middleware(Permission::ProductsArchive->middleware())
+                ->name('dashboard.products.lists.archive');
+        });
+
         // Products was Stones.
         Route::redirect('stones', '/dashboard/products', 301);
         Route::get('services', [ViewController::class, 'services'])

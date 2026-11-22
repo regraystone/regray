@@ -285,6 +285,30 @@ enum Permission: string
     case ShowcasesArchive = 'showcases.archive';
 
     /**
+     * Adding from the Products pages: a stone or a piece of furniture (its
+     * details, thumbnail, gallery and, for a stone, its sizes), or an item
+     * of a list products are built from (a stone type, size, thickness,
+     * finish, edge profile, furniture type, application or care tip). An
+     * action permission: it guards the endpoints and the Add buttons, not a
+     * page; `products.view` opens the pages. The admin's alone.
+     */
+    case ProductsCreate = 'products.create';
+
+    /**
+     * Changing a product or a list item from the Products pages, its images
+     * included, and turning one on or off. The admin's alone.
+     */
+    case ProductsUpdate = 'products.update';
+
+    /**
+     * Archiving a product or a list item from the Products pages. An
+     * archived product leaves the pages and its page goes offline
+     * everywhere; a list item can be archived only once nothing on Regray
+     * uses it. Past inquiries keep both. The admin's alone.
+     */
+    case ProductsArchive = 'products.archive';
+
+    /**
      * The `can:` middleware string that guards a route with this permission.
      *
      * Laravel hands middleware its parameters as strings, so a route cannot

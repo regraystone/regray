@@ -47,6 +47,8 @@ export type StoneProfile = {
         sizeNote: string | null;
     };
     finishes: string[];
+    /** The edges it can be cut with: its type's, in their order. */
+    edgeProfiles: string[];
     applications: string[];
     care: string[];
     gallery: StoneProfileImage[];
