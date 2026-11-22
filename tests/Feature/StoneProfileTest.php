@@ -9,9 +9,9 @@ use App\Models\Finish;
 use App\Models\Stone;
 use App\Models\StoneType;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ShowcaseCategorySeeder;
 use Database\Seeders\ShowcaseSeeder;
-use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\StoneSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 

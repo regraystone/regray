@@ -95,9 +95,9 @@ return new class extends Migration
             return;
         }
 
-        $facts = DB::table('brand_facts')->where('brand_id', $brandId)->orderBy('sort_order')->get(['label', 'value'])
-            ->map(fn (object $fact): array => ['label' => $fact->label, 'value' => $fact->value])
-            ->all();
+        $facts = array_values(DB::table('brand_facts')->where('brand_id', $brandId)->orderBy('sort_order')->get(['label', 'value'])
+            ->map(fn (object $fact): array => ['label' => (string) $fact->label, 'value' => (string) $fact->value])
+            ->all());
         $changed = $change($facts);
 
         if ($changed === $facts) {

@@ -6,10 +6,10 @@ use App\Models\Showcase;
 use App\Models\ShowcaseCategory;
 use App\Models\Stone;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ShowcaseRepository implements ShowcaseRepositoryInterface
 {

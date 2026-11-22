@@ -6,9 +6,9 @@ use App\Models\Showcase;
 use App\Models\Stone;
 use App\Models\User;
 use Database\Seeders\BrandSeeder;
+use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ShowcaseCategorySeeder;
 use Database\Seeders\ShowcaseSeeder;
-use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\StoneSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
