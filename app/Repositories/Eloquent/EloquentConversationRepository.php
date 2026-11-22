@@ -22,7 +22,7 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
 {
     public const SUPPORT_NAME = 'Regray';
 
-    public const SUPPORT_AVATAR = '/images/regray_icon.svg';
+    public const SUPPORT_AVATAR = '/images/regray_icon.png';
 
     /**
      * Messages from others the user has not read. System notices and removed
