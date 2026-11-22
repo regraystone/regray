@@ -17,7 +17,7 @@ use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Resources\AccountResource;
 use App\Http\Resources\AdminBrandResource;
-use App\Http\Resources\AdminProjectResource;
+use App\Http\Resources\AdminShowcaseResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
 use App\Http\Resources\InquiryRowResource;
@@ -31,7 +31,7 @@ use App\Repositories\Contracts\BrandRepositoryInterface;
 use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
-use App\Repositories\Contracts\ProjectRepositoryInterface;
+use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InquiryStatusRules;
 use App\Services\ScheduleService;
@@ -425,33 +425,33 @@ class ViewController extends Controller
     }
 
     /**
-     * The admin's Projects page: every project but the archived, drafts too,
+     * The admin's Showcase page: every showcase but the archived, drafts too,
      * newest completed first, then by name, a page at a time, searched by the
-     * project's name. There is no status filter.
+     * showcase's name. There is no status filter.
      *
      * Also what the Add and Edit drawers offer: the active brands, stones and
      * categories, and the limits the form checks.
      */
-    public function projects(DataTableRequest $request, ProjectRepositoryInterface $projects): Response
+    public function showcases(DataTableRequest $request, ShowcaseRepositoryInterface $showcases): Response
     {
-        $options = $projects->adminOptions();
+        $options = $showcases->adminOptions();
 
-        return Inertia::render('projects', [
-            'projects' => self::page($projects->paginateForAdmin(
+        return Inertia::render('showcases', [
+            'showcases' => self::page($showcases->paginateForAdmin(
                 $request->escapedSearch(),
                 $request->perPage(),
                 $request->page(),
-            ), AdminProjectResource::class, $request),
+            ), AdminShowcaseResource::class, $request),
             'filters' => $request->filters(),
-            'canCreate' => $request->user()?->can(Permission::ProjectsCreate->value) ?? false,
+            'canCreate' => $request->user()?->can(Permission::ShowcasesCreate->value) ?? false,
             'limits' => [
-                'thumbnailMaxKb' => config()->integer('projects.thumbnail_max_kb'),
-                'photoMaxKb' => config()->integer('projects.photo_max_kb'),
-                'galleryMax' => config()->integer('projects.gallery_max'),
-                'overviewMax' => config()->integer('projects.overview_max'),
+                'thumbnailMaxKb' => config()->integer('showcases.thumbnail_max_kb'),
+                'photoMaxKb' => config()->integer('showcases.photo_max_kb'),
+                'galleryMax' => config()->integer('showcases.gallery_max'),
+                'overviewMax' => config()->integer('showcases.overview_max'),
             ],
             'reservedSlugs' => ReservedSlugs::ALL,
-            'publicProjectUrl' => route('stone.show', '__slug__'),
+            'publicShowcaseUrl' => route('stone.show', '__slug__'),
             'stoneOptions' => $options['stones'],
             'categoryOptions' => $options['categories'],
         ]);

@@ -187,7 +187,7 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
             'Homes we have recently finished, and what is new at Regray.',
         cta: { label: 'All news', href: news.url() },
         links: [
-            { label: 'Latest projects', href: news.url() },
+            { label: 'Latest showcases', href: news.url() },
             { label: 'Regray Journal', href: JOURNAL, external: true },
             { label: 'Instagram', href: SOCIALS[0].href, external: true },
             { label: 'Facebook', href: SOCIALS[1].href, external: true },

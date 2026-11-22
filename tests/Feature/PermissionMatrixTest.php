@@ -24,8 +24,8 @@ dataset('the permission matrix', function () {
 
     return [
         'client' => [Role::Client->value, $p(
-            Permission::HomeView, Permission::HomeStoneView, Permission::HomeProjectsView,
-            Permission::SavedView, Permission::SavedStoneView, Permission::SavedProjectsView, Permission::SavedManage,
+            Permission::HomeView, Permission::HomeStoneView, Permission::HomeShowcasesView,
+            Permission::SavedView, Permission::SavedStoneView, Permission::SavedShowcasesView, Permission::SavedManage,
             Permission::QuotationsView, Permission::InquiriesCreate,
             Permission::MessagesView,
             Permission::ProfileView, Permission::ProfileScheduleView, Permission::ProfileAddressesView, Permission::ScheduleCreate,

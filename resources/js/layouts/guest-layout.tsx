@@ -1,7 +1,7 @@
 import PublicLayout from '@/layouts/public-layout';
 
 /**
- * The catalogue's brand, project, stone and furniture pages, for a guest:
+ * The catalogue's brand, showcase, stone and furniture pages, for a guest:
  * the public site's frame (the mega-menu header and the black footer), with
  * the page in a padded column.
  */

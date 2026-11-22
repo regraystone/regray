@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Home\ShowProjectAction;
+use App\Actions\Home\ShowShowcaseAction;
 use App\Actions\Stone\ShowStoneAction;
 use App\Enums\Role;
 use App\Models\Application;
@@ -9,8 +9,8 @@ use App\Models\Finish;
 use App\Models\Stone;
 use App\Models\StoneType;
 use App\Models\User;
-use Database\Seeders\ProjectCategorySeeder;
-use Database\Seeders\ProjectSeeder;
+use Database\Seeders\ShowcaseCategorySeeder;
+use Database\Seeders\ShowcaseSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\StoneSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -24,8 +24,8 @@ beforeEach(function (): void {
     $this->seed([
         RolePermissionSeeder::class,
         StoneSeeder::class,
-        ProjectCategorySeeder::class,
-        ProjectSeeder::class,
+        ShowcaseCategorySeeder::class,
+        ShowcaseSeeder::class,
     ]);
 });
 
@@ -82,7 +82,7 @@ test('a client reads the full database stone profile through either door', funct
     $response->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('stone-profile')
         ->missing('stoneId')
-        ->missing('projectId')
+        ->missing('showcaseId')
         ->has('stone', fn (Assert $resource) => $resource
             ->has('data', fn (Assert $data) => $data
                 ->where('slug', 'cosmic-black')
@@ -107,12 +107,12 @@ test('a client reads the full database stone profile through either door', funct
                     ['src' => '/storage/stones/first.jpg', 'name' => 'First photo'],
                     ['src' => '/storage/stones/last.jpg', 'name' => 'Last photo'],
                 ])
-                ->missing('projects')
+                ->missing('showcases')
             )
         )
     );
 
-    $response->assertInertia(fn (Assert $page) => $page->missing('projectSlug'));
+    $response->assertInertia(fn (Assert $page) => $page->missing('showcaseSlug'));
 })->with(['/dashboard/saved/stones/cosmic-black', '/dashboard/brands/regray-stone/stones/cosmic-black']);
 
 test('shows the not-found page for an unknown, inactive or deleted stone through both doors', function (): void {
@@ -133,16 +133,16 @@ test('shows the not-found page for an unknown, inactive or deleted stone through
     $notFound('cosmic-black');
 });
 
-test('answers a malformed stone or project slug with 404 without looking it up', function (): void {
+test('answers a malformed stone or showcase slug with 404 without looking it up', function (): void {
     $this->mock(ShowStoneAction::class)->shouldNotReceive('execute');
-    $this->mock(ShowProjectAction::class)->shouldNotReceive('execute');
+    $this->mock(ShowShowcaseAction::class)->shouldNotReceive('execute');
     $user = User::factory()->role(Role::Client)->create();
 
     foreach ([
         route('saved.show', ['stone' => 'Bad_Stone']),
         route('saved.show', ['stone' => str_repeat('a', 101)]),
         route('dashboard.brands.stones.show', ['brand' => 'regray-stone', 'stone' => 'onyx--stone']),
-        route('home.show', ['slug' => 'Bad_Project']),
+        route('home.show', ['slug' => 'Bad_Showcase']),
         route('home.show', ['slug' => str_repeat('a', 101)]),
     ] as $url) {
         $this->actingAs($user)->get($url)->assertNotFound()

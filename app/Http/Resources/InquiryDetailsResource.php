@@ -345,7 +345,7 @@ class InquiryDetailsResource extends JsonResource
             'stones' => $this->stones->map(fn (InquiryStone $row): array => [
                 'id' => $row->stone->slug,
                 'name' => $row->stone->name,
-                'thumbnail' => ProjectCardResource::resolveThumbnailUrl($row->stone->thumbnail_path),
+                'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($row->stone->thumbnail_path),
                 'quantity' => $row->quantity,
                 'slabSize' => $row->slabSizeLabel(),
                 'thickness' => $row->thicknessLabel(),

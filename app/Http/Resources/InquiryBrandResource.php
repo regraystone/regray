@@ -22,7 +22,7 @@ class InquiryBrandResource extends JsonResource
         return [
             'id' => $this->slug,
             'name' => $this->name,
-            'logo' => ProjectCardResource::resolveThumbnailUrl($this->logo_path),
+            'logo' => ShowcaseCardResource::resolveThumbnailUrl($this->logo_path),
         ];
     }
 }

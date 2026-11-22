@@ -17,7 +17,7 @@ use Illuminate\Support\Carbon;
  *
  * `logo_path` and `thumbnail_path` are paths on the public disk
  * (`config('filesystems.public_disk')`), resolved to URLs through
- * ProjectCardResource::resolveThumbnailUrl. An uploaded image is stored under
+ * ShowcaseCardResource::resolveThumbnailUrl. An uploaded image is stored under
  * a random name (StoredFileName); its own name, type and size are kept beside
  * the path, to show to people only.
  *

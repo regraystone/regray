@@ -19,8 +19,8 @@ import {
 import PublicLayout from '@/layouts/public-layout';
 import { index as inboxIndex } from '@/routes/inbox';
 import { book } from '@/routes/profile/schedule';
-import { show as projectShow } from '@/routes/stone';
-import type { LandingProject } from '@/types/home';
+import { show as showcaseShow } from '@/routes/stone';
+import type { LandingShowcase } from '@/types/home';
 
 /**
  * The showroom: an overview, a gallery of the showroom and the spaces Regray
@@ -28,9 +28,9 @@ import type { LandingProject } from '@/types/home';
  * and how to book a visit.
  */
 export default function CompanyShowroom({
-    projects,
+    showcases,
 }: {
-    projects: LandingProject[];
+    showcases: LandingShowcase[];
 }) {
     return (
         <PublicLayout>
@@ -82,7 +82,7 @@ export default function CompanyShowroom({
                 ))}
             </section>
 
-            {projects.length > 0 ? (
+            {showcases.length > 0 ? (
                 <section
                     id="gallery"
                     aria-labelledby="showroom-gallery"
@@ -93,27 +93,27 @@ export default function CompanyShowroom({
                         across the Philippines.
                     </SectionTitle>
                     <ul className="grid grid-cols-1 gap-4 min-[700px]:gap-7 sm:grid-cols-2 lg:grid-cols-3">
-                        {projects.map((project) => (
-                            <li key={project.slug}>
+                        {showcases.map((showcase) => (
+                            <li key={showcase.slug}>
                                 <Link
-                                    href={projectShow.url({
-                                        slug: project.slug,
+                                    href={showcaseShow.url({
+                                        slug: showcase.slug,
                                     })}
                                     className="group flex flex-col gap-3"
                                 >
                                     <div className="aspect-4/5 overflow-hidden rounded-md bg-muted">
                                         <img
-                                            src={project.thumbnail}
+                                            src={showcase.thumbnail}
                                             alt=""
                                             loading="lazy"
                                             className="size-full object-cover transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.02] motion-reduce:transition-none"
                                         />
                                     </div>
                                     <span className="flex justify-between gap-4 border-t border-border pt-3 text-[1.0625rem]">
-                                        <span>{project.name}</span>
+                                        <span>{showcase.name}</span>
                                         <span className="text-right text-muted-foreground">
-                                            {project.location} ·{' '}
-                                            {project.completedYear}
+                                            {showcase.location} ·{' '}
+                                            {showcase.completedYear}
                                         </span>
                                     </span>
                                 </Link>

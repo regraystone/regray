@@ -6,8 +6,8 @@ use App\Actions\Home\CompanyFactsAction;
 use App\Actions\Home\ListBrandsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LandingBrandResource;
-use App\Http\Resources\LandingProjectResource;
-use App\Services\ProjectService;
+use App\Http\Resources\LandingShowcaseResource;
+use App\Services\ShowcaseService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,20 +15,20 @@ use Inertia\Response;
 /**
  * The company pages the public header's menu opens, for everyone, signed in
  * or not: the brands by category, the showroom, Regray's story and how to
- * reach the team. The words on them are in the pages; the brands, projects
+ * reach the team. The words on them are in the pages; the brands, showcases
  * and figures come from the catalog.
  */
 class CompanyPageController extends Controller
 {
-    /** How many finished projects the showroom's gallery shows. */
-    private const GALLERY_PROJECTS = 6;
+    /** How many finished showcases the showroom's gallery shows. */
+    private const GALLERY_SHOWCASES = 6;
 
-    /** How many finished projects the News page tells. */
+    /** How many finished showcases the News page tells. */
     private const NEWS_STORIES = 12;
 
     public function __construct(
         public readonly ListBrandsAction $listBrands,
-        public readonly ProjectService $projects,
+        public readonly ShowcaseService $showcases,
         public readonly CompanyFactsAction $facts,
     ) {}
 
@@ -42,7 +42,7 @@ class CompanyPageController extends Controller
     public function showroom(Request $request): Response
     {
         return Inertia::render('company/showroom', [
-            'projects' => LandingProjectResource::collection($this->projects->latestPublished(self::GALLERY_PROJECTS))->resolve($request),
+            'showcases' => LandingShowcaseResource::collection($this->showcases->latestPublished(self::GALLERY_SHOWCASES))->resolve($request),
         ]);
     }
 
@@ -55,13 +55,13 @@ class CompanyPageController extends Controller
     }
 
     /**
-     * News: the latest finished projects told as stories, beside the Regray
+     * News: the latest finished showcases told as stories, beside the Regray
      * Journal and the social accounts. The system holds no other news.
      */
     public function news(Request $request): Response
     {
         return Inertia::render('company/news', [
-            'stories' => LandingProjectResource::collection($this->projects->latestPublished(self::NEWS_STORIES))->resolve($request),
+            'stories' => LandingShowcaseResource::collection($this->showcases->latestPublished(self::NEWS_STORIES))->resolve($request),
         ]);
     }
 

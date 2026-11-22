@@ -1,0 +1,45 @@
+<?php
+
+namespace App\Http\Resources;
+
+use App\Models\Showcase;
+use App\Models\ShowcaseCategory;
+use App\Models\ShowcaseImage;
+use App\Models\Stone;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/** @mixin Showcase */
+class ShowcaseProfileResource extends JsonResource
+{
+    /**
+     * Only the profile's public fields leave the server, never model or pivot metadata.
+     *
+     * @return array{slug: string, name: string, completedYear: int, location: string, overview: string, thumbnail: string, categories: array<int, array{slug: string, name: string}>, stones: array<int, array{slug: string, name: string, thumbnail: string, type: array{slug: string, name: string}}>, gallery: array<int, array{src: string, name: string|null}>}
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'slug' => $this->slug,
+            'name' => $this->name,
+            'completedYear' => $this->completed_year,
+            'location' => $this->location,
+            'overview' => $this->overview,
+            'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'categories' => $this->categories->map(fn (ShowcaseCategory $category): array => [
+                'slug' => $category->slug,
+                'name' => $category->name,
+            ])->all(),
+            'stones' => $this->stones->map(fn (Stone $stone): array => [
+                'slug' => $stone->slug,
+                'name' => $stone->name,
+                'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($stone->thumbnail_path),
+                'type' => ['slug' => $stone->type->slug, 'name' => $stone->type->name],
+            ])->all(),
+            'gallery' => $this->images->map(fn (ShowcaseImage $image): array => [
+                'src' => ShowcaseCardResource::resolveThumbnailUrl($image->path),
+                'name' => $image->label(),
+            ])->all(),
+        ];
+    }
+}

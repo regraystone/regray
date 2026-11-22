@@ -6,8 +6,8 @@ use App\Enums\SalesStatus;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use Database\Seeders\FurnitureSeeder;
-use Database\Seeders\ProjectCategorySeeder;
-use Database\Seeders\ProjectSeeder;
+use Database\Seeders\ShowcaseCategorySeeder;
+use Database\Seeders\ShowcaseSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Http\Request;
@@ -33,7 +33,7 @@ beforeEach(function () {
 /**
  * Every guarded workspace page, with the parameters each route needs.
  *
- * The public catalogue (a brand and its products, the project catch-all) is
+ * The public catalogue (a brand and its products, the showcase catch-all) is
  * not here: it never refuses anyone, so there is no 403 or login redirect for
  * the walk below to check. Its guard, which is none at all, is pinned by the
  * guard map instead.
@@ -67,7 +67,7 @@ function workspacePages(): array
         'products.index' => [],
         'services.index' => [],
         'accounts.index' => [],
-        'projects.index' => [],
+        'showcases.index' => [],
         'profile.show' => [],
         'profile.settings' => [],
         'profile.edit' => [],
@@ -148,7 +148,7 @@ test('guards every route with exactly these permissions', function () {
 
     $expected = [
         'home.index' => $p(Permission::HomeView),
-        'home.show' => $p(Permission::HomeStoneView, Permission::HomeProjectsView),
+        'home.show' => $p(Permission::HomeStoneView, Permission::HomeShowcasesView),
         // The public catalogue answers guests, so it carries no permission.
         'brands.show' => [],
         'brands.stones.show' => [],
@@ -175,7 +175,7 @@ test('guards every route with exactly these permissions', function () {
         'saved.index' => $p(Permission::SavedView),
         'saved.show' => $p(Permission::SavedStoneView),
         'saved.furniture.show' => $p(Permission::SavedView),
-        'saved.project' => $p(Permission::SavedProjectsView),
+        'saved.showcase' => $p(Permission::SavedShowcasesView),
         'saved.store' => $p(Permission::SavedView, Permission::SavedManage),
         'saved.destroy' => $p(Permission::SavedView, Permission::SavedManage),
         'saved.furniture.store' => $p(Permission::SavedView, Permission::SavedManage),
@@ -249,10 +249,10 @@ test('guards every route with exactly these permissions', function () {
         'accounts.update' => $p(Permission::AccountsView, Permission::AccountsUpdate),
         'accounts.status' => $p(Permission::AccountsView, Permission::AccountsUpdate),
         'accounts.archive' => $p(Permission::AccountsView, Permission::AccountsArchive),
-        'projects.index' => $p(Permission::ProjectsView),
-        'dashboard.projects.store' => $p(Permission::ProjectsView, Permission::ProjectsCreate),
-        'dashboard.projects.update' => $p(Permission::ProjectsView, Permission::ProjectsUpdate),
-        'dashboard.projects.archive' => $p(Permission::ProjectsView, Permission::ProjectsArchive),
+        'showcases.index' => $p(Permission::ShowcasesView),
+        'dashboard.showcases.store' => $p(Permission::ShowcasesView, Permission::ShowcasesCreate),
+        'dashboard.showcases.update' => $p(Permission::ShowcasesView, Permission::ShowcasesUpdate),
+        'dashboard.showcases.archive' => $p(Permission::ShowcasesView, Permission::ShowcasesArchive),
         'profile.show' => $p(Permission::ProfileView),
         'profile.settings' => $p(Permission::ProfileView),
         'profile.edit' => $p(Permission::ProfileView),
@@ -304,7 +304,7 @@ test('opens to each role exactly the pages its matrix entry grants', function (s
     // The catalogue binds its product before checking the permission, so the
     // products have to exist for a refusal to be what this walk is checking.
     Storage::fake(config('filesystems.public_disk'));
-    $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
+    $this->seed([StoneSeeder::class, ShowcaseCategorySeeder::class, ShowcaseSeeder::class, FurnitureSeeder::class]);
 
     $user = User::factory()->role($role)->create();
 
@@ -379,16 +379,16 @@ test('matches the stepper ahead of the details route under it', function (string
 ]);
 
 test('refuses a reader without the permission alike for a profile that exists and one that does not', function () {
-    $this->seed([StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
+    $this->seed([StoneSeeder::class, ShowcaseCategorySeeder::class, ShowcaseSeeder::class]);
     $technical = User::factory()->role(Role::Technical)->create();
 
     foreach ([
         ['home.show', ['slug' => 'ginza-one']],
-        ['home.show', ['slug' => 'no-such-project']],
+        ['home.show', ['slug' => 'no-such-showcase']],
         ['saved.show', ['stone' => 'arctic-pink']],
         ['saved.show', ['stone' => 'no-such-stone']],
-        ['saved.project', ['stone' => 'arctic-pink', 'project' => 'ginza-one']],
-        ['saved.project', ['stone' => 'arctic-pink', 'project' => 'no-such-project']],
+        ['saved.showcase', ['stone' => 'arctic-pink', 'showcase' => 'ginza-one']],
+        ['saved.showcase', ['stone' => 'arctic-pink', 'showcase' => 'no-such-showcase']],
     ] as [$name, $parameters]) {
         $this->actingAs($technical)->get(route($name, $parameters))->assertForbidden();
     }

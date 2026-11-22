@@ -8,7 +8,7 @@ import { index as inboxIndex } from '@/routes/inbox';
  * The public site's frame: the mega-menu header, the page, the black footer
  * and the Message us button. The landing page, the company pages (Our
  * brands, Showroom, About, Contact) and, for guests, the catalogue's brand,
- * project, stone and furniture pages sit in it.
+ * showcase, stone and furniture pages sit in it.
  */
 export default function PublicLayout({ children }: { children: ReactNode }) {
     // Links to a section of the same page glide to it.

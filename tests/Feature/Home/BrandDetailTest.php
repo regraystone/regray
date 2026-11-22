@@ -3,13 +3,13 @@
 use App\Enums\Role;
 use App\Models\Brand;
 use App\Models\Furniture;
-use App\Models\Project;
+use App\Models\Showcase;
 use App\Models\Stone;
 use App\Models\User;
 use Database\Seeders\BrandSeeder;
 use Database\Seeders\FurnitureSeeder;
-use Database\Seeders\ProjectCategorySeeder;
-use Database\Seeders\ProjectSeeder;
+use Database\Seeders\ShowcaseCategorySeeder;
+use Database\Seeders\ShowcaseSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Testing\TestResponse;
@@ -18,10 +18,10 @@ use Inertia\Testing\AssertableInertia as Assert;
 /*
  * A brand's page tells what the brand offers, counted from its active
  * products, and the group's other brands, for every brand and through both
- * its doors. It lists no projects.
+ * its doors. It lists no showcases.
  */
 beforeEach(function (): void {
-    $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
+    $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ShowcaseCategorySeeder::class, ShowcaseSeeder::class, FurnitureSeeder::class]);
 });
 
 function brandDetailPage(string $slug): TestResponse
@@ -69,15 +69,15 @@ test('a brand with no products yet offers nothing counted, and its page still op
             ->where('offer', ['stones' => 0, 'furniture' => 0, 'types' => []]));
 });
 
-test('a brand\'s page lists no projects, even one made with its stones', function (): void {
+test('a brand\'s page lists no showcases, even one made with its stones', function (): void {
     $brand = Brand::query()->where('slug', 'regray-stone')->firstOrFail();
-    expect(Project::query()->published()->whereHas('stones', fn ($stones) => $stones->where('brand_id', $brand->id))->exists())->toBeTrue();
+    expect(Showcase::query()->published()->whereHas('stones', fn ($stones) => $stones->where('brand_id', $brand->id))->exists())->toBeTrue();
 
     brandDetailPage('regray-stone')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->missing('projects')
-            ->missing('brand.data.projects'));
+            ->missing('showcases')
+            ->missing('brand.data.showcases'));
 });
 
 test('the other brands are the active ones besides this one, through both doors', function (): void {
@@ -94,5 +94,5 @@ test('the other brands are the active ones besides this one, through both doors'
             ->component('brand-profile')
             ->where('otherBrands', fn ($brands): bool => collect($brands)->pluck('slug')->all() === $expected)
             ->has('offer.types')
-            ->missing('projects'));
+            ->missing('showcases'));
 });

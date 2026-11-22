@@ -28,11 +28,11 @@ class LoadTestSeeder extends Seeder
             RolePermissionSeeder::class,
             PhAddressSeeder::class,
             StoneSeeder::class,
-            ProjectCategorySeeder::class,
+            ShowcaseCategorySeeder::class,
             ServiceSeeder::class,
             ServiceStoneTypeSeeder::class,
             BrandSeeder::class,
-            ProjectSeeder::class,
+            ShowcaseSeeder::class,
             FurnitureSeeder::class,
             DemoSeeder::class,
         ]);

@@ -1,37 +1,37 @@
 import type { BrandCollectionKind } from '@/lib/brand-collection';
 import type { StoneCardData } from '@/types/stone';
 
-export type ProjectProfileCategory = {
+export type ShowcaseProfileCategory = {
     slug: string;
     name: string;
 };
 
-export type ProjectProfileStone = {
+export type ShowcaseProfileStone = {
     slug: string;
     name: string;
     thumbnail: string;
     type: { slug: string; name: string };
 };
 
-export type ProjectProfileImage = {
+export type ShowcaseProfileImage = {
     src: string;
     /** Its file's own name, for its alt text; null for a committed photo. */
     name: string | null;
 };
 
-export type ProjectProfile = {
+export type ShowcaseProfile = {
     slug: string;
     name: string;
     completedYear: number;
     location: string;
     overview: string;
     thumbnail: string;
-    categories: ProjectProfileCategory[];
-    stones: ProjectProfileStone[];
-    gallery: ProjectProfileImage[];
+    categories: ShowcaseProfileCategory[];
+    stones: ShowcaseProfileStone[];
+    gallery: ShowcaseProfileImage[];
 };
 
-export type ProjectCardData = {
+export type ShowcaseCardData = {
     slug: string;
     name: string;
     thumbnail: string;
@@ -75,7 +75,7 @@ export type BrandProfile = BrandCardData & {
     makes: string[];
     /** Its social links, one per network, each shown with that network's icon. */
     socials: BrandSocial[];
-    projects: ProjectCardData[];
+    showcases: ShowcaseCardData[];
 };
 
 export type FurnitureCardData = {
@@ -166,8 +166,8 @@ export type HomePageProps = {
     brands: BrandCardData[];
 };
 
-/** A finished project on the landing page (LandingProjectResource). */
-export type LandingProject = {
+/** A finished showcase on the landing page (LandingShowcaseResource). */
+export type LandingShowcase = {
     slug: string;
     name: string;
     location: string;
@@ -188,5 +188,5 @@ export type LandingBrand = {
 
 export type LandingPageProps = {
     brands: LandingBrand[];
-    projects: LandingProject[];
+    showcases: LandingShowcase[];
 };

@@ -21,8 +21,8 @@ import {
     showroom,
 } from '@/routes/company';
 import { inquire } from '@/routes/quote';
-import { show as projectShow } from '@/routes/stone';
-import type { LandingBrand, LandingProject } from '@/types/home';
+import { show as showcaseShow } from '@/routes/stone';
+import type { LandingBrand, LandingShowcase } from '@/types/home';
 
 /** A section's title: spaced capitals in the heading face. */
 const sectionTitle =
@@ -276,8 +276,8 @@ export function LandingShowroom() {
     );
 }
 
-/** 05. The latest from Regray: its newest finished projects, each a story. */
-export function LandingNews({ stories }: { stories: LandingProject[] }) {
+/** 05. The latest from Regray: its newest finished showcases, each a story. */
+export function LandingNews({ stories }: { stories: LandingShowcase[] }) {
     if (stories.length === 0) {
         return null;
     }
@@ -307,10 +307,10 @@ export function LandingNews({ stories }: { stories: LandingProject[] }) {
     );
 }
 
-/** A finished project told as news: its photo, the year it was finished, its name and where. */
-export const StoryCard = ({ story }: { story: LandingProject }) => (
+/** A finished showcase told as news: its photo, the year it was finished, its name and where. */
+export const StoryCard = ({ story }: { story: LandingShowcase }) => (
     <Link
-        href={projectShow.url({ slug: story.slug })}
+        href={showcaseShow.url({ slug: story.slug })}
         className="group flex flex-col gap-4.5"
     >
         <div className="aspect-4/3 overflow-hidden rounded-md bg-[#d8d4cd]">

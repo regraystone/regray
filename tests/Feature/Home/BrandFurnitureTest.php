@@ -2,12 +2,11 @@
 
 use App\Enums\Role;
 use App\Models\Brand;
-use App\Models\Project;
 use App\Models\User;
 use Database\Seeders\BrandSeeder;
 use Database\Seeders\FurnitureSeeder;
-use Database\Seeders\ProjectCategorySeeder;
-use Database\Seeders\ProjectSeeder;
+use Database\Seeders\ShowcaseCategorySeeder;
+use Database\Seeders\ShowcaseSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +14,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
     Storage::fake(config('filesystems.public_disk'));
-    $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class, FurnitureSeeder::class]);
+    $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ShowcaseCategorySeeder::class, ShowcaseSeeder::class, FurnitureSeeder::class]);
 });
 
 test('the seeder gives each brand its logo under its stable path', function (): void {
@@ -57,9 +56,7 @@ test('home sends the active brands in order', function (): void {
         );
 });
 
-test('a brand profile lists its published projects and its website', function (): void {
-    Project::query()->where('slug', 'belo-medical-group')->update(['is_published' => false]);
-
+test('a brand profile shows its website, and lists no showcases', function (): void {
     $this->actingAs(User::factory()->role(Role::Client)->create())
         ->get(route('dashboard.brands.show', ['brand' => 'regray-stone']))
         ->assertOk()
@@ -68,7 +65,8 @@ test('a brand profile lists its published projects and its website', function ()
             ->where('brand.data.slug', 'regray-stone')
             ->where('brand.data.websiteUrl', 'https://regraystone.com/')
             ->where('brand.data.thumbnail', '/storage/brands/9c2e5a1f8b4d7c3e6a9f2c5e8a1d4b7f.png')
-            ->where('brand.data.projects', fn ($projects) => collect($projects)->pluck('slug')->all() === ['recidencia-del-hamor'])
+            ->missing('brand.data.showcases')
+            ->missing('brand.data.projects')
         );
 });
 

@@ -14,7 +14,7 @@ import PublicLayout from '@/layouts/public-layout';
 import { brands as brandsPage, contact } from '@/routes/company';
 import type { LandingBrand } from '@/types/home';
 
-type Facts = { brands: number; stones: number; projects: number };
+type Facts = { brands: number; stones: number; showcases: number };
 
 /**
  * About Regray: its story (as regraystone.com tells it), the group of brands,
@@ -33,7 +33,7 @@ export default function CompanyAbout({
         { value: '1,000+', label: 'Spaces installed' },
         { value: String(facts.brands), label: 'Brands in the group' },
         { value: String(facts.stones), label: 'Stones in the collection' },
-        { value: String(facts.projects), label: 'Featured projects' },
+        { value: String(facts.showcases), label: 'Featured showcases' },
     ];
 
     return (

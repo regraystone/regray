@@ -1,13 +1,13 @@
 <?php
 
-use App\Http\Resources\ProjectCardResource;
+use App\Http\Resources\ShowcaseCardResource;
 use Illuminate\Support\Facades\Storage;
 
 test('public disk thumbnails use a relative storage URL', function (): void {
     config(['filesystems.public_disk' => 'public']);
     Storage::fake('public');
 
-    $url = ProjectCardResource::resolveThumbnailUrl('projects/a.jpg');
+    $url = ShowcaseCardResource::resolveThumbnailUrl('projects/a.jpg');
 
     expect($url)->toBe('/storage/projects/a.jpg');
 });
@@ -19,7 +19,7 @@ test('S3 public disk thumbnails use the configured CDN URL', function (): void {
     ]);
     Storage::fake('s3-public', ['url' => config('filesystems.disks.s3-public.url')]);
 
-    $url = ProjectCardResource::resolveThumbnailUrl('projects/a.jpg');
+    $url = ShowcaseCardResource::resolveThumbnailUrl('projects/a.jpg');
 
     expect($url)->toStartWith('https://cdn.test/')->toEndWith('projects/a.jpg');
 });
@@ -28,7 +28,7 @@ test('root-relative thumbnail paths are returned unchanged', function (string $d
     config(['filesystems.public_disk' => $disk]);
     Storage::fake($disk);
 
-    $url = ProjectCardResource::resolveThumbnailUrl('/images/x.jpg');
+    $url = ShowcaseCardResource::resolveThumbnailUrl('/images/x.jpg');
 
     expect($url)->toBe('/images/x.jpg');
 })->with(['public', 's3-public']);
@@ -47,7 +47,7 @@ test('legacy /storage/ prefixed paths resolve like relative paths on the public 
     config(['filesystems.public_disk' => 'public']);
     Storage::fake('public');
 
-    $url = ProjectCardResource::resolveThumbnailUrl('/storage/projects/a.jpg');
+    $url = ShowcaseCardResource::resolveThumbnailUrl('/storage/projects/a.jpg');
 
     expect($url)->toBe('/storage/projects/a.jpg');
 });
@@ -59,7 +59,7 @@ test('legacy /storage/ prefixed paths resolve to CDN URLs on s3-public disk', fu
     ]);
     Storage::fake('s3-public', ['url' => config('filesystems.disks.s3-public.url')]);
 
-    $url = ProjectCardResource::resolveThumbnailUrl('/storage/projects/a.jpg');
+    $url = ShowcaseCardResource::resolveThumbnailUrl('/storage/projects/a.jpg');
 
     expect($url)->toStartWith('https://cdn.test/')->toEndWith('projects/a.jpg');
 });

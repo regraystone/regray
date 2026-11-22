@@ -27,8 +27,8 @@ class BrandProfileResource extends JsonResource
             'tagline' => $this->tagline,
             'description' => $this->description,
             'websiteUrl' => $this->website_url,
-            'logo' => ProjectCardResource::resolveThumbnailUrl($this->logo_path),
-            'thumbnail' => $this->thumbnail_path === null ? null : ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'logo' => ShowcaseCardResource::resolveThumbnailUrl($this->logo_path),
+            'thumbnail' => $this->thumbnail_path === null ? null : ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
             ...$this->details(),
         ];
     }

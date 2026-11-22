@@ -8,17 +8,17 @@ import {
 import { StoryCard } from '@/components/landing/landing-sections';
 import { JOURNAL, SOCIALS } from '@/components/public/public-links';
 import PublicLayout from '@/layouts/public-layout';
-import type { LandingProject } from '@/types/home';
+import type { LandingShowcase } from '@/types/home';
 
 /**
- * News: the latest finished projects, each told as a story and opening its
+ * News: the latest finished showcases, each told as a story and opening its
  * page, then where Regray publishes the rest, its journal and its social
  * accounts. The system holds no other news, so none is made up here.
  */
 export default function CompanyNews({
     stories,
 }: {
-    stories: LandingProject[];
+    stories: LandingShowcase[];
 }) {
     return (
         <PublicLayout>
@@ -33,7 +33,7 @@ export default function CompanyNews({
 
             {stories.length > 0 ? (
                 <section
-                    aria-label="Latest projects"
+                    aria-label="Latest showcases"
                     className={`pb-[clamp(5rem,9vw,8rem)] ${frame}`}
                 >
                     <ul className="grid grid-cols-1 gap-x-4 gap-y-12 min-[700px]:gap-x-7 sm:grid-cols-2 lg:grid-cols-3">
@@ -57,7 +57,7 @@ export default function CompanyNews({
                     More from Regray
                 </h2>
                 <p className={`max-w-150 ${body}`}>
-                    Read about our stones and projects in the Regray Journal, or
+                    Read about our stones and showcases in the Regray Journal, or
                     follow us for what is new each week.
                 </p>
                 <a

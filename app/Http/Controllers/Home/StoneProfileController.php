@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers\Home;
 
-use App\Actions\Home\ShowProjectAction;
+use App\Actions\Home\ShowShowcaseAction;
 use App\Actions\Stone\ShowStoneAction;
 use App\Concerns\RendersStoneProfile;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ProjectProfileResource;
+use App\Http\Resources\ShowcaseProfileResource;
 use App\Models\Brand;
 use App\Models\Stone;
-use App\Services\ProjectService;
+use App\Services\ShowcaseService;
 use App\Services\StoneService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\RedirectResponse;
@@ -24,9 +24,9 @@ class StoneProfileController extends Controller
 
     public function __construct(
         public readonly ShowStoneAction $showStone,
-        public readonly ShowProjectAction $showProject,
+        public readonly ShowShowcaseAction $showShowcase,
         public readonly StoneService $stoneService,
-        public readonly ProjectService $projectService,
+        public readonly ShowcaseService $showcaseService,
     ) {}
 
     /** The brand's own URL: the scoped binding has already matched the stone to this brand. */
@@ -37,9 +37,9 @@ class StoneProfileController extends Controller
 
     /**
      * An old flat URL, at the root or under /dashboard/home. A stone has moved
-     * under its brand, so it redirects there; a project still lives here.
+     * under its brand, so it redirects there; a showcase still lives here.
      * Accessible to guests and signed-in users. For signed-in users, checks
-     * permission; guests can see all published projects.
+     * permission; guests can see all published showcases.
      */
     public function showFlat(Request $request, string $slug): Response|RedirectResponse
     {
@@ -52,20 +52,20 @@ class StoneProfileController extends Controller
                 301,
             );
         } catch (ModelNotFoundException) {
-            // Not a stone, continue to check for project
+            // Not a stone, continue to check for showcase
         }
 
-        // Try to find a published project
+        // Try to find a published showcase
         try {
-            $project = $this->projectService->findPublished($slug);
+            $showcase = $this->showcaseService->findPublished($slug);
 
-            // Guests can always see published projects, signed-in users need permission
+            // Guests can always see published showcases, signed-in users need permission
             if ($request->user() !== null) {
-                abort_unless($request->user()->can(Permission::HomeProjectsView->value), 403);
+                abort_unless($request->user()->can(Permission::HomeShowcasesView->value), 403);
             }
 
-            return Inertia::render('project-profile', [
-                'project' => new ProjectProfileResource($project),
+            return Inertia::render('showcase-profile', [
+                'showcase' => new ShowcaseProfileResource($showcase),
             ]);
         } catch (ModelNotFoundException) {
             // Not found at all

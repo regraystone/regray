@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources\Message;
 
-use App\Http\Resources\ProjectCardResource;
+use App\Http\Resources\ShowcaseCardResource;
 use App\Models\Inquiry;
 use App\Models\Message;
 use App\Models\User;
@@ -46,7 +46,7 @@ class InquiryCardResource extends JsonResource
                 $stones[$row->stone->slug] = [
                     'slug' => $row->stone->slug,
                     'name' => $row->stone->name,
-                    'thumbnail' => ProjectCardResource::resolveThumbnailUrl($row->stone->thumbnail_path),
+                    'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($row->stone->thumbnail_path),
                 ];
             }
         }

@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Data\BrandProductFilterData;
-use App\Http\Resources\ProjectCardResource;
+use App\Http\Resources\ShowcaseCardResource;
 use App\Models\Brand;
 use App\Models\Furniture;
 use App\Models\FurnitureType;
@@ -70,7 +70,7 @@ class BrandService
                 'value' => $offer['type']->slug,
                 'name' => $offer['type']->name,
                 'count' => $offer['count'],
-                'thumbnail' => ProjectCardResource::resolveThumbnailUrl($offer['thumbnail']),
+                'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),
             ];
         }
 
@@ -80,7 +80,7 @@ class BrandService
                 'value' => $offer['type']->name,
                 'name' => $offer['type']->name,
                 'count' => $offer['count'],
-                'thumbnail' => $offer['thumbnail'] === null ? null : ProjectCardResource::resolveThumbnailUrl($offer['thumbnail']),
+                'thumbnail' => $offer['thumbnail'] === null ? null : ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),
             ];
         }
 

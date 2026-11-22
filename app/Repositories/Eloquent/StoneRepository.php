@@ -5,7 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Enums\InquiryStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStone;
-use App\Models\Project;
+use App\Models\Showcase;
 use App\Models\Size;
 use App\Models\Stone;
 use App\Models\StoneType;
@@ -149,14 +149,14 @@ class StoneRepository implements StoneRepositoryInterface
             ->get();
     }
 
-    public function publishedProjectsUsing(Stone $stone, int $limit): Collection
+    public function publishedShowcasesUsing(Stone $stone, int $limit): Collection
     {
-        return Project::query()
+        return Showcase::query()
             ->published()
             ->whereHas('stones', fn (Builder $stones) => $stones->whereKey($stone->id))
             ->orderByDesc('completed_year')
             ->orderByDesc('id')
             ->limit($limit)
-            ->get(['projects.id', 'slug', 'name', 'location', 'completed_year', 'thumbnail_path']);
+            ->get(['showcases.id', 'slug', 'name', 'location', 'completed_year', 'thumbnail_path']);
     }
 }
