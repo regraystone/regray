@@ -10,10 +10,10 @@ import { show as brandStoneShow } from '@/routes/brands/stones';
 import { showroom } from '@/routes/company';
 import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
 import { show as dashboardStoneShow } from '@/routes/dashboard/brands/stones';
-import { show as dashboardProjectShow } from '@/routes/home';
+import { show as dashboardShowcaseShow } from '@/routes/home';
 import { book } from '@/routes/profile/schedule';
-import { show as projectShow } from '@/routes/stone';
-import type { LandingProject } from '@/types/home';
+import { show as showcaseShow } from '@/routes/stone';
+import type { LandingShowcase } from '@/types/home';
 import type {
     StoneCardData,
     StoneProfile as StoneProfileData,
@@ -26,7 +26,7 @@ type StoneProfileProps = {
     previous: StoneStep;
     next: StoneStep;
     related: StoneCardData[];
-    projects: LandingProject[];
+    showcases: LandingShowcase[];
 };
 
 /** A small uppercase heading over a block of facts. */
@@ -57,7 +57,7 @@ const List = ({ items }: { items: string[] }) => (
  * A stone: its photo at its own portrait shape (click to see it large) beside
  * its type and brand, its name, the Best Seller mark, what the type is, its
  * origin, the slabs it comes in and its finishes, with Ask a quote and Save
- * together. Below, where it suits and how to care for it, the projects it
+ * together. Below, where it suits and how to care for it, the showcases it
  * was used in, and more stones of its type. A breadcrumb leads back to the
  * brand, and the previous and next stones of its type are a click away.
  *
@@ -70,7 +70,7 @@ const StoneProfile = ({
     previous,
     next,
     related,
-    projects,
+    showcases,
 }: StoneProfileProps) => {
     const { auth } = usePage<{ auth: { user: unknown } }>().props;
     const isSignedIn = auth.user != null;
@@ -98,10 +98,10 @@ const StoneProfile = ({
             brand: brand.slug,
             stone: slug,
         });
-    const projectUrl = (slug: string) =>
+    const showcaseUrl = (slug: string) =>
         isSignedIn
-            ? dashboardProjectShow.url({ slug })
-            : projectShow.url({ slug });
+            ? dashboardShowcaseShow.url({ slug })
+            : showcaseShow.url({ slug });
     const quoteUrl = isSignedIn ? (inquireRoute?.url() ?? null) : login.url();
     const visitUrl = isSignedIn ? book.url() : `${showroom.url()}#book`;
     const { slabs, sizeNote, origin } = stone.specifications;
@@ -375,27 +375,27 @@ const StoneProfile = ({
                 </section>
             ) : null}
 
-            {projects.length > 0 ? (
+            {showcases.length > 0 ? (
                 <section
-                    aria-labelledby="stone-projects"
+                    aria-labelledby="stone-showcases"
                     className="border-t border-border pt-10 pb-[clamp(3rem,6vw,5rem)]"
                 >
                     <h2
-                        id="stone-projects"
+                        id="stone-showcases"
                         className="mb-7 text-[clamp(1.375rem,1.8vw,1.75rem)] font-light tracking-[0.02em] uppercase"
                     >
                         Used in
                     </h2>
                     <ul className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-                        {projects.map((project) => (
-                            <li key={project.slug}>
+                        {showcases.map((showcase) => (
+                            <li key={showcase.slug}>
                                 <Link
-                                    href={projectUrl(project.slug)}
+                                    href={showcaseUrl(showcase.slug)}
                                     className="group flex flex-col gap-3"
                                 >
                                     <div className="aspect-4/3 overflow-hidden bg-muted">
                                         <img
-                                            src={project.thumbnail}
+                                            src={showcase.thumbnail}
                                             alt=""
                                             loading="lazy"
                                             className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none"
@@ -403,11 +403,11 @@ const StoneProfile = ({
                                     </div>
                                     <span className="flex flex-col gap-0.5">
                                         <span className="text-[0.9375rem]">
-                                            {project.name}
+                                            {showcase.name}
                                         </span>
                                         <span className="text-xs text-secondary-foreground">
-                                            {project.location} ·{' '}
-                                            {project.completedYear}
+                                            {showcase.location} ·{' '}
+                                            {showcase.completedYear}
                                         </span>
                                     </span>
                                 </Link>

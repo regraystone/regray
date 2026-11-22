@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Data\Message\QuotationCardSnapshot;
 use App\Enums\MessageType;
 use App\Enums\SystemEvent;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -26,7 +28,14 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $announced_arrival_at A schedule card's arrival, as its change left it.
  * @property string|null $announced_reason A schedule card's reason, as its change gave it.
  * @property int|null $inquiry_file_id A quotation card's document.
- * @property array{fileName: string, storedName: string, sizeBytes: int, revision: int|null, materialCount: int, inquiryName: string, reference: string}|null $card_snapshot A quotation card's document and inquiry as they were when it was posted (QuotationCardSnapshot).
+ * @property string|null $card_file_name A quotation card's document, as it was posted: its own name,
+ * @property string|null $card_stored_name the name it is served by,
+ * @property int|null $card_size_bytes its size,
+ * @property int|null $card_revision and its revision, if it has one.
+ * @property int|null $card_material_count A quotation card's inquiry, as it was: its stones, counted once each,
+ * @property string|null $card_inquiry_name its name,
+ * @property string|null $card_reference and its reference.
+ * @property-read array{fileName: string, storedName: string, sizeBytes: int, revision: int|null, materialCount: int, inquiryName: string, reference: string}|null $card_snapshot A quotation card's columns together (QuotationCardSnapshot), or null for any other message.
  * @property Carbon $created_at
  * @property Carbon|null $edited_at
  * @property Carbon|null $deleted_at
@@ -41,7 +50,7 @@ use Illuminate\Support\Carbon;
  * Nothing prunes these rows; do not make this model Prunable without
  * deciding that policy again.
  */
-#[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'announced_sales_status', 'announced_payment_status', 'announced_process_status', 'schedule_revision', 'announced_arrival_at', 'announced_reason', 'inquiry_file_id', 'card_snapshot', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
+#[Fillable(['conversation_id', 'sender_id', 'type', 'body', 'inquiry_id', 'schedule_id', 'announced_status', 'announced_sales_status', 'announced_payment_status', 'announced_process_status', 'schedule_revision', 'announced_arrival_at', 'announced_reason', 'inquiry_file_id', 'card_file_name', 'card_stored_name', 'card_size_bytes', 'card_revision', 'card_material_count', 'card_inquiry_name', 'card_reference', 'edited_at', 'reply_to_id', 'client_key', 'system_event', 'system_user_id', 'created_at'])]
 class Message extends Model
 {
     use SoftDeletes;
@@ -56,8 +65,21 @@ class Message extends Model
             'edited_at' => 'datetime',
             'announced_arrival_at' => 'datetime',
             'schedule_revision' => 'integer',
-            'card_snapshot' => 'array',
+            'card_size_bytes' => 'integer',
+            'card_revision' => 'integer',
+            'card_material_count' => 'integer',
         ];
+    }
+
+    /**
+     * A quotation card's snapshot, its columns together in the shape
+     * QuotationCardSnapshot::of() gives, or null for any other message.
+     *
+     * @return Attribute<array{fileName: string, storedName: string, sizeBytes: int, revision: int|null, materialCount: int, inquiryName: string, reference: string}|null, never>
+     */
+    protected function cardSnapshot(): Attribute
+    {
+        return Attribute::get(fn (): ?array => QuotationCardSnapshot::fromColumns($this->attributes));
     }
 
     /** @return BelongsTo<Conversation, $this> */

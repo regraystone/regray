@@ -27,9 +27,9 @@ use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\Message;
-use App\Models\Project;
-use App\Models\ProjectCategory;
 use App\Models\Service;
+use App\Models\Showcase;
+use App\Models\ShowcaseCategory;
 use App\Models\Stone;
 use App\Models\User;
 use App\Models\UserNotification;
@@ -707,17 +707,16 @@ function walkInClient(string $name = 'Wanda Walk-in'): Client
 }
 
 /**
- * A project as if the admin's Projects page had added it: published, with no
- * brand, stones, categories or gallery unless given. The slug is random.
+ * A showcase as if the admin's Showcase page had added it: published, with no
+ * stones, categories or gallery unless given. The slug is random.
  *
  * @param  array<string, mixed>  $attributes
  */
-function makeProject(array $attributes = []): Project
+function makeShowcase(array $attributes = []): Showcase
 {
-    return Project::query()->forceCreate([
-        'brand_id' => null,
-        'slug' => 'project-'.Str::lower(Str::random(10)),
-        'name' => 'Project '.Str::random(6),
+    return Showcase::query()->forceCreate([
+        'slug' => 'showcase-'.Str::lower(Str::random(10)),
+        'name' => 'Showcase '.Str::random(6),
         'completed_year' => 2024,
         'location' => 'Makati City',
         'overview' => 'A kitchen in stone.',
@@ -729,18 +728,18 @@ function makeProject(array $attributes = []): Project
 }
 
 /**
- * A project category, active unless told otherwise.
+ * A showcase category, active unless told otherwise.
  *
  * @param  array<string, mixed>  $attributes
  */
-function makeProjectCategory(string $name, array $attributes = []): ProjectCategory
+function makeShowcaseCategory(string $name, array $attributes = []): ShowcaseCategory
 {
-    return ProjectCategory::query()->create([
+    return ShowcaseCategory::query()->create([
         'slug' => Str::slug($name),
         'name' => $name,
         'image_path' => 'categories/'.Str::slug($name).'.jpg',
         'is_active' => true,
-        'sort_order' => ProjectCategory::query()->count(),
+        'sort_order' => ShowcaseCategory::query()->count(),
         ...$attributes,
     ]);
 }

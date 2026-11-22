@@ -28,7 +28,7 @@ class ClientInquiryResource extends JsonResource
             'stones' => array_map(fn (array $stone): array => [
                 'slug' => $stone['slug'],
                 'name' => $stone['name'],
-                'thumbnail' => ProjectCardResource::resolveThumbnailUrl($stone['thumbnail_path']),
+                'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($stone['thumbnail_path']),
             ], $this->stones),
             'services' => $this->services,
             'actions' => $this->actions,

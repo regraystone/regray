@@ -37,7 +37,7 @@ return [
         // POST, PUT dashboard/brands/*: the admin adding, changing and
         // archiving brands, images included.
         'brand-save' => (int) env('RATE_LIMIT_BRAND_SAVE', 20),
-        'project-save' => (int) env('RATE_LIMIT_PROJECT_SAVE', 20),
+        'showcase-save' => (int) env('RATE_LIMIT_SHOWCASE_SAVE', 20),
 
         // GET api/ph/*: the address picker's searches, debounced as the reader types.
         'ph-address-search' => (int) env('RATE_LIMIT_PH_ADDRESS_SEARCH', 120),
@@ -55,7 +55,7 @@ return [
         // POST message/groups.
         'group-create' => (int) env('RATE_LIMIT_GROUP_CREATE', 10),
 
-        // GET home and saved: the stone and project feeds with their filters,
+        // GET home and saved: the stone and showcase feeds with their filters,
         // search and infinite scroll, each page of which is one request.
         'heavy-reads' => (int) env('RATE_LIMIT_HEAVY_READS', 120),
 

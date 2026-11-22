@@ -1,9 +1,15 @@
 import { Link } from '@inertiajs/react';
 import {
+    body,
+    frame,
+    label,
+    outlineButton,
+    solidButton,
+    textLink,
+} from '@/components/public/company-ui';
+import {
     BRAND_LOGO_HEIGHT,
     DEFAULT_BRAND_LOGO_HEIGHT,
-    SHOWROOM,
-    SHOWROOM_MAP,
     brandUrl,
     collectionUrl,
 } from '@/components/public/public-links';
@@ -14,13 +20,9 @@ import {
     news,
     showroom,
 } from '@/routes/company';
-import { book } from '@/routes/profile/schedule';
 import { inquire } from '@/routes/quote';
-import { show as projectShow } from '@/routes/stone';
-import type { LandingBrand, LandingProject } from '@/types/home';
-
-/** The white margin every photo sits in, matching the header's. */
-const frame = 'px-4 sm:px-8';
+import { show as showcaseShow } from '@/routes/stone';
+import type { LandingBrand, LandingShowcase } from '@/types/home';
 
 /** A section's title: spaced capitals in the heading face. */
 const sectionTitle =
@@ -28,28 +30,15 @@ const sectionTitle =
 
 /** A section's opening paragraph. */
 const lead =
-    'max-w-190 text-[clamp(1rem,1.2vw,1.1875rem)] leading-[1.65] text-pretty';
-
-/** An underlined uppercase link. */
-const textLink =
-    'border-b border-current px-3 pb-3.5 text-[0.8125rem] tracking-[0.04em] uppercase transition-opacity hover:opacity-70';
-
-/** The small uppercase label over a block. */
-const eyebrow = 'text-[0.8125rem] tracking-[0.14em] uppercase';
+    'max-w-190 text-[clamp(1.125rem,1.3vw,1.25rem)] leading-[1.65] text-pretty';
 
 /** A photo that eases in a little on hover. */
 const zoom =
     'transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.02] motion-reduce:transition-none';
 
-/** The black button and the outlined one. */
-const solidButton =
-    'bg-foreground px-6.5 py-4 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80';
-const outlineButton =
-    'border border-foreground px-6.5 py-3.75 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-foreground hover:text-background';
-
 /** A row of the contact list. */
 const contactRow =
-    'flex items-center justify-between gap-4 py-5.5 font-display text-[clamp(1.125rem,1.5vw,1.375rem)] font-light transition-[padding] duration-300 hover:pl-2.5 motion-reduce:transition-none';
+    'flex items-center justify-between gap-4 py-5.5 font-display text-[clamp(1.1875rem,1.5vw,1.375rem)] transition-[padding] duration-300 hover:pl-2.5 motion-reduce:transition-none';
 
 /**
  * 01. The full-screen opening: the Regray Group and its line over the photo,
@@ -58,7 +47,7 @@ const contactRow =
 export function LandingHero() {
     return (
         <section aria-label="The Regray Group" className={frame}>
-            <div className="relative h-[calc(100svh-8.5rem)] min-h-115 overflow-hidden bg-[#d8d4cd] text-white">
+            <div className="relative h-[calc(100svh-8.5rem)] min-h-115 overflow-hidden rounded-md bg-[#d8d4cd] text-white">
                 <img
                     src="/images/regray-hero.jpg"
                     alt="A living room with a book-matched marble wall and a travertine table"
@@ -70,10 +59,9 @@ export function LandingHero() {
                     className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0)_45%,rgb(0_0_0/0.55)_100%)]"
                 />
                 <div className="absolute inset-x-[clamp(1.25rem,4vw,4rem)] bottom-[clamp(1.75rem,5vw,4rem)] flex max-w-205 flex-col gap-3.5">
-                    <p className={eyebrow}>The Regray Group</p>
+                    <p className={label}>The Regray Group</p>
                     <h1 className="font-display text-[clamp(2rem,4vw,3.75rem)] leading-[1.08] font-light tracking-[-0.005em] text-balance">
-                        Architecture of living, in stone, kitchens and
-                        interiors.
+                        Natural stone, kitchens and interiors for your home.
                     </h1>
                 </div>
             </div>
@@ -103,11 +91,9 @@ export function LandingDiscover() {
                 Discover Regray
             </h2>
             <p className={lead}>
-                Regray brings together its own Regray Stone and leading European
-                design brands under one roof. Each brand keeps its craft and
-                identity. Together they share one vision: to deliver complete,
-                beautifully made spaces, from the first idea to the final
-                installation.
+                Regray brings its own Regray Stone and trusted European brands
+                together in one place. One team helps you choose, measure and
+                install, from the first idea to the finished room.
             </p>
             <Link href={about.url()} className={`mt-3 ${textLink}`}>
                 Our story
@@ -129,15 +115,17 @@ export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
                     Our brands
                 </h2>
                 <p className={lead}>
-                    Our strength lies in the range and complementarity of our
-                    brands. Stone, surfaces, kitchens, wardrobes and doors: each
-                    a specialist, together a complete offer for every space.
+                    Stone, kitchens, wardrobes, doors and furniture, each from a
+                    brand that specialises in it.
                 </p>
             </div>
             {brands.length > 0 ? (
-                <ul className="grid w-full max-w-330 grid-cols-2 items-center gap-x-[clamp(1.5rem,3vw,3rem)] gap-y-[clamp(2.5rem,5vw,4.5rem)] [--wall:0.75] sm:grid-cols-3 sm:[--wall:1] xl:grid-cols-6">
+                <ul className="grid w-full max-w-330 grid-cols-2 items-center gap-x-[clamp(1.5rem,3vw,3rem)] gap-y-[clamp(2.5rem,5vw,4.5rem)] [--wall:0.6] md:grid-cols-3 md:[--wall:0.85] lg:grid-cols-6 lg:[--wall:1]">
                     {brands.map((brand) => (
-                        <li key={brand.slug} className="flex justify-center">
+                        <li
+                            key={brand.slug}
+                            className="flex min-w-0 justify-center"
+                        >
                             <Link
                                 href={brandUrl(brand.slug)}
                                 title={brand.name}
@@ -149,7 +137,7 @@ export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
                                     loading="lazy"
                                     className="max-w-full object-contain"
                                     style={{
-                                        // At full size from sm up, three quarters on phones.
+                                        // Full size on laptops, scaled down on tablets and phones.
                                         height: `calc(${BRAND_LOGO_HEIGHT[brand.slug] ?? DEFAULT_BRAND_LOGO_HEIGHT}px * var(--wall))`,
                                     }}
                                 />
@@ -165,146 +153,131 @@ export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
     );
 }
 
+/** The three steps of working with Regray, each with a photo of it. */
 const ONLINE_STEPS = [
     {
-        title: 'Explore',
-        text: 'Browse stones, furniture and projects from every Regray brand in one place, and save what you like.',
+        title: 'Choose what you like',
+        text: 'Look through our stones, kitchens and furniture online, or see them at our showroom.',
+        image: '/images/regray-slabs.jpg',
+        alt: 'A wall of book-matched quartzite slabs',
     },
     {
-        title: 'Request a quotation',
-        text: 'Send one inquiry. Our team visits and measures when needed, then sends your quotation.',
+        title: 'Get your quotation',
+        text: 'Tell us what you need. We visit to measure your space, then send you a clear price.',
+        image: '/images/regray-kitchen.jpg',
+        alt: 'A modern kitchen with a marble backsplash and an island',
     },
     {
-        title: 'Track your project',
-        text: 'Follow production, payments, delivery and installation from your account, with an email at every step.',
+        title: 'We install it for you',
+        text: 'Our team delivers and installs everything, and keeps you updated by email along the way.',
+        image: '/images/regray-stone-kitchen.jpg',
+        alt: 'A finished kitchen with a marble island and shelves',
     },
 ];
 
-/** 03. The online platform: exploring, a quotation, and following the project. */
+/**
+ * 03. How working with Regray goes, in three plain steps with a photo each,
+ * then the two ways to start: browse the collection, or ask for a quotation.
+ */
 export function LandingOnline() {
     return (
         <section
             id="online"
             aria-labelledby="landing-online"
-            className={`grid scroll-mt-20 grid-cols-1 items-center gap-[clamp(2.5rem,5vw,6rem)] py-[clamp(5rem,9vw,8.5rem)] min-[960px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] ${frame}`}
+            className={`flex scroll-mt-20 flex-col items-center gap-[clamp(2.5rem,5vw,4rem)] py-[clamp(5rem,9vw,8.5rem)] ${frame}`}
         >
-            <Link
-                href={collectionUrl('stones')}
-                aria-label="Explore the stones"
-                className="group block aspect-4/3 w-full self-center overflow-hidden bg-[#d8d4cd]"
-            >
-                <img
-                    src="/images/regray-slabs.jpg"
-                    alt="A wall of book-matched quartzite slabs in a restaurant Regray finished"
-                    loading="lazy"
-                    className={`size-full object-cover ${zoom}`}
-                />
-            </Link>
-            <div className="flex max-w-140 flex-col justify-center gap-7">
-                <p className={`${eyebrow} text-muted-foreground`}>
-                    Regray Online
-                </p>
+            <div className="flex flex-col items-center gap-5 text-center">
+                <p className={`${label} text-muted-foreground`}>How it works</p>
                 <h2
                     id="landing-online"
-                    className="font-display text-[clamp(1.75rem,2.6vw,2.5rem)] leading-[1.15] font-light text-balance"
+                    className="max-w-200 font-display text-[clamp(1.75rem,2.6vw,2.5rem)] leading-[1.15] font-light text-balance"
                 >
-                    Explore every material and brand, then request a quote
-                    online.
+                    From choosing to installing, we take care of it
                 </h2>
-                <ol className="border-t border-foreground">
-                    {ONLINE_STEPS.map((step, index) => (
-                        <li
-                            key={step.title}
-                            className="grid grid-cols-[3rem_minmax(0,1fr)] gap-3 border-b border-border py-4.5"
-                        >
-                            <span className="pt-0.75 text-xs font-semibold tracking-[0.08em] text-muted-foreground tabular-nums">
-                                {String(index + 1).padStart(2, '0')}
-                            </span>
-                            <span className="flex flex-col gap-1">
-                                <span className="font-display text-base tracking-[0.04em] uppercase">
-                                    {step.title}
-                                </span>
-                                <span className="text-[0.9375rem] leading-relaxed text-muted-foreground">
-                                    {step.text}
-                                </span>
-                            </span>
-                        </li>
-                    ))}
-                </ol>
-                <div className="flex flex-wrap gap-3">
-                    <Link
-                        href={collectionUrl('stones')}
-                        className={solidButton}
-                    >
-                        Explore materials
-                    </Link>
-                    <Link href={inquire.url()} className={outlineButton}>
-                        Request a quotation
-                    </Link>
-                </div>
+            </div>
+            <ul className="grid w-full max-w-330 grid-cols-1 gap-x-7 gap-y-12 md:grid-cols-3">
+                {ONLINE_STEPS.map((step) => (
+                    <li key={step.title} className="flex flex-col gap-5">
+                        <div className="aspect-4/3 overflow-hidden rounded-md bg-[#d8d4cd]">
+                            <img
+                                src={step.image}
+                                alt={step.alt}
+                                loading="lazy"
+                                className="size-full object-cover"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <h3 className="font-display text-[clamp(1.25rem,1.6vw,1.5rem)]">
+                                {step.title}
+                            </h3>
+                            <p className={`text-muted-foreground ${body}`}>
+                                {step.text}
+                            </p>
+                        </div>
+                    </li>
+                ))}
+            </ul>
+            <div className="flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
+                <Link href={collectionUrl('stones')} className={solidButton}>
+                    See our collection
+                </Link>
+                <Link href={inquire.url()} className={outlineButton}>
+                    Request a quotation
+                </Link>
             </div>
         </section>
     );
 }
 
-/** 04. The showroom: a full-height photo, then where it is and the ways in. */
+/**
+ * 04. The showroom, promoted: one large photo with a single message and a
+ * single way in, the showroom's page (where to find it, the gallery and
+ * booking a visit).
+ */
 export function LandingShowroom() {
     return (
         <section
             id="showroom"
             aria-labelledby="landing-showroom"
-            className="scroll-mt-20"
+            className={`scroll-mt-20 pb-[clamp(5rem,9vw,8.5rem)] ${frame}`}
         >
-            <div className={frame}>
-                <Link
-                    href={showroom.url()}
-                    className="group relative block h-[calc(100svh-5rem)] min-h-115 overflow-hidden bg-night text-white"
-                >
-                    <img
-                        src="/images/regray-showroom.jpg"
-                        alt=""
-                        loading="lazy"
-                        className={`size-full object-cover object-[center_60%] ${zoom}`}
-                    />
-                    <div aria-hidden className="absolute inset-0 bg-black/30" />
-                    <span className="absolute inset-x-6 top-1/2 flex -translate-y-1/2 flex-col items-center gap-4 text-center">
-                        <span className={eyebrow}>Showroom</span>
-                        <span
-                            id="landing-showroom"
-                            className="font-display text-[clamp(1.875rem,3.6vw,3.5rem)] font-light tracking-[0.02em] text-balance"
-                        >
-                            Experience every brand in person
-                        </span>
-                    </span>
-                </Link>
-            </div>
-            <div className="flex flex-col items-center gap-7 px-5 pt-[clamp(3.5rem,7vw,6rem)] pb-[clamp(5rem,9vw,8rem)] text-center">
-                <p className={lead}>
-                    {SHOWROOM.address}. {SHOWROOM.hours}.
-                </p>
-                <div className="mt-2 flex flex-wrap justify-center gap-x-10 gap-y-4">
-                    <Link href={book.url()} className={textLink}>
-                        Book a visit
-                    </Link>
-                    <a href={`${showroom.url()}#gallery`} className={textLink}>
-                        Gallery
-                    </a>
-                    <a
-                        href={SHOWROOM_MAP}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={textLink}
+            <div className="relative flex h-[min(calc(100svh-5rem),52rem)] min-h-115 flex-col items-center justify-center overflow-hidden rounded-md bg-night px-6 text-center text-white">
+                <img
+                    src="/images/regray-showroom.jpg"
+                    alt="The Regray showroom in Makati, with stone slabs on display"
+                    loading="lazy"
+                    className="absolute inset-0 size-full object-cover object-[center_60%]"
+                />
+                <div
+                    aria-hidden
+                    className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgb(0_0_0/0.62)_0%,rgb(0_0_0/0.5)_45%,rgb(0_0_0/0.3)_100%)]"
+                />
+                <div className="relative flex max-w-170 flex-col items-center gap-5">
+                    <p className={label}>Our showroom in Makati</p>
+                    <h2
+                        id="landing-showroom"
+                        className="font-display text-[clamp(2rem,3.8vw,3.5rem)] leading-[1.1] font-light text-balance"
                     >
-                        Get directions
-                    </a>
+                        Come and see it in person
+                    </h2>
+                    <p className="text-[clamp(1.125rem,1.4vw,1.3125rem)] leading-relaxed text-pretty text-white/90">
+                        Touch the stone, open the kitchens and talk to our team.
+                        Open every day, 10AM to 6PM.
+                    </p>
+                    <Link
+                        href={showroom.url()}
+                        className="mt-3 inline-flex min-h-13 items-center justify-center rounded-md bg-white px-8 py-3.5 text-base font-semibold text-black transition-colors hover:bg-white/85"
+                    >
+                        Plan your visit
+                    </Link>
                 </div>
             </div>
         </section>
     );
 }
 
-/** 05. The latest from Regray: its newest finished projects, each a story. */
-export function LandingNews({ stories }: { stories: LandingProject[] }) {
+/** 05. The latest from Regray: its newest finished showcases, each a story. */
+export function LandingNews({ stories }: { stories: LandingShowcase[] }) {
     if (stories.length === 0) {
         return null;
     }
@@ -334,13 +307,13 @@ export function LandingNews({ stories }: { stories: LandingProject[] }) {
     );
 }
 
-/** A finished project told as news: its photo, the year, and where it was finished. */
-export const StoryCard = ({ story }: { story: LandingProject }) => (
+/** A finished showcase told as news: its photo, the year it was finished, its name and where. */
+export const StoryCard = ({ story }: { story: LandingShowcase }) => (
     <Link
-        href={projectShow.url({ slug: story.slug })}
+        href={showcaseShow.url({ slug: story.slug })}
         className="group flex flex-col gap-4.5"
     >
-        <div className="aspect-4/3 overflow-hidden bg-[#d8d4cd]">
+        <div className="aspect-4/3 overflow-hidden rounded-md bg-[#d8d4cd]">
             <img
                 src={story.thumbnail}
                 alt=""
@@ -348,11 +321,11 @@ export const StoryCard = ({ story }: { story: LandingProject }) => (
                 className={`size-full object-cover ${zoom}`}
             />
         </div>
-        <span className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
-            Project · {story.completedYear}
+        <span className="text-[0.9375rem] text-muted-foreground">
+            Finished in {story.completedYear}
         </span>
-        <span className="font-display text-[clamp(1.1875rem,1.5vw,1.375rem)] leading-snug font-light text-pretty">
-            {story.name}, finished in stone in {story.location}
+        <span className="font-display text-[clamp(1.1875rem,1.5vw,1.375rem)] leading-snug text-pretty">
+            {story.name}, {story.location}
         </span>
     </Link>
 );
@@ -382,7 +355,7 @@ export function LandingContact() {
                 <h2 id="landing-contact" className={sectionTitle}>
                     Contact
                 </h2>
-                <p className="max-w-110 text-[1.0625rem] leading-relaxed">
+                <p className={`max-w-110 ${body}`}>
                     Connect with the Regray team. Tell us what you are working
                     on and the right person will reply.
                 </p>

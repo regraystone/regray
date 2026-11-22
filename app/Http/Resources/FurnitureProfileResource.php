@@ -18,7 +18,7 @@ class FurnitureProfileResource extends JsonResource
             'slug' => $this->slug,
             'name' => $this->name,
             'description' => $this->description,
-            'thumbnail' => $this->thumbnail_path === null ? null : ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'thumbnail' => $this->thumbnail_path === null ? null : ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
             'brand' => ['slug' => $this->brand->slug, 'name' => $this->brand->name],
             'furnitureType' => ['slug' => $this->furnitureType->slug, 'name' => $this->furnitureType->name],
         ];

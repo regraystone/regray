@@ -17,7 +17,7 @@ export type AdminCardCoverData = {
  * ground when it has none, with the logo on its own, no chip, in the center
  * of the image (shown once when there is no image, as the placeholder already
  * has it there). The cards and the View drawers of the admin's Brands and
- * Projects pages open with it.
+ * Showcase pages open with it.
  */
 export const AdminCardCover = ({
     cover,
@@ -100,7 +100,7 @@ const CardAction = ({
 );
 
 /**
- * A record on an admin page as a catalogue tile (a brand, a project): its
+ * A record on an admin page as a catalogue tile (a brand, a showcase): its
  * cover, title and subtitle, its status and a short count, then the actions
  * the server allows (View, Edit, and Archive on the right).
  *

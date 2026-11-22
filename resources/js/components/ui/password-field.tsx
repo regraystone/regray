@@ -66,7 +66,7 @@ export function PasswordField({
                     onClick={() => setShowPassword((visible) => !visible)}
                     className={
                         isLine
-                            ? 'absolute right-0 bottom-0 h-12 min-w-11 cursor-pointer text-right text-xs font-medium tracking-[0.12em] text-ink-soft uppercase transition-colors hover:text-ink focus-visible:text-ink'
+                            ? 'absolute right-0 bottom-0 h-12 min-w-11 cursor-pointer text-right text-[0.9375rem] font-medium text-ink-soft transition-colors hover:text-ink focus-visible:text-ink'
                             : 'absolute top-8 right-0 flex -translate-y-1/2 items-center pr-4 text-secondary-foreground transition-colors hover:text-foreground focus-visible:text-foreground'
                     }
                 >

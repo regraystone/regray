@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Data\Message\QuotationCardSnapshot;
 use App\Enums\InquiryStatus;
 use App\Enums\MessageType;
 use App\Enums\PaymentStatus;
@@ -177,7 +178,7 @@ class EloquentMessageRepository implements MessageRepositoryInterface
             'type' => MessageType::QuotationCard->value,
             'inquiry_id' => $inquiryId,
             'inquiry_file_id' => $inquiryFileId,
-            'card_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR),
+            ...QuotationCardSnapshot::columns($snapshot),
             // In the app's zone, as for an inquiry card.
             'created_at' => Date::instance($postedAt ?? Date::now())->setTimezone(config('app.timezone')),
         ]);

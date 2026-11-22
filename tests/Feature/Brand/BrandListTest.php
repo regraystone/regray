@@ -4,7 +4,6 @@ use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Brand;
 use App\Models\Furniture;
-use App\Models\Project;
 use App\Models\Stone;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -85,17 +84,13 @@ it('sends what a card shows: its counts, facts, files and links', function (): v
     Stone::factory()->for($brand)->count(2)->create();
     Stone::factory()->for($brand)->create(['is_active' => false]);
     Furniture::factory()->for($brand)->create();
-    Project::query()->create([
-        'brand_id' => $brand->id, 'slug' => 'ginza', 'name' => 'Ginza', 'completed_year' => 2024,
-        'location' => 'Makati', 'overview' => 'A kitchen.', 'thumbnail_path' => 'projects/ginza.jpg', 'is_published' => true,
-    ]);
 
     $this->actingAs($this->admin)
         ->get(route('dashboard.brands.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('brands.data.0.stonesCount', 2)
             ->where('brands.data.0.furnitureCount', 1)
-            ->where('brands.data.0.projectsCount', 1)
+            ->missing('brands.data.0.projectsCount')
             ->where('brands.data.0.facts', [['label' => 'Made in', 'value' => 'Treia, Italy'], ['label' => 'Founded', 'value' => '1967']])
             ->where('brands.data.0.makes', ['Kitchens'])
             ->where('brands.data.0.socials', [['platform' => 'tiktok', 'url' => 'https://www.tiktok.com/@lube']])

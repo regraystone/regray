@@ -83,8 +83,8 @@ class RolePermissionSeeder extends Seeder
      * alone, since `inquiries.create` is shared with the staff who open
      * inquiries for others, and staff always enter an address themselves.
      *
-     * `home-projects.view` goes to the client and to the super-admin and to
-     * nobody else: it names the project profile and the stone profile nested
+     * `home-showcases.view` goes to the client and to the super-admin and to
+     * nobody else: it names the showcase profile and the stone profile nested
      * under it, which are portfolio pages a client reads from Home. The
      * super-admin is listed for consistency with every other permission, since
      * `Gate::before` reaches the pages either way.
@@ -95,10 +95,10 @@ class RolePermissionSeeder extends Seeder
         Role::Client->value => [
             Permission::HomeView->value,
             Permission::HomeStoneView->value,
-            Permission::HomeProjectsView->value,
+            Permission::HomeShowcasesView->value,
             Permission::SavedView->value,
             Permission::SavedStoneView->value,
-            Permission::SavedProjectsView->value,
+            Permission::SavedShowcasesView->value,
             Permission::QuotationsView->value,
             Permission::MessagesView->value,
             Permission::ProfileView->value,
@@ -114,10 +114,10 @@ class RolePermissionSeeder extends Seeder
             Permission::HomeView->value,
             Permission::HomeStoneView->value,
             Permission::OverviewView->value,
-            Permission::HomeProjectsView->value,
+            Permission::HomeShowcasesView->value,
             Permission::SavedView->value,
             Permission::SavedStoneView->value,
-            Permission::SavedProjectsView->value,
+            Permission::SavedShowcasesView->value,
             Permission::SalesView->value,
             Permission::QuotationsView->value,
             Permission::InquiriesView->value,
@@ -133,10 +133,10 @@ class RolePermissionSeeder extends Seeder
             Permission::AccountsCreate->value,
             Permission::AccountsUpdate->value,
             Permission::AccountsArchive->value,
-            Permission::ProjectsView->value,
-            Permission::ProjectsCreate->value,
-            Permission::ProjectsUpdate->value,
-            Permission::ProjectsArchive->value,
+            Permission::ShowcasesView->value,
+            Permission::ShowcasesCreate->value,
+            Permission::ShowcasesUpdate->value,
+            Permission::ShowcasesArchive->value,
             Permission::ProfileView->value,
             Permission::LeadsView->value,
             Permission::ProfileScheduleView->value,

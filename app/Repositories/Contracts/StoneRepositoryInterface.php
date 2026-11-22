@@ -2,7 +2,7 @@
 
 namespace App\Repositories\Contracts;
 
-use App\Models\Project;
+use App\Models\Showcase;
 use App\Models\Stone;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
@@ -45,9 +45,9 @@ interface StoneRepositoryInterface
     public function relatedTo(Stone $stone, int $limit): Collection;
 
     /**
-     * The published projects the stone was used in, newest first.
+     * The published showcases the stone was used in, newest first.
      *
-     * @return Collection<int, Project>
+     * @return Collection<int, Showcase>
      */
-    public function publishedProjectsUsing(Stone $stone, int $limit): Collection;
+    public function publishedShowcasesUsing(Stone $stone, int $limit): Collection;
 }

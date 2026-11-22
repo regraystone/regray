@@ -32,9 +32,9 @@ return [
         'tagline' => 'Natural stone and bespoke furniture, from sourcing to installation nationwide.',
         'description' => 'Luxury natural stone, bespoke furniture and interior solutions from Makati City, with sourcing, fabrication and installation nationwide. Over 1,000 spaces installed.',
         'facts' => [
-            ['label' => 'Based in', 'value' => 'Makati City, Philippines'],
             ['label' => 'Services', 'value' => 'Sourcing, fabrication and installation, nationwide'],
-            ['label' => 'Installed', 'value' => 'Over 1,000 spaces'],
+            ['label' => 'Category', 'value' => 'Stone & Surfaces, Furniture & Interiors'],
+            ['label' => 'See it at', 'value' => 'Regray showroom, Makati City'],
         ],
         'makes' => ['Natural stone', 'Bespoke furniture', 'Interior solutions'],
         'socials' => $regraySocials,
@@ -52,6 +52,8 @@ return [
             ['label' => 'Founded', 'value' => '1967'],
             ['label' => 'Output', 'value' => 'Around 75,000 kitchens a year'],
             ['label' => 'Sold in', 'value' => '76 countries'],
+            ['label' => 'Category', 'value' => 'Kitchens'],
+            ['label' => 'See it at', 'value' => 'Regray showroom, Makati City'],
         ],
         'makes' => ['Kitchens'],
         'socials' => $regraySocials,
@@ -67,6 +69,8 @@ return [
         'facts' => [
             ['label' => 'Made in', 'value' => 'Spain, by the Pamesa group'],
             ['label' => 'Slabs', 'value' => 'Up to 162 × 324 cm'],
+            ['label' => 'Category', 'value' => 'Stone & Surfaces'],
+            ['label' => 'See it at', 'value' => 'Regray showroom, Makati City'],
         ],
         'makes' => ['Countertops', 'Floors', 'Walls', 'Façades'],
         'socials' => $regraySocials,
@@ -82,6 +86,8 @@ return [
         'facts' => [
             ['label' => 'Made in', 'value' => 'Treia, Italy'],
             ['label' => 'Group', 'value' => 'Gruppo Lube'],
+            ['label' => 'Category', 'value' => 'Wardrobes & Doors, Furniture & Interiors'],
+            ['label' => 'See it at', 'value' => 'Regray showroom, Makati City'],
         ],
         'makes' => ['Wall units', 'Wardrobes', 'Bedrooms', 'Desks'],
         'socials' => $regraySocials,
@@ -97,6 +103,8 @@ return [
         'description' => 'Re/form redefines materiality through advanced technology, precision engineering and refined contemporary design: sintered stone surfaces with sophisticated finishes, for architectural solutions defined by performance, craftsmanship and understated luxury.',
         'facts' => [
             ['label' => 'Material', 'value' => 'Sintered stone'],
+            ['label' => 'Category', 'value' => 'Stone & Surfaces'],
+            ['label' => 'See it at', 'value' => 'Regray showroom, Makati City'],
         ],
         'makes' => ['Sintered stone surfaces', 'Architectural solutions'],
         'socials' => $regraySocials,
@@ -112,6 +120,8 @@ return [
         'facts' => [
             ['label' => 'Made in', 'value' => 'Seregno, Brianza, Italy'],
             ['label' => 'Founded', 'value' => '1962'],
+            ['label' => 'Category', 'value' => 'Wardrobes & Doors'],
+            ['label' => 'See it at', 'value' => 'Regray showroom, Makati City'],
         ],
         'makes' => ['Interior doors', 'Door systems'],
         'socials' => $regraySocials,

@@ -3,11 +3,10 @@
 namespace App\Services;
 
 use App\Data\BrandProductFilterData;
-use App\Http\Resources\ProjectCardResource;
+use App\Http\Resources\ShowcaseCardResource;
 use App\Models\Brand;
 use App\Models\Furniture;
 use App\Models\FurnitureType;
-use App\Models\Project;
 use App\Models\Stone;
 use App\Models\StoneType;
 use App\Repositories\Contracts\BrandRepositoryInterface;
@@ -71,7 +70,7 @@ class BrandService
                 'value' => $offer['type']->slug,
                 'name' => $offer['type']->name,
                 'count' => $offer['count'],
-                'thumbnail' => ProjectCardResource::resolveThumbnailUrl($offer['thumbnail']),
+                'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),
             ];
         }
 
@@ -81,7 +80,7 @@ class BrandService
                 'value' => $offer['type']->name,
                 'name' => $offer['type']->name,
                 'count' => $offer['count'],
-                'thumbnail' => $offer['thumbnail'] === null ? null : ProjectCardResource::resolveThumbnailUrl($offer['thumbnail']),
+                'thumbnail' => $offer['thumbnail'] === null ? null : ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),
             ];
         }
 
@@ -90,16 +89,6 @@ class BrandService
             'furniture' => $products['furniture']->count(),
             'types' => $types,
         ];
-    }
-
-    /**
-     * The published projects of the brand, or made with its stones, latest first.
-     *
-     * @return Collection<int, Project>
-     */
-    public function publishedProjects(Brand $brand, int $limit): Collection
-    {
-        return $this->brandRepository->publishedProjects($brand, $limit);
     }
 
     /**

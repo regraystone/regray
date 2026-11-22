@@ -11,9 +11,12 @@
             }
         </style>
 
-        <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/images/regray_icon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        {{-- Each icon's URL carries its file's modified time, so a browser that keeps
+             favicons in a cache of its own (Safari) fetches a changed icon. --}}
+        @php($iconVersion = fn (string $path): int => @filemtime(public_path($path)) ?: 0)
+        <link rel="icon" href="/favicon.ico?v={{ $iconVersion('favicon.ico') }}" sizes="any">
+        <link rel="icon" href="/images/regray_icon.png?v={{ $iconVersion('images/regray_icon.png') }}" type="image/png">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v={{ $iconVersion('apple-touch-icon.png') }}">
 
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])

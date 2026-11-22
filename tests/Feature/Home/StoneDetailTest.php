@@ -1,13 +1,13 @@
 <?php
 
 use App\Enums\Role;
-use App\Models\Project;
+use App\Models\Showcase;
 use App\Models\Stone;
 use App\Models\User;
 use Database\Seeders\BrandSeeder;
-use Database\Seeders\ProjectCategorySeeder;
-use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\ShowcaseCategorySeeder;
+use Database\Seeders\ShowcaseSeeder;
 use Database\Seeders\StoneSeeder;
 use Illuminate\Support\Collection;
 use Illuminate\Testing\TestResponse;
@@ -15,11 +15,11 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 /*
  * A stone's page shows, around the stone, the stones before and after it of
- * its brand and type, more of that type, and the published projects it was
+ * its brand and type, more of that type, and the published showcases it was
  * used in, through every door it has.
  */
 beforeEach(function (): void {
-    $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ProjectCategorySeeder::class, ProjectSeeder::class]);
+    $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ShowcaseCategorySeeder::class, ShowcaseSeeder::class]);
 });
 
 /** The active stones of the type with the most of them, in catalog order. */
@@ -65,19 +65,19 @@ test('an inactive stone is neither a neighbour nor related', function (): void {
             ->where('related', fn ($related): bool => collect($related)->doesntContain('slug', $stones[2])));
 });
 
-test('the page lists the published projects the stone was used in', function (): void {
-    $stone = Stone::query()->has('projects')->with('projects')->firstOrFail();
-    $project = $stone->projects->first();
+test('the page lists the published showcases the stone was used in', function (): void {
+    $stone = Stone::query()->has('showcases')->with('showcases')->firstOrFail();
+    $showcase = $stone->showcases->first();
 
     stonePage($stone->slug)
         ->assertInertia(fn (Assert $page) => $page
-            ->where('projects', fn ($projects): bool => collect($projects)->contains('slug', $project->slug))
-            ->has('projects.0', fn (Assert $card) => $card->hasAll(['slug', 'name', 'location', 'completedYear', 'thumbnail'])));
+            ->where('showcases', fn ($showcases): bool => collect($showcases)->contains('slug', $showcase->slug))
+            ->has('showcases.0', fn (Assert $card) => $card->hasAll(['slug', 'name', 'location', 'completedYear', 'thumbnail'])));
 
-    Project::query()->whereKey($project->id)->update(['is_published' => false]);
+    Showcase::query()->whereKey($showcase->id)->update(['is_published' => false]);
 
     stonePage($stone->slug)
-        ->assertInertia(fn (Assert $page) => $page->where('projects', fn ($projects): bool => collect($projects)->doesntContain('slug', $project->slug)));
+        ->assertInertia(fn (Assert $page) => $page->where('showcases', fn ($showcases): bool => collect($showcases)->doesntContain('slug', $showcase->slug)));
 });
 
 test('the saved door and the dashboard door show the same surroundings', function (): void {
@@ -92,6 +92,6 @@ test('the saved door and the dashboard door show the same surroundings', functio
                 ->where('previous.slug', $stones[0])
                 ->where('next.slug', $stones[2])
                 ->has('related')
-                ->has('projects'));
+                ->has('showcases'));
     }
 });

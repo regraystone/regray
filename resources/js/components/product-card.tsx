@@ -102,7 +102,7 @@ const ProductCard = ({
      * The card is a link when there is somewhere to send it and plain content
      * when there is not: a stone profile sits under Home or under Saved, and a
      * page that may open neither hands over a card that simply shows the
-     * product. Same answer the project card already gives.
+     * product. Same answer the showcase card already gives.
      *
      * Only the best-seller tag sits on the picture, top left; the name and the
      * category are text under it. The name wraps onto a second line and is

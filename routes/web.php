@@ -23,19 +23,19 @@ use App\Http\Controllers\Inquiry\StaffClientController;
 use App\Http\Controllers\Inquiry\WalkInInquiryController;
 use App\Http\Controllers\Lead\LeadController;
 use App\Http\Controllers\Notification\NotificationController;
-use App\Http\Controllers\Project\ProjectAdminController;
 use App\Http\Controllers\Quote\InquiryDetailsController;
 use App\Http\Controllers\Quote\InquiryEditController;
 use App\Http\Controllers\Quote\InquiryFileController;
 use App\Http\Controllers\Quote\QuoteController;
 use App\Http\Controllers\RedirectController;
-use App\Http\Controllers\Saved\ProjectController as SavedProjectController;
 use App\Http\Controllers\Saved\SavedFurnitureController;
 use App\Http\Controllers\Saved\SavedStoneController;
+use App\Http\Controllers\Saved\ShowcaseController as SavedShowcaseController;
 use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
 use App\Http\Controllers\Schedule\BookingController;
 use App\Http\Controllers\Schedule\SalesPickerController;
 use App\Http\Controllers\Schedule\ScheduleChangeController;
+use App\Http\Controllers\Showcase\ShowcaseAdminController;
 use App\Http\Controllers\ViewController;
 use App\Http\Middleware\RedirectSignedInToDashboard;
 use App\Support\ReservedSlugs;
@@ -159,20 +159,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::redirect('home-stone/{stone}', 'home/stones/{stone}', 301);
 
         /*
-         * A flat URL under Home is a project, or a stone's old address. Stone profiles and
-         * projects are guarded by their own separate permissions: `home-stone.view` and
-         * `home-projects.view` respectively.
+         * A flat URL under Home is a showcase, or a stone's old address. Stone profiles and
+         * showcases are guarded by their own separate permissions: `home-stone.view` and
+         * `home-showcases.view` respectively.
          */
         Route::get('home/{slug}', [HomeStoneProfileController::class, 'showFlat'])
-            ->middleware(Permission::anyOfMiddleware(Permission::HomeStoneView, Permission::HomeProjectsView))
+            ->middleware(Permission::anyOfMiddleware(Permission::HomeStoneView, Permission::HomeShowcasesView))
             ->where('slug', '[a-z0-9]([a-z0-9-]*[a-z0-9])?')
             ->name('home.show');
 
         /*
          * Legacy nested route: kept as a 301 redirect to the flat URL.
          */
-        Route::get('home/{stone}/{project}', fn (string $stone, string $project) => redirect("/dashboard/home/{$project}", 301))
-            ->where(['stone' => '[a-z0-9-]+', 'project' => '[a-z0-9-]+']);
+        Route::get('home/{stone}/{showcase}', fn (string $stone, string $showcase) => redirect("/dashboard/home/{$showcase}", 301))
+            ->where(['stone' => '[a-z0-9-]+', 'showcase' => '[a-z0-9-]+']);
 
         Route::get('overview', [ViewController::class, 'overview'])
             ->middleware(Permission::OverviewView->middleware())
@@ -198,9 +198,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
          */
         Route::get('saved/{stone}', fn (string $stone) => redirect("/dashboard/saved/stones/{$stone}", 301))
             ->where('stone', '[a-z0-9-]+');
-        Route::get('saved/{stone}/{project}', [SavedProjectController::class, 'show'])
-            ->middleware(Permission::SavedProjectsView->middleware())
-            ->name('saved.project');
+        Route::get('saved/{stone}/{showcase}', [SavedShowcaseController::class, 'show'])
+            ->middleware(Permission::SavedShowcasesView->middleware())
+            ->name('saved.showcase');
         Route::put('saved/{stone}', [SavedStoneController::class, 'store'])
             ->middleware([
                 Permission::SavedView->middleware(),
@@ -591,25 +591,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware(Permission::AccountsArchive->middleware())
                 ->name('accounts.archive');
         });
-        Route::get('projects', [ViewController::class, 'projects'])
-            ->middleware(Permission::ProjectsView->middleware())
-            ->name('projects.index');
+        Route::get('showcases', [ViewController::class, 'showcases'])
+            ->middleware(Permission::ShowcasesView->middleware())
+            ->name('showcases.index');
         /*
-         * The Projects page's writes, each behind its own permission on top of
-         * the page's. `{id}` is a plain id (ProjectAdminController::find()),
-         * not the slug a project's public page is found by. An edit is a POST
+         * The Showcase page's writes, each behind its own permission on top of
+         * the page's. `{id}` is a plain id (ShowcaseAdminController::find()),
+         * not the slug a showcase's public page is found by. An edit is a POST
          * with `_method=put`, since a PUT can't carry its images.
          */
-        Route::middleware([Permission::ProjectsView->middleware(), 'throttle:project-save'])->group(function () {
-            Route::post('projects', [ProjectAdminController::class, 'store'])
-                ->middleware(Permission::ProjectsCreate->middleware())
-                ->name('dashboard.projects.store');
-            Route::put('projects/{id}', [ProjectAdminController::class, 'update'])
-                ->middleware(Permission::ProjectsUpdate->middleware())
-                ->name('dashboard.projects.update');
-            Route::post('projects/{id}/archive', [ProjectAdminController::class, 'archive'])
-                ->middleware(Permission::ProjectsArchive->middleware())
-                ->name('dashboard.projects.archive');
+        Route::middleware([Permission::ShowcasesView->middleware(), 'throttle:showcase-save'])->group(function () {
+            Route::post('showcases', [ShowcaseAdminController::class, 'store'])
+                ->middleware(Permission::ShowcasesCreate->middleware())
+                ->name('dashboard.showcases.store');
+            Route::put('showcases/{id}', [ShowcaseAdminController::class, 'update'])
+                ->middleware(Permission::ShowcasesUpdate->middleware())
+                ->name('dashboard.showcases.update');
+            Route::post('showcases/{id}/archive', [ShowcaseAdminController::class, 'archive'])
+                ->middleware(Permission::ShowcasesArchive->middleware())
+                ->name('dashboard.showcases.archive');
         });
     });
 });
@@ -633,7 +633,7 @@ Route::middleware(['auth', 'verified', 'throttle:ph-address-search'])
     });
 
 /*
- * Public catch-all: a project's profile, or a stone's old address, at /{slug}.
+ * Public catch-all: a showcase's profile, or a stone's old address, at /{slug}.
  * Reserved single-segment names (App\Support\ReservedSlugs) are excluded via negative lookahead.
  * Must be registered last, after all other routes.
  */
@@ -651,7 +651,7 @@ Route::redirect('/home-stone/{stone}', '/dashboard/home-stone/{stone}', 301);
 Route::redirect('/overview', '/dashboard/overview', 301);
 Route::redirect('/saved', '/dashboard/saved', 301);
 Route::redirect('/saved/{stone}', '/dashboard/saved/{stone}', 301);
-Route::redirect('/saved/{stone}/{project}', '/dashboard/saved/{stone}/{project}', 301);
+Route::redirect('/saved/{stone}/{showcase}', '/dashboard/saved/{stone}/{showcase}', 301);
 Route::redirect('/sales', '/dashboard/sales', 301);
 Route::redirect('/quote', '/dashboard/quote', 301);
 Route::redirect('/inquiry', '/dashboard/inquiry', 301);
@@ -667,10 +667,17 @@ Route::redirect('/message/{conversation}', '/dashboard/inbox/{conversation}', 30
 Route::redirect('/dashboard/message', '/dashboard/inbox', 301);
 Route::redirect('/dashboard/message/{conversation}', '/dashboard/inbox/{conversation}', 301);
 
+/*
+ * The Projects page was renamed Showcase. Old links keep working, including
+ * the /dashboard/projects URL the page itself lived at.
+ */
+Route::redirect('/projects', '/dashboard/showcases', 301);
+Route::redirect('/dashboard/projects', '/dashboard/showcases', 301);
+
 Route::redirect('/stones', '/dashboard/products', 301);
 Route::redirect('/products', '/dashboard/products', 301);
 Route::redirect('/services', '/dashboard/services', 301);
-Route::redirect('/projects', '/dashboard/projects', 301);
+Route::redirect('/showcases', '/dashboard/showcases', 301);
 Route::redirect('/accounts', '/dashboard/accounts', 301);
 Route::redirect('/profile', '/dashboard/profile', 301);
 

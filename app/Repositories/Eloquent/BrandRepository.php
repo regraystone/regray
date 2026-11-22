@@ -6,7 +6,6 @@ use App\Data\BrandProductFilterData;
 use App\Http\Requests\Brand\BrandCollectionRequest;
 use App\Models\Brand;
 use App\Models\Furniture;
-use App\Models\Project;
 use App\Models\Stone;
 use App\Repositories\Contracts\BrandRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,7 +37,6 @@ class BrandRepository implements BrandRepositoryInterface
             ->withCount([
                 'stones' => fn (Builder $stones) => $stones->where('is_active', true),
                 'furniture' => fn (Builder $furniture) => $furniture->where('is_active', true),
-                'projects' => fn (Builder $projects) => $projects->where('is_published', true),
             ])
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -102,20 +100,6 @@ class BrandRepository implements BrandRepositoryInterface
                 ->orderBy('name')
                 ->get(['id', 'brand_id', 'furniture_type_id', 'name', 'thumbnail_path', 'sort_order']),
         ];
-    }
-
-    /** @return Collection<int, Project> */
-    public function publishedProjects(Brand $brand, int $limit): Collection
-    {
-        return Project::query()
-            ->published()
-            ->where(fn (Builder $projects) => $projects
-                ->where('brand_id', $brand->id)
-                ->orWhereHas('stones', fn (Builder $stones) => $stones->where('stones.brand_id', $brand->id)))
-            ->orderByDesc('completed_year')
-            ->orderByDesc('id')
-            ->limit($limit)
-            ->get(['projects.id', 'slug', 'name', 'location', 'completed_year', 'thumbnail_path']);
     }
 
     private function stoneRows(Brand $brand, BrandProductFilterData $filters): QueryBuilder

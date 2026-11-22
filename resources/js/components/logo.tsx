@@ -3,12 +3,12 @@ import BetaBadge from '@/components/beta-badge';
 import { home } from '@/routes';
 
 /** The "Regray" wordmark: black letters on a transparent background. */
-const WORDMARK_SRC = '/images/regray_logo.svg';
+const WORDMARK_SRC = '/images/regray_logo.png';
 
 /** The Regray mark alone, for the collapsed sidebar: a black circle with the name in white. */
-const ICON_SRC = '/images/regray_icon.svg';
+const ICON_SRC = '/images/regray_icon.png';
 
-/** Paint an SVG in the current text colour: it masks `bg-current`. */
+/** Paint a transparent image in the current text colour: it masks `bg-current`. */
 const maskOf = (src: string) => ({
     maskImage: `url(${src})`,
     maskSize: 'contain',
@@ -21,11 +21,11 @@ const maskOf = (src: string) => ({
 });
 
 /**
- * The wordmark, painted in the current text colour: the SVG is used as a mask
+ * The wordmark, painted in the current text colour: the PNG is used as a mask
  * over `bg-current`, so a parent's `text-white` (the auth pages) or the
  * default foreground (the workspace) sets its colour. `compact` (the collapsed
  * sidebar) has no room for it, so it shows the Regray mark instead
- * (regray_icon.svg). The mark is drawn as an image in its own colours, not as
+ * (regray_icon.png). The mark is drawn as an image in its own colours, not as
  * a mask: a mask would paint its white lettering in the circle's colour.
  *
  * It always links to `/`, which shows a guest the landing page and sends
