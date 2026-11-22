@@ -11,7 +11,7 @@ import {
 export type ProfileGalleryImage = {
     src: string;
     /**
-     * The caption a stone's image carries, or a project photo's file name.
+     * The caption a stone's image carries, or a showcase photo's file name.
      * Without one, the alt text falls back to the image's place in the
      * gallery.
      */

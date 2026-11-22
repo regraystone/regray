@@ -1,3 +1,63 @@
+# No JSON in the database: audit values and quotation cards are normalized
+
+Regray's own tables keep no JSON now. Laravel's sessions, cache and jobs tables still store serialized data, as the framework writes them. The two places that used JSON are now plain columns and rows, with what was already stored copied across. **Deploy, local and production: `php artisan migrate`** (two new migrations). Nothing to reseed.
+
+- **Quotation cards** (`2026_11_22_000005_store_quotation_card_snapshot_in_columns`): `messages.card_snapshot` (JSON) becomes typed columns, as a schedule card's snapshot already was:
+    - the document as it was posted: `card_file_name`, `card_stored_name`, `card_size_bytes`, `card_revision`;
+    - the inquiry as it was: `card_material_count`, `card_inquiry_name`, `card_reference`.
+
+    The type CHECK requires every column but the revision on a quotation card, and none on any other message. A new `chk_messages_card_counts` keeps the size and count at 0 or more and the revision at 1 or more. `QuotationCardSnapshot::columns()` writes the snapshot, and `Message`'s `card_snapshot` attribute reads the columns back in the same shape, so the cards, the inbox preview and their resources are unchanged.
+
+- **Audit log** (`2026_11_22_000006_store_audit_values_in_rows`): `audit_logs.old_values` and `new_values` (JSON) become rows in a new `audit_log_values` table: one row per value, with its entry, its side (`old` or `new`), its path, its type and its value as text.
+    - A nested value is one row per leaf, e.g. `gallery.1` or `answers.0.value`.
+    - The type (`string`, `integer`, `float`, `boolean`, `null`, or `array` for an empty list) means it reads back exactly as written.
+    - CHECKs keep the side and type to those, and only a string, number or boolean carries a value. A path is unique within an entry's side.
+    - `EloquentAuditLogRepository::record()` writes the entry and its rows in one transaction. `AuditLog`'s `old_values` and `new_values` rebuild the arrays from the rows, which load with the entry, so nothing that reads an audit changes. `AuditLogValue` holds the conversion both ways.
+- **Both migrations** copy what is there and can be undone: `down()` rebuilds the JSON from the columns and rows.
+- **Tests:** `Database/NormalizedValuesTest` checks that no JSON column is left in Regray's own tables, that an audit's values (text, numbers, flags, nulls, lists, nesting, empty lists, an enum) read back as written, and that the audit migration goes down and up without loss. `QuotationCardTest` does the same for a card's snapshot. `SchemaTest` uses the new columns and checks their constraints.
+
+# CI fixes: import order and a type in the brand-facts migration
+
+`composer ci:check` failed on the branch as pushed. Pint found imports out of order in 11 files the Showcase rename touched, now sorted. PHPStan found that `2026_11_22_000004_move_brand_overview_rows_into_facts` passed its facts as an array it could not prove was a list, now wrapped in `array_values()`. No behaviour changes.
+
+# A brand's Overview is all set on the Brands page
+
+A brand page's Overview used to add two rows of its own, **Category** (from a list in `public-links.ts`) and **See it at** ("Regray showroom, Makati City"), which the admin couldn't change. Both are now ordinary facts, set like any other on the Brands page. Regray Stone's **Based in** and **Installed** facts are removed. The one line still built by the page is **In our catalog**, a live count of the brand's active stones and furniture; the Brands drawer shows the same count. **Deploy, local and production: `php artisan migrate`** (one new migration).
+
+- **Seed data** (`data/brands.php`): each brand's facts end with Category and See it at. Regray Stone's are Services, Category and See it at. Cucine Lube is now at the six-fact limit.
+- **Migration** (`2026_11_22_000004_move_brand_overview_rows_into_facts`): brings an existing database to the same facts. It only touches these rows: a Category or See it at already there under that label is kept, a reworded Based in or Installed is left alone, and a brand with six facts gets nothing more. Running it twice changes nothing; `down()` puts the old facts back.
+- **Brand page** (`pages/brand-profile.tsx`): the Overview is the brand's facts plus In our catalog, and no longer reads `BRAND_CATEGORIES`. The Our brands page still groups by those categories.
+- **Tests:** `Database/BrandOverviewFactsTest` covers the fresh seed, the migration up, twice and down, and the admin's own facts being kept. `BrandFactsTest` has the new fact counts.
+
+# Projects are now Showcases, everywhere
+
+The admin's **Projects** page is now **Showcase** (`/dashboard/showcases`), since what it holds feeds the News page, the landing page's news and the showroom's gallery. The name changes everywhere: labels, code, routes, permissions and the database. The inquiry's own "project" (the client's job on the Inquire page) keeps its name. **Deploy, local and production: `php artisan migrate`** (one new migration; it renames in place and keeps every row, role and audit entry). **Rebuild the front end** (new page files). Nothing to reseed.
+
+- **Labels:** the sidebar item and page title are "Showcase"; the page's buttons, empty states, drawers, form and messages say "showcase" ("Add showcase", "No showcases yet", "Showcase name", "Archive this showcase?"). On the public site the menu link and the News page's list say "Latest showcases", and About's fact says "Featured showcases".
+- **Database** (`2026_11_22_000003_rename_projects_to_showcases`): `projects`, `project_images`, `project_stone`, `project_categories` and `category_project` become `showcases`, `showcase_images`, `showcase_stone`, `showcase_categories` and `category_showcase`. `project_id` becomes `showcase_id`, and `project_category_id` becomes `showcase_category_id`. Each index, constraint and id sequence is renamed to match; the names are read from Postgres, not listed by hand. Audit entries naming `App\Models\Project` (or its image or category) now name the Showcase class. `down()` undoes all of it. **The images stay under `projects/`** on the public disk, new uploads included, so every showcase image is in one folder and no stored path changes.
+- **Permissions:** `projects.view/create/update/archive`, `home-projects.view` and `saved-projects.view` become `showcases.*`, `home-showcases.view` and `saved-showcases.view`. The migration renames the rows, so every role keeps what it had, and it clears the permission cache. `RolePermissionSeeder` and the `Permission` enum (`ShowcasesView`, `HomeShowcasesView`, …) match.
+- **Routes:** `showcases.index` (`/dashboard/showcases`), `dashboard.showcases.store/update/archive` and `saved.showcase` (`/dashboard/saved/{stone}/{showcase}`). `/projects` and `/dashboard/projects` redirect (301) to `/dashboard/showcases`, as does `/showcases`. A showcase's own page is still `/{slug}`. `showcases` joins `ReservedSlugs`; `projects` stays reserved.
+- **Code:** the models `Showcase`, `ShowcaseImage` and `ShowcaseCategory`. Each controller, request, resource, repository, service, action and validation concern is renamed the same way, e.g. `ShowcaseAdminController`, `ShowcaseCardResource`, `ShowcaseService`, `ShowShowcaseAction`, `ShowcaseValidationRules`. Also `config/showcases.php` (env `SHOWCASES_THUMBNAIL_MAX_KB`, `SHOWCASES_PHOTO_MAX_KB`), the `showcase-save` rate limiter (env `RATE_LIMIT_SHOWCASE_SAVE`), and the `ShowcaseSeeder`, `ShowcaseCategorySeeder` and `data/showcases.php` seed files. The Inertia pages are `showcases` and `showcase-profile`, and the props are `showcases` and `showcase`. On the front end: `components/showcase-card.tsx`, `lib/showcase-admin.ts`, `types/showcase-admin.ts`, `data/showcases.ts`, and the `LandingShowcase` and `ShowcaseProfile` types.
+- **Tests:** `tests/Feature/Showcase/`, `Home/ShowcaseShowTest`, the `makeShowcase()` and `makeShowcaseCategory()` helpers, `tests/js/showcase-admin.test.mjs`, and every test that read the old names. `BrandFurnitureTest` now checks that a brand's page lists no showcases (it still expected projects after the change below).
+
+# The footer spreads out on a tablet and a desktop
+
+The phone keeps the centred single column. From a tablet up (`md`), the wordmark and the showroom's address and contact sit on the left, and the pages sit in two columns on the right. On a desktop (`lg`), the showroom takes a third column. The social accounts and the copyright run along the foot, on a thin rule, with the copyright on the right. The footer keeps its tall bottom padding at every width, so the floating "Message us" button no longer covers the copyright. Its type is a step smaller, to match the header: the page links and social accounts are 0.9375rem (the header menu's size, medium weight), as are the showroom's name and address. The copyright is 0.875rem. The wordmark is smaller too, close to the header's: 20px tall on a phone and 24px from a tablet up (it was up to 40px).
+
+# The favicon is Regray's, not Laravel's
+
+`public/favicon.ico` and `public/apple-touch-icon.png` were still Laravel's defaults, and browsers took the `.ico` over the Regray PNG the layout also lists. Both are now made from `images/regray_icon.png`: the `.ico` at 16, 32, 48 and 64px, and the Apple icon at 180px with its corners filled black, so a phone's home screen shows a black tile. Laravel's unused `public/favicon.svg` is removed. Each icon's URL in `app.blade.php` now carries its file's modified time (`/favicon.ico?v=…`). Safari keeps favicons in a cache of its own that a hard refresh doesn't clear, so a changed icon gets a new URL and is fetched again.
+
+# A brand's page lists no projects, and a project no longer has a brand
+
+A brand's page drops its **Projects** section (and its tab in the page's section menu), and its **Visit** section (the showroom photo with "Book a visit") goes too. The page is now the brand's intro, its offer, its collection and the group's other brands. A project is no longer tied to a brand: the admin's Projects form loses its optional **Brand** field, View loses its "Brand" line, and the Brands drawer loses its project count. **Deploy, local and production: `php artisan migrate`** (one new migration, which drops `projects.brand_id`; the link is lost).
+
+- **Database:** `2026_11_22_000002_drop_brand_from_projects` drops `projects.brand_id` and its foreign key. `down()` adds it back as a nullable foreign key, empty.
+- **Backend:** `Brand::projects()`, `Project::brand()`, `BrandRepository::publishedProjects()` and `BrandService::publishedProjects()` go. `BrandController` no longer sends `projects`, and `BrandProfileResource` no longer has them. `AdminBrandResource` loses `projectsCount`, `AdminProjectResource` loses `brand`, and the Projects page loses `brandOptions`. `ProjectValidationRules` and `ProjectAdminService` no longer take or audit `brand_id`.
+- **Seeders:** `ProjectSeeder` and `data/projects.php` no longer set a brand (`brand_slug` is gone).
+- **Front end:** in `pages/brand-profile.tsx`, `ProjectCard` and the Projects and Visit sections are removed. The `projects` prop leaves `BrandPageProps`, `brand` and `brandOptions` leave the project admin types, and `projectsCount` leaves `BrandRow`.
+- **Tests:** `BrandDetailTest` checks that a brand's page sends no projects, even ones made with its stones. `BrandListTest`, `ProjectListTest` and `ProjectWriteTest` check that no brand is sent or saved. `ProjectArchiveTest` no longer checks the brand's page, and `makeProject()` sets no brand.
+
 # "Is typing…" shows only who is really typing, and only someone who may write there
 
 "{name} is typing…" was a whisper: the browser sent its own user id and name straight to the others on the channel, and the server never saw it. Anyone holding a thread's channel could show any name, and a support pool member looking at a Regray Team thread nobody had claimed showed their name to the client before anyone was handling it. Now the server announces typing, from the signed-in account, under the same rules as sending a message. **Deploy, local and production: restart Reverb** (`php artisan reverb:restart`), so it takes the new `accept_client_events_from`.

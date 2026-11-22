@@ -1,10 +1,10 @@
 <?php
 
 use App\Models\Brand;
-use App\Models\Project;
+use App\Models\Showcase;
 use Database\Seeders\BrandSeeder;
-use Database\Seeders\ProjectCategorySeeder;
-use Database\Seeders\ProjectSeeder;
+use Database\Seeders\ShowcaseCategorySeeder;
+use Database\Seeders\ShowcaseSeeder;
 use Database\Seeders\StoneSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -12,24 +12,24 @@ beforeEach(function (): void {
     $this->seed([
         BrandSeeder::class,
         StoneSeeder::class,
-        ProjectCategorySeeder::class,
-        ProjectSeeder::class,
+        ShowcaseCategorySeeder::class,
+        ShowcaseSeeder::class,
     ]);
 });
 
-test('a guest sees the three latest published projects as news, newest first', function (): void {
-    Project::query()->where('slug', 'ginza-one')->update(['completed_year' => 2030]);
-    Project::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
+test('a guest sees the three latest published showcases as news, newest first', function (): void {
+    Showcase::query()->where('slug', 'ginza-one')->update(['completed_year' => 2030]);
+    Showcase::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
 
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('landing')
-            ->has('projects', 3)
-            ->where('projects.0.slug', 'ginza-one')
-            ->where('projects.0.completedYear', 2030)
-            ->where('projects', fn ($projects): bool => collect($projects)->doesntContain('slug', 'ayala-land'))
-            ->has('projects.0', fn (Assert $project) => $project
+            ->has('showcases', 3)
+            ->where('showcases.0.slug', 'ginza-one')
+            ->where('showcases.0.completedYear', 2030)
+            ->where('showcases', fn ($showcases): bool => collect($showcases)->doesntContain('slug', 'ayala-land'))
+            ->has('showcases.0', fn (Assert $showcase) => $showcase
                 ->hasAll(['slug', 'name', 'location', 'completedYear', 'thumbnail'])));
 });
 

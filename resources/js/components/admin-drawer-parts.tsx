@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 /**
- * The pieces the admin's Brands and Projects drawers are built from: a part
+ * The pieces the admin's Brands and Showcase drawers are built from: a part
  * under its own small heading, and a label with its value.
  */
 

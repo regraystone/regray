@@ -25,8 +25,8 @@ class LandingBrandResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description ?? $this->tagline,
             'websiteUrl' => $this->website_url,
-            'logo' => ProjectCardResource::resolveThumbnailUrl($this->logo_path),
-            'thumbnail' => $this->thumbnail_path === null ? null : ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'logo' => ShowcaseCardResource::resolveThumbnailUrl($this->logo_path),
+            'thumbnail' => $this->thumbnail_path === null ? null : ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
         ];
     }
 }

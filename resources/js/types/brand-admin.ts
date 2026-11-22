@@ -20,7 +20,6 @@ export type BrandRow = {
     sortOrder: number;
     stonesCount: number;
     furnitureCount: number;
-    projectsCount: number;
     facts: BrandFact[];
     makes: string[];
     socials: BrandSocial[];

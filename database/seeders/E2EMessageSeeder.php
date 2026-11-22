@@ -411,7 +411,7 @@ class E2EMessageSeeder extends Seeder
             'type' => MessageType::QuotationCard,
             'inquiry_id' => $inquiry->id,
             'inquiry_file_id' => $file->id,
-            'card_snapshot' => QuotationCardSnapshot::of($file),
+            ...QuotationCardSnapshot::columns(QuotationCardSnapshot::of($file)),
         ]);
 
         return $file;

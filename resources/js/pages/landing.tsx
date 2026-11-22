@@ -18,7 +18,7 @@ import type { LandingPageProps } from '@/types/home';
  * 06 Contact, then the footer.
  */
 export default function Landing() {
-    const { brands, projects } = usePage<LandingPageProps>().props;
+    const { brands, showcases } = usePage<LandingPageProps>().props;
 
     return (
         <PublicLayout>
@@ -29,7 +29,7 @@ export default function Landing() {
             <LandingBrandWall brands={brands} />
             <LandingOnline />
             <LandingShowroom />
-            <LandingNews stories={projects} />
+            <LandingNews stories={showcases} />
             <LandingContact />
         </PublicLayout>
     );

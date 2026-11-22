@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
     HOME_BRAND,
@@ -71,20 +72,19 @@ const MenuAnchor = ({
     );
 };
 
-/** The "+" that turns into an "×" when its tab is open. */
-const Plus = ({
+/** The chevron that turns to point up when its tab is open. */
+const Chevron = ({
     open,
     className = '',
 }: {
     open: boolean;
     className?: string;
 }) => (
-    <span
+    <ChevronDown
         aria-hidden
-        className={`inline-block font-light transition-transform duration-300 motion-reduce:transition-none ${open ? 'rotate-45' : ''} ${className}`}
-    >
-        +
-    </span>
+        strokeWidth={1.5}
+        className={`shrink-0 transition-transform duration-300 motion-reduce:transition-none ${open ? 'rotate-180' : ''} ${className}`}
+    />
 );
 
 /**
@@ -205,7 +205,7 @@ export default function PublicHeader() {
                                     aria-current={
                                         isHere(item.href) ? 'page' : undefined
                                     }
-                                    className={`-mb-px flex h-full items-center border-b text-[0.8125rem] tracking-[0.06em] uppercase transition-colors duration-200 hover:border-foreground ${
+                                    className={`-mb-px flex h-full items-center border-b text-[0.9375rem] font-medium tracking-[0.04em] uppercase transition-colors duration-200 hover:border-foreground ${
                                         isHere(item.href)
                                             ? 'border-foreground'
                                             : 'border-transparent'
@@ -225,16 +225,16 @@ export default function PublicHeader() {
                                     onClick={() => setOpen(index)}
                                     aria-expanded={open === index}
                                     aria-controls="public-menu-panel"
-                                    className={`-mb-px flex h-full cursor-pointer items-center gap-2 border-b text-[0.8125rem] tracking-[0.06em] uppercase transition-colors duration-200 ${
+                                    className={`-mb-px flex h-full cursor-pointer items-center gap-2 border-b text-[0.9375rem] font-medium tracking-[0.04em] uppercase transition-colors duration-200 ${
                                         open === index
                                             ? 'border-foreground'
                                             : 'border-transparent'
                                     }`}
                                 >
                                     {item.label}
-                                    <Plus
+                                    <Chevron
                                         open={open === index}
-                                        className="text-sm"
+                                        className="size-3.5"
                                     />
                                 </button>
                             ),
@@ -243,7 +243,7 @@ export default function PublicHeader() {
 
                     <div
                         onMouseEnter={() => setOpen(-1)}
-                        className="hidden items-center gap-5 text-[0.8125rem] tracking-[0.02em] uppercase min-[1180px]:flex"
+                        className="hidden items-center gap-5 text-[0.9375rem] font-medium min-[1180px]:flex"
                     >
                         {accountLinks.map((link) => (
                             <Link
@@ -251,7 +251,7 @@ export default function PublicHeader() {
                                 href={link.href}
                                 className={
                                     link.primary
-                                        ? 'bg-foreground px-4 py-2.5 font-semibold text-background transition-colors hover:bg-foreground/80'
+                                        ? 'rounded-md bg-foreground px-5 py-3 font-semibold text-background transition-colors hover:bg-foreground/80'
                                         : 'border-b border-transparent py-1.5 transition-colors hover:border-foreground'
                                 }
                             >
@@ -265,7 +265,7 @@ export default function PublicHeader() {
                         onClick={() => setMenuOpen((now) => !now)}
                         aria-expanded={menuOpen}
                         aria-controls="public-menu"
-                        className="min-h-11 px-1 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase min-[1180px]:hidden"
+                        className="min-h-11 px-1 text-base font-semibold min-[1180px]:hidden"
                     >
                         {menuOpen ? 'Close' : 'Menu'}
                     </button>
@@ -284,7 +284,7 @@ export default function PublicHeader() {
                 >
                     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] gap-[clamp(2rem,4vw,4.5rem)] px-8 pt-12 pb-14">
                         <div className="flex flex-col gap-4">
-                            <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                            <p className="text-[0.9375rem] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
                                 {current.label}
                             </p>
                             <p className="font-display text-[clamp(1.375rem,1.8vw,1.75rem)] leading-snug font-light text-pretty">
@@ -293,7 +293,7 @@ export default function PublicHeader() {
                             <MenuAnchor
                                 link={current.cta}
                                 onNavigate={closeAll}
-                                className="mt-2 self-start border-b border-foreground pb-2 text-[0.8125rem] tracking-[0.04em] uppercase transition-opacity hover:opacity-70"
+                                className="mt-2 self-start border-b border-foreground pb-1.5 text-base font-medium transition-opacity hover:opacity-70"
                             >
                                 {current.cta.label}
                             </MenuAnchor>
@@ -316,7 +316,7 @@ export default function PublicHeader() {
                                     <MenuAnchor
                                         link={link}
                                         onNavigate={closeAll}
-                                        className="flex items-center justify-between gap-4 py-3.5 font-display text-[clamp(1.0625rem,1.3vw,1.25rem)] font-light transition-[padding,color] hover:pl-2 hover:text-muted-foreground motion-reduce:transition-none"
+                                        className="flex items-center justify-between gap-4 py-3.5 font-display text-[clamp(1.125rem,1.3vw,1.25rem)] transition-[padding,color] hover:pl-2 hover:text-muted-foreground motion-reduce:transition-none"
                                     >
                                         {link.label}
                                         <span aria-hidden className="text-sm">
@@ -326,7 +326,7 @@ export default function PublicHeader() {
                                 </li>
                             ))}
                         </ul>
-                        <div className="aspect-4/3 overflow-hidden bg-muted">
+                        <div className="aspect-4/3 overflow-hidden rounded-md bg-muted">
                             <img
                                 src={current.image}
                                 alt=""
@@ -389,9 +389,9 @@ export default function PublicHeader() {
                                     className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-4 text-left font-display text-2xl font-light uppercase"
                                 >
                                     {section.label}
-                                    <Plus
+                                    <Chevron
                                         open={expanded}
-                                        className="text-[1.375rem]"
+                                        className="size-6"
                                     />
                                 </button>
                                 <div
@@ -405,7 +405,7 @@ export default function PublicHeader() {
                                         className="overflow-hidden"
                                         inert={!expanded}
                                     >
-                                        <p className="mb-3 text-[0.9375rem] leading-normal text-muted-foreground">
+                                        <p className="mb-3 text-[1.0625rem] leading-normal text-muted-foreground">
                                             {section.description}
                                         </p>
                                         <ul className="flex flex-col pb-5">
@@ -425,7 +425,7 @@ export default function PublicHeader() {
                                                             onNavigate={
                                                                 closeAll
                                                             }
-                                                            className="flex min-h-11 items-center gap-3 text-base"
+                                                            className="flex min-h-12 items-center gap-3 text-[1.0625rem]"
                                                         >
                                                             <span
                                                                 aria-hidden
@@ -445,7 +445,7 @@ export default function PublicHeader() {
                             </div>
                         );
                     })}
-                    <div className="mt-7 flex flex-col gap-3 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase">
+                    <div className="mt-7 flex flex-col gap-3 text-base font-semibold">
                         {[...accountLinks].reverse().map((link) => (
                             <Link
                                 key={link.label}
@@ -453,8 +453,8 @@ export default function PublicHeader() {
                                 onClick={closeAll}
                                 className={
                                     link.primary
-                                        ? 'bg-foreground p-4.5 text-center text-background'
-                                        : 'border border-foreground p-4.5 text-center'
+                                        ? 'rounded-md bg-foreground p-4.5 text-center text-background'
+                                        : 'rounded-md border border-foreground p-4.5 text-center'
                                 }
                             >
                                 {link.label}

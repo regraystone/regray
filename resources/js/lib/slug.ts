@@ -1,6 +1,6 @@
 /**
- * Slugs, as the admin's Brands and Projects pages make them: the server's
- * own pattern (BrandValidationRules, ProjectValidationRules).
+ * Slugs, as the admin's Brands and Showcase pages make them: the server's
+ * own pattern (BrandValidationRules, ShowcaseValidationRules).
  */
 
 /** A slug: lower-case letters and numbers, in words joined by single hyphens. */

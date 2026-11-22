@@ -2,13 +2,13 @@
 
 use App\Enums\Role;
 use App\Models\Brand;
-use App\Models\Project;
+use App\Models\Showcase;
 use App\Models\Stone;
 use App\Models\User;
 use Database\Seeders\BrandSeeder;
-use Database\Seeders\ProjectCategorySeeder;
-use Database\Seeders\ProjectSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\ShowcaseCategorySeeder;
+use Database\Seeders\ShowcaseSeeder;
 use Database\Seeders\StoneSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -22,8 +22,8 @@ beforeEach(function (): void {
         RolePermissionSeeder::class,
         BrandSeeder::class,
         StoneSeeder::class,
-        ProjectCategorySeeder::class,
-        ProjectSeeder::class,
+        ShowcaseCategorySeeder::class,
+        ShowcaseSeeder::class,
     ]);
 });
 
@@ -46,13 +46,13 @@ test('anyone can open the company pages, signed in or not, with the brands for t
     'contact' => ['company.contact', 'company/contact'],
 ]);
 
-test('news tells the latest published projects as stories, newest first', function (): void {
-    Project::query()->where('slug', 'ginza-one')->update(['completed_year' => 2030]);
-    Project::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
+test('news tells the latest published showcases as stories, newest first', function (): void {
+    Showcase::query()->where('slug', 'ginza-one')->update(['completed_year' => 2030]);
+    Showcase::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
 
     $this->get(route('company.news'))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('stories', Project::query()->published()->count())
+            ->has('stories', Showcase::query()->published()->count())
             ->where('stories.0.slug', 'ginza-one')
             ->where('stories', fn ($stories): bool => collect($stories)->doesntContain('slug', 'ayala-land')));
 });
@@ -69,13 +69,13 @@ test('our brands lists the active brands with their descriptions and websites', 
                 ->hasAll(['slug', 'name', 'description', 'websiteUrl', 'logo', 'thumbnail'])));
 });
 
-test('the showroom gallery shows the latest published projects', function (): void {
-    Project::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
+test('the showroom gallery shows the latest published showcases', function (): void {
+    Showcase::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
 
     $this->get(route('company.showroom'))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('projects', Project::query()->published()->count())
-            ->where('projects', fn ($projects): bool => collect($projects)->doesntContain('slug', 'ayala-land')));
+            ->has('showcases', Showcase::query()->published()->count())
+            ->where('showcases', fn ($showcases): bool => collect($showcases)->doesntContain('slug', 'ayala-land')));
 });
 
 test('about counts its figures from the catalog', function (): void {
@@ -85,11 +85,11 @@ test('about counts its figures from the catalog', function (): void {
         ->assertInertia(fn (Assert $page) => $page
             ->where('facts.brands', Brand::query()->where('is_active', true)->count())
             ->where('facts.stones', Stone::query()->where('is_active', true)->count())
-            ->where('facts.projects', Project::query()->published()->count())
+            ->where('facts.showcases', Showcase::query()->published()->count())
             ->has('brands'));
 });
 
-test('a company page\'s address opens the page, not a project at /{slug}', function (string $path, string $component): void {
+test('a company page\'s address opens the page, not a showcase at /{slug}', function (string $path, string $component): void {
     $this->get($path)->assertOk()->assertInertia(fn (Assert $page) => $page->component($component));
 })->with([
     ['/our-brands', 'company/brands'],

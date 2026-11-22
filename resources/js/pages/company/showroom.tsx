@@ -3,7 +3,9 @@ import {
     PageIntro,
     SectionTitle,
     WidePhoto,
+    body,
     frame,
+    label,
     outlineButton,
     solidButton,
     textLink,
@@ -17,8 +19,8 @@ import {
 import PublicLayout from '@/layouts/public-layout';
 import { index as inboxIndex } from '@/routes/inbox';
 import { book } from '@/routes/profile/schedule';
-import { show as projectShow } from '@/routes/stone';
-import type { LandingProject } from '@/types/home';
+import { show as showcaseShow } from '@/routes/stone';
+import type { LandingShowcase } from '@/types/home';
 
 /**
  * The showroom: an overview, a gallery of the showroom and the spaces Regray
@@ -26,9 +28,9 @@ import type { LandingProject } from '@/types/home';
  * and how to book a visit.
  */
 export default function CompanyShowroom({
-    projects,
+    showcases,
 }: {
-    projects: LandingProject[];
+    showcases: LandingShowcase[];
 }) {
     return (
         <PublicLayout>
@@ -36,11 +38,9 @@ export default function CompanyShowroom({
 
             <PageIntro eyebrow="Showroom" title="See the stone in person">
                 <p>
-                    The Regray showroom in Makati is where our houses meet. Walk
-                    among natural stone slabs, from quartzite and marble to
-                    backlit onyx, see how they are finished, and talk your
-                    project through with our team, then carry your choice
-                    straight into an inquiry.
+                    Visit our showroom in Makati to see and touch real stone
+                    slabs, from quartzite and marble to backlit onyx, and talk
+                    to our team about your home.
                 </p>
             </PageIntro>
 
@@ -64,25 +64,25 @@ export default function CompanyShowroom({
                         text: 'Our team helps you choose the stone, the finish and the service for your project.',
                     },
                     {
-                        title: 'Start your inquiry',
-                        text: 'Send an inquiry from your Regray account, and follow it to installation.',
+                        title: 'Get a quotation',
+                        text: 'When you are ready, we measure your space and send you a quotation.',
                     },
                 ].map((point) => (
                     <div
                         key={point.title}
                         className="flex flex-col gap-3 border-t border-foreground pt-5"
                     >
-                        <h2 className="font-display text-[1.0625rem] tracking-[0.04em] uppercase">
+                        <h2 className="font-display text-[clamp(1.1875rem,1.4vw,1.3125rem)]">
                             {point.title}
                         </h2>
-                        <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">
+                        <p className={`text-muted-foreground ${body}`}>
                             {point.text}
                         </p>
                     </div>
                 ))}
             </section>
 
-            {projects.length > 0 ? (
+            {showcases.length > 0 ? (
                 <section
                     id="gallery"
                     aria-labelledby="showroom-gallery"
@@ -93,27 +93,27 @@ export default function CompanyShowroom({
                         across the Philippines.
                     </SectionTitle>
                     <ul className="grid grid-cols-1 gap-4 min-[700px]:gap-7 sm:grid-cols-2 lg:grid-cols-3">
-                        {projects.map((project) => (
-                            <li key={project.slug}>
+                        {showcases.map((showcase) => (
+                            <li key={showcase.slug}>
                                 <Link
-                                    href={projectShow.url({
-                                        slug: project.slug,
+                                    href={showcaseShow.url({
+                                        slug: showcase.slug,
                                     })}
                                     className="group flex flex-col gap-3"
                                 >
-                                    <div className="aspect-4/5 overflow-hidden bg-muted">
+                                    <div className="aspect-4/5 overflow-hidden rounded-md bg-muted">
                                         <img
-                                            src={project.thumbnail}
+                                            src={showcase.thumbnail}
                                             alt=""
                                             loading="lazy"
                                             className="size-full object-cover transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.02] motion-reduce:transition-none"
                                         />
                                     </div>
-                                    <span className="flex justify-between gap-4 border-t border-border pt-3 text-[0.9375rem]">
-                                        <span>{project.name}</span>
+                                    <span className="flex justify-between gap-4 border-t border-border pt-3 text-[1.0625rem]">
+                                        <span>{showcase.name}</span>
                                         <span className="text-right text-muted-foreground">
-                                            {project.location} ·{' '}
-                                            {project.completedYear}
+                                            {showcase.location} ·{' '}
+                                            {showcase.completedYear}
                                         </span>
                                     </span>
                                 </Link>
@@ -135,21 +135,21 @@ export default function CompanyShowroom({
                     >
                         Location & directions
                     </h2>
-                    <dl className="flex flex-col gap-5 text-[0.9375rem] leading-relaxed">
+                    <dl className="flex flex-col gap-5 text-[1.0625rem] leading-relaxed">
                         <div>
-                            <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                            <dt className={`${label} text-muted-foreground`}>
                                 Address
                             </dt>
                             <dd>{SHOWROOM.address}</dd>
                         </div>
                         <div>
-                            <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                            <dt className={`${label} text-muted-foreground`}>
                                 Hours
                             </dt>
                             <dd>{SHOWROOM.hours}</dd>
                         </div>
                         <div>
-                            <dt className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                            <dt className={`${label} text-muted-foreground`}>
                                 Call us
                             </dt>
                             <dd className="flex flex-wrap gap-x-4">
@@ -169,12 +169,12 @@ export default function CompanyShowroom({
                         href={SHOWROOM_MAP}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`self-start ${textLink} px-0`}
+                        className={`self-start ${textLink}`}
                     >
                         Get directions ↗
                     </a>
                 </div>
-                <div className="aspect-4/3 overflow-hidden bg-muted lg:aspect-auto lg:min-h-105">
+                <div className="aspect-4/3 overflow-hidden rounded-md bg-muted lg:aspect-auto lg:min-h-105">
                     <iframe
                         title="Map of the Regray showroom in Makati"
                         src={SHOWROOM_MAP_EMBED}
@@ -196,10 +196,9 @@ export default function CompanyShowroom({
                 >
                     Book a visit
                 </h2>
-                <p className="max-w-150 text-[1.0625rem] leading-relaxed text-pretty">
-                    Book a time with our team from your Regray account, or ask
-                    for a site visit and our technical team comes to measure
-                    your space.
+                <p className={`max-w-150 ${body}`}>
+                    Choose a time to visit the showroom, or ask us to come and
+                    measure your space.
                 </p>
                 <div className="mt-2 flex flex-wrap justify-center gap-4">
                     <Link href={book.url()} className={solidButton}>

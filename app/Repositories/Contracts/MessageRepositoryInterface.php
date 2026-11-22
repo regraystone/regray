@@ -77,7 +77,7 @@ interface MessageRepositoryInterface
      * card is already in the conversation, which is what a retried listener
      * will find. Posted now unless `$postedAt` says when.
      *
-     * @param  array<string, mixed>  $snapshot
+     * @param  array{fileName: string, storedName: string, sizeBytes: int, revision: int|null, materialCount: int, inquiryName: string, reference: string}  $snapshot  QuotationCardSnapshot::of()
      */
     public function createQuotationCardOnce(int $conversationId, int $inquiryId, int $inquiryFileId, array $snapshot, ?CarbonInterface $postedAt = null): ?Message;
 

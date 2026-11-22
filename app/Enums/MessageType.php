@@ -14,7 +14,7 @@ enum MessageType: string
     /**
      * One quotation document Sales sent, a revision included, posted beside
      * the inquiry card that announced it. Its contents are a snapshot
-     * (`card_snapshot`) of the document when it was posted.
+     * (the `card_*` columns) of the document when it was posted.
      */
     case QuotationCard = 'quotation_card';
 

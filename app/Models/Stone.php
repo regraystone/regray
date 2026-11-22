@@ -34,7 +34,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, StoneImage> $images
  * @property-read Brand $brand
  * @property-read StoneType $type
- * @property-read Collection<int, Project> $projects
+ * @property-read Collection<int, Showcase> $showcases
  * @property-read Collection<int, StoneType> $types
  * @property-read Collection<int, StoneVariant> $variants
  * @property-read Collection<int, Thickness> $thicknesses
@@ -179,9 +179,9 @@ class Stone extends Model
             ->withPivot('created_at');
     }
 
-    /** @return BelongsToMany<Project, $this> */
-    public function projects(): BelongsToMany
+    /** @return BelongsToMany<Showcase, $this> */
+    public function showcases(): BelongsToMany
     {
-        return $this->belongsToMany(Project::class, 'project_stone');
+        return $this->belongsToMany(Showcase::class, 'showcase_stone');
     }
 }

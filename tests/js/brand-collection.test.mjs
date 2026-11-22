@@ -149,8 +149,8 @@ describe('the breadcrumbs', () => {
         assert.equal(
             catalogueCrumbs({
                 ...urls,
-                component: 'project-profile',
-                props: { project: { data: { name: 'Ginza One' } } },
+                component: 'showcase-profile',
+                props: { showcase: { data: { name: 'Ginza One' } } },
             }),
             null,
         );

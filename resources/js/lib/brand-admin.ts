@@ -4,7 +4,7 @@ import type { SocialPlatform } from '@/types/home';
  * The admin Brands page's own rules, kept apart from the page so they can be
  * tested: the tags the "What it makes" input takes, how a brand's catalogue
  * is counted in words, and which sites a social link may be on. The slug
- * rules are shared with Projects (lib/slug.ts).
+ * rules are shared with Showcase (lib/slug.ts).
  */
 
 /**

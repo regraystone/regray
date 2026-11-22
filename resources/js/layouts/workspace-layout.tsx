@@ -63,7 +63,7 @@ import {
 import { index as inboxIndex } from '@/routes/inbox';
 import { index as overviewIndex } from '@/routes/overview';
 import { index as productsIndex } from '@/routes/products';
-import { index as projectsIndex } from '@/routes/projects';
+import { index as showcasesIndex } from '@/routes/showcases';
 import {
     schedule as profileSchedule,
     edit as editAccountSecurity,
@@ -86,13 +86,13 @@ import { index as servicesIndex } from '@/routes/services';
  * Keeping the union here means the sidebar's `permission` field is checked
  * against this list rather than being an untyped string.
  *
- * `profileScheduleView` and `homeProjectsView` are listed but no nav item names
+ * `profileScheduleView` and `homeShowcasesView` are listed but no nav item names
  * them: each is the permission for a page reached from another page rather
  * than from the sidebar. `profileScheduleView` is the schedule as reached from the
  * Profile page, and the button for it is drawn there rather than in the
- * sidebar — see the Profile hub page. `homeProjectsView` names the project
+ * sidebar — see the Profile hub page. `homeShowcasesView` names the showcase
  * profile and the stone profile nested under it, both read from Home, where
- * the project cards are drawn by the page that already holds `homeView`.
+ * the showcase cards are drawn by the page that already holds `homeView`.
  */
 export const permissions = {
     homeView: 'home.view',
@@ -108,12 +108,12 @@ export const permissions = {
     productsView: 'products.view',
     servicesView: 'services.view',
     accountsView: 'accounts.view',
-    projectsView: 'projects.view',
+    showcasesView: 'showcases.view',
     profileView: 'profile.view',
     leadsView: 'leads.view',
     profileScheduleView: 'profile-schedule.view',
     profileAddressesView: 'profile-addresses.view',
-    homeProjectsView: 'home-projects.view',
+    homeShowcasesView: 'home-showcases.view',
     inquiriesCreate: 'inquiries.create',
     scheduleCreate: 'schedule.create',
     scheduleUpdate: 'schedule.update',
@@ -231,11 +231,11 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 permission: permissions.servicesView,
             },
             {
-                slug: 'projects',
-                label: 'Projects',
-                href: projectsIndex.url(),
+                slug: 'showcases',
+                label: 'Showcase',
+                href: showcasesIndex.url(),
                 icon: Folder,
-                permission: permissions.projectsView,
+                permission: permissions.showcasesView,
             },
             {
                 slug: 'accounts',
@@ -595,8 +595,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 | { data: { slug: string; name: string } }
                 | undefined
         )?.data;
-        const project = (
-            page.props.project as
+        const showcase = (
+            page.props.showcase as
                 | {
                       data: {
                           name: string;
@@ -608,8 +608,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
         crumbs.push({ label: 'Dashboard' });
         crumbs.push({ label: 'Home', href: homeIndex.url() });
 
-        if (project) {
-            crumbs.push({ label: project.name });
+        if (showcase) {
+            crumbs.push({ label: showcase.name });
         } else if (stone) {
             crumbs.push({ label: stone.name });
         }

@@ -35,7 +35,7 @@ class StoneCardResource extends JsonResource
         return [
             'slug' => $this->slug,
             'name' => $this->name,
-            'thumbnail' => ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
             'brand' => ['slug' => $this->brand->slug, 'name' => $this->brand->name],
             'type' => ['slug' => $this->type->slug, 'name' => $this->type->name],
             'variants' => $this->whenLoaded('variants', fn (): array => array_values($this->variants

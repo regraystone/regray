@@ -800,7 +800,6 @@ const Brands = () => {
                                         viewing.stonesCount,
                                         viewing.furnitureCount,
                                     )}
-                                    {` · ${viewing.projectsCount} ${viewing.projectsCount === 1 ? 'project' : 'projects'}`}
                                 </Detail>
                                 <Detail label="Logo file">
                                     {fileLine(viewing.logoFile)}

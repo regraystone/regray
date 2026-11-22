@@ -28,7 +28,7 @@ class StoneProfileResource extends JsonResource
         return [
             'slug' => $this->slug,
             'name' => $this->name,
-            'thumbnail' => ProjectCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
             'bestSeller' => $this->is_best_seller,
             'brand' => ['slug' => $this->brand->slug, 'name' => $this->brand->name],
             'type' => ['slug' => $this->type->slug, 'name' => $this->type->name],
@@ -42,7 +42,7 @@ class StoneProfileResource extends JsonResource
             'applications' => $this->type->applications->map(fn (Application $application): string => $application->name)->all(),
             'care' => $this->type->careTips->map(fn (CareTip $careTip): string => $careTip->tip)->all(),
             'gallery' => $this->images->map(fn (StoneImage $image): array => [
-                'src' => ProjectCardResource::resolveThumbnailUrl($image->path),
+                'src' => ShowcaseCardResource::resolveThumbnailUrl($image->path),
                 'name' => $image->alt_text ?? $this->name,
             ])->all(),
         ];

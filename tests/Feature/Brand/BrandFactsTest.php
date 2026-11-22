@@ -26,11 +26,11 @@ it('copies the six brands\' facts and what they make, and their pages show them'
         $brand->slug => [$brand->facts()->count(), $brand->makes()->count()],
     ])->all())->toBe([
         'regray-stone' => [3, 3],
-        'cucine' => [4, 1],
-        'ascale' => [2, 4],
-        'faer' => [2, 4],
-        'reform' => [1, 2],
-        'res-italia' => [2, 2],
+        'cucine' => [6, 1],
+        'ascale' => [4, 4],
+        'faer' => [4, 4],
+        'reform' => [3, 2],
+        'res-italia' => [4, 2],
     ]);
 
     $this->get(route('brands.show', 'cucine'))
@@ -41,6 +41,8 @@ it('copies the six brands\' facts and what they make, and their pages show them'
                 ['label' => 'Founded', 'value' => '1967'],
                 ['label' => 'Output', 'value' => 'Around 75,000 kitchens a year'],
                 ['label' => 'Sold in', 'value' => '76 countries'],
+                ['label' => 'Category', 'value' => 'Kitchens'],
+                ['label' => 'See it at', 'value' => 'Regray showroom, Makati City'],
             ])
             ->where('brand.data.makes', ['Kitchens']));
 

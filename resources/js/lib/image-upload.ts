@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { formatFileSize } from '@/lib/message-attachments';
 
 /**
- * The image fields of the admin's Brands and Projects forms: what a picked
+ * The image fields of the admin's Brands and Showcase forms: what a picked
  * file may be, checked before it is sent (the server reads the type from the
  * bytes again), and how an uploaded image's own name and size are shown.
  */

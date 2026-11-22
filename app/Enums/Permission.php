@@ -13,12 +13,12 @@ namespace App\Enums;
  *
  * Most are a `view` permission naming a page of its own, so a permission here
  * is usually a guarantee that the sidebar has an entry for it.
- * `ProfileScheduleView` is the first exception and `HomeProjectsView` the second:
+ * `ProfileScheduleView` is the first exception and `HomeShowcasesView` the second:
  * each is a view permission with no sidebar entry, naming a place reached from
  * another page rather than a page of its own. `ProfileScheduleView` names the
  * schedule as reached from the Profile page rather than from the Management
  * group, so it says which door a role was given rather than which pages it may
- * see. `HomeProjectsView` names the project profile and the stone profile
+ * see. `HomeShowcasesView` names the showcase profile and the stone profile
  * nested under it, both reached from the Home page, and the entry for that
  * page belongs to `HomeView`.
  * `InquiriesCreate`, `ScheduleCreate`, and `SavedManage` are the exceptions to the action
@@ -48,7 +48,7 @@ enum Permission: string
     case ProductsView = 'products.view';
     case ServicesView = 'services.view';
     case AccountsView = 'accounts.view';
-    case ProjectsView = 'projects.view';
+    case ShowcasesView = 'showcases.view';
     case ProfileView = 'profile.view';
 
     /**
@@ -102,18 +102,18 @@ enum Permission: string
     case HomeStoneView = 'home-stone.view';
 
     /**
-     * Published project profiles, at `/home/{project}`.
+     * Published showcase profiles, at `/home/{showcase}`.
      *
-     * A project is reached from a brand's page. It is a `view` permission, so it
+     * A showcase is reached from a brand's page. It is a `view` permission, so it
      * names a place, but like `ProfileScheduleView` it has no sidebar entry: the
      * entry for the Home page belongs to `HomeView`, and holding this one is
-     * what lets a reader open individual project profiles.
+     * what lets a reader open individual showcase profiles.
      *
      * It is given to the client, who reads the portfolio, and to the
      * super-admin for consistency with the rest of the matrix even though
      * `Gate::before` bypasses the check for them anyway.
      */
-    case HomeProjectsView = 'home-projects.view';
+    case HomeShowcasesView = 'home-showcases.view';
 
     /**
      * The stone profile reached from the Saved page at `/saved/{stone}`.
@@ -128,14 +128,14 @@ enum Permission: string
     case SavedStoneView = 'saved-stone.view';
 
     /**
-     * The project profile reached from a saved stone at `/saved/{stone}/{project}`.
+     * The showcase profile reached from a saved stone at `/saved/{stone}/{showcase}`.
      *
      * Separated from `saved.view` to keep each nested page with its own permission.
      * Allows granular control of which saved nested pages a role may access.
      *
      * It is given to the client and super-admin for consistency.
      */
-    case SavedProjectsView = 'saved-projects.view';
+    case SavedShowcasesView = 'saved-showcases.view';
 
     case InquiriesCreate = 'inquiries.create';
 
@@ -265,24 +265,24 @@ enum Permission: string
     case BrandsArchive = 'brands.archive';
 
     /**
-     * Adding a project from the Projects page: its name, slug, details,
+     * Adding a showcase from the Showcase page: its name, slug, details,
      * thumbnail and gallery, stones and categories. An action permission: it
-     * guards the endpoint and the Add project button, not a page. The admin's
+     * guards the endpoint and the Add showcase button, not a page. The admin's
      * alone.
      */
-    case ProjectsCreate = 'projects.create';
+    case ShowcasesCreate = 'showcases.create';
 
     /**
-     * Changing a project from the Projects page, its images included, and
+     * Changing a showcase from the Showcase page, its images included, and
      * whether it is published on Regray. The admin's alone.
      */
-    case ProjectsUpdate = 'projects.update';
+    case ShowcasesUpdate = 'showcases.update';
 
     /**
-     * Archiving a project from the Projects page: it leaves the page and its
-     * page goes offline everywhere. Saved projects keep it. The admin's alone.
+     * Archiving a showcase from the Showcase page: it leaves the page and its
+     * page goes offline everywhere. Saved showcases keep it. The admin's alone.
      */
-    case ProjectsArchive = 'projects.archive';
+    case ShowcasesArchive = 'showcases.archive';
 
     /**
      * The `can:` middleware string that guards a route with this permission.

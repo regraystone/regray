@@ -1,8 +1,6 @@
-import { usePage } from '@inertiajs/react';
 import { useEffect, useRef, type RefObject } from 'react';
 import AuthBrandPanel from '@/components/auth/auth-brand-panel';
 import type { AuthLayoutProps } from '@/types';
-import type { BrandCardData } from '@/types/home';
 
 /**
  * Keeps the submit button in sight while the on-screen keyboard is open: when
@@ -66,12 +64,12 @@ function useSubmitAboveKeyboard(panel: RefObject<HTMLElement | null>): void {
  * Password, Email Verification, the two-factor challenge and finishing a
  * Google sign-up.
  *
- * From 900px up: the brands' photos fill the left 56% at full height and stay
- * put while the form column on the right scrolls. Below it the photo panel
- * sits on top and the form follows it down the page.
+ * From 900px up: a framed photo fills the left 54% at full height and stays
+ * put while the form column on the right scrolls. Below it a short band of
+ * the photo sits on top and the form follows it down the page.
  *
- * The form column opens with a small uppercase line (`eyebrow`), the title and
- * one line on what the page is for (`description`).
+ * The form column opens with a small label (`eyebrow`), the title and one
+ * line on what the page is for (`description`), at sizes that read easily.
  */
 export default function AuthBrandLayout({
     children,
@@ -80,24 +78,21 @@ export default function AuthBrandLayout({
     description,
 }: AuthLayoutProps) {
     const panel = useRef<HTMLElement>(null);
-    const brands =
-        usePage<{ siteBrands?: BrandCardData[] | null }>().props.siteBrands ??
-        [];
 
     useSubmitAboveKeyboard(panel);
 
     return (
         <div className="light flex min-h-svh flex-col bg-paper text-ink min-[900px]:flex-row">
-            <AuthBrandPanel brands={brands} />
+            <AuthBrandPanel />
 
             <main
                 ref={panel}
-                className="flex flex-[1_1_auto] flex-col justify-center bg-paper px-5 pt-12 pb-16 min-[900px]:flex-[1_1_44%] min-[900px]:px-[clamp(2rem,5vw,6rem)] min-[900px]:py-[clamp(3rem,6vw,6rem)]"
+                className="flex flex-[1_1_auto] flex-col justify-center bg-paper px-5 pt-12 pb-16 min-[900px]:flex-[1_1_46%] min-[900px]:px-[clamp(2rem,5vw,6rem)] min-[900px]:py-[clamp(3rem,6vw,6rem)]"
             >
                 <div className="mx-auto flex w-full max-w-105 flex-col gap-9">
                     <header className="flex flex-col gap-3.5">
                         {eyebrow ? (
-                            <p className="text-xs font-medium tracking-[0.24em] text-ink-muted uppercase">
+                            <p className="text-[0.9375rem] font-semibold tracking-[0.04em] text-ink-soft uppercase">
                                 {eyebrow}
                             </p>
                         ) : null}
@@ -105,7 +100,7 @@ export default function AuthBrandLayout({
                             {title}
                         </h1>
                         {description ? (
-                            <p className="text-base leading-relaxed text-pretty text-ink-soft">
+                            <p className="text-[1.0625rem] leading-relaxed text-pretty text-ink-soft">
                                 {description}
                             </p>
                         ) : null}
