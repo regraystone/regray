@@ -17,11 +17,7 @@ import {
     show as dashboardBrandShow,
 } from '@/routes/dashboard/brands';
 import { book } from '@/routes/profile/schedule';
-import type {
-    BrandOffering,
-    BrandPageProps,
-    LandingBrand,
-} from '@/types/home';
+import type { BrandOffering, BrandPageProps, LandingBrand } from '@/types/home';
 
 /** A section's title: spaced capitals in the heading face. */
 const sectionTitle =

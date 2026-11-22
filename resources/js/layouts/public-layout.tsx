@@ -39,7 +39,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
 
             <Link
                 href={inboxIndex.url()}
-                className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-30 flex items-center gap-2.5 rounded-full bg-foreground min-h-13 px-6 py-3.5 text-base font-semibold text-background shadow-[0_8px_24px_rgb(0_0_0/0.18)] transition-colors hover:bg-black"
+                className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-30 flex min-h-13 items-center gap-2.5 rounded-full bg-foreground px-6 py-3.5 text-base font-semibold text-background shadow-[0_8px_24px_rgb(0_0_0/0.18)] transition-colors hover:bg-black"
             >
                 <span
                     aria-hidden

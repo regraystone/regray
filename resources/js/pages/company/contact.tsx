@@ -43,9 +43,7 @@ const Channel = ({
         >
             {title}
         </h2>
-        <p className={`text-muted-foreground ${body}`}>
-            {children}
-        </p>
+        <p className={`text-muted-foreground ${body}`}>{children}</p>
         <div className="mt-1 flex flex-wrap gap-3">{actions}</div>
     </section>
 );

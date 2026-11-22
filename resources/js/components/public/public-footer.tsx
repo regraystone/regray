@@ -1,9 +1,5 @@
 import { Link } from '@inertiajs/react';
-import {
-    CONTACT,
-    SHOWROOM,
-    SOCIALS,
-} from '@/components/public/public-links';
+import { CONTACT, SHOWROOM, SOCIALS } from '@/components/public/public-links';
 import { home, login } from '@/routes';
 import { about, brands, contact, news, showroom } from '@/routes/company';
 
@@ -78,7 +74,10 @@ export default function PublicFooter() {
                                         {link.label}
                                     </a>
                                 ) : (
-                                    <Link href={link.href} className={linkClass}>
+                                    <Link
+                                        href={link.href}
+                                        className={linkClass}
+                                    >
                                         {link.label}
                                     </Link>
                                 )}

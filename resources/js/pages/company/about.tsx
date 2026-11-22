@@ -82,8 +82,8 @@ export default function CompanyAbout({
                     <p>
                         Today Regray brings that same care to trusted European
                         brands of kitchens, wardrobes, doors and sintered stone.
-                        Our team looks after each client from the first visit
-                        to the final installation.
+                        Our team looks after each client from the first visit to
+                        the final installation.
                     </p>
                 </div>
             </section>

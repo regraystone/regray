@@ -141,7 +141,9 @@ export default function AuthBrandPanel() {
                                                 title={brand.name}
                                                 aria-label={`Show ${brand.name}`}
                                                 aria-pressed={isCurrent}
-                                                disabled={brand.thumbnail === null}
+                                                disabled={
+                                                    brand.thumbnail === null
+                                                }
                                                 className={`flex h-[calc(var(--logo-base)*2)] w-full cursor-pointer items-center justify-center transition-opacity duration-500 hover:opacity-100 disabled:cursor-default ${
                                                     isCurrent
                                                         ? 'opacity-100'

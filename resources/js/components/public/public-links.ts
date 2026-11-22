@@ -168,8 +168,7 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
     {
         kind: 'panel',
         label: 'Discover',
-        description:
-            'Who we are, what we believe in, and how to work with us.',
+        description: 'Who we are, what we believe in, and how to work with us.',
         cta: { label: 'About Regray', href: about.url() },
         links: [
             { label: 'Our story', href: `${about.url()}#story` },

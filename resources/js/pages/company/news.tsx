@@ -57,8 +57,8 @@ export default function CompanyNews({
                     More from Regray
                 </h2>
                 <p className={`max-w-150 ${body}`}>
-                    Read about our stones and showcases in the Regray Journal, or
-                    follow us for what is new each week.
+                    Read about our stones and showcases in the Regray Journal,
+                    or follow us for what is new each week.
                 </p>
                 <a
                     href={JOURNAL}
