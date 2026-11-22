@@ -1,3 +1,9 @@
+# The Docker build retries `composer install` when GitHub has a bad minute
+
+A build failed when GitHub answered a few package downloads with HTTP 504. Composer 2.10 no longer falls back to a git clone (that option is off for security and goes away in 2.11), so one bad response stopped the whole image. Nothing to do on deploy.
+
+- **Dockerfile:** `composer install` runs up to three times, waiting 20 s and then 40 s between tries. The Composer cache mount keeps every package that already arrived, so a retry fetches only what failed. A real error, such as a lock file that can't be installed, fails all three tries and stops the build as before.
+
 # No JSON in the database: audit values and quotation cards are normalized
 
 Regray's own tables keep no JSON now. Laravel's sessions, cache and jobs tables still store serialized data, as the framework writes them. The two places that used JSON are now plain columns and rows, with what was already stored copied across. **Deploy, local and production: `php artisan migrate`** (two new migrations). Nothing to reseed.
