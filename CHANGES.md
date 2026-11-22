@@ -3,15 +3,16 @@
 Regray's own tables keep no JSON now. Laravel's sessions, cache and jobs tables still store serialized data, as the framework writes them. The two places that used JSON are now plain columns and rows, with what was already stored copied across. **Deploy, local and production: `php artisan migrate`** (two new migrations). Nothing to reseed.
 
 - **Quotation cards** (`2026_11_22_000005_store_quotation_card_snapshot_in_columns`): `messages.card_snapshot` (JSON) becomes typed columns, as a schedule card's snapshot already was:
-  - the document as it was posted: `card_file_name`, `card_stored_name`, `card_size_bytes`, `card_revision`;
-  - the inquiry as it was: `card_material_count`, `card_inquiry_name`, `card_reference`.
+    - the document as it was posted: `card_file_name`, `card_stored_name`, `card_size_bytes`, `card_revision`;
+    - the inquiry as it was: `card_material_count`, `card_inquiry_name`, `card_reference`.
 
-  The type CHECK requires every column but the revision on a quotation card, and none on any other message. A new `chk_messages_card_counts` keeps the size and count at 0 or more and the revision at 1 or more. `QuotationCardSnapshot::columns()` writes the snapshot, and `Message`'s `card_snapshot` attribute reads the columns back in the same shape, so the cards, the inbox preview and their resources are unchanged.
+    The type CHECK requires every column but the revision on a quotation card, and none on any other message. A new `chk_messages_card_counts` keeps the size and count at 0 or more and the revision at 1 or more. `QuotationCardSnapshot::columns()` writes the snapshot, and `Message`'s `card_snapshot` attribute reads the columns back in the same shape, so the cards, the inbox preview and their resources are unchanged.
+
 - **Audit log** (`2026_11_22_000006_store_audit_values_in_rows`): `audit_logs.old_values` and `new_values` (JSON) become rows in a new `audit_log_values` table: one row per value, with its entry, its side (`old` or `new`), its path, its type and its value as text.
-  - A nested value is one row per leaf, e.g. `gallery.1` or `answers.0.value`.
-  - The type (`string`, `integer`, `float`, `boolean`, `null`, or `array` for an empty list) means it reads back exactly as written.
-  - CHECKs keep the side and type to those, and only a string, number or boolean carries a value. A path is unique within an entry's side.
-  - `EloquentAuditLogRepository::record()` writes the entry and its rows in one transaction. `AuditLog`'s `old_values` and `new_values` rebuild the arrays from the rows, which load with the entry, so nothing that reads an audit changes. `AuditLogValue` holds the conversion both ways.
+    - A nested value is one row per leaf, e.g. `gallery.1` or `answers.0.value`.
+    - The type (`string`, `integer`, `float`, `boolean`, `null`, or `array` for an empty list) means it reads back exactly as written.
+    - CHECKs keep the side and type to those, and only a string, number or boolean carries a value. A path is unique within an entry's side.
+    - `EloquentAuditLogRepository::record()` writes the entry and its rows in one transaction. `AuditLog`'s `old_values` and `new_values` rebuild the arrays from the rows, which load with the entry, so nothing that reads an audit changes. `AuditLogValue` holds the conversion both ways.
 - **Both migrations** copy what is there and can be undone: `down()` rebuilds the JSON from the columns and rows.
 - **Tests:** `Database/NormalizedValuesTest` checks that no JSON column is left in Regray's own tables, that an audit's values (text, numbers, flags, nulls, lists, nesting, empty lists, an enum) read back as written, and that the audit migration goes down and up without loss. `QuotationCardTest` does the same for a card's snapshot. `SchemaTest` uses the new columns and checks their constraints.
 
@@ -56,6 +57,16 @@ A brand's page drops its **Projects** section (and its tab in the page's section
 - **Seeders:** `ProjectSeeder` and `data/projects.php` no longer set a brand (`brand_slug` is gone).
 - **Front end:** in `pages/brand-profile.tsx`, `ProjectCard` and the Projects and Visit sections are removed. The `projects` prop leaves `BrandPageProps`, `brand` and `brandOptions` leave the project admin types, and `projectsCount` leaves `BrandRow`.
 - **Tests:** `BrandDetailTest` checks that a brand's page sends no projects, even ones made with its stones. `BrandListTest`, `ProjectListTest` and `ProjectWriteTest` check that no brand is sent or saved. `ProjectArchiveTest` no longer checks the brand's page, and `makeProject()` sets no brand.
+
+# "Is typing…" shows only who is really typing, and only someone who may write there
+
+"{name} is typing…" was a whisper: the browser sent its own user id and name straight to the others on the channel, and the server never saw it. Anyone holding a thread's channel could show any name, and a support pool member looking at a Regray Team thread nobody had claimed showed their name to the client before anyone was handling it. Now the server announces typing, from the signed-in account, under the same rules as sending a message. **Deploy, local and production: restart Reverb** (`php artisan reverb:restart`), so it takes the new `accept_client_events_from`.
+
+- **Announced by the server:** new `POST /dashboard/inbox/{conversation}/typing` (`inbox.typing`, `can:send,conversation`, the new `message-typing` limiter, 60 a minute) answers 204 and broadcasts `UserTyping` (`typing`, `{userId, name}`) to the others in the thread (`toOthers()`, by `X-Socket-ID`). The id and name are the account's own; anything the browser sends is ignored.
+- **Only someone who may write now** (`MessageService::signalTyping()`): the policy's `send` (a member, not a viewer, of a group; in an inquiry's group chat, one who also reads the inquiry; never the owner), then `SupportConversationService::assertCanSend()`. On a Regray Team thread nobody has claimed, a staff member is refused (409), so no staff name reaches the client before the thread is someone's; once claimed, only the assignee is announced. A turned-off account is signed out (401).
+- **No whispers on the socket:** `config/reverb.php` sets `accept_client_events_from` to `none` (it was `members`), so Reverb refuses a client event ("The app does not have client messaging enabled.") instead of relaying it. Nothing else in the app whispered.
+- **The page** (`use-conversation-thread.ts`, `message-api.ts`): `signalTyping()` posts to `inbox.typing` at most every 1.5 s, as before, and ignores a refusal; the thread listens for `.typing` instead of `.client-typing`. The browser sends no name, so `Thread` no longer takes `currentUserName`.
+- **Tests:** `tests/Feature/Message/TypingIndicatorTest.php` (a spoofed name is ignored, the pool before and after a claim, a non-member, a viewer, the owner and another client refused, a turned-off account, the typist's own socket left out, Reverb refusing whispers); `RateLimitsTest` for the new limit. The E2E typing test (`f-messaging` 27) passes unchanged.
 
 # The fonts ship with the app, so a build no longer downloads them
 

@@ -68,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
     private const RATE_LIMITERS = [
         'messages',
         'message-receipts',
+        'message-typing',
         'message-assignment',
         'message-people',
         'message-attachments',
@@ -214,6 +215,8 @@ class AppServiceProvider extends ServiceProvider
      * - `message-receipts`, read and delivered pointers: the page sends one
      *   per incoming message and per thread opened, so this is the highest,
      *   and only a loop reaches it.
+     * - `message-typing`, "{name} is typing…": the page sends at most one
+     *   every 1.5 s while the viewer types, about 40 a minute.
      * - `message-assignment`, claiming a Regray Team thread: a person does this
      *   a few times an hour.
      * - `notifications`, the bell: a page as the list scrolls, opening one,

@@ -72,6 +72,7 @@ return [
         // The Message page. See AppServiceProvider::configureRateLimits().
         'messages' => (int) env('RATE_LIMIT_MESSAGES', 60),
         'message-receipts' => (int) env('RATE_LIMIT_MESSAGE_RECEIPTS', 120),
+        'message-typing' => (int) env('RATE_LIMIT_MESSAGE_TYPING', 60),
         'message-assignment' => (int) env('RATE_LIMIT_MESSAGE_ASSIGNMENT', 10),
         'message-people' => (int) env('RATE_LIMIT_MESSAGE_PEOPLE', 60),
         'message-attachments' => (int) env('RATE_LIMIT_MESSAGE_ATTACHMENTS', 300),

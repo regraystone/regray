@@ -26,5 +26,6 @@ Broadcast::channel('user.{id}', fn (User $user, int $id): bool => $user->canSign
 // thread leaves every other pool member's list at once.
 Broadcast::channel('support.pool', fn (User $user): bool => $user->canSignIn() && ! $user->isClient() && $user->can(Permission::SupportClaim->value));
 
-// One open thread: messages announced by id, receipts, assignment changes and typing.
+// One open thread: messages announced by id, receipts, assignment changes and
+// typing. Typing is announced by the server (UserTyping), never whispered.
 Broadcast::channel('conversation.{conversation}', fn (User $user, Conversation $conversation): bool => $user->canSignIn() && $user->can('view', $conversation));
