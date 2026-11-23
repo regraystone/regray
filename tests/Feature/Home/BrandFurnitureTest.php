@@ -63,7 +63,7 @@ test('a brand profile shows its website, and lists no showcases', function (): v
         ->assertInertia(fn (Assert $page) => $page
             ->component('brand-profile')
             ->where('brand.data.slug', 'regray-stone')
-            ->where('brand.data.websiteUrl', 'https://regraystone.com/')
+            ->missing('brand.data.websiteUrl')
             ->where('brand.data.thumbnail', '/storage/brands/9c2e5a1f8b4d7c3e6a9f2c5e8a1d4b7f.png')
             ->missing('brand.data.showcases')
             ->missing('brand.data.projects')

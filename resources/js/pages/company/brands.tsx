@@ -43,16 +43,6 @@ const BrandCard = ({ brand }: { brand: LandingBrand }) => (
                 <Link href={brandUrl(brand.slug)} className={textLink}>
                     Discover {brand.name}
                 </Link>
-                {brand.websiteUrl ? (
-                    <a
-                        href={brand.websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={textLink}
-                    >
-                        Official website ↗
-                    </a>
-                ) : null}
             </div>
         </div>
     </article>
@@ -61,8 +51,7 @@ const BrandCard = ({ brand }: { brand: LandingBrand }) => (
 /**
  * Our brands: Regray's brands grouped by what they make (Stone & Surfaces,
  * Kitchens, Wardrobes & Doors, Furniture & Interiors), each with its photo,
- * logo, description, page and official website. A brand in no group is
- * listed at the end.
+ * logo, description and page. A brand in no group is listed at the end.
  */
 export default function CompanyBrands({ brands }: { brands: LandingBrand[] }) {
     const bySlug = new Map(brands.map((brand) => [brand.slug, brand]));

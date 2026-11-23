@@ -1,5 +1,4 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import BrandCollection from '@/components/home/brand-collection';
 import {
@@ -251,23 +250,6 @@ const BrandProfile = () => {
                             ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2.5">
-                            {brand.websiteUrl ? (
-                                <a
-                                    href={brand.websiteUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`${lightButton} px-5.5`}
-                                >
-                                    Visit website
-                                    <ArrowUpRight
-                                        className="size-4"
-                                        aria-hidden
-                                    />
-                                    <span className="sr-only">
-                                        (opens in a new tab)
-                                    </span>
-                                </a>
-                            ) : null}
                             {brand.socials.map((social) => (
                                 <a
                                     key={social.platform}
@@ -337,27 +319,6 @@ const BrandProfile = () => {
                     <p className="font-display text-[clamp(1.5rem,2.3vw,2.25rem)] leading-[1.3] font-light text-pretty">
                         {brand.description ?? brand.tagline}
                     </p>
-                    {brand.websiteUrl ? (
-                        <a
-                            href={brand.websiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="self-start border-b border-current pb-1 text-[0.8125rem] tracking-[0.04em] uppercase transition-opacity hover:opacity-70"
-                        >
-                            {new URL(brand.websiteUrl).hostname.replace(
-                                /^www\./,
-                                '',
-                            )}
-                            <ArrowUpRight
-                                className="ml-1 inline size-3.5 align-[-0.125em]"
-                                aria-hidden
-                            />
-                            <span className="sr-only">
-                                {' '}
-                                (opens in a new tab)
-                            </span>
-                        </a>
-                    ) : null}
                 </div>
                 <dl className="self-start border-t border-foreground">
                     {facts.map((fact) => (

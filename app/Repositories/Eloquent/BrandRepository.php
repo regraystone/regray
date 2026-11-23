@@ -24,7 +24,7 @@ class BrandRepository implements BrandRepositoryInterface
             ->active()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['id', 'slug', 'name', 'tagline', 'website_url', 'logo_path', 'thumbnail_path', 'description']);
+            ->get(['id', 'slug', 'name', 'tagline', 'logo_path', 'thumbnail_path', 'description']);
     }
 
     /** @return LengthAwarePaginator<int, Brand> */
