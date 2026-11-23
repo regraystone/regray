@@ -15,8 +15,10 @@ use App\Enums\ScheduleAction;
 use App\Enums\SocialPlatform;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
+use App\Http\Requests\Service\StoreServiceRequest;
 use App\Http\Resources\AccountResource;
 use App\Http\Resources\AdminBrandResource;
+use App\Http\Resources\AdminServiceTypeResource;
 use App\Http\Resources\AdminShowcaseResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
@@ -24,13 +26,16 @@ use App\Http\Resources\InquiryRowResource;
 use App\Http\Resources\LeadOptionResource;
 use App\Http\Resources\LeadResource;
 use App\Http\Resources\ScheduleResource;
+use App\Models\DetailField;
 use App\Models\Lead;
 use App\Models\Schedule;
+use App\Models\StoneType;
 use App\Models\User;
 use App\Repositories\Contracts\BrandRepositoryInterface;
 use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Repositories\Contracts\ServiceRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InquiryStatusRules;
@@ -389,9 +394,44 @@ class ViewController extends Controller
         return Inertia::render('products');
     }
 
-    public function services(Request $request): Response
+    /**
+     * The admin's Services page: what the Inquire page offers. Every service
+     * type but the archived, each with its services but the archived, hidden
+     * ones too, in their display order. There are few enough to send whole;
+     * the page searches them itself.
+     *
+     * Also what the forms offer: the stone types a service can be made from,
+     * the questions it can ask (with their listed answers, to show the
+     * admin), and how the work can reach the client.
+     */
+    public function services(Request $request, ServiceRepositoryInterface $services): Response
     {
-        return Inertia::render('services');
+        return Inertia::render('services', [
+            'serviceTypes' => AdminServiceTypeResource::collection($services->typesForAdmin())->resolve($request),
+            'stoneTypes' => $services->activeStoneTypes()
+                ->map(fn (StoneType $type): array => ['id' => $type->id, 'name' => $type->name])
+                ->values()
+                ->all(),
+            'questions' => $services->questions()
+                ->map(fn (DetailField $field): array => [
+                    'id' => $field->id,
+                    'name' => $field->name,
+                    'scope' => $field->scope->value,
+                    'answerType' => $field->answer_type->value,
+                    'options' => $field->options->pluck('name')->values()->all(),
+                ])
+                ->values()
+                ->all(),
+            'canCreate' => $request->user()?->can(Permission::ServicesCreate->value) ?? false,
+            'limits' => [
+                'descriptionMax' => StoreServiceRequest::DESCRIPTION_MAX,
+                'featuresMax' => StoreServiceRequest::FEATURES_MAX,
+                'featureMax' => StoreServiceRequest::FEATURE_MAX,
+                'questionNameMax' => StoreServiceRequest::QUESTION_NAME_MAX,
+                'choicesMax' => StoreServiceRequest::CHOICES_MAX,
+                'choiceMax' => StoreServiceRequest::CHOICE_MAX,
+            ],
+        ]);
     }
 
     /**

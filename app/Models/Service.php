@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\Fulfillment;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -23,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property Fulfillment $fulfillment Whether it asks how the client would like to get it, or only where it is installed.
  * @property int $sort_order
  * @property bool $is_active
+ * @property Carbon|null $archived_at Set by the admin's Services page, with is_active false.
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read ServiceType $serviceType
@@ -39,7 +42,20 @@ class Service extends Model
             'requires_stones' => 'boolean',
             'fulfillment' => Fulfillment::class,
             'is_active' => 'boolean',
+            'archived_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The services still on the admin's Services page: hidden or not, but not
+     * archived.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function notArchived(Builder $query): void
+    {
+        $query->whereNull($query->qualifyColumn('archived_at'));
     }
 
     public function getRouteKeyName(): string

@@ -35,6 +35,7 @@ use App\Http\Controllers\Saved\StoneController as SavedStoneProfileController;
 use App\Http\Controllers\Schedule\BookingController;
 use App\Http\Controllers\Schedule\SalesPickerController;
 use App\Http\Controllers\Schedule\ScheduleChangeController;
+use App\Http\Controllers\Service\ServiceAdminController;
 use App\Http\Controllers\Showcase\ShowcaseAdminController;
 use App\Http\Controllers\ViewController;
 use App\Http\Middleware\RedirectSignedInToDashboard;
@@ -567,6 +568,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('services', [ViewController::class, 'services'])
             ->middleware(Permission::ServicesView->middleware())
             ->name('services.index');
+        /*
+         * The Services page's writes, each behind its own permission on top of
+         * the page's: a service, and a service type. `{id}` is a plain id
+         * (ServiceAdminController::findService(), findServiceType()).
+         */
+        Route::middleware([Permission::ServicesView->middleware(), 'throttle:service-save'])->group(function () {
+            Route::post('services', [ServiceAdminController::class, 'store'])
+                ->middleware(Permission::ServicesCreate->middleware())
+                ->name('dashboard.services.store');
+            Route::put('services/{id}', [ServiceAdminController::class, 'update'])
+                ->middleware(Permission::ServicesUpdate->middleware())
+                ->name('dashboard.services.update');
+            Route::post('services/{id}/archive', [ServiceAdminController::class, 'archive'])
+                ->middleware(Permission::ServicesArchive->middleware())
+                ->name('dashboard.services.archive');
+            Route::post('service-types', [ServiceAdminController::class, 'storeType'])
+                ->middleware(Permission::ServicesCreate->middleware())
+                ->name('dashboard.service-types.store');
+            Route::put('service-types/{id}', [ServiceAdminController::class, 'updateType'])
+                ->middleware(Permission::ServicesUpdate->middleware())
+                ->name('dashboard.service-types.update');
+            Route::post('service-types/{id}/archive', [ServiceAdminController::class, 'archiveType'])
+                ->middleware(Permission::ServicesArchive->middleware())
+                ->name('dashboard.service-types.archive');
+        });
         /*
          * The admin's Accounts page: the list, and its writes, each behind its
          * own permission on top of the page's. `{user}` stays a plain id
