@@ -1,3 +1,9 @@
+# Brands no longer link to their own websites
+
+Clients buy through Regray, so the pages they see no longer send them to a brand's own site. The brand page drops its **Visit website** button and the website under "About {brand}", and **Our brands** drops each brand's **Official website ↗**. The social links stay. The website is no longer sent to those pages at all (`BrandProfileResource`, `LandingBrandResource`, and `BrandRepository::active()` no longer selects it). The admin's Brands page keeps the Website field, for staff only.
+
+- **Tests:** `BrandFurnitureTest`, `CompanyPagesTest` and `LandingPageTest` now check the website is not sent.
+
 # The Docker build retries `composer install` when GitHub has a bad minute
 
 A build failed when GitHub answered a few package downloads with HTTP 504. Composer 2.10 no longer falls back to a git clone (that option is off for security and goes away in 2.11), so one bad response stopped the whole image. Nothing to do on deploy.
