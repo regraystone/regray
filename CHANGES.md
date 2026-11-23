@@ -1,3 +1,9 @@
+# The Docker build retries `composer install` when GitHub has a bad minute
+
+A build failed when GitHub answered a few package downloads with HTTP 504. Composer 2.10 no longer falls back to a git clone (that option is off for security and goes away in 2.11), so one bad response stopped the whole image. Nothing to do on deploy.
+
+- **Dockerfile:** `composer install` runs up to three times, waiting 20 s and then 40 s between tries. The Composer cache mount keeps every package that already arrived, so a retry fetches only what failed. A real error, such as a lock file that can't be installed, fails all three tries and stops the build as before.
+
 # A stone's page lists the edge profiles its type is cut with
 
 A stone's page now shows **Edge profiles** under Finishes, chips like the finishes: its stone type's, in their order. They are set per stone type on the Stone types page, next to its finishes, applications and care tips. A piece of furniture still shows only the choices its own Inquire service asks for (a dining table its edge, finish, seats and base; "other customized furniture" only a finish), so it is unchanged. **Deploy, local and production: `php artisan migrate`** (one new migration). Nothing to reseed.
