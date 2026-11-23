@@ -67,7 +67,6 @@ export type BrandSocial = { platform: SocialPlatform; url: string };
 
 export type BrandProfile = BrandCardData & {
     description: string | null;
-    websiteUrl: string | null;
     thumbnail: string | null;
     /** Set on the admin's Brands page, in the order they show. */
     facts: BrandFact[];
@@ -180,8 +179,6 @@ export type LandingBrand = {
     slug: string;
     name: string;
     description: string | null;
-    /** The brand's own website, when it has one. */
-    websiteUrl: string | null;
     logo: string;
     thumbnail: string | null;
 };
