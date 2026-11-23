@@ -1,0 +1,319 @@
+<?php
+
+use App\Enums\AuditEvent;
+use App\Enums\DetailAnswerType;
+use App\Enums\DetailFieldScope;
+use App\Enums\Role;
+use App\Models\AuditLog;
+use App\Models\DetailField;
+use App\Models\Inquiry;
+use App\Models\Service;
+use App\Models\ServiceType;
+use App\Models\StoneType;
+use App\Models\User;
+use App\Repositories\Contracts\InquiryCatalogRepositoryInterface;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
+
+/*
+ * The admin's Services page: what the Inquire page offers. Adding, changing
+ * and archiving a service and a service type, and what the Inquire page
+ * offers after each.
+ */
+
+beforeEach(function (): void {
+    seedInquiryCatalog();
+    $this->admin = User::factory()->role(Role::Admin)->create();
+    $this->natural = ServiceType::query()->where('slug', 'natural-stone-applications')->sole();
+    $this->granite = StoneType::query()->where('slug', 'granite')->sole();
+    $this->marble = StoneType::query()->where('slug', 'marble')->sole();
+});
+
+/** @return array<string, mixed> */
+function serviceForm(array $overrides = []): array
+{
+    return [
+        'name' => 'Fireplace Surrounds',
+        'service_type_id' => ServiceType::query()->where('slug', 'natural-stone-applications')->value('id'),
+        'description' => 'Natural stone fireplace surrounds, cut and installed.',
+        'features' => ['  Cut to size ', 'Installed on site'],
+        'requires_stones' => true,
+        'stone_type_ids' => StoneType::query()->whereIn('slug', ['granite', 'marble'])->pluck('id')->all(),
+        'fulfillment' => 'installed',
+        'questions' => [
+            ['id' => DetailField::query()->where('slug', 'area_sqm')->value('id'), 'required' => false],
+            ['id' => DetailField::query()->where('slug', 'edge_profile')->value('id'), 'required' => true],
+        ],
+        'is_active' => true,
+        'sort_order' => 10,
+        ...$overrides,
+    ];
+}
+
+/** @return list<string> */
+function offeredServiceSlugs(): array
+{
+    return app(InquiryCatalogRepositoryInterface::class)->serviceTypes()
+        ->flatMap(fn (ServiceType $type) => $type->services->pluck('slug'))
+        ->values()
+        ->all();
+}
+
+describe('the page', function (): void {
+    it('lists every type and service but the archived, with what the forms offer', function (): void {
+        Service::query()->where('slug', 'pedestal')->update(['is_active' => false, 'archived_at' => now()]);
+        Service::query()->where('slug', 'flooring')->update(['is_active' => false]);
+
+        $this->actingAs($this->admin)
+            ->get(route('services.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('services')
+                ->has('serviceTypes', 2)
+                ->where('serviceTypes.0.slug', 'natural-stone-applications')
+                ->has('serviceTypes.0.services', 9)
+                ->has('serviceTypes.1.services', 4)
+                ->where('serviceTypes.1.services', fn ($services): bool => collect($services)->doesntContain('slug', 'pedestal'))
+                ->where('serviceTypes.0.services', fn ($services): bool => collect($services)->firstWhere('slug', 'flooring')['isOffered'] === false)
+                ->has('questions', DetailField::query()->count())
+                ->has('stoneTypes', StoneType::query()->where('is_active', true)->count())
+                ->where('canCreate', true)
+                ->where('serviceTypes.0.services.0.actions', ['view', 'edit', 'archive']));
+    });
+
+    it('is the admin\'s alone, and so are its writes', function (): void {
+        $sales = User::factory()->role(Role::Sales)->create();
+        $service = Service::query()->where('slug', 'flooring')->sole();
+
+        $this->actingAs($sales)->get(route('services.index'))->assertForbidden();
+        $this->actingAs($sales)->post(route('dashboard.services.store'), serviceForm())->assertForbidden();
+        $this->actingAs($sales)->put(route('dashboard.services.update', $service->id), serviceForm())->assertForbidden();
+        $this->actingAs($sales)->post(route('dashboard.services.archive', $service->id))->assertForbidden();
+        $this->actingAs($sales)->post(route('dashboard.service-types.store'), ['name' => 'Tiles', 'is_active' => true, 'sort_order' => 3])->assertForbidden();
+
+        expect(Service::query()->where('slug', 'fireplace-surrounds')->exists())->toBeFalse()
+            ->and(ServiceType::query()->where('name', 'Tiles')->exists())->toBeFalse();
+    });
+});
+
+describe('adding and changing a service', function (): void {
+    it('adds it with its lines, stone types and questions in order, and the Inquire page offers it', function (): void {
+        $this->actingAs($this->admin)
+            ->from(route('services.index'))
+            ->post(route('dashboard.services.store'), serviceForm())
+            ->assertRedirect(route('services.index'))
+            ->assertSessionHasNoErrors();
+
+        $service = Service::query()->where('slug', 'fireplace-surrounds')->sole();
+
+        expect($service->name)->toBe('Fireplace Surrounds')
+            ->and($service->service_type_id)->toBe($this->natural->id)
+            ->and($service->features->pluck('text')->all())->toBe(['Cut to size', 'Installed on site'])
+            ->and($service->stoneTypes->pluck('id')->sort()->values()->all())->toBe(collect([$this->granite->id, $this->marble->id])->sort()->values()->all())
+            ->and($service->detailFields->map(fn (DetailField $field): array => [$field->slug, $field->isRequiredByService()])->all())
+            ->toBe([['area_sqm', false], ['edge_profile', true]])
+            ->and(offeredServiceSlugs())->toContain('fireplace-surrounds');
+
+        $audit = AuditLog::query()->where('auditable_type', $service->getMorphClass())->where('auditable_id', $service->id)->sole();
+        expect($audit->event)->toBe(AuditEvent::Created);
+    });
+
+    it('numbers the slug when the name\'s is taken, by an archived service too', function (): void {
+        Service::query()->where('slug', 'flooring')->update(['is_active' => false, 'archived_at' => now()]);
+
+        $this->actingAs($this->admin)->post(route('dashboard.services.store'), serviceForm(['name' => 'Flooring']))->assertSessionHasNoErrors();
+
+        expect(Service::query()->where('slug', 'flooring-2')->exists())->toBeTrue();
+    });
+
+    it('replaces what it includes and asks, and keeps its slug when renamed', function (): void {
+        $service = Service::query()->where('slug', 'dining-tables')->sole();
+
+        $this->actingAs($this->admin)
+            ->put(route('dashboard.services.update', $service->id), serviceForm([
+                'name' => 'Dining and Kitchen Tables',
+                'service_type_id' => $service->service_type_id,
+                'features' => ['Dining tables'],
+                'fulfillment' => 'delivery_or_pickup',
+                'questions' => [['id' => DetailField::query()->where('slug', 'seaters')->value('id'), 'required' => true]],
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $service->refresh();
+
+        expect($service->slug)->toBe('dining-tables')
+            ->and($service->name)->toBe('Dining and Kitchen Tables')
+            ->and($service->features->pluck('text')->all())->toBe(['Dining tables'])
+            ->and($service->detailFields->pluck('slug')->all())->toBe(['seaters'])
+            ->and(AuditLog::query()->where('event', AuditEvent::Updated)->sole()->old_values['name'])->toBe('Dining Tables');
+    });
+
+    it('keeps no stone types for a service that needs no stones', function (): void {
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.services.store'), serviceForm(['requires_stones' => false, 'questions' => []]))
+            ->assertSessionHasNoErrors();
+
+        expect(Service::query()->where('slug', 'fireplace-surrounds')->sole()->stoneTypes)->toBeEmpty();
+    });
+
+    it('refuses what the Inquire page could not offer or ask', function (array $overrides, string $field, string $message): void {
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.services.store'), serviceForm($overrides))
+            ->assertSessionHasErrors([$field => $message]);
+
+        expect(Service::query()->where('slug', 'fireplace-surrounds')->exists())->toBeFalse();
+    })->with([
+        'stones with no stone type' => [['stone_type_ids' => []], 'stone_type_ids', 'Choose the stone types it is made from, or turn off "Needs stones".'],
+        'a stone question with no stones' => [['requires_stones' => false], 'questions.1.id', 'This question is answered for each stone. Turn on "Needs stones", or remove it.'],
+        'a name its type already has' => [['name' => 'Flooring'], 'name', 'This service type already has a service by that name.'],
+        'no description' => [['description' => ' '], 'description', 'Describe the service in a line, as the Inquire page shows it.'],
+        'a line twice' => [['features' => ['Cut to size', 'cut to size']], 'features.1', 'That line is already listed.'],
+        'too many lines' => [['features' => array_map(fn (int $line): string => "Line {$line}", range(1, 9))], 'features', 'A service can list 8 things it includes at most.'],
+        'no way to reach the client' => [['fulfillment' => 'courier'], 'fulfillment', 'Choose how the work reaches the client.'],
+    ]);
+
+    it('refuses an archived service type', function (): void {
+        $this->natural->forceFill(['archived_at' => now(), 'is_active' => false])->save();
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.services.store'), serviceForm())
+            ->assertSessionHasErrors(['service_type_id' => 'Choose one of the service types.']);
+    });
+});
+
+describe('writing a new question', function (): void {
+    it('adds it to the list as a project question, asks it in its place, and a client can answer it', function (): void {
+        Storage::fake(config('inquiry.disk'));
+        $area = DetailField::query()->where('slug', 'area_sqm')->value('id');
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.services.store'), serviceForm(['questions' => [
+                ['id' => $area, 'required' => false],
+                ['name' => ' Sink cut-out ', 'answer_type' => 'choice', 'choices' => ['Single bowl', ' Double bowl '], 'required' => true],
+            ]]))
+            ->assertSessionHasNoErrors();
+
+        $field = DetailField::query()->where('name', 'Sink cut-out')->sole();
+        $service = Service::query()->where('slug', 'fireplace-surrounds')->sole();
+
+        expect($field->slug)->toBe('sink_cut_out')
+            ->and($field->scope)->toBe(DetailFieldScope::Project)
+            ->and($field->answer_type)->toBe(DetailAnswerType::Choice)
+            ->and($field->allows_custom)->toBeFalse()
+            ->and($field->closedOptions()->pluck('name')->all())->toBe(['Single bowl', 'Double bowl'])
+            ->and($service->detailFields->map(fn (DetailField $asked): array => [$asked->slug, $asked->isRequiredByService()])->all())
+            ->toBe([['area_sqm', false], ['sink_cut_out', true]])
+            ->and(AuditLog::query()->where('auditable_type', $field->getMorphClass())->where('auditable_id', $field->id)->sole()->event)->toBe(AuditEvent::Created);
+
+        // The Inquire page asks it, and takes a client's answer to it.
+        $this->actingAs(inquiryClient())
+            ->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'fireplace-surrounds'])]))
+            ->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->detailAnswers()->where('detail_field_id', $field->id)->sole()->option?->name)->toBe('Single bowl');
+    });
+
+    it('takes what the client types for a written or number answer, and keeps no choices', function (): void {
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.services.store'), serviceForm(['questions' => [
+                ['name' => 'Fireplace width', 'answer_type' => 'number', 'choices' => ['ignored', 'too'], 'required' => true],
+            ]]))
+            ->assertSessionHasNoErrors();
+
+        $field = DetailField::query()->where('name', 'Fireplace width')->sole();
+
+        expect($field->answer_type)->toBe(DetailAnswerType::Number)
+            ->and($field->allows_custom)->toBeTrue()
+            ->and($field->options)->toBeEmpty();
+    });
+
+    it('refuses a question the list already has, and one that cannot be answered', function (array $question, string $field, string $message): void {
+        $before = DetailField::query()->count();
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.services.store'), serviceForm(['questions' => [[...$question, 'required' => true]]]))
+            ->assertSessionHasErrors([$field => $message]);
+
+        expect(DetailField::query()->count())->toBe($before)
+            ->and(Service::query()->where('slug', 'fireplace-surrounds')->exists())->toBeFalse();
+    })->with([
+        'a question the list has' => [['name' => 'project AREA (sqm)', 'answer_type' => 'number'], 'questions.0.name', 'That question already exists. Choose it from the list.'],
+        'no kind of answer' => [['name' => 'Sink cut-out'], 'questions.0.answer_type', 'Choose what kind of answer it takes.'],
+        'a list with one choice' => [['name' => 'Sink cut-out', 'answer_type' => 'choice', 'choices' => ['Single bowl']], 'questions.0.choices', 'List at least two choices.'],
+        'a choice twice' => [['name' => 'Sink cut-out', 'answer_type' => 'choice', 'choices' => ['Single bowl', 'single bowl']], 'questions.0.choices.1', 'That choice is already listed.'],
+        'neither chosen nor written' => [[], 'questions.0.id', 'Choose a question, or write one.'],
+    ]);
+});
+
+describe('archiving', function (): void {
+    it('takes a service off the page and the Inquire page, and its inquiries keep it', function (): void {
+        $service = Service::query()->where('slug', 'flooring')->sole();
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.services.archive', $service->id))
+            ->assertSessionHasNoErrors();
+
+        $service->refresh();
+
+        expect($service->archived_at)->not->toBeNull()
+            ->and($service->is_active)->toBeFalse()
+            ->and(offeredServiceSlugs())->not->toContain('flooring')
+            ->and(AuditLog::query()->where('event', AuditEvent::Archived)->sole()->auditable_id)->toBe($service->id);
+
+        // Gone from the page: it can no longer be changed or archived again.
+        $this->actingAs($this->admin)->put(route('dashboard.services.update', $service->id), serviceForm())->assertNotFound();
+        $this->actingAs($this->admin)->post(route('dashboard.services.archive', $service->id))->assertNotFound();
+    });
+
+    it('archives a service type only once it has no services left', function (): void {
+        $furniture = ServiceType::query()->where('slug', 'custom-stone-furniture')->sole();
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.service-types.archive', $furniture->id))
+            ->assertSessionHasErrors(['archive' => 'Move or archive its 5 services first.']);
+
+        expect($furniture->refresh()->archived_at)->toBeNull();
+
+        $furniture->services()->update(['is_active' => false, 'archived_at' => now()]);
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.service-types.archive', $furniture->id))
+            ->assertSessionHasNoErrors();
+
+        expect($furniture->refresh()->archived_at)->not->toBeNull()
+            ->and($furniture->is_active)->toBeFalse();
+    });
+});
+
+describe('service types', function (): void {
+    it('adds one with a slug from its name, and renames one keeping its slug', function (): void {
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.service-types.store'), ['name' => ' Tiles & Mosaics ', 'is_active' => true, 'sort_order' => 3])
+            ->assertSessionHasNoErrors();
+
+        $type = ServiceType::query()->where('name', 'Tiles & Mosaics')->sole();
+        expect($type->slug)->toBe('tiles-mosaics');
+
+        $this->actingAs($this->admin)
+            ->put(route('dashboard.service-types.update', $type->id), ['name' => 'Tiles', 'is_active' => false, 'sort_order' => 4])
+            ->assertSessionHasNoErrors();
+
+        expect($type->refresh()->only(['name', 'slug', 'is_active', 'sort_order']))
+            ->toBe(['name' => 'Tiles', 'slug' => 'tiles-mosaics', 'is_active' => false, 'sort_order' => 4]);
+    });
+
+    it('takes a hidden type\'s services off the Inquire page', function (): void {
+        $this->actingAs($this->admin)
+            ->put(route('dashboard.service-types.update', $this->natural->id), ['name' => $this->natural->name, 'is_active' => false, 'sort_order' => 0])
+            ->assertSessionHasNoErrors();
+
+        expect(offeredServiceSlugs())->not->toContain('flooring')
+            ->and(offeredServiceSlugs())->toContain('dining-tables');
+    });
+
+    it('refuses a name another type has', function (): void {
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.service-types.store'), ['name' => 'Custom Stone Furniture', 'is_active' => true, 'sort_order' => 3])
+            ->assertSessionHasErrors(['name' => 'There is already a service type by that name, or an archived one had it.']);
+    });
+});

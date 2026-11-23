@@ -285,6 +285,27 @@ enum Permission: string
     case ShowcasesArchive = 'showcases.archive';
 
     /**
+     * Adding a service or a service type from the Services page: what the
+     * Inquire page offers, with what it includes, its stone types and the
+     * questions it asks. An action permission: it guards the endpoints and
+     * the Add buttons, not a page. The admin's alone.
+     */
+    case ServicesCreate = 'services.create';
+
+    /**
+     * Changing a service or a service type from the Services page, and whether
+     * it is offered on the Inquire page. The admin's alone.
+     */
+    case ServicesUpdate = 'services.update';
+
+    /**
+     * Archiving a service or a service type from the Services page: it leaves
+     * the page and is no longer offered. Sent inquiries keep it. A type is
+     * archived only once none of its services is left. The admin's alone.
+     */
+    case ServicesArchive = 'services.archive';
+
+    /**
      * The `can:` middleware string that guards a route with this permission.
      *
      * Laravel hands middleware its parameters as strings, so a route cannot
