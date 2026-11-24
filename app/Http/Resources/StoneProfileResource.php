@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Application;
 use App\Models\CareTip;
+use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Stone;
 use App\Models\StoneImage;
@@ -21,7 +22,7 @@ class StoneProfileResource extends JsonResource
      * thicknesses it is cut in, thinnest first, all as labels; a size of null is the stone's
      * pieces without set sizes, which `sizeNote` describes.
      *
-     * @return array{slug: string, name: string, thumbnail: string, bestSeller: bool, brand: array{slug: string, name: string}, type: array{slug: string, name: string}, description: string, specifications: array{origin: string, slabs: list<array{size: string|null, thicknesses: list<string>}>, sizeNote: string|null}, finishes: array<int, string>, applications: array<int, string>, care: array<int, string>, gallery: array<int, array{src: string, name: string}>}
+     * @return array{slug: string, name: string, thumbnail: string, bestSeller: bool, brand: array{slug: string, name: string}, type: array{slug: string, name: string}, description: string, specifications: array{origin: string, slabs: list<array{size: string|null, thicknesses: list<string>}>, sizeNote: string|null}, finishes: array<int, string>, edgeProfiles: array<int, string>, applications: array<int, string>, care: array<int, string>, gallery: array<int, array{src: string, name: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -39,6 +40,7 @@ class StoneProfileResource extends JsonResource
                 'sizeNote' => $this->size_note,
             ],
             'finishes' => $this->type->finishes->map(fn (Finish $finish): string => $finish->name)->all(),
+            'edgeProfiles' => $this->type->edgeProfiles->map(fn (EdgeProfile $edge): string => $edge->name)->all(),
             'applications' => $this->type->applications->map(fn (Application $application): string => $application->name)->all(),
             'care' => $this->type->careTips->map(fn (CareTip $careTip): string => $careTip->tip)->all(),
             'gallery' => $this->images->map(fn (StoneImage $image): array => [

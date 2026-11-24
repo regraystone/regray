@@ -1,4 +1,4 @@
-import { stonesNotOffered } from '@/lib/inquiry-flow';
+import { stonesNotOffered, withHeldChoices } from '@/lib/inquiry-flow';
 import type { ServiceTypeOption } from '@/lib/inquiry-flow';
 import type {
     InquiryCatalog,
@@ -29,11 +29,23 @@ export const createInquiryCatalog = (
     props: InquirePageProps,
     stones: InquiryStoneOption[],
 ): InquiryCatalog => {
-    const serviceTypes = withHeldServices(props);
+    const serviceTypes = withHeldChoices(
+        withHeldServices(props),
+        props.projects ?? [],
+    );
     const services = serviceTypes.flatMap((type) => type.services);
 
     return {
-        brands: props.brands,
+        // An edited inquiry's own brands stay listed, though archived since.
+        brands: (props.projects ?? []).reduce(
+            (brands, { heldBrands = [] }) => [
+                ...brands,
+                ...heldBrands.filter(
+                    (held) => !brands.some(({ id }) => id === held.id),
+                ),
+            ],
+            props.brands,
+        ),
         serviceTypes,
         stones,
         /*

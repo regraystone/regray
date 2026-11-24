@@ -28,9 +28,11 @@ use App\Models\InquiryHandler;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Service;
+use App\Models\ServiceType;
 use App\Models\Showcase;
 use App\Models\ShowcaseCategory;
 use App\Models\Stone;
+use App\Models\StoneType;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
@@ -742,4 +744,30 @@ function makeShowcaseCategory(string $name, array $attributes = []): ShowcaseCat
         'sort_order' => ShowcaseCategory::query()->count(),
         ...$attributes,
     ]);
+}
+
+/**
+ * The All services page's Add form, filled in for a new installed service
+ * under Natural Stone & Applications.
+ *
+ * @return array<string, mixed>
+ */
+function serviceForm(array $overrides = []): array
+{
+    return [
+        'name' => 'Fireplace Surrounds',
+        'service_type_id' => ServiceType::query()->where('slug', 'natural-stone-applications')->value('id'),
+        'description' => 'Natural stone fireplace surrounds, cut and installed.',
+        'features' => ['  Cut to size ', 'Installed on site'],
+        'requires_stones' => true,
+        'stone_type_ids' => StoneType::query()->whereIn('slug', ['granite', 'marble'])->pluck('id')->all(),
+        'fulfillment' => 'installed',
+        'questions' => [
+            ['id' => DetailField::query()->where('slug', 'area_sqm')->value('id'), 'required' => false],
+            ['id' => DetailField::query()->where('slug', 'edge_profile')->value('id'), 'required' => true],
+        ],
+        'is_active' => true,
+        'sort_order' => 10,
+        ...$overrides,
+    ];
 }

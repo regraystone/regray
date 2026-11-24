@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Schedule\ListSchedulesAction;
+use App\Data\Product\ProductListFilters;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
@@ -14,12 +15,15 @@ use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Enums\SocialPlatform;
 use App\Http\Requests\DataTableRequest;
+use App\Http\Requests\Product\ProductListRequest;
 use App\Http\Requests\Sales\SalesReportRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
+use App\Http\Requests\Service\ServiceListRequest;
 use App\Http\Requests\Service\StoreServiceRequest;
 use App\Http\Resources\AccountResource;
 use App\Http\Resources\AdminBrandResource;
-use App\Http\Resources\AdminServiceTypeResource;
+use App\Http\Resources\AdminProductResource;
+use App\Http\Resources\AdminServiceResource;
 use App\Http\Resources\AdminShowcaseResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
@@ -30,12 +34,14 @@ use App\Http\Resources\ScheduleResource;
 use App\Models\DetailField;
 use App\Models\Lead;
 use App\Models\Schedule;
+use App\Models\ServiceType;
 use App\Models\StoneType;
 use App\Models\User;
 use App\Repositories\Contracts\BrandRepositoryInterface;
 use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Repositories\Contracts\ProductAdminRepositoryInterface;
 use App\Repositories\Contracts\ServiceRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
@@ -399,25 +405,66 @@ class ViewController extends Controller
         ]);
     }
 
-    public function products(Request $request): Response
+    /**
+     * The admin's Products page: every stone and piece of furniture but the
+     * archived (and those of an archived brand), inactive ones too, as one
+     * list by name, ten a page, searched by name and filtered by kind, brand
+     * and status, all in the URL.
+     *
+     * Also what the Add and Edit drawers choose from (`options`), the upload
+     * limits, and the public links a slug makes, with `__brand__` and
+     * `__slug__` to fill in.
+     */
+    public function products(ProductListRequest $request, ProductAdminRepositoryInterface $products): Response
     {
-        return Inertia::render('products');
+        $filters = new ProductListFilters($request->escapedSearch(), $request->kind(), $request->brand(), $request->active());
+
+        return Inertia::render('products', [
+            'products' => self::page($products->paginate($filters, $request->perPage(), $request->page()), AdminProductResource::class, $request),
+            'filters' => $request->productFilters(),
+            'canCreate' => $request->user()?->can(Permission::ProductsCreate->value) ?? false,
+            'limits' => [
+                'thumbnailMaxKb' => config()->integer('products.thumbnail_max_kb'),
+                'photoMaxKb' => config()->integer('products.photo_max_kb'),
+                'galleryMax' => config()->integer('products.gallery_max'),
+                'sizesMax' => config()->integer('products.sizes_max'),
+                'descriptionMax' => config()->integer('products.description_max'),
+            ],
+            'options' => $products->formOptions(),
+            'reservedSlugs' => ReservedSlugs::ALL,
+            'publicUrls' => [
+                'stone' => route('brands.stones.show', ['brand' => '__brand__', 'stone' => '__slug__']),
+                'furniture' => route('brands.furniture.show', ['brand' => '__brand__', 'furniture' => '__slug__']),
+            ],
+        ]);
     }
 
     /**
-     * The admin's Services page: what the Inquire page offers. Every service
-     * type but the archived, each with its services but the archived, hidden
-     * ones too, in their display order. There are few enough to send whole;
-     * the page searches them itself.
+     * The admin's All services page: what the Inquire page offers, as one
+     * table. Every service but the archived (and those of an archived type),
+     * hidden ones too, by their type's display order then their own, a page
+     * at a time, searched by name or description and filtered by service type
+     * (its slug) and status.
      *
-     * Also what the forms offer: the stone types a service can be made from,
-     * the questions it can ask (with their listed answers, to show the
-     * admin), and how the work can reach the client.
+     * Also what the forms and the filter offer: the service types (hidden
+     * ones too), the stone types a service can be made from, the questions it
+     * can ask (with their listed answers, to show the admin), and the limits.
      */
-    public function services(Request $request, ServiceRepositoryInterface $services): Response
+    public function services(ServiceListRequest $request, ServiceRepositoryInterface $services): Response
     {
         return Inertia::render('services', [
-            'serviceTypes' => AdminServiceTypeResource::collection($services->typesForAdmin())->resolve($request),
+            'services' => self::page($services->paginateForAdmin(
+                $request->escapedSearch(),
+                $request->type(),
+                $request->active(),
+                $request->perPage(),
+                $request->page(),
+            ), AdminServiceResource::class, $request),
+            'filters' => $request->serviceFilters(),
+            'serviceTypes' => $services->typeOptions()
+                ->map(fn (ServiceType $type): array => ['id' => $type->id, 'slug' => $type->slug, 'name' => $type->name, 'isActive' => $type->is_active])
+                ->values()
+                ->all(),
             'stoneTypes' => $services->activeStoneTypes()
                 ->map(fn (StoneType $type): array => ['id' => $type->id, 'name' => $type->name])
                 ->values()
@@ -437,9 +484,6 @@ class ViewController extends Controller
                 'descriptionMax' => StoreServiceRequest::DESCRIPTION_MAX,
                 'featuresMax' => StoreServiceRequest::FEATURES_MAX,
                 'featureMax' => StoreServiceRequest::FEATURE_MAX,
-                'questionNameMax' => StoreServiceRequest::QUESTION_NAME_MAX,
-                'choicesMax' => StoreServiceRequest::CHOICES_MAX,
-                'choiceMax' => StoreServiceRequest::CHOICE_MAX,
             ],
         ]);
     }

@@ -36,14 +36,13 @@ import {
     update as updateService,
 } from '@/routes/dashboard/services';
 import type {
-    AnswerType,
     QuestionOption,
     ServiceLimits,
     ServiceRow,
-    ServiceTypeRow,
+    ServiceTypeOption,
 } from '@/types/service-admin';
 
-export const SERVICE_PROPS = ['serviceTypes'];
+export const SERVICE_PROPS = ['services', 'filters'];
 
 type ServiceValues = {
     name: string;
@@ -54,7 +53,7 @@ type ServiceValues = {
     stone_type_ids: number[];
     /** A Fulfillment, or '' until one is chosen. */
     fulfillment: string;
-    /** One from the list by id, or a new one (id null) made when it is saved. */
+    /** Chosen from the Questions page's list, in the order asked. */
     questions: AddedQuestion[];
     is_active: boolean;
     sort_order: string;
@@ -84,8 +83,6 @@ const fromRow = (service: ServiceRow): ServiceValues => ({
     questions: service.questions.map(({ id, name, required }) => ({
         id,
         name,
-        answer_type: '',
-        choices: [],
         required,
     })),
     is_active: service.isActive,
@@ -140,16 +137,8 @@ const serviceSchema = (limits: ServiceLimits, questions: QuestionOption[]) =>
                 .min(1, 'Choose how the work reaches the client.'),
             questions: z.array(
                 z.object({
-                    id: z.number().nullable(),
+                    id: z.number(),
                     name: z.string(),
-                    answer_type: z.enum([
-                        '',
-                        'text',
-                        'number',
-                        'choice',
-                        'boolean',
-                    ]),
-                    choices: z.array(z.string()),
                     required: z.boolean(),
                 }),
             ),
@@ -234,7 +223,7 @@ const ServiceForm = ({
     service: ServiceRow | null;
     /** The type a new service starts under. */
     defaultTypeId: number | null;
-    serviceTypes: ServiceTypeRow[];
+    serviceTypes: ServiceTypeOption[];
     stoneTypes: { id: number; name: string }[];
     questions: QuestionOption[];
     limits: ServiceLimits;
@@ -320,16 +309,10 @@ const ServiceForm = ({
             requires_stones: values.requires_stones,
             stone_type_ids: values.requires_stones ? values.stone_type_ids : [],
             fulfillment: values.fulfillment,
-            questions: values.questions.map((question) =>
-                question.id === null
-                    ? {
-                          name: question.name,
-                          answer_type: question.answer_type,
-                          choices: question.choices,
-                          required: question.required,
-                      }
-                    : { id: question.id, required: question.required },
-            ),
+            questions: values.questions.map((question) => ({
+                id: question.id,
+                required: question.required,
+            })),
             is_active: values.is_active,
             sort_order: Number(values.sort_order),
         };
@@ -693,15 +676,7 @@ const ServiceForm = ({
                     {chosen.fields.length > 0 ? (
                         <ol className="space-y-2">
                             {chosen.fields.map((field, index) => {
-                                const question =
-                                    field.id === null
-                                        ? {
-                                              scope: 'project' as const,
-                                              answerType: (field.answer_type ||
-                                                  'text') as AnswerType,
-                                              options: field.choices,
-                                          }
-                                        : questionById(field.id);
+                                const question = questionById(field.id);
                                 const number = index + 1;
                                 const name = field.name || 'Question';
 
@@ -713,11 +688,6 @@ const ServiceForm = ({
                                         <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
                                             <p className="text-sm font-bold">
                                                 {name}
-                                                {field.id === null ? (
-                                                    <span className="ml-2 border border-sidebar-border px-1.5 py-0.5 align-middle text-[0.625rem] font-bold tracking-[0.05em] text-secondary-foreground uppercase">
-                                                        New
-                                                    </span>
-                                                ) : null}
                                             </p>
                                             {question ? (
                                                 <p className="mt-0.5 text-xs text-secondary-foreground">
@@ -773,13 +743,6 @@ const ServiceForm = ({
                     <QuestionAdder
                         key={open ? 'open' : 'closed'}
                         available={addable}
-                        takenNames={[
-                            ...questions.map((question) => question.name),
-                            ...chosen.fields
-                                .filter((field) => field.id === null)
-                                .map((field) => field.name),
-                        ]}
-                        limits={limits}
                         onAdd={(question) => chosen.append(question)}
                     />
                 </Section>

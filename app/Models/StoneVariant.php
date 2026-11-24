@@ -36,13 +36,14 @@ class StoneVariant extends Model
     /** @return BelongsTo<Size, $this> */
     public function size(): BelongsTo
     {
-        return $this->belongsTo(Size::class);
+        // An archived size still names the slabs of a stone archived with it.
+        return $this->belongsTo(Size::class)->withTrashed();
     }
 
     /** @return BelongsTo<Thickness, $this> */
     public function thickness(): BelongsTo
     {
-        return $this->belongsTo(Thickness::class);
+        return $this->belongsTo(Thickness::class)->withTrashed();
     }
 
     /** @return Attribute<string, never> */

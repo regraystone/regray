@@ -27,6 +27,11 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Logo from '@/components/logo';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import LogoutDialog from '@/components/logout-dialog';
 import NotificationBell from '@/components/notification-bell';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -62,6 +67,7 @@ import {
 } from '@/routes/inquiry';
 import { index as inboxIndex } from '@/routes/inbox';
 import { index as overviewIndex } from '@/routes/overview';
+import { index as productListIndex } from '@/routes/dashboard/products/lists';
 import { index as productsIndex } from '@/routes/products';
 import { index as showcasesIndex } from '@/routes/showcases';
 import {
@@ -76,6 +82,7 @@ import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
 import { index as savedIndex } from '@/routes/saved';
 import { edit as editSecurity } from '@/routes/security';
+import { index as serviceListIndex } from '@/routes/dashboard/services/lists';
 import { index as servicesIndex } from '@/routes/services';
 
 /**
@@ -83,8 +90,10 @@ import { index as servicesIndex } from '@/routes/services';
  *
  * The server shares the signed-in user's granted names as `auth.permissions`,
  * so the only thing that has to agree between the two sides is the spelling.
- * Keeping the union here means the sidebar's `permission` field is checked
- * against this list rather than being an untyped string.
+ * Keeping the union here means the sidebar's `permission` field, and
+ * `usePermissions().can()`, are checked against this list rather than an
+ * untyped string. It lists every case, the action permissions (create,
+ * update, archive, ...) included; PermissionMirrorTest keeps the two in step.
  *
  * `profileScheduleView` and `homeShowcasesView` are listed but no nav item names
  * them: each is the permission for a page reached from another page rather
@@ -124,6 +133,29 @@ export const permissions = {
     scheduleAttend: 'schedule.attend',
     conversationsCreate: 'conversations.create',
     supportClaim: 'support.claim',
+    leadsUpdate: 'leads.update',
+    homeStoneView: 'home-stone.view',
+    savedStoneView: 'saved-stone.view',
+    savedShowcasesView: 'saved-showcases.view',
+    inquiriesEdit: 'inquiries.edit',
+    inquiriesStatusSales: 'inquiries.status.sales',
+    inquiriesStatusPayment: 'inquiries.status.payment',
+    inquiriesStatusProcess: 'inquiries.status.process',
+    accountsCreate: 'accounts.create',
+    accountsUpdate: 'accounts.update',
+    accountsArchive: 'accounts.archive',
+    brandsCreate: 'brands.create',
+    brandsUpdate: 'brands.update',
+    brandsArchive: 'brands.archive',
+    showcasesCreate: 'showcases.create',
+    showcasesUpdate: 'showcases.update',
+    showcasesArchive: 'showcases.archive',
+    productsCreate: 'products.create',
+    productsUpdate: 'products.update',
+    productsArchive: 'products.archive',
+    servicesCreate: 'services.create',
+    servicesUpdate: 'services.update',
+    servicesArchive: 'services.archive',
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -135,7 +167,48 @@ type NavItem = {
     icon: LucideIcon;
     permission: Permission;
     matchPrefix?: string;
+    /**
+     * The pages under it: it opens as an accordion of these in the full
+     * sidebar, and links to the first when the sidebar is icons only.
+     */
+    children?: Array<{ slug: string; label: string; href: string }>;
 };
+
+/** Products' pages: every product, then the lists products are built from. */
+const productPages = [
+    { slug: 'all-products', label: 'All products', href: productsIndex.url() },
+    ...(
+        [
+            ['stone-types', 'Stone types'],
+            ['sizes', 'Sizes'],
+            ['thicknesses', 'Thicknesses'],
+            ['finishes', 'Finishes'],
+            ['edge-profiles', 'Edge profiles'],
+            ['furniture-types', 'Furniture types'],
+            ['applications', 'Applications'],
+            ['care-tips', 'Care tips'],
+        ] as const
+    ).map(([slug, label]) => ({
+        slug,
+        label,
+        href: productListIndex.url(slug),
+    })),
+];
+
+/** Services' pages: every service, then the lists services are built from. */
+const servicePages = [
+    { slug: 'all-services', label: 'All services', href: servicesIndex.url() },
+    ...(
+        [
+            ['service-types', 'Service types'],
+            ['questions', 'Questions'],
+        ] as const
+    ).map(([slug, label]) => ({
+        slug,
+        label,
+        href: serviceListIndex.url(slug),
+    })),
+];
 
 const navGroups: Array<{ label: string; items: NavItem[] }> = [
     {
@@ -222,6 +295,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 href: productsIndex.url(),
                 icon: Package,
                 permission: permissions.productsView,
+                children: productPages,
             },
             {
                 slug: 'services',
@@ -229,6 +303,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 href: servicesIndex.url(),
                 icon: Wrench,
                 permission: permissions.servicesView,
+                children: servicePages,
             },
             {
                 slug: 'showcases',
@@ -261,7 +336,89 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     },
 ];
 
-const allItems = navGroups.flatMap((group) => group.items);
+const allItems = navGroups.flatMap((group) =>
+    group.items.flatMap((item) => [
+        item,
+        ...(item.children ?? []).filter((child) => child.href !== item.href),
+    ]),
+);
+
+/**
+ * A sidebar item with pages under it (Products, Services): its row opens and closes
+ * the list of them, open by itself while one of them is the page shown, with
+ * that one lit.
+ */
+const NavAccordion = ({
+    item,
+    pathname,
+    onNavigate,
+}: {
+    item: NavItem & { children: NonNullable<NavItem['children']> };
+    pathname: string;
+    onNavigate?: () => void;
+}) => {
+    const inSection =
+        pathname === item.href || pathname.startsWith(`${item.href}/`);
+    const [open, setOpen] = useState(inSection);
+
+    // Going to one of its pages from elsewhere opens it.
+    useEffect(() => {
+        if (inSection) {
+            setOpen(true);
+        }
+    }, [inSection]);
+
+    return (
+        <Collapsible open={open} onOpenChange={setOpen}>
+            <CollapsibleTrigger
+                className={`${navLinkClass({ isActive: false, collapsed: false })} w-full ${
+                    inSection ? 'font-bold text-foreground' : ''
+                }`}
+            >
+                <item.icon className="size-4 shrink-0" aria-hidden />
+                <span className="overflow-hidden whitespace-nowrap uppercase">
+                    {item.label}
+                </span>
+                <ChevronDown
+                    aria-hidden
+                    className={`ml-auto size-4 shrink-0 transition-transform ${
+                        open ? 'rotate-180' : ''
+                    }`}
+                />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                <ul className="space-y-0.5 py-1" aria-label={item.label}>
+                    {item.children.map((child) => {
+                        const isActive = pathname === child.href;
+
+                        return (
+                            <li key={child.slug}>
+                                <Link
+                                    href={child.href}
+                                    onClick={onNavigate}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    className={`relative flex items-center py-2 pr-7 pl-14 text-sm whitespace-nowrap ${
+                                        isActive
+                                            ? 'bg-primary font-bold text-primary-foreground'
+                                            : 'text-secondary-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {isActive && (
+                                        <span
+                                            className="absolute inset-y-0 left-0 w-1 bg-primary-foreground"
+                                            aria-hidden
+                                        />
+                                    )}
+                                    {child.label}
+                                </Link>
+                            </li>
+                        );
+                    })}
+                </ul>
+            </CollapsibleContent>
+        </Collapsible>
+    );
+};
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -317,6 +474,21 @@ const SidebarNav = ({
                             ? pathname.startsWith(item.matchPrefix)
                             : pathname === item.href ||
                               pathname.startsWith(`${item.href}/`);
+
+                        if (item.children && !collapsed) {
+                            return (
+                                <li key={item.slug}>
+                                    <NavAccordion
+                                        item={{
+                                            ...item,
+                                            children: item.children,
+                                        }}
+                                        pathname={pathname}
+                                        onNavigate={onNavigate}
+                                    />
+                                </li>
+                            );
+                        }
 
                         return (
                             <li key={item.slug}>

@@ -1,3 +1,6 @@
+import type { DataTableFilters } from '@/components/data-table/data-table';
+import type { TableMeta } from '@/lib/data-table';
+
 /** How a service's work reaches the client (`App\Enums\Fulfillment`). */
 export type Fulfillment = 'delivery_or_pickup' | 'installed';
 
@@ -15,7 +18,7 @@ export type ServiceQuestion = {
     required: boolean;
 };
 
-/** One service as a card on the admin's Services page. */
+/** One service as a row of the admin's All services page. */
 export type ServiceRow = {
     id: number;
     slug: string;
@@ -37,18 +40,16 @@ export type ServiceRow = {
     updatedAt: string;
     /** The actions this reader has on this service, decided by the server. */
     actions: string[];
+    /** Whether this reader may flip its switch. */
+    canToggle: boolean;
 };
 
-/** A service type, with its services, as `AdminServiceTypeResource` sends it. */
-export type ServiceTypeRow = {
+/** A service type a service can be under, hidden ones too. */
+export type ServiceTypeOption = {
     id: number;
     slug: string;
     name: string;
     isActive: boolean;
-    sortOrder: number;
-    services: ServiceRow[];
-    /** `edit`, `archive`: what this reader may do to the type. */
-    actions: string[];
 };
 
 /** A question a service can ask, from the catalog, with its listed answers. */
@@ -64,13 +65,18 @@ export type ServiceLimits = {
     descriptionMax: number;
     featuresMax: number;
     featureMax: number;
-    questionNameMax: number;
-    choicesMax: number;
-    choiceMax: number;
+};
+
+export type ServiceFilters = DataTableFilters & {
+    /** A service type's slug, or `all`. */
+    type: string;
+    status: 'all' | 'active' | 'inactive';
 };
 
 export type ServicesPageProps = {
-    serviceTypes: ServiceTypeRow[];
+    services: { data: ServiceRow[]; meta: TableMeta };
+    filters: ServiceFilters;
+    serviceTypes: ServiceTypeOption[];
     stoneTypes: { id: number; name: string }[];
     questions: QuestionOption[];
     canCreate: boolean;

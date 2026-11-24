@@ -25,8 +25,9 @@ return [
                 'description' => 'Premium natural stone slabs supplied for your project.',
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
-                'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'],
-                'fields' => ['quantity' => true, 'slab_size' => true, 'thickness' => true, 'edge_profile' => true, 'finish' => true],
+                'features' => ['Every stone type Regray carries', 'Sourcing based on your project requirements', 'Nationwide supply'],
+                // Slabs supplied alone may come uncut: the edge is asked, not required.
+                'fields' => ['quantity' => true, 'slab_size' => true, 'thickness' => true, 'edge_profile' => false, 'finish' => true],
             ],
             [
                 'slug' => 'slab-supply-and-installation',
@@ -34,7 +35,7 @@ return [
                 'description' => 'Premium natural stone slabs supplied and installed for your project.',
                 'requires_stones' => true,
                 'fulfillment' => 'installed',
-                'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide installation'],
+                'features' => ['Every stone type Regray carries', 'Sourcing based on your project requirements', 'Nationwide installation'],
                 'fields' => ['quantity' => true, 'slab_size' => true, 'thickness' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
@@ -80,7 +81,7 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'installed',
                 'features' => ['Custom dimensions', 'Edge profiling and finishing'],
-                'fields' => ['area_sqm' => true, 'finish' => true],
+                'fields' => ['area_sqm' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'kitchen-islands',
@@ -113,7 +114,7 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'features' => ['Center and coffee tables', 'Made to order to your specifications'],
-                'fields' => ['area_sqm' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'side-tables',
@@ -122,15 +123,15 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'features' => ['Side and end tables', 'Made to order to your specifications'],
-                'fields' => ['area_sqm' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'dining-tables',
                 'name' => 'Dining Tables',
-                'description' => 'Made-to-order stone tables.',
+                'description' => 'Made-to-order stone dining tables.',
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
-                'features' => ['Dining tables', 'Center and coffee tables', 'Side tables', 'Console tables'],
+                'features' => ['Dining tables for 2 to 12 seaters', 'A base in wood, steel or the same stone', 'Made to order to your specifications'],
                 'fields' => ['area_sqm' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true, 'table_base' => true],
             ],
             [
@@ -140,7 +141,7 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'features' => ['Pedestals and bespoke stone pieces', 'Made to order to your specifications'],
-                'fields' => ['area_sqm' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'other-customized-furniture',

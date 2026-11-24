@@ -61,6 +61,19 @@ class Stone extends Model
     }
 
     /**
+     * The stones the Products page lists, active or not: of a brand that is
+     * not archived. An archived brand's are kept only as history, so nothing
+     * on the Products page, nor its lists, counts or changes them.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function ofLiveBrand(Builder $query): void
+    {
+        $query->whereIn($query->qualifyColumn('brand_id'), Brand::query()->notArchived()->select('id'));
+    }
+
+    /**
      * The stones shown on Regray: active, of a brand that is not archived. A
      * saved stone or a past inquiry's keeps reading it without this.
      *
@@ -75,8 +88,9 @@ class Stone extends Model
 
     /**
      * The active stones offered for this service: those whose primary type is
-     * linked to it. The extra types in `stone_stone_type` are the collection
-     * filters' and play no part.
+     * linked to it and switched on (an inactive type is off the Inquire page).
+     * The extra types in `stone_stone_type` are the collection filters' and
+     * play no part.
      *
      * @param  Builder<static>  $query
      */
@@ -85,7 +99,7 @@ class Stone extends Model
     {
         $query->where('stones.is_active', true)
             ->whereIn('stones.brand_id', Brand::query()->notArchived()->select('id'))
-            ->whereIn('stones.stone_type_id', $service->stoneTypes()->getQuery()->select('stone_types.id'));
+            ->whereIn('stones.stone_type_id', $service->stoneTypes()->getQuery()->where('stone_types.is_active', true)->select('stone_types.id'));
     }
 
     /**
@@ -111,10 +125,15 @@ class Stone extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    /** @return BelongsTo<StoneType, $this> */
+    /**
+     * Its type, archived or not: an archived brand's stone, or a past
+     * inquiry's, may keep a type since archived.
+     *
+     * @return BelongsTo<StoneType, $this>
+     */
     public function type(): BelongsTo
     {
-        return $this->belongsTo(StoneType::class, 'stone_type_id');
+        return $this->belongsTo(StoneType::class, 'stone_type_id')->withTrashed();
     }
 
     /** @return BelongsToMany<StoneType, $this> */

@@ -68,7 +68,7 @@ it('sends the Inquire page its options', function (): void {
                 'id' => 'slab-supply-only',
                 'name' => 'Slab Supply Only',
                 'description' => 'Premium natural stone slabs supplied for your project.',
-                'features' => ['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'],
+                'features' => ['Every stone type Regray carries', 'Sourcing based on your project requirements', 'Nationwide supply'],
                 'stoneTypes' => $slabSupplyTypes,
                 'requiresStones' => true,
                 'fulfillment' => 'delivery_or_pickup',
@@ -90,7 +90,8 @@ it('sends the Inquire page its options', function (): void {
                         'suggestions' => [],
                     ],
                     [
-                        'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false,
+                        // Slabs supplied alone may come uncut.
+                        'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => false, 'allowsCustom' => false,
                         'options' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->get()
                             ->map(fn (EdgeProfile $edge): array => ['value' => $edge->name, 'label' => $edge->name, 'isAdvisory' => $edge->is_advisory])->all(),
                         'suggestions' => [],

@@ -63,6 +63,8 @@ function DataTable<T>({
     statusFilter,
     statusOptions,
     onStatusFilterChange,
+    extraFilters,
+    extraFiltered = false,
 }: {
     rows: T[];
     meta: TableMeta;
@@ -82,6 +84,13 @@ function DataTable<T>({
     statusOptions?: DataTableFilterOption[];
     /** A page's own handling; the table reloads by itself when left out. */
     onStatusFilterChange?: (value: string) => void;
+    /**
+     * A page's own filters (DataTableFilter selects), before the Status one.
+     * The page reloads for them itself, through useDataTableQuery.
+     */
+    extraFilters?: ReactNode;
+    /** Whether one of `extraFilters` is on, for the "no match" empty state. */
+    extraFiltered?: boolean;
 }) {
     const { update, isLoading } = useDataTableQuery(only);
     const [status, setStatus] = useState(
@@ -90,6 +99,7 @@ function DataTable<T>({
     const shownStatus = statusFilter ?? status;
     const isFiltered =
         filters.search.trim() !== '' ||
+        extraFiltered ||
         (shownStatus !== 'all' && shownStatus !== '');
 
     const changeStatus = (value: string) => {
@@ -114,13 +124,19 @@ function DataTable<T>({
                     />
                 }
                 filters={
-                    statusOptions && statusOptions.length > 0 ? (
-                        <DataTableFilter
-                            label="Status"
-                            options={statusOptions}
-                            value={shownStatus || 'all'}
-                            onChange={changeStatus}
-                        />
+                    extraFilters ||
+                    (statusOptions && statusOptions.length > 0) ? (
+                        <>
+                            {extraFilters}
+                            {statusOptions && statusOptions.length > 0 ? (
+                                <DataTableFilter
+                                    label="Status"
+                                    options={statusOptions}
+                                    value={shownStatus || 'all'}
+                                    onChange={changeStatus}
+                                />
+                            ) : null}
+                        </>
                     ) : null
                 }
             />

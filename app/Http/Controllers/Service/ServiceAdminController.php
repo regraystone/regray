@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Service;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Service\SaveServiceTypeRequest;
+use App\Http\Requests\Product\ProductStatusRequest;
 use App\Http\Requests\Service\StoreServiceRequest;
 use App\Http\Requests\Service\UpdateServiceRequest;
 use App\Models\Service;
-use App\Models\ServiceType;
 use App\Models\User;
 use App\Services\ServiceAdminService;
 use Illuminate\Http\RedirectResponse;
@@ -15,8 +14,10 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 /**
- * The admin's Services page writes: add, change and archive a service, and a
- * service type. The page itself is ViewController::services().
+ * The All services page's writes: add, change, show or hide, and archive a
+ * service. The
+ * page itself is ViewController::services(); service types and questions are
+ * lists of their own (CatalogListController).
  *
  * `{id}` stays a plain id, looked up after the route's permission, so nothing
  * says whether one exists to someone who may not manage them. An archived one
@@ -41,6 +42,18 @@ class ServiceAdminController extends Controller
         return self::done(__(':name is updated.', ['name' => $service->name]));
     }
 
+    /** A row's switch: show the service on the Inquire page, or hide it. */
+    public function status(ProductStatusRequest $request, string $id): RedirectResponse
+    {
+        $service = self::findService($id);
+        $active = $request->boolean('active');
+        $this->services->setActive($service, $active, self::actor($request), $request->ip(), $request->userAgent());
+
+        return self::done($active
+            ? __(':name is visible on the Inquire page again.', ['name' => $service->name])
+            : __(':name is hidden from the Inquire page.', ['name' => $service->name]));
+    }
+
     public function archive(Request $request, string $id): RedirectResponse
     {
         $service = self::findService($id);
@@ -49,41 +62,11 @@ class ServiceAdminController extends Controller
         return self::done(__(':name is archived.', ['name' => $service->name]));
     }
 
-    public function storeType(SaveServiceTypeRequest $request): RedirectResponse
-    {
-        $type = $this->services->createType($request->typeData(), self::actor($request), $request->ip(), $request->userAgent());
-
-        return self::done(__(':name is added.', ['name' => $type->name]));
-    }
-
-    public function updateType(SaveServiceTypeRequest $request, string $id): RedirectResponse
-    {
-        $type = self::findServiceType($id);
-        $this->services->updateType($type, $request->typeData(), self::actor($request), $request->ip(), $request->userAgent());
-
-        return self::done(__(':name is updated.', ['name' => $type->name]));
-    }
-
-    public function archiveType(Request $request, string $id): RedirectResponse
-    {
-        $type = $this->services->archiveType(self::findServiceType($id), self::actor($request), $request->ip(), $request->userAgent());
-
-        return self::done(__(':name is archived.', ['name' => $type->name]));
-    }
-
     /** A service still on the Services page, offered or not, or a 404. */
     public static function findService(string $id): Service
     {
         return ctype_digit($id)
             ? Service::query()->notArchived()->findOrFail((int) $id)
-            : abort(404);
-    }
-
-    /** A service type still on the Services page, offered or not, or a 404. */
-    public static function findServiceType(string $id): ServiceType
-    {
-        return ctype_digit($id)
-            ? ServiceType::query()->notArchived()->findOrFail((int) $id)
             : abort(404);
     }
 

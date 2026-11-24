@@ -55,15 +55,16 @@ class InquiryDetailFieldResource extends JsonResource
 
     /**
      * The active edge profiles or finishes, read once per request however many
-     * services ask for them.
+     * services ask for them, in their lists' order (as their admin pages list
+     * them: display order, then name).
      *
      * @return list<array{value: string, label: string, isAdvisory: bool}>
      */
     private static function catalogAnswers(string $slug): array
     {
         $profiles = once(fn (): array => [
-            DetailField::EDGE_PROFILE => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->get(['name', 'is_advisory']),
-            DetailField::FINISH => Finish::query()->where('is_active', true)->orderBy('sort_order')->get(['name', 'is_advisory']),
+            DetailField::EDGE_PROFILE => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['name', 'is_advisory']),
+            DetailField::FINISH => Finish::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['name', 'is_advisory']),
         ]);
 
         return array_values($profiles[$slug]->map(fn (EdgeProfile|Finish $row): array => [

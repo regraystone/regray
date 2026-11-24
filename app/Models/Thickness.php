@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * One thickness a stone can be had in, shared by every stone that comes in it
@@ -27,12 +29,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read string $label
  * @property-read string $key
  * @property-read Collection<int, Stone> $stones
+ * @property Carbon|null $deleted_at Archived (the soft delete) from its Products page.
  */
 #[Fillable(['value', 'unit', 'sort_order'])]
 class Thickness extends Model
 {
     /** @use HasFactory<ThicknessFactory> */
     use HasFactory;
+
+    use SoftDeletes;
 
     public $timestamps = false;
 

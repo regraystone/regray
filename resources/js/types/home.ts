@@ -49,6 +49,8 @@ export type BrandCardData = {
 export type ProductBrand = {
     slug: string;
     name: string;
+    /** Only on a saved card of an archived brand's product, whose page is gone. */
+    archived?: true;
 };
 
 /** One fact about a brand, such as "Made in" / "Treia, Italy". */
@@ -87,6 +89,8 @@ export type FurnitureCardData = {
 
 export type FurnitureProfile = FurnitureCardData & {
     description: string | null;
+    /** Its photos besides the thumbnail, in order. */
+    gallery: { src: string; name: string }[];
 };
 
 /**

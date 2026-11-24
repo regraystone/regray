@@ -9,21 +9,22 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * A service as a card on the admin's Services page, and what its View drawer
- * and Edit form read.
+ * A service as a row of the admin's All services page, and what its View
+ * drawer and Edit form read.
  *
- * `actions` is what this reader may do to it, from the permission each route
- * checks. `isOffered` is whether the Inquire page offers it now: visible, its
- * type visible, and made from a stone type when it needs stones.
+ * `actions` and `canToggle` are what this reader may do to it, from the
+ * permission each route checks. `isOffered` is whether the Inquire page
+ * offers it now: visible, its type visible, and made from a stone type when
+ * it needs stones.
  *
- * Expects ServiceRepositoryInterface::typesForAdmin()'s relations and count.
+ * Expects ServiceRepositoryInterface::paginateForAdmin()'s relations and count.
  *
  * @mixin Service
  */
 class AdminServiceResource extends JsonResource
 {
     /**
-     * @return array{id: int, slug: string, name: string, serviceTypeId: int, description: string, requiresStones: bool, fulfillment: string, isActive: bool, isOffered: bool, sortOrder: int, features: list<string>, stoneTypes: list<array{id: int, name: string}>, questions: list<array{id: int, name: string, scope: string, required: bool}>, inquiriesCount: int, createdAt: string, updatedAt: string, actions: list<string>}
+     * @return array{id: int, slug: string, name: string, serviceTypeId: int, description: string, requiresStones: bool, fulfillment: string, isActive: bool, isOffered: bool, sortOrder: int, features: list<string>, stoneTypes: list<array{id: int, name: string}>, questions: list<array{id: int, name: string, scope: string, required: bool}>, inquiriesCount: int, createdAt: string, updatedAt: string, actions: list<string>, canToggle: bool}
      */
     public function toArray(Request $request): array
     {
@@ -51,6 +52,7 @@ class AdminServiceResource extends JsonResource
                 $gate->allows(Permission::ServicesUpdate->value) ? 'edit' : null,
                 $gate->allows(Permission::ServicesArchive->value) ? 'archive' : null,
             ])),
+            'canToggle' => $gate->allows(Permission::ServicesUpdate->value),
         ];
     }
 

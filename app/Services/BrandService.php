@@ -29,9 +29,12 @@ class BrandService
      * What a brand offers, counted from its active products: how many stones
      * and pieces of furniture it has, and each stone type its stones come in,
      * then each furniture type, in catalog order. A stone of two types counts
-     * in both, as the collection's type filter finds it under both. The photo
-     * is the first of the brand's own products of that type. `value` is what
-     * the collection's filter takes for it.
+     * in both, as the collection's type filter finds it under both. A stone
+     * type's photo is its own thumbnail (set on its Products page); a
+     * furniture type has none, so its photo is the brand's first piece of
+     * that type. `value` is what the collection's filter takes for it: the
+     * type's slug. A type switched off has no tile, as it is no filter, while
+     * its products are still listed and counted, stones and furniture alike.
      *
      * @return array{stones: int, furniture: int, types: list<array{collection: 'stones'|'furniture', value: string, name: string, count: int, thumbnail: string|null}>}
      */
@@ -44,7 +47,7 @@ class BrandService
 
         foreach ($products['stones'] as $stone) {
             foreach ($stone->types as $type) {
-                $stoneTypes[$type->id] ??= ['type' => $type, 'count' => 0, 'thumbnail' => $stone->thumbnail_path];
+                $stoneTypes[$type->id] ??= ['type' => $type, 'count' => 0, 'thumbnail' => $type->thumbnail_path];
                 $stoneTypes[$type->id]['count']++;
             }
         }
@@ -53,6 +56,10 @@ class BrandService
         $furnitureTypes = [];
 
         foreach ($products['furniture'] as $piece) {
+            if (! $piece->furnitureType->is_active) {
+                continue;
+            }
+
             $furnitureTypes[$piece->furniture_type_id] ??= ['type' => $piece->furnitureType, 'count' => 0, 'thumbnail' => null];
             $furnitureTypes[$piece->furniture_type_id]['count']++;
             $furnitureTypes[$piece->furniture_type_id]['thumbnail'] ??= $piece->thumbnail_path;
@@ -77,7 +84,7 @@ class BrandService
         foreach ($furnitureTypes as $offer) {
             $types[] = [
                 'collection' => 'furniture',
-                'value' => $offer['type']->name,
+                'value' => $offer['type']->slug,
                 'name' => $offer['type']->name,
                 'count' => $offer['count'],
                 'thumbnail' => $offer['thumbnail'] === null ? null : ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),

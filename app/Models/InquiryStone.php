@@ -63,13 +63,14 @@ class InquiryStone extends Model
     /** @return BelongsTo<EdgeProfile, $this> */
     public function edgeProfile(): BelongsTo
     {
-        return $this->belongsTo(EdgeProfile::class);
+        // A past inquiry keeps the edge profile it asked for, archived or not.
+        return $this->belongsTo(EdgeProfile::class)->withTrashed();
     }
 
     /** @return BelongsTo<Finish, $this> */
     public function finish(): BelongsTo
     {
-        return $this->belongsTo(Finish::class);
+        return $this->belongsTo(Finish::class)->withTrashed();
     }
 
     /** "160 x 320 cm", or null when its service does not ask for a slab size. */

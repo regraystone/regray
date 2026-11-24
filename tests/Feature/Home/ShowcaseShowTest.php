@@ -3,6 +3,7 @@
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\Brand;
 use App\Models\Showcase;
 use App\Models\ShowcaseCategory;
 use App\Models\Stone;
@@ -110,6 +111,19 @@ test('inactive stones and categories are omitted from a profile', function (): v
                 ['slug' => 'commercial-spaces', 'name' => 'Commercial Spaces'],
                 ['slug' => 'countertops-backsplash', 'name' => 'Countertops & Backsplash'],
             ])
+        );
+});
+
+test('stones of an archived brand are omitted from a profile, whose pages are gone', function (): void {
+    $stone = Stone::query()->where('slug', 'arancia')->firstOrFail();
+    $stone->update(['brand_id' => Brand::factory()->create(['archived_at' => now()])->id]);
+    $user = User::factory()->role(Role::Client)->create();
+
+    $this->actingAs($user)->get(route('home.show', 'ginza-one'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('showcase.data.stones', 1)
+            ->where('showcase.data.stones.0.slug', 'glacier-white')
         );
 });
 

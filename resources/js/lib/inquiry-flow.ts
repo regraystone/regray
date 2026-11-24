@@ -1406,6 +1406,58 @@ export const readInquiryFlash = (flash: unknown): InquiryFlash | null => {
 /* Editing a sent inquiry                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The service types with each edited inquiry's own listed answers added to
+ * its service's questions, where they are no longer offered: a closed list's
+ * among its options, a listed value among its suggestions. The edit then
+ * shows them and its checks take them, as the server keeps them
+ * (UpdateInquiryRequest). A new inquiry has none.
+ */
+export const withHeldChoices = (
+    serviceTypes: ServiceTypeOption[],
+    projects: ReadonlyArray<{
+        serviceId: string | null;
+        heldChoices?: Record<string, ServiceFieldChoice[]>;
+    }>,
+): ServiceTypeOption[] =>
+    projects.reduce((types, { serviceId, heldChoices }) => {
+        if (serviceId === null || heldChoices === undefined) {
+            return types;
+        }
+
+        return types.map((type) => ({
+            ...type,
+            services: type.services.map((service) =>
+                service.id !== serviceId
+                    ? service
+                    : {
+                          ...service,
+                          fields: service.fields.map((field) => {
+                              const held = heldChoices[field.slug] ?? [];
+                              const key =
+                                  field.answerType === 'choice' ||
+                                  field.options.length > 0
+                                      ? 'options'
+                                      : 'suggestions';
+                              const missing = held.filter(
+                                  (choice) =>
+                                      !field[key].some(
+                                          ({ value }) => value === choice.value,
+                                      ),
+                              );
+
+                              return missing.length === 0
+                                  ? field
+                                  : {
+                                        ...field,
+                                        [key]: [...field[key], ...missing],
+                                    };
+                          }),
+                      },
+            ),
+        }));
+    }, serviceTypes);
+
 /** One project as InquiryEditResource sends it. */
 export type InquiryEditProject = {
     id: number;
@@ -1414,6 +1466,15 @@ export type InquiryEditProject = {
     serviceId: string | null;
     /** The service it already has, which may no longer be offered to new inquiries. */
     heldServiceType: ServiceTypeOption | null;
+    /**
+     * The listed answers it already has, by question slug (its edge profiles
+     * and finishes, closed options and listed values), which may since have
+     * been taken off their lists. The page lists them beside what is offered,
+     * so the edit shows and keeps them (withHeldChoices).
+     */
+    heldChoices?: Record<string, ServiceFieldChoice[]>;
+    /** The brands it names, as the Brand question lists them: one may be archived since. */
+    heldBrands?: Array<{ id: string; name: string; logo: string }>;
     /** Its stones as cards, which may be on no page of stones reached yet. */
     heldStones: Array<
         {

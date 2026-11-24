@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\Role;
+use App\Http\Resources\ShowcaseCardResource;
 use App\Models\Brand;
 use App\Models\Furniture;
 use App\Models\Showcase;
 use App\Models\Stone;
+use App\Models\StoneType;
 use App\Models\User;
 use Database\Seeders\BrandSeeder;
 use Database\Seeders\FurnitureSeeder;
@@ -55,7 +57,7 @@ test('what a brand offers is counted from its active stones and furniture, type 
 
                 return $marble['collection'] === 'stones'
                     && $marble['count'] === activeStonesOfType($brand, 'marble')
-                    && $marble['thumbnail'] !== null
+                    && $marble['thumbnail'] === ShowcaseCardResource::resolveThumbnailUrl(StoneType::query()->where('slug', 'marble')->value('thumbnail_path'))
                     && $furniture->sum('count') === Furniture::query()->active()->where('brand_id', $brand->id)->count()
                     && $types->search(fn (array $type): bool => $type['collection'] === 'furniture') > $types->search(fn (array $type): bool => $type['collection'] === 'stones');
             }));

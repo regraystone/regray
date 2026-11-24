@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
@@ -20,12 +21,15 @@ use Illuminate\Support\Carbon;
  * @property bool $is_active
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property Carbon|null $deleted_at Archived (the soft delete) from its Products page.
  */
 #[Fillable(['slug', 'name', 'sort_order', 'is_active'])]
 class FurnitureType extends Model
 {
     /** @use HasFactory<FurnitureTypeFactory> */
     use HasFactory;
+
+    use SoftDeletes;
 
     protected function casts(): array
     {

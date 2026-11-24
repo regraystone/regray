@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { Armchair, ArrowLeft, ArrowRight, Heart } from 'lucide-react';
+import ProductPhotos, { productPhotos } from '@/components/product-photos';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedFurniture } from '@/hooks/use-saved-stones';
 import { login } from '@/routes';
@@ -25,7 +26,6 @@ type FurnitureProfileProps = {
     related: FurnitureCardData[];
 };
 
-/** A row of what the piece can be made in or with. */
 /** How many choices a row shows before "+N more". */
 const SHOWN_CHOICES = 2;
 
@@ -89,7 +89,8 @@ const OptionRow = ({
 };
 
 /**
- * A piece of furniture: its photo beside its type, brand, name and
+ * A piece of furniture: its photo (click to see it large, and its other
+ * photos below to pick from) beside its type, brand, name and
  * description, then what a client may choose for it in an inquiry (the
  * stones, base, edge, finish and seats its Inquire service offers), with Ask
  * a quote and Save together. Below, more pieces of the same type. A
@@ -221,24 +222,27 @@ const FurnitureProfile = ({
 
             <section
                 aria-label={furniture.name}
-                className="grid grid-cols-1 items-start gap-[clamp(1.5rem,4vw,4.5rem)] pb-[clamp(4rem,8vw,7rem)] lg:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)]"
+                className="grid grid-cols-1 items-start gap-[clamp(1.5rem,4vw,4.5rem)] pb-[clamp(3.5rem,7vw,6rem)] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:grid-cols-[minmax(0,1fr)_minmax(22rem,1.2fr)]"
             >
-                <div className="flex aspect-square items-center justify-center overflow-hidden bg-muted/50">
-                    {furniture.thumbnail ? (
-                        <img
-                            src={furniture.thumbnail}
-                            alt={`${furniture.name}, a ${typeName.toLowerCase()} piece by ${brand.name}`}
-                            className="size-full object-cover"
-                        />
-                    ) : (
+                <ProductPhotos
+                    key={furniture.slug}
+                    name={furniture.name}
+                    alt={`${furniture.name}, a ${typeName.toLowerCase()} piece by ${brand.name}`}
+                    photos={productPhotos(
+                        furniture.thumbnail,
+                        furniture.gallery,
+                        furniture.name,
+                    )}
+                    frameClassName="aspect-square max-w-md lg:max-w-[32rem]"
+                    placeholder={
                         <Armchair
                             aria-hidden
                             className="size-16 text-secondary-foreground/50"
                         />
-                    )}
-                </div>
+                    }
+                />
 
-                <div className="flex flex-col gap-7 lg:sticky lg:top-24">
+                <div className="flex flex-col gap-7">
                     <div className="flex flex-col gap-3">
                         <p className="text-xs tracking-[0.14em] text-secondary-foreground uppercase">
                             {typeName} · {brand.name}

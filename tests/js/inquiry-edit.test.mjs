@@ -6,6 +6,7 @@ import {
     deadlineLocks,
     reviewActions,
     toEditFormProjects,
+    withHeldChoices,
 } from '../../resources/js/lib/inquiry-flow.ts';
 
 /** The address an inquiry keeps, as the server sends it. */
@@ -288,5 +289,73 @@ describe('buildInquiryFormData when editing', () => {
         );
 
         assert.equal(body.get('projects[0][id]'), null);
+    });
+});
+
+describe('withHeldChoices', () => {
+    const field = (slug, answerType, options = [], suggestions = []) => ({
+        slug,
+        label: slug,
+        scope: 'project',
+        answerType,
+        required: false,
+        allowsCustom: false,
+        options,
+        suggestions,
+    });
+    const types = [
+        {
+            id: 'slabs',
+            name: 'Slabs',
+            services: [
+                {
+                    id: 'slab-supply-only',
+                    fields: [
+                        field('finish', 'choice', [
+                            { value: 'Polished', label: 'Polished' },
+                        ]),
+                        field(
+                            'area',
+                            'number',
+                            [],
+                            [{ value: '10', label: '10' }],
+                        ),
+                        field('waterfall', 'boolean'),
+                    ],
+                },
+                { id: 'flooring', fields: [field('finish', 'choice', [])] },
+            ],
+        },
+    ];
+
+    it("lists an edited inquiry's own answers on its service's questions, beside what is offered", () => {
+        const [type] = withHeldChoices(types, [
+            {
+                serviceId: 'slab-supply-only',
+                heldChoices: {
+                    finish: [
+                        { value: 'Polished', label: 'Polished' },
+                        { value: 'Honed', label: 'Honed', isAdvisory: false },
+                    ],
+                    area: [{ value: '12.5', label: '12.5' }],
+                },
+            },
+        ]);
+        const [slab, flooring] = type.services;
+
+        assert.deepEqual(
+            slab.fields[0].options.map(({ value }) => value),
+            ['Polished', 'Honed'],
+        );
+        assert.deepEqual(
+            slab.fields[1].suggestions.map(({ value }) => value),
+            ['10', '12.5'],
+        );
+        assert.equal(slab.fields[2], types[0].services[0].fields[2]);
+        assert.equal(flooring, types[0].services[1]);
+    });
+
+    it('changes nothing for a new inquiry', () => {
+        assert.equal(withHeldChoices(types, [])[0], types[0]);
     });
 });
