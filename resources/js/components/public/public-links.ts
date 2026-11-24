@@ -1,6 +1,5 @@
 import { about, brands, contact, news, showroom } from '@/routes/company';
 import { show as brandsShow } from '@/routes/brands';
-import { inquire } from '@/routes/quote';
 
 /**
  * Everything the public pages say about where and how to reach Regray, in one
@@ -49,9 +48,6 @@ export const CONTACT = {
 export const mailTo = (subject: string) =>
     `mailto:${CONTACT.email}?subject=${encodeURIComponent(subject)}`;
 
-/** Regray Stone's journal, on regraystone.com. */
-export const JOURNAL = 'https://regraystone.com/journal/';
-
 /** Where to find Regray online. */
 export const SOCIALS = [
     {
@@ -87,41 +83,6 @@ export const SOCIALS = [
 ] as const;
 
 /**
- * The brands by what they make, by slug, as Our brands groups them. A brand
- * may sit in more than one group; one in none is listed under "More brands".
- */
-export const BRAND_CATEGORIES = [
-    {
-        id: 'stone-surfaces',
-        label: 'Stone & Surfaces',
-        description:
-            'Natural stone, sintered stone and engineered surfaces for countertops, walls, floors and façades.',
-        slugs: ['regray-stone', 'ascale', 'reform'],
-    },
-    {
-        id: 'kitchens',
-        label: 'Kitchens',
-        description:
-            'Italian kitchens with customisable layouts, premium materials and contemporary finishes.',
-        slugs: ['cucine'],
-    },
-    {
-        id: 'wardrobes-doors',
-        label: 'Wardrobes & Doors',
-        description:
-            'Wardrobes, bedrooms, interior doors and door systems, made in Italy.',
-        slugs: ['faer', 'res-italia'],
-    },
-    {
-        id: 'furniture-interiors',
-        label: 'Furniture & Interiors',
-        description:
-            'Bespoke stone tables and pedestals, and furniture for the rest of the home.',
-        slugs: ['regray-stone', 'faer'],
-    },
-] as const;
-
-/**
  * Each brand logo's height in px at full size, by slug, so the names read at
  * about one size: the square Lube badge is tallest, the long Faer wordmark
  * lowest. The landing page's brand wall and a brand's page scale it.
@@ -136,14 +97,33 @@ export const BRAND_LOGO_HEIGHT: Record<string, number> = {
 };
 export const DEFAULT_BRAND_LOGO_HEIGHT = 40;
 
-export type MenuLink = { label: string; href: string; external?: boolean };
+/** A menu link; `children` are shown indented under it, as the pages within it. */
+export type MenuLink = {
+    label: string;
+    href: string;
+    external?: boolean;
+    children?: MenuLink[];
+};
+
+/** A panel's links as the rows the menu draws, each child after its parent, one level in. */
+export const menuRows = (
+    links: MenuLink[],
+): Array<MenuLink & { depth: 0 | 1 }> =>
+    links.flatMap((link) => [
+        { ...link, depth: 0 as const },
+        ...(link.children ?? []).map((child) => ({
+            ...child,
+            depth: 1 as const,
+        })),
+    ]);
 
 /** A tab that opens a panel: what it holds, its main link, its links and a photo. */
 export type MenuPanel = {
     kind: 'panel';
     label: string;
     description: string;
-    cta: MenuLink;
+    /** The panel's main link, under its line; left out when its list already starts with it. */
+    cta?: MenuLink;
     links: MenuLink[];
     image: string;
 };
@@ -154,74 +134,43 @@ export type MenuPage = { kind: 'page'; label: string; href: string };
 export type MenuItem = MenuPanel | MenuPage;
 
 /**
- * The header's menu, in the agreed order: every tab opens a panel. The
+ * The header's menu, in the agreed order. Our brands, News and Contact are
+ * plain links to their one page each; Discover opens a panel. The
  * showroom is a link under Discover, not a tab of its own: its one page
  * holds the photos, the location and booking a visit. (A tab may
  * instead be a plain link to its page, `kind: 'page'`.) Pages a guest cannot
  * open yet (the Inquire page) go through Login first.
  */
-export const menuItems = (brandPhoto: string | null): MenuItem[] => [
-    {
-        kind: 'panel',
-        label: 'Our brands',
-        description:
-            'Six brands of stone, kitchens, wardrobes, doors and furniture, each with its own collection.',
-        cta: { label: 'All brands', href: brands.url() },
-        links: BRAND_CATEGORIES.map((category) => ({
-            label: category.label,
-            href: `${brands.url()}#${category.id}`,
-        })),
-        image: brandPhoto ?? '/images/regray-slabs.jpg',
-    },
+export const menuItems = (): MenuItem[] => [
+    // One page introduces every brand, so the tab goes straight to it.
+    { kind: 'page', label: 'Our brands', href: brands.url() },
     {
         kind: 'panel',
         label: 'Discover',
         description:
             'Who we are, our showroom in Makati, and how to work with us.',
-        cta: { label: 'About Regray', href: about.url() },
         links: [
-            { label: 'Our story', href: `${about.url()}#story` },
-            { label: 'The Regray Group', href: `${about.url()}#group` },
+            {
+                label: 'About Regray Design Group',
+                href: about.url(),
+                children: [
+                    { label: 'Our story', href: `${about.url()}#story` },
+                    {
+                        label: 'Mission & vision',
+                        href: `${about.url()}#vision`,
+                    },
+                    { label: 'The Regray Group', href: `${about.url()}#group` },
+                ],
+            },
             // One page holds the showroom: its photos, where it is and booking a visit.
             { label: 'Showroom', href: showroom.url() },
-            { label: 'Mission & vision', href: `${about.url()}#vision` },
             { label: 'Partnerships', href: `${about.url()}#partnerships` },
             { label: 'Careers', href: `${about.url()}#careers` },
         ],
         image: '/images/regray-slabs.jpg',
     },
-    {
-        kind: 'panel',
-        label: 'News',
-        description:
-            'Homes we have recently finished, and what is new at Regray.',
-        cta: { label: 'All news', href: news.url() },
-        links: [
-            { label: 'Latest showcases', href: news.url() },
-            { label: 'Regray Journal', href: JOURNAL, external: true },
-            { label: 'Instagram', href: SOCIALS[0].href, external: true },
-            { label: 'Facebook', href: SOCIALS[1].href, external: true },
-        ],
-        image: '/images/regray-hero.jpg',
-    },
-    {
-        kind: 'panel',
-        label: 'Contact',
-        description: 'Call, email or visit us. We are happy to help.',
-        cta: { label: 'Contact us', href: contact.url() },
-        links: [
-            { label: 'General inquiries', href: `${contact.url()}#general` },
-            { label: 'Sales & quotations', href: inquire.url() },
-            {
-                label: 'Architect & designer partnerships',
-                href: `${contact.url()}#trade`,
-            },
-            {
-                label: 'Supplier & business inquiries',
-                href: `${contact.url()}#business`,
-            },
-            { label: 'Contact information', href: `${contact.url()}#info` },
-        ],
-        image: '/images/regray-showroom.jpg',
-    },
+    // One page holds the news, so the tab goes straight to it.
+    { kind: 'page', label: 'News', href: news.url() },
+    // One page holds every way to reach the team, so the tab goes straight to it.
+    { kind: 'page', label: 'Contact', href: contact.url() },
 ];
