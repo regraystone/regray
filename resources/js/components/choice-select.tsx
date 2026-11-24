@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Combobox } from '@/components/ui/combobox';
 import {
     Select,
@@ -7,6 +7,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { distinctLabels } from '@/lib/distinct-labels';
 import { cn } from '@/lib/utils';
 
 export type ChoiceOption = { value: string; label: string };
@@ -23,7 +24,8 @@ export const SEARCH_FROM = 8;
  *
  * The value is the chosen option's `value`, or '' for none. Text typed in the
  * search that names no option leaves the value empty, so the form says to
- * choose one.
+ * choose one. Two options with the same label are told apart
+ * (distinctLabels), so typing or choosing one never picks the other.
  */
 const ChoiceSelect = ({
     id,
@@ -53,19 +55,27 @@ const ChoiceSelect = ({
     searchFrom?: number;
     className?: string;
 }) => {
-    const chosen = options.find((option) => option.value === value);
+    const named = useMemo(() => {
+        const display = distinctLabels(options, (option) => option.label);
+
+        return options.map((option, index) => ({
+            value: option.value,
+            label: display[index],
+        }));
+    }, [options]);
+    const chosen = named.find((option) => option.value === value);
     const [query, setQuery] = useState(chosen?.label ?? '');
 
     // A value set from outside (the form reset, an edit opened) shows its label.
     useEffect(() => {
         setQuery((current) => {
-            const named = options.find((option) => option.label === current);
+            const typed = named.find((option) => option.label === current);
 
-            return named?.value === value ? current : (chosen?.label ?? '');
+            return typed?.value === value ? current : (chosen?.label ?? '');
         });
-    }, [value, chosen, options]);
+    }, [value, chosen, named]);
 
-    if (options.length <= searchFrom) {
+    if (named.length <= searchFrom) {
         return (
             <Select value={value || undefined} onValueChange={onChange}>
                 <SelectTrigger
@@ -81,7 +91,7 @@ const ChoiceSelect = ({
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
                 <SelectContent>
-                    {options.map((option) => (
+                    {named.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                             {option.label}
                         </SelectItem>
@@ -91,7 +101,7 @@ const ChoiceSelect = ({
         );
     }
 
-    const labels = options.map((option) => option.label);
+    const labels = named.map((option) => option.label);
 
     return (
         <div className={cn('mt-2', className)} onBlur={onBlur}>
@@ -115,7 +125,7 @@ const ChoiceSelect = ({
                 aria-invalid={invalid}
                 onChange={(text) => {
                     setQuery(text);
-                    const option = options.find(
+                    const option = named.find(
                         (candidate) => candidate.label === text,
                     );
                     const next = option?.value ?? '';

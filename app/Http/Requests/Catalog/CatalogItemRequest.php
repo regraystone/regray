@@ -11,7 +11,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Validator;
 
 /**
- * Adding or changing one item of a list under Products: the list's own rules
+ * Adding or changing one item of a list under Products or Services: the list's own rules
  * (its definition's), checked against the item being changed (`{id}`), or
  * none when one is being added.
  */

@@ -82,6 +82,7 @@ import { index as quoteIndex, inquire as quoteInquire } from '@/routes/quote';
 import { index as salesIndex } from '@/routes/sales';
 import { index as savedIndex } from '@/routes/saved';
 import { edit as editSecurity } from '@/routes/security';
+import { index as serviceListIndex } from '@/routes/dashboard/services/lists';
 import { index as servicesIndex } from '@/routes/services';
 
 /**
@@ -89,8 +90,10 @@ import { index as servicesIndex } from '@/routes/services';
  *
  * The server shares the signed-in user's granted names as `auth.permissions`,
  * so the only thing that has to agree between the two sides is the spelling.
- * Keeping the union here means the sidebar's `permission` field is checked
- * against this list rather than being an untyped string.
+ * Keeping the union here means the sidebar's `permission` field, and
+ * `usePermissions().can()`, are checked against this list rather than an
+ * untyped string. It lists every case, the action permissions (create,
+ * update, archive, ...) included; PermissionMirrorTest keeps the two in step.
  *
  * `profileScheduleView` and `homeShowcasesView` are listed but no nav item names
  * them: each is the permission for a page reached from another page rather
@@ -130,6 +133,29 @@ export const permissions = {
     scheduleAttend: 'schedule.attend',
     conversationsCreate: 'conversations.create',
     supportClaim: 'support.claim',
+    leadsUpdate: 'leads.update',
+    homeStoneView: 'home-stone.view',
+    savedStoneView: 'saved-stone.view',
+    savedShowcasesView: 'saved-showcases.view',
+    inquiriesEdit: 'inquiries.edit',
+    inquiriesStatusSales: 'inquiries.status.sales',
+    inquiriesStatusPayment: 'inquiries.status.payment',
+    inquiriesStatusProcess: 'inquiries.status.process',
+    accountsCreate: 'accounts.create',
+    accountsUpdate: 'accounts.update',
+    accountsArchive: 'accounts.archive',
+    brandsCreate: 'brands.create',
+    brandsUpdate: 'brands.update',
+    brandsArchive: 'brands.archive',
+    showcasesCreate: 'showcases.create',
+    showcasesUpdate: 'showcases.update',
+    showcasesArchive: 'showcases.archive',
+    productsCreate: 'products.create',
+    productsUpdate: 'products.update',
+    productsArchive: 'products.archive',
+    servicesCreate: 'services.create',
+    servicesUpdate: 'services.update',
+    servicesArchive: 'services.archive',
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -166,6 +192,21 @@ const productPages = [
         slug,
         label,
         href: productListIndex.url(slug),
+    })),
+];
+
+/** Services' pages: every service, then the lists services are built from. */
+const servicePages = [
+    { slug: 'all-services', label: 'All services', href: servicesIndex.url() },
+    ...(
+        [
+            ['service-types', 'Service types'],
+            ['questions', 'Questions'],
+        ] as const
+    ).map(([slug, label]) => ({
+        slug,
+        label,
+        href: serviceListIndex.url(slug),
     })),
 ];
 
@@ -262,6 +303,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 href: servicesIndex.url(),
                 icon: Wrench,
                 permission: permissions.servicesView,
+                children: servicePages,
             },
             {
                 slug: 'showcases',
@@ -302,7 +344,7 @@ const allItems = navGroups.flatMap((group) =>
 );
 
 /**
- * A sidebar item with pages under it (Products): its row opens and closes
+ * A sidebar item with pages under it (Products, Services): its row opens and closes
  * the list of them, open by itself while one of them is the page shown, with
  * that one lit.
  */

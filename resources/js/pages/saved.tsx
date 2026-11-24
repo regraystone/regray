@@ -117,10 +117,16 @@ const Saved = ({ savedStones, savedFurniture, categories }: SavedPageProps) => {
                                                 thumbnail: stone.thumbnail,
                                                 category: stone.type,
                                             }}
-                                            href={brandStoneShow.url({
-                                                brand: stone.brand.slug,
-                                                stone: stone.slug,
-                                            })}
+                                            // Kept as history once its brand is archived, but its page is gone.
+                                            href={
+                                                stone.brand.archived
+                                                    ? undefined
+                                                    : brandStoneShow.url({
+                                                          brand: stone.brand
+                                                              .slug,
+                                                          stone: stone.slug,
+                                                      })
+                                            }
                                             saved
                                             onToggleSave={
                                                 canSave
@@ -147,10 +153,15 @@ const Saved = ({ savedStones, savedFurniture, categories }: SavedPageProps) => {
                                                 ...item,
                                                 category: item.furnitureType,
                                             }}
-                                            href={brandFurnitureShow.url({
-                                                brand: item.brand.slug,
-                                                furniture: item.slug,
-                                            })}
+                                            href={
+                                                item.brand.archived
+                                                    ? undefined
+                                                    : brandFurnitureShow.url({
+                                                          brand: item.brand
+                                                              .slug,
+                                                          furniture: item.slug,
+                                                      })
+                                            }
                                             saved
                                             onToggleSave={
                                                 furnitureSaves.canSave

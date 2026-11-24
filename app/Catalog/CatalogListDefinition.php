@@ -8,18 +8,22 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Validation\Validator;
 
 /**
- * One list products are built from, as its page under Products manages it:
+ * One list, as its page manages it (under Products or Services, CatalogList):
  * what the table shows, what the drawer asks, the rules it checks, and
  * whether an item may be archived. CatalogListService does the writing, the
- * same way for every list: in a transaction, audited, the item archived (the
- * soft delete) only while nothing on Regray uses it.
+ * same way for every list: in a transaction, audited, the item archived only
+ * while nothing on Regray uses it. Archiving is the soft delete, unless the
+ * list keeps its own mark (`live()`, `archiveItem()`).
  *
  * `fields()` describes the drawer's fields for the page to draw, so one page
  * serves every list. A field is
- * `{name, label, type, required?, hint?, maxLength?, step?, options?}`, its
- * type one of text, slug (a link's slug, made from the name while adding),
- * textarea, number, select (options `{value, label}`), multiselect (options
- * `{id, label}`), switch or image (the thumbnail).
+ * `{name, label, type, required?, hint?, maxLength?, maxItems?, step?, options?, showWhen?}`,
+ * its type one of text, slug (a link's slug, made from the name while
+ * adding), textarea, number, select (options `{value, label}`), multiselect
+ * (options `{id, label}`), tags (a short list of words, up to `maxItems`),
+ * switch or image (the thumbnail). `showWhen: {field, equals}` shows it only
+ * while another field has that value. A field an item's edit doesn't offer
+ * is in its row's `fixed`.
  *
  * @template TModel of Model
  */
@@ -45,6 +49,63 @@ abstract class CatalogListDefinition
 
     /** @return class-string<TModel> */
     abstract public function model(): string;
+
+    /**
+     * Its items still on the page, archived ones left out: the soft delete
+     * leaves them out by itself; a list with its own mark overrides this.
+     *
+     * @return Builder<TModel>
+     */
+    public function live(): Builder
+    {
+        return $this->model()::query();
+    }
+
+    /**
+     * Archive it, once nothing uses it: the soft delete, unless the list
+     * keeps its own mark.
+     *
+     * @param  TModel  $item
+     */
+    public function archiveItem(Model $item): void
+    {
+        $item->delete();
+    }
+
+    /**
+     * What its page calls the switch: the column, the filter's two states,
+     * and the toggle's two actions.
+     *
+     * @return array{header: string, on: string, off: string, turnOn: string, turnOff: string}
+     */
+    public function statusWords(): array
+    {
+        return ['header' => 'Offered', 'on' => 'Offered', 'off' => 'Not offered', 'turnOn' => 'Offer', 'turnOff' => 'Stop offering'];
+    }
+
+    /**
+     * The toast once its switch is flipped.
+     *
+     * @param  TModel  $item
+     */
+    public function statusMessage(Model $item, bool $active): string
+    {
+        return $active
+            ? self::say(':name is offered again.', ['name' => $this->name($item)])
+            : self::say(':name is no longer offered.', ['name' => $this->name($item)]);
+    }
+
+    /** What the Archive question says happens, and when it is refused. */
+    public function archiveDescription(): string
+    {
+        return self::say('It leaves this list and can no longer be chosen; past inquiries keep it. A :item a product or stone type still uses can\'t be archived.', ['item' => $this->singular()]);
+    }
+
+    /** What the empty list suggests. */
+    public function emptyDescription(): string
+    {
+        return self::say('Add a :item for products to use.', ['item' => $this->singular()]);
+    }
 
     /**
      * Every item on the page, with what its row counts, in the list's order,
@@ -91,10 +152,11 @@ abstract class CatalogListDefinition
     abstract public function name(Model $item): string;
 
     /**
-     * Its row's cells, by column key, and its form's values, by field name.
+     * Its row's cells, by column key, its form's values, by field name, and
+     * the fields its edit doesn't offer (`fixed`), if any.
      *
      * @param  TModel  $item
-     * @return array{cells: array<string, string>, values: array<string, mixed>, thumbnail?: string|null}
+     * @return array{cells: array<string, string>, values: array<string, mixed>, thumbnail?: string|null, fixed?: list<string>}
      */
     abstract public function row(Model $item): array;
 
@@ -159,16 +221,45 @@ abstract class CatalogListDefinition
         return $count.' '.($count === 1 ? $one : $many);
     }
 
+    /**
+     * A rule that the value is not already some other item's `$column`,
+     * ignoring case, as a unique `lower(...)` index holds it: among every
+     * item, archived ones included, or only the ones not archived when the
+     * index leaves those out.
+     *
+     * @param  literal-string  $column
+     * @param  TModel|null  $item  The item being changed, or null when one is being added.
+     * @return \Closure(string, mixed, \Closure(string): mixed): void
+     */
+    protected function uniqueIgnoringCase(string $column, ?Model $item, string $message, bool $archivedToo = true): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($column, $item, $message, $archivedToo): void {
+            if (! is_string($value)) {
+                return;
+            }
+
+            $taken = $this->model()::query()
+                ->when($archivedToo, fn (Builder $query) => $query->withoutGlobalScope(SoftDeletingScope::class))
+                ->whereRaw("lower({$column}) = ?", [mb_strtolower($value)])
+                ->when($item !== null, fn (Builder $query) => $query->whereKeyNot($item->getKey()))
+                ->exists();
+
+            if ($taken) {
+                $fail($message);
+            }
+        };
+    }
+
     /** @return array<string, mixed> The display order field. */
     protected static function orderField(): array
     {
-        return ['name' => 'sort_order', 'label' => 'Display order', 'type' => 'number', 'step' => '1', 'hint' => 'Lower comes first. Left empty, it goes last.'];
+        return ['name' => 'sort_order', 'label' => 'Display order', 'type' => 'number', 'step' => '1', 'hint' => 'Lower comes first. Left empty, a new one goes last and one already listed keeps its place.'];
     }
 
     /** @return array<string, mixed> The on/off field. */
-    protected static function activeField(string $hint): array
+    protected static function activeField(string $hint, string $label = 'Offered on Regray'): array
     {
-        return ['name' => 'is_active', 'label' => 'Offered on Regray', 'type' => 'switch', 'hint' => $hint];
+        return ['name' => 'is_active', 'label' => $label, 'type' => 'switch', 'hint' => $hint];
     }
 
     /** @return array<string, array<int, mixed>> The rules for the display order and the switch. */
@@ -181,8 +272,8 @@ abstract class CatalogListDefinition
     }
 
     /**
-     * The display order and switch from the form, the order after the last
-     * item when it is left empty.
+     * The display order and switch from the form. Left empty, a new item goes
+     * after the last one and an existing item keeps its order.
      *
      * @param  array<string, mixed>  $data
      */

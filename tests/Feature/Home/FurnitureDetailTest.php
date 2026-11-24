@@ -73,12 +73,16 @@ test('an edge profile that is switched off is not offered', function (): void {
 test('the page steps to the brand\'s previous and next pieces, and lists more of the same type', function (): void {
     $pieces = Furniture::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->pluck('slug')->values();
     $middle = $pieces[1];
+    $sameType = Furniture::query()->where('is_active', true)
+        ->where('furniture_type_id', Furniture::query()->where('slug', $middle)->value('furniture_type_id'))
+        ->where('slug', '!=', $middle)
+        ->count();
 
     furniturePage($middle)
         ->assertInertia(fn (Assert $page) => $page
             ->where('previous.slug', $pieces[0])
             ->where('next.slug', $pieces[2])
-            ->has('related', min(4, $pieces->count() - 1))
+            ->has('related', min(4, $sameType))
             ->where('related', fn ($related): bool => collect($related)->doesntContain('slug', $middle)));
 
     furniturePage($pieces[0])->assertInertia(fn (Assert $page) => $page->where('previous', null));

@@ -4,6 +4,7 @@ use App\Enums\HomeGridPageSize;
 use App\Enums\Role;
 use App\Models\Brand;
 use App\Models\Furniture;
+use App\Models\FurnitureType;
 use App\Models\Stone;
 use App\Models\StoneType;
 use App\Models\User;
@@ -56,8 +57,8 @@ test('offers what active stones hold in both collections, matched or not, and no
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 0)
             ->has('filterOptions.furnitureTypes', 4)
-            ->where('filterOptions.furnitureTypes.0', ['value' => 'Center & Side Tables', 'label' => 'Center & Side Tables'])
-            ->where('filterOptions.furnitureTypes.1', ['value' => 'Dining Tables', 'label' => 'Dining Tables'])
+            ->where('filterOptions.furnitureTypes.0', ['value' => 'center-side-tables', 'label' => 'Center & Side Tables'])
+            ->where('filterOptions.furnitureTypes.1', ['value' => 'dining-tables', 'label' => 'Dining Tables'])
         );
 });
 
@@ -129,16 +130,17 @@ test('furniture filters by furniture type and search, a page at a time', functio
                 'name' => 'Alora',
                 'thumbnail' => '/storage/furniture/7d54e2740ed811b994f831e3af754ca8.jpg',
                 'brand' => ['slug' => 'regray-stone', 'name' => 'Regray Stone'],
-                'furnitureType' => ['slug' => 'dining-tables', 'name' => 'Dining Tables'],
+                'furnitureType' => ['slug' => 'center-side-tables', 'name' => 'Center & Side Tables'],
             ])
             ->where('filters.collection', 'furniture')
             ->where('filters.perPage', 24)
         );
 
-    $this->actingAs($user)->get($page(['furniture_type' => 'Dining Tables']))
+    $this->actingAs($user)->get($page(['furniture_type' => 'dining-tables']))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('products.data', 6)
-            ->where('filters.furnitureType', 'Dining Tables')
+            ->has('products.data', 4)
+            ->where('products.data', fn ($products) => collect($products)->pluck('slug')->doesntContain('alora'))
+            ->where('filters.furnitureType', 'dining-tables')
         );
 
     $this->actingAs($user)->get($page(['search' => 'alora']))
@@ -216,7 +218,7 @@ test('the second param is ignored under All Categories, and a param from the oth
     $stone = Stone::factory()->for($this->brand)->create();
     $furniture = Furniture::factory()->for($this->brand)->ofType('Pedestal')->create();
 
-    $this->get(brandPage(['collection' => 'all', 'type' => 'no-such-type', 'furniture_type' => 'Dining Tables']))
+    $this->get(brandPage(['collection' => 'all', 'type' => 'no-such-type', 'furniture_type' => 'dining-tables']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('products.meta.total', 2)
@@ -224,7 +226,7 @@ test('the second param is ignored under All Categories, and a param from the oth
             ->where('filters.furnitureType', null)
         );
 
-    $this->get(brandPage(['collection' => 'stones', 'furniture_type' => 'Dining Tables']))
+    $this->get(brandPage(['collection' => 'stones', 'furniture_type' => 'dining-tables']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('products.data', 1)->where('products.data.0.slug', $stone->slug));
 
@@ -292,4 +294,33 @@ test('home and the landing page have the brands and no collection, and ignore th
             ->missing('filters')
             ->missing('filterOptions')
         );
+});
+
+test('the furniture filter goes by the type\'s slug, so renaming the type keeps its link', function (): void {
+    $table = Furniture::factory()->for($this->brand)->ofType('Dining Tables')->create();
+    Furniture::factory()->for($this->brand)->ofType('Pedestal')->create();
+    FurnitureType::query()->where('slug', 'dining-tables')->update(['name' => 'Tables for Dining']);
+
+    $this->get(brandPage(['collection' => 'furniture', 'furniture_type' => 'dining-tables']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.slug', $table->slug)
+            ->where('offer.types', fn ($types) => collect($types)->contains(fn ($type) => $type['collection'] === 'furniture' && $type['value'] === 'dining-tables' && $type['name'] === 'Tables for Dining')));
+});
+
+test('a furniture type switched off leaves its tile and filter, while its pieces are still listed and counted', function (): void {
+    Furniture::factory()->for($this->brand)->ofType('Dining Tables')->create();
+    Furniture::factory()->for($this->brand)->ofType('Pedestal')->create();
+    FurnitureType::query()->where('slug', 'pedestal')->update(['is_active' => false]);
+
+    $this->get(brandPage(['collection' => 'furniture']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 2)
+            ->where('offer.furniture', 2)
+            ->where('offer.types', fn ($types) => collect($types)->where('collection', 'furniture')->pluck('value')->all() === ['dining-tables']));
+
+    $this->get(brandPage(['collection' => 'furniture', 'furniture_type' => 'pedestal']))
+        ->assertRedirect(brandPage(['collection' => 'furniture']));
 });

@@ -18,6 +18,7 @@ import FormField from '@/components/form-field';
 import ImageField from '@/components/image-field';
 import MultiSelect from '@/components/multi-select';
 import PageHeader from '@/components/page-header';
+import TagInput from '@/components/tag-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -31,22 +32,32 @@ import {
     WEBP,
 } from '@/lib/image-upload';
 import { SLUG_PATTERN, slugify } from '@/lib/slug';
-import * as listRoutes from '@/routes/dashboard/products/lists';
+import * as productListRoutes from '@/routes/dashboard/products/lists';
+import * as serviceListRoutes from '@/routes/dashboard/services/lists';
 import type {
     CatalogField,
     CatalogItem,
+    CatalogListInfo,
     CatalogListPageProps,
 } from '@/types/catalog-list';
 
 const ONLY = ['items', 'filters'];
 
+/** Each section's list routes: Products' lists, and Services'. */
+const ROUTES: Record<CatalogListInfo['section'], typeof productListRoutes> = {
+    products: productListRoutes,
+    services: serviceListRoutes,
+};
+
 const IMAGE_TYPES = [PNG, JPG, WEBP];
 const IMAGE_ACCEPT = imageAccept(IMAGE_TYPES);
 
-const STATUS_OPTIONS: DataTableFilterOption[] = [
+const statusOptions = (
+    words: CatalogListInfo['statusWords'],
+): DataTableFilterOption[] => [
     { value: 'all', label: 'All statuses' },
-    { value: 'active', label: 'Offered' },
-    { value: 'inactive', label: 'Not offered' },
+    { value: 'active', label: words.on },
+    { value: 'inactive', label: words.off },
 ];
 
 type Values = Record<string, unknown>;
@@ -55,6 +66,7 @@ type Values = Record<string, unknown>;
 const emptyValue = (field: CatalogField): unknown => {
     switch (field.type) {
         case 'multiselect':
+        case 'tags':
             return [];
         case 'switch':
             // A new item is offered; it is not an "advise me" choice.
@@ -82,15 +94,32 @@ const fromItem = (fields: CatalogField[], item: CatalogItem): Values =>
 const lower = (label: string) => label.charAt(0).toLowerCase() + label.slice(1);
 
 /**
+ * Whether the drawer offers this field now: not one the item being edited
+ * keeps as it is (`fixed`), and, for one shown only beside another field's
+ * value (`showWhen`), while that field has it.
+ */
+const isOffered = (
+    field: CatalogField,
+    values: Values,
+    fixed: readonly string[],
+): boolean =>
+    !fixed.includes(field.name) &&
+    (field.showWhen === undefined ||
+        values[field.showWhen.field] === field.showWhen.equals);
+
+/**
  * The drawer's rules, built from the list's fields: what is required, how
  * long, a slug's shape and a thumbnail's type and size. Whether a name is
  * taken, and a list's own checks, only the server knows. Whether an item is
- * being added (a thumbnail is required then) is `adding`.
+ * being added (a thumbnail is required then) is `adding`; the fields the item
+ * being edited keeps as they are, `fixed`. A field the drawer doesn't offer
+ * now (isOffered()) is not checked.
  */
 const schemaFor = (
     fields: CatalogField[],
     thumbnailMaxKb: number,
     adding: { current: boolean },
+    fixed: { current: readonly string[] },
 ) =>
     z
         .object(
@@ -99,6 +128,8 @@ const schemaFor = (
                     switch (field.type) {
                         case 'multiselect':
                             return [field.name, z.array(z.number())];
+                        case 'tags':
+                            return [field.name, z.array(z.string())];
                         case 'switch':
                             return [field.name, z.boolean()];
                         case 'image':
@@ -111,17 +142,8 @@ const schemaFor = (
                                 ),
                             ];
                         case 'select':
-                            return [
-                                field.name,
-                                field.required
-                                    ? z
-                                          .string()
-                                          .min(
-                                              1,
-                                              `Choose the ${lower(field.label)}.`,
-                                          )
-                                    : z.string(),
-                            ];
+                            // Required is checked below, while it is offered.
+                            return [field.name, z.string()];
                         default: {
                             let text = z.string().trim();
 
@@ -167,6 +189,43 @@ const schemaFor = (
         )
         .superRefine((values, ctx) => {
             for (const field of fields) {
+                if (!isOffered(field, values, fixed.current)) {
+                    continue;
+                }
+
+                if (
+                    field.type === 'select' &&
+                    field.required &&
+                    values[field.name] === ''
+                ) {
+                    ctx.addIssue({
+                        code: 'custom',
+                        path: [field.name],
+                        message: `Choose the ${lower(field.label)}.`,
+                    });
+                }
+
+                if (field.type === 'tags') {
+                    const tags = values[field.name] as string[];
+
+                    if (field.required && tags.length < 2) {
+                        ctx.addIssue({
+                            code: 'custom',
+                            path: [field.name],
+                            message: `List at least two ${lower(field.label)}.`,
+                        });
+                    } else if (
+                        field.maxItems !== undefined &&
+                        tags.length > field.maxItems
+                    ) {
+                        ctx.addIssue({
+                            code: 'custom',
+                            path: [field.name],
+                            message: `List ${field.maxItems} ${lower(field.label)} at most.`,
+                        });
+                    }
+                }
+
                 if (
                     field.type === 'image' &&
                     field.required &&
@@ -185,10 +244,11 @@ const schemaFor = (
 type Drawer = { mode: 'add' } | { mode: 'edit'; item: CatalogItem };
 
 /**
- * A list's page under Products, one page for all eight (Stone types, Sizes,
- * Thicknesses, Finishes, Edge profiles, Furniture types, Applications, Care
- * tips): its items in the list's order, searched, and filtered by whether
- * they are offered where the list has a switch.
+ * A list's page, one page for all of them: under Products (Stone types,
+ * Sizes, Thicknesses, Finishes, Edge profiles, Furniture types, Applications,
+ * Care tips) and under Services (Service types, Questions). Its items in the
+ * list's order, searched, and filtered by their switch where the list has
+ * one; what the switch is called is the list's (`list.statusWords`).
  *
  * The drawer's fields are the list's (`list.fields`, from its definition on
  * the server). Archive asks first; an item still in use is refused, and the
@@ -202,6 +262,9 @@ const CatalogListPage = () => {
     const [processing, setProcessing] = useState(false);
     const [slugEdited, setSlugEdited] = useState(false);
     const adding = useRef(true);
+    const fixed = useRef<readonly string[]>([]);
+    const listRoutes = ROUTES[list.section];
+    const words = list.statusWords;
 
     const editing = drawer?.mode === 'edit' ? drawer.item : null;
     const hasImage = list.fields.some((field) => field.type === 'image');
@@ -210,7 +273,7 @@ const CatalogListPage = () => {
     const Singular = singular.charAt(0).toUpperCase() + singular.slice(1);
 
     const schema = useMemo(
-        () => schemaFor(list.fields, limits.thumbnailMaxKb, adding),
+        () => schemaFor(list.fields, limits.thumbnailMaxKb, adding, fixed),
         [list.fields, limits.thumbnailMaxKb],
     );
     const form = useForm<Values>({
@@ -221,14 +284,17 @@ const CatalogListPage = () => {
     const { register, handleSubmit, setError, setValue, reset, control } = form;
     const errors = form.formState.errors;
     const name = useWatch({ control, name: 'name' });
+    const watched = useWatch({ control });
 
     useEffect(() => {
         if (drawer?.mode === 'edit') {
             adding.current = false;
+            fixed.current = drawer.item.fixed;
             setSlugEdited(true);
             reset(fromItem(list.fields, drawer.item));
         } else if (drawer?.mode === 'add') {
             adding.current = true;
+            fixed.current = [];
             setSlugEdited(false);
             reset(emptyValues(list.fields));
         }
@@ -269,17 +335,28 @@ const CatalogListPage = () => {
     };
 
     const save = handleSubmit((values) => {
-        const payload: Record<string, File | string | boolean | number[]> = {};
+        const payload: Record<
+            string,
+            File | string | boolean | number[] | string[]
+        > = {};
 
         for (const field of list.fields) {
             const value = values[field.name];
+
+            if (!isOffered(field, values, fixed.current)) {
+                continue;
+            }
 
             if (field.type === 'image') {
                 if (value instanceof File) {
                     payload[field.name] = value;
                 }
             } else {
-                payload[field.name] = value as string | boolean | number[];
+                payload[field.name] = value as
+                    | string
+                    | boolean
+                    | number[]
+                    | string[];
             }
         }
 
@@ -369,12 +446,12 @@ const CatalogListPage = () => {
             ? [
                   {
                       key: 'status',
-                      header: 'Offered',
+                      header: words.header,
                       cell: (item: CatalogItem) => (
                           <StatusToggle
                               checked={item.isActive === true}
                               disabled={!item.canToggle}
-                              label={`${item.isActive ? 'Stop offering' : 'Offer'} ${item.name}`}
+                              label={`${item.isActive ? words.turnOff : words.turnOn} ${item.name}`}
                               onToggle={(active, visit) =>
                                   router.patch(
                                       listRoutes.status.url({
@@ -541,6 +618,30 @@ const CatalogListPage = () => {
                                     )}
                                 />
                             );
+                        case 'tags':
+                            return (
+                                <Controller
+                                    control={control}
+                                    name={field.name}
+                                    render={({ field: input }) => (
+                                        <TagInput
+                                            id={id}
+                                            value={
+                                                Array.isArray(input.value)
+                                                    ? (input.value as string[])
+                                                    : []
+                                            }
+                                            onChange={input.onChange}
+                                            onBlur={input.onBlur}
+                                            max={field.maxItems ?? 10}
+                                            maxLength={field.maxLength ?? 150}
+                                            placeholder="Type one, then Enter"
+                                            describedBy={describedBy}
+                                            invalid={invalid}
+                                        />
+                                    )}
+                                />
+                            );
                         case 'multiselect':
                             return (
                                 <Controller
@@ -645,10 +746,12 @@ const CatalogListPage = () => {
                 only={ONLY}
                 searchPlaceholder={`Search the ${lower(list.title)}`}
                 emptyTitle={`No ${lower(list.title)} yet`}
-                emptyDescription={`Add a ${singular} for products to use.`}
+                emptyDescription={list.emptyDescription}
                 filteredEmptyTitle={`No ${lower(list.title)} match that`}
                 filteredEmptyDescription="Try another search or status."
-                statusOptions={list.hasStatus ? STATUS_OPTIONS : undefined}
+                statusOptions={
+                    list.hasStatus ? statusOptions(words) : undefined
+                }
             />
 
             <FormDrawer
@@ -665,14 +768,24 @@ const CatalogListPage = () => {
                 processing={processing}
                 size={list.fields.length > 4 ? 'lg' : 'md'}
             >
-                <div className="space-y-6">{list.fields.map(renderField)}</div>
+                <div className="space-y-6">
+                    {list.fields
+                        .filter((field) =>
+                            isOffered(
+                                field,
+                                watched,
+                                editing ? editing.fixed : [],
+                            ),
+                        )
+                        .map(renderField)}
+                </div>
             </FormDrawer>
 
             <ConfirmDialog
                 open={archiving !== null}
                 onOpenChange={(open) => (open ? null : setArchiving(null))}
                 title={`Archive ${archiving?.name ?? `this ${singular}`}?`}
-                description={`It leaves this list and can no longer be chosen; past inquiries keep it. A ${singular} a product or stone type still uses can't be archived.`}
+                description={list.archiveDescription}
                 confirmLabel="Archive"
                 cancelLabel="Keep it"
                 onConfirm={archive}

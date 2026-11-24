@@ -8,6 +8,7 @@ use App\Models\Stone;
 use App\Models\User;
 use App\Repositories\Contracts\AuditLogRepositoryInterface;
 use App\Support\CatalogImages;
+use App\Support\CatalogLocks;
 use App\Support\PublicImageStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,7 @@ class StoneAdminService
             $stored = $this->gallery->store($gallery, self::DIRECTORY, $written);
 
             return DB::transaction(function () use ($stone, $data, $gallery, $stored, $by, $ipAddress, $userAgent): Stone {
+                self::holdCatalog($data);
                 $stone->save();
                 $this->writeRelations($stone, $data);
                 $this->gallery->arrange($stone->images(), $gallery, $stored);
@@ -93,6 +95,7 @@ class StoneAdminService
             $stored = $this->gallery->store($gallery, self::DIRECTORY, $written);
 
             return DB::transaction(function () use ($stone, $data, $gallery, $stored, $before, $by, $ipAddress, $userAgent): array {
+                self::holdCatalog($data);
                 $stone->save();
                 $this->writeRelations($stone, $data);
                 $removed = $this->gallery->arrange($stone->images(), $gallery, $stored);
@@ -155,6 +158,19 @@ class StoneAdminService
         }
 
         $stone->unsetRelation('types')->unsetRelation('variants');
+    }
+
+    /**
+     * Hold the types, sizes and thicknesses the stone is about to point at, so
+     * none can be archived under the save (CatalogLocks).
+     *
+     * @param  array{stone_type_id: int, types: list<int>, variants: list<array{size_id: int|null, thickness_id: int}>}  $data
+     */
+    private static function holdCatalog(array $data): void
+    {
+        CatalogLocks::hold('stone_types', [$data['stone_type_id'], ...$data['types']], 'stone_type_id', __('That stone type is no longer offered. Choose another.'));
+        CatalogLocks::hold('sizes', array_column($data['variants'], 'size_id'), 'variants', __('One of its sizes is no longer offered. Choose another.'));
+        CatalogLocks::hold('thicknesses', array_column($data['variants'], 'thickness_id'), 'variants', __('One of its thicknesses is no longer offered. Choose another.'));
     }
 
     /** After the brand's last stone. */

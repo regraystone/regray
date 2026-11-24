@@ -43,7 +43,7 @@ class CareTipList extends CatalogListDefinition
             ->when($escapedSearch !== null, fn (Builder $query) => $query->where('tip', 'ILIKE', "%{$escapedSearch}%"))
             ->withCount(['stoneTypes' => fn (Builder $types) => $types->whereNull('stone_types.deleted_at')])
             ->orderBy('tip')
-            ->orderBy('tip');
+            ->orderBy('id');
     }
 
     public function columns(): array

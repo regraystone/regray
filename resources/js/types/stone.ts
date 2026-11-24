@@ -14,7 +14,8 @@ export type StoneCardData = {
     slug: string;
     name: string;
     thumbnail: string;
-    brand: { slug: string; name: string };
+    /** `archived` only on a saved card of an archived brand's stone, whose page is gone. */
+    brand: { slug: string; name: string; archived?: true };
     type: { slug: string; name: string };
     /**
      * On the Inquire page only: the slabs the stone comes in (a size, null

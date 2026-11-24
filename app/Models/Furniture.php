@@ -57,6 +57,19 @@ class Furniture extends Model
     }
 
     /**
+     * The furniture the Products page lists, active or not: of a brand that is
+     * not archived. An archived brand's are kept only as history, so nothing
+     * on the Products page, nor its lists, counts or changes them.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function ofLiveBrand(Builder $query): void
+    {
+        $query->whereIn($query->qualifyColumn('brand_id'), Brand::query()->notArchived()->select('id'));
+    }
+
+    /**
      * The furniture shown on Regray: active, of a brand that is not archived.
      * A saved piece keeps reading it without this.
      *

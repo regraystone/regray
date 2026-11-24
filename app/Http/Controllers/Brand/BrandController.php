@@ -40,8 +40,8 @@ class BrandController extends Controller
             'filters' => $result['filters'],
             'filterOptions' => Inertia::once(fn () => [
                 ...$this->stoneRepository->filterOptions(),
-                'furnitureTypes' => FurnitureType::query()->active()->orderBy('sort_order')->pluck('name')
-                    ->map(fn (string $type): array => ['value' => $type, 'label' => $type])
+                'furnitureTypes' => FurnitureType::query()->active()->orderBy('sort_order')->orderBy('name')->get(['slug', 'name'])
+                    ->map(fn (FurnitureType $type): array => ['value' => $type->slug, 'label' => $type->name])
                     ->all(),
             ]),
             'offer' => $this->brandService->offerings($brand),

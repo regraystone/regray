@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Models\Brand;
 use App\Models\Showcase;
 use App\Models\ShowcaseCategory;
 use App\Models\Stone;
@@ -41,7 +42,9 @@ class ShowcaseRepository implements ShowcaseRepositoryInterface
                 'stones' => fn (Relation $stones) => $stones->getQuery()
                     ->select(['stones.id', 'stone_type_id', 'slug', 'name', 'thumbnail_path'])
                     ->with('type:id,slug,name')
-                    ->where('is_active', true)
+                    // Shown on Regray: switched on, and of a brand not archived (Stone::active()).
+                    ->where('stones.is_active', true)
+                    ->whereIn('stones.brand_id', Brand::query()->notArchived()->select('id'))
                     ->orderBy('sort_order')
                     ->orderBy('name'),
                 'categories' => fn (Relation $categories) => $categories->getQuery()
@@ -70,7 +73,9 @@ class ShowcaseRepository implements ShowcaseRepositoryInterface
                 'stones' => fn (Relation $stones) => $stones->getQuery()
                     ->select(['stones.id', 'stone_type_id', 'slug', 'name', 'thumbnail_path'])
                     ->with('type:id,slug,name')
-                    ->where('is_active', true)
+                    // Shown on Regray: switched on, and of a brand not archived (Stone::active()).
+                    ->where('stones.is_active', true)
+                    ->whereIn('stones.brand_id', Brand::query()->notArchived()->select('id'))
                     ->orderBy('sort_order')
                     ->orderBy('name'),
                 'categories' => fn (Relation $categories) => $categories->getQuery()

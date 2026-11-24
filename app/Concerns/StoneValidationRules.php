@@ -24,7 +24,7 @@ use Illuminate\Validation\Validator;
  * The brand is one not archived; the type and the other types it is listed
  * under are ones not archived, and the type an active one unless the stone
  * already has it. Its sizes are rows of one size (or none, for a stone sold
- * without set sizes, which `size_note` then describes) and one thickness,
+ * without set sizes, which `size_note` then has to describe) and one thickness,
  * each row one of its variants; a size and thickness come together once.
  */
 trait StoneValidationRules
@@ -157,6 +157,14 @@ trait StoneValidationRules
                 if (is_string($message)) {
                     $validator->errors()->forget('slug');
                     $validator->errors()->add('slug', $message);
+                }
+            },
+            function (Validator $validator): void {
+                $rows = (array) $this->input('variants', []);
+                $usesNoSize = array_filter($rows, fn (mixed $row): bool => is_array($row) && is_scalar($row['thickness_id'] ?? null) && ! is_scalar($row['size_id'] ?? null)) !== [];
+
+                if ($usesNoSize && $this->input('size_note') === null && ! $validator->errors()->has('size_note')) {
+                    $validator->errors()->add('size_note', __('Say how big the pieces run.'));
                 }
             },
             function (Validator $validator): void {

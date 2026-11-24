@@ -8,6 +8,7 @@ use App\Models\Furniture;
 use App\Models\User;
 use App\Repositories\Contracts\AuditLogRepositoryInterface;
 use App\Support\CatalogImages;
+use App\Support\CatalogLocks;
 use App\Support\PublicImageStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +51,7 @@ class FurnitureAdminService
             $stored = $this->gallery->store($gallery, self::DIRECTORY, $written);
 
             return DB::transaction(function () use ($piece, $gallery, $stored, $by, $ipAddress, $userAgent): Furniture {
+                self::holdType($piece);
                 $piece->save();
                 $this->gallery->arrange($piece->images(), $gallery, $stored);
                 $this->audit($by, AuditEvent::Created, $piece, null, self::snapshot($piece), $ipAddress, $userAgent);
@@ -85,6 +87,7 @@ class FurnitureAdminService
             $stored = $this->gallery->store($gallery, self::DIRECTORY, $written);
 
             return DB::transaction(function () use ($piece, $gallery, $stored, $before, $by, $ipAddress, $userAgent): array {
+                self::holdType($piece);
                 $piece->save();
                 $removed = $this->gallery->arrange($piece->images(), $gallery, $stored);
                 $this->audit($by, AuditEvent::Updated, $piece, $before, self::snapshot($piece), $ipAddress, $userAgent);
@@ -126,6 +129,12 @@ class FurnitureAdminService
         });
 
         return $piece;
+    }
+
+    /** Hold its furniture type, so it can't be archived under the save (CatalogLocks). */
+    private static function holdType(Furniture $piece): void
+    {
+        CatalogLocks::hold('furniture_types', [$piece->furniture_type_id], 'furniture_type_id', __('That furniture type is no longer offered. Choose another.'));
     }
 
     /** After the brand's last piece. */

@@ -1,5 +1,6 @@
 <?php
 
+use App\Catalog\Lists\StoneTypeList;
 use App\Enums\AuditEvent;
 use App\Enums\CatalogList;
 use App\Enums\Permission;
@@ -13,6 +14,8 @@ use App\Models\Finish;
 use App\Models\Furniture;
 use App\Models\FurnitureType;
 use App\Models\InquiryStone;
+use App\Models\Service;
+use App\Models\ServiceType;
 use App\Models\Size;
 use App\Models\Stone;
 use App\Models\StoneType;
@@ -22,6 +25,7 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /*
@@ -39,13 +43,14 @@ beforeEach(function (): void {
 
 function listUrl(CatalogList $list, ?int $id = null, string $action = ''): string
 {
-    return '/dashboard/products/'.$list->value.($id === null ? '' : '/'.$id).($action === '' ? '' : '/'.$action);
+    return "/dashboard/{$list->section()}/".$list->value.($id === null ? '' : '/'.$id).($action === '' ? '' : '/'.$action);
 }
 
 it('shows each list on its own page', function (CatalogList $list): void {
     $this->actingAs($this->admin)->get(listUrl($list))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('catalog-list')
             ->where('list.slug', $list->value)
+            ->where('list.section', $list->section())
             ->where('list.title', $list->definition()->title())
             ->has('items.data')
             ->where('canCreate', true));
@@ -225,7 +230,39 @@ it('refuses to archive an item still in use, saying why', function (Closure $mak
         ->assertSessionHasErrors(['archive' => $why]);
     expect($item->fresh()->trashed())->toBeFalse();
 })->with([
-    'stone type' => [fn () => tap(StoneType::factory()->create(['name' => 'Marble']), fn ($type) => Stone::factory()->for(Brand::factory())->create(['stone_type_id' => $type->id])), CatalogList::StoneTypes, 'Marble can\'t be archived. Used by 1 stone as their type. Give them another type first.'],
+    'stone type' => [fn () => tap(StoneType::factory()->create(['name' => 'Marble']), fn ($type) => Stone::factory()->for(Brand::factory())->create(['stone_type_id' => $type->id])), CatalogList::StoneTypes, 'Marble can\'t be archived. Used by 1 stone, as their type or one they are also listed under. Give them another type first.'],
+    'stone type a stone is also listed under' => [function () {
+        $type = StoneType::factory()->create(['name' => 'Onyx']);
+        Stone::factory()->for(Brand::factory())->create()->types()->attach($type);
+
+        return $type;
+    }, CatalogList::StoneTypes, 'Onyx can\'t be archived. Used by 1 stone, as their type or one they are also listed under. Give them another type first.'],
+    'stone type a service is made from' => [function () {
+        $type = StoneType::factory()->create(['name' => 'Granite']);
+        $serviceType = ServiceType::query()->create(['slug' => 'surfaces', 'name' => 'Surfaces', 'sort_order' => 0, 'is_active' => true]);
+        Service::query()->create(['service_type_id' => $serviceType->id, 'slug' => 'countertops', 'name' => 'Countertops', 'description' => 'Tops.', 'sort_order' => 0])
+            ->stoneTypes()->attach($type);
+
+        return $type;
+    }, CatalogList::StoneTypes, 'Granite can\'t be archived. The Services page makes 1 service from it. Take it off them first.'],
+    'thickness' => [function () {
+        $thickness = Thickness::factory()->create(['value' => '20', 'unit' => 'mm']);
+        StoneVariant::query()->create(['stone_id' => Stone::factory()->for(Brand::factory())->create()->id, 'size_id' => null, 'thickness_id' => $thickness->id, 'sort_order' => 0]);
+
+        return $thickness;
+    }, CatalogList::Thicknesses, '20 mm can\'t be archived. Used by 1 stone. Take it off their sizes first.'],
+    'application' => [function () {
+        $application = Application::query()->create(['name' => 'Floors']);
+        StoneType::factory()->create()->applications()->attach($application, ['sort_order' => 0]);
+
+        return $application;
+    }, CatalogList::Applications, 'Floors can\'t be archived. Used by 1 stone type. Take it off their applications first.'],
+    'care tip' => [function () {
+        $tip = CareTip::query()->create(['tip' => 'Seal it.']);
+        StoneType::factory()->create()->careTips()->attach($tip, ['sort_order' => 0]);
+
+        return $tip;
+    }, CatalogList::CareTips, 'Seal it. can\'t be archived. Used by 1 stone type. Take it off their care tips first.'],
     'size' => [function () {
         $size = Size::factory()->create(['width' => '60', 'length' => '60']);
         StoneVariant::query()->create(['stone_id' => Stone::factory()->for(Brand::factory())->create()->id, 'size_id' => $size->id, 'thickness_id' => Thickness::factory()->create()->id, 'sort_order' => 0]);
@@ -246,6 +283,109 @@ it('refuses to archive an item still in use, saying why', function (Closure $mak
     }, CatalogList::EdgeProfiles, 'Ogee can\'t be archived. Used by 1 stone type. Take it off their edge profiles first.'],
     'furniture type' => [fn () => tap(FurnitureType::factory()->create(['name' => 'Sofas']), fn ($type) => Furniture::factory()->for(Brand::factory())->create(['furniture_type_id' => $type->id])), CatalogList::FurnitureTypes, 'Sofas can\'t be archived. Used by 1 piece. Give them another type first.'],
 ]);
+
+it('archives an item only an archived brand\'s products use, as those are history', function (Closure $make, CatalogList $list): void {
+    $brand = Brand::factory()->create(['archived_at' => now()]);
+    $item = $make($brand);
+
+    $this->actingAs($this->admin)->post(listUrl($list, $item->id, 'archive'))->assertSessionHasNoErrors();
+
+    expect($item->fresh()->trashed())->toBeTrue();
+})->with([
+    'stone type' => [fn (Brand $brand) => tap(StoneType::factory()->create(), fn ($type) => Stone::factory()->for($brand)->create(['stone_type_id' => $type->id])), CatalogList::StoneTypes],
+    'furniture type' => [fn (Brand $brand) => tap(FurnitureType::factory()->create(), fn ($type) => Furniture::factory()->for($brand)->create(['furniture_type_id' => $type->id])), CatalogList::FurnitureTypes],
+    'size' => [function (Brand $brand) {
+        $size = Size::factory()->create();
+        StoneVariant::query()->create(['stone_id' => Stone::factory()->for($brand)->create()->id, 'size_id' => $size->id, 'thickness_id' => Thickness::factory()->create()->id, 'sort_order' => 0]);
+
+        return $size;
+    }, CatalogList::Sizes],
+    'thickness' => [function (Brand $brand) {
+        $thickness = Thickness::factory()->create();
+        StoneVariant::query()->create(['stone_id' => Stone::factory()->for($brand)->create()->id, 'size_id' => null, 'thickness_id' => $thickness->id, 'sort_order' => 0]);
+
+        return $thickness;
+    }, CatalogList::Thicknesses],
+]);
+
+it('refuses a name already on the list whatever its case, as the database does', function (CatalogList $list, Closure $make, array $form, string $why): void {
+    $make();
+
+    $this->actingAs($this->admin)->post(listUrl($list), $form)->assertSessionHasErrors(['name' => $why]);
+})->with([
+    'finish' => [CatalogList::Finishes, fn () => Finish::query()->create(['name' => 'Honed', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 0]), ['name' => 'honed', 'is_advisory' => '0', 'is_active' => '1'], 'Another finish, maybe an archived one, already has that name.'],
+    'archived edge profile' => [CatalogList::EdgeProfiles, fn () => EdgeProfile::query()->create(['name' => 'Ogee', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 0])->delete(), ['name' => 'OGEE', 'is_advisory' => '0', 'is_active' => '1'], 'Another edge profile, maybe an archived one, already has that name.'],
+    'stone type' => [CatalogList::StoneTypes, fn () => StoneType::factory()->create(['name' => 'Marble', 'slug' => 'marble']), ['name' => 'marble', 'slug' => 'marble-2', 'description' => 'A stone.', 'is_active' => '1', 'thumbnail' => UploadedFile::fake()->image('m.jpg')], 'Another stone type already has that name.'],
+]);
+
+it('lets a stone type take an archived type\'s name, as the database does', function (): void {
+    StoneType::factory()->create(['name' => 'Marble', 'slug' => 'marble'])->delete();
+
+    $this->actingAs($this->admin)->post(listUrl(CatalogList::StoneTypes), ['name' => 'Marble', 'slug' => 'marble-new', 'description' => 'A stone.', 'is_active' => '1', 'thumbnail' => UploadedFile::fake()->image('m.jpg')])
+        ->assertSessionHasNoErrors();
+});
+
+it('keeps a finish or edge profile a stone type lists from becoming an "advise me" choice', function (CatalogList $list, string $model, string $relation, string $why): void {
+    $item = $model::query()->create(['name' => 'Honed', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 0]);
+    StoneType::factory()->create()->{$relation}()->attach($item, ['sort_order' => 0]);
+
+    $this->actingAs($this->admin)->put(listUrl($list, $item->id), ['name' => 'Honed', 'is_advisory' => '1', 'is_active' => '1'])
+        ->assertSessionHasErrors(['is_advisory' => $why]);
+    expect($item->fresh()->is_advisory)->toBeFalse();
+
+    $unused = $model::query()->create(['name' => 'Spare', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 1]);
+    $this->actingAs($this->admin)->put(listUrl($list, $unused->id), ['name' => 'Spare', 'is_advisory' => '1', 'is_active' => '1'])
+        ->assertSessionHasNoErrors();
+})->with([
+    'finish' => [CatalogList::Finishes, Finish::class, 'finishes', 'Used by 1 stone type, whose pages list it. Take it off their finishes first.'],
+    'edge profile' => [CatalogList::EdgeProfiles, EdgeProfile::class, 'edgeProfiles', 'Used by 1 stone type, whose pages list it. Take it off their edge profiles first.'],
+]);
+
+it('offers a stone type no "advise me" finish, and refuses one', function (): void {
+    $type = StoneType::factory()->create(['thumbnail_path' => 'stone-types/a.jpg']);
+    Finish::query()->create(['name' => 'Honed', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 0]);
+    $advise = Finish::query()->create(['name' => 'Not sure yet', 'is_advisory' => true, 'is_active' => true, 'sort_order' => 1]);
+
+    $this->actingAs($this->admin)->put(listUrl(CatalogList::StoneTypes, $type->id), ['name' => $type->name, 'slug' => $type->slug, 'description' => 'A stone.', 'is_active' => '1', 'finishes' => [$advise->id]])
+        ->assertSessionHasErrors('finishes.0');
+    $this->actingAs($this->admin)->get(listUrl(CatalogList::StoneTypes))
+        ->assertInertia(fn (Assert $page) => $page->where('list.fields', fn ($fields) => collect(collect($fields)->firstWhere('name', 'finishes')['options'])->pluck('label')->all() === ['Honed']));
+});
+
+it('leaves an "advise me" choice a stone type still lists off its form, so a save drops it', function (): void {
+    $type = StoneType::factory()->create(['name' => 'Marble']);
+    $honed = Finish::query()->create(['name' => 'Honed', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 0]);
+    $advise = Finish::query()->create(['name' => 'Not sure yet', 'is_advisory' => true, 'is_active' => true, 'sort_order' => 1]);
+    $type->finishes()->attach([$honed->id => ['sort_order' => 0], $advise->id => ['sort_order' => 1]]);
+
+    $this->actingAs($this->admin)->get(listUrl(CatalogList::StoneTypes))
+        ->assertInertia(fn (Assert $page) => $page->where('items.data.0.values.finishes', [$honed->id]));
+});
+
+it('refuses a finish, if archived since the form was checked, when the stone type is saved', function (): void {
+    $type = StoneType::factory()->create();
+    $honed = Finish::query()->create(['name' => 'Honed', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 0]);
+    $honed->delete();
+
+    expect(fn () => (new StoneTypeList)->sync($type, ['finishes' => [$honed->id]]))
+        ->toThrow(ValidationException::class);
+    expect($type->finishes()->count())->toBe(0);
+});
+
+it('keeps the slug of a furniture type whose pieces\' made-to-order choices are found by it', function (): void {
+    $tables = FurnitureType::factory()->create(['name' => 'Dining Tables', 'slug' => 'dining-tables']);
+    $sofas = FurnitureType::factory()->create(['name' => 'Sofas', 'slug' => 'sofas']);
+
+    $this->actingAs($this->admin)->put(listUrl(CatalogList::FurnitureTypes, $tables->id), ['name' => 'Tables for Dining', 'slug' => 'tables', 'is_active' => '1'])
+        ->assertSessionHasErrors(['slug' => 'Its pieces\' made-to-order choices are found by this slug, so it stays dining-tables.']);
+    $this->actingAs($this->admin)->put(listUrl(CatalogList::FurnitureTypes, $tables->id), ['name' => 'Tables for Dining', 'slug' => 'dining-tables', 'is_active' => '1'])
+        ->assertSessionHasNoErrors();
+    $this->actingAs($this->admin)->put(listUrl(CatalogList::FurnitureTypes, $sofas->id), ['name' => 'Sofas', 'slug' => 'couches', 'is_active' => '1'])
+        ->assertSessionHasNoErrors();
+
+    expect($tables->fresh()->only(['name', 'slug']))->toBe(['name' => 'Tables for Dining', 'slug' => 'dining-tables'])
+        ->and($sofas->fresh()->slug)->toBe('couches');
+});
 
 it('keeps an archived finish and edge profile on a past inquiry', function (): void {
     $finish = Finish::query()->create(['name' => 'Honed', 'is_advisory' => false, 'is_active' => true, 'sort_order' => 0]);

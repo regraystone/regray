@@ -8,8 +8,10 @@ use App\Models\Application;
 use App\Models\CareTip;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
+use App\Models\Service;
 use App\Models\Stone;
 use App\Models\StoneType;
+use App\Support\CatalogLocks;
 use App\Support\ReservedSlugs;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +22,9 @@ use Illuminate\Validation\Rule;
  * edge profiles,
  * applications and care tips every stone of the type shows on its
  * page, and the thumbnail its filter and the Inquire page show. Archived only
- * once no stone has it as its own type.
+ * once no stone has it, as its own type or as one it is also listed under, and
+ * no service is made from it. An archived brand's stones don't count: they are
+ * history, and the Products page no longer shows them.
  *
  * @extends CatalogListDefinition<StoneType>
  */
@@ -57,8 +61,8 @@ class StoneTypeList extends CatalogListDefinition
         return StoneType::query()
             ->when($escapedSearch !== null, fn (Builder $query) => $query->where('name', 'ILIKE', "%{$escapedSearch}%"))
             ->withCount(['finishes', 'edgeProfiles', 'applications', 'careTips'])
-            ->addSelect(['stones_count' => Stone::query()->selectRaw('count(*)')->whereColumn('stone_type_id', 'stone_types.id')])
-            ->with(['finishes:finishes.id', 'edgeProfiles:edge_profiles.id', 'applications:applications.id', 'careTips:care_tips.id'])
+            ->addSelect(['stones_count' => Stone::query()->ofLiveBrand()->selectRaw('count(*)')->whereColumn('stone_type_id', 'stone_types.id')])
+            ->with(['finishes:finishes.id,finishes.is_advisory', 'edgeProfiles:edge_profiles.id,edge_profiles.is_advisory', 'applications:applications.id', 'careTips:care_tips.id'])
             ->orderBy('sort_order')
             ->orderBy('name');
     }
@@ -97,7 +101,7 @@ class StoneTypeList extends CatalogListDefinition
     public function rules(?Model $item): array
     {
         return [
-            'name' => ['required', 'string', 'max:150'],
+            'name' => ['required', 'string', 'max:150', $this->uniqueIgnoringCase('name', $item, self::say('Another stone type already has that name.'), archivedToo: false)],
             'slug' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::notIn(ReservedSlugs::ALL), Rule::unique('stone_types', 'slug')->ignore($item?->id)],
             'description' => ['required', 'string', 'max:'.config('products.description_max')],
             'thumbnail' => [$item === null ? 'required' : 'nullable', 'file', 'mimes:'.implode(',', config('products.image_mimes')), 'max:'.config('products.thumbnail_max_kb')],
@@ -158,8 +162,9 @@ class StoneTypeList extends CatalogListDefinition
                 'name' => $item->name,
                 'slug' => $item->slug,
                 'description' => $item->description,
-                'finishes' => $item->finishes->modelKeys(),
-                'edge_profiles' => $item->edgeProfiles->modelKeys(),
+                // An "advise me" one is not on the form to remove, so it is left off and the next save drops it.
+                'finishes' => $item->finishes->where('is_advisory', false)->modelKeys(),
+                'edge_profiles' => $item->edgeProfiles->where('is_advisory', false)->modelKeys(),
                 'applications' => $item->applications->modelKeys(),
                 'care_tips' => $item->careTips->modelKeys(),
                 'sort_order' => (string) $item->sort_order,
@@ -190,6 +195,12 @@ class StoneTypeList extends CatalogListDefinition
             return $rows;
         };
 
+        // Held, so none of them can be archived under the save (CatalogLocks).
+        CatalogLocks::hold('finishes', array_keys($ordered('finishes')), 'finishes', self::say('One of those finishes is no longer offered. Remove it.'));
+        CatalogLocks::hold('edge_profiles', array_keys($ordered('edge_profiles')), 'edge_profiles', self::say('One of those edge profiles is no longer offered. Remove it.'));
+        CatalogLocks::hold('applications', array_keys($ordered('applications')), 'applications', self::say('One of those applications is no longer offered. Remove it.'));
+        CatalogLocks::hold('care_tips', array_keys($ordered('care_tips')), 'care_tips', self::say('One of those care tips is no longer offered. Remove it.'));
+
         $item->finishes()->sync($ordered('finishes'));
         $item->edgeProfiles()->sync($ordered('edge_profiles'));
         $item->applications()->sync($ordered('applications'));
@@ -198,9 +209,18 @@ class StoneTypeList extends CatalogListDefinition
 
     public function usage(Model $item): ?string
     {
-        $stones = Stone::query()->where('stone_type_id', $item->id)->count();
+        $stones = Stone::query()->ofLiveBrand()
+            ->where(fn (Builder $stones) => $stones->where('stone_type_id', $item->id)
+                ->orWhereHas('types', fn (Builder $types) => $types->whereKey($item->id)))
+            ->count();
+        $services = Service::query()->notArchived()->whereHas('stoneTypes', fn (Builder $types) => $types->whereKey($item->id))->count();
 
-        return $stones === 0 ? null : self::say('Used by :count as their type. Give them another type first.', ['count' => self::count($stones, 'stone', 'stones')]);
+        $reasons = array_filter([
+            $stones === 0 ? null : self::say('Used by :count, as their type or one they are also listed under. Give them another type first.', ['count' => self::count($stones, 'stone', 'stones')]),
+            $services === 0 ? null : self::say('The Services page makes :count from it. Take it off them first.', ['count' => self::count($services, 'service', 'services')]),
+        ]);
+
+        return $reasons === [] ? null : implode(' ', $reasons);
     }
 
     public function snapshot(Model $item): array

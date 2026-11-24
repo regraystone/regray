@@ -39,6 +39,7 @@ class ServiceRepository implements ServiceRepositoryInterface
     public function questions(): Collection
     {
         return DetailField::query()
+            ->notArchived()
             ->with(['options' => fn (Relation $options) => $options->getQuery()->where('is_active', true)])
             ->orderBy('sort_order')
             ->orderBy('id')

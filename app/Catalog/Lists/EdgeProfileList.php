@@ -7,7 +7,7 @@ use App\Models\EdgeProfile;
 use App\Models\StoneType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Edge profiles, such as Bullnose, that a stone type lists (its stones'
@@ -70,7 +70,7 @@ class EdgeProfileList extends CatalogListDefinition
     public function rules(?Model $item): array
     {
         return [
-            'name' => ['required', 'string', 'max:50', Rule::unique('edge_profiles', 'name')->ignore($item?->getKey())],
+            'name' => ['required', 'string', 'max:50', $this->uniqueIgnoringCase('name', $item, self::say('Another edge profile, maybe an archived one, already has that name.'))],
             'is_advisory' => ['required', 'boolean'],
             ...$this->orderAndStatusRules(),
         ];
@@ -80,8 +80,27 @@ class EdgeProfileList extends CatalogListDefinition
     {
         return [
             'name.required' => __('Enter the edge profile\'s name.'),
-            'name.unique' => __('Another edge profile, maybe an archived one, already has that name.'),
         ];
+    }
+
+    /**
+     * A stone type's page never lists an "advise me" choice, so one a stone
+     * type lists can't become one: the Stone types form would no longer offer
+     * it, and every save of that type would be refused.
+     */
+    public function after(): \Closure
+    {
+        return function (Validator $validator, ?Model $item): void {
+            if ($item === null || $validator->errors()->has('is_advisory') || ! filter_var($validator->getData()['is_advisory'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                return;
+            }
+
+            $types = StoneType::query()->whereHas('edgeProfiles', fn (Builder $items) => $items->whereKey($item->getKey()))->count();
+
+            if ($types > 0) {
+                $validator->errors()->add('is_advisory', self::say('Used by :count, whose pages list it. Take it off their edge profiles first.', ['count' => self::count($types, 'stone type', 'stone types')]));
+            }
+        };
     }
 
     public function name(Model $item): string

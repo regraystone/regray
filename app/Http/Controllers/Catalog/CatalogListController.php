@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Catalog;
 
 use App\Catalog\CatalogListDefinition;
 use App\Enums\CatalogList;
-use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Catalog\CatalogItemRequest;
 use App\Http\Requests\DataTableRequest;
@@ -19,18 +18,16 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The pages of the lists under Products (CatalogList), one page component
- * for all eight: a page of the list's items in its order, searched, and its
- * writes. Each write route checks its own permission on top of the page's,
- * the same ones as products'.
+ * The pages of the lists under Products and Services (CatalogList), one page
+ * component for all of them: a page of the list's items in its order,
+ * searched, and its writes. Each write route checks its own permission on top
+ * of the page's, its section's (products' or services').
  *
  * `{id}` stays a plain id, looked up after the route's permission; an
  * archived item is gone from its page, so it is a 404.
  */
 class CatalogListController extends Controller
 {
-    private const PER_PAGE = 20;
-
     public function __construct(private readonly CatalogListService $service) {}
 
     public function index(DataTableRequest $request, string $list): Response
@@ -40,17 +37,21 @@ class CatalogListController extends Controller
         $status = $definition->hasStatus && in_array($request->query('status'), ['active', 'inactive'], true) ? (string) $request->query('status') : 'all';
         $paginator = $definition->query($request->escapedSearch())
             ->when($status !== 'all', fn ($query) => $query->where('is_active', $status === 'active'))
-            ->paginate(self::PER_PAGE, ['*'], 'page', $request->page());
+            ->paginate($request->perPage(), ['*'], 'page', $request->page());
         $user = $request->user();
-        $can = fn (Permission $permission): bool => $user?->can($permission->value) ?? false;
+        $can = fn (string $ability): bool => $user?->can($catalogList->permission($ability)->value) ?? false;
 
         return Inertia::render('catalog-list', [
             'list' => [
                 'slug' => $catalogList->value,
+                'section' => $catalogList->section(),
                 'title' => $definition->title(),
                 'singular' => $definition->singular(),
                 'subtitle' => $definition->subtitle(),
                 'hasStatus' => $definition->hasStatus,
+                'statusWords' => $definition->statusWords(),
+                'archiveDescription' => $definition->archiveDescription(),
+                'emptyDescription' => $definition->emptyDescription(),
                 'columns' => $definition->columns(),
                 'fields' => $definition->fields(),
             ],
@@ -64,12 +65,13 @@ class CatalogListController extends Controller
                         'thumbnail' => $row['thumbnail'] ?? null,
                         'cells' => $row['cells'],
                         'values' => $row['values'],
+                        'fixed' => $row['fixed'] ?? [],
                         'isActive' => $definition->hasStatus ? (bool) $item->getAttribute('is_active') : null,
                         'actions' => array_values(array_filter([
-                            $can(Permission::ProductsUpdate) ? 'edit' : null,
-                            $can(Permission::ProductsArchive) ? 'archive' : null,
+                            $can('update') ? 'edit' : null,
+                            $can('archive') ? 'archive' : null,
                         ])),
-                        'canToggle' => $can(Permission::ProductsUpdate),
+                        'canToggle' => $can('update'),
                     ];
                 }, $paginator->items()),
                 'meta' => [
@@ -81,8 +83,8 @@ class CatalogListController extends Controller
                     'to' => $paginator->lastItem(),
                 ],
             ],
-            'filters' => [...$request->filters(), 'perPage' => self::PER_PAGE, 'status' => $status],
-            'canCreate' => $can(Permission::ProductsCreate),
+            'filters' => [...$request->filters(), 'status' => $status],
+            'canCreate' => $can('create'),
             'limits' => ['thumbnailMaxKb' => config()->integer('products.thumbnail_max_kb')],
         ]);
     }
@@ -113,9 +115,7 @@ class CatalogListController extends Controller
         $active = $request->boolean('active');
         $this->service->setActive($definition, $item, $active, self::actor($request), $request->ip(), $request->userAgent());
 
-        return self::done($active
-            ? __(':name is offered again.', ['name' => $definition->name($item)])
-            : __(':name is no longer offered.', ['name' => $definition->name($item)]));
+        return self::done($definition->statusMessage($item, $active));
     }
 
     public function archive(Request $request, string $list, string $id): RedirectResponse
@@ -141,8 +141,7 @@ class CatalogListController extends Controller
             abort(404);
         }
 
-        /** @var TModel */
-        return $definition->model()::query()->findOrFail((int) $id);
+        return $definition->live()->findOrFail((int) $id);
     }
 
     private static function done(string $message): RedirectResponse

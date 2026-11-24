@@ -5,14 +5,17 @@ namespace App\Catalog\Lists;
 use App\Catalog\CatalogListDefinition;
 use App\Models\Furniture;
 use App\Models\FurnitureType;
+use App\Services\FurnitureCustomizationService;
 use App\Support\ReservedSlugs;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Furniture types, such as Dining Tables, that a piece is filed under and a
- * brand's page filters by. Archived only once no piece has it.
+ * brand's page filters by. Archived only once no piece of a brand still on
+ * Regray has it.
  *
  * @extends CatalogListDefinition<FurnitureType>
  */
@@ -46,7 +49,7 @@ class FurnitureTypeList extends CatalogListDefinition
     {
         return FurnitureType::query()
             ->when($escapedSearch !== null, fn (Builder $query) => $query->where('name', 'ILIKE', "%{$escapedSearch}%"))
-            ->addSelect(['furniture_types.*', 'pieces_count' => Furniture::query()->selectRaw('count(*)')->whereColumn('furniture_type_id', 'furniture_types.id')])
+            ->addSelect(['furniture_types.*', 'pieces_count' => Furniture::query()->ofLiveBrand()->selectRaw('count(*)')->whereColumn('furniture_type_id', 'furniture_types.id')])
             ->orderBy('sort_order')
             ->orderBy('name');
     }
@@ -83,6 +86,22 @@ class FurnitureTypeList extends CatalogListDefinition
         ];
     }
 
+    /**
+     * A type whose furniture pages offer made-to-order choices is found by its
+     * slug (FurnitureCustomizationService::SERVICES_BY_TYPE), so its slug
+     * stays: a new one would leave its pieces with no choices.
+     */
+    public function after(): \Closure
+    {
+        return function (Validator $validator, ?Model $item): void {
+            $slug = $item?->getOriginal('slug');
+
+            if (is_string($slug) && array_key_exists($slug, FurnitureCustomizationService::SERVICES_BY_TYPE) && ($validator->getData()['slug'] ?? null) !== $slug) {
+                $validator->errors()->add('slug', self::say('Its pieces\' made-to-order choices are found by this slug, so it stays :slug.', ['slug' => $slug]));
+            }
+        };
+    }
+
     public function name(Model $item): string
     {
         return $item->name;
@@ -104,7 +123,7 @@ class FurnitureTypeList extends CatalogListDefinition
 
     public function usage(Model $item): ?string
     {
-        $pieces = Furniture::query()->where('furniture_type_id', $item->getKey())->count();
+        $pieces = Furniture::query()->ofLiveBrand()->where('furniture_type_id', $item->getKey())->count();
 
         return $pieces === 0 ? null : self::say('Used by :count. Give them another type first.', ['count' => self::count($pieces, 'piece', 'pieces')]);
     }

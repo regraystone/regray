@@ -32,7 +32,9 @@ class BrandService
      * in both, as the collection's type filter finds it under both. A stone
      * type's photo is its own thumbnail (set on its Products page); a
      * furniture type has none, so its photo is the brand's first piece of
-     * that type. `value` is what the collection's filter takes for it.
+     * that type. `value` is what the collection's filter takes for it: the
+     * type's slug. A type switched off has no tile, as it is no filter, while
+     * its products are still listed and counted, stones and furniture alike.
      *
      * @return array{stones: int, furniture: int, types: list<array{collection: 'stones'|'furniture', value: string, name: string, count: int, thumbnail: string|null}>}
      */
@@ -54,6 +56,10 @@ class BrandService
         $furnitureTypes = [];
 
         foreach ($products['furniture'] as $piece) {
+            if (! $piece->furnitureType->is_active) {
+                continue;
+            }
+
             $furnitureTypes[$piece->furniture_type_id] ??= ['type' => $piece->furnitureType, 'count' => 0, 'thumbnail' => null];
             $furnitureTypes[$piece->furniture_type_id]['count']++;
             $furnitureTypes[$piece->furniture_type_id]['thumbnail'] ??= $piece->thumbnail_path;
@@ -78,7 +84,7 @@ class BrandService
         foreach ($furnitureTypes as $offer) {
             $types[] = [
                 'collection' => 'furniture',
-                'value' => $offer['type']->name,
+                'value' => $offer['type']->slug,
                 'name' => $offer['type']->name,
                 'count' => $offer['count'],
                 'thumbnail' => $offer['thumbnail'] === null ? null : ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),

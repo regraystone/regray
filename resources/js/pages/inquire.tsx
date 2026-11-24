@@ -765,44 +765,16 @@ const InquireFlow = ({
          */
         if (edit !== null) {
             /*
-             * A stone the inquiry has whose type its service no longer takes is
-             * taken off here, with the notice, rather than refused on save.
+             * The inquiry's own stones stay, even one whose type its service no
+             * longer takes or that has left the catalogue since: the server
+             * keeps them while the inquiry keeps its service. Choosing another
+             * service takes off the ones it does not offer (chooseService).
              */
-            const removed: string[] = [];
-            const projects = toEditFormProjects(edit.projects, (address) =>
-                addressFromPayload(address as unknown as PhAddressPayload),
-            ).map((project) => {
-                const misfits = new Set(
-                    catalog
-                        .stonesNotOfferedFor(
-                            project.stones.map(({ stoneId }) => stoneId),
-                            project.serviceId,
-                        )
-                        .map((stone) => {
-                            removed.push(stone.name);
-
-                            return stone.slug;
-                        }),
-                );
-
-                return {
-                    ...project,
-                    stones: project.stones.filter(
-                        ({ stoneId }) => !misfits.has(stoneId),
-                    ),
-                };
+            reset({
+                projects: toEditFormProjects(edit.projects, (address) =>
+                    addressFromPayload(address as unknown as PhAddressPayload),
+                ),
             });
-
-            reset({ projects });
-
-            if (removed.length > 0) {
-                setStoneNotice(
-                    removedStonesNotice(
-                        [...new Set(removed)],
-                        serviceName(projects[0]?.serviceId ?? ''),
-                    ),
-                );
-            }
 
             return;
         }

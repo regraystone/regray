@@ -64,9 +64,6 @@ export type ServiceLimits = {
     descriptionMax: number;
     featuresMax: number;
     featureMax: number;
-    questionNameMax: number;
-    choicesMax: number;
-    choiceMax: number;
 };
 
 export type ServicesPageProps = {

@@ -49,6 +49,8 @@ export type BrandCardData = {
 export type ProductBrand = {
     slug: string;
     name: string;
+    /** Only on a saved card of an archived brand's product, whose page is gone. */
+    archived?: true;
 };
 
 /** One fact about a brand, such as "Made in" / "Treia, Italy". */

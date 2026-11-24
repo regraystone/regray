@@ -17,7 +17,7 @@ class SavedFurnitureRepository implements SavedFurnitureRepositoryInterface
         return Furniture::query()
             // The piece's own flag only: one of an archived brand stays saved, as history.
             ->where('furniture.is_active', true)
-            ->with(['brand:id,slug,name', 'furnitureType:id,slug,name'])
+            ->with(['brand:id,slug,name,archived_at', 'furnitureType:id,slug,name'])
             ->join('saved_furniture', 'saved_furniture.furniture_id', '=', 'furniture.id')
             ->where('saved_furniture.user_id', $user->id)
             ->select(['furniture.id', 'furniture.brand_id', 'furniture.furniture_type_id', 'furniture.slug', 'furniture.name', 'furniture.thumbnail_path'])

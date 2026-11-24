@@ -460,9 +460,6 @@ class ViewController extends Controller
                 'descriptionMax' => StoreServiceRequest::DESCRIPTION_MAX,
                 'featuresMax' => StoreServiceRequest::FEATURES_MAX,
                 'featureMax' => StoreServiceRequest::FEATURE_MAX,
-                'questionNameMax' => StoreServiceRequest::QUESTION_NAME_MAX,
-                'choicesMax' => StoreServiceRequest::CHOICES_MAX,
-                'choiceMax' => StoreServiceRequest::CHOICE_MAX,
             ],
         ]);
     }

@@ -43,7 +43,7 @@ class ApplicationList extends CatalogListDefinition
             ->when($escapedSearch !== null, fn (Builder $query) => $query->where('name', 'ILIKE', "%{$escapedSearch}%"))
             ->withCount(['stoneTypes' => fn (Builder $types) => $types->whereNull('stone_types.deleted_at')])
             ->orderBy('name')
-            ->orderBy('name');
+            ->orderBy('id');
     }
 
     public function columns(): array

@@ -10,9 +10,12 @@ use App\Models\Stone;
 use App\Models\StoneType;
 use App\Models\Thickness;
 use App\Models\User;
+use App\Repositories\Contracts\AuditLogRepositoryInterface;
+use App\Support\CatalogLocks;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 /*
  * Add and Edit stone on the Products page: the form's rules, its types and
@@ -145,6 +148,7 @@ describe('adding a stone', function (): void {
         'an archived brand' => [fn () => ['brand_id' => Brand::factory()->create(['archived_at' => now()])->id], 'brand_id'],
         'an inactive type' => [fn () => ['stone_type_id' => StoneType::factory()->create(['is_active' => false])->id], 'stone_type_id'],
         'no sizes' => [['variants' => []], 'variants'],
+        '"no set size" without a note' => [fn () => ['size_note' => ' ', 'variants' => [['size_id' => '', 'thickness_id' => test()->thin->id]]], 'size_note'],
         'a size and thickness twice' => [fn () => ['variants' => [['size_id' => test()->slab->id, 'thickness_id' => test()->thin->id], ['size_id' => test()->slab->id, 'thickness_id' => test()->thin->id]]], 'variants.1.thickness_id'],
         '"no set size" and a thickness twice' => [fn () => ['variants' => [['size_id' => '', 'thickness_id' => test()->thin->id], ['size_id' => '', 'thickness_id' => test()->thin->id]]], 'variants.1.thickness_id'],
         'a size without a thickness' => [fn () => ['variants' => [['size_id' => test()->slab->id, 'thickness_id' => '']]], 'variants.0.thickness_id'],
@@ -235,6 +239,22 @@ describe('changing a stone', function (): void {
         ])->assertSessionHasErrors('gallery.0.id');
     });
 
+    it('audits a change and an archive with what it was', function (): void {
+        $this->actingAs($this->admin)->post(route('dashboard.products.stones.update', $this->stone->id), [
+            ...stoneForm(['thumbnail' => null, 'gallery' => [], 'name' => 'Calacatta Gold']),
+            '_method' => 'put',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->post(route('dashboard.products.stones.archive', $this->stone->id))->assertSessionHasNoErrors();
+
+        $updated = AuditLog::query()->where('auditable_id', $this->stone->id)->where('event', AuditEvent::Updated->value)->sole();
+        $archived = AuditLog::query()->where('auditable_id', $this->stone->id)->where('event', AuditEvent::Archived->value)->sole();
+
+        expect($updated->old_values['name'])->toBe('Calacatta Oro')
+            ->and($updated->new_values['name'])->toBe('Calacatta Gold')
+            ->and($archived->old_values['archived_at'])->toBeNull()
+            ->and($archived->new_values['archived_at'])->not->toBeNull();
+    });
+
     it('turns it off and on, and audits each', function (): void {
         $this->actingAs($this->admin)->patch(route('dashboard.products.stones.status', $this->stone->id), ['active' => false])
             ->assertSessionHasNoErrors()
@@ -283,4 +303,34 @@ it('lets only those allowed add, change or archive', function (): void {
 it('is a 404 for an id that is not a stone on the page', function (): void {
     $this->actingAs($this->admin)->patch(route('dashboard.products.stones.status', 'abc'), ['active' => false])->assertNotFound();
     $this->actingAs($this->admin)->patch(route('dashboard.products.stones.status', 999999), ['active' => false])->assertNotFound();
+});
+
+it('is a 404 for a stone of an archived brand, which the page no longer lists', function (): void {
+    $stone = Stone::factory()->for(Brand::factory()->create(['archived_at' => now()]))->create();
+
+    $this->actingAs($this->admin)->patch(route('dashboard.products.stones.status', $stone->id), ['active' => false])->assertNotFound();
+    $this->actingAs($this->admin)->post(route('dashboard.products.stones.update', $stone->id), [...stoneForm(), '_method' => 'put'])->assertNotFound();
+    $this->actingAs($this->admin)->post(route('dashboard.products.stones.archive', $stone->id))->assertNotFound();
+
+    expect($stone->refresh()->brand_id)->not->toBe($this->brand->id)
+        ->and($stone->trashed())->toBeFalse();
+});
+
+it('deletes the files a failed save stored', function (): void {
+    $this->mock(AuditLogRepositoryInterface::class)->shouldReceive('record')->andThrow(new RuntimeException('audit down'));
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->actingAs($this->admin)->post(route('dashboard.products.stones.store'), stoneForm()))
+        ->toThrow(RuntimeException::class, 'audit down');
+    expect(Stone::query()->where('slug', 'calacatta-oro')->exists())->toBeFalse()
+        ->and(stoneFiles())->toBe([]);
+});
+
+it('refuses a size archived after the form was checked, before the save writes', function (): void {
+    $this->slab->delete();
+
+    expect(fn () => CatalogLocks::hold('sizes', [$this->slab->id, $this->tile->id], 'variants', 'gone'))
+        ->toThrow(ValidationException::class);
+    CatalogLocks::hold('sizes', [$this->tile->id, null], 'variants', 'gone');
 });

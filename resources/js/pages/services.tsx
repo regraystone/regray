@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Layers, Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -11,7 +11,6 @@ import EmptyState from '@/components/empty-state';
 import FormDrawer from '@/components/form-drawer';
 import PageHeader from '@/components/page-header';
 import ServiceForm, { SERVICE_PROPS } from '@/components/services/service-form';
-import ServiceTypesDrawer from '@/components/services/service-types-drawer';
 import StatusBadge from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format-date';
@@ -24,6 +23,7 @@ import {
     serviceMeta,
 } from '@/lib/service-admin';
 import { archive as archiveService } from '@/routes/dashboard/services';
+import { index as serviceListIndex } from '@/routes/dashboard/services/lists';
 import type {
     ServiceRow,
     ServicesPageProps,
@@ -42,14 +42,14 @@ type Drawer =
  * name or description.
  *
  * Add, Edit and View open in the drawer; Archive asks first. Service types
- * have their own drawer. What a card offers comes from the server (`actions`).
+ * and questions have their own pages under Services. What a card offers
+ * comes from the server (`actions`).
  */
 const Services = () => {
     const { props } = usePage<ServicesPageProps>();
     const { serviceTypes, stoneTypes, questions, limits, canCreate } = props;
     const [search, setSearch] = useState('');
     const [drawer, setDrawer] = useState<Drawer | null>(null);
-    const [typesOpen, setTypesOpen] = useState(false);
     const [archiving, setArchiving] = useState<ServiceRow | null>(null);
     const [processing, setProcessing] = useState(false);
 
@@ -121,30 +121,30 @@ const Services = () => {
             Add service
         </Button>
     );
-    const typesButton = (
-        <Button
-            type="button"
-            variant="outline"
-            onClick={() => setTypesOpen(true)}
-        >
-            <Layers aria-hidden />
-            Service types
+    const typesLink = (
+        <Button asChild variant="outline">
+            <Link href={serviceListIndex.url('service-types')}>
+                <Layers aria-hidden />
+                Go to Service types
+            </Link>
         </Button>
     );
 
     return (
         <div className="w-full min-w-0">
-            <PageHeader
-                variant="action"
-                title="Services"
-                subtitle="Manage what clients can ask for on the Inquire page"
-                action={
-                    <div className="flex flex-wrap gap-2">
-                        {typesButton}
-                        {canCreate ? addButton : null}
-                    </div>
-                }
-            />
+            {canCreate ? (
+                <PageHeader
+                    variant="action"
+                    title="Services"
+                    subtitle="Manage what clients can ask for on the Inquire page"
+                    action={addButton}
+                />
+            ) : (
+                <PageHeader
+                    title="Services"
+                    subtitle="Manage what clients can ask for on the Inquire page"
+                />
+            )}
 
             <div className="space-y-8">
                 <DataTableToolbar
@@ -161,7 +161,7 @@ const Services = () => {
                     <EmptyState
                         title="No service types yet"
                         description="Add a service type first, such as Natural Stone & Applications, then the services under it."
-                        action={typesButton}
+                        action={typesLink}
                     />
                 ) : shown.length === 0 ? (
                     <EmptyState
@@ -303,13 +303,6 @@ const Services = () => {
                 questions={questions}
                 limits={limits}
                 onClose={() => setDrawer(null)}
-            />
-
-            <ServiceTypesDrawer
-                open={typesOpen}
-                onClose={() => setTypesOpen(false)}
-                serviceTypes={serviceTypes}
-                canCreate={canCreate}
             />
 
             <ConfirmDialog

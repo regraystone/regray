@@ -119,6 +119,20 @@ it('changes a piece: keeps the thumbnail unless a new one is sent, and takes off
         ->and(furnitureFiles())->toBe([$thumbnail]);
 
     expect(furnitureFiles())->not->toContain($photo->path);
+
+    $audit = AuditLog::query()->where('auditable_type', Furniture::class)->where('auditable_id', $piece->id)->where('event', AuditEvent::Updated->value)->sole();
+    expect($audit->old_values['name'])->toBe('Alora')
+        ->and($audit->new_values['name'])->toBe('Alora II');
+});
+
+it('is a 404 for a piece of an archived brand, which the page no longer lists', function (): void {
+    $piece = Furniture::factory()->for(Brand::factory()->create(['archived_at' => now()]))->create();
+
+    $this->actingAs($this->admin)->patch(route('dashboard.products.furniture.status', $piece->id), ['active' => false])->assertNotFound();
+    $this->actingAs($this->admin)->post(route('dashboard.products.furniture.update', $piece->id), [...furnitureForm(), '_method' => 'put'])->assertNotFound();
+    $this->actingAs($this->admin)->post(route('dashboard.products.furniture.archive', $piece->id))->assertNotFound();
+
+    expect($piece->refresh()->brand_id)->not->toBe($this->brand->id);
 });
 
 it('turns a piece off and archives it', function (): void {

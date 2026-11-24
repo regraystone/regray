@@ -6,7 +6,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 /**
  * A list's search box. It hands the search on 300 ms after the reader stops
- * typing, so a word is one reload rather than one a letter.
+ * typing, so a word is one reload rather than one a letter, and follows the
+ * page's search when that changes from outside.
  */
 const DataTableSearch = ({
     value,
@@ -20,6 +21,16 @@ const DataTableSearch = ({
 }) => {
     const [search, setSearch] = useState(value);
     const lastSearch = useRef(value);
+
+    // A search changed from outside (the back button, a link with ?search=)
+    // shows in the box. The reload a search of its own starts leaves it be,
+    // trailing space and all, since the server sends it back trimmed.
+    useEffect(() => {
+        if (value.trim() !== lastSearch.current.trim()) {
+            lastSearch.current = value;
+            setSearch(value);
+        }
+    }, [value]);
 
     useEffect(() => {
         if (search === lastSearch.current) {

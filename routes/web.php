@@ -161,7 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::redirect('home/brands/{brand}', '/dashboard/brands/{brand}', 301);
         Route::get('home/furniture/{furniture}', [ProductRedirectController::class, 'dashboardFurniture']);
         Route::get('home/stones/{stone}', [ProductRedirectController::class, 'dashboardStone']);
-        Route::redirect('home-stone/{stone}', 'home/stones/{stone}', 301);
+        Route::redirect('home-stone/{stone}', '/dashboard/home/stones/{stone}', 301);
 
         /*
          * A flat URL under Home is a showcase, or a stone's old address. Stone profiles and
@@ -594,7 +594,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
          * The lists products are built from, each its own page under
          * Products (CatalogList), with the same permissions as products.
          */
-        $lists = implode('|', CatalogList::values());
+        $lists = implode('|', CatalogList::values(CatalogList::PRODUCTS));
         Route::get('products/{list}', [CatalogListController::class, 'index'])
             ->where('list', $lists)
             ->middleware(Permission::ProductsView->middleware())
@@ -620,9 +620,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware(Permission::ServicesView->middleware())
             ->name('services.index');
         /*
-         * The Services page's writes, each behind its own permission on top of
-         * the page's: a service, and a service type. `{id}` is a plain id
-         * (ServiceAdminController::findService(), findServiceType()).
+         * The lists services are built from (service types, questions), each
+         * its own page under Services (CatalogList), with the same
+         * permissions as services.
+         */
+        $serviceLists = implode('|', CatalogList::values(CatalogList::SERVICES));
+        Route::get('services/{list}', [CatalogListController::class, 'index'])
+            ->where('list', $serviceLists)
+            ->middleware(Permission::ServicesView->middleware())
+            ->name('dashboard.services.lists.index');
+        Route::middleware([Permission::ServicesView->middleware(), 'throttle:service-save'])->where(['list' => $serviceLists])->group(function () {
+            Route::post('services/{list}', [CatalogListController::class, 'store'])
+                ->middleware(Permission::ServicesCreate->middleware())
+                ->name('dashboard.services.lists.store');
+            Route::put('services/{list}/{id}', [CatalogListController::class, 'update'])
+                ->middleware(Permission::ServicesUpdate->middleware())
+                ->name('dashboard.services.lists.update');
+            Route::patch('services/{list}/{id}/status', [CatalogListController::class, 'status'])
+                ->middleware(Permission::ServicesUpdate->middleware())
+                ->name('dashboard.services.lists.status');
+            Route::post('services/{list}/{id}/archive', [CatalogListController::class, 'archive'])
+                ->middleware(Permission::ServicesArchive->middleware())
+                ->name('dashboard.services.lists.archive');
+        });
+        /*
+         * The All services page's writes, each behind its own permission on
+         * top of the page's. `{id}` is a plain id
+         * (ServiceAdminController::findService()).
          */
         Route::middleware([Permission::ServicesView->middleware(), 'throttle:service-save'])->group(function () {
             Route::post('services', [ServiceAdminController::class, 'store'])
@@ -634,15 +658,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('services/{id}/archive', [ServiceAdminController::class, 'archive'])
                 ->middleware(Permission::ServicesArchive->middleware())
                 ->name('dashboard.services.archive');
-            Route::post('service-types', [ServiceAdminController::class, 'storeType'])
-                ->middleware(Permission::ServicesCreate->middleware())
-                ->name('dashboard.service-types.store');
-            Route::put('service-types/{id}', [ServiceAdminController::class, 'updateType'])
-                ->middleware(Permission::ServicesUpdate->middleware())
-                ->name('dashboard.service-types.update');
-            Route::post('service-types/{id}/archive', [ServiceAdminController::class, 'archiveType'])
-                ->middleware(Permission::ServicesArchive->middleware())
-                ->name('dashboard.service-types.archive');
         });
         /*
          * The admin's Accounts page: the list, and its writes, each behind its

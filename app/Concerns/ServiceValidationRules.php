@@ -2,7 +2,6 @@
 
 namespace App\Concerns;
 
-use App\Enums\DetailAnswerType;
 use App\Enums\DetailFieldScope;
 use App\Enums\Fulfillment;
 use App\Models\DetailField;
@@ -23,10 +22,9 @@ use Illuminate\Validation\Validator;
  * Inquire page could not list a stone for it. One that needs none asks no
  * stone question, since those are answered on a stone row.
  *
- * A question is one from the catalog (`id`), or a new one written here
- * (`name`, `answer_type`, and its choices when it is chosen from a list),
- * which ServiceAdminService adds to the catalog as a project question. A new
- * one may not repeat a question the catalog has, so it is chosen instead.
+ * A question is chosen from the Questions page's list (`id`), not archived;
+ * new ones are written there (QuestionList), not on this form. Its limits
+ * are kept here, as that page uses them.
  */
 trait ServiceValidationRules
 {
@@ -65,12 +63,8 @@ trait ServiceValidationRules
             'stone_type_ids.*' => ['integer', 'distinct', Rule::exists('stone_types', 'id')->where('is_active', true)],
             'fulfillment' => ['required', Rule::enum(Fulfillment::class)],
             'questions' => ['nullable', 'array'],
-            'questions.*' => ['array:id,name,answer_type,choices,required'],
-            'questions.*.id' => ['nullable', 'required_without:questions.*.name', 'integer', 'distinct', Rule::exists('detail_fields', 'id')],
-            'questions.*.name' => ['nullable', 'string', 'max:'.self::QUESTION_NAME_MAX, 'distinct:ignore_case'],
-            'questions.*.answer_type' => ['nullable', 'required_with:questions.*.name', Rule::enum(DetailAnswerType::class)],
-            'questions.*.choices' => ['nullable', 'array', 'max:'.self::CHOICES_MAX],
-            'questions.*.choices.*' => ['required', 'string', 'max:'.self::CHOICE_MAX, 'distinct:ignore_case'],
+            'questions.*' => ['array:id,required'],
+            'questions.*.id' => ['required', 'integer', 'distinct', Rule::exists('detail_fields', 'id')->whereNull('archived_at')],
             'questions.*.required' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
             'sort_order' => ['required', 'integer', 'min:0', 'max:32767'],
@@ -90,14 +84,7 @@ trait ServiceValidationRules
             'description' => $text($this->input('description')),
             'features' => is_array($features) ? array_values(array_map($text, $features)) : $features,
             'stone_type_ids' => is_array($stoneTypes) ? array_values($stoneTypes) : $stoneTypes,
-            'questions' => is_array($questions) ? array_values(array_map(
-                fn (mixed $question): mixed => is_array($question) ? [
-                    ...$question,
-                    'name' => $text($question['name'] ?? null) ?: null,
-                    'choices' => is_array($question['choices'] ?? null) ? array_values(array_map($text, $question['choices'])) : ($question['choices'] ?? null),
-                ] : $question,
-                $questions,
-            )) : $questions,
+            'questions' => is_array($questions) ? array_values($questions) : $questions,
         ]);
     }
 
@@ -119,17 +106,10 @@ trait ServiceValidationRules
             'stone_type_ids.*.exists' => __('Choose from the stone types listed.'),
             'fulfillment.required' => __('Choose how the work reaches the client.'),
             'fulfillment.enum' => __('Choose how the work reaches the client.'),
-            'questions.*.id.required_without' => __('Choose a question, or write one.'),
+            'questions.*.id.required' => __('Choose a question from the list.'),
             'questions.*.id.exists' => __('Choose from the questions listed.'),
             'questions.*.id.distinct' => __('That question is already asked.'),
-            'questions.*.name.max' => __('A question can be :max characters at most.'),
-            'questions.*.name.distinct' => __('That question is already asked.'),
-            'questions.*.answer_type.required_with' => __('Choose what kind of answer it takes.'),
-            'questions.*.answer_type.enum' => __('Choose what kind of answer it takes.'),
-            'questions.*.choices.max' => __('A question can list :max choices at most.'),
-            'questions.*.choices.*.required' => __('Remove the empty choice.'),
-            'questions.*.choices.*.max' => __('Each choice can be :max characters at most.'),
-            'questions.*.choices.*.distinct' => __('That choice is already listed.'),
+            'questions.*.array' => __('Choose a question from the list.'),
             'sort_order.integer' => __('Enter a whole number.'),
             'sort_order.min' => __('Enter 0 or more.'),
         ];
@@ -158,26 +138,6 @@ trait ServiceValidationRules
                     }
                 }
             },
-            function (Validator $validator): void {
-                $questions = $this->input('questions');
-                $existing = DetailField::query()->pluck('name')->map(fn (string $name): string => mb_strtolower($name))->all();
-
-                foreach (is_array($questions) ? $questions : [] as $index => $question) {
-                    if (! is_array($question) || isset($question['id']) || ! is_string($question['name'] ?? null)) {
-                        continue;
-                    }
-
-                    if (! $validator->errors()->has("questions.{$index}.name") && in_array(mb_strtolower($question['name']), $existing, true)) {
-                        $validator->errors()->add("questions.{$index}.name", __('That question already exists. Choose it from the list.'));
-                    }
-
-                    $choices = $question['choices'] ?? [];
-
-                    if (($question['answer_type'] ?? null) === DetailAnswerType::Choice->value && (! is_array($choices) || count($choices) < 2)) {
-                        $validator->errors()->add("questions.{$index}.choices", __('List at least two choices.'));
-                    }
-                }
-            },
         ];
     }
 
@@ -185,7 +145,7 @@ trait ServiceValidationRules
      * The service's fields, in the shape ServiceAdminService writes. A service
      * that needs no stones keeps no stone types.
      *
-     * @return array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int|null, name: string|null, answer_type: DetailAnswerType|null, choices: list<string>, required: bool}>}
+     * @return array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}
      */
     public function serviceData(): array
     {
@@ -203,32 +163,10 @@ trait ServiceValidationRules
             'stone_type_ids' => $requiresStones
                 ? array_values(array_map(fn (mixed $id): int => (int) $id, $this->validated('stone_type_ids') ?? []))
                 : [],
-            'questions' => array_values(array_map(self::questionData(...), $this->validated('questions') ?? [])),
+            'questions' => array_values(array_map(
+                fn (array $question): array => ['id' => (int) $question['id'], 'required' => (bool) $question['required']],
+                $this->validated('questions') ?? [],
+            )),
         ];
-    }
-
-    /**
-     * One question row: one from the catalog by id, or a new one, whose
-     * choices are kept only when it is answered from a list.
-     *
-     * @param  array<string, mixed>  $question
-     * @return array{id: int|null, name: string|null, answer_type: DetailAnswerType|null, choices: list<string>, required: bool}
-     */
-    private static function questionData(array $question): array
-    {
-        $id = $question['id'] ?? null;
-
-        if ($id !== null) {
-            return ['id' => (int) $id, 'name' => null, 'answer_type' => null, 'choices' => [], 'required' => (bool) $question['required']];
-        }
-
-        $type = DetailAnswerType::from((string) $question['answer_type']);
-        $choices = [];
-
-        foreach ($type === DetailAnswerType::Choice ? ($question['choices'] ?? []) : [] as $choice) {
-            $choices[] = (string) $choice;
-        }
-
-        return ['id' => null, 'name' => (string) $question['name'], 'answer_type' => $type, 'choices' => $choices, 'required' => (bool) $question['required']];
     }
 }

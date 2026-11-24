@@ -93,8 +93,8 @@ class BrandRepository implements BrandRepositoryInterface
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(['stones.id', 'stones.brand_id', 'stones.name', 'stones.thumbnail_path', 'stones.sort_order']),
+            // Every active piece, as the collection lists it; offerings() leaves an inactive type's off the tiles.
             'furniture' => $brand->furniture()->active()
-                ->whereHas('furnitureType', fn (Builder $type) => $type->where('is_active', true))
                 ->with('furnitureType')
                 ->orderBy('sort_order')
                 ->orderBy('name')
@@ -149,7 +149,7 @@ class BrandRepository implements BrandRepositoryInterface
             });
         }
         if ($filters->furnitureType !== null) {
-            $query->whereHas('furnitureType', fn (Builder $type) => $type->where('name', $filters->furnitureType));
+            $query->whereHas('furnitureType', fn (Builder $type) => $type->where('slug', $filters->furnitureType)->where('is_active', true));
         }
 
         return $query->toBase();

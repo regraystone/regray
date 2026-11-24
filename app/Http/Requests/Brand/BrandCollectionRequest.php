@@ -75,7 +75,8 @@ class BrandCollectionRequest extends FormRequest
             // An option's key ("160x320-cm", "20-mm") that some stone on show comes in.
             'size' => ['bail', 'sometimes', 'nullable', 'string', 'max:30', $this->offeredOption(Size::class)],
             'thickness' => ['bail', 'sometimes', 'nullable', 'string', 'max:20', $this->offeredOption(Thickness::class)],
-            'furniture_type' => ['sometimes', 'nullable', 'string', Rule::exists('furniture_types', 'name')->where('is_active', true)],
+            // By slug, as a stone type is: a name can be changed on its Products page without breaking a link.
+            'furniture_type' => ['sometimes', 'nullable', 'string', Rule::exists('furniture_types', 'slug')->where('is_active', true)->whereNull('deleted_at')],
             'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
     }

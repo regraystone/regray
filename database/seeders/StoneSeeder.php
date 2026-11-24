@@ -159,24 +159,19 @@ class StoneSeeder extends Seeder
             }
 
             $profile = $stoneProfiles[$stoneSlug];
+            /*
+             * The seeded type's lists are the data's, exactly, as its name and
+             * description just were: one the data no longer lists comes off.
+             */
+            $ordered = fn (string $key, array $items): array => collect($profile[$key] ?? [])
+                ->filter(fn (string $name): bool => isset($items[$name]))
+                ->values()
+                ->mapWithKeys(fn (string $name, int $sort): array => [$items[$name]->id => ['sort_order' => $sort]])
+                ->all();
 
-            foreach ($profile['applications'] ?? [] as $sort => $appName) {
-                if (isset($applications[$appName])) {
-                    $stone->applications()->syncWithoutDetaching([$applications[$appName]->id => ['sort_order' => $sort]]);
-                }
-            }
-
-            foreach ($profile['finishes'] ?? [] as $sort => $finishName) {
-                if (isset($finishes[$finishName])) {
-                    $stone->finishes()->syncWithoutDetaching([$finishes[$finishName]->id => ['sort_order' => $sort]]);
-                }
-            }
-
-            foreach ($profile['care'] ?? [] as $sort => $careName) {
-                if (isset($careTips[$careName])) {
-                    $stone->careTips()->syncWithoutDetaching([$careTips[$careName]->id => ['sort_order' => $sort]]);
-                }
-            }
+            $stone->applications()->sync($ordered('applications', $applications));
+            $stone->finishes()->sync($ordered('finishes', $finishes));
+            $stone->careTips()->sync($ordered('care', $careTips));
         }
     }
 

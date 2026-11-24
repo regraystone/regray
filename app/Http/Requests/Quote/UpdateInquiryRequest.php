@@ -4,7 +4,9 @@ namespace App\Http\Requests\Quote;
 
 use App\Data\PhAddress;
 use App\Http\Requests\Inquiry\StoreInquiryRequest;
+use App\Models\DetailField;
 use App\Models\Inquiry;
+use App\Models\InquiryStone;
 use App\Models\Service;
 use App\Models\User;
 use Closure;
@@ -25,14 +27,22 @@ use Illuminate\Validation\Validator;
  *   inquiry, or keeps the one the inquiry already has (`keepAddress`), which
  *   may since have left the book.
  *
- * The stone rule of the create applies as it is: every stone, the inquiry's
- * own included, has to be offered for the service sent, whether the service
- * changed or not. Unlike the service, a stone is never held.
+ * What the inquiry already has is held, as its service is: maintenance on
+ * the catalog since it was sent (a stone switched off or archived, a brand
+ * archived, a stone type taken off its service, an edge profile, finish or
+ * answer taken off its list) never stops it being saved as it is. Its
+ * stones are held while it keeps its service; a new service takes only
+ * stones it offers. Its brands and answers are held either way.
  *
  * @phpstan-import-type ProjectUpdateInput from \App\Services\InquiryService
  */
 class UpdateInquiryRequest extends StoreInquiryRequest
 {
+    /** The inquiry being edited with what it holds, read once (heldInquiry()). */
+    private ?Inquiry $held = null;
+
+    private bool $heldRead = false;
+
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
@@ -115,6 +125,68 @@ class UpdateInquiryRequest extends StoreInquiryRequest
                 ->when($editor->isClient(), fn ($own) => $own->where('client_id', $editor->id), fn ($visible) => $visible->visibleTo($editor)))
             ->pluck('slug')
             ->all());
+    }
+
+    /** @return list<string> */
+    protected function heldStoneSlugs(): array
+    {
+        return array_values(array_unique($this->heldInquiry()?->stones
+            ->map(fn (InquiryStone $row): ?string => $row->stone?->slug)
+            ->filter()
+            ->all() ?? []));
+    }
+
+    /** @return list<string> */
+    protected function heldBrandSlugs(): array
+    {
+        return array_values($this->heldInquiry()?->brands->pluck('slug')->all() ?? []);
+    }
+
+    /** @return array<string, list<string>> */
+    protected function heldAnswers(): array
+    {
+        $inquiry = $this->heldInquiry();
+
+        if ($inquiry === null) {
+            return [];
+        }
+
+        $held = [
+            DetailField::EDGE_PROFILE => array_values(array_unique(array_filter($inquiry->stones->map(fn (InquiryStone $row): ?string => $row->edgeProfile?->name)->all()))),
+            DetailField::FINISH => array_values(array_unique(array_filter($inquiry->stones->map(fn (InquiryStone $row): ?string => $row->finish?->name)->all()))),
+        ];
+
+        foreach ($inquiry->detailAnswers as $answer) {
+            $value = $answer->formValue();
+
+            if ($value !== null && ! is_bool($value)) {
+                $held[$answer->detailField->slug][] = (string) $value;
+            }
+        }
+
+        return $held;
+    }
+
+    /**
+     * The inquiry being edited, with its stones (archived ones too), their
+     * edge profiles and finishes, its brands and its answers: what an edit
+     * may keep. Read only as its editor may read it, once per request.
+     */
+    private function heldInquiry(): ?Inquiry
+    {
+        if (! $this->heldRead) {
+            $this->heldRead = true;
+            $this->held = $this->editedInquiry()?->load([
+                'stones.stone' => fn ($stone) => $stone->withTrashed()->select(['id', 'slug']),
+                'stones.edgeProfile:id,name',
+                'stones.finish:id,name',
+                'brands:id,slug',
+                'detailAnswers.detailField',
+                'detailAnswers.option',
+            ]);
+        }
+
+        return $this->held;
     }
 
     /**

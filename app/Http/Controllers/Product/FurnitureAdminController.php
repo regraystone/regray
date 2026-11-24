@@ -69,11 +69,14 @@ class FurnitureAdminController extends Controller
         return back();
     }
 
-    /** A piece still on the Products page, active or not, or a 404. */
+    /**
+     * A piece still on the Products page, active or not, or a 404: neither
+     * archived nor of an archived brand, whose products are kept as history.
+     */
     public static function find(string $id): Furniture
     {
         return ctype_digit($id)
-            ? Furniture::query()->findOrFail((int) $id)
+            ? Furniture::query()->ofLiveBrand()->findOrFail((int) $id)
             : abort(404);
     }
 

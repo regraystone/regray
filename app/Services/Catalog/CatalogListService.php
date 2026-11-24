@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The writes of every list under Products (CatalogList): add an item, change
+ * The writes of every list under Products and Services (CatalogList): add an item, change
  * it, turn it on or off, archive it. Each is one transaction with its audit
  * row. A list's own rules and columns are its definition's.
  *
@@ -23,9 +23,9 @@ use Illuminate\Validation\ValidationException;
  * the one it replaces is deleted once the save has committed, unless some
  * row of the catalog still uses it (CatalogImages).
  *
- * Archiving is the soft delete, refused while anything on Regray uses the
- * item (the definition's `usage()`), so no product is left pointing at an
- * item the admin can no longer see.
+ * Archiving (the soft delete, or the list's own mark) is refused while
+ * anything on Regray uses the item (the definition's `usage()`), so nothing
+ * is left pointing at an item the admin can no longer see.
  */
 class CatalogListService
 {
@@ -131,7 +131,8 @@ class CatalogListService
     public function archive(CatalogListDefinition $list, Model $item, User $by, ?string $ipAddress, ?string $userAgent): void
     {
         DB::transaction(function () use ($list, $item, $by, $ipAddress, $userAgent): void {
-            // Locked, so a product can't take it up between the check and the archive.
+            // Locked, so a product can't take it up between the check and the archive:
+            // a write that points at it holds it FOR SHARE first (CatalogLocks).
             $item->newQuery()->whereKey($item->getKey())->lockForUpdate()->first();
             $usage = $list->usage($item);
 
@@ -140,7 +141,7 @@ class CatalogListService
             }
 
             $before = $list->snapshot($item);
-            $item->delete();
+            $list->archiveItem($item);
             $this->auditLogs->record($by->id, AuditEvent::Archived, $item, $before, $list->snapshot($item), $ipAddress, $userAgent);
         });
     }

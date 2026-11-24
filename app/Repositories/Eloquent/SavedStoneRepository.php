@@ -19,7 +19,7 @@ class SavedStoneRepository implements SavedStoneRepositoryInterface
         return Stone::query()
             // The stone's own flag only: one of an archived brand stays saved, as history.
             ->where('stones.is_active', true)
-            ->with(['type:id,slug,name', 'brand:id,slug,name'])
+            ->with(['type:id,slug,name', 'brand:id,slug,name,archived_at'])
             ->join('saved_stones', 'saved_stones.stone_id', '=', 'stones.id')
             ->where('saved_stones.user_id', $user->id)
             ->select(['stones.id', 'stones.brand_id', 'stones.stone_type_id', 'stones.slug', 'stones.name', 'stones.thumbnail_path'])

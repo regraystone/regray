@@ -16,7 +16,7 @@ use Illuminate\Validation\Validator;
  * Thicknesses, a value in one unit, that a stone's sizes are cut in. One
  * value and unit comes once, archived ones included (as the database holds
  * it). Its place in a list is its unit's: metric first, then thinnest first.
- * Archived only once no stone is cut in it.
+ * Archived only once no stone of a brand still on Regray is cut in it.
  *
  * @extends CatalogListDefinition<Thickness>
  */
@@ -49,7 +49,7 @@ class ThicknessList extends CatalogListDefinition
                 "concat(trim_scale(value), ' ', unit) ILIKE ?",
                 ["%{$escapedSearch}%"],
             ))
-            ->addSelect(['thicknesses.*', 'stones_count' => Stone::query()->selectRaw('count(distinct stones.id)')
+            ->addSelect(['thicknesses.*', 'stones_count' => Stone::query()->ofLiveBrand()->selectRaw('count(distinct stones.id)')
                 ->join('stone_variants', 'stone_variants.stone_id', '=', 'stones.id')
                 ->whereColumn('stone_variants.thickness_id', 'thicknesses.id')])
             ->orderBy('sort_order')
@@ -146,7 +146,7 @@ class ThicknessList extends CatalogListDefinition
 
     public function usage(Model $item): ?string
     {
-        $stones = Stone::query()->whereHas('variants', fn (Builder $variants) => $variants->where('thickness_id', $item->id))->count();
+        $stones = Stone::query()->ofLiveBrand()->whereHas('variants', fn (Builder $variants) => $variants->where('thickness_id', $item->id))->count();
 
         return $stones === 0 ? null : self::say('Used by :count. Take it off their sizes first.', ['count' => self::count($stones, 'stone', 'stones')]);
     }

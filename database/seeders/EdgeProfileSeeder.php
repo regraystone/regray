@@ -5,12 +5,14 @@ namespace Database\Seeders;
 use App\Models\EdgeProfile;
 use App\Models\StoneType;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
- * The edge profiles, and the ones each stone type is cut with: a type with
- * none yet gets every one but the "advise me" choice, in the list's order,
- * as the migration that added them did. A type that has its own (set on the
- * Stone types page) keeps them.
+ * The edge profiles, and the ones each stone type is cut with: while no type
+ * has any yet (a new database), every type gets every one but the "advise
+ * me" choice, in the list's order, as the migration that added them did.
+ * Once any type has its own, the Stone types page owns them all, so a type
+ * left with none on purpose stays that way.
  */
 class EdgeProfileSeeder extends Seeder
 {
@@ -34,9 +36,13 @@ class EdgeProfileSeeder extends Seeder
             );
         }
 
-        $edges = EdgeProfile::query()->where('is_advisory', false)->orderBy('sort_order')->pluck('id')->values();
+        $edges = EdgeProfile::query()->where('is_advisory', false)->orderBy('sort_order')->orderBy('id')->pluck('id')->values();
 
-        StoneType::query()->whereDoesntHave('edgeProfiles')->get()->each(
+        if (DB::table('edge_profile_stone_type')->exists()) {
+            return;
+        }
+
+        StoneType::query()->get()->each(
             fn (StoneType $type) => $type->edgeProfiles()->sync($edges->mapWithKeys(fn (int $id, int $order): array => [$id => ['sort_order' => $order]])->all()),
         );
     }

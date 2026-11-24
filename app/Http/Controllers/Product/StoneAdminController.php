@@ -71,11 +71,14 @@ class StoneAdminController extends Controller
         return back();
     }
 
-    /** A stone still on the Products page, active or not, or a 404. */
+    /**
+     * A stone still on the Products page, active or not, or a 404: neither
+     * archived nor of an archived brand, whose products are kept as history.
+     */
     public static function find(string $id): Stone
     {
         return ctype_digit($id)
-            ? Stone::query()->findOrFail((int) $id)
+            ? Stone::query()->ofLiveBrand()->findOrFail((int) $id)
             : abort(404);
     }
 

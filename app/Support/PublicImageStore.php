@@ -61,14 +61,24 @@ final class PublicImageStore
      * Delete images' files: each one on the disk (not a path into the app's
      * own public folder), and not among `$stillUsed`.
      *
+     * It runs once a save has committed, so a file the disk won't delete is
+     * reported and left behind rather than turning that save into an error:
+     * a stray file costs only space.
+     *
      * @param  iterable<string|null>  $paths
      * @param  list<string>  $stillUsed
      */
     public function delete(iterable $paths, array $stillUsed = []): void
     {
         foreach ($paths as $path) {
-            if ($path !== null && $path !== '' && ! str_starts_with($path, '/') && ! in_array($path, $stillUsed, true)) {
+            if ($path === null || $path === '' || str_starts_with($path, '/') || in_array($path, $stillUsed, true)) {
+                continue;
+            }
+
+            try {
                 $this->disk()->delete($path);
+            } catch (Throwable $exception) {
+                report($exception);
             }
         }
     }

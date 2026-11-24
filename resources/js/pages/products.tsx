@@ -255,6 +255,23 @@ const productSchema = (
                     path: ['sizes'],
                     message: 'Add at least one size the stone comes in.',
                 });
+            } else if (values.sizes.length > limits.sizesMax) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['sizes'],
+                    message: `A stone can list ${limits.sizesMax} sizes at most.`,
+                });
+            }
+
+            if (
+                values.sizes.some((row) => row.size_id === NO_SIZE) &&
+                values.size_note.trim() === ''
+            ) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['size_note'],
+                    message: 'Say how big the pieces run.',
+                });
             }
 
             const seen = new Set<string>();
