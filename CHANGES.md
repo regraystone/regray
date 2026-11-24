@@ -34,6 +34,36 @@ A review of the Products pages, their lists and what they touch found places whe
 - **Shared parts:** a select with two options of the same label tells them apart (`distinctLabels`), so typing or choosing one never picks the other. A multi-select's chips can move one place earlier, so an ordered list (a stone type's finishes) is reordered in place. A list's search box follows a search changed from outside. List pages show 10 rows, as every DataTable does. The front end's permission list mirrors every server permission, checked by `PermissionMirrorTest`.
 - **Tests:** `Catalog/CatalogListTest` (every archive refusal, archived brands, case-insensitive names, the advisory guard, the furniture slug lock, the lock), `Product/StoneWriteTest` and `FurnitureWriteTest` (archived brands, the size note, update and archive audits, a failed upload's files), `Quote/QuoteEditTest` (each held stone, brand and answer), `Database/EdgeProfileBackfillTest`, `RedirectRoutesTest`, `Home/CollectionFilterTest`, `Home/ShowcaseShowTest`, `Brand/BrandArchiveTest`, `WorkspacePagesTest`, `Unit/PermissionMirrorTest`, and `tests/js/distinct-labels.test.mjs` and `inquiry-edit.test.mjs`.
 
+# The landing page's Contact is a photo, one line and a button
+
+From Sir Mark's comment that the home page doesn't need the contact details. The landing page's **Contact** section (06) no longer lists the four kinds of question (general, sales and quotations, architects and designers, suppliers); the Contact page still holds them, with the showroom's address, hours and numbers. It is now a photo, the title, one plain line ("Have a question about a stone, a project or a visit? Our team is happy to help.") and a **Contact us** button to the Contact page. Nothing to deploy.
+
+- **Layout:** it mirrors News above it (the text first and the photo second from a tablet, the photo on top on a phone), so the two read as a pair.
+- **The photo** is a lounge Regray finished, a curved sofa and a travertine table before a backlit stone shelf: a place to sit and talk (`/images/regray-lounge.jpg`, a 375 KB JPG of the "BELO 1 (5)" PNG supplied, 1086 by 1448). A portrait photo in a landscape frame, so it is cropped (`object-[center_65%]`) to keep the shelf, the sofa and the table on a laptop and a phone.
+
+# The landing page opens on Regray's own wall-cladding project
+
+From Sir Mark's comment to use an actual wall-cladding project, where the text doesn't blend into the background, and to avoid AI-generated photos. The landing page's opening photo (01) is now the backlit stone wall either side of a travertine fireplace (`public/images/regray-wall-cladding.jpg`, 1448 by 1086, a JPG of the PNG supplied, 2.6 MB down to 340 KB). Nothing to deploy: it ships with the site, like the landing page's other photos.
+
+- **The headline stays readable:** the floor and sofa under it are light, so the shade behind it is deeper than before (to 72% black at the foot, from 30% of the height, and a light shade from the left).
+- **Still on `regray-hero.jpg`** (the marble living room): the signed-in Home page, the Discover menu's panel and the Saved page. Only the landing page's opening was asked for.
+
+# The landing page's "How it works" is one poster for Regray Online
+
+From Sir Mark's comment to remove the How it works section (three steps, each with a photo) and promote the online platform with a simple poster and simple text instead. Section 03 is now one card: a navy panel beside a photo of a finished stone kitchen (`/images/regray-stone-kitchen.jpg`, free now that the steps are gone), the photo on top on a phone. Nothing to deploy.
+
+- **Written for Regray's clients, many of them older and not used to websites:** everyday words, short sentences, no technical terms. "Regray Online", then **See our stones from home**, then "Look at our stones, kitchens and furniture on your phone or computer. When you find something you like, send us a request and our team will help you with the rest."
+- **Two big buttons** (56px tall, 17px text): **Sign up for free** (the sign-up page) and **See our stones** (Regray Stone's stones, as the old section's first button). The old section's Request a quotation button goes: a request starts from the stones, and Contact, further down, still links to sales and quotations.
+- **Layout:** the card sits on white between the navy brand wall and the Showroom photo, so it reads as a poster, not a third banner. `LandingOnline` in `components/landing/landing-sections.tsx`; the three steps (`ONLINE_STEPS`) are removed.
+
+# The landing page's News is one general photo
+
+From Sir Mark's comment that three news cards looked uneven and messy: their photos differ in light and their titles in length, so the row never lines up. The landing page's **News** section (05) is now one general photo beside the section title, one line ("Homes and spaces we have recently finished across the Philippines.", as the News page puts it) and an **All news** button. The News page still tells each finished showcase. Nothing to deploy.
+
+- **The photo** is three marble tiles floating on grey (`/images/regray-marble-tiles.jpg`, a 155 KB JPG of the "Floating Marble Tile Collection" PNG supplied, 1024 by 1536). It is a portrait photo in a landscape frame, so it is cropped around the tiles (`object-[center_60%]`): all three show whole, with their shadow, on a laptop, a tablet and a phone. Changing it is one line in `LandingNews` (`components/landing/landing-sections.tsx`).
+- **Layout:** side by side from a tablet (the photo 7 parts to the text's 5, 5:4), the photo on top and the text centred on a phone. Not a second full-width banner, since Showroom, right above, already is one.
+- **Server:** the landing page no longer reads the three latest showcases (`LandingController` drops `showcases` and its `ShowcaseService`); `LandingPageTest` now checks it sends none.
+
 # Cucine Lube's logo in white, and re/form reads "Engineered Stone"
 
 From Sir Mark's comments on the landing page's brands. Only the two logo images change; nothing in the code does. **Deploy: production keeps its logos on S3, so upload both once on the Brands page (Edit, Replace logo), from the files below.**

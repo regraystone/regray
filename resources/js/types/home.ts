@@ -189,5 +189,4 @@ export type LandingBrand = {
 
 export type LandingPageProps = {
     brands: LandingBrand[];
-    showcases: LandingShowcase[];
 };
