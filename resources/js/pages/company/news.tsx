@@ -1,19 +1,39 @@
-import { Head } from '@inertiajs/react';
-import {
-    PageIntro,
-    body,
-    frame,
-    solidButton,
-} from '@/components/public/company-ui';
-import { StoryCard } from '@/components/landing/landing-sections';
-import { JOURNAL, SOCIALS } from '@/components/public/public-links';
+import { Head, Link } from '@inertiajs/react';
+import { frame } from '@/components/public/company-ui';
 import PublicLayout from '@/layouts/public-layout';
+import { show as showcaseShow } from '@/routes/stone';
 import type { LandingShowcase } from '@/types/home';
 
+/** A finished project as news: its photo, the year and the place, and its name. */
+const NewsItem = ({ story }: { story: LandingShowcase }) => (
+    <Link
+        href={showcaseShow.url({ slug: story.slug })}
+        className="group flex flex-col gap-5"
+        data-testid="news-item"
+    >
+        <div className="aspect-3/2 overflow-hidden rounded-md bg-[#d8d4cd]">
+            <img
+                src={story.thumbnail}
+                alt=""
+                loading="lazy"
+                className="size-full object-cover transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.02] motion-reduce:transition-none"
+            />
+        </div>
+        <div className="flex flex-col gap-2">
+            <p className="text-[0.875rem] tracking-[0.04em] text-muted-foreground uppercase">
+                {story.completedYear} · {story.location}
+            </p>
+            <h2 className="font-display text-[clamp(1.25rem,1.7vw,1.5rem)] leading-snug font-light text-pretty underline-offset-4 group-hover:underline">
+                {story.name}
+            </h2>
+        </div>
+    </Link>
+);
+
 /**
- * News: the latest finished showcases, each told as a story and opening its
- * page, then where Regray publishes the rest, its journal and its social
- * accounts. The system holds no other news, so none is made up here.
+ * News, kept clean and minimal: a title, one line, and the latest finished
+ * projects, two to a row from a tablet (one on a phone), each opening its
+ * page. The system holds no other news, so none is made up here.
  */
 export default function CompanyNews({
     stories,
@@ -24,64 +44,39 @@ export default function CompanyNews({
         <PublicLayout>
             <Head title="News" />
 
-            <PageIntro eyebrow="News" title="The latest from Regray">
-                <p>
+            <section
+                aria-labelledby="news-title"
+                className={`flex flex-col gap-4 pt-[clamp(3.5rem,7vw,6rem)] pb-[clamp(2.5rem,5vw,4rem)] ${frame}`}
+            >
+                <h1
+                    id="news-title"
+                    className="font-display text-[clamp(2.25rem,4vw,3.5rem)] leading-none font-light tracking-[0.02em] uppercase"
+                >
+                    News
+                </h1>
+                <p className="max-w-150 text-[clamp(1.0625rem,1.3vw,1.1875rem)] leading-relaxed text-muted-foreground">
                     Homes and spaces we have recently finished across the
                     Philippines.
                 </p>
-            </PageIntro>
+            </section>
 
-            {stories.length > 0 ? (
-                <section
-                    aria-label="Latest showcases"
-                    className={`pb-[clamp(5rem,9vw,8rem)] ${frame}`}
-                >
-                    <ul className="grid grid-cols-1 gap-x-4 gap-y-12 min-[700px]:gap-x-7 sm:grid-cols-2 lg:grid-cols-3">
+            <section
+                aria-label="Recently finished"
+                className={`border-t border-border pt-[clamp(2.5rem,5vw,4rem)] pb-[clamp(5rem,9vw,8rem)] ${frame}`}
+            >
+                {stories.length > 0 ? (
+                    <ul className="grid grid-cols-1 gap-x-[clamp(1.5rem,3vw,3rem)] gap-y-[clamp(3rem,6vw,5rem)] sm:grid-cols-2">
                         {stories.map((story) => (
                             <li key={story.slug}>
-                                <StoryCard story={story} />
+                                <NewsItem story={story} />
                             </li>
                         ))}
                     </ul>
-                </section>
-            ) : null}
-
-            <section
-                aria-labelledby="news-more"
-                className="flex flex-col items-center gap-6 border-t border-border px-5 py-[clamp(4.5rem,8vw,7rem)] text-center"
-            >
-                <h2
-                    id="news-more"
-                    className="font-display text-[clamp(1.5rem,2vw,1.875rem)] font-light tracking-[0.02em] uppercase"
-                >
-                    More from Regray
-                </h2>
-                <p className={`max-w-150 ${body}`}>
-                    Read about our stones and showcases in the Regray Journal,
-                    or follow us for what is new each week.
-                </p>
-                <a
-                    href={JOURNAL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`mt-2 ${solidButton}`}
-                >
-                    Read the Regray Journal ↗
-                </a>
-                <ul className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[1.0625rem]">
-                    {SOCIALS.map((social) => (
-                        <li key={social.label}>
-                            <a
-                                href={social.href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline-offset-4 hover:underline"
-                            >
-                                {social.label}
-                            </a>
-                        </li>
-                    ))}
-                </ul>
+                ) : (
+                    <p className="text-[1.0625rem] text-muted-foreground">
+                        No news yet. Come back soon.
+                    </p>
+                )}
             </section>
         </PublicLayout>
     );

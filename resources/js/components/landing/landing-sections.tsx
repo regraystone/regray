@@ -19,8 +19,7 @@ import {
     showroom,
 } from '@/routes/company';
 import { register } from '@/routes';
-import { show as showcaseShow } from '@/routes/stone';
-import type { LandingBrand, LandingShowcase } from '@/types/home';
+import type { LandingBrand } from '@/types/home';
 
 /** A section's title: spaced capitals in the heading face. */
 const sectionTitle =
@@ -295,29 +294,6 @@ export function LandingNews() {
         </section>
     );
 }
-
-/** A finished showcase told as news: its photo, the year it was finished, its name and where. */
-export const StoryCard = ({ story }: { story: LandingShowcase }) => (
-    <Link
-        href={showcaseShow.url({ slug: story.slug })}
-        className="group flex flex-col gap-4.5"
-    >
-        <div className="aspect-4/3 overflow-hidden rounded-md bg-[#d8d4cd]">
-            <img
-                src={story.thumbnail}
-                alt=""
-                loading="lazy"
-                className={`size-full object-cover ${zoom}`}
-            />
-        </div>
-        <span className="text-[0.9375rem] text-muted-foreground">
-            Finished in {story.completedYear}
-        </span>
-        <span className="font-display text-[clamp(1.1875rem,1.5vw,1.375rem)] leading-snug text-pretty">
-            {story.name}, {story.location}
-        </span>
-    </Link>
-);
 
 /**
  * 06. Contact, kept short: a photo, one plain line and the way to the

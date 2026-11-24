@@ -2,14 +2,13 @@ import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
-    HOME_BRAND,
     menuItems,
+    menuRows,
     type MenuLink,
     type MenuPanel,
 } from '@/components/public/public-links';
 import Logo from '@/components/logo';
 import { dashboard, login, register } from '@/routes';
-import type { BrandCardData } from '@/types/home';
 
 /** Below this width the tabs fold into the full-screen menu. */
 const DESKTOP_QUERY = '(min-width: 1180px)';
@@ -102,16 +101,10 @@ const Chevron = ({
  * Poliform's menu does.
  */
 export default function PublicHeader() {
-    const { siteBrands, auth } = usePage<{
-        siteBrands?: BrandCardData[] | null;
-        auth: { user: unknown };
-    }>().props;
+    const { auth } = usePage<{ auth: { user: unknown } }>().props;
     const isSignedIn = auth.user !== null;
     const { url } = usePage();
-    const items = menuItems(
-        siteBrands?.find((brand) => brand.slug === HOME_BRAND)?.thumbnail ??
-            null,
-    );
+    const items = menuItems();
     const firstPanel = items.find(
         (item): item is MenuPanel => item.kind === 'panel',
     );
@@ -333,16 +326,18 @@ export default function PublicHeader() {
                             <p className="font-display text-[clamp(1.375rem,1.8vw,1.75rem)] leading-snug font-light text-pretty">
                                 {current.description}
                             </p>
-                            <MenuAnchor
-                                link={current.cta}
-                                onNavigate={closeAll}
-                                className="mt-2 self-start border-b border-foreground pb-1.5 text-base font-medium transition-opacity hover:opacity-70"
-                            >
-                                {current.cta.label}
-                            </MenuAnchor>
+                            {current.cta ? (
+                                <MenuAnchor
+                                    link={current.cta}
+                                    onNavigate={closeAll}
+                                    className="mt-2 self-start border-b border-foreground pb-1.5 text-base font-medium transition-opacity hover:opacity-70"
+                                >
+                                    {current.cta.label}
+                                </MenuAnchor>
+                            ) : null}
                         </div>
                         <ul className="flex flex-col border-t border-border">
-                            {current.links.map((link, index) => (
+                            {menuRows(current.links).map((link, index) => (
                                 <li
                                     key={`${current.label}-${link.label}`}
                                     style={{
@@ -359,7 +354,11 @@ export default function PublicHeader() {
                                     <MenuAnchor
                                         link={link}
                                         onNavigate={closeAll}
-                                        className="flex items-center justify-between gap-4 py-3.5 font-display text-[clamp(1.125rem,1.3vw,1.25rem)] transition-[padding,color] hover:pl-2 hover:text-muted-foreground motion-reduce:transition-none"
+                                        className={`flex items-center justify-between gap-4 font-display transition-[padding,color] hover:text-muted-foreground motion-reduce:transition-none ${
+                                            link.depth === 1
+                                                ? 'py-2.5 pl-6 text-[clamp(1rem,1.15vw,1.125rem)] text-foreground/80 hover:pl-8'
+                                                : 'py-3.5 text-[clamp(1.125rem,1.3vw,1.25rem)] hover:pl-2'
+                                        }`}
                                     >
                                         {link.label}
                                         <span aria-hidden className="text-sm">
@@ -508,27 +507,46 @@ export default function PublicHeader() {
                                     </span>
                                 </span>
                             </button>
-                            <p className="mt-5 mb-3 text-[1.0625rem] leading-normal text-muted-foreground">
+                            <p className="mt-5 text-[1.0625rem] leading-normal text-muted-foreground">
                                 {subSection.description}
                             </p>
-                            <ul className="flex flex-col">
-                                {[subSection.cta, ...subSection.links]
+                            {/* The section's main link, under its line as on a laptop; its list holds only its links. */}
+                            {subSection.cta ? (
+                                <MenuAnchor
+                                    link={subSection.cta}
+                                    onNavigate={closeAll}
+                                    className="mt-3 mb-4 self-start border-b border-foreground pb-1 text-[1.0625rem] font-medium"
+                                >
+                                    {subSection.cta.label}
+                                </MenuAnchor>
+                            ) : (
+                                <span className="mb-4" />
+                            )}
+                            <ul className="flex flex-col border-t border-border">
+                                {menuRows(subSection.links)
                                     .filter(
-                                        (link, position, all) =>
-                                            all.findIndex(
-                                                (other) =>
-                                                    other.href === link.href,
-                                            ) === position,
+                                        (link) =>
+                                            link.href !== subSection.cta?.href,
                                     )
-                                    .map((link) => (
+                                    .map((link, index, rows) => (
                                         <li
                                             key={link.label}
-                                            className="border-b border-border"
+                                            // A group's links share one line under its last.
+                                            className={
+                                                link.depth === 1 &&
+                                                rows[index + 1]?.depth === 1
+                                                    ? ''
+                                                    : 'border-b border-border'
+                                            }
                                         >
                                             <MenuAnchor
                                                 link={link}
                                                 onNavigate={closeAll}
-                                                className="group flex min-h-14 items-center justify-between gap-3 text-[1.125rem]"
+                                                className={`group flex items-center justify-between gap-3 ${
+                                                    link.depth === 1
+                                                        ? 'min-h-12 pl-6 text-[1.0625rem] text-foreground/80'
+                                                        : 'min-h-14 text-[1.125rem]'
+                                                }`}
                                             >
                                                 {link.label}
                                                 <span

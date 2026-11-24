@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # Services: a page for each of its lists, as Products has
 
 Services opens in the sidebar as an accordion, as Products does: **All services** (now a table, as Products is), **Service types** and **Questions**, each its own page. The two lists are on the one list page Products' lists use (`catalog-list`, `CatalogListController`), under `/dashboard/services/{list}` with services' permissions. **Deploy, local and production: one migration (`detail_fields.archived_at`), nothing to seed. Rebuild the front end.**
@@ -35,6 +36,32 @@ A review of the Products pages, their lists and what they touch found places whe
 - **Seeders:** `EdgeProfileSeeder` gives stone types their edge profiles only on a new database, so a type emptied on purpose stays empty. `StoneSeeder` writes a seeded type's finishes, applications and care tips exactly as its data lists them. Alora and Calma, center tables, are seeded as Center & Side Tables.
 - **Shared parts:** a select with two options of the same label tells them apart (`distinctLabels`), so typing or choosing one never picks the other. A multi-select's chips can move one place earlier, so an ordered list (a stone type's finishes) is reordered in place. A list's search box follows a search changed from outside. List pages show 10 rows, as every DataTable does. The front end's permission list mirrors every server permission, checked by `PermissionMirrorTest`.
 - **Tests:** `Catalog/CatalogListTest` (every archive refusal, archived brands, case-insensitive names, the advisory guard, the furniture slug lock, the lock), `Product/StoneWriteTest` and `FurnitureWriteTest` (archived brands, the size note, update and archive audits, a failed upload's files), `Quote/QuoteEditTest` (each held stone, brand and answer), `Database/EdgeProfileBackfillTest`, `RedirectRoutesTest`, `Home/CollectionFilterTest`, `Home/ShowcaseShowTest`, `Brand/BrandArchiveTest`, `WorkspacePagesTest`, `Unit/PermissionMirrorTest`, and `tests/js/distinct-labels.test.mjs` and `inquiry-edit.test.mjs`.
+=======
+# Contact is one button
+
+From Sir Mark's comment on the menu's Contact. It is now a plain link to the Contact page (`kind: 'page'` in `menuItems()`), like Our brands and News: no panel and no ⌄ on a laptop, no › on a phone, underlined while on it. Its panel's links (Contact us, General inquiries, Sales & quotations, Architect & designer partnerships, Supplier & business inquiries, Contact information) are gone; the Contact page holds all of them. The menu reads Our brands, Discover (the only panel), News, Contact. Nothing to deploy.
+
+# News is one button, and its page is clean and minimal
+
+From Sir Mark's comment on the menu's News. Nothing to deploy.
+
+- **The menu's News is a plain link** to the News page (`kind: 'page'` in `menuItems()`), like Our brands: no panel and no ⌄ on a laptop, no › on a phone, underlined while on it. Its panel's links (Latest showcases, Regray Journal, Instagram, Facebook) are gone. Discover and Contact keep their panels.
+- **The News page** (`pages/company/news.tsx`) is a title, one line ("Homes and spaces we have recently finished across the Philippines.") and the latest finished projects, two to a row from a tablet (one on a phone), each a photo, the year and place in small capitals, and its name, opening its page; "No news yet." when there is none. The More from Regray block (the Regray Journal button and the social links, both Regray Stone's) is gone. The card moves from the landing page into the News page (`NewsItem`; `StoryCard` and `JOURNAL` are removed, as nothing else used them).
+
+# Discover: Our story, Mission & vision and The Regray Group sit inside About Regray Design Group
+
+From Sir Mark's comment on the menu's Discover. Its list now opens with **About Regray Design Group** (the About page), with **Our story**, **Mission & vision** and **The Regray Group** (its sections) indented under it, then **Showroom**, **Partnerships** and **Careers** as before. It replaces the panel's old "About Regray" main link, so the About page is listed once. Nothing to deploy.
+
+- **A link can hold links** (`MenuLink.children`, drawn one level in by `menuRows()` in `components/public/public-links.ts`), on a laptop and in the phone menu, where a group's links share one line under the last of them. A panel's main link (`cta`) is now optional.
+
+# Our brands is one page that introduces every brand
+
+From two of Sir Mark's comments: the pre-sign-up pages should only introduce the brands, and Our brands should follow the concept (not the look) of Haworth Lifestyle's Companies page, one page for every company. Nothing to deploy.
+
+- **The menu's Our brands is a plain link** to the Our brands page (`menuItems()` in `components/public/public-links.ts`, `kind: 'page'`): no panel and no ⌄ on a laptop, no › on a phone, underlined while on it. Its panel's category links (Stone & Surfaces, Kitchens, Wardrobes & Doors, Furniture & Interiors) are gone. Discover, News and Contact keep their panels.
+- **The Our brands page** (`pages/company/brands.tsx`) is one grid of the brands, each once, in the order the admin sets on the Brands page: its photo with its logo, its line, and Discover. Three across on a desktop, two on a tablet, one on a phone. It is no longer grouped by what they make, so Regray Stone and Faer Ambienti no longer show twice; `BRAND_CATEGORIES` and the category anchors are removed.
+- **The phone menu shows each section's main link as on a laptop:** an underlined link under its line (About Regray, All news, Contact us), and its list holds only its links, where before the main link was the list's first row.
+>>>>>>> Stashed changes
 
 # The footer speaks for the whole group
 
