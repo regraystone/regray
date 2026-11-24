@@ -1,3 +1,12 @@
+# The menu: Showroom moves into Discover, and the phone menu moves like Poliform's
+
+From Sir Mark's comments on the public header. Nothing to deploy.
+
+- **Showroom is a link under Discover, not a tab** (`menuItems` in `components/public/public-links.ts`). Its own tab had four links (overview, gallery, location and directions, booking a visit) to what is one page, so Discover now holds a single **Showroom** link to that page, and its line reads "Who we are, our showroom in Makati, and how to work with us." The tabs are Our brands, Discover, News and Contact, on a laptop and a phone alike.
+- **The phone menu moves the way Poliform's does** (`components/public/public-header.tsx`, below 1180px): the ☰ button's three lines turn into ✕ (the middle one shrinks away to the right while the top and bottom turn, 0.3s); the menu slides down over the page on a phone and in from the right on a tablet (0.6s), and back out when closed. Each section shows a **›**: tapping it nudges the arrow on and wipes that section's description and links in over the menu from the right (0.4s), with a **‹** to go back and the section's name sliding in beside it from behind the arrow. Going back wipes them away again. The sections were expanding accordions before.
+- **Keyboard and screen readers:** opening a section moves the focus to its back arrow ("Back to the menu: Discover"), going back returns it to the section's row, Escape closes the menu, and whatever is hidden (the closed menu, the menu under an open section) is out of reach. Anyone who prefers reduced motion gets no movement.
+- The desktop header is unchanged apart from Showroom moving into Discover.
+
 # The landing page's Contact is a photo, one line and a button
 
 From Sir Mark's comment that the home page doesn't need the contact details. The landing page's **Contact** section (06) no longer lists the four kinds of question (general, sales and quotations, architects and designers, suppliers); the Contact page still holds them, with the showroom's address, hours and numbers. It is now a photo, the title, one plain line ("Have a question about a stone, a project or a visit? Our team is happy to help.") and a **Contact us** button to the Contact page. Nothing to deploy.
