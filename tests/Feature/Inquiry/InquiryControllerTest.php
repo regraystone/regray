@@ -2,10 +2,13 @@
 
 use App\Actions\Inquiry\CreateInquiryAction;
 use App\Enums\Role;
+use App\Models\Brand;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
+use App\Models\Furniture;
 use App\Models\Inquiry;
 use App\Models\Service;
+use App\Models\Stone;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Support\SessionKey;
 
@@ -118,6 +121,24 @@ it('sends the Inquire page its options', function (): void {
             ->has('edgeProfiles', 8)
             ->has('finishes.0', fn ($finish) => $finish->hasAll(['id', 'name', 'isAdvisory']))
             ->missing('locations'));
+});
+
+it('offers on the Brand question only a brand with an active stone or piece of furniture', function (): void {
+    $empty = Brand::factory()->create(['slug' => 'empty-brand', 'sort_order' => 90]);
+    Stone::factory()->for($empty)->create(['is_active' => false]);
+    $furnitureOnly = Brand::factory()->create(['slug' => 'furniture-only', 'sort_order' => 91]);
+    Furniture::factory()->for($furnitureOnly)->create();
+
+    $available = fn (): array => collect(
+        $this->actingAs(inquiryClient())->get(route('quote.inquire'))->viewData('page')['props']['brands'],
+    )->pluck('available', 'id')->all();
+
+    expect($available())->toMatchArray(['regray-stone' => true, 'empty-brand' => false, 'furniture-only' => true]);
+
+    // The day it has an active product, it is offered.
+    Stone::factory()->for($empty)->create();
+
+    expect($available()['empty-brand'])->toBeTrue();
 });
 
 it('leaves an inactive edge profile off the Inquire page', function (): void {

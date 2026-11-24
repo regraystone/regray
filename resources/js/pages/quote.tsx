@@ -1,5 +1,5 @@
 import { InfiniteScroll, Link, router, usePage } from '@inertiajs/react';
-import { Plus, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import EmptyState from '@/components/empty-state';
 import { StatusBadge } from '@/components/inquiry-status-badge';
@@ -495,7 +495,6 @@ const Quote = () => {
                         mayAddInquiry ? (
                             <span ref={inquireRef} className="inline-flex">
                                 <Button type="button" onClick={onInquireClick}>
-                                    <Plus aria-hidden />
                                     Inquire
                                 </Button>
                             </span>
@@ -630,7 +629,6 @@ const Quote = () => {
                     className="fixed right-4 bottom-4 z-50 sm:right-5 sm:bottom-5"
                     onClick={onInquireClick}
                 >
-                    <Plus aria-hidden />
                     Inquire
                 </Button>
             ) : null}

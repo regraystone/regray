@@ -27,6 +27,26 @@ class BrandRepository implements BrandRepositoryInterface
             ->get(['id', 'slug', 'name', 'tagline', 'logo_path', 'thumbnail_path', 'description']);
     }
 
+    /** @return Collection<int, Brand> */
+    public function activeForInquiry(): Collection
+    {
+        return Brand::query()
+            ->active()
+            ->select(['id', 'slug', 'name', 'logo_path'])
+            ->withExists([
+                // The brand is active already, so an active product of it is one shown on Regray.
+                'stones as has_stones' => fn (Builder $stones) => $stones->where('is_active', true),
+                'furniture as has_furniture' => fn (Builder $furniture) => $furniture->where('is_active', true),
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->each(fn (Brand $brand) => $brand->setAttribute(
+                'has_products',
+                (bool) $brand->getAttribute('has_stones') || (bool) $brand->getAttribute('has_furniture'),
+            ));
+    }
+
     /** @return LengthAwarePaginator<int, Brand> */
     public function paginateForAdmin(?string $escapedSearch, int $perPage, int $page): LengthAwarePaginator
     {

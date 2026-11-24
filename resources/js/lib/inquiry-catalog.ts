@@ -36,13 +36,14 @@ export const createInquiryCatalog = (
     const services = serviceTypes.flatMap((type) => type.services);
 
     return {
-        // An edited inquiry's own brands stay listed, though archived since.
+        // An edited inquiry's own brands stay listed, though archived since:
+        // kept as picked, but not offered to pick again.
         brands: (props.projects ?? []).reduce(
             (brands, { heldBrands = [] }) => [
                 ...brands,
-                ...heldBrands.filter(
-                    (held) => !brands.some(({ id }) => id === held.id),
-                ),
+                ...heldBrands
+                    .filter((held) => !brands.some(({ id }) => id === held.id))
+                    .map((held) => ({ ...held, available: false })),
             ],
             props.brands,
         ),

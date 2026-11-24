@@ -1,3 +1,13 @@
+# Inquire's brand question: black logos, Unavailable brands, No preference across the row; no icons on Message us and Inquire
+
+From Sir Mark's comments on the Inquire page's "Which brands would you like?", the signed-in Home page and the Quote page. Nothing to deploy.
+
+- **Logos on black** (`components/inquiry-brand-question.tsx`), every panel alike, so they compare evenly; the six brands sit three to a row (two on a phone).
+- **Unavailable brands:** a brand with no active stone or piece of furniture yet says **Unavailable** beside its name, its logo dimmed on the black, and cannot be picked; at the moment that is every brand but Regray Stone. The server decides it (`BrandRepositoryInterface::activeForInquiry()`, sent as `available` by `InquiryBrandResource`), so a brand is offered the day it has an active product. A pick a saved draft or an edited inquiry already holds can still be taken off, not picked again. The server still accepts any active brand.
+- **No preference spans the row** under the brands, with a lower panel, instead of sitting alone at the left.
+- **Message us** on the signed-in Home page loses its speech-bubble icon, and **Inquire** on the Quote page (the button and the floating one) loses its plus.
+- **Tests:** `Inquiry/InquiryControllerTest` (a brand with only an inactive stone is unavailable, one with active furniture is available, and one becomes available once it has an active stone).
+
 # Contact is one button
 
 From Sir Mark's comment on the menu's Contact. It is now a plain link to the Contact page (`kind: 'page'` in `menuItems()`), like Our brands and News: no panel and no ⌄ on a laptop, no › on a phone, underlined while on it. Its panel's links (Contact us, General inquiries, Sales & quotations, Architect & designer partnerships, Supplier & business inquiries, Contact information) are gone; the Contact page holds all of them. The menu reads Our brands, Discover (the only panel), News, Contact. Nothing to deploy.
