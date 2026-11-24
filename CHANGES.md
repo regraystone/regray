@@ -1,3 +1,17 @@
+# The footer speaks for the whole group
+
+From Sir Mark's comment that the footer's Regraystone.com link and social accounts are Regray Stone's alone, while the site promotes the whole group of brands. The public footer (`components/public/public-footer.tsx`) no longer links to regraystone.com, and its row of social accounts (Instagram, Facebook, Pinterest, YouTube, TikTok, LinkedIn) is gone; the copyright keeps the ruled line along the foot to itself. The footer keeps the wordmark, the group's pages (The group, Our brands, Showroom, News, Contact, Client login) and the showroom's address, hours, numbers and email. The Contact page still lists the social accounts. Nothing to deploy.
+
+# The Contact page is arranged like regraystone.com's
+
+From Sir Mark's comment to follow regraystone.com/contact's arrangement for the contact details, since the other brands are reached through the one Regray team for now. The page (`pages/company/contact.tsx`) now runs, top to bottom: Nothing to deploy.
+
+- **A photo with "Contact us"** over it (the lounge Regray finished, `/images/regray-lounge.jpg`, as on the landing page's Contact).
+- **Speak with our team** (`#info`), on a light band: one line, then a tile for each phone number and the email, each with its icon, that calls or writes when tapped. Four across on a laptop, two on a tablet, one on a phone.
+- **Follow us and discover the beauty of natural stone**, over the backlit onyx wall: a grid of outlined buttons, two across, one for each of Regray's six accounts with its network's mark. YouTube, Pinterest and LinkedIn marks are added to `components/social-icon.tsx` (`SocialMark`), and each of `SOCIALS` names its mark (`icon`).
+- **Visit our showroom** (`#showroom`): the map, one line, the hours, the address, **Get directions** and **Book a visit**.
+- **How can we help?**: the four kinds of question stay below the details, unchanged (General inquiries, Sales & quotations, Architect & designer partnerships, Supplier & business inquiries), with their anchors (`#general`, `#sales`, `#trade`, `#business`), so the menu's Contact links still land on them.
+
 # The menu: Showroom moves into Discover, and the phone menu moves like Poliform's
 
 From Sir Mark's comments on the public header. Nothing to deploy.
