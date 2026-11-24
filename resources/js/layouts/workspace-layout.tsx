@@ -660,7 +660,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         collapsed ? 'justify-center px-0' : 'px-6'
                     }`}
                 >
-                    <Logo compact={collapsed} />
+                    <Logo compact={collapsed} className="text-sm" />
                 </div>
 
                 <SidebarNav
@@ -702,7 +702,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             >
                 <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-sidebar-border bg-background px-4 sm:px-5 lg:h-16 lg:px-8">
                     <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                        <Logo className="shrink-0 lg:hidden" />
+                        {/* On the narrowest phones only REGRAY fits beside the account, bell and menu. */}
+                        <Logo className="shrink-0 text-[0.6875rem] max-[339px]:text-sm min-[400px]:text-sm lg:hidden max-[339px]:[&_[data-wordmark-name]]:hidden" />
                         <span
                             className="hidden h-6 w-px shrink-0 bg-sidebar-border md:block lg:hidden"
                             aria-hidden
@@ -879,7 +880,7 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                 }`}
             >
                 <div className="flex h-16 items-center border-b border-border px-6">
-                    <Logo />
+                    <Logo className="text-sm" />
                 </div>
                 <SidebarNav
                     collapsed={false}

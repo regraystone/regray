@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Menu as MenuIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
     HOME_BRAND,
@@ -97,7 +97,8 @@ const Chevron = ({
  * opens under the header on hover, focus or click: what the tab holds, its
  * main link, its links and a photo, over a dimmed page. Leaving the header,
  * Escape or the dimmed page closes it. Below 1180px the tabs fold into a
- * full-screen menu, the panels as accordions and the pages as links.
+ * full-screen menu, opened by the ☰ button (✕ to close), the panels as
+ * accordions and the pages as links.
  */
 export default function PublicHeader() {
     const { siteBrands, auth } = usePage<{
@@ -188,7 +189,7 @@ export default function PublicHeader() {
                     }`}
                 >
                     <div onMouseEnter={() => setOpen(-1)}>
-                        <Logo className="[&>span:first-child]:h-5" />
+                        <Logo className="text-[0.9375rem] min-[360px]:text-[1.0625rem] sm:text-xl" />
                     </div>
 
                     <nav
@@ -265,9 +266,18 @@ export default function PublicHeader() {
                         onClick={() => setMenuOpen((now) => !now)}
                         aria-expanded={menuOpen}
                         aria-controls="public-menu"
-                        className="min-h-11 px-1 text-base font-semibold min-[1180px]:hidden"
+                        aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+                        className="-mr-2 flex size-11 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none min-[1180px]:hidden"
                     >
-                        {menuOpen ? 'Close' : 'Menu'}
+                        {menuOpen ? (
+                            <X aria-hidden className="size-7" strokeWidth={2} />
+                        ) : (
+                            <MenuIcon
+                                aria-hidden
+                                className="size-7"
+                                strokeWidth={2.5}
+                            />
+                        )}
                     </button>
                 </div>
 
