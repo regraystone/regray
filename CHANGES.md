@@ -36,6 +36,29 @@ A review of the Products pages, their lists and what they touch found places whe
 - **Shared parts:** a select with two options of the same label tells them apart (`distinctLabels`), so typing or choosing one never picks the other. A multi-select's chips can move one place earlier, so an ordered list (a stone type's finishes) is reordered in place. A list's search box follows a search changed from outside. List pages show 10 rows, as every DataTable does. The front end's permission list mirrors every server permission, checked by `PermissionMirrorTest`.
 - **Tests:** `Catalog/CatalogListTest` (every archive refusal, archived brands, case-insensitive names, the advisory guard, the furniture slug lock, the lock), `Product/StoneWriteTest` and `FurnitureWriteTest` (archived brands, the size note, update and archive audits, a failed upload's files), `Quote/QuoteEditTest` (each held stone, brand and answer), `Database/EdgeProfileBackfillTest`, `RedirectRoutesTest`, `Home/CollectionFilterTest`, `Home/ShowcaseShowTest`, `Brand/BrandArchiveTest`, `WorkspacePagesTest`, `Unit/PermissionMirrorTest`, and `tests/js/distinct-labels.test.mjs` and `inquiry-edit.test.mjs`.
 
+# The footer speaks for the whole group
+
+From Sir Mark's comment that the footer's Regraystone.com link and social accounts are Regray Stone's alone, while the site promotes the whole group of brands. The public footer (`components/public/public-footer.tsx`) no longer links to regraystone.com, and its row of social accounts (Instagram, Facebook, Pinterest, YouTube, TikTok, LinkedIn) is gone; the copyright keeps the ruled line along the foot to itself. The footer keeps the wordmark, the group's pages (The group, Our brands, Showroom, News, Contact, Client login) and the showroom's address, hours, numbers and email. The Contact page still lists the social accounts. Nothing to deploy.
+
+# The Contact page is arranged like regraystone.com's
+
+From Sir Mark's comment to follow regraystone.com/contact's arrangement for the contact details, since the other brands are reached through the one Regray team for now. The page (`pages/company/contact.tsx`) now runs, top to bottom: Nothing to deploy.
+
+- **A photo with "Contact us"** over it (the lounge Regray finished, `/images/regray-lounge.jpg`, as on the landing page's Contact).
+- **Speak with our team** (`#info`), on a light band: one line, then a tile for each phone number and the email, each with its icon, that calls or writes when tapped. Four across on a laptop, two on a tablet, one on a phone.
+- **Follow us and discover the beauty of natural stone**, over the backlit onyx wall: a grid of outlined buttons, two across, one for each of Regray's six accounts with its network's mark. YouTube, Pinterest and LinkedIn marks are added to `components/social-icon.tsx` (`SocialMark`), and each of `SOCIALS` names its mark (`icon`).
+- **Visit our showroom** (`#showroom`): the map, one line, the hours, the address, **Get directions** and **Book a visit**.
+- **How can we help?**: the four kinds of question stay below the details, unchanged (General inquiries, Sales & quotations, Architect & designer partnerships, Supplier & business inquiries), with their anchors (`#general`, `#sales`, `#trade`, `#business`), so the menu's Contact links still land on them.
+
+# The menu: Showroom moves into Discover, and the phone menu moves like Poliform's
+
+From Sir Mark's comments on the public header. Nothing to deploy.
+
+- **Showroom is a link under Discover, not a tab** (`menuItems` in `components/public/public-links.ts`). Its own tab had four links (overview, gallery, location and directions, booking a visit) to what is one page, so Discover now holds a single **Showroom** link to that page, and its line reads "Who we are, our showroom in Makati, and how to work with us." The tabs are Our brands, Discover, News and Contact, on a laptop and a phone alike.
+- **The phone menu moves the way Poliform's does** (`components/public/public-header.tsx`, below 1180px): the ☰ button's three lines turn into ✕ (the middle one shrinks away to the right while the top and bottom turn, 0.3s); the menu slides down over the page on a phone and in from the right on a tablet (0.6s), and back out when closed. Each section shows a **›**: tapping it nudges the arrow on and wipes that section's description and links in over the menu from the right (0.4s), with a **‹** to go back and the section's name sliding in beside it from behind the arrow. Going back wipes them away again. The sections were expanding accordions before.
+- **Keyboard and screen readers:** opening a section moves the focus to its back arrow ("Back to the menu: Discover"), going back returns it to the section's row, Escape closes the menu, and whatever is hidden (the closed menu, the menu under an open section) is out of reach. Anyone who prefers reduced motion gets no movement.
+- The desktop header is unchanged apart from Showroom moving into Discover.
+
 # The landing page's Contact is a photo, one line and a button
 
 From Sir Mark's comment that the home page doesn't need the contact details. The landing page's **Contact** section (06) no longer lists the four kinds of question (general, sales and quotations, architects and designers, suppliers); the Contact page still holds them, with the showroom's address, hours and numbers. It is now a photo, the title, one plain line ("Have a question about a stone, a project or a visit? Our team is happy to help.") and a **Contact us** button to the Contact page. Nothing to deploy.

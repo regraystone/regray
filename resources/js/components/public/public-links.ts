@@ -1,6 +1,5 @@
 import { about, brands, contact, news, showroom } from '@/routes/company';
 import { show as brandsShow } from '@/routes/brands';
-import { book } from '@/routes/profile/schedule';
 import { inquire } from '@/routes/quote';
 
 /**
@@ -55,12 +54,36 @@ export const JOURNAL = 'https://regraystone.com/journal/';
 
 /** Where to find Regray online. */
 export const SOCIALS = [
-    { label: 'Instagram', href: 'https://www.instagram.com/regraystoneph/' },
-    { label: 'Facebook', href: 'https://www.facebook.com/Regraystone' },
-    { label: 'Pinterest', href: 'https://ph.pinterest.com/regraystone/' },
-    { label: 'YouTube', href: 'https://www.youtube.com/@regraystone' },
-    { label: 'TikTok', href: 'https://www.tiktok.com/@regraystone' },
-    { label: 'LinkedIn', href: 'https://ph.linkedin.com/company/regraystone' },
+    {
+        label: 'Instagram',
+        href: 'https://www.instagram.com/regraystoneph/',
+        icon: 'instagram',
+    },
+    {
+        label: 'Facebook',
+        href: 'https://www.facebook.com/Regraystone',
+        icon: 'facebook',
+    },
+    {
+        label: 'Pinterest',
+        href: 'https://ph.pinterest.com/regraystone/',
+        icon: 'pinterest',
+    },
+    {
+        label: 'YouTube',
+        href: 'https://www.youtube.com/@regraystone',
+        icon: 'youtube',
+    },
+    {
+        label: 'TikTok',
+        href: 'https://www.tiktok.com/@regraystone',
+        icon: 'tiktok',
+    },
+    {
+        label: 'LinkedIn',
+        href: 'https://ph.linkedin.com/company/regraystone',
+        icon: 'linkedin',
+    },
 ] as const;
 
 /**
@@ -131,9 +154,11 @@ export type MenuPage = { kind: 'page'; label: string; href: string };
 export type MenuItem = MenuPanel | MenuPage;
 
 /**
- * The header's menu, in the agreed order: every tab opens a panel. (A tab may
+ * The header's menu, in the agreed order: every tab opens a panel. The
+ * showroom is a link under Discover, not a tab of its own: its one page
+ * holds the photos, the location and booking a visit. (A tab may
  * instead be a plain link to its page, `kind: 'page'`.) Pages a guest cannot
- * open yet (booking a visit, the Inquire page) go through Login first.
+ * open yet (the Inquire page) go through Login first.
  */
 export const menuItems = (brandPhoto: string | null): MenuItem[] => [
     {
@@ -150,29 +175,15 @@ export const menuItems = (brandPhoto: string | null): MenuItem[] => [
     },
     {
         kind: 'panel',
-        label: 'Showroom',
-        description:
-            'See and touch our stones and furniture in person, at our showroom in Makati.',
-        cta: { label: 'Visit the showroom', href: showroom.url() },
-        links: [
-            { label: 'Showroom overview', href: showroom.url() },
-            { label: 'Gallery', href: `${showroom.url()}#gallery` },
-            {
-                label: 'Location & directions',
-                href: `${showroom.url()}#location`,
-            },
-            { label: 'Book a visit', href: book.url() },
-        ],
-        image: '/images/regray-showroom.jpg',
-    },
-    {
-        kind: 'panel',
         label: 'Discover',
-        description: 'Who we are, what we believe in, and how to work with us.',
+        description:
+            'Who we are, our showroom in Makati, and how to work with us.',
         cta: { label: 'About Regray', href: about.url() },
         links: [
             { label: 'Our story', href: `${about.url()}#story` },
             { label: 'The Regray Group', href: `${about.url()}#group` },
+            // One page holds the showroom: its photos, where it is and booking a visit.
+            { label: 'Showroom', href: showroom.url() },
             { label: 'Mission & vision', href: `${about.url()}#vision` },
             { label: 'Partnerships', href: `${about.url()}#partnerships` },
             { label: 'Careers', href: `${about.url()}#careers` },
