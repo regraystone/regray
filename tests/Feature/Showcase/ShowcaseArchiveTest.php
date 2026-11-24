@@ -97,7 +97,8 @@ it('takes it off every page that lists showcases', function (string $route, arra
 
     expect(mentionsArchivedShowcase($visit()))->toBeFalse();
 })->with([
-    'the landing page' => ['home', [], false],
+    // The landing page no longer lists showcases (its News is one photo); the News page does.
+    'the News page' => ['company.news', [], false],
     'the stone\'s page' => ['brands.stones.show', ['brand' => 'acme-house', 'stone' => 'acme-stone'], false],
 ]);
 

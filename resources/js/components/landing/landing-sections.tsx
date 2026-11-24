@@ -1,10 +1,8 @@
 import { Link } from '@inertiajs/react';
 import {
-    body,
     frame,
     label,
     outlineButton,
-    solidButton,
     textLink,
 } from '@/components/public/company-ui';
 import {
@@ -20,7 +18,7 @@ import {
     news,
     showroom,
 } from '@/routes/company';
-import { inquire } from '@/routes/quote';
+import { register } from '@/routes';
 import { show as showcaseShow } from '@/routes/stone';
 import type { LandingBrand, LandingShowcase } from '@/types/home';
 
@@ -36,27 +34,26 @@ const lead =
 const zoom =
     'transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.02] motion-reduce:transition-none';
 
-/** A row of the contact list. */
-const contactRow =
-    'flex items-center justify-between gap-4 py-5.5 font-display text-[clamp(1.1875rem,1.5vw,1.375rem)] transition-[padding] duration-300 hover:pl-2.5 motion-reduce:transition-none';
-
 /**
  * 01. The full-screen opening: the Regray Group and its line over the photo,
- * and the arrow down to Discover.
+ * and the arrow down to Discover. The photo is a wall-cladding project Regray
+ * did (backlit stone either side of a travertine fireplace), not a generated
+ * one.
  */
 export function LandingHero() {
     return (
         <section aria-label="The Regray Group" className={frame}>
             <div className="relative h-[calc(100svh-8.5rem)] min-h-115 overflow-hidden rounded-md bg-[#d8d4cd] text-white">
                 <img
-                    src="/images/regray-hero.jpg"
-                    alt="A living room with a book-matched marble wall and a travertine table"
+                    src="/images/regray-wall-cladding.jpg"
+                    alt="A living room wall clad in backlit stone, either side of a travertine fireplace"
                     fetchPriority="high"
-                    className="size-full object-cover object-[center_40%]"
+                    className="size-full object-cover object-[center_45%]"
                 />
+                {/* The floor and sofa under the headline are light, so the shade is deeper there than on the stone above. */}
                 <div
                     aria-hidden
-                    className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0)_45%,rgb(0_0_0/0.55)_100%)]"
+                    className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0)_30%,rgb(0_0_0/0.72)_100%),linear-gradient(90deg,rgb(0_0_0/0.35)_0%,rgb(0_0_0/0)_60%)]"
                 />
                 <div className="absolute inset-x-[clamp(1.25rem,4vw,4rem)] bottom-[clamp(1.75rem,5vw,4rem)] flex max-w-205 flex-col gap-3.5">
                     <p className={label}>The Regray Group</p>
@@ -153,77 +150,57 @@ export function LandingBrandWall({ brands }: { brands: LandingBrand[] }) {
     );
 }
 
-/** The three steps of working with Regray, each with a photo of it. */
-const ONLINE_STEPS = [
-    {
-        title: 'Choose what you like',
-        text: 'Look through our stones, kitchens and furniture online, or see them at our showroom.',
-        image: '/images/regray-slabs.jpg',
-        alt: 'A wall of book-matched quartzite slabs',
-    },
-    {
-        title: 'Get your quotation',
-        text: 'Tell us what you need. We visit to measure your space, then send you a clear price.',
-        image: '/images/regray-kitchen.jpg',
-        alt: 'A modern kitchen with a marble backsplash and an island',
-    },
-    {
-        title: 'We install it for you',
-        text: 'Our team delivers and installs everything, and keeps you updated by email along the way.',
-        image: '/images/regray-stone-kitchen.jpg',
-        alt: 'A finished kitchen with a marble island and shelves',
-    },
-];
-
 /**
- * 03. How working with Regray goes, in three plain steps with a photo each,
- * then the two ways to start: browse the collection, or ask for a quotation.
+ * 03. Regray Online, as one poster: a navy panel with a short, plain line on
+ * what a client can do from home, and the way in (sign up, or look at the
+ * stones first), beside a photo of a finished stone kitchen. Written for
+ * clients who are not used to websites: everyday words, short sentences, big
+ * text and buttons. Beside the photo from a laptop; under it on a phone.
  */
 export function LandingOnline() {
     return (
         <section
             id="online"
             aria-labelledby="landing-online"
-            className={`flex scroll-mt-20 flex-col items-center gap-[clamp(2.5rem,5vw,4rem)] py-[clamp(5rem,9vw,8.5rem)] ${frame}`}
+            className={`scroll-mt-20 py-[clamp(5rem,9vw,8.5rem)] ${frame}`}
         >
-            <div className="flex flex-col items-center gap-5 text-center">
-                <p className={`${label} text-muted-foreground`}>How it works</p>
-                <h2
-                    id="landing-online"
-                    className="max-w-200 font-display text-[clamp(1.75rem,2.6vw,2.5rem)] leading-[1.15] font-light text-balance"
-                >
-                    From choosing to installing, we take care of it
-                </h2>
-            </div>
-            <ul className="grid w-full max-w-330 grid-cols-1 gap-x-7 gap-y-12 md:grid-cols-3">
-                {ONLINE_STEPS.map((step) => (
-                    <li key={step.title} className="flex flex-col gap-5">
-                        <div className="aspect-4/3 overflow-hidden rounded-md bg-[#d8d4cd]">
-                            <img
-                                src={step.image}
-                                alt={step.alt}
-                                loading="lazy"
-                                className="size-full object-cover"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <h3 className="font-display text-[clamp(1.25rem,1.6vw,1.5rem)]">
-                                {step.title}
-                            </h3>
-                            <p className={`text-muted-foreground ${body}`}>
-                                {step.text}
-                            </p>
-                        </div>
-                    </li>
-                ))}
-            </ul>
-            <div className="flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
-                <Link href={collectionUrl('stones')} className={solidButton}>
-                    See our collection
-                </Link>
-                <Link href={inquire.url()} className={outlineButton}>
-                    Request a quotation
-                </Link>
+            <div className="grid overflow-hidden rounded-md bg-navy text-white lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+                <div className="aspect-4/3 overflow-hidden lg:order-last lg:aspect-auto">
+                    <img
+                        src="/images/regray-stone-kitchen.jpg"
+                        alt="A finished kitchen with a marble island and shelves"
+                        loading="lazy"
+                        className="size-full object-cover"
+                    />
+                </div>
+                <div className="flex flex-col items-start gap-6 px-[clamp(1.5rem,4.5vw,4.5rem)] py-[clamp(2.5rem,6vw,5.5rem)]">
+                    <p className={`${label} text-white/75`}>Regray Online</p>
+                    <h2
+                        id="landing-online"
+                        className="font-display text-[clamp(2rem,3.4vw,3.25rem)] leading-[1.1] font-light text-balance"
+                    >
+                        See our stones from home
+                    </h2>
+                    <p className="max-w-130 text-[clamp(1.125rem,1.4vw,1.3125rem)] leading-relaxed text-pretty text-white/90">
+                        Look at our stones, kitchens and furniture on your phone
+                        or computer. When you find something you like, send us a
+                        request and our team will help you with the rest.
+                    </p>
+                    <div className="mt-2 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                        <Link
+                            href={register.url()}
+                            className="inline-flex min-h-14 items-center justify-center rounded-md bg-white px-8 py-3.5 text-[1.0625rem] font-semibold text-black transition-colors hover:bg-white/85"
+                        >
+                            Sign up for free
+                        </Link>
+                        <Link
+                            href={collectionUrl('stones')}
+                            className="inline-flex min-h-14 items-center justify-center rounded-md border border-white px-8 py-3.5 text-[1.0625rem] font-semibold transition-colors hover:bg-white hover:text-black"
+                        >
+                            See our stones
+                        </Link>
+                    </div>
+                </div>
             </div>
         </section>
     );
@@ -276,33 +253,45 @@ export function LandingShowroom() {
     );
 }
 
-/** 05. The latest from Regray: its newest finished showcases, each a story. */
-export function LandingNews({ stories }: { stories: LandingShowcase[] }) {
-    if (stories.length === 0) {
-        return null;
-    }
-
+/**
+ * 05. News, as one general photo beside a short line and the way to the News
+ * page, where the finished showcases are told one by one. One photo rather
+ * than a row of stories, whose photos and titles never line up: three marble
+ * tiles floating on grey (a portrait photo, cropped around the tiles). Side
+ * by side from a laptop, the photo on top on a phone.
+ */
+export function LandingNews() {
     return (
         <section
             id="news"
             aria-labelledby="landing-news"
-            className={`scroll-mt-20 pb-[clamp(5rem,9vw,8.5rem)] ${frame}`}
+            className={`grid scroll-mt-20 items-center gap-[clamp(2.25rem,5vw,5.5rem)] pb-[clamp(5rem,9vw,8.5rem)] md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] ${frame}`}
         >
-            <div className="flex flex-col items-center gap-5 pb-[clamp(2.5rem,5vw,4rem)] text-center">
+            <Link
+                href={news.url()}
+                tabIndex={-1}
+                aria-hidden
+                className="group block aspect-4/3 overflow-hidden rounded-md bg-[#d9d9d9] md:aspect-5/4"
+            >
+                <img
+                    src="/images/regray-marble-tiles.jpg"
+                    alt=""
+                    loading="lazy"
+                    className={`size-full object-cover object-[center_60%] ${zoom}`}
+                />
+            </Link>
+            <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
                 <h2 id="landing-news" className={sectionTitle}>
                     News
                 </h2>
-                <Link href={news.url()} className={textLink}>
+                <p className={lead}>
+                    Homes and spaces we have recently finished across the
+                    Philippines.
+                </p>
+                <Link href={news.url()} className={`mt-2 ${outlineButton}`}>
                     All news
                 </Link>
             </div>
-            <ul className="grid grid-cols-1 gap-x-4 gap-y-12 min-[700px]:gap-x-7 sm:grid-cols-2 lg:grid-cols-3">
-                {stories.map((story) => (
-                    <li key={story.slug}>
-                        <StoryCard story={story} />
-                    </li>
-                ))}
-            </ul>
         </section>
     );
 }
@@ -330,53 +319,47 @@ export const StoryCard = ({ story }: { story: LandingShowcase }) => (
     </Link>
 );
 
-/** 06. How to reach the team, by what the question is about. */
+/**
+ * 06. Contact, kept short: a photo, one plain line and the way to the
+ * Contact page, which holds the details (each kind of question, the
+ * showroom, its hours and numbers). The photo is a lounge Regray finished (a
+ * curved sofa, a travertine table and a backlit stone shelf): a place to sit
+ * and talk, cropped from a portrait photo to keep all three. It mirrors News
+ * above it, the text first and the photo second from a laptop, and the photo
+ * on top on a phone.
+ */
 export function LandingContact() {
-    const links = [
-        { label: 'General inquiries', href: `${contact.url()}#general` },
-        { label: 'Sales & quotations', href: inquire.url() },
-        {
-            label: 'Architect & designer partnerships',
-            href: `${contact.url()}#trade`,
-        },
-        {
-            label: 'Supplier & business inquiries',
-            href: `${contact.url()}#business`,
-        },
-    ];
-
     return (
         <section
             id="contact"
             aria-labelledby="landing-contact"
-            className={`grid scroll-mt-20 grid-cols-1 gap-[clamp(2.5rem,5vw,6rem)] border-t border-border py-[clamp(4.5rem,8vw,7.5rem)] min-[960px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] ${frame}`}
+            className={`grid scroll-mt-20 items-center gap-[clamp(2.25rem,5vw,5.5rem)] border-t border-border py-[clamp(4.5rem,8vw,7.5rem)] md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] ${frame}`}
         >
-            <div className="flex flex-col gap-6">
+            <Link
+                href={contact.url()}
+                tabIndex={-1}
+                aria-hidden
+                className="group block aspect-4/3 overflow-hidden rounded-md bg-night md:order-last md:aspect-5/4"
+            >
+                <img
+                    src="/images/regray-lounge.jpg"
+                    alt=""
+                    loading="lazy"
+                    className={`size-full object-cover object-[center_65%] ${zoom}`}
+                />
+            </Link>
+            <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
                 <h2 id="landing-contact" className={sectionTitle}>
                     Contact
                 </h2>
-                <p className={`max-w-110 ${body}`}>
-                    Connect with the Regray team. Tell us what you are working
-                    on and the right person will reply.
+                <p className={lead}>
+                    Have a question about a stone, a project or a visit? Our
+                    team is happy to help.
                 </p>
+                <Link href={contact.url()} className={`mt-2 ${outlineButton}`}>
+                    Contact us
+                </Link>
             </div>
-            <ul className="border-t border-foreground">
-                {links.map((link) => (
-                    <li key={link.label} className="border-b border-border">
-                        {link.href.includes('#') ? (
-                            <a href={link.href} className={contactRow}>
-                                <span>{link.label}</span>
-                                <span aria-hidden>→</span>
-                            </a>
-                        ) : (
-                            <Link href={link.href} className={contactRow}>
-                                <span>{link.label}</span>
-                                <span aria-hidden>→</span>
-                            </Link>
-                        )}
-                    </li>
-                ))}
-            </ul>
         </section>
     );
 }
