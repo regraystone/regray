@@ -34,19 +34,22 @@ function askedQuestions(): array
 
 it('asks each service its own questions, in order', function (): void {
     expect(askedQuestions())->toBe([
-        'slab-supply-only' => ['quantity (stone)', 'slab_size (stone)', 'thickness (stone)', 'edge_profile (stone)', 'finish (stone)'],
+        // Slabs supplied alone may come uncut, so their edge is optional.
+        'slab-supply-only' => ['quantity (stone)', 'slab_size (stone)', 'thickness (stone)', 'edge_profile (stone) (optional)', 'finish (stone)'],
         'slab-supply-and-installation' => ['quantity (stone)', 'slab_size (stone)', 'thickness (stone)', 'edge_profile (stone)', 'finish (stone)'],
         'installation-only' => [],
         'countertop-backsplash' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'fascia'],
         'wall-cladding' => ['area_sqm', 'finish (stone)'],
         'flooring' => ['area_sqm', 'finish (stone)'],
-        'staircase' => ['area_sqm', 'finish (stone)'],
+        // A step's front edge (its nosing) is profiled.
+        'staircase' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
         'kitchen-islands' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'waterfall_effect'],
         'lavatories' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
-        'center-tables' => ['area_sqm', 'size', 'edge_profile (stone)', 'finish (stone)'],
-        'side-tables' => ['area_sqm', 'size', 'edge_profile (stone)', 'finish (stone)'],
+        // A small piece is measured by its size, not in square metres.
+        'center-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
+        'side-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
         'dining-tables' => ['area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)', 'table_base'],
-        'pedestal' => ['area_sqm', 'size', 'edge_profile (stone)', 'finish (stone)'],
+        'pedestal' => ['size', 'edge_profile (stone)', 'finish (stone)'],
         'other-customized-furniture' => ['area_sqm', 'size', 'finish (stone)'],
     ])
         ->and(Service::query()->where('requires_stones', false)->pluck('slug')->all())->toBe(['installation-only'])
@@ -63,7 +66,7 @@ it('keeps each service\'s features as rows, in order', function (): void {
         ->pluck('text')
         ->all();
 
-    expect($features)->toBe(['Marble, quartzite, onyx, granite and travertine', 'Sourcing based on your project requirements', 'Nationwide supply'])
+    expect($features)->toBe(['Every stone type Regray carries', 'Sourcing based on your project requirements', 'Nationwide supply'])
         ->and(Service::query()->whereDoesntHave('features')->pluck('slug')->all())->toBe([]);
 });
 
@@ -73,23 +76,25 @@ it('links each stone type to the services it is offered for, and none to Install
         ->all();
     $all = StoneType::query()->pluck('slug')->sort()->values()->all();
     $countertop = ['granite', 'marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite'];
-    $furniture = ['marble', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'];
+    // Travertine is too porous for a kitchen, but makes bathroom tops and tables.
+    $tables = ['granite', 'marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'];
 
     expect($links)->toBe([
         'slab-supply-only' => $all,
-        'slab-supply-and-installation' => $all,
+        // Cobblestone and crazy cut are laid through Flooring and Wall Cladding.
+        'slab-supply-and-installation' => array_values(array_diff($all, ['cobblestone', 'crazy-cut'])),
         'installation-only' => [],
         'countertop-backsplash' => $countertop,
-        'wall-cladding' => ['crazy-cut', 'granite', 'marble', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'],
+        'wall-cladding' => ['crazy-cut', 'granite', 'marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'],
         'flooring' => ['cobblestone', 'crazy-cut', 'granite', 'marble', 'monumental', 'quartzite', 'travertine'],
-        'staircase' => ['cobblestone', 'granite', 'marble', 'monumental', 'travertine'],
+        'staircase' => ['granite', 'marble', 'monumental', 'quartzite', 'travertine'],
         'kitchen-islands' => $countertop,
-        'lavatories' => $countertop,
-        'center-tables' => $countertop,
-        'side-tables' => $countertop,
-        'dining-tables' => $countertop,
-        'pedestal' => $furniture,
-        'other-customized-furniture' => $furniture,
+        'lavatories' => $tables,
+        'center-tables' => $tables,
+        'side-tables' => $tables,
+        'dining-tables' => $tables,
+        'pedestal' => ['marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'],
+        'other-customized-furniture' => $tables,
     ]);
 });
 

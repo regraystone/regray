@@ -25,7 +25,7 @@ return [
             'origin' => 'Brazil, India',
             'thicknesses' => [[50, 'mm'], [75, 'mm'], [100, 'mm']],
             'sizes' => [[10, 10, 'cm'], [10, 20, 'cm'], [20, 20, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'flooring', 'staircase'],
+            'services' => ['slab-supply-only', 'flooring'],
         ],
         [
             'slug' => 'crazy-cut',
@@ -35,7 +35,7 @@ return [
             'origin' => 'Brazil, Italy, Turkey',
             'thicknesses' => [[20, 'mm'], [25, 'mm'], [30, 'mm']],
             'sizes' => [[20, 120, 'cm'], [30, 60, 'cm'], [60, 60, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'wall-cladding', 'flooring'],
+            'services' => ['slab-supply-only', 'wall-cladding', 'flooring'],
         ],
         [
             'slug' => 'granite',
@@ -45,7 +45,7 @@ return [
             'origin' => 'Brazil, India',
             'thicknesses' => [[18, 'mm'], [20, 'mm'], [30, 'mm'], [0.75, 'in']],
             'sizes' => [[60, 60, 'cm'], [60, 120, 'cm'], [160, 320, 'cm'], [180, 300, 'cm'], [5, 10, 'ft']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
         ],
         [
             'slug' => 'marble',
@@ -65,7 +65,7 @@ return [
             'origin' => 'South Africa',
             'thicknesses' => [[20, 'mm'], [30, 'mm'], [2, 'cm']],
             'sizes' => [[60, 120, 'cm'], [160, 320, 'cm'], [180, 300, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
         ],
         [
             'slug' => 'onyx',
@@ -95,7 +95,7 @@ return [
             'origin' => 'Brazil, Norway',
             'thicknesses' => [[18, 'mm'], [20, 'mm'], [30, 'mm']],
             'sizes' => [[120, 240, 'cm'], [160, 320, 'cm'], [180, 300, 'cm'], [5, 10, 'ft']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
         ],
         [
             'slug' => 'travertine',
@@ -105,7 +105,7 @@ return [
             'origin' => 'Turkey, Italy',
             'thicknesses' => [[12, 'mm'], [18, 'mm'], [20, 'mm']],
             'sizes' => [[30, 60, 'cm'], [60, 60, 'cm'], [60, 120, 'cm'], [120, 240, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'wall-cladding', 'flooring', 'staircase', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'wall-cladding', 'flooring', 'staircase', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
         ],
     ],
     'stones' => [

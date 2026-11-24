@@ -126,8 +126,9 @@ describe('the edit page', function (): void {
     });
 
     it('sends the listed answers and brands it already has, so the edit shows them though taken off their lists', function (): void {
-        $stone = Stone::query()->offeredFor(inquiryService('slab-supply-only'))->orderBy('id')->firstOrFail();
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['brandNoPreference' => '0', 'brands' => [$stone->brand->slug]])]);
+        // A service that asks for an edge profile.
+        $stone = Stone::query()->offeredFor(inquiryService('slab-supply-and-installation'))->orderBy('id')->firstOrFail();
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'slab-supply-and-installation', 'brandNoPreference' => '0', 'brands' => [$stone->brand->slug]])]);
         $row = $inquiry->stones()->with(['edgeProfile', 'finish'])->sole();
         $row->finish->delete();
         $stone->brand->forceFill(['archived_at' => now()])->save();
@@ -316,7 +317,8 @@ describe('saving the edit', function (): void {
     });
 
     it('keeps the inquiry\'s own edge profile, finish and answers though taken off their lists since', function (): void {
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        // A service that asks for an edge profile.
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'serviceId' => 'slab-supply-and-installation'])]);
         $row = $inquiry->stones()->with(['edgeProfile', 'finish'])->sole();
         $row->edgeProfile->update(['is_active' => false]);
         $row->finish->delete();
@@ -325,8 +327,9 @@ describe('saving the edit', function (): void {
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'serviceId' => 'slab-supply-and-installation',
                 'notes' => 'Third floor.',
-                'stones' => [inquiryStoneRow(overrides: ['stoneId' => $row->stone->slug, 'edge' => $row->edgeProfile->name, 'finish' => $row->finish->name])],
+                'stones' => [inquiryStoneRow('slab-supply-and-installation', ['stoneId' => $row->stone->slug, 'edge' => $row->edgeProfile->name, 'finish' => $row->finish->name])],
             ])]])
             ->assertSessionHasNoErrors();
 
@@ -343,7 +346,8 @@ describe('saving the edit', function (): void {
         $retired = EdgeProfile::query()->create(['name' => 'Retired', 'is_advisory' => false, 'is_active' => false, 'sort_order' => 9]);
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
-                'stones' => [inquiryStoneRow(overrides: ['stoneId' => $row->stone->slug, 'edge' => $retired->name, 'finish' => $row->finish->name])],
+                'serviceId' => 'slab-supply-and-installation',
+                'stones' => [inquiryStoneRow('slab-supply-and-installation', ['stoneId' => $row->stone->slug, 'edge' => $retired->name, 'finish' => $row->finish->name])],
             ])]])
             ->assertSessionHasErrors('projects.0.stones.0.edge');
     });
