@@ -1,84 +1,87 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { Layers, Pencil, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import AdminCard from '@/components/admin-card';
 import { Detail, Section } from '@/components/admin-drawer-parts';
 import ConfirmDialog from '@/components/confirm-dialog';
-import DataTableSearch from '@/components/data-table/data-table-search';
-import DataTableToolbar from '@/components/data-table/data-table-toolbar';
+import DataTable, {
+    type DataTableColumn,
+    type DataTableFilterOption,
+} from '@/components/data-table/data-table';
+import DataTableFilter from '@/components/data-table/data-table-filter';
+import RowActions from '@/components/data-table/row-actions';
+import StatusToggle from '@/components/data-table/status-toggle';
+import { useDataTableQuery } from '@/components/data-table/use-data-table-query';
 import EmptyState from '@/components/empty-state';
 import FormDrawer from '@/components/form-drawer';
 import PageHeader from '@/components/page-header';
 import ServiceForm, { SERVICE_PROPS } from '@/components/services/service-form';
 import StatusBadge from '@/components/status-badge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format-date';
 import {
     archiveServiceDescription,
     fulfillmentLabel,
-    matchesSearch,
     notOfferedReason,
     questionHint,
     serviceMeta,
 } from '@/lib/service-admin';
-import { archive as archiveService } from '@/routes/dashboard/services';
+import {
+    archive as archiveService,
+    status as serviceStatus,
+} from '@/routes/dashboard/services';
 import { index as serviceListIndex } from '@/routes/dashboard/services/lists';
 import type {
     ServiceRow,
     ServicesPageProps,
-    ServiceTypeRow,
+    ServiceTypeOption,
 } from '@/types/service-admin';
 
+const STATUS_OPTIONS: DataTableFilterOption[] = [
+    { value: 'all', label: 'All statuses' },
+    { value: 'active', label: 'Visible' },
+    { value: 'inactive', label: 'Hidden' },
+];
+
 type Drawer =
-    | { mode: 'add'; typeId: number | null }
+    | { mode: 'add' }
     | { mode: 'view'; service: ServiceRow }
     | { mode: 'edit'; service: ServiceRow };
 
 /**
- * The admin's Services page: what clients can ask for on the Inquire page.
- * Each service type is a heading over its services, in their display order,
- * hidden ones too; archived ones are gone. Search narrows by a service's
- * name or description.
+ * The admin's All services page: what clients can ask for on the Inquire
+ * page, as one table like Products', by service type then display order,
+ * hidden ones too; archived ones are gone. Searched by name or description
+ * and filtered by service type and status, on the server.
  *
- * Add, Edit and View open in the drawer; Archive asks first. Service types
- * and questions have their own pages under Services. What a card offers
- * comes from the server (`actions`).
+ * Add, Edit and View open in the drawer; Archive asks first. A row's switch
+ * shows or hides it. Service types and questions have their own pages under
+ * Services. What a row offers comes from the server (`actions`).
  */
 const Services = () => {
     const { props } = usePage<ServicesPageProps>();
-    const { serviceTypes, stoneTypes, questions, limits, canCreate } = props;
-    const [search, setSearch] = useState('');
+    const { serviceTypes, stoneTypes, questions, limits, canCreate, filters } =
+        props;
+    const { update } = useDataTableQuery(SERVICE_PROPS);
     const [drawer, setDrawer] = useState<Drawer | null>(null);
     const [archiving, setArchiving] = useState<ServiceRow | null>(null);
     const [processing, setProcessing] = useState(false);
 
-    const typeOf = (service: ServiceRow): ServiceTypeRow | undefined =>
+    const typeOf = (service: ServiceRow): ServiceTypeOption | undefined =>
         serviceTypes.find((type) => type.id === service.serviceTypeId);
 
     // A service open in View shows its saved state after an edit.
     const current = (service: ServiceRow): ServiceRow =>
-        serviceTypes
-            .flatMap((type) => type.services)
-            .find((other) => other.id === service.id) ?? service;
+        props.services.data.find((other) => other.id === service.id) ?? service;
 
     const viewing = drawer?.mode === 'view' ? current(drawer.service) : null;
     const editing = drawer?.mode === 'edit' ? drawer.service : null;
-
-    const groups = useMemo(
-        () =>
-            serviceTypes.map((type) => ({
-                type,
-                services: type.services.filter((service) =>
-                    matchesSearch(service, search),
-                ),
-            })),
-        [serviceTypes, search],
-    );
-    const isFiltered = search.trim() !== '';
-    const shown = groups.filter(
-        (group) => !isFiltered || group.services.length > 0,
-    );
+    // A new service starts under the type filtered to, or the first.
+    const defaultTypeId =
+        serviceTypes.find((type) => type.slug === filters.type)?.id ??
+        serviceTypes[0]?.id ??
+        null;
 
     const archive = () => {
         if (archiving === null) {
@@ -109,24 +112,106 @@ const Services = () => {
         );
     };
 
+    const typeFilterOptions: DataTableFilterOption[] = [
+        { value: 'all', label: 'All service types' },
+        ...serviceTypes.map((type) => ({ value: type.slug, label: type.name })),
+    ];
+
+    const columns: DataTableColumn<ServiceRow>[] = [
+        {
+            key: 'service',
+            header: 'Service',
+            cell: (row) => {
+                const reason = notOfferedReason(
+                    row,
+                    typeOf(row)?.isActive ?? false,
+                );
+
+                return (
+                    <span className="block min-w-0">
+                        <span className="flex items-center gap-2">
+                            <span className="block max-w-64 truncate font-medium">
+                                {row.name}
+                            </span>
+                            {reason ? (
+                                <Badge
+                                    variant="outline"
+                                    className="rounded-none"
+                                    title={reason}
+                                >
+                                    Not offered
+                                    <span className="sr-only">: {reason}</span>
+                                </Badge>
+                            ) : null}
+                        </span>
+                        <span className="block max-w-64 truncate text-xs text-secondary-foreground">
+                            {row.description}
+                        </span>
+                    </span>
+                );
+            },
+        },
+        {
+            key: 'type',
+            header: 'Service type',
+            cell: (row) => typeOf(row)?.name ?? '—',
+        },
+        {
+            key: 'details',
+            header: 'Details',
+            cell: (row) => serviceMeta(row),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            cell: (row) => (
+                <StatusToggle
+                    checked={row.isActive}
+                    disabled={!row.canToggle}
+                    label={`${row.isActive ? 'Hide' : 'Show'} ${row.name}`}
+                    onToggle={(active, visit) =>
+                        router.patch(
+                            serviceStatus.url(row.id),
+                            { active },
+                            {
+                                only: SERVICE_PROPS,
+                                preserveScroll: true,
+                                preserveState: true,
+                                onError: visit.onError,
+                                onFinish: visit.onFinish,
+                            },
+                        )
+                    }
+                />
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            className: 'text-right',
+            cell: (row) => (
+                <RowActions
+                    actions={row.actions}
+                    subject={row.name}
+                    maxInline={3}
+                    handlers={{
+                        view: () => setDrawer({ mode: 'view', service: row }),
+                        edit: () => setDrawer({ mode: 'edit', service: row }),
+                        archive: () => setArchiving(row),
+                    }}
+                />
+            ),
+        },
+    ];
+
     const addButton = (
         <Button
             type="button"
-            onClick={() =>
-                setDrawer({ mode: 'add', typeId: serviceTypes[0]?.id ?? null })
-            }
+            onClick={() => setDrawer({ mode: 'add' })}
             disabled={serviceTypes.length === 0}
         >
             <Plus aria-hidden />
             Add service
-        </Button>
-    );
-    const typesLink = (
-        <Button asChild variant="outline">
-            <Link href={serviceListIndex.url('service-types')}>
-                <Layers aria-hidden />
-                Go to Service types
-            </Link>
         </Button>
     );
 
@@ -146,125 +231,44 @@ const Services = () => {
                 />
             )}
 
-            <div className="space-y-8">
-                <DataTableToolbar
-                    search={
-                        <DataTableSearch
-                            value={search}
-                            placeholder="Search by service name"
-                            onSearch={setSearch}
+            {serviceTypes.length === 0 ? (
+                <EmptyState
+                    title="No service types yet"
+                    description="Add a service type first, such as Natural Stone & Applications, then the services under it."
+                    action={
+                        <Button asChild variant="outline">
+                            <Link href={serviceListIndex.url('service-types')}>
+                                <Layers aria-hidden />
+                                Go to Service types
+                            </Link>
+                        </Button>
+                    }
+                />
+            ) : (
+                <DataTable
+                    rows={props.services.data}
+                    meta={props.services.meta}
+                    filters={filters}
+                    columns={columns}
+                    rowKey={(row) => row.id}
+                    only={SERVICE_PROPS}
+                    searchPlaceholder="Search by service name"
+                    emptyTitle="No services yet"
+                    emptyDescription="Add a service to offer it on the Inquire page."
+                    filteredEmptyTitle="No services match that"
+                    filteredEmptyDescription="Try another name, or a different service type or status."
+                    statusOptions={STATUS_OPTIONS}
+                    extraFiltered={filters.type !== 'all'}
+                    extraFilters={
+                        <DataTableFilter
+                            label="Service type"
+                            options={typeFilterOptions}
+                            value={filters.type}
+                            onChange={(value) => update({ type: value })}
                         />
                     }
                 />
-
-                {serviceTypes.length === 0 ? (
-                    <EmptyState
-                        title="No service types yet"
-                        description="Add a service type first, such as Natural Stone & Applications, then the services under it."
-                        action={typesLink}
-                    />
-                ) : shown.length === 0 ? (
-                    <EmptyState
-                        title="No services match that search"
-                        description="Try another service name."
-                    />
-                ) : (
-                    shown.map(({ type, services }) => (
-                        <section
-                            key={type.id}
-                            aria-labelledby={`service-type-${type.id}`}
-                            data-testid="service-type-group"
-                        >
-                            <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                <h2
-                                    id={`service-type-${type.id}`}
-                                    className="text-xl font-bold tracking-[-0.03em]"
-                                >
-                                    {type.name}
-                                </h2>
-                                <StatusBadge
-                                    active={type.isActive}
-                                    labels={['Visible', 'Hidden']}
-                                />
-                                <span className="text-sm text-secondary-foreground">
-                                    {type.services.length === 1
-                                        ? '1 service'
-                                        : `${type.services.length} services`}
-                                </span>
-                                {canCreate && !isFiltered ? (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="ml-auto"
-                                        onClick={() =>
-                                            setDrawer({
-                                                mode: 'add',
-                                                typeId: type.id,
-                                            })
-                                        }
-                                    >
-                                        <Plus aria-hidden />
-                                        Add service
-                                        <span className="sr-only">
-                                            {' '}
-                                            to {type.name}
-                                        </span>
-                                    </Button>
-                                ) : null}
-                            </div>
-                            {!type.isActive ? (
-                                <p className="-mt-2 mb-4 text-sm text-secondary-foreground">
-                                    This type is hidden, so none of its services
-                                    is offered on the Inquire page.
-                                </p>
-                            ) : null}
-
-                            {services.length === 0 ? (
-                                <p className="border border-dashed border-sidebar-border p-6 text-center text-sm text-secondary-foreground">
-                                    No services under this type yet.
-                                </p>
-                            ) : (
-                                <div
-                                    className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6"
-                                    data-testid="service-grid"
-                                >
-                                    {services.map((service) => (
-                                        <AdminCard
-                                            key={service.id}
-                                            testId="service-card"
-                                            title={service.name}
-                                            subtitle={service.description}
-                                            subtitlePlaceholder="No description yet"
-                                            status={{
-                                                active: service.isActive,
-                                                labels: ['Visible', 'Hidden'],
-                                            }}
-                                            meta={serviceMeta(service)}
-                                            actions={service.actions}
-                                            onView={() =>
-                                                setDrawer({
-                                                    mode: 'view',
-                                                    service,
-                                                })
-                                            }
-                                            onEdit={() =>
-                                                setDrawer({
-                                                    mode: 'edit',
-                                                    service,
-                                                })
-                                            }
-                                            onArchive={() =>
-                                                setArchiving(service)
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-                    ))
-                )}
-            </div>
+            )}
 
             {/* View: read-only, with Edit to switch the same drawer over. */}
             <FormDrawer
@@ -297,7 +301,7 @@ const Services = () => {
             <ServiceForm
                 open={drawer?.mode === 'add' || editing !== null}
                 service={editing}
-                defaultTypeId={drawer?.mode === 'add' ? drawer.typeId : null}
+                defaultTypeId={drawer?.mode === 'add' ? defaultTypeId : null}
                 serviceTypes={serviceTypes}
                 stoneTypes={stoneTypes}
                 questions={questions}
@@ -330,7 +334,7 @@ const ServiceDetails = ({
     type,
 }: {
     service: ServiceRow;
-    type: ServiceTypeRow | undefined;
+    type: ServiceTypeOption | undefined;
 }) => {
     const { props } = usePage<ServicesPageProps>();
     const reason = notOfferedReason(service, type?.isActive ?? false);

@@ -655,6 +655,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('services/{id}', [ServiceAdminController::class, 'update'])
                 ->middleware(Permission::ServicesUpdate->middleware())
                 ->name('dashboard.services.update');
+            Route::patch('services/{id}/status', [ServiceAdminController::class, 'status'])
+                ->middleware(Permission::ServicesUpdate->middleware())
+                ->name('dashboard.services.status');
             Route::post('services/{id}/archive', [ServiceAdminController::class, 'archive'])
                 ->middleware(Permission::ServicesArchive->middleware())
                 ->name('dashboard.services.archive');

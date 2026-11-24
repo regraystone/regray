@@ -37,25 +37,64 @@ function offeredServiceSlugs(): array
 }
 
 describe('the page', function (): void {
-    it('lists every type and service but the archived, with what the forms offer', function (): void {
+    it('lists every service but the archived, by type then display order, with what the forms offer', function (): void {
         Service::query()->where('slug', 'pedestal')->update(['is_active' => false, 'archived_at' => now()]);
         Service::query()->where('slug', 'flooring')->update(['is_active' => false]);
+        $live = Service::query()->notArchived()->count();
+        $first = Service::query()->where('service_type_id', $this->natural->id)->orderBy('sort_order')->orderBy('name')->first();
 
         $this->actingAs($this->admin)
             ->get(route('services.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('services')
+                ->has('services.data', 10)
+                ->where('services.meta.total', $live)
+                ->where('services.data.0.slug', $first?->slug)
+                ->where('services.data.0.actions', ['view', 'edit', 'archive'])
+                ->where('services.data.0.canToggle', true)
+                ->where('filters', ['search' => '', 'page' => 1, 'perPage' => 10, 'type' => 'all', 'status' => 'all'])
                 ->has('serviceTypes', 2)
-                ->where('serviceTypes.0.slug', 'natural-stone-applications')
-                ->has('serviceTypes.0.services', 9)
-                ->has('serviceTypes.1.services', 4)
-                ->where('serviceTypes.1.services', fn ($services): bool => collect($services)->doesntContain('slug', 'pedestal'))
-                ->where('serviceTypes.0.services', fn ($services): bool => collect($services)->firstWhere('slug', 'flooring')['isOffered'] === false)
+                ->where('serviceTypes.0', ['id' => $this->natural->id, 'slug' => 'natural-stone-applications', 'name' => $this->natural->name, 'isActive' => true])
                 ->has('questions', DetailField::query()->count())
                 ->has('stoneTypes', StoneType::query()->where('is_active', true)->count())
-                ->where('canCreate', true)
-                ->where('serviceTypes.0.services.0.actions', ['view', 'edit', 'archive']));
+                ->where('canCreate', true));
+
+        $this->actingAs($this->admin)
+            ->get(route('services.index', ['page' => 2]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('services.data', fn ($services): bool => collect($services)->doesntContain('slug', 'pedestal')));
+    });
+
+    it('searches by name or description and filters by type and status', function (): void {
+        Service::query()->where('slug', 'flooring')->update(['is_active' => false]);
+        $furniture = ServiceType::query()->where('slug', 'custom-stone-furniture')->sole();
+        $slugs = fn (array $query): array => collect($this->actingAs($this->admin)->get(route('services.index', $query))
+            ->viewData('page')['props']['services']['data'])->pluck('slug')->all();
+
+        expect($slugs(['search' => 'FLOOR']))->toBe(['flooring'])
+            ->and($slugs(['search' => '%']))->toBe([])
+            ->and($slugs(['status' => 'inactive']))->toBe(['flooring'])
+            ->and($slugs(['type' => 'custom-stone-furniture']))
+            ->toBe(Service::query()->where('service_type_id', $furniture->id)->orderBy('sort_order')->orderBy('name')->pluck('slug')->all())
+            ->and($slugs(['type' => 'custom-stone-furniture', 'search' => 'flooring']))->toBe([]);
+
+        $this->actingAs($this->admin)
+            ->get(route('services.index', ['type' => 'nope', 'status' => 'maybe']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.type', 'nope')
+                ->where('filters.status', 'all')
+                ->has('services.data', 0));
+    });
+
+    it('marks a visible service the Inquire page doesn\'t offer', function (): void {
+        $this->natural->forceFill(['is_active' => false])->save();
+
+        $this->actingAs($this->admin)
+            ->get(route('services.index', ['type' => 'natural-stone-applications', 'search' => 'flooring']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('services.data.0.isActive', true)
+                ->where('services.data.0.isOffered', false));
     });
 
     it('is the admin\'s alone, and so are its writes', function (): void {
@@ -65,11 +104,55 @@ describe('the page', function (): void {
         $this->actingAs($sales)->get(route('services.index'))->assertForbidden();
         $this->actingAs($sales)->post(route('dashboard.services.store'), serviceForm())->assertForbidden();
         $this->actingAs($sales)->put(route('dashboard.services.update', $service->id), serviceForm())->assertForbidden();
+        $this->actingAs($sales)->patch(route('dashboard.services.status', $service->id), ['active' => false])->assertForbidden();
         $this->actingAs($sales)->post(route('dashboard.services.archive', $service->id))->assertForbidden();
         $this->actingAs($sales)->post(route('dashboard.services.lists.store', 'service-types'), ['name' => 'Tiles', 'is_active' => true, 'sort_order' => 3])->assertForbidden();
 
         expect(Service::query()->where('slug', 'fireplace-surrounds')->exists())->toBeFalse()
-            ->and(ServiceType::query()->where('name', 'Tiles')->exists())->toBeFalse();
+            ->and(ServiceType::query()->where('name', 'Tiles')->exists())->toBeFalse()
+            ->and($service->refresh()->is_active)->toBeTrue();
+    });
+});
+
+describe('a row\'s switch', function (): void {
+    it('hides a service from the Inquire page and shows it again, audited', function (): void {
+        $service = Service::query()->where('slug', 'flooring')->sole();
+
+        $this->actingAs($this->admin)
+            ->patch(route('dashboard.services.status', $service->id), ['active' => false])
+            ->assertSessionHasNoErrors();
+
+        expect($service->refresh()->is_active)->toBeFalse()
+            ->and(offeredServiceSlugs())->not->toContain('flooring');
+
+        $audit = AuditLog::query()->where('event', AuditEvent::StatusChanged)->sole();
+        expect($audit->auditable_id)->toBe($service->id);
+
+        $this->actingAs($this->admin)
+            ->patch(route('dashboard.services.status', $service->id), ['active' => true])
+            ->assertSessionHasNoErrors();
+
+        expect($service->refresh()->is_active)->toBeTrue()
+            ->and(offeredServiceSlugs())->toContain('flooring')
+            ->and(AuditLog::query()->where('event', AuditEvent::StatusChanged)->count())->toBe(2);
+    });
+
+    it('records nothing when it is already so, and wants a yes or no', function (): void {
+        $service = Service::query()->where('slug', 'flooring')->sole();
+
+        $this->actingAs($this->admin)->patch(route('dashboard.services.status', $service->id), ['active' => true])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->patch(route('dashboard.services.status', $service->id), [])->assertSessionHasErrors('active');
+
+        expect(AuditLog::query()->where('event', AuditEvent::StatusChanged)->exists())->toBeFalse();
+    });
+
+    it('is a 404 for an archived service', function (): void {
+        $service = Service::query()->where('slug', 'flooring')->sole();
+        $service->forceFill(['is_active' => false, 'archived_at' => now()])->save();
+
+        $this->actingAs($this->admin)->patch(route('dashboard.services.status', $service->id), ['active' => true])->assertNotFound();
+
+        expect($service->refresh()->is_active)->toBeFalse();
     });
 });
 

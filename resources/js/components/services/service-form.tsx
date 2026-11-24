@@ -39,10 +39,10 @@ import type {
     QuestionOption,
     ServiceLimits,
     ServiceRow,
-    ServiceTypeRow,
+    ServiceTypeOption,
 } from '@/types/service-admin';
 
-export const SERVICE_PROPS = ['serviceTypes'];
+export const SERVICE_PROPS = ['services', 'filters'];
 
 type ServiceValues = {
     name: string;
@@ -223,7 +223,7 @@ const ServiceForm = ({
     service: ServiceRow | null;
     /** The type a new service starts under. */
     defaultTypeId: number | null;
-    serviceTypes: ServiceTypeRow[];
+    serviceTypes: ServiceTypeOption[];
     stoneTypes: { id: number; name: string }[];
     questions: QuestionOption[];
     limits: ServiceLimits;

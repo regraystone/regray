@@ -249,6 +249,7 @@ test('guards every route with exactly these permissions', function () {
         'services.index' => $p(Permission::ServicesView),
         'dashboard.services.store' => $p(Permission::ServicesView, Permission::ServicesCreate),
         'dashboard.services.update' => $p(Permission::ServicesView, Permission::ServicesUpdate),
+        'dashboard.services.status' => $p(Permission::ServicesView, Permission::ServicesUpdate),
         'dashboard.services.archive' => $p(Permission::ServicesView, Permission::ServicesArchive),
         'dashboard.services.lists.index' => $p(Permission::ServicesView),
         'dashboard.services.lists.store' => $p(Permission::ServicesView, Permission::ServicesCreate),

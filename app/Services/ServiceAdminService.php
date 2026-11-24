@@ -14,7 +14,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The All services page's writes: adding, changing and archiving a service.
+ * The All services page's writes: adding, changing, showing or hiding, and
+ * archiving a service.
  * Service types and questions are lists of their own (ServiceTypeList,
  * QuestionList). The Inquire page reads them through
  * InquiryCatalogRepositoryInterface; this is the admin's side.
@@ -74,6 +75,22 @@ class ServiceAdminService
 
             return $service;
         });
+    }
+
+    /** Show a service on the Inquire page (its type and stones allowing), or hide it. */
+    public function setActive(Service $service, bool $active, User $by, ?string $ipAddress, ?string $userAgent): Service
+    {
+        if ($service->is_active === $active) {
+            return $service;
+        }
+
+        DB::transaction(function () use ($service, $active, $by, $ipAddress, $userAgent): void {
+            $before = self::snapshot($service);
+            $service->forceFill(['is_active' => $active])->save();
+            $this->audit($by, AuditEvent::StatusChanged, $service, $before, self::snapshot($service), $ipAddress, $userAgent);
+        });
+
+        return $service;
     }
 
     /** Archive a service: it leaves the page and is no longer offered. */

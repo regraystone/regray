@@ -4,7 +4,6 @@ import { describe, it } from 'node:test';
 import {
     archiveServiceDescription,
     fulfillmentLabel,
-    matchesSearch,
     notOfferedReason,
     questionHint,
     serviceMeta,
@@ -101,24 +100,12 @@ describe('archiving', () => {
     });
 });
 
-describe('fulfillmentLabel and matchesSearch', () => {
+describe('fulfillmentLabel', () => {
     it('names both ways the work reaches the client', () => {
         assert.equal(
             fulfillmentLabel('delivery_or_pickup'),
             'Delivered or picked up',
         );
         assert.equal(fulfillmentLabel('installed'), 'Installed on site');
-    });
-
-    it('matches the name or description, ignoring case and spaces', () => {
-        const service = {
-            name: 'Dining Tables',
-            description: 'Made-to-order stone tables.',
-        };
-
-        assert.ok(matchesSearch(service, '  dining '));
-        assert.ok(matchesSearch(service, 'STONE'));
-        assert.ok(matchesSearch(service, ''));
-        assert.ok(!matchesSearch(service, 'flooring'));
     });
 });

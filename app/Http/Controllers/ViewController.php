@@ -18,11 +18,12 @@ use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Product\ProductListRequest;
 use App\Http\Requests\Sales\SalesReportRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
+use App\Http\Requests\Service\ServiceListRequest;
 use App\Http\Requests\Service\StoreServiceRequest;
 use App\Http\Resources\AccountResource;
 use App\Http\Resources\AdminBrandResource;
 use App\Http\Resources\AdminProductResource;
-use App\Http\Resources\AdminServiceTypeResource;
+use App\Http\Resources\AdminServiceResource;
 use App\Http\Resources\AdminShowcaseResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
@@ -33,6 +34,7 @@ use App\Http\Resources\ScheduleResource;
 use App\Models\DetailField;
 use App\Models\Lead;
 use App\Models\Schedule;
+use App\Models\ServiceType;
 use App\Models\StoneType;
 use App\Models\User;
 use App\Repositories\Contracts\BrandRepositoryInterface;
@@ -438,19 +440,31 @@ class ViewController extends Controller
     }
 
     /**
-     * The admin's Services page: what the Inquire page offers. Every service
-     * type but the archived, each with its services but the archived, hidden
-     * ones too, in their display order. There are few enough to send whole;
-     * the page searches them itself.
+     * The admin's All services page: what the Inquire page offers, as one
+     * table. Every service but the archived (and those of an archived type),
+     * hidden ones too, by their type's display order then their own, a page
+     * at a time, searched by name or description and filtered by service type
+     * (its slug) and status.
      *
-     * Also what the forms offer: the stone types a service can be made from,
-     * the questions it can ask (with their listed answers, to show the
-     * admin), and how the work can reach the client.
+     * Also what the forms and the filter offer: the service types (hidden
+     * ones too), the stone types a service can be made from, the questions it
+     * can ask (with their listed answers, to show the admin), and the limits.
      */
-    public function services(Request $request, ServiceRepositoryInterface $services): Response
+    public function services(ServiceListRequest $request, ServiceRepositoryInterface $services): Response
     {
         return Inertia::render('services', [
-            'serviceTypes' => AdminServiceTypeResource::collection($services->typesForAdmin())->resolve($request),
+            'services' => self::page($services->paginateForAdmin(
+                $request->escapedSearch(),
+                $request->type(),
+                $request->active(),
+                $request->perPage(),
+                $request->page(),
+            ), AdminServiceResource::class, $request),
+            'filters' => $request->serviceFilters(),
+            'serviceTypes' => $services->typeOptions()
+                ->map(fn (ServiceType $type): array => ['id' => $type->id, 'slug' => $type->slug, 'name' => $type->name, 'isActive' => $type->is_active])
+                ->values()
+                ->all(),
             'stoneTypes' => $services->activeStoneTypes()
                 ->map(fn (StoneType $type): array => ['id' => $type->id, 'name' => $type->name])
                 ->values()

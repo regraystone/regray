@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Service;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Product\ProductStatusRequest;
 use App\Http\Requests\Service\StoreServiceRequest;
 use App\Http\Requests\Service\UpdateServiceRequest;
 use App\Models\Service;
@@ -13,7 +14,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 /**
- * The All services page's writes: add, change and archive a service. The
+ * The All services page's writes: add, change, show or hide, and archive a
+ * service. The
  * page itself is ViewController::services(); service types and questions are
  * lists of their own (CatalogListController).
  *
@@ -38,6 +40,18 @@ class ServiceAdminController extends Controller
         $this->services->update($service, $request->serviceData(), self::actor($request), $request->ip(), $request->userAgent());
 
         return self::done(__(':name is updated.', ['name' => $service->name]));
+    }
+
+    /** A row's switch: show the service on the Inquire page, or hide it. */
+    public function status(ProductStatusRequest $request, string $id): RedirectResponse
+    {
+        $service = self::findService($id);
+        $active = $request->boolean('active');
+        $this->services->setActive($service, $active, self::actor($request), $request->ip(), $request->userAgent());
+
+        return self::done($active
+            ? __(':name is visible on the Inquire page again.', ['name' => $service->name])
+            : __(':name is hidden from the Inquire page.', ['name' => $service->name]));
     }
 
     public function archive(Request $request, string $id): RedirectResponse

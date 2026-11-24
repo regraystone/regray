@@ -29,7 +29,7 @@ export const fulfillmentLabel = (value: Fulfillment): string =>
 const count = (amount: number, one: string, many: string) =>
     `${amount} ${amount === 1 ? one : many}`;
 
-/** A card's short line: "3 questions · 2 included · 5 inquiries". */
+/** A row's short line: "3 questions · 2 included · 5 inquiries". */
 export const serviceMeta = (
     service: Pick<ServiceRow, 'questions' | 'features' | 'inquiriesCount'>,
 ): string =>
@@ -92,17 +92,3 @@ export const archiveServiceDescription = (inquiriesCount: number): string =>
     inquiriesCount > 0
         ? `It leaves this page and the Inquire page. Its ${count(inquiriesCount, 'inquiry', 'inquiries')} keep it.`
         : 'It leaves this page and the Inquire page.';
-
-/** Whether a service matches what was searched: its name or description. */
-export const matchesSearch = (
-    service: Pick<ServiceRow, 'name' | 'description'>,
-    search: string,
-): boolean => {
-    const needle = search.trim().toLowerCase();
-
-    return (
-        needle === '' ||
-        service.name.toLowerCase().includes(needle) ||
-        service.description.toLowerCase().includes(needle)
-    );
-};
