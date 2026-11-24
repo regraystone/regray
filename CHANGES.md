@@ -1,3 +1,10 @@
+# Cucine Lube's logo in white, and re/form reads "Engineered Stone"
+
+From Sir Mark's comments on the landing page's brands. Only the two logo images change; nothing in the code does. **Deploy: production keeps its logos on S3, so upload both once on the Brands page (Edit, Replace logo), from the files below.**
+
+- **Cucine Lube** (`storage/app/public/brands/4e8f2a6c1d9b5f3a7c0e1b8d4f6a9c2e.png`) was the only logo in colour, a glossy red square. It is now white like the others: a white square with CUCINE LUBE cut out of it, the way Res Italia's bird is, made from the original at the same size, so it lines up as before on the landing wall, the login pages' strip, Our brands and its own page.
+- **re/form** (`storage/app/public/brands/fa06348dbb0ab7454f4180f30881956c.png`) now reads ENGINEERED STONE under the name instead of SINTERED STONE (the comment's "Refrom Engendered Stone"), redrawn in the same thin spaced capitals, at the same height and centre; the name above it is untouched. The brand's tagline, description and Material fact still say sintered stone: the admin can change them on the Brands page.
+
 # Regray Design Group: the new name, without the Beta tag
 
 The wordmark is now **REGRAY Design Group**, set in one family the way "HAWORTH Lifestyle" is: REGRAY in medium Lexend capitals spaced wide, then "Design Group" in light mixed-case Lexend, on one baseline with the same cap height, so the two parts read as one name. It is type, no longer the `regray_logo.png` image (the collapsed sidebar keeps its round `regray_icon.png` mark). One component draws it everywhere (`components/wordmark.tsx`): the public header, the footer, the login and sign-up pages, the 404 and 403 pages, and the dashboard's sidebar, top bar and phone drawer. The red **Beta** tag is gone from all of them (`components/beta-badge.tsx` is deleted). **Deploy: production picks up the new tab title from `.env.example` when it builds; set `MAIL_FROM_NAME="Regray Design Group"` in the server's `.env.production` for the email sender name. Locally, set `VITE_APP_NAME` and `MAIL_FROM_NAME` the same in `.env`.**
