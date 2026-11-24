@@ -16,6 +16,7 @@ use App\Enums\ScheduleAction;
 use App\Enums\SocialPlatform;
 use App\Http\Requests\DataTableRequest;
 use App\Http\Requests\Product\ProductListRequest;
+use App\Http\Requests\Sales\SalesReportRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
 use App\Http\Requests\Service\StoreServiceRequest;
 use App\Http\Resources\AccountResource;
@@ -43,9 +44,11 @@ use App\Repositories\Contracts\ServiceRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InquiryStatusRules;
+use App\Services\SalesReportService;
 use App\Services\ScheduleService;
 use App\Services\WalkInInquiryService;
 use App\Support\ReservedSlugs;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,9 +71,16 @@ class ViewController extends Controller
         return Inertia::render('saved');
     }
 
-    public function sales(Request $request): Response
+    /**
+     * The Sales page: the money side of the inquiries the reader may see,
+     * over the span `?period=` names (SalesReportService).
+     */
+    public function sales(SalesReportRequest $request, SalesReportService $reports): Response
     {
-        return Inertia::render('sales');
+        /** @var User $user */
+        $user = $request->user();
+
+        return Inertia::render('sales', $reports->report($user, $request->period(), CarbonImmutable::now()));
     }
 
     /**
