@@ -1,3 +1,7 @@
+# The footer speaks for the whole group
+
+From Sir Mark's comment that the footer's Regraystone.com link and social accounts are Regray Stone's alone, while the site promotes the whole group of brands. The public footer (`components/public/public-footer.tsx`) no longer links to regraystone.com, and its row of social accounts (Instagram, Facebook, Pinterest, YouTube, TikTok, LinkedIn) is gone; the copyright keeps the ruled line along the foot to itself. The footer keeps the wordmark, the group's pages (The group, Our brands, Showroom, News, Contact, Client login) and the showroom's address, hours, numbers and email. The Contact page still lists the social accounts. Nothing to deploy.
+
 # The Contact page is arranged like regraystone.com's
 
 From Sir Mark's comment to follow regraystone.com/contact's arrangement for the contact details, since the other brands are reached through the one Regray team for now. The page (`pages/company/contact.tsx`) now runs, top to bottom: Nothing to deploy.
