@@ -1,5 +1,4 @@
 import { Link, usePage } from '@inertiajs/react';
-import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { login } from '@/routes';
@@ -152,7 +151,6 @@ export default function HomeCatalogue() {
                 className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-40 shadow-lg"
             >
                 <Link href={canMessage ? inboxIndex.url() : login.url()}>
-                    <MessageCircle aria-hidden />
                     Message us
                 </Link>
             </Button>

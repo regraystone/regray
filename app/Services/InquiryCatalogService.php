@@ -34,7 +34,7 @@ class InquiryCatalogService
     {
         return [
             'serviceTypes' => $this->catalogRepository->serviceTypes(),
-            'brands' => $this->brandRepository->active(),
+            'brands' => $this->brandRepository->activeForInquiry(),
             'edgeProfiles' => $this->catalogRepository->activeEdgeProfiles(),
             'finishes' => $this->catalogRepository->activeFinishes(),
         ];

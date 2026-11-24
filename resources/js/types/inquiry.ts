@@ -29,6 +29,8 @@ export type InquiryBrandOption = {
     id: string;
     name: string;
     logo: string;
+    /** Whether it has an active stone or piece of furniture; one without is Unavailable on the Brand question. */
+    available: boolean;
 };
 
 /** One of the client's saved addresses, as ClientAddressResource sends it. */
