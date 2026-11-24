@@ -54,12 +54,36 @@ export const JOURNAL = 'https://regraystone.com/journal/';
 
 /** Where to find Regray online. */
 export const SOCIALS = [
-    { label: 'Instagram', href: 'https://www.instagram.com/regraystoneph/' },
-    { label: 'Facebook', href: 'https://www.facebook.com/Regraystone' },
-    { label: 'Pinterest', href: 'https://ph.pinterest.com/regraystone/' },
-    { label: 'YouTube', href: 'https://www.youtube.com/@regraystone' },
-    { label: 'TikTok', href: 'https://www.tiktok.com/@regraystone' },
-    { label: 'LinkedIn', href: 'https://ph.linkedin.com/company/regraystone' },
+    {
+        label: 'Instagram',
+        href: 'https://www.instagram.com/regraystoneph/',
+        icon: 'instagram',
+    },
+    {
+        label: 'Facebook',
+        href: 'https://www.facebook.com/Regraystone',
+        icon: 'facebook',
+    },
+    {
+        label: 'Pinterest',
+        href: 'https://ph.pinterest.com/regraystone/',
+        icon: 'pinterest',
+    },
+    {
+        label: 'YouTube',
+        href: 'https://www.youtube.com/@regraystone',
+        icon: 'youtube',
+    },
+    {
+        label: 'TikTok',
+        href: 'https://www.tiktok.com/@regraystone',
+        icon: 'tiktok',
+    },
+    {
+        label: 'LinkedIn',
+        href: 'https://ph.linkedin.com/company/regraystone',
+        icon: 'linkedin',
+    },
 ] as const;
 
 /**
