@@ -1,3 +1,11 @@
+# Saved: no Explore by category; Ready to source sits below the pieces and sticks to the bottom
+
+From Sir Mark's comments on the Saved page. Nothing to deploy.
+
+- **Explore by category is gone** (Natural Stone, Furniture, Kitchens and Wardrobes). The page opens with Your Saved Collection and its Explore collections link, then the saved pieces. The server no longer sends `categories`: `ListSavedCategoriesAction` and its test `Home/SavedCategoriesTest` are removed, and `SavedStoneController::index()` sends only the saved stones and furniture.
+- **Ready to source these pieces? is below the products**, as asked, and is a bar that sticks to the bottom of the screen while the list runs past it, so Request a quote is in reach without scrolling to the end of a long list; at the end it settles under the last piece. On a phone it is compact: the title and the button on one line. From a tablet it also says how many pieces are saved ("Inquire about your 3 saved pieces and our team will get back to you with a quote."). A reader who cannot inquire sees it without a button and not stuck.
+- **Tests:** `Home/SavedFurnitureTest` checks the page sends no `categories`.
+
 # A brand's page has no What we offer section
 
 From Sir Mark's comment on the brand pages. Every brand's page (guest and signed in) now goes from Overview straight to its Collection, and the section bar reads Overview, Collection. Nothing to deploy.

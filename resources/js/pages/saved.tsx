@@ -1,8 +1,6 @@
 import { Handshake } from 'lucide-react';
 import ProductCard from '@/components/product-card';
-import SavedCollectionIntro, {
-    type SavedCategories,
-} from '@/components/saved/saved-collection-intro';
+import SavedCollectionIntro from '@/components/saved/saved-collection-intro';
 import { Button } from '@/components/ui/button';
 import { useInquiryEntry } from '@/hooks/use-inquiry-entry';
 import { useSavedFurniture, useSavedStones } from '@/hooks/use-saved-stones';
@@ -14,7 +12,6 @@ import type { StoneCardData } from '@/types/stone';
 type SavedPageProps = {
     savedStones: { data: StoneCardData[] };
     savedFurniture: { data: FurnitureCardData[] };
-    categories: SavedCategories;
 };
 
 const SectionHeading = ({ children }: { children: string }) => (
@@ -24,11 +21,12 @@ const SectionHeading = ({ children }: { children: string }) => (
 );
 
 /**
- * Saved: "Your Saved Collection" and "Explore by category" (the catalog's
- * ways in), then the stones and furniture the reader has saved, with a way
- * to ask for a quote on them.
+ * Saved: "Your Saved Collection", then the stones and furniture the reader
+ * has saved, with "Ready to source these pieces?" below them. The bar sticks
+ * to the bottom of the screen while the list runs past it, so Request a quote
+ * is always in reach, and settles under the last piece at the end.
  */
-const Saved = ({ savedStones, savedFurniture, categories }: SavedPageProps) => {
+const Saved = ({ savedStones, savedFurniture }: SavedPageProps) => {
     const { toggleSave, canSave } = useSavedStones({
         refresh: ['savedStones'],
     });
@@ -48,7 +46,7 @@ const Saved = ({ savedStones, savedFurniture, categories }: SavedPageProps) => {
 
     return (
         <div className="w-full">
-            <SavedCollectionIntro categories={categories} />
+            <SavedCollectionIntro />
 
             <section
                 aria-labelledby="saved-pieces"
@@ -73,32 +71,6 @@ const Saved = ({ savedStones, savedFurniture, categories }: SavedPageProps) => {
                     </p>
                 ) : (
                     <>
-                        <div className="flex w-full flex-col items-center justify-between gap-6 rounded-md border border-border bg-primary/5 p-6 sm:flex-row sm:gap-8 sm:px-8 sm:py-7 lg:gap-12 lg:px-10">
-                            <div className="flex w-full flex-col items-center gap-4 text-center sm:w-auto sm:flex-row sm:gap-6 sm:text-left">
-                                <span className="grid size-12 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
-                                    <Handshake className="size-6" aria-hidden />
-                                </span>
-                                <div>
-                                    <h3 className="text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
-                                        Ready to source these pieces?
-                                    </h3>
-                                    <p className="mx-auto mt-2 max-w-md text-sm text-secondary-foreground sm:mx-0 sm:max-w-lg">
-                                        Inquire now and our team will get back
-                                        to you with a quote.
-                                    </p>
-                                </div>
-                            </div>
-                            {inquire ? (
-                                <Button
-                                    type="button"
-                                    className="h-11 w-full shrink-0 sm:h-auto sm:w-auto"
-                                    onClick={onInquireClick}
-                                >
-                                    Request a quote
-                                </Button>
-                            ) : null}
-                        </div>
-
                         {savedStonesList.length > 0 ? (
                             <section className="mt-8">
                                 {showHeadings ? (
@@ -176,6 +148,41 @@ const Saved = ({ savedStones, savedFurniture, categories }: SavedPageProps) => {
                                 </div>
                             </section>
                         ) : null}
+
+                        <div
+                            data-testid="saved-quote-bar"
+                            className={`z-20 mt-8 flex items-center justify-between gap-4 rounded-md border border-border bg-background/95 p-3 pl-4 shadow-[0_8px_24px_rgb(0_0_0/0.08)] backdrop-blur-md sm:gap-8 sm:p-4 sm:pl-6 lg:gap-12 ${
+                                inquire
+                                    ? 'sticky bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:bottom-5'
+                                    : ''
+                            }`}
+                        >
+                            <div className="flex min-w-0 items-center gap-4">
+                                <span className="hidden size-11 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground sm:grid">
+                                    <Handshake className="size-5" aria-hidden />
+                                </span>
+                                <div className="min-w-0">
+                                    <h3 className="text-[0.9375rem] leading-snug font-bold tracking-[-0.02em] sm:text-xl">
+                                        Ready to source these pieces?
+                                    </h3>
+                                    <p className="mt-0.5 hidden text-sm text-secondary-foreground sm:block">
+                                        Inquire about your {savedCount} saved{' '}
+                                        {savedCount === 1 ? 'piece' : 'pieces'}{' '}
+                                        and our team will get back to you with a
+                                        quote.
+                                    </p>
+                                </div>
+                            </div>
+                            {inquire ? (
+                                <Button
+                                    type="button"
+                                    className="h-10 shrink-0 px-4 sm:h-11 sm:px-6"
+                                    onClick={onInquireClick}
+                                >
+                                    Request a quote
+                                </Button>
+                            ) : null}
+                        </div>
                     </>
                 )}
             </section>

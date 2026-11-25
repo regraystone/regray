@@ -44,6 +44,8 @@ test('the saved page lists saved furniture, and leaves out an inactive piece', f
             ->has('savedFurniture.data', 1)
             ->where('savedFurniture.data.0.slug', 'alora')
             ->where('savedFurnitureSlugs', ['alora'])
+            // Explore by category is gone from the page, so nothing is sent for it.
+            ->missing('categories')
         );
 });
 
