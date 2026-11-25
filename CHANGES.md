@@ -1,3 +1,13 @@
+# A brand's page has no What we offer section
+
+From Sir Mark's comment on the brand pages. Every brand's page (guest and signed in) now goes from Overview straight to its Collection, and the section bar reads Overview, Collection. Nothing to deploy.
+
+- **Gone from `pages/brand-profile.tsx`:** the type tiles (each stone or furniture type with its photo and count, opening the collection filtered to it) and, for a brand with no products online yet, the "What it makes" list with Book a visit and Request a quote. The bar's Request a quote stays. The "What it makes" tags are still set and shown on the admin's Brands page, but no longer on the public page.
+- **The server sends only the counts** for the "In our catalog" line: `offer` is `{stones, furniture}`, from `BrandService::productCounts()` and `BrandRepositoryInterface::activeProductCounts()`, which replace `offerings()` and `activeProductsWithTypes()`.
+- **"← Brands" works for clients:** signed in, a brand page's breadcrumb went to the admin's Brands page (`dashboard.brands.index`, behind `brands.view`), so a client got "You don't have access to this page". It now goes back to the Our Brands section on Home (`home.index#brands`), where signed-in readers open the brands. Guests still go to Our brands.
+- **More from the Regray Group centres a short last row:** the other brands' logos wrap in a centred row (two to a row on a phone, three on a tablet, five on a laptop) instead of a grid, so a last row of one or two logos sits in the middle rather than at the left.
+- **Tests:** `Home/BrandDetailTest` and `Home/CollectionFilterTest` check the counts, that no type tiles are sent, and the furniture filter's options in place of the tiles.
+
 # Inquire's brand question: black logos, Unavailable brands, No preference across the row; no icons on Message us and Inquire
 
 From Sir Mark's comments on the Inquire page's "Which brands would you like?", the signed-in Home page and the Quote page. Nothing to deploy.

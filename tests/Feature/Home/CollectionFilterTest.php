@@ -306,10 +306,10 @@ test('the furniture filter goes by the type\'s slug, so renaming the type keeps 
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
             ->where('products.data.0.slug', $table->slug)
-            ->where('offer.types', fn ($types) => collect($types)->contains(fn ($type) => $type['collection'] === 'furniture' && $type['value'] === 'dining-tables' && $type['name'] === 'Tables for Dining')));
+            ->where('filterOptions.furnitureTypes', fn ($types) => collect($types)->contains(['value' => 'dining-tables', 'label' => 'Tables for Dining'])));
 });
 
-test('a furniture type switched off leaves its tile and filter, while its pieces are still listed and counted', function (): void {
+test('a furniture type switched off leaves its filter, while its pieces are still listed and counted', function (): void {
     Furniture::factory()->for($this->brand)->ofType('Dining Tables')->create();
     Furniture::factory()->for($this->brand)->ofType('Pedestal')->create();
     FurnitureType::query()->where('slug', 'pedestal')->update(['is_active' => false]);
@@ -319,7 +319,7 @@ test('a furniture type switched off leaves its tile and filter, while its pieces
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 2)
             ->where('offer.furniture', 2)
-            ->where('offer.types', fn ($types) => collect($types)->where('collection', 'furniture')->pluck('value')->all() === ['dining-tables']));
+            ->where('filterOptions.furnitureTypes', fn ($types) => collect($types)->pluck('value')->contains('dining-tables') && ! collect($types)->pluck('value')->contains('pedestal')));
 
     $this->get(brandPage(['collection' => 'furniture', 'furniture_type' => 'pedestal']))
         ->assertRedirect(brandPage(['collection' => 'furniture']));

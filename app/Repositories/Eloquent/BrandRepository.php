@@ -103,22 +103,13 @@ class BrandRepository implements BrandRepositoryInterface
     }
 
     /**
-     * @return array{stones: Collection<int, Stone>, furniture: Collection<int, Furniture>}
+     * @return array{stones: int, furniture: int}
      */
-    public function activeProductsWithTypes(Brand $brand): array
+    public function activeProductCounts(Brand $brand): array
     {
         return [
-            'stones' => $brand->stones()->active()
-                ->with(['types' => fn ($types) => $types->where('is_active', true)])
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['stones.id', 'stones.brand_id', 'stones.name', 'stones.thumbnail_path', 'stones.sort_order']),
-            // Every active piece, as the collection lists it; offerings() leaves an inactive type's off the tiles.
-            'furniture' => $brand->furniture()->active()
-                ->with('furnitureType')
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'brand_id', 'furniture_type_id', 'name', 'thumbnail_path', 'sort_order']),
+            'stones' => $brand->stones()->active()->count(),
+            'furniture' => $brand->furniture()->active()->count(),
         ];
     }
 

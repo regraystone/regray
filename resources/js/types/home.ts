@@ -135,21 +135,10 @@ export type BrandProduct =
     | (StoneCardData & { kind: 'stone' })
     | (FurnitureCardData & { kind: 'furniture' });
 
-/** A stone or furniture type a brand's products come in, with how many. */
-export type BrandOffering = {
-    collection: 'stones' | 'furniture';
-    /** What the collection's type filter takes for it. */
-    value: string;
-    name: string;
-    count: number;
-    thumbnail: string | null;
-};
-
-/** What a brand offers, counted from its active products. */
+/** How many active stones and pieces of furniture a brand has. */
 export type BrandOffer = {
     stones: number;
     furniture: number;
-    types: BrandOffering[];
 };
 
 export type BrandPageProps = {

@@ -1,12 +1,10 @@
 <?php
 
 use App\Enums\Role;
-use App\Http\Resources\ShowcaseCardResource;
 use App\Models\Brand;
 use App\Models\Furniture;
 use App\Models\Showcase;
 use App\Models\Stone;
-use App\Models\StoneType;
 use App\Models\User;
 use Database\Seeders\BrandSeeder;
 use Database\Seeders\FurnitureSeeder;
@@ -18,9 +16,9 @@ use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /*
- * A brand's page tells what the brand offers, counted from its active
- * products, and the group's other brands, for every brand and through both
- * its doors. It lists no showcases.
+ * A brand's page tells how many of the brand's products are in the catalog,
+ * counted from its active ones, and the group's other brands, for every brand
+ * and through both its doors. It lists no showcases, and no type tiles.
  */
 beforeEach(function (): void {
     $this->seed([RolePermissionSeeder::class, BrandSeeder::class, StoneSeeder::class, ShowcaseCategorySeeder::class, ShowcaseSeeder::class, FurnitureSeeder::class]);
@@ -31,15 +29,7 @@ function brandDetailPage(string $slug): TestResponse
     return test()->get(route('brands.show', ['brand' => $slug]));
 }
 
-/** The active stones of the brand of one type, by the type's slug. */
-function activeStonesOfType(Brand $brand, string $typeSlug): int
-{
-    return Stone::query()->active()->where('brand_id', $brand->id)
-        ->whereHas('types', fn ($types) => $types->where('slug', $typeSlug)->where('is_active', true))
-        ->count();
-}
-
-test('what a brand offers is counted from its active stones and furniture, type by type', function (): void {
+test('a brand\'s catalog line counts only its active stones and furniture, with no type tiles', function (): void {
     $brand = Brand::query()->where('slug', 'regray-stone')->firstOrFail();
     $hidden = Stone::query()->where('brand_id', $brand->id)->whereHas('types', fn ($types) => $types->where('slug', 'marble'))->firstOrFail();
     $hidden->update(['is_active' => false]);
@@ -50,17 +40,7 @@ test('what a brand offers is counted from its active stones and furniture, type 
             ->component('brand-profile')
             ->where('offer.stones', Stone::query()->active()->where('brand_id', $brand->id)->count())
             ->where('offer.furniture', Furniture::query()->active()->where('brand_id', $brand->id)->count())
-            ->where('offer.types', function ($types) use ($brand): bool {
-                $types = collect($types);
-                $marble = $types->firstWhere('value', 'marble');
-                $furniture = $types->where('collection', 'furniture');
-
-                return $marble['collection'] === 'stones'
-                    && $marble['count'] === activeStonesOfType($brand, 'marble')
-                    && $marble['thumbnail'] === ShowcaseCardResource::resolveThumbnailUrl(StoneType::query()->where('slug', 'marble')->value('thumbnail_path'))
-                    && $furniture->sum('count') === Furniture::query()->active()->where('brand_id', $brand->id)->count()
-                    && $types->search(fn (array $type): bool => $type['collection'] === 'furniture') > $types->search(fn (array $type): bool => $type['collection'] === 'stones');
-            }));
+            ->missing('offer.types'));
 });
 
 test('a brand with no products yet offers nothing counted, and its page still opens', function (): void {
@@ -68,7 +48,7 @@ test('a brand with no products yet offers nothing counted, and its page still op
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('hasProducts', false)
-            ->where('offer', ['stones' => 0, 'furniture' => 0, 'types' => []]));
+            ->where('offer', ['stones' => 0, 'furniture' => 0]));
 });
 
 test('a brand\'s page lists no showcases, even one made with its stones', function (): void {
@@ -95,6 +75,6 @@ test('the other brands are the active ones besides this one, through both doors'
         ->assertInertia(fn (Assert $page) => $page
             ->component('brand-profile')
             ->where('otherBrands', fn ($brands): bool => collect($brands)->pluck('slug')->all() === $expected)
-            ->has('offer.types')
+            ->has('offer.stones')
             ->missing('showcases'));
 });

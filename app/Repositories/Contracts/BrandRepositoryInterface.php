@@ -49,10 +49,9 @@ interface BrandRepositoryInterface
     public function hasActiveProducts(Brand $brand): bool;
 
     /**
-     * The brand's active stones, each with its active types, and its active
-     * furniture, each with its type: what its page says it offers.
+     * How many active stones and pieces of furniture the brand has.
      *
-     * @return array{stones: Collection<int, Stone>, furniture: Collection<int, Furniture>}
+     * @return array{stones: int, furniture: int}
      */
-    public function activeProductsWithTypes(Brand $brand): array;
+    public function activeProductCounts(Brand $brand): array;
 }
