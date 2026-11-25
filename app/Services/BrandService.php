@@ -3,12 +3,9 @@
 namespace App\Services;
 
 use App\Data\BrandProductFilterData;
-use App\Http\Resources\ShowcaseCardResource;
 use App\Models\Brand;
 use App\Models\Furniture;
-use App\Models\FurnitureType;
 use App\Models\Stone;
-use App\Models\StoneType;
 use App\Repositories\Contracts\BrandRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -26,76 +23,14 @@ class BrandService
     }
 
     /**
-     * What a brand offers, counted from its active products: how many stones
-     * and pieces of furniture it has, and each stone type its stones come in,
-     * then each furniture type, in catalog order. A stone of two types counts
-     * in both, as the collection's type filter finds it under both. A stone
-     * type's photo is its own thumbnail (set on its Products page); a
-     * furniture type has none, so its photo is the brand's first piece of
-     * that type. `value` is what the collection's filter takes for it: the
-     * type's slug. A type switched off has no tile, as it is no filter, while
-     * its products are still listed and counted, stones and furniture alike.
+     * How many active stones and pieces of furniture the brand has: the "In
+     * our catalog" line on its page.
      *
-     * @return array{stones: int, furniture: int, types: list<array{collection: 'stones'|'furniture', value: string, name: string, count: int, thumbnail: string|null}>}
+     * @return array{stones: int, furniture: int}
      */
-    public function offerings(Brand $brand): array
+    public function productCounts(Brand $brand): array
     {
-        $products = $this->brandRepository->activeProductsWithTypes($brand);
-
-        /** @var array<int, array{type: StoneType, count: int, thumbnail: string}> $stoneTypes */
-        $stoneTypes = [];
-
-        foreach ($products['stones'] as $stone) {
-            foreach ($stone->types as $type) {
-                $stoneTypes[$type->id] ??= ['type' => $type, 'count' => 0, 'thumbnail' => $type->thumbnail_path];
-                $stoneTypes[$type->id]['count']++;
-            }
-        }
-
-        /** @var array<int, array{type: FurnitureType, count: int, thumbnail: string|null}> $furnitureTypes */
-        $furnitureTypes = [];
-
-        foreach ($products['furniture'] as $piece) {
-            if (! $piece->furnitureType->is_active) {
-                continue;
-            }
-
-            $furnitureTypes[$piece->furniture_type_id] ??= ['type' => $piece->furnitureType, 'count' => 0, 'thumbnail' => null];
-            $furnitureTypes[$piece->furniture_type_id]['count']++;
-            $furnitureTypes[$piece->furniture_type_id]['thumbnail'] ??= $piece->thumbnail_path;
-        }
-
-        $inCatalogOrder = fn (array $left, array $right): int => [$left['type']->sort_order, $left['type']->name] <=> [$right['type']->sort_order, $right['type']->name];
-        usort($stoneTypes, $inCatalogOrder);
-        usort($furnitureTypes, $inCatalogOrder);
-
-        $types = [];
-
-        foreach ($stoneTypes as $offer) {
-            $types[] = [
-                'collection' => 'stones',
-                'value' => $offer['type']->slug,
-                'name' => $offer['type']->name,
-                'count' => $offer['count'],
-                'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),
-            ];
-        }
-
-        foreach ($furnitureTypes as $offer) {
-            $types[] = [
-                'collection' => 'furniture',
-                'value' => $offer['type']->slug,
-                'name' => $offer['type']->name,
-                'count' => $offer['count'],
-                'thumbnail' => $offer['thumbnail'] === null ? null : ShowcaseCardResource::resolveThumbnailUrl($offer['thumbnail']),
-            ];
-        }
-
-        return [
-            'stones' => $products['stones']->count(),
-            'furniture' => $products['furniture']->count(),
-            'types' => $types,
-        ];
+        return $this->brandRepository->activeProductCounts($brand);
     }
 
     /**
