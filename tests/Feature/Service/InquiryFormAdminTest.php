@@ -83,7 +83,7 @@ describe('a free entry question', function (): void {
             ->and($seaters->suggestions()->map(fn (DetailFieldOption $option): array => [$option->name, $option->description])->all())
             ->toBe([['4', 'approx. 1.2 sqm'], ['6', null], ['20', 'a banquet']])
             // One left out is switched off, as a sent answer may read it.
-            ->and(DetailFieldOption::query()->where('detail_field_id', $seaters->id)->where('slug', '2')->value('is_active'))->toBeFalse();
+            ->and(DetailFieldOption::query()->where('detail_field_id', $seaters->id)->where('slug', '12')->value('is_active'))->toBeFalse();
     });
 
     it('refuses a number question\'s answer that is no number', function (): void {

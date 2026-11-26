@@ -82,13 +82,17 @@ describe('a free entry', function (): void {
 
         expect($sent['customLabel'])->toBe('Custom number')
             ->and($sent['customHint'])->toBe('Enter how many seats you need.')
-            ->and($sent['suggestions'][0])->toBe(['value' => '2', 'label' => '2 – approx. 0.6 sqm']);
+            ->and($sent['suggestions'])->toBe([
+                ['value' => '6', 'label' => '6 – approx. 1.6 sqm'],
+                ['value' => '8', 'label' => '8 – approx. 2.2 sqm'],
+                ['value' => '12', 'label' => '12 – approx. 3.3 sqm'],
+            ]);
     });
 
     it('takes a seaters suggestion by its value, not its note', function (): void {
-        sendFormInquiry($this, ['serviceId' => 'center-tables', 'answers' => [...inquiryAnswers('center-tables'), 'seaters' => '4']])
+        sendFormInquiry($this, ['serviceId' => 'center-tables', 'answers' => [...inquiryAnswers('center-tables'), 'seaters' => '8']])
             ->assertSessionHasNoErrors();
 
-        expect(DetailField::query()->where('slug', 'seaters')->sole()->options()->where('slug', '4')->value('name'))->toBe('4');
+        expect(DetailField::query()->where('slug', 'seaters')->sole()->options()->where('slug', '8')->value('name'))->toBe('8');
     });
 });

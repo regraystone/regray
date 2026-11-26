@@ -105,12 +105,9 @@ return [
         'custom_label' => 'Custom number',
         'custom_hint' => 'Enter how many seats you need.',
         'suggestions' => [
-            // About how big a table top seats them, in square metres.
-            ['2', '2', 'approx. 0.6 sqm'],
-            ['4', '4', 'approx. 1.0 sqm'],
+            // 6, 8 and 12 for now, with about how big a table top seats them; any other through Custom number.
             ['6', '6', 'approx. 1.6 sqm'],
             ['8', '8', 'approx. 2.2 sqm'],
-            ['10', '10', 'approx. 2.6 sqm'],
             ['12', '12', 'approx. 3.3 sqm'],
         ],
     ],

@@ -229,7 +229,8 @@ it('names a free entry\'s own answer, notes each seaters\' table size, and asks 
 
     expect(DetailField::query()->where('slug', 'size')->first(['custom_label', 'custom_hint'])?->only(['custom_label', 'custom_hint']))
         ->toBe(['custom_label' => 'Custom size', 'custom_hint' => 'Enter your desired size.'])
-        ->and($seaters->suggestions()->map(fn (DetailFieldOption $option): string => "{$option->name} – {$option->description}")->first())->toBe('2 – approx. 0.6 sqm')
+        // 6, 8 and 12 for now, each with its table size.
+        ->and($seaters->suggestions()->map(fn (DetailFieldOption $option): string => "{$option->name} – {$option->description}")->all())->toBe(['6 – approx. 1.6 sqm', '8 – approx. 2.2 sqm', '12 – approx. 3.3 sqm'])
         // A table's base design is a plain list: no Table base question, nor its Wood and Steel.
         ->and(DetailField::query()->where('slug', 'table_base')->exists())->toBeFalse()
         ->and(Choice::query()->whereIn('slug', ['wood', 'steel'])->exists())->toBeFalse()
@@ -261,6 +262,8 @@ it('brings a database from before the notes and seaters up to them, without Tabl
         $service($slug)->detailFields()->attach($material->id, ['sort_order' => 1, 'is_required' => true]);
     }
     StoneType::query()->where('slug', 'monumental')->sole()->services()->attach($service('dining-tables')->id);
+    // Seaters suggested 2 and 6 only, without their sizes.
+    DetailField::query()->where('slug', 'seaters')->sole()->writeSuggestions([['name' => '2', 'note' => null], ['name' => '6', 'note' => null]]);
 
     $this->seed(InquiryFormSeeder::class);
     $once = askedQuestions();
@@ -277,7 +280,7 @@ it('brings a database from before the notes and seaters up to them, without Tabl
         ->and(Choice::query()->whereIn('slug', ['wood', 'steel'])->count())->toBe(2)
         ->and(DetailField::query()->where('slug', 'size')->value('custom_label'))->toBe('Custom size')
         ->and(DetailField::query()->where('slug', 'thickness')->value('custom_label'))->toBe('Your own thickness')
-        ->and(DetailFieldOption::query()->where('detail_field_id', $id('seaters'))->where('slug', '4')->value('description'))->toBe('approx. 1.0 sqm')
+        ->and(DetailField::query()->where('slug', 'seaters')->sole()->suggestions()->map(fn (DetailFieldOption $option): string => "{$option->name} – {$option->description}")->all())->toBe(['6 – approx. 1.6 sqm', '8 – approx. 2.2 sqm', '12 – approx. 3.3 sqm'])
         ->and($service('dining-tables')->lead_days)->toBe(5)
         ->and($service('side-tables')->lead_days)->toBe(10)
         ->and($service('dining-tables')->stoneTypes()->where('slug', 'monumental')->exists())->toBeFalse()

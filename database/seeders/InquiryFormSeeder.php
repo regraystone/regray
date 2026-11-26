@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  *   their table sizes ("approx. 0.6 sqm") where they have none.
  * - A service gets its delivery and date lines and its fewest days ahead
  *   where it has none.
+ * - Number of seaters suggests 6, 8 and 12 only (others are switched off,
+ *   so a sent answer still reads); any other number is the client's own.
  * - Center and side tables are asked Number of seaters, required, after
  *   their size; dining tables and other customized furniture no longer ask
  *   Project area.
@@ -53,6 +55,7 @@ class InquiryFormSeeder extends Seeder
             $this->describeQuestions();
             $this->noteServices();
             $this->askSeaters();
+            $this->seaterSuggestions();
             $this->dropArea();
             $this->dropMaterial();
 
@@ -137,6 +140,22 @@ class InquiryFormSeeder extends Seeder
             $service->detailFields()->attach($seaters, ['sort_order' => 0, 'is_required' => true]);
             $this->reorder($service, $order);
         }
+    }
+
+    /** Number of seaters suggests the seeded numbers alone (6, 8, 12), each switched on. */
+    private function seaterSuggestions(): void
+    {
+        $seaters = DetailField::query()->where('slug', 'seaters')->value('id');
+        $listed = collect(DetailFieldSeeder::data())->firstWhere('slug', 'seaters')['suggestions'] ?? [];
+        $keep = array_map(fn (array $suggestion): string => $suggestion[0], $listed);
+
+        if ($seaters === null || $keep === []) {
+            return;
+        }
+
+        $suggestions = DetailFieldOption::query()->where('detail_field_id', $seaters)->where('is_suggestion', true);
+        (clone $suggestions)->whereNotIn('slug', $keep)->update(['is_active' => false]);
+        (clone $suggestions)->whereIn('slug', $keep)->update(['is_active' => true]);
     }
 
     /** Dining tables and other customized furniture no longer ask for the project area. */
