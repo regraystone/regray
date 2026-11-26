@@ -25,6 +25,10 @@ use Inertia\Response;
  *
  * `{id}` stays a plain id, looked up after the route's permission; an
  * archived item is gone from its page, so it is a 404.
+ *
+ * An item added for a form on another dashboard page (a question's form
+ * needing a new choice, lib/admin-handoff.ts) sends the admin `back` there,
+ * with it picked (`picked`).
  */
 class CatalogListController extends Controller
 {
@@ -93,6 +97,13 @@ class CatalogListController extends Controller
     {
         $definition = $request->list();
         $item = $this->service->create($definition, $request->itemData(), $request->thumbnail(), self::actor($request), $request->ip(), $request->userAgent());
+        $back = self::back($request);
+
+        if ($back !== null) {
+            Inertia::flash('toast', ['type' => 'success', 'message' => __(':name is added and picked.', ['name' => $definition->name($item)])]);
+
+            return redirect()->to($back.(str_contains($back, '?') ? '&' : '?').'picked='.$item->getKey());
+        }
 
         return self::done(__(':name is added.', ['name' => $definition->name($item)]));
     }
@@ -142,6 +153,16 @@ class CatalogListController extends Controller
         }
 
         return $definition->live()->findOrFail((int) $id);
+    }
+
+    /** Where an item added for another page's form goes back to: an address on the dashboard alone. */
+    private static function back(Request $request): ?string
+    {
+        $back = $request->input('back');
+
+        return is_string($back) && strlen($back) <= 2000 && str_starts_with($back, '/dashboard/') && ! str_starts_with($back, '//') && ! str_contains($back, '\\')
+            ? $back
+            : null;
     }
 
     private static function done(string $message): RedirectResponse

@@ -202,6 +202,7 @@ const servicePages = [
         [
             ['service-types', 'Service types'],
             ['questions', 'Questions'],
+            ['choices', 'Choices'],
         ] as const
     ).map(([slug, label]) => ({
         slug,

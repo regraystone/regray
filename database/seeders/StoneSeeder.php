@@ -144,6 +144,11 @@ class StoneSeeder extends Seeder
             ['is_active' => true, 'is_advisory' => true, 'sort_order' => count($finishes)]
         );
 
+        // What the Inquire page says of each once it is picked; one an admin wrote stays.
+        foreach ($data['finish_descriptions'] as $name => $description) {
+            Finish::query()->withTrashed()->where('name', $name)->whereNull('description')->update(['description' => $description]);
+        }
+
         $careNames = array_unique($data['care']);
         $careTips = [];
         foreach ($careNames as $tip) {

@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\Furniture;
+use App\Services\FurnitureCustomizationService;
 use App\Support\ReservedSlugs;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,10 @@ use Illuminate\Validation\Validator;
  * archived, and the type a furniture type not archived, an active one unless
  * the piece already has it. Its thumbnail is optional: a piece without one
  * shows the placeholder.
+ *
+ * A table's shape and base design are optional, and one its type's services
+ * offer (FurnitureCustomizationService::tableChoices()), or the one it
+ * already has, kept though no longer offered.
  */
 trait FurnitureValidationRules
 {
@@ -55,6 +60,8 @@ trait FurnitureValidationRules
             ],
             'description' => ['nullable', 'string', 'max:'.config('products.description_max')],
             'is_active' => ['required', 'boolean'],
+            'table_shape_option_id' => ['nullable', 'integer'],
+            'table_base_design_option_id' => ['nullable', 'integer'],
             ...$this->imageRules(),
         ];
     }
@@ -68,6 +75,9 @@ trait FurnitureValidationRules
             'name' => $text($this->input('name')),
             'slug' => is_string($this->input('slug')) ? mb_strtolower(trim($this->input('slug'))) : $this->input('slug'),
             'description' => $text($this->input('description')) === '' ? null : $text($this->input('description')),
+            // The drawer sends '' for "none".
+            'table_shape_option_id' => $this->input('table_shape_option_id') === '' ? null : $this->input('table_shape_option_id'),
+            'table_base_design_option_id' => $this->input('table_base_design_option_id') === '' ? null : $this->input('table_base_design_option_id'),
         ]);
 
         $this->mergeGallery();
@@ -87,6 +97,8 @@ trait FurnitureValidationRules
             'slug.not_in' => __('That slug is kept for one of Regray\'s own pages. Choose another.'),
             'slug.unique' => __('Another piece already uses that slug.'),
             'description.max' => __('Keep the description to :max characters.'),
+            'table_shape_option_id.integer' => __('Choose a shape from the list.'),
+            'table_base_design_option_id.integer' => __('Choose a base design from the list.'),
             ...$this->imageMessages(),
         ];
     }
@@ -102,6 +114,29 @@ trait FurnitureValidationRules
                     $validator->errors()->add('slug', __('That slug belonged to an archived piece and can\'t be used again.'));
                 }
             },
+            function (Validator $validator): void {
+                if ($validator->errors()->hasAny(['furniture_type_id', 'table_shape_option_id', 'table_base_design_option_id'])) {
+                    return;
+                }
+
+                $offered = app(FurnitureCustomizationService::class)->tableChoices()[(int) $this->input('furniture_type_id')] ?? [];
+                $messages = [
+                    'table_shape_option_id' => __('That shape isn\'t offered for this furniture type. Choose another, or none.'),
+                    'table_base_design_option_id' => __('That base design isn\'t offered for this furniture type. Choose another, or none.'),
+                ];
+
+                foreach ($messages as $column => $message) {
+                    $id = $this->input($column);
+
+                    if ($id === null || (int) $id === $this->piece()?->{$column}) {
+                        continue;
+                    }
+
+                    if (! collect($offered[$column] ?? [])->contains('id', (int) $id)) {
+                        $validator->errors()->add($column, $message);
+                    }
+                }
+            },
         ];
     }
 
@@ -109,11 +144,12 @@ trait FurnitureValidationRules
      * The piece's fields, in the shape the service writes. The images are
      * read on their own (thumbnail(), gallery()).
      *
-     * @return array{brand_id: int, furniture_type_id: int, name: string, slug: string, description: string|null, is_active: bool}
+     * @return array{brand_id: int, furniture_type_id: int, name: string, slug: string, description: string|null, table_shape_option_id: int|null, table_base_design_option_id: int|null, is_active: bool}
      */
     public function furnitureData(): array
     {
         $description = $this->validated('description');
+        $option = fn (string $column): ?int => $this->validated($column) === null ? null : (int) $this->validated($column);
 
         return [
             'brand_id' => (int) $this->validated('brand_id'),
@@ -121,6 +157,8 @@ trait FurnitureValidationRules
             'name' => (string) $this->validated('name'),
             'slug' => (string) $this->validated('slug'),
             'description' => is_string($description) && $description !== '' ? $description : null,
+            'table_shape_option_id' => $option('table_shape_option_id'),
+            'table_base_design_option_id' => $option('table_base_design_option_id'),
             'is_active' => $this->boolean('is_active'),
         ];
     }

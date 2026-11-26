@@ -52,7 +52,7 @@ class E2EInquirySeeder extends Seeder
             [[160, 320, 'cm'], [[18, 'mm'], [20, 'mm']]],
             [[120, 240, 'cm'], [[18, 'mm']]],
         ]);
-        $this->assertCatalogStonesOffered(['countertop-backsplash', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture']);
+        $this->assertCatalogStonesOffered(['countertop-backsplash', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture']);
 
         $clientA = $this->user('e2e.inquiry.a@example.com', 'Inquiry Client A');
         $clientB = $this->user('e2e.inquiry.b@example.com', 'Inquiry Client B');

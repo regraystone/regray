@@ -55,7 +55,7 @@ return [
             'origin' => 'Italy, Turkey',
             'thicknesses' => [[18, 'mm'], [20, 'mm'], [30, 'mm']],
             'sizes' => [[60, 60, 'cm'], [60, 120, 'cm'], [120, 240, 'cm'], [160, 320, 'cm'], [1.6, 3.2, 'm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
         ],
         [
             'slug' => 'monumental',
@@ -65,7 +65,7 @@ return [
             'origin' => 'South Africa',
             'thicknesses' => [[20, 'mm'], [30, 'mm'], [2, 'cm']],
             'sizes' => [[60, 120, 'cm'], [160, 320, 'cm'], [180, 300, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
         ],
         [
             'slug' => 'onyx',
@@ -75,7 +75,7 @@ return [
             'origin' => 'Iran, Turkey',
             'thicknesses' => [[18, 'mm'], [20, 'mm']],
             'sizes' => [[120, 240, 'cm'], [160, 280, 'cm'], [160, 320, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
         ],
         [
             'slug' => 'patagonia-quartzite',
@@ -85,7 +85,7 @@ return [
             'origin' => 'Brazil',
             'thicknesses' => [[20, 'mm'], [30, 'mm'], [1.25, 'in']],
             'sizes' => [[160, 320, 'cm'], [180, 300, 'cm'], [200, 320, 'cm'], [63, 126, 'in']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
         ],
         [
             'slug' => 'quartzite',
@@ -95,7 +95,7 @@ return [
             'origin' => 'Brazil, Norway',
             'thicknesses' => [[18, 'mm'], [20, 'mm'], [30, 'mm']],
             'sizes' => [[120, 240, 'cm'], [160, 320, 'cm'], [180, 300, 'cm'], [5, 10, 'ft']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
         ],
         [
             'slug' => 'travertine',
@@ -105,7 +105,7 @@ return [
             'origin' => 'Turkey, Italy',
             'thicknesses' => [[12, 'mm'], [18, 'mm'], [20, 'mm']],
             'sizes' => [[30, 60, 'cm'], [60, 60, 'cm'], [60, 120, 'cm'], [120, 240, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'wall-cladding', 'flooring', 'staircase', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'wall-cladding', 'flooring', 'staircase', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
         ],
     ],
     'stones' => [
@@ -187,6 +187,20 @@ return [
     ],
     'applications' => ['Driveways and garden paths', 'Courtyards', 'Street and plaza paving', 'Landscape edging', 'Patio borders', 'Outdoor dining areas', 'Paving and pathways', 'Feature walls', 'Outdoor patios', 'Pool surrounds', 'Entrance lobbies', 'Kitchen countertops', 'Kitchen islands', 'Bathroom vanities', 'Backsplashes', 'Outdoor kitchens', 'Flooring', 'Luxury countertops', 'Wall cladding', 'Fireplace surrounds', 'Sculptural furniture', 'Facade cladding', 'Statement furniture', 'Backlit feature walls', 'Bar and counter fronts', 'Decorative vanities', 'Coffee tables', 'High-traffic flooring', 'Outdoor surfaces', 'Dining and coffee tables', 'Outdoor bars', 'Bathroom walls and floors', 'Pool decks'],
     'finishes' => ['Flamed', 'Flamed + Brushed', 'Natural', 'Brushed', 'Honed', 'Natural Split', 'Polished', 'Leathered', 'Leather', 'Tumbled'],
+    // What the Inquire page shows under a finish once it is picked.
+    'finish_descriptions' => [
+        'Flamed' => 'Heat-treated for a rough, slip-resistant surface. A common choice outdoors and around pools.',
+        'Flamed + Brushed' => 'Flamed, then brushed to soften the texture while keeping its grip.',
+        'Natural' => 'The stone as it is cut, with its own texture and colour left as they are.',
+        'Brushed' => 'Brushed for a softly textured, worn-in surface that hides marks.',
+        'Honed' => 'Smooth and matte, with no shine. Shows the colour softly and hides etching.',
+        'Natural Split' => 'Split along the stone\'s layers for a rugged, uneven face.',
+        'Polished' => 'A glossy, mirror-like shine that deepens the colour and veining.',
+        'Leathered' => 'A soft sheen with a gentle texture you can feel. Hides fingerprints and water spots.',
+        'Leather' => 'Textured with a low sheen, as leathered is: tactile and forgiving of marks.',
+        'Tumbled' => 'Tumbled for softened edges and an aged, rustic look.',
+        'Not sure yet, advise me' => 'We will recommend a finish that suits your stone and where it goes.',
+    ],
     'care' => [
         'Re-bed the joints as the base settles',
         'Clean with pH-neutral cleaner',

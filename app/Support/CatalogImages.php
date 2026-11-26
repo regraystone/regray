@@ -19,6 +19,8 @@ final class CatalogImages
         'stone_types' => 'thumbnail_path',
         'furniture' => 'thumbnail_path',
         'furniture_images' => 'path',
+        'detail_field_options' => 'thumbnail_path',
+        'choices' => 'thumbnail_path',
     ];
 
     /**

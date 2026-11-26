@@ -6,6 +6,7 @@ use App\Catalog\CatalogListDefinition;
 use App\Enums\DetailAnswerType;
 use App\Enums\DetailFieldScope;
 use App\Http\Requests\Service\StoreServiceRequest;
+use App\Models\Choice;
 use App\Models\DetailField;
 use App\Models\DetailFieldOption;
 use App\Models\Service;
@@ -24,8 +25,11 @@ use Illuminate\Validation\Validator;
  * a service's form is: a stone question has a column of its own on each
  * stone row, so those stay the seeded five. What kind of answer a question
  * takes is fixed once it is added, as its answers are kept by kind. A list
- * question's choices can change (DetailField::writeChoices() keeps the ones
- * past answers chose), unless they are the edge profiles or finishes.
+ * question picks its choices from the library (the Choices page, Choice), in
+ * its order, and they can change (DetailField::writeChoices() keeps the ones
+ * past answers chose), unless they are the edge profiles or finishes. One
+ * not in the library yet is added there: the field links to the Choices
+ * page, which brings the admin back with it picked (`addLink`).
  *
  * Archiving sets `archived_at`, once no service asks it; a stone question is
  * never archived. The row stays, as sent inquiries' answers reference it.
@@ -105,11 +109,13 @@ class QuestionList extends CatalogListDefinition
             [
                 'name' => 'choices',
                 'label' => 'Choices',
-                'type' => 'tags',
+                'type' => 'multiselect',
                 'required' => true,
                 'maxItems' => StoreServiceRequest::CHOICES_MAX,
-                'maxLength' => StoreServiceRequest::CHOICE_MAX,
-                'hint' => 'The answers the client picks from: type one, then Enter. A choice taken off stays on the inquiries that chose it.',
+                'hint' => 'The answers the client picks from, in this order, from the Choices page. A choice taken off stays on the inquiries that chose it.',
+                'options' => array_values(Choice::query()->notArchived()->orderBy('sort_order')->orderBy('id')->get(['id', 'name'])
+                    ->map(fn (Choice $choice): array => ['id' => $choice->id, 'label' => $choice->name])->all()),
+                'addLink' => ['list' => 'choices', 'label' => 'Add a new choice'],
                 'showWhen' => ['field' => 'answer_type', 'equals' => DetailAnswerType::Choice->value],
             ],
         ];
@@ -119,7 +125,7 @@ class QuestionList extends CatalogListDefinition
     {
         $choices = [
             'choices' => ['nullable', 'array', 'max:'.StoreServiceRequest::CHOICES_MAX],
-            'choices.*' => ['required', 'string', 'max:'.StoreServiceRequest::CHOICE_MAX, 'distinct:ignore_case'],
+            'choices.*' => ['required', 'integer', 'distinct', Rule::exists('choices', 'id')->whereNull('archived_at')],
         ];
 
         return [
@@ -138,12 +144,13 @@ class QuestionList extends CatalogListDefinition
             'answer_type.enum' => __('Choose what kind of answer it takes.'),
             'choices.max' => __('A question can list :max choices at most.'),
             'choices.*.required' => __('Remove the empty choice.'),
-            'choices.*.max' => __('Each choice can be :max characters at most.'),
+            'choices.*.integer' => __('Choose the choices from the list.'),
+            'choices.*.exists' => __('One of those choices is no longer in the library. Remove it.'),
             'choices.*.distinct' => __('That choice is already listed.'),
         ];
     }
 
-    /** A list question takes at least two choices. */
+    /** A list question takes at least two choices, with one custom and one "advise me" at most. */
     public function after(): \Closure
     {
         return function (Validator $validator, ?Model $item): void {
@@ -153,8 +160,22 @@ class QuestionList extends CatalogListDefinition
                 : ($data['answer_type'] ?? null) === DetailAnswerType::Choice->value;
             $choices = $data['choices'] ?? [];
 
-            if ($isList && ! $validator->errors()->has('choices') && (! is_array($choices) || count($choices) < 2)) {
+            if (! $isList || $validator->errors()->has('choices') || $validator->errors()->has('choices.*')) {
+                return;
+            }
+
+            if (! is_array($choices) || count($choices) < 2) {
                 $validator->errors()->add('choices', self::say('List at least two choices.'));
+
+                return;
+            }
+
+            $picked = Choice::query()->whereIn('id', $choices)->get(['is_custom', 'is_advisory']);
+
+            if ($picked->where('is_custom', true)->count() > 1) {
+                $validator->errors()->add('choices', self::say('List one custom choice at most.'));
+            } elseif ($picked->where('is_advisory', true)->count() > 1) {
+                $validator->errors()->add('choices', self::say('List one "Not sure yet, advise me" choice at most.'));
             }
         };
     }
@@ -164,7 +185,7 @@ class QuestionList extends CatalogListDefinition
         $input = parent::prepare($input);
 
         if (is_array($input['choices'] ?? null)) {
-            $input['choices'] = array_values(array_map(fn (mixed $choice): mixed => is_string($choice) ? trim($choice) : $choice, $input['choices']));
+            $input['choices'] = array_values(array_map(fn (mixed $choice): mixed => is_string($choice) && ctype_digit($choice) ? (int) $choice : $choice, $input['choices']));
         }
 
         return $input;
@@ -193,7 +214,7 @@ class QuestionList extends CatalogListDefinition
                 'asked' => $item->scope === DetailFieldScope::Stone ? self::say('On each stone') : self::say('Once for the project'),
                 'services' => self::count((int) $item->getAttribute('services_count'), 'service', 'services'),
             ],
-            'values' => ['name' => $item->name, 'answer_type' => $item->answer_type->value, 'choices' => self::choices($item)],
+            'values' => ['name' => $item->name, 'answer_type' => $item->answer_type->value, 'choices' => self::choiceIds($item)],
             'fixed' => $item->hasOwnChoices() ? ['answer_type'] : ['answer_type', 'choices'],
         ];
     }
@@ -218,7 +239,7 @@ class QuestionList extends CatalogListDefinition
     public function sync(Model $item, array $data): void
     {
         if ($item->hasOwnChoices() && is_array($data['choices'] ?? null)) {
-            $item->writeChoices(array_values(array_map(strval(...), $data['choices'])));
+            $item->writeChoices(array_values(array_map(intval(...), $data['choices'])));
         }
     }
 
@@ -246,8 +267,26 @@ class QuestionList extends CatalogListDefinition
     }
 
     /**
-     * Its own choices, as the form edits them; none for a question that
-     * answers from another list.
+     * Its library choices, by id, as the form edits them; none for a question
+     * that answers from another list.
+     *
+     * @return list<int>
+     */
+    private static function choiceIds(DetailField $item): array
+    {
+        if (! $item->hasOwnChoices()) {
+            return [];
+        }
+
+        return array_values($item->options
+            ->filter(fn (DetailFieldOption $option): bool => ! $option->is_suggestion && $option->archived_at === null && $option->choice_id !== null)
+            ->map(fn (DetailFieldOption $option): int => (int) $option->choice_id)
+            ->all());
+    }
+
+    /**
+     * Its own choices' names, as the audit keeps them; none for a question
+     * that answers from another list.
      *
      * @return list<string>
      */

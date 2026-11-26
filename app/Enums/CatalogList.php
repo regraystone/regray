@@ -5,6 +5,7 @@ namespace App\Enums;
 use App\Catalog\CatalogListDefinition;
 use App\Catalog\Lists\ApplicationList;
 use App\Catalog\Lists\CareTipList;
+use App\Catalog\Lists\ChoiceList;
 use App\Catalog\Lists\EdgeProfileList;
 use App\Catalog\Lists\FinishList;
 use App\Catalog\Lists\FurnitureTypeList;
@@ -35,6 +36,7 @@ enum CatalogList: string
     case CareTips = 'care-tips';
     case ServiceTypes = 'service-types';
     case Questions = 'questions';
+    case Choices = 'choices';
 
     public const PRODUCTS = 'products';
 
@@ -44,7 +46,7 @@ enum CatalogList: string
     public function section(): string
     {
         return match ($this) {
-            self::ServiceTypes, self::Questions => self::SERVICES,
+            self::ServiceTypes, self::Questions, self::Choices => self::SERVICES,
             default => self::PRODUCTS,
         };
     }
@@ -70,6 +72,7 @@ enum CatalogList: string
             self::CareTips => CareTipList::class,
             self::ServiceTypes => ServiceTypeList::class,
             self::Questions => QuestionList::class,
+            self::Choices => ChoiceList::class,
         });
 
         return $definition;

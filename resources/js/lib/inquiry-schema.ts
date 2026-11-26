@@ -11,16 +11,21 @@ import {
     BRAND_STEP,
     REQUIREMENTS_STEP,
     SERVICE_STEP,
+    SIZE_FIELD,
     STONES_STEP,
     answerProblem,
     asksQuantity,
     brandProblem,
+    customAnswerKey,
+    customAnswerProblem,
     findService,
     fulfillmentProblems,
+    furnitureSizeProblem,
     linkedToStoneProblem,
     normalizedStoneAnswer,
     projectFields,
     quantityProblem,
+    sizeKindFor,
     stoneFieldKey,
     stoneFields,
     type AddressSource,
@@ -555,17 +560,40 @@ export const createInquirySchemas = (
 
         const hasStones = takesStones && answers.stoneIds.length > 0;
 
+        // A table's size is written the way its shape asks it (sizeKindFor).
+        const sizeKind = sizeKindFor(service, answers.answers);
+
         for (const question of projectFields(service)) {
             const value = answers.answers[question.slug];
+            const written = (value ?? '').trim();
             const problem =
                 answerProblem(question, value) ??
-                linkedToStoneProblem(question, value, hasStones);
+                linkedToStoneProblem(question, value, hasStones) ??
+                (question.slug === SIZE_FIELD &&
+                sizeKind !== null &&
+                written !== ''
+                    ? furnitureSizeProblem(sizeKind, written)
+                    : null);
 
             if (problem !== null) {
                 ctx.addIssue({
                     code: 'custom',
                     path: ['answers', question.slug],
                     message: problem,
+                });
+            }
+
+            const custom = customAnswerProblem(
+                question,
+                value,
+                answers.answers[customAnswerKey(question.slug)],
+            );
+
+            if (custom !== null) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['answers', customAnswerKey(question.slug)],
+                    message: custom,
                 });
             }
         }

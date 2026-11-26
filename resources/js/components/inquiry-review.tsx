@@ -29,6 +29,7 @@ import {
     stoneFieldKey,
     stoneFields,
     YES,
+    customAnswerKey,
     type InquiryMode,
     type ServiceField,
 } from '@/lib/inquiry-flow';
@@ -217,12 +218,14 @@ type ReviewProject = InquiryFormValues['projects'][number];
 
 /**
  * A project answer as the reader is shown it: an option by its label, yes or
- * no, a free entry as typed. "Same as stone" reads as the stone it means.
+ * no, a free entry as typed. "Same as stone" reads as the stone it means; a
+ * custom choice with the reader's description, "Custom Shape: L-shaped".
  */
 const answerLabel = (
     field: ServiceField,
     value: string,
     stoneName: string | undefined,
+    customDescription = '',
 ): string => {
     if (field.answerType === 'boolean') {
         return value === '' ? '' : value === YES ? 'Yes' : 'No';
@@ -234,6 +237,10 @@ const answerLabel = (
 
     if (option?.linksToStone && stoneName !== undefined) {
         return stoneName;
+    }
+
+    if (option?.isCustom && customDescription.trim() !== '') {
+        return `${option.label}: ${customDescription.trim()}`;
     }
 
     return option?.label ?? value.trim();
@@ -615,6 +622,11 @@ const ReviewProjectCard = ({
                                                         question.slug
                                                     ] ?? '',
                                                     stones[0]?.stone.name,
+                                                    project.answers[
+                                                        customAnswerKey(
+                                                            question.slug,
+                                                        )
+                                                    ],
                                                 )}
                                             />
                                         ))}

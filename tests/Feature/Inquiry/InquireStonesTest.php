@@ -99,9 +99,9 @@ it('lists only the stone types linked to the service that have an active stone f
 
 it('sends the stone types again on a partial reload for another service', function (): void {
     $this->actingAs($this->client)
-        ->get(route('quote.inquire', ['stone_service' => 'pedestal']))
+        ->get(route('quote.inquire', ['stone_service' => 'other-customized-furniture']))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === Service::query()->where('slug', 'pedestal')->firstOrFail()->stoneTypes->pluck('slug')->sort()->values()->all())
+            ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === Service::query()->where('slug', 'other-customized-furniture')->firstOrFail()->stoneTypes->pluck('slug')->sort()->values()->all())
             ->reloadOnly(['stones', 'stoneFilters', 'stoneTypes'], fn (Assert $reload) => $reload->has('stoneTypes')));
 });
 
@@ -194,12 +194,12 @@ it('sends the stones of a restored draft only when they fit its service', functi
 });
 
 it('does not offer a service made from no stone type, and tells the page which types each service takes', function (): void {
-    Service::query()->where('slug', 'pedestal')->firstOrFail()->stoneTypes()->detach();
+    Service::query()->where('slug', 'other-customized-furniture')->firstOrFail()->stoneTypes()->detach();
 
     $serviceTypes = collect($this->actingAs($this->client)->get(route('quote.inquire'))->viewData('page')['props']['serviceTypes']);
     $services = $serviceTypes->flatMap(fn (array $type) => $type['services'])->keyBy('id');
 
-    expect($services->has('pedestal'))->toBeFalse()
+    expect($services->has('other-customized-furniture'))->toBeFalse()
         ->and($services->has('dining-tables'))->toBeTrue()
         ->and($services['dining-tables']['stoneTypes'])->toEqualCanonicalizing(Service::query()->where('slug', 'dining-tables')->firstOrFail()->stoneTypes->pluck('slug')->all())
         // It asks for no stones, so it is offered made from none.

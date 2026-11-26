@@ -43,7 +43,7 @@ function furniturePage(string $slug): TestResponse
     return test()->get(route('brands.furniture.show', ['brand' => 'regray-stone', 'furniture' => $slug]));
 }
 
-test('a dining table offers what the dining tables inquiry asks, and nothing advisory', function (): void {
+test('a dining table offers what the dining tables inquiry asks, and nothing advisory or custom', function (): void {
     $service = Service::query()->where('slug', 'dining-tables')->firstOrFail();
 
     furniturePage('arte-di-casa')
@@ -56,6 +56,9 @@ test('a dining table offers what the dining tables inquiry asks, and nothing adv
 
                 return $byLabel->has('Table base')
                     && $byLabel['Table base']['values'] === ['Wood', 'Steel', 'Same as stone']
+                    // A dining table's own bases and every shape, but no custom or advise-me choice.
+                    && $byLabel['Dining table base design']['values'] === ['Diamond', 'Close Cage', 'Tubular V1', 'Tubular V2', 'X-Base V1', 'X-Base V2', 'Clover V1', 'Clover V2', 'Y-Base', 'Hourglass V1']
+                    && $byLabel['Table shape']['values'] === ['Rectangular', 'Round', 'Oval', 'Square', 'Rounded Rectangle', 'Organic / Freeform']
                     && $byLabel['Number of seaters']['values'] === ['2 to 12']
                     && ! $byLabel->has('Project area (sqm)')
                     && collect($byLabel['Edge profile']['values'])->doesntContain(fn (string $name): bool => str_contains($name, 'advise'));

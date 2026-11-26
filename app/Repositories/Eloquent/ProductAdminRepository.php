@@ -11,6 +11,7 @@ use App\Models\Stone;
 use App\Models\StoneType;
 use App\Models\Thickness;
 use App\Repositories\Contracts\ProductAdminRepositoryInterface;
+use App\Services\FurnitureCustomizationService;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -54,6 +55,8 @@ class ProductAdminRepository implements ProductAdminRepositoryInterface
         $furniture = Furniture::query()->whereKey($ids('furniture'))->with([
             'brand:id,slug,name',
             'furnitureType:id,name',
+            'tableShape:id,name',
+            'tableBaseDesign:id,name',
             'images' => fn (Relation $images) => $images->getQuery()->orderBy('sort_order'),
         ])->get()->keyBy('id');
 
@@ -87,6 +90,7 @@ class ProductAdminRepository implements ProductAdminRepositoryInterface
                     fn (Thickness $left, Thickness $right): int => (float) $left->value <=> (float) $right->value,
                 ])
                 ->map(fn (Thickness $thickness): array => ['id' => $thickness->id, 'label' => $thickness->label])->values()->all()),
+            'tableChoices' => app(FurnitureCustomizationService::class)->tableChoices(),
         ];
     }
 

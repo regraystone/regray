@@ -114,7 +114,7 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'features' => ['Center and coffee tables', 'Made to order to your specifications'],
-                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['table_shape' => true, 'table_base_design_center' => true, 'table_base' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'side-tables',
@@ -123,7 +123,7 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'features' => ['Side and end tables', 'Made to order to your specifications'],
-                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['table_shape' => true, 'table_base_design_side' => true, 'table_base' => true, 'size' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'dining-tables',
@@ -132,16 +132,7 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'features' => ['Dining tables for 2 to 12 seaters', 'A base in wood, steel or the same stone', 'Made to order to your specifications'],
-                'fields' => ['area_sqm' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true, 'table_base' => true],
-            ],
-            [
-                'slug' => 'pedestal',
-                'name' => 'Pedestal',
-                'description' => 'Bespoke decorative stone pieces.',
-                'requires_stones' => true,
-                'fulfillment' => 'delivery_or_pickup',
-                'features' => ['Pedestals and bespoke stone pieces', 'Made to order to your specifications'],
-                'fields' => ['size' => true, 'edge_profile' => true, 'finish' => true],
+                'fields' => ['table_shape' => true, 'table_base_design_dining' => true, 'table_base' => true, 'area_sqm' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true],
             ],
             [
                 'slug' => 'other-customized-furniture',

@@ -4,7 +4,8 @@
  * The brands on the home page, in their order there. `logo_path` and
  * `thumbnail_path` are where the images live on the public disk: committed at
  * storage/app/public/<path> locally, like the stone, project and furniture
- * photographs, and uploaded to the bucket by hand on AWS.
+ * photographs, and put in the bucket on AWS with
+ * scripts/upload-catalog-images.sh.
  *
  * `facts` and `makes` are what a brand's page says about the house: its facts
  * ("Made in", "Treia, Italy") and what it makes. They were BRAND_DETAILS in

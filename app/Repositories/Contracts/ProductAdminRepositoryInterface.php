@@ -20,10 +20,11 @@ interface ProductAdminRepositoryInterface
 
     /**
      * What the Add and Edit forms choose from: the brands not archived, the
-     * active stone and furniture types, and every size and thickness not
-     * archived, metric first, then smallest first.
+     * active stone and furniture types, every size and thickness not
+     * archived, metric first, then smallest first, and the shapes and base
+     * designs a table of each type may be given (by type id, then column).
      *
-     * @return array{brands: list<array{id: int, slug: string, name: string}>, stoneTypes: list<array{id: int, name: string}>, furnitureTypes: list<array{id: int, name: string}>, sizes: list<array{id: int, label: string}>, thicknesses: list<array{id: int, label: string}>}
+     * @return array{brands: list<array{id: int, slug: string, name: string}>, stoneTypes: list<array{id: int, name: string}>, furnitureTypes: list<array{id: int, name: string}>, sizes: list<array{id: int, label: string}>, thicknesses: list<array{id: int, label: string}>, tableChoices: array<int, array<string, list<array{id: int, name: string}>>>}
      */
     public function formOptions(): array;
 }

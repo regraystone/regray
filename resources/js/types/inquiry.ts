@@ -92,6 +92,19 @@ export type InquirePageProps = {
      * what it opens, and for a client.
      */
     walkInOwners?: WalkInOwnerOption[] | null;
+    /**
+     * Opened from a furniture page's Inquire (`?furniture=slug`): the piece's
+     * brand, the service it is ordered through and its own table answers, by
+     * question slug, picked for a draft not yet begun. Null otherwise.
+     */
+    furniture?: InquiryFurniturePrefill | null;
+};
+
+export type InquiryFurniturePrefill = {
+    brand: string;
+    serviceType: string;
+    service: string;
+    answers: Record<string, string>;
 };
 
 /** A sales member who may own a walk-in's inquiry. */

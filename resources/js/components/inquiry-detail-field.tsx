@@ -15,11 +15,14 @@ import {
     THICKNESS_UNITS,
     YES,
     measurementKind,
+    parseDiameter,
     parseSlabSize,
     parseThickness,
+    pickedChoice,
     type MeasurementKind,
     type ServiceField,
     type ServiceFieldChoice,
+    type SizeKind,
 } from '@/lib/inquiry-flow';
 
 /** The entry of a suggestion list that opens the free input. */
@@ -55,6 +58,17 @@ const measurementParts = (
         };
     }
 
+    if (kind === 'diameter') {
+        const diameter = parseDiameter(written);
+
+        return {
+            width: '',
+            length: '',
+            value: diameter?.value ?? '',
+            unit: diameter?.unit ?? SIZE_UNITS[0],
+        };
+    }
+
     const thickness = parseThickness(written);
 
     return {
@@ -67,9 +81,9 @@ const measurementParts = (
 
 /**
  * The parts as the one string the form holds and the server parses: "150 x
- * 300 cm", "0.75 in". Nothing typed yet is no answer (`''`); a half-typed
- * size keeps its gap ("150 x  cm") so it is refused as not yet a size rather
- * than taken for one.
+ * 300 cm", "0.75 in", a round table's "Ø 120 cm". Nothing typed yet is no
+ * answer (`''`); a half-typed size keeps its gap ("150 x  cm") so it is
+ * refused as not yet a size rather than taken for one.
  */
 const measurementValue = (
     kind: MeasurementKind,
@@ -86,7 +100,13 @@ const measurementValue = (
 
     const value = parts.value.trim();
 
-    return value === '' ? '' : `${value} ${parts.unit}`;
+    if (value === '') {
+        return '';
+    }
+
+    return kind === 'diameter'
+        ? `Ø ${value} ${parts.unit}`
+        : `${value} ${parts.unit}`;
 };
 
 /**
@@ -152,7 +172,7 @@ const MeasurementEntry = ({
         </div>
     );
 
-    const units = kind === 'size' ? SIZE_UNITS : THICKNESS_UNITS;
+    const units = kind === 'thickness' ? THICKNESS_UNITS : SIZE_UNITS;
 
     return (
         <div
@@ -170,7 +190,11 @@ const MeasurementEntry = ({
                     {number('length', 'Length', false)}
                 </>
             ) : (
-                number('value', 'Thickness', true)
+                number(
+                    'value',
+                    kind === 'diameter' ? 'Diameter' : 'Thickness',
+                    true,
+                )
             )}
             <div className="min-w-0">
                 <span
@@ -222,6 +246,15 @@ const MeasurementEntry = ({
  * is drawn even when the stone has none to offer, as Other alone, so every
  * row answers it the same way.
  *
+ * A table's size follows its table shape (`sizeKind`): a round table is
+ * asked its diameter alone, a rectangular one width x length (its
+ * suggestions, with Other a measurement of one's own); a shape with none
+ * leaves the question as the service sent it. The parent remounts the
+ * control when the kind changes.
+ *
+ * A list's picked choice says what it is (`description`) under the list, as
+ * a service's description sits under the service picked.
+ *
  * The value is the form's plain string (`''` while unanswered), so the same
  * control serves a stone row's answer and a project answer. Whether the free
  * input is showing is the control's own state: it starts open when the
@@ -237,9 +270,12 @@ const InquiryDetailField = ({
     labelContext,
     fieldRef,
     hint,
+    sizeKind = null,
 }: {
     id: string;
     field: ServiceField;
+    /** How a table's size is asked, by its table shape; null leaves it as the service asks it. */
+    sizeKind?: SizeKind | null;
     value: string;
     error?: string;
     /** A line under the label, such as how big a stone's pieces run. */
@@ -251,11 +287,20 @@ const InquiryDetailField = ({
     /** The form's ref, so a refused answer can be focused. */
     fieldRef?: (element: HTMLElement | null) => void;
 }) => {
-    const kind = measurementKind(field);
+    const kind: MeasurementKind | null =
+        sizeKind === 'diameter'
+            ? 'diameter'
+            : sizeKind === 'width_length'
+              ? 'size'
+              : measurementKind(field);
+    // A diameter is typed straight in: the size's suggestions are width x length.
     const hasSuggestions =
+        kind !== 'diameter' &&
         field.answerType !== 'choice' &&
         field.answerType !== 'boolean' &&
         (field.suggestions.length > 0 || (kind !== null && field.allowsCustom));
+    const picked =
+        field.answerType === 'choice' ? pickedChoice(field, value) : undefined;
     const [isCustom, setIsCustom] = useState(
         () =>
             hasSuggestions &&
@@ -374,7 +419,20 @@ const InquiryDetailField = ({
         >
             {(accessibility) => {
                 if (field.answerType === 'choice') {
-                    return list(field.options, accessibility, value, choose);
+                    return (
+                        <div>
+                            {list(field.options, accessibility, value, choose)}
+                            {picked?.description ? (
+                                <p
+                                    className="mt-2 text-sm leading-normal text-secondary-foreground"
+                                    aria-live="polite"
+                                    data-testid="choice-description"
+                                >
+                                    {picked.description}
+                                </p>
+                            ) : null}
+                        </div>
+                    );
                 }
 
                 if (field.answerType === 'boolean') {

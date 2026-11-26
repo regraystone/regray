@@ -26,6 +26,11 @@ export type CatalogField = {
     options?: { value?: string; id?: number; label: string }[];
     /** Shown only while another field has this value. */
     showWhen?: { field: string; equals: string };
+    /**
+     * A multiselect whose items are added on another list's page: a link
+     * there, which brings the admin back with the new one picked.
+     */
+    addLink?: { list: string; label: string };
 };
 
 /** What a list's page calls its switch. */

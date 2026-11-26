@@ -5,10 +5,12 @@ use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\Brand;
+use App\Models\DetailFieldOption;
 use App\Models\Furniture;
 use App\Models\FurnitureType;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\ServiceSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -164,4 +166,68 @@ it('lets only those allowed add, change or archive', function (): void {
 
     expect(Furniture::query()->count())->toBe(1)
         ->and(furnitureFiles())->toBe([]);
+});
+
+describe('a table\'s own shape and base design', function (): void {
+    beforeEach(function (): void {
+        $this->seed(ServiceSeeder::class);
+        $this->tables->update(['slug' => 'dining-tables']);
+    });
+
+    /** A table question's choice, by its question's slug and its own. */
+    function tableChoice(string $field, string $slug): DetailFieldOption
+    {
+        return DetailFieldOption::query()->whereHas('detailField', fn ($query) => $query->where('slug', $field))->where('slug', $slug)->sole();
+    }
+
+    it('offers each table type the shapes and bases its services offer, without custom or advise-me', function (): void {
+        $this->actingAs($this->admin)
+            ->get(route('products.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where("options.tableChoices.{$this->tables->id}.table_base_design_option_id", fn ($bases): bool => collect($bases)->pluck('name')->all() === ['Diamond', 'Close Cage', 'Tubular V1', 'Tubular V2', 'X-Base V1', 'X-Base V2', 'Clover V1', 'Clover V2', 'Y-Base', 'Hourglass V1'])
+                ->where("options.tableChoices.{$this->tables->id}.table_shape_option_id", fn ($shapes): bool => ! collect($shapes)->pluck('name')->contains(fn (string $name): bool => str_contains($name, 'Custom') || str_contains($name, 'advise'))));
+    });
+
+    it('keeps the shape and base design picked, and none when left empty', function (): void {
+        $shape = tableChoice('table_shape', 'oval');
+        $base = tableChoice('table_base_design_dining', 'clover-v1');
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.products.furniture.store'), furnitureForm(['table_shape_option_id' => (string) $shape->id, 'table_base_design_option_id' => (string) $base->id]))
+            ->assertSessionHasNoErrors();
+        $this->post(route('dashboard.products.furniture.store'), furnitureForm(['slug' => 'plain', 'table_shape_option_id' => '', 'table_base_design_option_id' => '']))
+            ->assertSessionHasNoErrors();
+
+        expect(Furniture::query()->where('slug', 'alora')->sole()->only(['table_shape_option_id', 'table_base_design_option_id']))
+            ->toBe(['table_shape_option_id' => $shape->id, 'table_base_design_option_id' => $base->id])
+            ->and(Furniture::query()->where('slug', 'plain')->sole()->only(['table_shape_option_id', 'table_base_design_option_id']))
+            ->toBe(['table_shape_option_id' => null, 'table_base_design_option_id' => null]);
+    });
+
+    it('refuses a base its type isn\'t offered, a custom shape, and either for a type that asks neither', function (): void {
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.products.furniture.store'), furnitureForm(['table_base_design_option_id' => (string) tableChoice('table_base_design_side', 'c-legs-v1')->id]))
+            ->assertSessionHasErrors(['table_base_design_option_id' => 'That base design isn\'t offered for this furniture type. Choose another, or none.']);
+        $this->post(route('dashboard.products.furniture.store'), furnitureForm(['table_shape_option_id' => (string) tableChoice('table_shape', 'custom-shape')->id]))
+            ->assertSessionHasErrors('table_shape_option_id');
+        $this->post(route('dashboard.products.furniture.store'), furnitureForm([
+            'furniture_type_id' => FurnitureType::factory()->create()->id,
+            'table_shape_option_id' => (string) tableChoice('table_shape', 'round')->id,
+        ]))->assertSessionHasErrors('table_shape_option_id');
+
+        expect(Furniture::query()->where('slug', 'alora')->exists())->toBeFalse();
+    });
+
+    it('keeps a base design the piece already has once it is no longer offered', function (): void {
+        $base = tableChoice('table_base_design_dining', 'y-base');
+        $piece = Furniture::factory()->for($this->brand)->create(['furniture_type_id' => $this->tables->id, 'table_base_design_option_id' => $base->id]);
+        $base->update(['archived_at' => now(), 'is_active' => false]);
+
+        $this->actingAs($this->admin)
+            ->post(route('dashboard.products.furniture.update', $piece->id), furnitureForm(['_method' => 'put', 'slug' => $piece->slug, 'table_base_design_option_id' => (string) $base->id]))
+            ->assertSessionHasNoErrors();
+
+        expect($piece->refresh()->table_base_design_option_id)->toBe($base->id);
+    });
 });

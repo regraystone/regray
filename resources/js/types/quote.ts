@@ -150,8 +150,8 @@ export type QuoteInquiryDetails = {
             /** The stone-scope answers its service asks, labelled, in order. */
             details: Array<{ label: string; value: string }>;
         }>;
-        /** The project-scope answers, labelled and already worded. */
-        answers: Array<{ label: string; value: string }>;
+        /** The project-scope answers, labelled and already worded; a picture choice with its picture. */
+        answers: Array<{ label: string; value: string; image?: string | null }>;
         requirements: {
             /** Null for an installed service, which asks no method. */
             deliveryMethod: string | null;

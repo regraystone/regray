@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Inquiry;
 
+use App\Data\FurnitureSize;
 use App\Data\PhAddress;
 use App\Data\SizeMeasurement;
 use App\Data\ThicknessMeasurement;
@@ -117,6 +118,9 @@ class StoreInquiryRequest extends FormRequest
                     ->orWhereIn('slug', $this->heldStoneSlugs())),
             ],
             'projects.*.answers' => ['nullable', 'array'],
+            // A custom choice's description, by question slug (checkCustomAnswers()).
+            'projects.*.customAnswers' => ['nullable', 'array'],
+            'projects.*.customAnswers.*' => ['nullable', 'string'],
 
             'projects.*.brands' => ['nullable', 'array', 'max:'.self::BRANDS_MAX],
             'projects.*.brands.*' => ['string', 'distinct', Rule::exists('brands', 'slug')->where(fn ($brands) => $brands
@@ -301,9 +305,74 @@ class StoreInquiryRequest extends FormRequest
                             $validator->errors()->add("projects.{$index}.answers.{$field->slug}", "{$option->name} needs a stone. Choose another ".Str::lower($field->name).'.');
                         }
                     }
+
+                    $this->checkCustomAnswers($validator, $index, $project, $service);
+                    $this->checkSizeByShape($validator, $index, $project, $service);
                 }
             },
         ];
+    }
+
+    /**
+     * A custom choice ("Custom shape") has to be described: its description
+     * comes as `customAnswers.{slug}`, at most TEXT_MAX characters. Any other
+     * choice takes none, so one sent with it is ignored (inquiryInput()). A
+     * refusal is shown on the question itself, as the page shows the box
+     * under it.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkCustomAnswers(Validator $validator, int $index, array $project, Service $service): void
+    {
+        foreach ($this->projectQuestions($service) as $field) {
+            $picked = $project['answers'][$field->slug] ?? null;
+            $option = $field->answer_type === DetailAnswerType::Choice && is_string($picked) ? $field->closedOption($picked) : null;
+
+            if ($option === null || ! $option->is_custom) {
+                continue;
+            }
+
+            $text = trim((string) ($project['customAnswers'][$field->slug] ?? ''));
+
+            if ($text === '') {
+                $validator->errors()->add("projects.{$index}.answers.{$field->slug}", 'Describe your '.Str::lower($option->name).'.');
+            } elseif (mb_strlen($text) > self::TEXT_MAX) {
+                $validator->errors()->add("projects.{$index}.answers.{$field->slug}", 'Keep the description to '.self::TEXT_MAX.' characters or fewer.');
+            }
+        }
+    }
+
+    /**
+     * Where a service asks both the table shape and the furniture size, the
+     * size is written the way the shape asks it (FurnitureSize): a round
+     * table's diameter, or width x length. A shape that asks it in the
+     * client's own words, or no shape yet, leaves it free; so does a size an
+     * edit already has.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkSizeByShape(Validator $validator, int $index, array $project, Service $service): void
+    {
+        $asked = $this->projectQuestions($service)->keyBy('slug');
+        $shape = $asked->get(DetailField::TABLE_SHAPE);
+        $size = trim((string) ($project['answers'][DetailField::SIZE] ?? ''));
+        $picked = $project['answers'][DetailField::TABLE_SHAPE] ?? null;
+
+        if ($shape === null || ! $asked->has(DetailField::SIZE) || $size === '' || ! is_string($picked)) {
+            return;
+        }
+
+        $kind = $shape->closedOption($picked)?->size_kind;
+
+        if ($kind === null || in_array($size, $this->heldAnswers()[DetailField::SIZE] ?? [], true)) {
+            return;
+        }
+
+        $problem = FurnitureSize::problem($kind, $size);
+
+        if ($problem !== null) {
+            $validator->errors()->add("projects.{$index}.answers.".DetailField::SIZE, $problem);
+        }
     }
 
     /**
@@ -502,7 +571,7 @@ class StoreInquiryRequest extends FormRequest
     private function serviceOf(array $project): ?Service
     {
         $this->services ??= Service::query()
-            ->with(['serviceType', 'stoneTypes:stone_types.id,stone_types.is_active', 'detailFields.options'])
+            ->with(['serviceType', 'stoneTypes:stone_types.id,stone_types.is_active', 'detailFields.options.services:services.id'])
             ->whereIn('slug', array_values(array_unique(array_filter(
                 array_column($this->projectsInput(), 'serviceId'),
                 'is_string',
@@ -557,7 +626,7 @@ class StoreInquiryRequest extends FormRequest
 
             $rules["{$prefix}.stones.*.{$key}"] = $field === null
                 ? ['prohibited']
-                : [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field)];
+                : [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field, $service)];
         }
 
         $questions = $this->projectQuestions($service);
@@ -567,7 +636,7 @@ class StoreInquiryRequest extends FormRequest
             : ['nullable', 'array:'.$questions->pluck('slug')->implode(',')];
 
         foreach ($questions as $field) {
-            $rules["{$prefix}.answers.{$field->slug}"] = [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field)];
+            $rules["{$prefix}.answers.{$field->slug}"] = [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field, $service)];
         }
 
         return $rules;
@@ -576,13 +645,14 @@ class StoreInquiryRequest extends FormRequest
     /**
      * What one answer has to be, by its question's answer type. A closed list
      * is checked against its active options (edge profile and finish against
-     * their own tables, by name, neither switched off nor archived); a free
+     * their own tables, by name, neither switched off nor archived; a
+     * question's own choices against those offered for the service); a free
      * entry only by its type. An edit may also keep the answer it already has
      * (heldAnswers()), offered or not.
      *
      * @return list<mixed>
      */
-    private function answerRules(DetailField $field): array
+    private function answerRules(DetailField $field, Service $service): array
     {
         if ($field->slug === DetailField::QUANTITY) {
             $limits = config('inquiry.limits');
@@ -610,7 +680,7 @@ class StoreInquiryRequest extends FormRequest
         return match ($field->answer_type) {
             DetailAnswerType::Text => ['string', 'max:'.self::TEXT_MAX, ...$listed],
             DetailAnswerType::Number => ['numeric', 'gt:0', 'max:'.self::NUMBER_MAX, ...$listed],
-            DetailAnswerType::Choice => ['string', Rule::in([...$field->closedOptions()->pluck('slug')->all(), ...$held])],
+            DetailAnswerType::Choice => ['string', Rule::in([...$field->closedOptions($service->id)->pluck('slug')->all(), ...$held])],
             DetailAnswerType::Boolean => ['boolean'],
         };
     }
@@ -778,7 +848,8 @@ class StoreInquiryRequest extends FormRequest
                 $value = $project['answers'][$field->slug] ?? null;
 
                 if ($value !== null && $value !== '') {
-                    $answers[] = $field->answerAttributes($value);
+                    $custom = $project['customAnswers'][$field->slug] ?? null;
+                    $answers[] = $field->answerAttributes($value, is_string($custom) ? $custom : null);
                 }
             }
 
