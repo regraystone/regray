@@ -44,7 +44,6 @@ From Sir Mark's comment on the brand pages. Every brand's page (guest and signed
 - **More from the Regray Group centres a short last row:** the other brands' logos wrap in a centred row (two to a row on a phone, three on a tablet, five on a laptop) instead of a grid, so a last row of one or two logos sits in the middle rather than at the left.
 - **Tests:** `Home/BrandDetailTest` and `Home/CollectionFilterTest` check the counts, that no type tiles are sent, and the furniture filter's options in place of the tiles.
 
-
 # Inquire's brand question: black logos, Unavailable brands, No preference across the row; no icons on Message us and Inquire
 
 From Sir Mark's comments on the Inquire page's "Which brands would you like?", the signed-in Home page and the Quote page. Nothing to deploy.
