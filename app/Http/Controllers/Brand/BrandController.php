@@ -9,10 +9,13 @@ use App\Http\Requests\Brand\BrandCollectionRequest;
 use App\Http\Resources\BrandProductResource;
 use App\Http\Resources\BrandProfileResource;
 use App\Http\Resources\LandingBrandResource;
+use App\Http\Resources\LandingShowcaseResource;
 use App\Models\Brand;
 use App\Models\FurnitureType;
 use App\Repositories\Contracts\StoneRepositoryInterface;
 use App\Services\BrandService;
+use App\Services\ShowcaseService;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,10 +26,14 @@ use Inertia\Response;
  */
 class BrandController extends Controller
 {
+    /** How many of the brand's finished projects its Company profile shows. */
+    private const PROFILE_SHOWCASES = 6;
+
     public function __construct(
         public readonly ListBrandProductsAction $listProducts,
         public readonly StoneRepositoryInterface $stoneRepository,
         public readonly BrandService $brandService,
+        public readonly ShowcaseService $showcaseService,
     ) {}
 
     public function show(BrandCollectionRequest $request, Brand $brand): Response
@@ -46,6 +53,27 @@ class BrandController extends Controller
             ]),
             'offer' => $this->brandService->productCounts($brand),
             'otherBrands' => LandingBrandResource::collection($this->brandService->othersThan($brand))->resolve($request),
+        ]);
+    }
+
+    /**
+     * A brand's Company profile: who it is, in figures (its active products
+     * and its finished projects, counted), and its latest finished projects.
+     * Only a brand with one (Brand::COMPANY_PROFILES) has the page.
+     */
+    public function companyProfile(Request $request, Brand $brand): Response
+    {
+        abort_unless($brand->hasCompanyProfile(), 404);
+
+        $showcases = $this->showcaseService->latestPublishedForBrand($brand, self::PROFILE_SHOWCASES);
+
+        return Inertia::render('brand-company-profile', [
+            'brand' => new BrandProfileResource($brand->load(Brand::DETAILS)),
+            'counts' => [
+                ...$this->brandService->productCounts($brand),
+                'showcases' => $showcases['count'],
+            ],
+            'showcases' => LandingShowcaseResource::collection($showcases['latest'])->resolve($request),
         ]);
     }
 }

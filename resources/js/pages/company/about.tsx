@@ -10,6 +10,11 @@ import {
     solidButton,
 } from '@/components/public/company-ui';
 import { CONTACT, brandUrl, mailTo } from '@/components/public/public-links';
+import {
+    REGRAY_STONE_INSTALLED,
+    REGRAY_STONE_STATEMENTS,
+    REGRAY_STONE_STORY,
+} from '@/components/public/regray-stone-story';
 import PublicLayout from '@/layouts/public-layout';
 import { brands as brandsPage, contact } from '@/routes/company';
 import type { LandingBrand } from '@/types/home';
@@ -30,7 +35,7 @@ export default function CompanyAbout({
     facts: Facts;
 }) {
     const figures = [
-        { value: '1,000+', label: 'Spaces installed' },
+        { value: REGRAY_STONE_INSTALLED, label: 'Spaces installed' },
         { value: String(facts.brands), label: 'Brands in the group' },
         { value: String(facts.stones), label: 'Stones in the collection' },
         { value: String(facts.showcases), label: 'Featured showcases' },
@@ -65,20 +70,9 @@ export default function CompanyAbout({
                     Our story
                 </h2>
                 <div className={`flex flex-col gap-5 ${body}`}>
-                    <p>
-                        Regray Stone was established in 2022, and it started
-                        because we really love natural stone. We wanted to share
-                        that admiration with others, so we began by bringing in
-                        beautiful stones like Patagonia Quartzite.
-                    </p>
-                    <p>
-                        We carefully source premium natural stone from trusted
-                        quarries, selecting only slabs that meet our standards
-                        for strength, consistency and character. From expert
-                        fabrication to meticulous installation, every detail is
-                        handled with care, so each space keeps its beauty for
-                        years.
-                    </p>
+                    {REGRAY_STONE_STORY.map((paragraph) => (
+                        <p key={paragraph}>{paragraph}</p>
+                    ))}
                     <p>
                         Today Regray brings that same care to trusted European
                         brands of kitchens, wardrobes, doors and sintered stone.
@@ -158,16 +152,7 @@ export default function CompanyAbout({
                     Mission & vision
                 </h2>
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-14 md:grid-cols-2">
-                    {[
-                        {
-                            title: 'Our mission',
-                            text: 'To provide our customers with durable, stylish products that combine natural beauty with luxurious design, ensuring lasting quality and customer satisfaction.',
-                        },
-                        {
-                            title: 'Our vision',
-                            text: 'To become a leading brand in bespoke natural stone and furniture design, known for elevating spaces with timeless elegance and unmatched craftsmanship.',
-                        },
-                    ].map((statement) => (
+                    {REGRAY_STONE_STATEMENTS.map((statement) => (
                         <div
                             key={statement.title}
                             className="flex flex-col gap-5 border-t border-white/40 pt-6"

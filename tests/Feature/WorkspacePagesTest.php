@@ -46,6 +46,7 @@ function workspacePages(): array
         'home.index' => [],
         'home.show' => ['slug' => 'ginza-one'],
         'dashboard.brands.show' => ['brand' => 'regray-stone'],
+        'dashboard.brands.company-profile' => ['brand' => 'regray-stone'],
         'dashboard.brands.stones.show' => ['brand' => 'regray-stone', 'stone' => 'arctic-pink'],
         'dashboard.brands.furniture.show' => ['brand' => 'regray-stone', 'furniture' => 'alora'],
         'overview.index' => [],
@@ -153,6 +154,7 @@ test('guards every route with exactly these permissions', function () {
         'home.show' => $p(Permission::HomeStoneView, Permission::HomeShowcasesView),
         // The public catalogue answers guests, so it carries no permission.
         'brands.show' => [],
+        'brands.company-profile' => [],
         'brands.stones.show' => [],
         'brands.furniture.show' => [],
         'stone.show' => [],
@@ -171,6 +173,7 @@ test('guards every route with exactly these permissions', function () {
         'auth.google.confirm.store' => [],
         'auth.google.confirm.cancel' => [],
         'dashboard.brands.show' => $p(Permission::HomeView),
+        'dashboard.brands.company-profile' => $p(Permission::HomeView),
         'dashboard.brands.stones.show' => $p(Permission::HomeStoneView),
         'dashboard.brands.furniture.show' => $p(Permission::HomeView),
         'overview.index' => $p(Permission::OverviewView),

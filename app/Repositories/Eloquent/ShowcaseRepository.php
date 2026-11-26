@@ -25,6 +25,25 @@ class ShowcaseRepository implements ShowcaseRepositoryInterface
     }
 
     /**
+     * @return array{latest: Collection<int, Showcase>, count: int}
+     */
+    public function latestPublishedForBrand(Brand $brand, int $limit): array
+    {
+        $ofBrand = fn (): Builder => Showcase::query()
+            ->published()
+            ->whereHas('stones', fn (Builder $stones) => $stones->where('brand_id', $brand->id));
+
+        return [
+            'latest' => $ofBrand()
+                ->orderByDesc('completed_year')
+                ->orderByDesc('id')
+                ->limit($limit)
+                ->get(['id', 'slug', 'name', 'location', 'completed_year', 'thumbnail_path']),
+            'count' => $ofBrand()->count(),
+        ];
+    }
+
+    /**
      * Load the profile only after permission has been settled, rather than in route binding.
      * Related keys are retained so Eloquent can match the constrained eager loads.
      */

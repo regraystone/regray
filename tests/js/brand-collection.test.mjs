@@ -119,6 +119,17 @@ describe('the breadcrumbs', () => {
         );
     });
 
+    it("reads Regray / Dashboard / Home / Brand / Company profile on a brand's Company profile", () => {
+        assert.deepEqual(
+            catalogueCrumbs({
+                ...urls,
+                component: 'brand-company-profile',
+                props: { brand: { data: brand } },
+            }),
+            [...root, brandCrumb, { label: 'Company profile' }],
+        );
+    });
+
     it('reads Regray / Dashboard / Home / Brand / Stone on a stone page, by name', () => {
         assert.deepEqual(
             catalogueCrumbs({
