@@ -30,6 +30,12 @@ trait ServiceValidationRules
 {
     public const DESCRIPTION_MAX = 500;
 
+    /** The lines under the delivery method and the date (services.delivery_note, schedule_note). */
+    public const NOTE_MAX = 500;
+
+    /** The most days ahead a service may hold its date to: a year. */
+    public const LEAD_DAYS_MAX = 365;
+
     public const FEATURES_MAX = 8;
 
     public const FEATURE_MAX = 150;
@@ -63,6 +69,9 @@ trait ServiceValidationRules
             'stone_type_ids' => ['nullable', 'array', 'required_if_accepted:requires_stones'],
             'stone_type_ids.*' => ['integer', 'distinct', Rule::exists('stone_types', 'id')->where('is_active', true)],
             'fulfillment' => ['required', Rule::enum(Fulfillment::class)],
+            'delivery_note' => ['nullable', 'string', 'max:'.self::NOTE_MAX],
+            'schedule_note' => ['nullable', 'string', 'max:'.self::NOTE_MAX],
+            'lead_days' => ['nullable', 'integer', 'min:0', 'max:'.self::LEAD_DAYS_MAX],
             'questions' => ['nullable', 'array'],
             'questions.*' => ['array:id,required'],
             'questions.*.id' => ['required', 'integer', 'distinct', Rule::exists('detail_fields', 'id')->whereNull('archived_at')],
@@ -83,6 +92,8 @@ trait ServiceValidationRules
         $this->merge([
             'name' => $text($this->input('name')),
             'description' => $text($this->input('description')),
+            'delivery_note' => $text($this->input('delivery_note')),
+            'schedule_note' => $text($this->input('schedule_note')),
             'features' => is_array($features) ? array_values(array_map($text, $features)) : $features,
             'stone_type_ids' => is_array($stoneTypes) ? array_values($stoneTypes) : $stoneTypes,
             'questions' => is_array($questions) ? array_values($questions) : $questions,
@@ -107,6 +118,11 @@ trait ServiceValidationRules
             'stone_type_ids.*.exists' => __('Choose from the stone types listed.'),
             'fulfillment.required' => __('Choose how the work reaches the client.'),
             'fulfillment.enum' => __('Choose how the work reaches the client.'),
+            'delivery_note.max' => __('The delivery line can be :max characters at most.'),
+            'schedule_note.max' => __('The date line can be :max characters at most.'),
+            'lead_days.integer' => __('Enter a whole number of days.'),
+            'lead_days.min' => __('Enter 0 or more days.'),
+            'lead_days.max' => __('Enter :max days or fewer.'),
             'questions.*.id.required' => __('Choose a question from the list.'),
             'questions.*.id.exists' => __('Choose from the questions listed.'),
             'questions.*.id.distinct' => __('That question is already asked.'),
@@ -146,7 +162,7 @@ trait ServiceValidationRules
      * The service's fields, in the shape ServiceAdminService writes. A service
      * that needs no stones keeps no stone types.
      *
-     * @return array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}
+     * @return array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, delivery_note: string|null, schedule_note: string|null, lead_days: int|null, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}
      */
     public function serviceData(): array
     {
@@ -158,6 +174,10 @@ trait ServiceValidationRules
             'description' => (string) $this->validated('description'),
             'requires_stones' => $requiresStones,
             'fulfillment' => Fulfillment::from((string) $this->validated('fulfillment')),
+            // An installed service asks no delivery method, so it has no line under one.
+            'delivery_note' => filled($this->validated('delivery_note')) && $this->validated('fulfillment') !== Fulfillment::Installed->value ? (string) $this->validated('delivery_note') : null,
+            'schedule_note' => filled($this->validated('schedule_note')) ? (string) $this->validated('schedule_note') : null,
+            'lead_days' => filled($this->validated('lead_days')) && (int) $this->validated('lead_days') > 0 ? (int) $this->validated('lead_days') : null,
             'is_active' => $this->boolean('is_active'),
             'sort_order' => (int) $this->validated('sort_order'),
             'features' => array_values(array_map(fn (mixed $feature): string => (string) $feature, $this->validated('features') ?? [])),

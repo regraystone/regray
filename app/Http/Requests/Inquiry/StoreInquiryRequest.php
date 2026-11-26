@@ -18,6 +18,7 @@ use App\Models\Finish;
 use App\Models\Service;
 use App\Models\Stone;
 use App\Rules\MeasurementRule;
+use App\Services\ScheduleService;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Http\FormRequest;
@@ -81,6 +82,9 @@ class StoreInquiryRequest extends FormRequest
     /** The longest free text an answer's `text_value` holds. */
     private const TEXT_MAX = 255;
 
+    /** How far ahead a project's date may be, in years: further is taken for a typo. */
+    public const DEADLINE_YEARS_MAX = 2;
+
     /** @var Collection<string, Service>|null */
     private ?Collection $services = null;
 
@@ -141,7 +145,7 @@ class StoreInquiryRequest extends FormRequest
                     'projects.*.addressId' => ['prohibited'],
                     'projects.*.keepAddress' => ['prohibited'],
                 ],
-            'projects.*.neededBy' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'projects.*.neededBy' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today', 'before_or_equal:'.now(ScheduleService::timezone())->addYears(self::DEADLINE_YEARS_MAX)->toDateString()],
             'projects.*.notes' => ['nullable', 'string', 'max:'.$limits['notes']],
 
             'projects.*.attachments' => ['nullable', 'array', 'max:'.$limits['files']],
@@ -195,6 +199,8 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.address.prohibited' => 'Choose one of your saved addresses.',
             ...$this->phAddressMessages('projects.*.address'),
             'projects.*.neededBy.after_or_equal' => 'Target deadline cannot be in the past.',
+            'projects.*.neededBy.before_or_equal' => 'Choose a date within the next '.self::DEADLINE_YEARS_MAX.' years.',
+            'projects.*.neededBy.date_format' => 'Choose a date from the calendar.',
             'projects.*.notes.max' => "Keep the notes to {$limits['notes']} characters or fewer.",
             'projects.*.attachments.max' => "You can attach up to {$limits['files']} files.",
             'projects.*.attachments.*.mimes' => 'Attachments must be PDF, PNG, JPG or JPEG.',
@@ -287,6 +293,8 @@ class StoreInquiryRequest extends FormRequest
                         $validator->errors()->add("projects.{$index}.neededBy", 'Say when this is needed.');
                     }
 
+                    $this->checkLeadTime($validator, $index, $project, $service);
+
                     $this->checkBrands($validator, $index, $project);
                     $this->checkFulfillment($validator, $index, $project, $service);
 
@@ -373,6 +381,34 @@ class StoreInquiryRequest extends FormRequest
         if ($problem !== null) {
             $validator->errors()->add("projects.{$index}.answers.".DetailField::SIZE, $problem);
         }
+    }
+
+    /**
+     * A service that takes time to make (`lead_days`) can't be asked for
+     * sooner: the date is at least that many days from today, in the
+     * showroom's time zone. An edit may keep the date it already has
+     * (heldDeadline()).
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkLeadTime(Validator $validator, int $index, array $project, Service $service): void
+    {
+        $date = $project['neededBy'] ?? null;
+        $lead = (int) $service->lead_days;
+
+        if (! is_string($date) || $date === '' || $lead === 0 || $date === $this->heldDeadline()) {
+            return;
+        }
+
+        if ($date < now(ScheduleService::timezone())->addDays($lead)->toDateString()) {
+            $validator->errors()->add("projects.{$index}.neededBy", self::leadTimeMessage($lead));
+        }
+    }
+
+    /** What the page says of a date sooner than a service's lead time; inquiry-flow.ts words it the same. */
+    public static function leadTimeMessage(int $days): string
+    {
+        return 'Choose a date at least '.$days.' '.($days === 1 ? 'day' : 'days').' from today.';
     }
 
     /**
@@ -534,6 +570,15 @@ class StoreInquiryRequest extends FormRequest
     protected function heldBrandSlugs(): array
     {
         return [];
+    }
+
+    /**
+     * The date a project may keep although it is now sooner than its
+     * service's lead time: an edit's own (`Y-m-d`). A new inquiry has none.
+     */
+    protected function heldDeadline(): ?string
+    {
+        return null;
     }
 
     /**

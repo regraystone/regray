@@ -28,6 +28,9 @@ import {
 /** The entry of a suggestion list that opens the free input. */
 const OTHER = '__other__';
 
+/** What that entry reads when its question names it nothing else (`customLabel`). */
+const OTHER_LABEL = 'Other';
+
 const SELECT_CLASS = 'w-full rounded-none text-base data-[size=default]:h-11';
 
 /** The parts of a measurement typed under Other, before they are one value. */
@@ -254,6 +257,10 @@ const MeasurementEntry = ({
  *
  * A list's picked choice says what it is (`description`) under the list, as
  * a service's description sits under the service picked.
+ *
+ * The entry that opens the free input reads the question's own words
+ * (`customLabel`, "Custom size"; none: Other), and the question's line
+ * (`customHint`, "Enter your desired size.") sits under the input it opens.
  *
  * The value is the form's plain string (`''` while unanswered), so the same
  * control serves a stone row's answer and a project answer. Whether the free
@@ -510,7 +517,10 @@ const InquiryDetailField = ({
                                 choose(next);
                             },
                             field.allowsCustom
-                                ? { value: OTHER, label: 'Other' }
+                                ? {
+                                      value: OTHER,
+                                      label: field.customLabel || OTHER_LABEL,
+                                  }
                                 : undefined,
                         )}
                         {isCustom
@@ -518,6 +528,16 @@ const InquiryDetailField = ({
                                 ? freeInput(accessibility)
                                 : measurementEntry(accessibility)
                             : null}
+                        {isCustom && field.customHint ? (
+                            <p
+                                className={`text-sm leading-normal text-secondary-foreground${
+                                    kind === null ? ' col-span-2' : ''
+                                }`}
+                                data-testid="custom-hint"
+                            >
+                                {field.customHint}
+                            </p>
+                        ) : null}
                     </div>
                 );
             }}

@@ -27,10 +27,10 @@ use RuntimeException;
  *   any, is archived and no longer asked, with the library choices only it
  *   listed; a piece of furniture that had one of its bases has none until
  *   it is given another.
- * - Center, side and dining tables are asked Table shape, their own base
- *   design and Table base (the base's material), and ask those three first:
- *   the picture questions, then the material's list, then the rest in their
- *   order.
+ * - Center, side and dining tables are asked Table shape and their own
+ *   base design, and ask those two first (the picture questions), then the
+ *   rest in their order. They no longer ask Table base (the base's
+ *   material); InquiryFormSeeder takes it off a database that had it.
  * - The Pedestal service is switched off (its inquiries keep it).
  * - A choice still on its first seeded picture (under /images/inquiry/,
  *   since moved into storage) gets its picture from the data; one uploaded
@@ -170,11 +170,10 @@ class TableQuestionsSeeder extends Seeder
     }
 
     /**
-     * Each table service asks Table shape, its own base design question (as
-     * data/services.php names it) and its base material (Table base),
-     * required, and asks the three first, as a new database does: the ones
-     * answered by picture, then the material's list, then its other
-     * questions in the order it already had them.
+     * Each table service asks Table shape and its own base design question
+     * (as data/services.php names it), required, and asks the two first, as
+     * a new database does, then its other questions in the order it already
+     * had them.
      *
      * @param  array<string, DetailField>  $fields
      */
@@ -183,13 +182,12 @@ class TableQuestionsSeeder extends Seeder
         /** @var list<array{services: list<array{slug: string, fields: array<string, bool>}>}> $types */
         $types = require database_path('seeders/data/services.php');
         $asks = collect($types)->flatMap(fn (array $type): array => $type['services'])->keyBy('slug');
-        $material = DetailField::query()->where('slug', 'table_base')->value('id');
 
         foreach (Service::query()->whereIn('slug', self::TABLE_SERVICES)->get() as $service) {
             $base = collect(array_keys($asks[$service->slug]['fields'] ?? []))
                 ->first(fn (string $slug): bool => str_starts_with($slug, DetailField::TABLE_BASE_DESIGN.'_'))
                 ?? throw new RuntimeException("data/services.php gives {$service->slug} no base design question.");
-            $first = array_values(array_filter([$fields[DetailField::TABLE_SHAPE]->id, $fields[$base]->id, $material]));
+            $first = [$fields[DetailField::TABLE_SHAPE]->id, $fields[$base]->id];
 
             $asked = fn () => DB::table('service_detail_fields')->where('service_id', $service->id);
             $already = $asked()->pluck('detail_field_id')->all();

@@ -27,6 +27,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * client to describe their own (`isCustom`) or is "Not sure yet, advise me"
  * (`isAdvisory`), and, for a table shape, how the size is then asked
  * (`sizeKind`). `pictures` says the question is asked with picture cards.
+ * A free entry's Other reads `customLabel` ("Custom size"; none: Other),
+ * with `customHint` under the box it opens. A suggestion with a note reads
+ * "2 – approx. 0.6 sqm" while its value stays "2".
  *
  * Expects the service pivot, the options and their services loaded.
  *
@@ -42,7 +45,7 @@ class InquiryDetailFieldResource extends JsonResource
     public const CUSTOM_SUFFIX = ':custom';
 
     /**
-     * @return array{slug: string, label: string, scope: string, answerType: string, required: bool, allowsCustom: bool, pictures: bool, options: list<array<string, mixed>>, suggestions: list<array{value: string, label: string}>}
+     * @return array{slug: string, label: string, scope: string, answerType: string, required: bool, allowsCustom: bool, customLabel: string|null, customHint: string|null, pictures: bool, options: list<array<string, mixed>>, suggestions: list<array{value: string, label: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -55,13 +58,15 @@ class InquiryDetailFieldResource extends JsonResource
             'answerType' => $this->answer_type->value,
             'required' => $this->isRequiredByService(),
             'allowsCustom' => $this->allows_custom,
+            'customLabel' => $this->custom_label,
+            'customHint' => $this->custom_hint,
             'pictures' => $this->asksWithPictures(),
             'options' => $this->answersFromCatalog()
                 ? self::catalogAnswers($this->slug)
                 : array_values($this->closedOptions(is_numeric($serviceId) ? (int) $serviceId : null)->map(fn (DetailFieldOption $option): array => self::choice($option))->all()),
             'suggestions' => array_values($this->suggestions()->map(fn (DetailFieldOption $option): array => [
                 'value' => $option->name,
-                'label' => $option->name,
+                'label' => filled($option->description) ? "{$option->name} – {$option->description}" : $option->name,
             ])->all()),
         ];
     }

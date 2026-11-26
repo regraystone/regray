@@ -22,7 +22,7 @@ use Illuminate\Validation\Validator;
  * adding), textarea, number, select (options `{value, label}`), multiselect
  * (options `{id, label}`), tags (a short list of words, up to `maxItems`),
  * switch or image (the thumbnail). `showWhen: {field, equals}` shows it only
- * while another field has that value. A field an item's edit doesn't offer
+ * while another field has that value (`{field, in}`: one of those values). A field an item's edit doesn't offer
  * is in its row's `fixed`.
  *
  * @template TModel of Model

@@ -375,6 +375,10 @@ export type ServiceField = {
     answerType: 'text' | 'number' | 'choice' | 'boolean';
     required: boolean;
     allowsCustom: boolean;
+    /** What the entry that opens the free entry reads ("Custom size"); none reads Other. */
+    customLabel?: string | null;
+    /** The line under the box that entry opens ("Enter your desired size."). */
+    customHint?: string | null;
     /** Asked with picture cards rather than a dropdown: its choices have pictures. */
     pictures?: boolean;
     options: ServiceFieldChoice[];
@@ -470,7 +474,63 @@ export type ServiceOption = {
     stoneTypes: string[];
     requiresStones: boolean;
     fulfillment: Fulfillment;
+    /** The line under "How would you like to get it?". */
+    deliveryNote?: string | null;
+    /** The line under "When do you need it?". */
+    scheduleNote?: string | null;
+    /** The fewest days from today its date may be; 0 is today. */
+    leadDays?: number;
     fields: ServiceField[];
+};
+
+/** How far ahead a project's date may be, in years; StoreInquiryRequest holds the same. */
+export const DEADLINE_YEARS_MAX = 2;
+
+/**
+ * A `YYYY-MM-DD` day this many days later, by the calendar (no time of day,
+ * so no time zone can move it).
+ */
+export const addDaysIso = (iso: string, days: number): string => {
+    const [year, month, day] = iso.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + days));
+
+    return date.toISOString().slice(0, 10);
+};
+
+/** The furthest day a project's date may be, from today. */
+export const latestNeededBy = (today: string): string =>
+    today.replace(/^\d{4}/, (year) =>
+        String(Number(year) + DEADLINE_YEARS_MAX),
+    );
+
+/** What a date sooner than a service's lead time is told, as StoreInquiryRequest says it. */
+export const leadTimeMessage = (days: number): string =>
+    `Choose a date at least ${days} ${days === 1 ? 'day' : 'days'} from today.`;
+
+/**
+ * Why a project's date is refused for its service, or null: sooner than
+ * its lead time (`leadDays` from today), or further than DEADLINE_YEARS_MAX
+ * ahead. The date an edit already has (`held`) may stay however soon.
+ */
+export const neededByProblem = (
+    date: string,
+    service: Pick<ServiceOption, 'leadDays'> | undefined,
+    today: string,
+    held: string | null = null,
+): string | null => {
+    if (date === '' || date === held) {
+        return null;
+    }
+
+    const lead = service?.leadDays ?? 0;
+
+    if (lead > 0 && date < addDaysIso(today, lead)) {
+        return leadTimeMessage(lead);
+    }
+
+    return date > latestNeededBy(today)
+        ? `Choose a date within the next ${DEADLINE_YEARS_MAX} years.`
+        : null;
 };
 
 /**

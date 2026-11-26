@@ -377,8 +377,10 @@ describe('choices', function (): void {
             ->put(route('dashboard.services.lists.update', ['choices', $choice('round')->id]), ['name' => 'Round', 'kind' => 'custom', 'is_active' => '1'])
             ->assertSessionHasErrors(['kind' => 'Table shape already lists a custom choice.']);
 
+        // One no question lists yet may be Advise me.
+        $kidney = libraryChoice('Kidney');
         $this->actingAs($this->admin)
-            ->put(route('dashboard.services.lists.update', ['choices', $choice('wood')->id]), ['name' => 'Wood', 'kind' => 'advisory', 'is_active' => '1'])
+            ->put(route('dashboard.services.lists.update', ['choices', $kidney->id]), ['name' => 'Kidney', 'kind' => 'advisory', 'is_active' => '1'])
             ->assertSessionHasNoErrors();
 
         $this->actingAs($this->admin)
@@ -386,7 +388,7 @@ describe('choices', function (): void {
             ->assertSessionHasErrors(['kind' => '"Same as stone" stays an ordinary choice.']);
 
         expect($choice('round')->is_custom)->toBeFalse()
-            ->and($choice('wood')->is_advisory)->toBeTrue();
+            ->and($kidney->refresh()->is_advisory)->toBeTrue();
     });
 
     it('saves how a table shape asks the size, on Table shape\'s option alone', function () use ($choice, $option): void {

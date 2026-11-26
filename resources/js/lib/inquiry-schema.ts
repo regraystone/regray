@@ -22,6 +22,7 @@ import {
     fulfillmentProblems,
     furnitureSizeProblem,
     linkedToStoneProblem,
+    neededByProblem,
     normalizedStoneAnswer,
     projectFields,
     quantityProblem,
@@ -345,6 +346,8 @@ const projectNameSchema = z
 export const createInquirySchemas = (
     catalog: InquiryCatalog,
     addressSource: AddressSource = 'book',
+    /** The date an edited inquiry already has, which may stay however soon. */
+    heldNeededBy: string | null = null,
 ) => {
     const serviceIds = new Set(
         catalog.serviceTypes.flatMap(({ services }) =>
@@ -619,6 +622,22 @@ export const createInquirySchemas = (
                 path: ['neededBy'],
                 message: 'Say when this is needed.',
             });
+        } else {
+            // Soon enough for the service to make it, and not years away.
+            const late = neededByProblem(
+                answers.neededBy,
+                service,
+                todayIsoDate(),
+                heldNeededBy,
+            );
+
+            if (late !== null) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['neededBy'],
+                    message: late,
+                });
+            }
         }
     };
 

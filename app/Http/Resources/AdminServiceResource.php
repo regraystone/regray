@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Gate;
 class AdminServiceResource extends JsonResource
 {
     /**
-     * @return array{id: int, slug: string, name: string, serviceTypeId: int, description: string, requiresStones: bool, fulfillment: string, isActive: bool, isOffered: bool, sortOrder: int, features: list<string>, stoneTypes: list<array{id: int, name: string}>, questions: list<array{id: int, name: string, scope: string, required: bool}>, inquiriesCount: int, createdAt: string, updatedAt: string, actions: list<string>, canToggle: bool}
+     * @return array{id: int, slug: string, name: string, serviceTypeId: int, description: string, requiresStones: bool, fulfillment: string, deliveryNote: string|null, scheduleNote: string|null, leadDays: int|null, isActive: bool, isOffered: bool, sortOrder: int, features: list<string>, stoneTypes: list<array{id: int, name: string}>, questions: list<array{id: int, name: string, scope: string, required: bool}>, inquiriesCount: int, createdAt: string, updatedAt: string, actions: list<string>, canToggle: bool}
      */
     public function toArray(Request $request): array
     {
@@ -38,6 +38,9 @@ class AdminServiceResource extends JsonResource
             'description' => $this->description,
             'requiresStones' => $this->requires_stones,
             'fulfillment' => $this->fulfillment->value,
+            'deliveryNote' => $this->delivery_note,
+            'scheduleNote' => $this->schedule_note,
+            'leadDays' => $this->lead_days,
             'isActive' => $this->is_active,
             'isOffered' => $this->isOffered(),
             'sortOrder' => $this->sort_order,

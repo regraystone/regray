@@ -100,7 +100,7 @@ export type FurnitureProfile = FurnitureCardData & {
 export type FurnitureCustomization = {
     /** The stone types the piece can be made in. */
     stones: string[];
-    /** Each question's answers: "Table base": Wood, Steel, Same as stone. */
+    /** Each question's answers: "Table shape": Rectangular, Round, Oval. */
     options: { label: string; values: string[] }[];
 };
 

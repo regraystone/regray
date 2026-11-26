@@ -74,7 +74,5 @@ return [
         'description' => 'Three fins that meet in a Y. A single base that leaves legroom all around.'],
     ['slug' => 'hourglass-v1', 'name' => 'Hourglass V1', 'image' => 'question-choices/eba8e1c79fe4a8ee70b56e18894f3ebd.jpg',
         'description' => 'Curved panels that pinch at the middle, on a round foot. A pedestal for a round dining top.'],
-    ['slug' => 'wood', 'name' => 'Wood'],
-    ['slug' => 'steel', 'name' => 'Steel'],
     ['slug' => 'same-as-stone', 'name' => 'Same as stone', 'kind' => 'stone'],
 ];

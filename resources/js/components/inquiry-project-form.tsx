@@ -4,7 +4,7 @@
     useFormContext,
     useWatch,
 } from 'react-hook-form';
-import { Copy, Minus, Plus, Trash2 } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { fieldMessage } from '@/components/form-field';
 import InquiryDetailField from '@/components/inquiry-detail-field';
@@ -388,7 +388,6 @@ const StoneSpecRow = ({
                         }
                         className="h-9 cursor-pointer px-2 text-xs"
                     >
-                        <Copy aria-hidden className="size-4" />
                         Add it again with another finish
                     </Button>
 
@@ -401,7 +400,6 @@ const StoneSpecRow = ({
                             aria-label={`Remove this ${stone.name} row`}
                             className="h-9 cursor-pointer px-2 text-xs"
                         >
-                            <Trash2 aria-hidden className="size-4" />
                             Remove
                         </Button>
                     ) : null}

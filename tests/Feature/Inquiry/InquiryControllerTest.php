@@ -77,45 +77,43 @@ it('sends the Inquire page its options', function (): void {
                 'stoneTypes' => $slabSupplyTypes,
                 'requiresStones' => true,
                 'fulfillment' => 'delivery_or_pickup',
+                'deliveryNote' => 'Delivery within Metro Manila is charged at a standard flat rate. For addresses outside Metro Manila, the fee depends on the location and is included in your quotation.',
+                'scheduleNote' => null,
+                // None: any day from today.
+                'leadDays' => 0,
                 'fields' => [
                     [
-                        'slug' => 'quantity', 'label' => 'How many pieces?', 'scope' => 'stone', 'answerType' => 'number', 'required' => true, 'allowsCustom' => true, 'pictures' => false,
+                        'slug' => 'quantity', 'label' => 'How many pieces?', 'scope' => 'stone', 'answerType' => 'number', 'required' => true, 'allowsCustom' => true, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => [],
                         'suggestions' => [],
                     ],
                     [
                         // The stone row lists its own stone's slabs: the question has none.
-                        'slug' => 'slab_size', 'label' => 'Slab size', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'pictures' => false,
+                        'slug' => 'slab_size', 'label' => 'Slab size', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'customLabel' => 'Custom size', 'customHint' => 'Enter the width and length you need.', 'pictures' => false,
                         'options' => [],
                         'suggestions' => [],
                     ],
                     [
-                        'slug' => 'thickness', 'label' => 'Thickness', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'pictures' => false,
+                        'slug' => 'thickness', 'label' => 'Thickness', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'customLabel' => 'Custom thickness', 'customHint' => 'Enter the thickness you need.', 'pictures' => false,
                         'options' => [],
                         'suggestions' => [],
                     ],
                     [
                         // Slabs supplied alone may come uncut.
-                        'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => false, 'allowsCustom' => false, 'pictures' => false,
+                        'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => false, 'allowsCustom' => false, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->get()
                             ->map(fn (EdgeProfile $edge): array => ['value' => $edge->name, 'label' => $edge->name, 'isAdvisory' => $edge->is_advisory, 'description' => $edge->description])->all(),
                         'suggestions' => [],
                     ],
                     [
-                        'slug' => 'finish', 'label' => 'Finish', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false, 'pictures' => false,
+                        'slug' => 'finish', 'label' => 'Finish', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => Finish::query()->where('is_active', true)->orderBy('sort_order')->get()
                             ->map(fn (Finish $finish): array => ['value' => $finish->name, 'label' => $finish->name, 'isAdvisory' => $finish->is_advisory, 'description' => $finish->description])->all(),
                         'suggestions' => [],
                     ],
                 ],
             ])
-            ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile', 'finish']
-                && collect($fields)->firstWhere('slug', 'table_base')['options'] === [
-                    ['value' => 'wood', 'label' => 'Wood', 'linksToStone' => false, 'isCustom' => false, 'isAdvisory' => false, 'description' => null, 'image' => null, 'sizeKind' => null],
-                    ['value' => 'steel', 'label' => 'Steel', 'linksToStone' => false, 'isCustom' => false, 'isAdvisory' => false, 'description' => null, 'image' => null, 'sizeKind' => null],
-                    ['value' => 'same-as-stone', 'label' => 'Same as stone', 'linksToStone' => true, 'isCustom' => false, 'isAdvisory' => false, 'description' => null, 'image' => null, 'sizeKind' => null],
-                ]
-                && collect($fields)->firstWhere('slug', 'table_base')['pictures'] === false
+            ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['table_shape', 'table_base_design_dining', 'seaters', 'edge_profile', 'finish']
                 // Asked with pictures, a dining table its own base design question, listing only dining bases.
                 && collect($fields)->firstWhere('slug', 'table_shape')['pictures'] === true
                 && collect($fields)->firstWhere('slug', 'table_base_design_dining')['pictures'] === true
