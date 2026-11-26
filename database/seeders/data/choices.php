@@ -22,17 +22,17 @@
  * @var list<array{slug: string, name: string, description?: string, image?: string, kind?: string, size?: string, services?: list<string>}>
  */
 return [
-    ['slug' => 'rectangular', 'name' => 'Rectangular', 'size' => 'width_length', 'image' => 'question-choices/1437d2234a87aa3364c4d7cb1755daea.jpg',
+    ['slug' => 'rectangular', 'name' => 'Rectangular', 'size' => 'width_length', 'image' => 'question-choices/11a89a838eee51dc81bce3d3a356fef4.jpg',
         'description' => 'The classic long table. Seats the most people along its sides and suits long rooms.'],
-    ['slug' => 'round', 'name' => 'Round', 'size' => 'diameter', 'image' => 'question-choices/f3e00a58c58d9eb406b11a2bc7f246b4.jpg',
+    ['slug' => 'round', 'name' => 'Round', 'size' => 'diameter', 'image' => 'question-choices/c6087ab94cd1474f4e92727f0f0e2240.jpg',
         'description' => 'No corners, so everyone faces each other. Best for small groups and square rooms.'],
-    ['slug' => 'oval', 'name' => 'Oval', 'size' => 'width_length', 'image' => 'question-choices/16e4fd55abacace8625b14e1d2e6de63.jpg',
+    ['slug' => 'oval', 'name' => 'Oval', 'size' => 'width_length', 'image' => 'question-choices/0d1f7d9974b52d2f99d9a7f6b065d18a.jpg',
         'description' => 'The length of a rectangle with softened ends, so it is easier to walk around.'],
-    ['slug' => 'square', 'name' => 'Square', 'size' => 'width_length', 'image' => 'question-choices/5325ee9876d3ab8ec7cf48f73cb1acf0.jpg',
+    ['slug' => 'square', 'name' => 'Square', 'size' => 'width_length', 'image' => 'question-choices/1a2b82c3d4e67d70bc0910db4fb104e5.jpg',
         'description' => 'Equal sides for an even, close setting. Suits square rooms and small groups.'],
-    ['slug' => 'rounded-rectangle', 'name' => 'Rounded Rectangle', 'size' => 'width_length', 'image' => 'question-choices/23cfce4c037725514a8dfffd5c6ccc4d.jpg',
+    ['slug' => 'rounded-rectangle', 'name' => 'Rounded Rectangle', 'size' => 'width_length', 'image' => 'question-choices/e9aeae29047a7f6362f16abcdebdf313.jpg',
         'description' => 'A rectangle with rounded corners: the same seating, gentler on hips and walkways.'],
-    ['slug' => 'organic', 'name' => 'Organic / Freeform', 'image' => 'question-choices/e65ad613372a39cc775d115363a3954f.jpg',
+    ['slug' => 'organic', 'name' => 'Organic / Freeform', 'image' => 'question-choices/1a08d65bfa27ca46f99685c7bc0e8e4a.jpg',
         'description' => 'A flowing, irregular outline that follows the stone or your design, for a sculptural look.'],
     ['slug' => 'custom-shape', 'name' => 'Custom Shape', 'kind' => 'custom',
         'description' => 'Have a shape in mind? Describe it and we will work it out with you.'],

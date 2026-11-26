@@ -264,6 +264,9 @@ it('brings a database from before the notes and seaters up to them, without Tabl
     StoneType::query()->where('slug', 'monumental')->sole()->services()->attach($service('dining-tables')->id);
     // Seaters suggested 2 and 6 only, without their sizes.
     DetailField::query()->where('slug', 'seaters')->sole()->writeSuggestions([['name' => '2', 'note' => null], ['name' => '6', 'note' => null]]);
+    // Rectangular still on its old seeded picture; Oval on one an admin uploaded.
+    Choice::query()->where('slug', 'rectangular')->sole()->update(['thumbnail_path' => 'question-choices/1437d2234a87aa3364c4d7cb1755daea.jpg']);
+    Choice::query()->where('slug', 'oval')->sole()->update(['thumbnail_path' => 'question-choices/0b3f5d0e-uploaded.jpg']);
 
     $this->seed(InquiryFormSeeder::class);
     $once = askedQuestions();
@@ -281,6 +284,9 @@ it('brings a database from before the notes and seaters up to them, without Tabl
         ->and(DetailField::query()->where('slug', 'size')->value('custom_label'))->toBe('Custom size')
         ->and(DetailField::query()->where('slug', 'thickness')->value('custom_label'))->toBe('Your own thickness')
         ->and(DetailField::query()->where('slug', 'seaters')->sole()->suggestions()->map(fn (DetailFieldOption $option): string => "{$option->name} – {$option->description}")->all())->toBe(['6 – approx. 1.6 sqm', '8 – approx. 2.2 sqm', '12 – approx. 3.3 sqm'])
+        ->and(Choice::query()->where('slug', 'rectangular')->value('thumbnail_path'))->toBe('question-choices/11a89a838eee51dc81bce3d3a356fef4.jpg')
+        ->and(DetailFieldOption::query()->whereHas('detailField', fn ($query) => $query->where('slug', 'table_shape'))->where('slug', 'rectangular')->value('thumbnail_path'))->toBe('question-choices/11a89a838eee51dc81bce3d3a356fef4.jpg')
+        ->and(Choice::query()->where('slug', 'oval')->value('thumbnail_path'))->toBe('question-choices/0b3f5d0e-uploaded.jpg')
         ->and($service('dining-tables')->lead_days)->toBe(5)
         ->and($service('side-tables')->lead_days)->toBe(10)
         ->and($service('dining-tables')->stoneTypes()->where('slug', 'monumental')->exists())->toBeFalse()

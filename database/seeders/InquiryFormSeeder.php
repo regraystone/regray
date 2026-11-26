@@ -32,6 +32,8 @@ use Illuminate\Support\Facades\DB;
  *   list of every base.
  * - The Monumental stone type is no longer offered for the furniture
  *   services.
+ * - Each table shape still on its first seeded picture gets the new one
+ *   (data/choices.php); one an admin uploaded on the Choices page stays.
  *
  * A new database gets all of this from DatabaseSeeder.
  */
@@ -46,6 +48,16 @@ class InquiryFormSeeder extends Seeder
     /** The table services, which no longer ask the base's material. */
     private const TABLE_SERVICES = ['center-tables', 'side-tables', 'dining-tables'];
 
+    /** Each table shape's picture before the new photos, by choice slug. */
+    private const OLD_SHAPE_PICTURES = [
+        'rectangular' => 'question-choices/1437d2234a87aa3364c4d7cb1755daea.jpg',
+        'round' => 'question-choices/f3e00a58c58d9eb406b11a2bc7f246b4.jpg',
+        'oval' => 'question-choices/16e4fd55abacace8625b14e1d2e6de63.jpg',
+        'square' => 'question-choices/5325ee9876d3ab8ec7cf48f73cb1acf0.jpg',
+        'rounded-rectangle' => 'question-choices/23cfce4c037725514a8dfffd5c6ccc4d.jpg',
+        'organic' => 'question-choices/e65ad613372a39cc775d115363a3954f.jpg',
+    ];
+
     /** The furniture services the Monumental stone type is no longer offered for. */
     private const FURNITURE_SERVICES = ['center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'];
 
@@ -58,6 +70,7 @@ class InquiryFormSeeder extends Seeder
             $this->seaterSuggestions();
             $this->dropArea();
             $this->dropMaterial();
+            $this->newShapePictures();
 
             StoneType::query()->where('slug', 'monumental')->first()?->services()
                 ->detach(Service::query()->whereIn('slug', self::FURNITURE_SERVICES)->pluck('id')->all());
@@ -208,6 +221,24 @@ class InquiryFormSeeder extends Seeder
 
             if ($choice !== null && ! $listed) {
                 $choice->forceFill(['archived_at' => now(), 'is_active' => false])->save();
+            }
+        }
+    }
+
+    /**
+     * A table shape still on its old seeded picture takes the new one; saved
+     * through the model, so every question listing it follows
+     * (Choice::mirror()).
+     */
+    private function newShapePictures(): void
+    {
+        $pictures = collect(ChoiceSeeder::data())->pluck('image', 'slug');
+
+        foreach (self::OLD_SHAPE_PICTURES as $slug => $old) {
+            $choice = Choice::query()->where('slug', $slug)->where('thumbnail_path', $old)->first();
+
+            if ($choice !== null && filled($pictures[$slug] ?? null)) {
+                $choice->update(['thumbnail_path' => $pictures[$slug]]);
             }
         }
     }
