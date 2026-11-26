@@ -3,10 +3,8 @@ import { Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 import ImageLightbox, { type LightboxImage } from '@/components/image-lightbox';
 import ProfileGallery from '@/components/profile-gallery';
-import ProductCard from '@/components/product-card';
 import { Button } from '@/components/ui/button';
-import { useSavedStones } from '@/hooks/use-saved-stones';
-import { index as homeIndex, show as homeShow } from '@/routes/home';
+import { index as homeIndex } from '@/routes/home';
 import type { ShowcaseProfile as ShowcaseProfileData } from '@/types/home';
 
 type ShowcaseProfileProps = {
@@ -16,7 +14,6 @@ type ShowcaseProfileProps = {
 const ShowcaseProfile = ({
     showcase: { data: showcase },
 }: ShowcaseProfileProps) => {
-    const { savedIds, toggleSave, canSave } = useSavedStones();
     const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(
         null,
     );
@@ -113,36 +110,6 @@ const ShowcaseProfile = ({
                     name={showcase.name}
                     onOpenImage={setLightboxImage}
                 />
-            </section>
-
-            <section className="mt-8 lg:mt-16">
-                <h2 className="text-2xl leading-tight font-light tracking-tight uppercase lg:text-4xl">
-                    Materials
-                </h2>
-                <div className="mt-6 grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-3 lg:gap-5">
-                    {showcase.stones.map((stone) => (
-                        <ProductCard
-                            key={stone.slug}
-                            product={{
-                                id: stone.slug,
-                                slug: stone.slug,
-                                name: stone.name,
-                                thumbnail: stone.thumbnail,
-                                category: stone.type,
-                            }}
-                            aspect="aspect-[4/3]"
-                            href={homeShow.url({
-                                slug: stone.slug,
-                            })}
-                            saved={savedIds.has(stone.slug)}
-                            onToggleSave={
-                                canSave
-                                    ? () => toggleSave(stone.slug)
-                                    : undefined
-                            }
-                        />
-                    ))}
-                </div>
             </section>
 
             <ImageLightbox

@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Models\Brand;
 use App\Models\Showcase;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -14,6 +15,14 @@ interface ShowcaseRepositoryInterface
      * @return Collection<int, Showcase>
      */
     public function latestPublished(int $limit): Collection;
+
+    /**
+     * The latest published showcases made with the brand's stones, and how
+     * many there are in all.
+     *
+     * @return array{latest: Collection<int, Showcase>, count: int}
+     */
+    public function latestPublishedForBrand(Brand $brand, int $limit): array;
 
     /**
      * A published showcase under one of its active stones. `$withArchived`

@@ -71,6 +71,20 @@ const MenuAnchor = ({
     );
 };
 
+/** A link's mark after its label: the menu's chevron, ↗ for another site, or none. */
+const LinkMark = ({ link }: { link: MenuLink }) =>
+    link.chevron ? (
+        <ChevronRight
+            aria-hidden
+            strokeWidth={1.5}
+            className="size-4.5 shrink-0"
+        />
+    ) : link.external ? (
+        <span aria-hidden className="text-sm">
+            ↗
+        </span>
+    ) : null;
+
 /** The chevron that turns to point up when its tab is open. */
 const Chevron = ({
     open,
@@ -361,9 +375,7 @@ export default function PublicHeader() {
                                         }`}
                                     >
                                         {link.label}
-                                        <span aria-hidden className="text-sm">
-                                            {link.external ? '↗' : '→'}
-                                        </span>
+                                        <LinkMark link={link} />
                                     </MenuAnchor>
                                 </li>
                             ))}
@@ -549,11 +561,8 @@ export default function PublicHeader() {
                                                 }`}
                                             >
                                                 {link.label}
-                                                <span
-                                                    aria-hidden
-                                                    className="text-muted-foreground transition-transform duration-300 ease-out group-hover:translate-x-1 motion-reduce:transition-none"
-                                                >
-                                                    {link.external ? '↗' : '→'}
+                                                <span className="text-muted-foreground transition-transform duration-300 ease-out group-hover:translate-x-1 motion-reduce:transition-none">
+                                                    <LinkMark link={link} />
                                                 </span>
                                             </MenuAnchor>
                                         </li>

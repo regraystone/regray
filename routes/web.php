@@ -91,6 +91,7 @@ Route::middleware(['throttle:heavy-reads', RedirectSignedInToDashboard::class])
     ->scopeBindings()
     ->group(function () {
         Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+        Route::get('/brands/{brand}/company-profile', [BrandController::class, 'companyProfile'])->name('brands.company-profile');
         Route::get('/brands/{brand}/stones/{stone}', [HomeStoneProfileController::class, 'showForBrand'])->name('brands.stones.show');
         Route::get('/brands/{brand}/furniture/{furniture}', [FurnitureController::class, 'showForBrand'])->name('brands.furniture.show');
     });
@@ -146,6 +147,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('brands/{brand}', [BrandController::class, 'show'])
                 ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
                 ->name('dashboard.brands.show');
+            Route::get('brands/{brand}/company-profile', [BrandController::class, 'companyProfile'])
+                ->middleware([Permission::HomeView->middleware(), 'throttle:heavy-reads'])
+                ->name('dashboard.brands.company-profile');
             Route::get('brands/{brand}/stones/{stone}', [HomeStoneProfileController::class, 'showForBrand'])
                 ->middleware(Permission::HomeStoneView->middleware())
                 ->name('dashboard.brands.stones.show');
