@@ -17,9 +17,9 @@
  * services ask all four, every furniture service asks the project area, and
  * Countertop and Backsplash asks fascia (yes or no). `answers` are the
  * project's answers to its service's project-scope questions
- * (data/services.php), by question slug, a closed option by its slug;
- * InquirySeeder refuses a required one left out, and one the service does
- * not ask. Every project has a deadline date and time (Manila):
+ * (data/services.php), by question slug, a closed option by its slug, and
+ * a custom choice's description under `custom` by slug; InquirySeeder
+ * refuses a required one left out, and one the service does not ask. Every project has a deadline date and time (Manila):
  * InquirySeeder books it as the inquiry's schedule, the way sending an
  * inquiry does.
  *
@@ -230,7 +230,7 @@ return [
                     ['stone_slug' => 'monumental', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'place' => 'San Juan',
-                'answers' => ['area_sqm' => 4.5, 'seaters' => 8, 'table_base' => 'same-as-stone'],
+                'answers' => ['table_shape' => 'rectangular', 'area_sqm' => 4.5, 'seaters' => 8, 'table_base_design_dining' => 'tubular-v1', 'table_base' => 'same-as-stone'],
                 'deadline_date' => '2026-09-26',
                 'deadline_time' => '13:00',
                 'notes' => null,
@@ -381,12 +381,12 @@ return [
             'handlers' => ['maria'],
             'project' => [
                 'name' => 'Northgate Cafe — Dining Floor',
-                'service' => 'pedestal',
+                'service' => 'other-customized-furniture',
                 'stones' => [
                     ['stone_slug' => 'quartzite', 'quantity' => 9, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'place' => 'Makati',
-                'answers' => ['area_sqm' => 0.4, 'size' => '60 x 60 cm'],
+                'answers' => ['area_sqm' => 3.2, 'size' => '60 x 60 cm'],
                 'deadline_date' => '2026-10-24',
                 'deadline_time' => '14:00',
                 'notes' => "Wanted square to the window wall so the joints run with it.\nPlease do the floor before the counters are set.",
@@ -528,7 +528,7 @@ return [
                 'name' => 'Moreau Studio — Garden Path',
                 'service' => 'staircase',
                 'stones' => [
-                    ['stone_slug' => 'cobblestone', 'quantity' => 40, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
+                    ['stone_slug' => 'granite', 'quantity' => 40, 'edge' => 'Straight Edge', 'finish' => 'Flamed'],
                 ],
                 'place' => 'Quezon City',
                 'answers' => ['area_sqm' => 22],
@@ -611,7 +611,7 @@ return [
                     ['stone_slug' => 'marble', 'quantity' => 2, 'edge' => 'Straight Edge', 'finish' => 'Polished'],
                 ],
                 'place' => 'Taguig',
-                'answers' => ['area_sqm' => 6, 'seaters' => 10, 'table_base' => 'steel'],
+                'answers' => ['table_shape' => 'custom-shape', 'area_sqm' => 6, 'seaters' => 10, 'table_base_design_dining' => 'diamond', 'table_base' => 'steel', 'custom' => ['table_shape' => 'A boat-shaped top, wider at the middle']],
                 'deadline_date' => '2026-11-14',
                 'deadline_time' => '10:00',
                 'notes' => 'The top seats twelve; the base is the client\'s own steel frame.',
@@ -669,12 +669,12 @@ return [
             'handlers' => ['daniel'],
             'project' => [
                 'name' => 'The Grove — Outdoor Shower Wall',
-                'service' => 'pedestal',
+                'service' => 'other-customized-furniture',
                 'stones' => [
                     ['stone_slug' => 'travertine', 'quantity' => 10, 'edge' => 'Straight Edge', 'finish' => 'Honed'],
                 ],
                 'place' => 'Muntinlupa',
-                'answers' => ['area_sqm' => 0.6, 'size' => '80 x 80 cm'],
+                'answers' => ['area_sqm' => 6.4, 'size' => '80 x 80 cm'],
                 'deadline_date' => '2026-10-31',
                 'deadline_time' => '10:00',
                 'notes' => null,

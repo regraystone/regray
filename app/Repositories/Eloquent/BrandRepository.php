@@ -24,7 +24,27 @@ class BrandRepository implements BrandRepositoryInterface
             ->active()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['id', 'slug', 'name', 'tagline', 'website_url', 'logo_path', 'thumbnail_path', 'description']);
+            ->get(['id', 'slug', 'name', 'tagline', 'logo_path', 'thumbnail_path', 'description']);
+    }
+
+    /** @return Collection<int, Brand> */
+    public function activeForInquiry(): Collection
+    {
+        return Brand::query()
+            ->active()
+            ->select(['id', 'slug', 'name', 'logo_path'])
+            ->withExists([
+                // The brand is active already, so an active product of it is one shown on Regray.
+                'stones as has_stones' => fn (Builder $stones) => $stones->where('is_active', true),
+                'furniture as has_furniture' => fn (Builder $furniture) => $furniture->where('is_active', true),
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->each(fn (Brand $brand) => $brand->setAttribute(
+                'has_products',
+                (bool) $brand->getAttribute('has_stones') || (bool) $brand->getAttribute('has_furniture'),
+            ));
     }
 
     /** @return LengthAwarePaginator<int, Brand> */
@@ -83,22 +103,13 @@ class BrandRepository implements BrandRepositoryInterface
     }
 
     /**
-     * @return array{stones: Collection<int, Stone>, furniture: Collection<int, Furniture>}
+     * @return array{stones: int, furniture: int}
      */
-    public function activeProductsWithTypes(Brand $brand): array
+    public function activeProductCounts(Brand $brand): array
     {
         return [
-            'stones' => $brand->stones()->active()
-                ->with(['types' => fn ($types) => $types->where('is_active', true)])
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['stones.id', 'stones.brand_id', 'stones.name', 'stones.thumbnail_path', 'stones.sort_order']),
-            'furniture' => $brand->furniture()->active()
-                ->whereHas('furnitureType', fn (Builder $type) => $type->where('is_active', true))
-                ->with('furnitureType')
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'brand_id', 'furniture_type_id', 'name', 'thumbnail_path', 'sort_order']),
+            'stones' => $brand->stones()->active()->count(),
+            'furniture' => $brand->furniture()->active()->count(),
         ];
     }
 
@@ -149,7 +160,7 @@ class BrandRepository implements BrandRepositoryInterface
             });
         }
         if ($filters->furnitureType !== null) {
-            $query->whereHas('furnitureType', fn (Builder $type) => $type->where('name', $filters->furnitureType));
+            $query->whereHas('furnitureType', fn (Builder $type) => $type->where('slug', $filters->furnitureType)->where('is_active', true));
         }
 
         return $query->toBase();

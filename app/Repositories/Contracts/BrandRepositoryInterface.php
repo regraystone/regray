@@ -19,6 +19,15 @@ interface BrandRepositoryInterface
     public function active(): Collection;
 
     /**
+     * The active brands, as active() orders them, each with `has_products`:
+     * whether it has an active stone or piece of furniture, so the Inquire
+     * page offers only a brand it can supply.
+     *
+     * @return Collection<int, Brand>
+     */
+    public function activeForInquiry(): Collection;
+
+    /**
      * The admin's Brands page: every brand but the archived, hidden ones too,
      * by display order then name, a page at a time. The search (already
      * escaped for ILIKE) matches the brand's name only. Each
@@ -40,10 +49,9 @@ interface BrandRepositoryInterface
     public function hasActiveProducts(Brand $brand): bool;
 
     /**
-     * The brand's active stones, each with its active types, and its active
-     * furniture, each with its type: what its page says it offers.
+     * How many active stones and pieces of furniture the brand has.
      *
-     * @return array{stones: Collection<int, Stone>, furniture: Collection<int, Furniture>}
+     * @return array{stones: int, furniture: int}
      */
-    public function activeProductsWithTypes(Brand $brand): array;
+    public function activeProductCounts(Brand $brand): array;
 }

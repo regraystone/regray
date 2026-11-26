@@ -100,8 +100,8 @@ const CardAction = ({
 );
 
 /**
- * A record on an admin page as a catalogue tile (a brand, a showcase): its
- * cover, title and subtitle, its status and a short count, then the actions
+ * A record on an admin page as a catalogue tile (a brand, a showcase, a
+ * service): its cover when it has one, title and subtitle, its status and a short count, then the actions
  * the server allows (View, Edit, and Archive on the right).
  *
  * The title is the card's link to View, with the focus ring; the cover opens
@@ -124,7 +124,8 @@ const AdminCard = ({
     subtitle: string | null;
     /** Shown, lighter, when there is no subtitle. */
     subtitlePlaceholder: string;
-    cover: AdminCardCoverData;
+    /** Left out for a record with no image (a service). */
+    cover?: AdminCardCoverData;
     status: { active: boolean; labels: [string, string] };
     meta: ReactNode;
     /** What this reader may do: `view`, `edit`, `archive`, from the server. */
@@ -141,14 +142,16 @@ const AdminCard = ({
             className="flex min-w-0 flex-col border border-sidebar-border bg-background"
             data-testid={testId}
         >
-            <div
-                className="cursor-pointer"
-                onClick={onView}
-                aria-hidden
-                data-testid={`${testId}-cover`}
-            >
-                <AdminCardCover cover={cover} />
-            </div>
+            {cover ? (
+                <div
+                    className="cursor-pointer"
+                    onClick={onView}
+                    aria-hidden
+                    data-testid={`${testId}-cover`}
+                >
+                    <AdminCardCover cover={cover} />
+                </div>
+            ) : null}
 
             <div className="flex flex-1 flex-col gap-3 p-4">
                 <div className="min-w-0">

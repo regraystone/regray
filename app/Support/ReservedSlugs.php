@@ -17,11 +17,16 @@ final class ReservedSlugs
         'projects', 'showcases', 'accounts', 'our-brands', 'showroom', 'about', 'news', 'contact',
     ];
 
-    /** The catch-all's pattern: a lower-case slug that is none of these. */
+    /**
+     * The catch-all's pattern: a lower-case slug that is none of these. The
+     * route matches the whole path (`/{slug}`), so the lookahead is anchored
+     * at the slug's start by its place and ends at the path's end: `^` in it
+     * would mean the path's start, before the slash, and never match.
+     */
     public static function catchAllPattern(): string
     {
-        $reserved = implode('|', array_map(fn (string $slug): string => str_replace('.', '\\.', $slug), self::ALL));
+        $reserved = implode('|', array_map(fn (string $slug): string => preg_quote($slug, '#'), self::ALL));
 
-        return "(?!^({$reserved})$)[a-z0-9]([a-z0-9-]*[a-z0-9])?";
+        return "(?!(?:{$reserved})$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?";
     }
 }

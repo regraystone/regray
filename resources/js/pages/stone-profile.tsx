@@ -1,7 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, Heart, Maximize2, Star } from 'lucide-react';
-import { useState } from 'react';
-import ImageLightbox, { type LightboxImage } from '@/components/image-lightbox';
+import { ArrowLeft, ArrowRight, Heart, Star } from 'lucide-react';
+import ProductPhotos, { productPhotos } from '@/components/product-photos';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { useSavedStones } from '@/hooks/use-saved-stones';
 import { login } from '@/routes';
@@ -56,7 +55,7 @@ const List = ({ items }: { items: string[] }) => (
 /**
  * A stone: its photo at its own portrait shape (click to see it large) beside
  * its type and brand, its name, the Best Seller mark, what the type is, its
- * origin, the slabs it comes in and its finishes, with Ask a quote and Save
+ * origin, the slabs it comes in, its finishes and edge profiles, with Ask a quote and Save
  * together. Below, where it suits and how to care for it, the showcases it
  * was used in, and more stones of its type. A breadcrumb leads back to the
  * brand, and the previous and next stones of its type are a click away.
@@ -77,16 +76,7 @@ const StoneProfile = ({
     const inquireRoute = useInquireRoute();
     const { savedIds, toggleSave, canSave } = useSavedStones();
     const isSaved = savedIds.has(stone.slug);
-    const [lightbox, setLightbox] = useState<LightboxImage | null>(null);
     const brand = stone.brand;
-
-    // The photo and any others the stone has, each once.
-    const photos = [
-        { src: stone.thumbnail, name: stone.name },
-        ...stone.gallery.filter((image) => image.src !== stone.thumbnail),
-    ];
-    const [shown, setShown] = useState(0);
-    const photo = photos[Math.min(shown, photos.length - 1)];
 
     const brandUrl = (collection?: 'stones') =>
         (isSignedIn ? dashboardBrandShow : brandsShow).url(
@@ -201,45 +191,17 @@ const StoneProfile = ({
                 aria-label={stone.name}
                 className="grid grid-cols-1 items-start gap-[clamp(1.5rem,4vw,4.5rem)] pb-[clamp(3.5rem,7vw,6rem)] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:grid-cols-[minmax(0,1fr)_minmax(22rem,1.2fr)]"
             >
-                <div className="flex flex-col gap-3 md:sticky md:top-24">
-                    <button
-                        type="button"
-                        onClick={() =>
-                            setLightbox({ src: photo.src, alt: photo.name })
-                        }
-                        aria-label={`See ${stone.name} larger`}
-                        className="group relative mx-auto block aspect-4/5 w-full max-w-md cursor-zoom-in overflow-hidden bg-muted md:max-w-none lg:max-w-[32rem]"
-                    >
-                        <img
-                            src={photo.src}
-                            alt={`${stone.name}, ${stone.type.name.toLowerCase()}`}
-                            className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.02] motion-reduce:transition-none"
-                        />
-                        <span className="absolute right-3 bottom-3 flex size-9 items-center justify-center bg-background/90 text-foreground opacity-80 transition-opacity group-hover:opacity-100">
-                            <Maximize2 aria-hidden className="size-4" />
-                        </span>
-                    </button>
-                    {photos.length > 1 ? (
-                        <div className="grid grid-cols-5 gap-2">
-                            {photos.map((image, index) => (
-                                <button
-                                    key={image.src}
-                                    type="button"
-                                    onClick={() => setShown(index)}
-                                    aria-label={`Show photo ${index + 1}`}
-                                    aria-pressed={index === shown}
-                                    className={`aspect-square overflow-hidden border ${index === shown ? 'border-foreground' : 'border-border'}`}
-                                >
-                                    <img
-                                        src={image.src}
-                                        alt=""
-                                        className="size-full object-cover"
-                                    />
-                                </button>
-                            ))}
-                        </div>
-                    ) : null}
-                </div>
+                <ProductPhotos
+                    key={stone.slug}
+                    name={stone.name}
+                    alt={`${stone.name}, ${stone.type.name.toLowerCase()}`}
+                    photos={productPhotos(
+                        stone.thumbnail,
+                        stone.gallery,
+                        stone.name,
+                    )}
+                    frameClassName="aspect-4/5 max-w-md lg:max-w-[32rem]"
+                />
 
                 <div className="flex flex-col gap-7">
                     <div className="flex flex-col gap-3">
@@ -324,21 +286,31 @@ const StoneProfile = ({
                         </div>
                     ) : null}
 
-                    {stone.finishes.length > 0 ? (
-                        <div className="border-t border-border pt-5">
-                            <FactHeading>Finishes</FactHeading>
-                            <ul className="flex flex-wrap gap-2">
-                                {stone.finishes.map((finish) => (
-                                    <li
-                                        key={finish}
-                                        className="border border-border px-3 py-1.5 text-sm text-secondary-foreground"
-                                    >
-                                        {finish}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ) : null}
+                    {(
+                        [
+                            ['Finishes', stone.finishes],
+                            ['Edge profiles', stone.edgeProfiles],
+                        ] as const
+                    ).map(([heading, values]) =>
+                        values.length > 0 ? (
+                            <div
+                                key={heading}
+                                className="border-t border-border pt-5"
+                            >
+                                <FactHeading>{heading}</FactHeading>
+                                <ul className="flex flex-wrap gap-2">
+                                    {values.map((value) => (
+                                        <li
+                                            key={value}
+                                            className="border border-border px-3 py-1.5 text-sm text-secondary-foreground"
+                                        >
+                                            {value}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ) : null,
+                    )}
 
                     <div className="flex flex-col gap-3 border-t border-border pt-5">
                         <div className="hidden lg:block">{actions(false)}</div>
@@ -470,8 +442,6 @@ const StoneProfile = ({
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
                 {actions(true)}
             </div>
-
-            <ImageLightbox image={lightbox} onClose={() => setLightbox(null)} />
         </div>
     );
 };

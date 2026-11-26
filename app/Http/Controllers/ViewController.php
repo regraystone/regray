@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Schedule\ListSchedulesAction;
+use App\Data\Product\ProductListFilters;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
@@ -14,9 +15,15 @@ use App\Enums\Role;
 use App\Enums\ScheduleAction;
 use App\Enums\SocialPlatform;
 use App\Http\Requests\DataTableRequest;
+use App\Http\Requests\Product\ProductListRequest;
+use App\Http\Requests\Sales\SalesReportRequest;
 use App\Http\Requests\Schedule\ScheduleIndexRequest;
+use App\Http\Requests\Service\ServiceListRequest;
+use App\Http\Requests\Service\StoreServiceRequest;
 use App\Http\Resources\AccountResource;
 use App\Http\Resources\AdminBrandResource;
+use App\Http\Resources\AdminProductResource;
+use App\Http\Resources\AdminServiceResource;
 use App\Http\Resources\AdminShowcaseResource;
 use App\Http\Resources\ClientAddressResource;
 use App\Http\Resources\InquiryCatalogResource;
@@ -24,19 +31,27 @@ use App\Http\Resources\InquiryRowResource;
 use App\Http\Resources\LeadOptionResource;
 use App\Http\Resources\LeadResource;
 use App\Http\Resources\ScheduleResource;
+use App\Models\DetailField;
 use App\Models\Lead;
 use App\Models\Schedule;
+use App\Models\ServiceType;
+use App\Models\StoneType;
 use App\Models\User;
 use App\Repositories\Contracts\BrandRepositoryInterface;
 use App\Repositories\Contracts\ClientAddressRepositoryInterface;
 use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
+use App\Repositories\Contracts\ProductAdminRepositoryInterface;
+use App\Repositories\Contracts\ServiceRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Services\FurnitureCustomizationService;
 use App\Services\InquiryStatusRules;
+use App\Services\SalesReportService;
 use App\Services\ScheduleService;
 use App\Services\WalkInInquiryService;
 use App\Support\ReservedSlugs;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -59,9 +74,16 @@ class ViewController extends Controller
         return Inertia::render('saved');
     }
 
-    public function sales(Request $request): Response
+    /**
+     * The Sales page: the money side of the inquiries the reader may see,
+     * over the span `?period=` names (SalesReportService).
+     */
+    public function sales(SalesReportRequest $request, SalesReportService $reports): Response
     {
-        return Inertia::render('sales');
+        /** @var User $user */
+        $user = $request->user();
+
+        return Inertia::render('sales', $reports->report($user, $request->period(), CarbonImmutable::now()));
     }
 
     /**
@@ -185,7 +207,7 @@ class ViewController extends Controller
      * super-admin every open lead. A client's `leads` is null: they send their
      * own.
      */
-    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses, WalkInInquiryService $walkIns): Response
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses, WalkInInquiryService $walkIns, FurnitureCustomizationService $customization): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -201,6 +223,8 @@ class ViewController extends Controller
             'lead' => $pickable?->firstWhere('reference', $request->query('lead'))?->reference,
             // Who a walk-in's inquiry may be given to: null for sales, who owns what it opens, and for a client.
             'walkInOwners' => $pickable === null ? null : $walkIns->ownerOptions($user)?->map(fn (User $owner): array => ['id' => $owner->id, 'name' => $owner->name])->values()->all(),
+            // From a furniture page's Inquire: the piece's brand, service and table answers, picked for a draft not yet begun.
+            'furniture' => fn (): ?array => $customization->inquiryPrefill(is_string($request->query('furniture')) ? $request->query('furniture') : null),
         ]);
     }
 
@@ -384,14 +408,87 @@ class ViewController extends Controller
         ]);
     }
 
-    public function products(Request $request): Response
+    /**
+     * The admin's Products page: every stone and piece of furniture but the
+     * archived (and those of an archived brand), inactive ones too, as one
+     * list by name, ten a page, searched by name and filtered by kind, brand
+     * and status, all in the URL.
+     *
+     * Also what the Add and Edit drawers choose from (`options`), the upload
+     * limits, and the public links a slug makes, with `__brand__` and
+     * `__slug__` to fill in.
+     */
+    public function products(ProductListRequest $request, ProductAdminRepositoryInterface $products): Response
     {
-        return Inertia::render('products');
+        $filters = new ProductListFilters($request->escapedSearch(), $request->kind(), $request->brand(), $request->active());
+
+        return Inertia::render('products', [
+            'products' => self::page($products->paginate($filters, $request->perPage(), $request->page()), AdminProductResource::class, $request),
+            'filters' => $request->productFilters(),
+            'canCreate' => $request->user()?->can(Permission::ProductsCreate->value) ?? false,
+            'limits' => [
+                'thumbnailMaxKb' => config()->integer('products.thumbnail_max_kb'),
+                'photoMaxKb' => config()->integer('products.photo_max_kb'),
+                'galleryMax' => config()->integer('products.gallery_max'),
+                'sizesMax' => config()->integer('products.sizes_max'),
+                'descriptionMax' => config()->integer('products.description_max'),
+            ],
+            'options' => $products->formOptions(),
+            'reservedSlugs' => ReservedSlugs::ALL,
+            'publicUrls' => [
+                'stone' => route('brands.stones.show', ['brand' => '__brand__', 'stone' => '__slug__']),
+                'furniture' => route('brands.furniture.show', ['brand' => '__brand__', 'furniture' => '__slug__']),
+            ],
+        ]);
     }
 
-    public function services(Request $request): Response
+    /**
+     * The admin's All services page: what the Inquire page offers, as one
+     * table. Every service but the archived (and those of an archived type),
+     * hidden ones too, by their type's display order then their own, a page
+     * at a time, searched by name or description and filtered by service type
+     * (its slug) and status.
+     *
+     * Also what the forms and the filter offer: the service types (hidden
+     * ones too), the stone types a service can be made from, the questions it
+     * can ask (with their listed answers, to show the admin), and the limits.
+     */
+    public function services(ServiceListRequest $request, ServiceRepositoryInterface $services): Response
     {
-        return Inertia::render('services');
+        return Inertia::render('services', [
+            'services' => self::page($services->paginateForAdmin(
+                $request->escapedSearch(),
+                $request->type(),
+                $request->active(),
+                $request->perPage(),
+                $request->page(),
+            ), AdminServiceResource::class, $request),
+            'filters' => $request->serviceFilters(),
+            'serviceTypes' => $services->typeOptions()
+                ->map(fn (ServiceType $type): array => ['id' => $type->id, 'slug' => $type->slug, 'name' => $type->name, 'isActive' => $type->is_active])
+                ->values()
+                ->all(),
+            'stoneTypes' => $services->activeStoneTypes()
+                ->map(fn (StoneType $type): array => ['id' => $type->id, 'name' => $type->name])
+                ->values()
+                ->all(),
+            'questions' => $services->questions()
+                ->map(fn (DetailField $field): array => [
+                    'id' => $field->id,
+                    'name' => $field->name,
+                    'scope' => $field->scope->value,
+                    'answerType' => $field->answer_type->value,
+                    'options' => $field->options->pluck('name')->values()->all(),
+                ])
+                ->values()
+                ->all(),
+            'canCreate' => $request->user()?->can(Permission::ServicesCreate->value) ?? false,
+            'limits' => [
+                'descriptionMax' => StoreServiceRequest::DESCRIPTION_MAX,
+                'featuresMax' => StoreServiceRequest::FEATURES_MAX,
+                'featureMax' => StoreServiceRequest::FEATURE_MAX,
+            ],
+        ]);
     }
 
     /**

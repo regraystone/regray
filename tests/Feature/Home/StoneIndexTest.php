@@ -219,7 +219,7 @@ test('new and soft-deleted type options are handled correctly in filter options'
 test('the stones collection ignores a furniture type', function (): void {
     $user = User::factory()->role(Role::Client)->create();
 
-    $this->actingAs($user)->get(stoneCollection(['furniture_type' => 'Dining Tables']))
+    $this->actingAs($user)->get(stoneCollection(['furniture_type' => 'dining-tables']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('filters.furnitureType', null)

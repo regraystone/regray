@@ -28,7 +28,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class StoneCardResource extends JsonResource
 {
     /**
-     * @return array{slug: string, name: string, thumbnail: string, brand: array{slug: string, name: string}, type: array{slug: string, name: string}, variants?: mixed, sizes?: mixed, thicknesses?: mixed, sizeNote?: mixed}
+     * @return array{slug: string, name: string, thumbnail: string, brand: array{slug: string, name: string, archived?: true}, type: array{slug: string, name: string}, variants?: mixed, sizes?: mixed, thicknesses?: mixed, sizeNote?: mixed}
      */
     public function toArray(Request $request): array
     {
@@ -36,7 +36,8 @@ class StoneCardResource extends JsonResource
             'slug' => $this->slug,
             'name' => $this->name,
             'thumbnail' => ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
-            'brand' => ['slug' => $this->brand->slug, 'name' => $this->brand->name],
+            // `archived` only for an archived brand's, which only a saved card shows: its page is gone.
+            'brand' => ['slug' => $this->brand->slug, 'name' => $this->brand->name, ...($this->brand->archived_at !== null ? ['archived' => true] : [])],
             'type' => ['slug' => $this->type->slug, 'name' => $this->type->name],
             'variants' => $this->whenLoaded('variants', fn (): array => array_values($this->variants
                 ->map(fn (StoneVariant $variant): array => ['size' => $variant->size?->label, 'thickness' => $variant->thickness->label])

@@ -57,16 +57,16 @@ test('news tells the latest published showcases as stories, newest first', funct
             ->where('stories', fn ($stories): bool => collect($stories)->doesntContain('slug', 'ayala-land')));
 });
 
-test('our brands lists the active brands with their descriptions and websites', function (): void {
+test('our brands lists the active brands with their descriptions, and not their own websites', function (): void {
     Brand::query()->where('slug', 'reform')->update(['is_active' => false]);
 
     $this->get(route('company.brands'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('brands', Brand::query()->where('is_active', true)->count())
             ->where('brands', fn ($brands): bool => collect($brands)->doesntContain('slug', 'reform'))
-            ->where('brands', fn ($brands): bool => collect($brands)->firstWhere('slug', 'cucine')['websiteUrl'] === 'https://www.cucinelube.it/')
+            ->where('brands', fn ($brands): bool => collect($brands)->every(fn (array $brand): bool => ! array_key_exists('websiteUrl', $brand)))
             ->has('brands.0', fn (Assert $brand) => $brand
-                ->hasAll(['slug', 'name', 'description', 'websiteUrl', 'logo', 'thumbnail'])));
+                ->hasAll(['slug', 'name', 'description', 'logo', 'thumbnail'])));
 });
 
 test('the showroom gallery shows the latest published showcases', function (): void {

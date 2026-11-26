@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Inquiry;
 
+use App\Data\FurnitureSize;
 use App\Data\PhAddress;
 use App\Data\SizeMeasurement;
 use App\Data\ThicknessMeasurement;
@@ -108,15 +109,23 @@ class StoreInquiryRequest extends FormRequest
 
             'projects.*.stoneAdvice' => ['nullable', 'boolean'],
             'projects.*.stones' => ['nullable', 'array', 'max:'.$limits['stone_rows']],
+            // An edit may keep a stone it already has, no longer shown or not (after() says when).
             'projects.*.stones.*.stoneId' => [
                 'required', 'string',
-                Rule::exists('stones', 'slug')->where('is_active', true)->whereNull('deleted_at')
-                    ->where(fn ($stones) => $stones->whereIn('brand_id', Brand::query()->notArchived()->select('id'))),
+                Rule::exists('stones', 'slug')->where(fn ($stones) => $stones
+                    ->where(fn ($shown) => $shown->where('is_active', true)->whereNull('deleted_at')
+                        ->whereIn('brand_id', Brand::query()->notArchived()->select('id')))
+                    ->orWhereIn('slug', $this->heldStoneSlugs())),
             ],
             'projects.*.answers' => ['nullable', 'array'],
+            // A custom choice's description, by question slug (checkCustomAnswers()).
+            'projects.*.customAnswers' => ['nullable', 'array'],
+            'projects.*.customAnswers.*' => ['nullable', 'string'],
 
             'projects.*.brands' => ['nullable', 'array', 'max:'.self::BRANDS_MAX],
-            'projects.*.brands.*' => ['string', 'distinct', Rule::exists('brands', 'slug')->where('is_active', true)->whereNull('archived_at')],
+            'projects.*.brands.*' => ['string', 'distinct', Rule::exists('brands', 'slug')->where(fn ($brands) => $brands
+                ->where(fn ($shown) => $shown->where('is_active', true)->whereNull('archived_at'))
+                ->orWhereIn('slug', $this->heldBrandSlugs()))],
             'projects.*.brandNoPreference' => ['nullable', 'boolean'],
 
             // Whether it is asked, and the address with it, is the service's: see after().
@@ -214,10 +223,12 @@ class StoreInquiryRequest extends FormRequest
      * either. A service no longer offered, or whose service type is not, is
      * refused unless this inquiry already has it (heldServiceSlugs()).
      *
-     * Every stone has to be offered for the project's service: its primary type
-     * linked to the service. The error is on the stone's row. This holds for an
-     * edit too, for the stones the inquiry already has as much as for new ones,
-     * since the page removes the stones that no longer fit before it sends.
+     * Every stone has to be offered for the project's service: shown on
+     * Regray, its primary type linked to the service and switched on. The
+     * error is on the stone's row. An edit that keeps its service keeps the
+     * stones it already has (heldStoneSlugs()) whatever has changed since: a
+     * stone switched off, archived, of an archived brand, or of a type the
+     * service no longer takes. Changing the service holds none.
      *
      * An answer that means "same as the stone" (`links_to_stone`) needs a stone
      * row to be the same as, so it is refused while Regray is to recommend one.
@@ -237,6 +248,8 @@ class StoreInquiryRequest extends FormRequest
 
                 $projects = $this->projectsInput();
                 $held = $this->heldServiceSlugs();
+                $heldStones = $this->heldStoneSlugs();
+                $shownStones = $this->shownStoneSlugsFor($projects);
                 $stoneTypeIds = $this->stoneTypeIdsFor($projects);
                 $stoneBrands = $this->stoneBrandSlugsFor($projects);
 
@@ -249,12 +262,21 @@ class StoreInquiryRequest extends FormRequest
                         $validator->errors()->add("projects.{$index}.serviceId", 'That choice is no longer available.');
                     }
 
-                    $linked = $service->stoneTypes->modelKeys();
+                    // A new stone's type has to be switched on; an inactive one is off the Inquire page.
+                    $linked = $service->stoneTypes->where('is_active', true)->modelKeys();
+                    // The stones it already has stay while it keeps its service, whatever has changed since.
+                    $keepsService = in_array($service->slug, $held, true);
                     // The Brand answer keeps the stones to those brands; No preference keeps none out.
                     $chosenBrands = filter_var($project['brandNoPreference'] ?? false, FILTER_VALIDATE_BOOLEAN) ? [] : (array) ($project['brands'] ?? []);
 
                     foreach ($project['stones'] ?? [] as $row => $stone) {
-                        if (! in_array($stoneTypeIds[$stone['stoneId']] ?? null, $linked, true)) {
+                        if ($keepsService && in_array($stone['stoneId'], $heldStones, true)) {
+                            continue;
+                        }
+
+                        if (! in_array($stone['stoneId'], $shownStones, true)) {
+                            $validator->errors()->add("projects.{$index}.stones.{$row}.stoneId", 'That stone is no longer available.');
+                        } elseif (! in_array($stoneTypeIds[$stone['stoneId']] ?? null, $linked, true)) {
                             $validator->errors()->add("projects.{$index}.stones.{$row}.stoneId", 'That stone is not offered for this service.');
                         } elseif ($chosenBrands !== [] && ! in_array($stoneBrands[$stone['stoneId']] ?? null, $chosenBrands, true)) {
                             $validator->errors()->add("projects.{$index}.stones.{$row}.stoneId", "That stone isn't from the brands you chose.");
@@ -283,9 +305,74 @@ class StoreInquiryRequest extends FormRequest
                             $validator->errors()->add("projects.{$index}.answers.{$field->slug}", "{$option->name} needs a stone. Choose another ".Str::lower($field->name).'.');
                         }
                     }
+
+                    $this->checkCustomAnswers($validator, $index, $project, $service);
+                    $this->checkSizeByShape($validator, $index, $project, $service);
                 }
             },
         ];
+    }
+
+    /**
+     * A custom choice ("Custom shape") has to be described: its description
+     * comes as `customAnswers.{slug}`, at most TEXT_MAX characters. Any other
+     * choice takes none, so one sent with it is ignored (inquiryInput()). A
+     * refusal is shown on the question itself, as the page shows the box
+     * under it.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkCustomAnswers(Validator $validator, int $index, array $project, Service $service): void
+    {
+        foreach ($this->projectQuestions($service) as $field) {
+            $picked = $project['answers'][$field->slug] ?? null;
+            $option = $field->answer_type === DetailAnswerType::Choice && is_string($picked) ? $field->closedOption($picked) : null;
+
+            if ($option === null || ! $option->is_custom) {
+                continue;
+            }
+
+            $text = trim((string) ($project['customAnswers'][$field->slug] ?? ''));
+
+            if ($text === '') {
+                $validator->errors()->add("projects.{$index}.answers.{$field->slug}", 'Describe your '.Str::lower($option->name).'.');
+            } elseif (mb_strlen($text) > self::TEXT_MAX) {
+                $validator->errors()->add("projects.{$index}.answers.{$field->slug}", 'Keep the description to '.self::TEXT_MAX.' characters or fewer.');
+            }
+        }
+    }
+
+    /**
+     * Where a service asks both the table shape and the furniture size, the
+     * size is written the way the shape asks it (FurnitureSize): a round
+     * table's diameter, or width x length. A shape that asks it in the
+     * client's own words, or no shape yet, leaves it free; so does a size an
+     * edit already has.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkSizeByShape(Validator $validator, int $index, array $project, Service $service): void
+    {
+        $asked = $this->projectQuestions($service)->keyBy('slug');
+        $shape = $asked->get(DetailField::TABLE_SHAPE);
+        $size = trim((string) ($project['answers'][DetailField::SIZE] ?? ''));
+        $picked = $project['answers'][DetailField::TABLE_SHAPE] ?? null;
+
+        if ($shape === null || ! $asked->has(DetailField::SIZE) || $size === '' || ! is_string($picked)) {
+            return;
+        }
+
+        $kind = $shape->closedOption($picked)?->size_kind;
+
+        if ($kind === null || in_array($size, $this->heldAnswers()[DetailField::SIZE] ?? [], true)) {
+            return;
+        }
+
+        $problem = FurnitureSize::problem($kind, $size);
+
+        if ($problem !== null) {
+            $validator->errors()->add("projects.{$index}.answers.".DetailField::SIZE, $problem);
+        }
     }
 
     /**
@@ -428,6 +515,41 @@ class StoreInquiryRequest extends FormRequest
     }
 
     /**
+     * The stones a project may keep although they are no longer offered: an
+     * edit's own, while it keeps its service. A new inquiry has none.
+     *
+     * @return list<string>
+     */
+    protected function heldStoneSlugs(): array
+    {
+        return [];
+    }
+
+    /**
+     * The brands a project may keep although they are no longer offered: an
+     * edit's own. A new inquiry has none.
+     *
+     * @return list<string>
+     */
+    protected function heldBrandSlugs(): array
+    {
+        return [];
+    }
+
+    /**
+     * The answers a project may keep although they are no longer offered, by
+     * question slug: an edit's own edge profiles and finishes (by name) and
+     * project answers (as the form sends them), since switched off, archived
+     * or taken off the list. A new inquiry has none.
+     *
+     * @return array<string, list<string>>
+     */
+    protected function heldAnswers(): array
+    {
+        return [];
+    }
+
+    /**
      * The projects as sent, before validation has had its say: only the
      * entries that are arrays, by their index.
      *
@@ -449,7 +571,7 @@ class StoreInquiryRequest extends FormRequest
     private function serviceOf(array $project): ?Service
     {
         $this->services ??= Service::query()
-            ->with(['serviceType', 'stoneTypes:stone_types.id', 'detailFields.options'])
+            ->with(['serviceType', 'stoneTypes:stone_types.id,stone_types.is_active', 'detailFields.options.services:services.id'])
             ->whereIn('slug', array_values(array_unique(array_filter(
                 array_column($this->projectsInput(), 'serviceId'),
                 'is_string',
@@ -504,7 +626,7 @@ class StoreInquiryRequest extends FormRequest
 
             $rules["{$prefix}.stones.*.{$key}"] = $field === null
                 ? ['prohibited']
-                : [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field)];
+                : [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field, $service)];
         }
 
         $questions = $this->projectQuestions($service);
@@ -514,7 +636,7 @@ class StoreInquiryRequest extends FormRequest
             : ['nullable', 'array:'.$questions->pluck('slug')->implode(',')];
 
         foreach ($questions as $field) {
-            $rules["{$prefix}.answers.{$field->slug}"] = [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field)];
+            $rules["{$prefix}.answers.{$field->slug}"] = [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field, $service)];
         }
 
         return $rules;
@@ -523,11 +645,14 @@ class StoreInquiryRequest extends FormRequest
     /**
      * What one answer has to be, by its question's answer type. A closed list
      * is checked against its active options (edge profile and finish against
-     * their own tables, by name); a free entry only by its type.
+     * their own tables, by name, neither switched off nor archived; a
+     * question's own choices against those offered for the service); a free
+     * entry only by its type. An edit may also keep the answer it already has
+     * (heldAnswers()), offered or not.
      *
      * @return list<mixed>
      */
-    private function answerRules(DetailField $field): array
+    private function answerRules(DetailField $field, Service $service): array
     {
         if ($field->slug === DetailField::QUANTITY) {
             $limits = config('inquiry.limits');
@@ -539,18 +664,23 @@ class StoreInquiryRequest extends FormRequest
             return ['string', $field->slug === DetailField::SLAB_SIZE ? MeasurementRule::slabSize() : MeasurementRule::thickness()];
         }
 
+        $held = $this->heldAnswers()[$field->slug] ?? [];
+
         if ($field->answersFromCatalog()) {
             $table = $field->slug === DetailField::EDGE_PROFILE ? 'edge_profiles' : 'finishes';
 
-            return ['string', Rule::exists($table, 'name')->where('is_active', true)];
+            // Archived from its Products page is no longer offered, as switched off isn't.
+            return ['string', Rule::exists($table, 'name')->where(fn ($rows) => $rows
+                ->where(fn ($offered) => $offered->where('is_active', true)->whereNull('deleted_at'))
+                ->orWhereIn('name', $held))];
         }
 
-        $listed = $field->allows_custom ? [] : [Rule::in($field->suggestions()->pluck('name')->all())];
+        $listed = $field->allows_custom ? [] : [Rule::in([...$field->suggestions()->pluck('name')->all(), ...$held])];
 
         return match ($field->answer_type) {
             DetailAnswerType::Text => ['string', 'max:'.self::TEXT_MAX, ...$listed],
             DetailAnswerType::Number => ['numeric', 'gt:0', 'max:'.self::NUMBER_MAX, ...$listed],
-            DetailAnswerType::Choice => ['string', Rule::in($field->closedOptions()->pluck('slug')->all())],
+            DetailAnswerType::Choice => ['string', Rule::in([...$field->closedOptions($service->id)->pluck('slug')->all(), ...$held])],
             DetailAnswerType::Boolean => ['boolean'],
         };
     }
@@ -585,6 +715,27 @@ class StoreInquiryRequest extends FormRequest
     }
 
     /**
+     * Which of the stones the projects name are shown on Regray: switched
+     * on, not archived, and of a brand not archived.
+     *
+     * @param  array<int, array<string, mixed>>  $projects
+     * @return list<string>
+     */
+    private function shownStoneSlugsFor(array $projects): array
+    {
+        $slugs = [];
+
+        foreach ($projects as $project) {
+            foreach ($project['stones'] ?? [] as $stone) {
+                $slugs[] = $stone['stoneId'];
+            }
+        }
+
+        /** @var list<string> */
+        return Stone::query()->active()->whereIn('slug', array_unique($slugs))->pluck('slug')->all();
+    }
+
+    /**
      * The primary stone type of every stone the projects name, by slug.
      *
      * @param  array<int, array<string, mixed>>  $projects
@@ -601,7 +752,7 @@ class StoreInquiryRequest extends FormRequest
         }
 
         /** @var array<string, int> */
-        return Stone::query()->whereIn('slug', array_unique($slugs))->pluck('stone_type_id', 'slug')->all();
+        return Stone::query()->withTrashed()->whereIn('slug', array_unique($slugs))->pluck('stone_type_id', 'slug')->all();
     }
 
     /**
@@ -621,7 +772,7 @@ class StoreInquiryRequest extends FormRequest
         }
 
         /** @var array<string, string> */
-        return Stone::query()->join('brands', 'brands.id', '=', 'stones.brand_id')
+        return Stone::query()->withTrashed()->join('brands', 'brands.id', '=', 'stones.brand_id')
             ->whereIn('stones.slug', array_unique($slugs))
             ->select(['stones.slug as stone_slug', 'brands.slug as brand_slug'])
             ->pluck('brand_slug', 'stone_slug')->all();
@@ -649,8 +800,9 @@ class StoreInquiryRequest extends FormRequest
         }
 
         $stoneIds = Stone::query()->withTrashed()->whereIn('slug', array_unique($stoneSlugs))->pluck('id', 'slug');
-        $edgeProfileIds = EdgeProfile::query()->pluck('id', 'name');
-        $finishIds = Finish::query()->pluck('id', 'name');
+        // Archived ones too: an edit may keep the one it has (heldAnswers()).
+        $edgeProfileIds = EdgeProfile::query()->withTrashed()->pluck('id', 'name');
+        $finishIds = Finish::query()->withTrashed()->pluck('id', 'name');
         $quantityLimit = (int) config('inquiry.limits.quantity_max');
 
         $brandIds = Brand::query()->pluck('id', 'slug');
@@ -696,7 +848,8 @@ class StoreInquiryRequest extends FormRequest
                 $value = $project['answers'][$field->slug] ?? null;
 
                 if ($value !== null && $value !== '') {
-                    $answers[] = $field->answerAttributes($value);
+                    $custom = $project['customAnswers'][$field->slug] ?? null;
+                    $answers[] = $field->answerAttributes($value, is_string($custom) ? $custom : null);
                 }
             }
 

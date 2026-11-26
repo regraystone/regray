@@ -1,18 +1,17 @@
 import { Head, Link } from '@inertiajs/react';
 import {
     PageIntro,
-    SectionTitle,
     body,
     frame,
     textLink,
 } from '@/components/public/company-ui';
-import { BRAND_CATEGORIES, brandUrl } from '@/components/public/public-links';
+import { brandUrl } from '@/components/public/public-links';
 import PublicLayout from '@/layouts/public-layout';
 import type { LandingBrand } from '@/types/home';
 
-/** A brand in a category: its photo with its logo, what it makes, and the ways in. */
+/** A brand: its photo with its logo, what it makes, and the way to its page. */
 const BrandCard = ({ brand }: { brand: LandingBrand }) => (
-    <article className="flex flex-col gap-5">
+    <article className="flex flex-col gap-5" data-testid="brand-introduction">
         <Link
             href={brandUrl(brand.slug)}
             aria-label={`Discover ${brand.name}`}
@@ -39,54 +38,20 @@ const BrandCard = ({ brand }: { brand: LandingBrand }) => (
                     {brand.description}
                 </p>
             ) : null}
-            <div className="mt-2 flex flex-wrap justify-center gap-x-8 gap-y-3">
-                <Link href={brandUrl(brand.slug)} className={textLink}>
-                    Discover {brand.name}
-                </Link>
-                {brand.websiteUrl ? (
-                    <a
-                        href={brand.websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={textLink}
-                    >
-                        Official website ↗
-                    </a>
-                ) : null}
-            </div>
+            <Link href={brandUrl(brand.slug)} className={`mt-2 ${textLink}`}>
+                Discover {brand.name}
+            </Link>
         </div>
     </article>
 );
 
 /**
- * Our brands: Regray's brands grouped by what they make (Stone & Surfaces,
- * Kitchens, Wardrobes & Doors, Furniture & Interiors), each with its photo,
- * logo, description, page and official website. A brand in no group is
- * listed at the end.
+ * Our brands: the one page the menu's Our brands opens, introducing every
+ * brand of the group, each once, in the order the admin sets on the Brands
+ * page: its photo with its logo, what it makes, and its page. Not grouped by
+ * what they make: this page only introduces the brands.
  */
 export default function CompanyBrands({ brands }: { brands: LandingBrand[] }) {
-    const bySlug = new Map(brands.map((brand) => [brand.slug, brand]));
-    const grouped = new Set<string>(
-        BRAND_CATEGORIES.flatMap((category) => [...category.slugs]),
-    );
-    const others = brands.filter((brand) => !grouped.has(brand.slug));
-    const categories = [
-        ...BRAND_CATEGORIES.map((category) => ({
-            ...category,
-            brands: category.slugs.flatMap((slug) => {
-                const brand = bySlug.get(slug);
-
-                return brand ? [brand] : [];
-            }),
-        })),
-        {
-            id: 'more',
-            label: 'More brands',
-            description: 'The rest of the Regray group.',
-            brands: others,
-        },
-    ].filter((category) => category.brands.length > 0);
-
     return (
         <PublicLayout>
             <Head title="Our brands" />
@@ -98,32 +63,16 @@ export default function CompanyBrands({ brands }: { brands: LandingBrand[] }) {
                 </p>
             </PageIntro>
 
-            {categories.map((category) => (
-                <section
-                    key={category.id}
-                    aria-labelledby={`brands-${category.id}`}
-                    id={category.id}
-                    className={`scroll-mt-24 pb-[clamp(5rem,9vw,8rem)] ${frame}`}
-                >
-                    <SectionTitle
-                        id={`brands-${category.id}`}
-                        title={category.label}
-                    >
-                        {category.description}
-                    </SectionTitle>
-                    <div
-                        className={`mx-auto grid grid-cols-1 gap-x-7 gap-y-14 ${
-                            category.brands.length > 1
-                                ? 'md:grid-cols-2'
-                                : 'max-w-3xl'
-                        } ${category.brands.length > 2 ? 'xl:grid-cols-3' : ''}`}
-                    >
-                        {category.brands.map((brand) => (
-                            <BrandCard key={brand.slug} brand={brand} />
-                        ))}
-                    </div>
-                </section>
-            ))}
+            <section
+                aria-label="The brands"
+                className={`pb-[clamp(5rem,9vw,8rem)] ${frame}`}
+            >
+                <div className="mx-auto grid grid-cols-1 gap-x-7 gap-y-14 md:grid-cols-2 xl:grid-cols-3">
+                    {brands.map((brand) => (
+                        <BrandCard key={brand.slug} brand={brand} />
+                    ))}
+                </div>
+            </section>
         </PublicLayout>
     );
 }

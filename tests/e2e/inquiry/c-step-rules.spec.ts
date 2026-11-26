@@ -119,7 +119,6 @@ test('11 · What do you need: a type, then its services, then what the service i
         'Center Tables',
         'Side Tables',
         'Dining Tables',
-        'Pedestal',
         'Other Customized Furniture',
     ]);
     await page.keyboard.press('Escape');
@@ -417,13 +416,14 @@ test('13 · Stone rows: edge and finish start as "advise me", a blank row needs 
 
     // Each stone's slab size (required), edge and finish are on show, with no
     // "optional"; the notes and files are on show too, with nothing to unfold.
+    // Slab Supply Only's edge has no "*": slabs supplied alone may come uncut.
     await expect(page.locator('#requirements-slab-size-0')).toBeVisible();
     await expect(
         page.locator('label[for="requirements-slab-size-0"]'),
     ).toContainText('Slab size *');
-    await expect(
-        page.locator('label[for="requirements-edge-0"]'),
-    ).toContainText('Edge profile *');
+    await expect(page.locator('label[for="requirements-edge-0"]')).toHaveText(
+        'Edge profile',
+    );
     await expect(page.getByText('(optional)')).toHaveCount(0);
     await expect(notesField(page)).toBeVisible();
     await expect(

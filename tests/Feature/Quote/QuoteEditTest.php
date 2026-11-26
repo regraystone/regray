@@ -19,6 +19,7 @@ use App\Repositories\Eloquent\EloquentInquiryRepository;
 use App\Services\InquiryStatusRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Support\SessionKey;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -123,6 +124,50 @@ describe('the edit page', function (): void {
                 ->where('projects.0.stones.0.edge', EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'))
                 ->missing('projects.0.landmark')
                 ->missing('projects.0.areaSqm'));
+    });
+
+    it('fills a custom choice with its description beside it, and keeps a pictured choice taken off its list', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput([
+            'serviceId' => 'center-tables',
+            'answers' => [...inquiryAnswers('center-tables'), 'table_shape' => 'custom-shape', 'size' => 'About 2 m', 'table_base_design_center' => 'u-base'],
+            'customAnswers' => ['table_shape' => 'An L-shaped top'],
+        ])]);
+        DB::table('detail_field_options')->where('slug', 'u-base')->update(['archived_at' => now(), 'is_active' => false]);
+
+        $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('projects.0.answers.table_shape', 'custom-shape')
+                ->where('projects.0.answers.table_shape:custom', 'An L-shaped top')
+                ->where('projects.0.answers.table_base_design_center', 'u-base')
+                ->where('projects.0.heldChoices.table_base_design_center.0.value', 'u-base')
+                ->where('projects.0.heldChoices.table_base_design_center.0.image', '/storage/question-choices/f0f2b8e6a82e4d9b9424537c84935f04.jpg'));
+
+        // Sent back unchanged, the archived base stands.
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'serviceId' => 'center-tables',
+                'answers' => [...inquiryAnswers('center-tables'), 'table_shape' => 'custom-shape', 'size' => 'About 2 m', 'table_base_design_center' => 'u-base'],
+                'customAnswers' => ['table_shape' => 'An L-shaped top, wider'],
+            ])]])
+            ->assertSessionHasNoErrors();
+
+        expect($inquiry->detailAnswers()->with(['detailField', 'option'])->get()->map->displayValue()->all())
+            ->toContain('Custom Shape: An L-shaped top, wider', 'U-Base');
+    });
+
+    it('sends the listed answers and brands it already has, so the edit shows them though taken off their lists', function (): void {
+        // A service that asks for an edge profile.
+        $stone = Stone::query()->offeredFor(inquiryService('slab-supply-and-installation'))->orderBy('id')->firstOrFail();
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'slab-supply-and-installation', 'brandNoPreference' => '0', 'brands' => [$stone->brand->slug]])]);
+        $row = $inquiry->stones()->with(['edgeProfile', 'finish'])->sole();
+        $row->finish->delete();
+        $stone->brand->forceFill(['archived_at' => now()])->save();
+
+        $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('projects.0.heldChoices.finish', [['value' => $row->finish->name, 'label' => $row->finish->name, 'isAdvisory' => false]])
+                ->where('projects.0.heldChoices.edge_profile.0.value', $row->edgeProfile->name)
+                ->where('projects.0.heldBrands.0.id', $stone->brand->slug));
     });
 
     it('fills a slab row with its size and thickness as the labels the form holds, and the stone\'s slabs on its card', function (): void {
@@ -250,21 +295,107 @@ describe('saving the edit', function (): void {
             ->and(AuditLog::query()->sole()->new_values['service_id'])->toBe($flooring);
     });
 
-    it('keeps the inquiry\'s own stone only while it still fits the service', function (): void {
+    it('keeps the inquiry\'s own stone while it keeps its service, though the service no longer takes its type', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
-
-        $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['notes' => 'Second floor.'])]])
-            ->assertSessionHasNoErrors();
-
         $stone = $inquiry->stones()->sole()->stone;
-        Service::query()->where('slug', 'slab-supply-only')->firstOrFail()->stoneTypes()->detach($stone->stone_type_id);
+        $service = Service::query()->where('slug', 'slab-supply-only')->firstOrFail();
+        $service->stoneTypes()->detach($stone->stone_type_id);
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['notes' => 'Third floor.', 'stones' => [inquiryStoneRow(overrides: ['stoneId' => $stone->slug])]])]])
-            ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
+            ->assertSessionHasNoErrors();
 
-        expect($inquiry->fresh()->notes)->toBe('Second floor.');
+        expect($inquiry->fresh()->notes)->toBe('Third floor.')
+            ->and($inquiry->stones()->sole()->stone_id)->toBe($stone->id);
+
+        // Another stone of that type is not the inquiry's own, so it is not offered.
+        $other = Stone::factory()->for($stone->brand)->create(['stone_type_id' => $stone->stone_type_id]);
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['stones' => [inquiryStoneRow(overrides: ['stoneId' => $other->slug])]])]])
+            ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is not offered for this service.']);
+    });
+
+    it('keeps the inquiry\'s own stone though it is switched off, archived, or its brand archived since', function (Closure $change): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        $stone = $inquiry->stones()->sole()->stone;
+        $change($stone);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['notes' => 'Third floor.', 'stones' => [inquiryStoneRow(overrides: ['stoneId' => $stone->slug])]])]])
+            ->assertSessionHasNoErrors();
+
+        expect($inquiry->fresh()->notes)->toBe('Third floor.')
+            ->and($inquiry->stones()->sole()->stone_id)->toBe($stone->id);
+    })->with([
+        'switched off' => [fn (Stone $stone) => $stone->update(['is_active' => false])],
+        'archived' => [fn (Stone $stone) => $stone->delete()],
+        'its brand archived' => [fn (Stone $stone) => $stone->brand->forceFill(['archived_at' => now()])->save()],
+    ]);
+
+    it('holds no stone of its own once the service changes', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen'])]);
+        $stone = $inquiry->stones()->sole()->stone;
+        $stone->update(['is_active' => false]);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'serviceId' => 'flooring',
+                'answers' => inquiryAnswers('flooring'),
+                'stones' => [inquiryStoneRow('flooring', ['stoneId' => $stone->slug])],
+            ])]])
+            ->assertSessionHasErrors(['projects.0.stones.0.stoneId' => 'That stone is no longer available.']);
+    });
+
+    it('keeps the inquiry\'s own edge profile, finish and answers though taken off their lists since', function (): void {
+        // A service that asks for an edge profile.
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'serviceId' => 'slab-supply-and-installation'])]);
+        $row = $inquiry->stones()->with(['edgeProfile', 'finish'])->sole();
+        $row->edgeProfile->update(['is_active' => false]);
+        $row->finish->delete();
+        $choice = $inquiry->detailAnswers()->with(['detailField', 'option'])->get()->first(fn ($answer) => $answer->option !== null);
+        $choice?->option->update(['is_active' => false]);
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'serviceId' => 'slab-supply-and-installation',
+                'notes' => 'Third floor.',
+                'stones' => [inquiryStoneRow('slab-supply-and-installation', ['stoneId' => $row->stone->slug, 'edge' => $row->edgeProfile->name, 'finish' => $row->finish->name])],
+            ])]])
+            ->assertSessionHasNoErrors();
+
+        $kept = $inquiry->stones()->sole();
+        expect($inquiry->fresh()->notes)->toBe('Third floor.')
+            ->and($kept->edge_profile_id)->toBe($row->edge_profile_id)
+            ->and($kept->finish_id)->toBe($row->finish_id);
+
+        if ($choice !== null) {
+            expect($inquiry->detailAnswers()->where('detail_field_id', $choice->detail_field_id)->value('option_id'))->toBe($choice->option_id);
+        }
+
+        // One the inquiry never had is still refused.
+        $retired = EdgeProfile::query()->create(['name' => 'Retired', 'is_advisory' => false, 'is_active' => false, 'sort_order' => 9]);
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'serviceId' => 'slab-supply-and-installation',
+                'stones' => [inquiryStoneRow('slab-supply-and-installation', ['stoneId' => $row->stone->slug, 'edge' => $retired->name, 'finish' => $row->finish->name])],
+            ])]])
+            ->assertSessionHasErrors('projects.0.stones.0.edge');
+    });
+
+    it('keeps the inquiry\'s own brand though archived since', function (): void {
+        $stone = Stone::query()->offeredFor(inquiryService('slab-supply-only'))->orderBy('id')->firstOrFail();
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'brandNoPreference' => '0', 'brands' => [$stone->brand->slug]])]);
+        $stone->brand->forceFill(['archived_at' => now()])->save();
+
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'notes' => 'Third floor.', 'brandNoPreference' => '0', 'brands' => [$stone->brand->slug],
+                'stones' => [inquiryStoneRow(overrides: ['stoneId' => $stone->slug])],
+            ])]])
+            ->assertSessionHasNoErrors();
+
+        expect($inquiry->fresh()->notes)->toBe('Third floor.')
+            ->and($inquiry->brands()->pluck('slug')->all())->toBe([$stone->brand->slug]);
     });
 
     it('refuses a change of service that leaves a stone the new service does not offer, for the client and for staff', function (): void {
@@ -285,12 +416,12 @@ describe('saving the edit', function (): void {
     });
 
     it('opens the edit on the stones and stone types of the inquiry\'s service', function (): void {
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal'])]);
-        $storage = Service::query()->where('slug', 'pedestal')->firstOrFail();
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'other-customized-furniture'])]);
+        $storage = Service::query()->where('slug', 'other-customized-furniture')->firstOrFail();
 
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('stoneFilters.service', 'pedestal')
+                ->where('stoneFilters.service', 'other-customized-furniture')
                 ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === $storage->stoneTypes->pluck('slug')->sort()->values()->all())
                 ->where('stones.data', fn ($stones) => collect($stones)->every(fn ($stone) => in_array($stone['type']['slug'], $storage->stoneTypes->pluck('slug')->all(), true))));
     });

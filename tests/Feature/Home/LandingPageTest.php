@@ -17,20 +17,14 @@ beforeEach(function (): void {
     ]);
 });
 
-test('a guest sees the three latest published showcases as news, newest first', function (): void {
-    Showcase::query()->where('slug', 'ginza-one')->update(['completed_year' => 2030]);
-    Showcase::query()->where('slug', 'ayala-land')->update(['is_published' => false]);
+test('a guest sees News as one general photo, so the page sends no showcases', function (): void {
+    expect(Showcase::query()->where('is_published', true)->count())->toBeGreaterThan(0);
 
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('landing')
-            ->has('showcases', 3)
-            ->where('showcases.0.slug', 'ginza-one')
-            ->where('showcases.0.completedYear', 2030)
-            ->where('showcases', fn ($showcases): bool => collect($showcases)->doesntContain('slug', 'ayala-land'))
-            ->has('showcases.0', fn (Assert $showcase) => $showcase
-                ->hasAll(['slug', 'name', 'location', 'completedYear', 'thumbnail'])));
+            ->missing('showcases'));
 });
 
 test('a guest sees the active brands with what each one makes', function (): void {
@@ -47,5 +41,5 @@ test('a guest sees the active brands with what each one makes', function (): voi
             // A brand with no description shows its tagline instead.
             ->where('brands', fn ($brands): bool => collect($brands)->firstWhere('slug', 'faer')['description'] === $faer->tagline)
             ->has('brands.0', fn (Assert $brand) => $brand
-                ->hasAll(['slug', 'name', 'description', 'websiteUrl', 'logo', 'thumbnail'])));
+                ->hasAll(['slug', 'name', 'description', 'logo', 'thumbnail'])));
 });

@@ -1,22 +1,17 @@
 import { Link } from '@inertiajs/react';
-import { CONTACT, SHOWROOM, SOCIALS } from '@/components/public/public-links';
+import { CONTACT, SHOWROOM } from '@/components/public/public-links';
+import Wordmark from '@/components/wordmark';
 import { home, login } from '@/routes';
 import { about, brands, contact, news, showroom } from '@/routes/company';
 
-/** Regray Stone's own website. */
-const REGRAY_SITE = 'https://regraystone.com/';
-
-/** The wordmark, painted white: the transparent PNG masks the colour. */
-const WORDMARK = '/images/regray_logo.png';
-
-const links: { label: string; href: string; external?: boolean }[] = [
+/** The group's own pages. Regray Stone's website and social accounts are not here: the footer speaks for the whole group of brands. */
+const links: { label: string; href: string }[] = [
     { label: 'The group', href: about.url() },
     { label: 'Our brands', href: brands.url() },
     { label: 'Showroom', href: showroom.url() },
     { label: 'News', href: news.url() },
     { label: 'Contact', href: contact.url() },
     { label: 'Client login', href: login.url() },
-    { label: 'Regraystone.com', href: REGRAY_SITE, external: true },
 ];
 
 /** The size and case of the header's menu, so the two read alike. */
@@ -25,12 +20,13 @@ const linkClass =
 
 /**
  * The public pages' black footer, kept short. On a phone it is one centred
- * column: the wordmark, the main pages, Regray's social accounts and the
- * copyright, then the showroom's address, hours and how to reach the team.
- * From a tablet up it spreads out: the wordmark and the showroom on the left,
- * the pages in two columns on the right (on a desktop the showroom takes a
- * third column), and the social accounts and copyright on a ruled line along
- * the foot.
+ * column: the wordmark, the main pages and the copyright, then the showroom's
+ * address, hours and how to reach the team. From a tablet up it spreads out:
+ * the wordmark and the showroom on the left, the pages in two columns on the
+ * right (on a desktop the showroom takes a third column), and the copyright
+ * on a ruled line along the foot. It speaks for the whole group, so Regray
+ * Stone's own website and social accounts are not in it (the Contact page
+ * still lists the social accounts).
  */
 export default function PublicFooter() {
     return (
@@ -38,23 +34,10 @@ export default function PublicFooter() {
             <div className="flex flex-col items-center gap-[clamp(3rem,6vw,4.5rem)] text-center md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-x-16 md:gap-y-14 md:text-left lg:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)] lg:gap-x-[clamp(4rem,7vw,8rem)]">
                 <Link
                     href={home()}
-                    aria-label="Regray home"
-                    className="md:col-start-1 md:row-start-1"
+                    aria-label="Regray Design Group home"
+                    className="text-xl md:col-start-1 md:row-start-1 md:text-2xl"
                 >
-                    <span
-                        aria-hidden
-                        className="block aspect-[426/76.5] h-5 bg-white md:h-6"
-                        style={{
-                            maskImage: `url(${WORDMARK})`,
-                            maskSize: 'contain',
-                            maskRepeat: 'no-repeat',
-                            maskPosition: 'center',
-                            WebkitMaskImage: `url(${WORDMARK})`,
-                            WebkitMaskSize: 'contain',
-                            WebkitMaskRepeat: 'no-repeat',
-                            WebkitMaskPosition: 'center',
-                        }}
-                    />
+                    <Wordmark />
                 </Link>
 
                 <nav
@@ -64,48 +47,17 @@ export default function PublicFooter() {
                     <ul className="flex flex-col items-center gap-5 md:grid md:grid-cols-2 md:items-start md:gap-x-14 md:gap-y-4">
                         {links.map((link) => (
                             <li key={link.label}>
-                                {link.external ? (
-                                    <a
-                                        href={link.href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={linkClass}
-                                    >
-                                        {link.label}
-                                    </a>
-                                ) : (
-                                    <Link
-                                        href={link.href}
-                                        className={linkClass}
-                                    >
-                                        {link.label}
-                                    </Link>
-                                )}
+                                <Link href={link.href} className={linkClass}>
+                                    {link.label}
+                                </Link>
                             </li>
                         ))}
                     </ul>
                 </nav>
 
                 <div className="flex flex-col items-center gap-5 md:col-span-full md:row-start-3 md:flex-row md:justify-between md:gap-8 md:border-t md:border-white/20 md:pt-8 lg:row-start-2">
-                    <ul
-                        aria-label="Follow Regray"
-                        className="flex flex-wrap justify-center gap-x-7 gap-y-2 text-[0.9375rem] font-medium md:justify-start"
-                    >
-                        {SOCIALS.map((social) => (
-                            <li key={social.label}>
-                                <a
-                                    href={social.href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="transition-opacity hover:opacity-70"
-                                >
-                                    {social.label}
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
                     <p className="text-sm tracking-[0.04em] text-white/75 uppercase">
-                        © Regray {new Date().getFullYear()}
+                        © Regray Design Group {new Date().getFullYear()}
                     </p>
                 </div>
 

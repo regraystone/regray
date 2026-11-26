@@ -340,14 +340,25 @@ export const clampRestoredStep = (
 
 export const STONE_ADVICE_LABEL = 'Stone to be recommended by Regray';
 
+/** How a table shape asks the size: a round table's diameter, or width x length. */
+export type SizeKind = 'diameter' | 'width_length';
+
 /** One listed answer of a question, as InquiryDetailFieldResource sends it. */
 export type ServiceFieldChoice = {
     value: string;
     label: string;
-    /** The "Not sure yet, advise me" edge profile or finish. */
+    /** The "Not sure yet, advise me" choice, edge profile or finish. */
     isAdvisory?: boolean;
     /** "Same as stone": only a project with a stone row can take it. */
     linksToStone?: boolean;
+    /** "Custom shape" and the like: picking it asks the reader to describe theirs. */
+    isCustom?: boolean;
+    /** What the page says of it once it is picked. */
+    description?: string | null;
+    /** Its picture, for a question asked with picture cards. */
+    image?: string | null;
+    /** For a table shape: how the size is then asked; none takes the reader's own words. */
+    sizeKind?: SizeKind | null;
 };
 
 /**
@@ -364,8 +375,84 @@ export type ServiceField = {
     answerType: 'text' | 'number' | 'choice' | 'boolean';
     required: boolean;
     allowsCustom: boolean;
+    /** Asked with picture cards rather than a dropdown: its choices have pictures. */
+    pictures?: boolean;
     options: ServiceFieldChoice[];
     suggestions: ServiceFieldChoice[];
+};
+
+/**
+ * Where a custom choice's description is held among a project's answers:
+ * after its question's slug, `table_shape:custom`. A slug never has a colon,
+ * so it never meets a question's own answer. The server reads it from
+ * `customAnswers[slug]` and sends it back the same way
+ * (InquiryDetailFieldResource::CUSTOM_SUFFIX).
+ */
+export const customAnswerKey = (slug: string): string => `${slug}:custom`;
+
+/** The choice an answer picked, or undefined. */
+export const pickedChoice = (
+    field: Pick<ServiceField, 'options'>,
+    value: string | undefined,
+): ServiceFieldChoice | undefined =>
+    value === undefined || value === ''
+        ? undefined
+        : field.options.find((option) => option.value === value);
+
+/**
+ * Why a custom choice's description is refused, or null: a custom choice has
+ * to be described, in at most ANSWER_TEXT_MAX characters. Any other choice
+ * takes none. Worded as StoreInquiryRequest words it.
+ */
+export const customAnswerProblem = (
+    field: ServiceField,
+    value: string | undefined,
+    description: string | undefined,
+): string | null => {
+    const choice = pickedChoice(field, value);
+
+    if (choice?.isCustom !== true) {
+        return null;
+    }
+
+    const written = (description ?? '').trim();
+
+    if (written === '') {
+        return `Describe your ${choice.label.toLowerCase()}.`;
+    }
+
+    return written.length > ANSWER_TEXT_MAX
+        ? `Keep the description to ${ANSWER_TEXT_MAX} characters or fewer.`
+        : null;
+};
+
+/** The furniture size, asked by the table shape where a service asks both. */
+export const SIZE_FIELD = 'size';
+
+/** The table shape, whose choice says how the size is asked. */
+export const TABLE_SHAPE_FIELD = 'table_shape';
+
+/**
+ * How a project's size is asked, by the table shape it picked: a round
+ * table's diameter, width x length, or null for the reader's own words (an
+ * organic or custom shape, not sure, no shape yet, or a service that asks
+ * one without the other).
+ */
+export const sizeKindFor = (
+    service: Pick<ServiceOption, 'fields'> | undefined,
+    answers: Record<string, string>,
+): SizeKind | null => {
+    const fields = service?.fields ?? [];
+    const shape = fields.find(({ slug }) => slug === TABLE_SHAPE_FIELD);
+
+    if (
+        shape === undefined ||
+        !fields.some(({ slug }) => slug === SIZE_FIELD)
+    ) {
+        return null;
+    }
+
+    return pickedChoice(shape, answers[TABLE_SHAPE_FIELD])?.sizeKind ?? null;
 };
 
 /**
@@ -500,8 +587,13 @@ export const MEASUREMENT_FIELDS = {
     thickness: 'thickness',
 } as const;
 
+/**
+ * A measurement's kind: a width x length (a slab, or a rectangular table), a
+ * thickness, or a round table's diameter (asked by its table shape).
+ */
 export type MeasurementKind =
-    (typeof MEASUREMENT_FIELDS)[keyof typeof MEASUREMENT_FIELDS];
+    | (typeof MEASUREMENT_FIELDS)[keyof typeof MEASUREMENT_FIELDS]
+    | 'diameter';
 
 /** Whether a question is answered with a measurement, and which kind, or null. */
 export const measurementKind = (
@@ -522,6 +614,67 @@ const THICKNESS_PATTERN = new RegExp(
     String.raw`^(${NUMBER})\s*(${THICKNESS_UNITS.join('|')})$`,
     'i',
 );
+const DIAMETER_PATTERN = new RegExp(
+    String.raw`^Ø\s*(${NUMBER})\s*(${SIZE_UNITS.join('|')})$`,
+    'i',
+);
+
+export type Diameter = { value: string; unit: SizeUnit };
+
+/** "Ø 120 cm", as a round table's size is written. */
+export const formatDiameter = ({ value, unit }: Diameter): string =>
+    `Ø ${formatMeasure(value)} ${unit}`;
+
+/** A written diameter, read as the server's FurnitureSize reads it. */
+export const parseDiameter = (written: string): Diameter | null => {
+    const match = DIAMETER_PATTERN.exec(written.trim());
+
+    return match === null
+        ? null
+        : { value: match[1], unit: match[2].toLowerCase() as SizeUnit };
+};
+
+/**
+ * Why a table's size does not fit its shape, or null when it does, in the
+ * words FurnitureSize uses: a round table's diameter ("Ø 120 cm"), or width
+ * x length ("120 x 80 cm").
+ */
+export const furnitureSizeProblem = (
+    kind: SizeKind,
+    written: string,
+): string | null => {
+    if (kind === 'width_length') {
+        const size = parseSlabSize(written);
+
+        if (size === null) {
+            return 'Enter the size as width x length and a unit, like 120 x 80 cm.';
+        }
+
+        const sides = [Number(size.width), Number(size.length)];
+
+        if (sides.some((side) => side <= 0)) {
+            return 'Enter a size greater than 0.';
+        }
+
+        return sides.some((side) => side > SIZE_MAX)
+            ? 'Enter a smaller size.'
+            : null;
+    }
+
+    const diameter = parseDiameter(written);
+
+    if (diameter === null) {
+        return 'Enter the diameter and a unit, like Ø 120 cm.';
+    }
+
+    if (Number(diameter.value) <= 0) {
+        return 'Enter a diameter greater than 0.';
+    }
+
+    return Number(diameter.value) > SIZE_MAX
+        ? 'Enter a smaller diameter.'
+        : null;
+};
 
 /**
  * A measured number as every page writes it, as the server's Measurement
@@ -577,6 +730,10 @@ export const measurementProblem = (
     kind: MeasurementKind,
     written: string,
 ): string | null => {
+    if (kind === 'diameter') {
+        return furnitureSizeProblem('diameter', written);
+    }
+
     if (kind === 'size') {
         const size = parseSlabSize(written);
 
@@ -1234,6 +1391,16 @@ export const buildInquiryFormData = (
                         : '0'
                     : value,
             );
+
+            // A custom choice goes with the reader's description of it.
+            if (pickedChoice(question, value)?.isCustom === true) {
+                body.append(
+                    `${field('customAnswers')}[${question.slug}]`,
+                    (
+                        project.answers[customAnswerKey(question.slug)] ?? ''
+                    ).trim(),
+                );
+            }
         }
 
         if (project.brandNoPreference) {
@@ -1406,6 +1573,58 @@ export const readInquiryFlash = (flash: unknown): InquiryFlash | null => {
 /* Editing a sent inquiry                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The service types with each edited inquiry's own listed answers added to
+ * its service's questions, where they are no longer offered: a closed list's
+ * among its options, a listed value among its suggestions. The edit then
+ * shows them and its checks take them, as the server keeps them
+ * (UpdateInquiryRequest). A new inquiry has none.
+ */
+export const withHeldChoices = (
+    serviceTypes: ServiceTypeOption[],
+    projects: ReadonlyArray<{
+        serviceId: string | null;
+        heldChoices?: Record<string, ServiceFieldChoice[]>;
+    }>,
+): ServiceTypeOption[] =>
+    projects.reduce((types, { serviceId, heldChoices }) => {
+        if (serviceId === null || heldChoices === undefined) {
+            return types;
+        }
+
+        return types.map((type) => ({
+            ...type,
+            services: type.services.map((service) =>
+                service.id !== serviceId
+                    ? service
+                    : {
+                          ...service,
+                          fields: service.fields.map((field) => {
+                              const held = heldChoices[field.slug] ?? [];
+                              const key =
+                                  field.answerType === 'choice' ||
+                                  field.options.length > 0
+                                      ? 'options'
+                                      : 'suggestions';
+                              const missing = held.filter(
+                                  (choice) =>
+                                      !field[key].some(
+                                          ({ value }) => value === choice.value,
+                                      ),
+                              );
+
+                              return missing.length === 0
+                                  ? field
+                                  : {
+                                        ...field,
+                                        [key]: [...field[key], ...missing],
+                                    };
+                          }),
+                      },
+            ),
+        }));
+    }, serviceTypes);
+
 /** One project as InquiryEditResource sends it. */
 export type InquiryEditProject = {
     id: number;
@@ -1414,6 +1633,15 @@ export type InquiryEditProject = {
     serviceId: string | null;
     /** The service it already has, which may no longer be offered to new inquiries. */
     heldServiceType: ServiceTypeOption | null;
+    /**
+     * The listed answers it already has, by question slug (its edge profiles
+     * and finishes, closed options and listed values), which may since have
+     * been taken off their lists. The page lists them beside what is offered,
+     * so the edit shows and keeps them (withHeldChoices).
+     */
+    heldChoices?: Record<string, ServiceFieldChoice[]>;
+    /** The brands it names, as the Brand question lists them: one may be archived since. */
+    heldBrands?: Array<{ id: string; name: string; logo: string }>;
     /** Its stones as cards, which may be on no page of stones reached yet. */
     heldStones: Array<
         {

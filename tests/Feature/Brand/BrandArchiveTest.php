@@ -113,7 +113,10 @@ it('keeps a saved stone saved, as history', function (): void {
 
     $this->actingAs($this->client)
         ->get(route('saved.index'))
-        ->assertInertia(fn (Assert $page) => $page->where('savedStones.data.0.slug', 'archived-acme-stone'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('savedStones.data.0.slug', 'archived-acme-stone')
+            // Its page is gone, so the card says so rather than link to a 404.
+            ->where('savedStones.data.0.brand.archived', true));
 });
 
 it('keeps a past inquiry\'s stones on it', function (): void {

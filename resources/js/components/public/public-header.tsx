@@ -1,15 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import {
-    HOME_BRAND,
     menuItems,
+    menuRows,
     type MenuLink,
     type MenuPanel,
 } from '@/components/public/public-links';
 import Logo from '@/components/logo';
 import { dashboard, login, register } from '@/routes';
-import type { BrandCardData } from '@/types/home';
 
 /** Below this width the tabs fold into the full-screen menu. */
 const DESKTOP_QUERY = '(min-width: 1180px)';
@@ -97,19 +96,15 @@ const Chevron = ({
  * opens under the header on hover, focus or click: what the tab holds, its
  * main link, its links and a photo, over a dimmed page. Leaving the header,
  * Escape or the dimmed page closes it. Below 1180px the tabs fold into a
- * full-screen menu, the panels as accordions and the pages as links.
+ * full-screen menu, opened by the ☰ button (its lines turn into ✕), whose
+ * sections slide their links in with a chevron and go back with another, as
+ * Poliform's menu does.
  */
 export default function PublicHeader() {
-    const { siteBrands, auth } = usePage<{
-        siteBrands?: BrandCardData[] | null;
-        auth: { user: unknown };
-    }>().props;
+    const { auth } = usePage<{ auth: { user: unknown } }>().props;
     const isSignedIn = auth.user !== null;
     const { url } = usePage();
-    const items = menuItems(
-        siteBrands?.find((brand) => brand.slug === HOME_BRAND)?.thumbnail ??
-            null,
-    );
+    const items = menuItems();
     const firstPanel = items.find(
         (item): item is MenuPanel => item.kind === 'panel',
     );
@@ -117,8 +112,13 @@ export default function PublicHeader() {
     /** The open panel tab's index in `items` from 1180px; -1 when none is. */
     const [open, setOpen] = useState(-1);
     const [menuOpen, setMenuOpen] = useState(false);
-    /** The open accordion in the phone menu; -1 when none is. */
-    const [accordion, setAccordion] = useState(0);
+    /** The section whose links the phone menu has slid in, by index in `items`; -1 for the menu itself. */
+    const [sub, setSub] = useState(-1);
+    /** The last section slid in, kept while it slides out again, so going back wipes its links away rather than blanking them. */
+    const [shown, setShown] = useState(-1);
+    const subSection = shown >= 0 ? items[shown] : undefined;
+    const backButton = useRef<HTMLButtonElement>(null);
+    const sectionButtons = useRef<Array<HTMLButtonElement | null>>([]);
     const openItem = open >= 0 ? items[open] : undefined;
     const current =
         openItem?.kind === 'panel' ? openItem : (firstPanel as MenuPanel);
@@ -130,6 +130,7 @@ export default function PublicHeader() {
     const closeAll = () => {
         setOpen(-1);
         setMenuOpen(false);
+        setSub(-1);
     };
 
     // Escape closes whichever menu is open.
@@ -169,6 +170,19 @@ export default function PublicHeader() {
         };
     }, [menuOpen]);
 
+    // Opening a section moves the focus to its back arrow; going back returns it
+    // to the section's own row, so a keyboard or screen reader never loses its place.
+    const openSection = (index: number) => {
+        setSub(index);
+        setShown(index);
+        window.setTimeout(() => backButton.current?.focus(), 0);
+    };
+    const closeSection = () => {
+        const from = sub;
+        setSub(-1);
+        window.setTimeout(() => sectionButtons.current[from]?.focus(), 0);
+    };
+
     const accountLinks = isSignedIn
         ? [{ label: 'Dashboard', href: dashboard.url(), primary: true }]
         : [
@@ -188,7 +202,7 @@ export default function PublicHeader() {
                     }`}
                 >
                     <div onMouseEnter={() => setOpen(-1)}>
-                        <Logo className="[&>span:first-child]:h-5" />
+                        <Logo className="text-[0.9375rem] min-[360px]:text-[1.0625rem] sm:text-xl" />
                     </div>
 
                     <nav
@@ -265,9 +279,31 @@ export default function PublicHeader() {
                         onClick={() => setMenuOpen((now) => !now)}
                         aria-expanded={menuOpen}
                         aria-controls="public-menu"
-                        className="min-h-11 px-1 text-base font-semibold min-[1180px]:hidden"
+                        aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+                        className="-mr-2 flex size-11 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none min-[1180px]:hidden"
                     >
-                        {menuOpen ? 'Close' : 'Menu'}
+                        {/* Three lines, as Poliform's: the middle one shrinks away to the right while the top and bottom turn into an X. */}
+                        <span aria-hidden className="relative block h-4.5 w-6">
+                            <span
+                                className={`absolute right-0 h-0.5 w-full rounded-full bg-foreground transition-all duration-300 ease-in-out motion-reduce:transition-none ${
+                                    menuOpen
+                                        ? 'top-[calc(50%-1px)] -rotate-45'
+                                        : 'top-0'
+                                }`}
+                            />
+                            <span
+                                className={`absolute top-[calc(50%-1px)] right-0 h-0.5 w-full origin-right rounded-full bg-foreground transition-transform duration-300 ease-in-out motion-reduce:transition-none ${
+                                    menuOpen ? 'scale-x-0' : 'scale-x-100'
+                                }`}
+                            />
+                            <span
+                                className={`absolute right-0 h-0.5 w-full rounded-full bg-foreground transition-all duration-300 ease-in-out motion-reduce:transition-none ${
+                                    menuOpen
+                                        ? 'bottom-[calc(50%-1px)] rotate-45'
+                                        : 'bottom-0'
+                                }`}
+                            />
+                        </span>
                     </button>
                 </div>
 
@@ -290,16 +326,18 @@ export default function PublicHeader() {
                             <p className="font-display text-[clamp(1.375rem,1.8vw,1.75rem)] leading-snug font-light text-pretty">
                                 {current.description}
                             </p>
-                            <MenuAnchor
-                                link={current.cta}
-                                onNavigate={closeAll}
-                                className="mt-2 self-start border-b border-foreground pb-1.5 text-base font-medium transition-opacity hover:opacity-70"
-                            >
-                                {current.cta.label}
-                            </MenuAnchor>
+                            {current.cta ? (
+                                <MenuAnchor
+                                    link={current.cta}
+                                    onNavigate={closeAll}
+                                    className="mt-2 self-start border-b border-foreground pb-1.5 text-base font-medium transition-opacity hover:opacity-70"
+                                >
+                                    {current.cta.label}
+                                </MenuAnchor>
+                            ) : null}
                         </div>
                         <ul className="flex flex-col border-t border-border">
-                            {current.links.map((link, index) => (
+                            {menuRows(current.links).map((link, index) => (
                                 <li
                                     key={`${current.label}-${link.label}`}
                                     style={{
@@ -316,7 +354,11 @@ export default function PublicHeader() {
                                     <MenuAnchor
                                         link={link}
                                         onNavigate={closeAll}
-                                        className="flex items-center justify-between gap-4 py-3.5 font-display text-[clamp(1.125rem,1.3vw,1.25rem)] transition-[padding,color] hover:pl-2 hover:text-muted-foreground motion-reduce:transition-none"
+                                        className={`flex items-center justify-between gap-4 font-display transition-[padding,color] hover:text-muted-foreground motion-reduce:transition-none ${
+                                            link.depth === 1
+                                                ? 'py-2.5 pl-6 text-[clamp(1rem,1.15vw,1.125rem)] text-foreground/80 hover:pl-8'
+                                                : 'py-3.5 text-[clamp(1.125rem,1.3vw,1.25rem)] hover:pl-2'
+                                        }`}
                                     >
                                         {link.label}
                                         <span aria-hidden className="text-sm">
@@ -347,104 +389,66 @@ export default function PublicHeader() {
                 }`}
             />
 
-            {menuOpen ? (
+            {/*
+              The phone menu, as Poliform's: it slides down over the page on a
+              phone and in from the right on a tablet. Each section has a chevron;
+              tapping it nudges the arrow on and wipes that section's links in
+              over the menu, where a back arrow returns, the section's name
+              sliding in beside it. It stays in the page while closed, so it
+              can slide out again, but out of reach (inert) until it opens.
+            */}
+            <div
+                id="public-menu"
+                role="dialog"
+                aria-label="Menu"
+                aria-hidden={!menuOpen}
+                inert={!menuOpen}
+                className={`fixed inset-x-0 top-20 bottom-0 z-40 overflow-hidden bg-background transition-[translate,visibility] duration-600 ease-in-out motion-reduce:transition-none min-[1180px]:hidden ${
+                    menuOpen
+                        ? 'visible translate-0'
+                        : 'invisible max-[575px]:-translate-y-[101%] min-[576px]:translate-x-[101%]'
+                }`}
+            >
                 <div
-                    id="public-menu"
-                    role="dialog"
-                    aria-label="Menu"
-                    className="fixed inset-x-0 top-20 bottom-0 z-40 flex flex-col overflow-auto bg-background px-5 pt-2 pb-8 min-[1180px]:hidden"
+                    inert={sub >= 0}
+                    className="flex h-full flex-col overflow-auto px-5 pt-2 pb-8"
                 >
-                    {items.map((section, index) => {
-                        const expanded = accordion === index;
-
-                        if (section.kind === 'page') {
-                            return (
-                                <Link
-                                    key={section.label}
-                                    href={section.href}
-                                    onClick={closeAll}
-                                    aria-current={
-                                        isHere(section.href)
-                                            ? 'page'
-                                            : undefined
-                                    }
-                                    className="flex min-h-16 items-center border-b border-border font-display text-2xl font-light uppercase"
-                                >
-                                    {section.label}
-                                </Link>
-                            );
-                        }
-
-                        return (
-                            <div
+                    {items.map((section, index) =>
+                        section.kind === 'page' ? (
+                            <Link
                                 key={section.label}
-                                className="border-b border-border"
+                                href={section.href}
+                                onClick={closeAll}
+                                aria-current={
+                                    isHere(section.href) ? 'page' : undefined
+                                }
+                                className="flex min-h-16 items-center border-b border-border font-display text-2xl font-light uppercase"
                             >
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setAccordion(expanded ? -1 : index)
-                                    }
-                                    aria-expanded={expanded}
-                                    className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-4 text-left font-display text-2xl font-light uppercase"
-                                >
-                                    {section.label}
-                                    <Chevron
-                                        open={expanded}
-                                        className="size-6"
-                                    />
-                                </button>
-                                <div
-                                    className={`grid transition-[grid-template-rows] duration-350 ease-out motion-reduce:transition-none ${
-                                        expanded
-                                            ? 'grid-rows-[1fr]'
-                                            : 'grid-rows-[0fr]'
+                                {section.label}
+                            </Link>
+                        ) : (
+                            <button
+                                key={section.label}
+                                ref={(button) => {
+                                    sectionButtons.current[index] = button;
+                                }}
+                                type="button"
+                                onClick={() => openSection(index)}
+                                aria-expanded={sub === index}
+                                aria-controls="public-menu-section"
+                                className="group flex min-h-16 w-full cursor-pointer items-center justify-between gap-4 border-b border-border text-left font-display text-2xl font-light uppercase"
+                            >
+                                {section.label}
+                                <ChevronRight
+                                    aria-hidden
+                                    strokeWidth={1.5}
+                                    className={`size-6 shrink-0 transition-transform duration-400 ease-out group-hover:translate-x-1 motion-reduce:transition-none ${
+                                        sub === index ? 'translate-x-2' : ''
                                     }`}
-                                >
-                                    <div
-                                        className="overflow-hidden"
-                                        inert={!expanded}
-                                    >
-                                        <p className="mb-3 text-[1.0625rem] leading-normal text-muted-foreground">
-                                            {section.description}
-                                        </p>
-                                        <ul className="flex flex-col pb-5">
-                                            {[section.cta, ...section.links]
-                                                .filter(
-                                                    (link, position, all) =>
-                                                        all.findIndex(
-                                                            (other) =>
-                                                                other.href ===
-                                                                link.href,
-                                                        ) === position,
-                                                )
-                                                .map((link) => (
-                                                    <li key={link.label}>
-                                                        <MenuAnchor
-                                                            link={link}
-                                                            onNavigate={
-                                                                closeAll
-                                                            }
-                                                            className="flex min-h-12 items-center gap-3 text-[1.0625rem]"
-                                                        >
-                                                            <span
-                                                                aria-hidden
-                                                                className="text-muted-foreground"
-                                                            >
-                                                                {link.external
-                                                                    ? '↗'
-                                                                    : '›'}
-                                                            </span>
-                                                            {link.label}
-                                                        </MenuAnchor>
-                                                    </li>
-                                                ))}
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
+                                />
+                            </button>
+                        ),
+                    )}
                     <div className="mt-7 flex flex-col gap-3 text-base font-semibold">
                         {[...accountLinks].reverse().map((link) => (
                             <Link
@@ -462,7 +466,103 @@ export default function PublicHeader() {
                         ))}
                     </div>
                 </div>
-            ) : null}
+
+                {/* The open section's links, wiped in from the right over the menu. */}
+                <div
+                    id="public-menu-section"
+                    aria-hidden={sub < 0}
+                    inert={sub < 0}
+                    className={`absolute inset-0 flex flex-col overflow-auto bg-background px-5 pt-2 pb-8 transition-[clip-path] duration-400 ease-in-out motion-reduce:transition-none ${
+                        sub >= 0
+                            ? '[clip-path:inset(0_0_0_0)]'
+                            : 'pointer-events-none [clip-path:inset(0_0_0_100%)]'
+                    }`}
+                >
+                    {subSection?.kind === 'panel' ? (
+                        <>
+                            <button
+                                ref={backButton}
+                                type="button"
+                                onClick={closeSection}
+                                className="group flex min-h-16 w-full cursor-pointer items-center gap-4 border-b border-border text-left"
+                            >
+                                <ChevronLeft
+                                    aria-hidden
+                                    strokeWidth={1.5}
+                                    className="size-6 shrink-0 transition-transform duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none"
+                                />
+                                <span className="sr-only">
+                                    Back to the menu:{' '}
+                                </span>
+                                {/* The name slides in from behind the arrow, as Poliform's back label does. */}
+                                <span className="overflow-hidden">
+                                    <span
+                                        className={`block font-display text-2xl font-light uppercase transition-transform duration-400 ease-in-out motion-reduce:transition-none ${
+                                            sub >= 0
+                                                ? 'translate-x-0'
+                                                : '-translate-x-24'
+                                        }`}
+                                    >
+                                        {subSection.label}
+                                    </span>
+                                </span>
+                            </button>
+                            <p className="mt-5 text-[1.0625rem] leading-normal text-muted-foreground">
+                                {subSection.description}
+                            </p>
+                            {/* The section's main link, under its line as on a laptop; its list holds only its links. */}
+                            {subSection.cta ? (
+                                <MenuAnchor
+                                    link={subSection.cta}
+                                    onNavigate={closeAll}
+                                    className="mt-3 mb-4 self-start border-b border-foreground pb-1 text-[1.0625rem] font-medium"
+                                >
+                                    {subSection.cta.label}
+                                </MenuAnchor>
+                            ) : (
+                                <span className="mb-4" />
+                            )}
+                            <ul className="flex flex-col border-t border-border">
+                                {menuRows(subSection.links)
+                                    .filter(
+                                        (link) =>
+                                            link.href !== subSection.cta?.href,
+                                    )
+                                    .map((link, index, rows) => (
+                                        <li
+                                            key={link.label}
+                                            // A group's links share one line under its last.
+                                            className={
+                                                link.depth === 1 &&
+                                                rows[index + 1]?.depth === 1
+                                                    ? ''
+                                                    : 'border-b border-border'
+                                            }
+                                        >
+                                            <MenuAnchor
+                                                link={link}
+                                                onNavigate={closeAll}
+                                                className={`group flex items-center justify-between gap-3 ${
+                                                    link.depth === 1
+                                                        ? 'min-h-12 pl-6 text-[1.0625rem] text-foreground/80'
+                                                        : 'min-h-14 text-[1.125rem]'
+                                                }`}
+                                            >
+                                                {link.label}
+                                                <span
+                                                    aria-hidden
+                                                    className="text-muted-foreground transition-transform duration-300 ease-out group-hover:translate-x-1 motion-reduce:transition-none"
+                                                >
+                                                    {link.external ? '↗' : '→'}
+                                                </span>
+                                            </MenuAnchor>
+                                        </li>
+                                    ))}
+                            </ul>
+                        </>
+                    ) : null}
+                </div>
+            </div>
         </>
     );
 }

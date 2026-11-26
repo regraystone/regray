@@ -18,7 +18,7 @@ use Inertia\Response;
 
 /**
  * A brand's page and its collection, for guests and signed-in users alike:
- * what it offers, counted from its products, and the other brands of the
+ * how many of its products are in the catalog, and the other brands of the
  * group.
  */
 class BrandController extends Controller
@@ -40,11 +40,11 @@ class BrandController extends Controller
             'filters' => $result['filters'],
             'filterOptions' => Inertia::once(fn () => [
                 ...$this->stoneRepository->filterOptions(),
-                'furnitureTypes' => FurnitureType::query()->active()->orderBy('sort_order')->pluck('name')
-                    ->map(fn (string $type): array => ['value' => $type, 'label' => $type])
+                'furnitureTypes' => FurnitureType::query()->active()->orderBy('sort_order')->orderBy('name')->get(['slug', 'name'])
+                    ->map(fn (FurnitureType $type): array => ['value' => $type->slug, 'label' => $type->name])
                     ->all(),
             ]),
-            'offer' => $this->brandService->offerings($brand),
+            'offer' => $this->brandService->productCounts($brand),
             'otherBrands' => LandingBrandResource::collection($this->brandService->othersThan($brand))->resolve($request),
         ]);
     }

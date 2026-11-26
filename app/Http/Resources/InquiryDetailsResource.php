@@ -368,6 +368,8 @@ class InquiryDetailsResource extends JsonResource
                 ->map(fn (InquiryDetailAnswer $answer): array => [
                     'label' => $answer->detailField->name,
                     'value' => $answer->displayValue($firstStone),
+                    // A picture choice's picture (a table shape or base), shown beside its name.
+                    'image' => filled($answer->option?->thumbnail_path) ? ShowcaseCardResource::resolveThumbnailUrl((string) $answer->option->thumbnail_path) : null,
                 ])
                 ->all()),
             'brands' => array_values($this->brands->map(fn (Brand $brand): array => ['id' => $brand->slug, 'name' => $brand->name])->all()),

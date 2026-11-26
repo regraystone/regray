@@ -6,9 +6,12 @@ use Database\Factories\FurnitureFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
@@ -25,14 +28,22 @@ use Illuminate\Support\Carbon;
  * @property int $sort_order
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property Carbon|null $deleted_at Archived (the soft delete) from the Products page.
+ * @property int|null $table_shape_option_id A table's own shape, which its Inquire button picks.
+ * @property int|null $table_base_design_option_id A table's own base design, likewise.
  * @property-read Brand $brand
+ * @property-read DetailFieldOption|null $tableShape
+ * @property-read DetailFieldOption|null $tableBaseDesign
  * @property-read FurnitureType $furnitureType
+ * @property-read Collection<int, FurnitureImage> $images
  */
-#[Fillable(['brand_id', 'slug', 'name', 'description', 'thumbnail_path', 'furniture_type_id', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'slug', 'name', 'description', 'thumbnail_path', 'furniture_type_id', 'table_shape_option_id', 'table_base_design_option_id', 'is_active', 'sort_order'])]
 class Furniture extends Model
 {
     /** @use HasFactory<FurnitureFactory> */
     use HasFactory;
+
+    use SoftDeletes;
 
     protected $table = 'furniture';
 
@@ -50,6 +61,19 @@ class Furniture extends Model
     }
 
     /**
+     * The furniture the Products page lists, active or not: of a brand that is
+     * not archived. An archived brand's are kept only as history, so nothing
+     * on the Products page, nor its lists, counts or changes them.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function ofLiveBrand(Builder $query): void
+    {
+        $query->whereIn($query->qualifyColumn('brand_id'), Brand::query()->notArchived()->select('id'));
+    }
+
+    /**
      * The furniture shown on Regray: active, of a brand that is not archived.
      * A saved piece keeps reading it without this.
      *
@@ -62,10 +86,32 @@ class Furniture extends Model
             ->whereIn($query->qualifyColumn('brand_id'), Brand::query()->notArchived()->select('id'));
     }
 
+    /** @return BelongsTo<DetailFieldOption, $this> */
+    public function tableShape(): BelongsTo
+    {
+        return $this->belongsTo(DetailFieldOption::class, 'table_shape_option_id');
+    }
+
+    /** @return BelongsTo<DetailFieldOption, $this> */
+    public function tableBaseDesign(): BelongsTo
+    {
+        return $this->belongsTo(DetailFieldOption::class, 'table_base_design_option_id');
+    }
+
     /** @return BelongsTo<FurnitureType, $this> */
     public function furnitureType(): BelongsTo
     {
-        return $this->belongsTo(FurnitureType::class);
+        return $this->belongsTo(FurnitureType::class)->withTrashed();
+    }
+
+    /**
+     * Its gallery: its photos other than the thumbnail, in order.
+     *
+     * @return HasMany<FurnitureImage, $this>
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(FurnitureImage::class)->orderBy('sort_order');
     }
 
     /** @return BelongsTo<Brand, $this> */

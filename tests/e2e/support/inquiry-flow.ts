@@ -16,8 +16,9 @@ import { expect } from './fixtures';
  * (`-width`, `-length`, `-unit`), a value and a unit for a thickness
  * (`-value`, `-unit`). The service's own questions sit under Other details,
  * with the optional ones, the files and the notes always on show under the
- * required ones; every furniture service asks the project area there, and
- * Countertop and Backsplash asks fascia.
+ * required ones; Dining Tables and Other Customized Furniture ask the project
+ * area there (the small pieces ask only their size), and Countertop and
+ * Backsplash asks fascia.
  *
  * The names below are the catalogue that DatabaseSeeder writes. Both stones are
  * offered for Slab Supply Only and for Dining Tables: a granite and a marble.
@@ -400,14 +401,14 @@ export const walkToRequirements = async (
     await fillThicknesses(page);
 };
 
-/** The furniture services, which all ask the project area. */
-export const FURNITURE_SERVICES = [
-    'Center Tables',
-    'Side Tables',
+/** The furniture services that ask the project area. */
+export const AREA_FURNITURE_SERVICES = [
     'Dining Tables',
-    'Pedestal',
     'Other Customized Furniture',
 ] as const;
+
+/** The small pieces, measured by their size alone, never in square metres. */
+export const SMALL_FURNITURE_SLUGS = ['center-tables', 'side-tables'] as const;
 
 /** Whether the project's service asks the project area: it shows under Other details. */
 const asksArea = async (page: Page): Promise<boolean> =>

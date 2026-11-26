@@ -49,6 +49,8 @@ export type BrandCardData = {
 export type ProductBrand = {
     slug: string;
     name: string;
+    /** Only on a saved card of an archived brand's product, whose page is gone. */
+    archived?: true;
 };
 
 /** One fact about a brand, such as "Made in" / "Treia, Italy". */
@@ -67,7 +69,6 @@ export type BrandSocial = { platform: SocialPlatform; url: string };
 
 export type BrandProfile = BrandCardData & {
     description: string | null;
-    websiteUrl: string | null;
     thumbnail: string | null;
     /** Set on the admin's Brands page, in the order they show. */
     facts: BrandFact[];
@@ -88,6 +89,8 @@ export type FurnitureCardData = {
 
 export type FurnitureProfile = FurnitureCardData & {
     description: string | null;
+    /** Its photos besides the thumbnail, in order. */
+    gallery: { src: string; name: string }[];
 };
 
 /**
@@ -132,21 +135,10 @@ export type BrandProduct =
     | (StoneCardData & { kind: 'stone' })
     | (FurnitureCardData & { kind: 'furniture' });
 
-/** A stone or furniture type a brand's products come in, with how many. */
-export type BrandOffering = {
-    collection: 'stones' | 'furniture';
-    /** What the collection's type filter takes for it. */
-    value: string;
-    name: string;
-    count: number;
-    thumbnail: string | null;
-};
-
-/** What a brand offers, counted from its active products. */
+/** How many active stones and pieces of furniture a brand has. */
 export type BrandOffer = {
     stones: number;
     furniture: number;
-    types: BrandOffering[];
 };
 
 export type BrandPageProps = {
@@ -180,13 +172,10 @@ export type LandingBrand = {
     slug: string;
     name: string;
     description: string | null;
-    /** The brand's own website, when it has one. */
-    websiteUrl: string | null;
     logo: string;
     thumbnail: string | null;
 };
 
 export type LandingPageProps = {
     brands: LandingBrand[];
-    showcases: LandingShowcase[];
 };

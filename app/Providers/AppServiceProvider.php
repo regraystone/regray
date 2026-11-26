@@ -16,9 +16,12 @@ use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\LeadRepositoryInterface;
 use App\Repositories\Contracts\MessageRepositoryInterface;
 use App\Repositories\Contracts\PhAddressRepositoryInterface;
+use App\Repositories\Contracts\ProductAdminRepositoryInterface;
+use App\Repositories\Contracts\SalesReportRepositoryInterface;
 use App\Repositories\Contracts\SavedFurnitureRepositoryInterface;
 use App\Repositories\Contracts\SavedStoneRepositoryInterface;
 use App\Repositories\Contracts\ScheduleRepositoryInterface;
+use App\Repositories\Contracts\ServiceRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseCategoryRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\StoneRepositoryInterface;
@@ -36,8 +39,11 @@ use App\Repositories\Eloquent\EloquentMessageRepository;
 use App\Repositories\Eloquent\EloquentPhAddressRepository;
 use App\Repositories\Eloquent\EloquentScheduleRepository;
 use App\Repositories\Eloquent\FurnitureRepository;
+use App\Repositories\Eloquent\ProductAdminRepository;
+use App\Repositories\Eloquent\SalesReportRepository;
 use App\Repositories\Eloquent\SavedFurnitureRepository;
 use App\Repositories\Eloquent\SavedStoneRepository;
+use App\Repositories\Eloquent\ServiceRepository;
 use App\Repositories\Eloquent\ShowcaseCategoryRepository;
 use App\Repositories\Eloquent\ShowcaseRepository;
 use App\Repositories\Eloquent\StoneRepository;
@@ -79,6 +85,8 @@ class AppServiceProvider extends ServiceProvider
         'account-save',
         'brand-save',
         'showcase-save',
+        'product-save',
+        'service-save',
         'ph-address-search',
         'inquiry-files',
         'booking',
@@ -99,7 +107,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StoneRepositoryInterface::class, StoneRepository::class);
         $this->app->bind(ShowcaseCategoryRepositoryInterface::class, ShowcaseCategoryRepository::class);
         $this->app->bind(BrandRepositoryInterface::class, BrandRepository::class);
+        $this->app->bind(ServiceRepositoryInterface::class, ServiceRepository::class);
+        $this->app->bind(SalesReportRepositoryInterface::class, SalesReportRepository::class);
         $this->app->bind(FurnitureRepositoryInterface::class, FurnitureRepository::class);
+        $this->app->bind(ProductAdminRepositoryInterface::class, ProductAdminRepository::class);
         $this->app->bind(SavedStoneRepositoryInterface::class, SavedStoneRepository::class);
         $this->app->bind(SavedFurnitureRepositoryInterface::class, SavedFurnitureRepository::class);
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
@@ -238,6 +249,10 @@ class AppServiceProvider extends ServiceProvider
      *   included), archive.
      * - `showcase-save`: the admin's Showcase page writes: add, edit (the
      *   thumbnail and gallery included), archive.
+     * - `product-save`: the admin's Products pages writes: add, edit (images
+     *   included), turn on or off and archive a product or a list item.
+     * - `service-save`: the admin's Services page writes: add, edit and
+     *   archive a service or a service type.
      * - `booking`: Book an appointment.
      * - `saved-stone`: the heart on a stone card. A person taps through a
      *   feed; only a script reaches this.

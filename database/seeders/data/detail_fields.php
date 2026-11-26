@@ -13,11 +13,14 @@
  * (`size_stone`, `stone_thickness`), and Other takes any width x length or
  * thickness with its unit. Waterfall effect and fascia are yes or no.
  *
- * Each option is `[slug, name]`. `suggestions` are sample values shown beside
- * a free entry and never checked against; `options` are closed, picked from
- * the list, and the one marked `links_to_stone` is "Same as stone".
+ * `suggestions` are sample values shown beside a free entry, each `[slug,
+ * name]`, and never checked against. A list question's `choices` are the
+ * slugs of the library choices it lists (data/choices.php), in its order:
+ * the client picks one, and "Same as stone" is the library's `stone` kind.
+ * The Choices page under Services edits a choice; the Questions page picks a
+ * question's choices.
  *
- * @var list<array{slug: string, name: string, scope: string, answer_type: string, allows_custom: bool, suggestions?: list<array{0: string, 1: string}>, options?: list<array{0: string, 1: string, links_to_stone?: bool}>}>
+ * @var list<array{slug: string, name: string, scope: string, answer_type: string, allows_custom: bool, suggestions?: list<array{0: string, 1: string}>, choices?: list<string>}>
  */
 return [
     [
@@ -98,15 +101,83 @@ return [
         ],
     ],
     [
+        'slug' => 'table_shape',
+        'name' => 'Table shape',
+        'scope' => 'project',
+        'answer_type' => 'choice',
+        'allows_custom' => false,
+        'choices' => [
+            'rectangular',
+            'round',
+            'oval',
+            'square',
+            'rounded-rectangle',
+            'organic',
+            'custom-shape',
+            'not-sure',
+        ],
+    ],
+    [
+        'slug' => 'table_base_design_center',
+        'name' => 'Center table base design',
+        'scope' => 'project',
+        'answer_type' => 'choice',
+        'allows_custom' => false,
+        'choices' => [
+            'sphere-accent-pedestal',
+            'u-base',
+            'half-moon',
+            'custom-design',
+            'not-sure',
+        ],
+    ],
+    [
+        'slug' => 'table_base_design_side',
+        'name' => 'Side table base design',
+        'scope' => 'project',
+        'answer_type' => 'choice',
+        'allows_custom' => false,
+        'choices' => [
+            'c-legs-v1',
+            'c-legs-v2',
+            'cylindrical-pedestal',
+            'hourglass-v2',
+            'custom-design',
+            'not-sure',
+        ],
+    ],
+    [
+        'slug' => 'table_base_design_dining',
+        'name' => 'Dining table base design',
+        'scope' => 'project',
+        'answer_type' => 'choice',
+        'allows_custom' => false,
+        'choices' => [
+            'diamond',
+            'close-cage',
+            'tubular-v1',
+            'tubular-v2',
+            'x-base-v1',
+            'x-base-v2',
+            'clover-v1',
+            'clover-v2',
+            'y-base',
+            'hourglass-v1',
+            'custom-design',
+            'not-sure',
+        ],
+    ],
+    [
+        // The base's material; its design is the table service's own base design question.
         'slug' => 'table_base',
         'name' => 'Table base',
         'scope' => 'project',
         'answer_type' => 'choice',
         'allows_custom' => false,
-        'options' => [
-            ['wood', 'Wood'],
-            ['steel', 'Steel'],
-            ['same-as-stone', 'Same as stone', 'links_to_stone' => true],
+        'choices' => [
+            'wood',
+            'steel',
+            'same-as-stone',
         ],
     ],
     [

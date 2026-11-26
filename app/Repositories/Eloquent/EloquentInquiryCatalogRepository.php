@@ -37,11 +37,14 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
                 ->orderBy('sort_order')
                 ->orderBy('id'),
                 'services.features',
-                'services.detailFields.options',
-                // In the order the stone types are listed everywhere else.
+                // With the services each choice is offered for, so a question lists only its service's.
+                'services.detailFields.options.services:services.id',
+                // The ones switched on, in the order the stone types are listed everywhere else.
                 'services.stoneTypes' => fn (Relation $types) => $types->getQuery()
                     ->select(['stone_types.id', 'stone_types.slug'])
+                    ->where('stone_types.is_active', true)
                     ->orderBy('stone_types.sort_order')
+                    ->orderBy('stone_types.name')
                     ->orderBy('stone_types.id')])
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -90,6 +93,7 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
             ->whereIn('id', Stone::query()->offeredFor($service)->select('stone_type_id'))
             ->orderBy('sort_order')
             ->orderBy('name')
+            ->orderBy('id')
             ->get(['id', 'slug', 'name']);
     }
 
@@ -131,11 +135,11 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
 
     public function activeEdgeProfiles(): Collection
     {
-        return EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'is_advisory']);
+        return EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'is_advisory']);
     }
 
     public function activeFinishes(): Collection
     {
-        return Finish::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'is_advisory']);
+        return Finish::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'is_advisory']);
     }
 }

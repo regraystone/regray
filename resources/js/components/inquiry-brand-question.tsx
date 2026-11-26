@@ -23,6 +23,11 @@ export const INQUIRY_BRANDS_ID = 'inquiry-brands';
  * home page order, or No preference, never both. It is what they would like,
  * not a rule: every service stays on offer, and the stones are not limited by
  * it (the stones' own Brand filter is separate).
+ *
+ * The logos sit on black, so they compare evenly. A brand with no active
+ * stone or furniture yet (`available` false) says Unavailable beside its name
+ * and cannot be picked; one a saved draft already holds can still be taken
+ * off. No preference spans the row under the brands.
  */
 const InquiryBrandQuestion = () => {
     const { brands } = useInquiryCatalog();
@@ -53,27 +58,35 @@ const InquiryBrandQuestion = () => {
     };
 
     /*
-     * A brand's card: its logo on navy, its name under it, and a tick in the
-     * corner, filled once picked, when the card also takes a black frame.
+     * A brand's card: its logo on black, its name under it, and a tick in the
+     * corner, filled once picked, when the card also takes a black frame. An
+     * unavailable brand is dimmed, says so beside its name, and only answers a
+     * tap to take off a pick a saved draft held.
      */
     const card = (
         key: string,
         pressed: boolean,
         panel: ReactNode,
         name: string,
+        { available = true, wide = false } = {},
     ) => (
         <button
             key={key}
             type="button"
             aria-pressed={pressed}
-            aria-label={name}
+            aria-label={available ? name : `${name}, unavailable`}
+            disabled={!available && !pressed}
             onClick={() => pick(key)}
             data-test={`brand-${key}`}
             className={cn(
-                'relative flex min-w-0 cursor-pointer flex-col items-stretch border bg-background p-0 text-foreground transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                'relative flex min-w-0 flex-col items-stretch border bg-background p-0 text-foreground transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                wide && 'col-span-full',
+                available ? 'cursor-pointer' : 'cursor-not-allowed',
                 pressed
                     ? 'border-foreground outline-2 -outline-offset-2 outline-foreground'
-                    : 'border-border hover:border-foreground',
+                    : available
+                      ? 'border-border hover:border-foreground'
+                      : 'border-border',
             )}
         >
             <span
@@ -89,17 +102,33 @@ const InquiryBrandQuestion = () => {
             </span>
             <span
                 aria-hidden
-                className="flex h-24 items-center justify-center bg-navy px-5 py-4"
+                className={cn(
+                    'flex items-center justify-center bg-black px-5 py-4',
+                    // No preference spans the row, so a lower panel keeps it from looming.
+                    wide ? 'h-16' : 'h-24',
+                    // Every panel stays black for comparison; only an unavailable logo dims.
+                    !available && '[&>*]:opacity-35',
+                )}
             >
                 {panel}
             </span>
             <span
                 className={cn(
-                    'px-3 py-3 text-center text-[0.8125rem] font-semibold break-words',
+                    'flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-3 py-3 text-center text-[0.8125rem] font-semibold break-words',
                     pressed ? 'bg-muted' : 'bg-background',
                 )}
             >
-                {name}
+                <span className={available ? '' : 'text-muted-foreground'}>
+                    {name}
+                </span>
+                {available ? null : (
+                    <span
+                        aria-hidden
+                        className="text-[0.6875rem] font-semibold tracking-[0.04em] text-muted-foreground uppercase"
+                    >
+                        Unavailable
+                    </span>
+                )}
             </span>
         </button>
     );
@@ -117,7 +146,7 @@ const InquiryBrandQuestion = () => {
                 aria-describedby={
                     error ? `${INQUIRY_BRANDS_ID}-error` : undefined
                 }
-                className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                className="grid grid-cols-2 gap-3 sm:grid-cols-3"
             >
                 {brands.map((brand) =>
                     card(
@@ -133,6 +162,7 @@ const InquiryBrandQuestion = () => {
                             loading="lazy"
                         />,
                         brand.name,
+                        { available: brand.available },
                     ),
                 )}
                 {card(
@@ -143,6 +173,7 @@ const InquiryBrandQuestion = () => {
                         strokeWidth={1.25}
                     />,
                     'No preference',
+                    { wide: true },
                 )}
             </div>
 

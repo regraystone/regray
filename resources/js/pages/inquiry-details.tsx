@@ -62,8 +62,8 @@ type ResolvedProject = {
     /** False for a service that asks for no stones. */
     requiresStones: boolean;
     stones: ResolvedStone[];
-    /** The project-scope answers, labelled and worded by the server. */
-    answers: Array<{ label: string; value: string }>;
+    /** The project-scope answers, labelled and worded by the server; a picture choice with its picture. */
+    answers: Array<{ label: string; value: string; image?: string | null }>;
     /** Application names, on inquiries sent while the client was asked for them. */
     requirements: Omit<InquiryRequirementsRecord, 'attachments'> & {
         attachments: StoredInquiryFile[];
@@ -128,10 +128,29 @@ const NotProvided = () => (
  * left in muted text, the answer on the right. Read as a description list so a
  * screen reader pairs the two, which the visual alignment alone would not.
  */
-const SummaryRow = ({ label, value }: { label: string; value?: string }) => (
-    <div className="flex items-baseline justify-between gap-4 border-b border-dashed border-sidebar-border py-3 last:border-b-0 sm:gap-8">
+const SummaryRow = ({
+    label,
+    value,
+    image = null,
+}: {
+    label: string;
+    value?: string;
+    /** A picture choice's picture (a table shape or base), shown before its name. */
+    image?: string | null;
+}) => (
+    <div
+        className={`flex justify-between gap-4 border-b border-dashed border-sidebar-border py-3 last:border-b-0 sm:gap-8 ${image ? 'items-center' : 'items-baseline'}`}
+    >
         <dt className="text-sm text-secondary-foreground">{label}</dt>
-        <dd className="min-w-0 text-right text-sm font-bold break-words">
+        <dd className="flex min-w-0 items-center justify-end gap-3 text-right text-sm font-bold break-words">
+            {image ? (
+                <img
+                    src={image}
+                    alt=""
+                    loading="lazy"
+                    className="size-12 shrink-0 bg-muted object-cover"
+                />
+            ) : null}
             {value === undefined || value === '' ? <NotProvided /> : value}
         </dd>
     </div>
@@ -657,6 +676,7 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                                     key={answer.label}
                                     label={answer.label}
                                     value={answer.value}
+                                    image={answer.image}
                                 />
                             ))}
                         </dl>

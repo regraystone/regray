@@ -81,7 +81,7 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
             ],
         ])
         ->and($project['requiresStones'])->toBeTrue()
-        ->and($project['answers'])->toBe([['label' => 'Project area (sqm)', 'value' => '12.5']])
+        ->and($project['answers'])->toBe([['label' => 'Project area (sqm)', 'value' => '12.5', 'image' => null]])
         ->and($project['requirements'])->not->toHaveKeys(['landmark', 'areaSqm'])
         ->and($project['requirements'])->toMatchArray([
             // Countertop and Backsplash is installed: no method is asked.

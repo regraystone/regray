@@ -1,5 +1,4 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import BrandCollection from '@/components/home/brand-collection';
 import {
@@ -8,20 +7,12 @@ import {
 } from '@/components/public/public-links';
 import SocialIcon, { SOCIAL_LABELS } from '@/components/social-icon';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
-import { collectionQuery } from '@/lib/brand-collection';
 import { login } from '@/routes';
 import { show as brandsShow } from '@/routes/brands';
-import { brands as brandsPage, showroom } from '@/routes/company';
-import {
-    index as dashboardBrandsIndex,
-    show as dashboardBrandShow,
-} from '@/routes/dashboard/brands';
-import { book } from '@/routes/profile/schedule';
-import type { BrandOffering, BrandPageProps, LandingBrand } from '@/types/home';
-
-/** A section's title: spaced capitals in the heading face. */
-const sectionTitle =
-    'font-display text-[clamp(1.5rem,2vw,2rem)] font-light tracking-[0.06em] uppercase';
+import { brands as brandsPage } from '@/routes/company';
+import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
+import { index as homeIndex } from '@/routes/home';
+import type { BrandPageProps, LandingBrand } from '@/types/home';
 
 /** A small spaced label. */
 const eyebrow = 'text-[0.8125rem] tracking-[0.14em] uppercase';
@@ -35,12 +26,6 @@ const sectionScroll = 'scroll-mt-40';
 
 const plural = (count: number, one: string, many: string) =>
     `${count.toLocaleString()} ${count === 1 ? one : many}`;
-
-/** How many of a type the brand has, in the type's own words. */
-const offeringCount = (offering: BrandOffering) =>
-    offering.collection === 'stones'
-        ? plural(offering.count, 'stone', 'stones')
-        : plural(offering.count, 'piece', 'pieces');
 
 /** The section the reader is in: the last one whose top has passed under the bar. */
 const useCurrentSection = (ids: string[]) => {
@@ -72,46 +57,9 @@ const useCurrentSection = (ids: string[]) => {
     return current;
 };
 
-/** A type the brand's products come in: its photo, name and count, opening it in the collection. */
-const OfferingCard = ({
-    offering,
-    href,
-}: {
-    offering: BrandOffering;
-    href: string;
-}) => (
-    <Link
-        href={href}
-        preserveScroll={false}
-        className="group flex flex-col gap-3.5"
-    >
-        <span className="block aspect-4/5 overflow-hidden bg-muted">
-            {offering.thumbnail ? (
-                <img
-                    src={offering.thumbnail}
-                    alt=""
-                    loading="lazy"
-                    className="size-full object-cover transition-transform duration-1400 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.04] motion-reduce:transition-none"
-                />
-            ) : null}
-        </span>
-        <span className="flex items-baseline justify-between gap-3">
-            <span className="font-display text-[1.0625rem] font-normal tracking-[0.04em] uppercase">
-                {offering.name}
-            </span>
-            <span className="text-[0.8125rem] whitespace-nowrap text-muted-foreground">
-                {offeringCount(offering)}
-            </span>
-        </span>
-        <span className="text-[0.8125rem] tracking-[0.04em] text-muted-foreground uppercase transition-colors group-hover:text-foreground">
-            View in the collection →
-        </span>
-    </Link>
-);
-
 /** Another brand of the group, by its logo. */
 const OtherBrand = ({ brand, href }: { brand: LandingBrand; href: string }) => (
-    <li className="flex justify-center">
+    <li className="flex basis-[calc((100%-2rem)/2)] justify-center sm:basis-[calc((100%-4rem)/3)] lg:basis-[calc((100%-8rem)/5)]">
         <Link
             href={href}
             title={brand.name}
@@ -132,10 +80,10 @@ const OtherBrand = ({ brand, href }: { brand: LandingBrand; href: string }) => (
 
 /*
  * A brand's page, for every brand: its photo with the logo and tagline, a bar
- * of its sections, then who it is, what it offers (each type its products
- * come in, counted from the catalog, or, before it has products online, what
- * it makes), its collection and the group's other brands. A section with nothing
- * real to show is left out, and so is its place in the bar.
+ * of its sections, then who it is (with how many of its products are in the
+ * catalog), its collection and the group's other brands. The collection, with
+ * nothing to show before the brand has products online, is left out then, and
+ * so is its place in the bar.
  */
 const BrandProfile = () => {
     const {
@@ -147,18 +95,16 @@ const BrandProfile = () => {
     } = usePage<BrandPageProps & { auth: { user: unknown } }>().props;
     const isSignedIn = auth?.user != null;
     const inquireRoute = useInquireRoute();
-    // Set on the admin's Brands page.
-    const details = { facts: brand.facts ?? [], makes: brand.makes ?? [] };
-
-    const brandHref = (slug: string, query?: Record<string, string>) =>
+    const brandHref = (slug: string) =>
         isSignedIn
-            ? dashboardBrandShow.url({ brand: slug }, { query })
-            : brandsShow.url({ brand: slug }, { query });
+            ? dashboardBrandShow.url({ brand: slug })
+            : brandsShow.url({ brand: slug });
+    // Signed in, the brands are listed on Home (the admin's Brands page is
+    // for managing them, and a client cannot open it).
     const allBrandsHref = isSignedIn
-        ? dashboardBrandsIndex.url()
+        ? `${homeIndex.url()}#brands`
         : brandsPage.url();
     const quoteUrl = isSignedIn ? (inquireRoute?.url() ?? null) : login.url();
-    const visitUrl = isSignedIn ? book.url() : `${showroom.url()}#book`;
 
     // The page's own frame, for the bands that run edge to edge.
     const bleed = isSignedIn
@@ -179,7 +125,7 @@ const BrandProfile = () => {
     // Its facts, every one set on the admin's Brands page, then the one line
     // counted live from its products.
     const facts = [
-        ...details.facts,
+        ...(brand.facts ?? []),
         {
             label: 'In our catalog',
             value:
@@ -191,9 +137,6 @@ const BrandProfile = () => {
 
     const sections = [
         { id: 'overview', label: 'Overview' },
-        ...(offer.types.length > 0 || details.makes.length > 0
-            ? [{ id: 'offer', label: 'What we offer' }]
-            : []),
         ...(hasProducts ? [{ id: 'collection', label: 'Collection' }] : []),
     ];
     const current = useCurrentSection(sections.map((section) => section.id));
@@ -251,23 +194,6 @@ const BrandProfile = () => {
                             ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2.5">
-                            {brand.websiteUrl ? (
-                                <a
-                                    href={brand.websiteUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`${lightButton} px-5.5`}
-                                >
-                                    Visit website
-                                    <ArrowUpRight
-                                        className="size-4"
-                                        aria-hidden
-                                    />
-                                    <span className="sr-only">
-                                        (opens in a new tab)
-                                    </span>
-                                </a>
-                            ) : null}
                             {brand.socials.map((social) => (
                                 <a
                                     key={social.platform}
@@ -337,27 +263,6 @@ const BrandProfile = () => {
                     <p className="font-display text-[clamp(1.5rem,2.3vw,2.25rem)] leading-[1.3] font-light text-pretty">
                         {brand.description ?? brand.tagline}
                     </p>
-                    {brand.websiteUrl ? (
-                        <a
-                            href={brand.websiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="self-start border-b border-current pb-1 text-[0.8125rem] tracking-[0.04em] uppercase transition-opacity hover:opacity-70"
-                        >
-                            {new URL(brand.websiteUrl).hostname.replace(
-                                /^www\./,
-                                '',
-                            )}
-                            <ArrowUpRight
-                                className="ml-1 inline size-3.5 align-[-0.125em]"
-                                aria-hidden
-                            />
-                            <span className="sr-only">
-                                {' '}
-                                (opens in a new tab)
-                            </span>
-                        </a>
-                    ) : null}
                 </div>
                 <dl className="self-start border-t border-foreground">
                     {facts.map((fact) => (
@@ -376,82 +281,6 @@ const BrandProfile = () => {
                 </dl>
             </section>
 
-            {offer.types.length > 0 ? (
-                <section
-                    id="offer"
-                    aria-labelledby="brand-offer"
-                    className={`pb-[clamp(4.5rem,8vw,7.5rem)] ${sectionScroll}`}
-                >
-                    <h2 id="brand-offer" className={`mb-7 ${sectionTitle}`}>
-                        What we offer
-                    </h2>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 sm:gap-x-6 xl:grid-cols-5">
-                        {offer.types.map((offering) => (
-                            <OfferingCard
-                                key={`${offering.collection}-${offering.value}`}
-                                offering={offering}
-                                href={`${brandHref(
-                                    brand.slug,
-                                    collectionQuery({
-                                        collection: offering.collection,
-                                        search: '',
-                                        filter: offering.value,
-                                    }),
-                                )}#collection`}
-                            />
-                        ))}
-                    </div>
-                </section>
-            ) : details.makes.length > 0 ? (
-                <section
-                    id="offer"
-                    aria-labelledby="brand-offer"
-                    className={`grid gap-[clamp(2rem,5vw,6rem)] pb-[clamp(4.5rem,8vw,7.5rem)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] ${sectionScroll}`}
-                >
-                    <div className="flex flex-col gap-4">
-                        <h2 id="brand-offer" className={sectionTitle}>
-                            What we offer
-                        </h2>
-                        <p className="max-w-105 text-base leading-relaxed text-pretty text-muted-foreground">
-                            The {brand.name} range isn&rsquo;t in our online
-                            catalog yet. See it at our Makati showroom, or ask
-                            the team for a quotation.
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-3">
-                            <Link
-                                href={visitUrl}
-                                className="bg-foreground px-6 py-3.5 text-[0.8125rem] font-semibold tracking-[0.06em] text-background uppercase transition-colors hover:bg-foreground/80"
-                            >
-                                Book a visit
-                            </Link>
-                            {quoteUrl ? (
-                                <Link
-                                    href={quoteUrl}
-                                    className="border border-foreground px-6 py-3.25 text-[0.8125rem] font-semibold tracking-[0.06em] uppercase transition-colors hover:bg-foreground hover:text-background"
-                                >
-                                    Request a quote
-                                </Link>
-                            ) : null}
-                        </div>
-                    </div>
-                    <ul className="grid grid-cols-1 border-t border-foreground sm:grid-cols-2 sm:gap-x-8">
-                        {details.makes.map((item, index) => (
-                            <li
-                                key={item}
-                                className="flex items-baseline gap-5 border-b border-border py-5"
-                            >
-                                <span className="text-xs tracking-[0.1em] text-muted-foreground">
-                                    {String(index + 1).padStart(2, '0')}
-                                </span>
-                                <span className="font-display text-[clamp(1.0625rem,1.4vw,1.25rem)] font-light">
-                                    {item}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            ) : null}
-
             {hasProducts ? (
                 <div id="collection" className={sectionScroll}>
                     <BrandCollection />
@@ -469,7 +298,8 @@ const BrandProfile = () => {
                     >
                         More from the Regray Group
                     </h2>
-                    <ul className="grid w-full max-w-275 grid-cols-2 items-center gap-x-8 gap-y-10 [--other:0.6] sm:grid-cols-3 sm:[--other:0.8] lg:grid-cols-5">
+                    {/* Rows wrap and centre, so a short last row (one or two logos) sits in the middle. */}
+                    <ul className="flex w-full max-w-275 flex-wrap items-center justify-center gap-x-8 gap-y-10 [--other:0.6] sm:[--other:0.8]">
                         {otherBrands.map((other) => (
                             <OtherBrand
                                 key={other.slug}

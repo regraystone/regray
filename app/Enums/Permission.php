@@ -21,13 +21,15 @@ namespace App\Enums;
  * see. `HomeShowcasesView` names the showcase profile and the stone profile
  * nested under it, both reached from the Home page, and the entry for that
  * page belongs to `HomeView`.
- * `InquiriesCreate`, `ScheduleCreate`, and `SavedManage` are the exceptions to the action
- * permissions: each guards something a user does rather than somewhere they go. The
- * stepper is a page reached by doing, so its permission is read by a route;
- * `ScheduleCreate` guards booking a visit, so a route may name it and pages may link
- * to a booking route when the reader holds it. `SavedManage` gates saving and
- * unsaving a stone, so the write endpoints can be guarded independently of the
- * page permission.
+ * Every other case is an action permission: it guards something a user does
+ * rather than somewhere they go, so a route names it and a page shows the
+ * button for it only to a reader who holds it. Some guard a page reached by
+ * doing (`InquiriesCreate`, the stepper); most guard a page's writes beside
+ * its view permission: `SavedManage` saving a stone, `ScheduleCreate` and the
+ * other `schedule.*` booking and moving visits, the `inquiries.status.*`
+ * moving an inquiry along, and each admin page's `create`, `update` and
+ * `archive` (accounts, brands, showcases, products and their lists, services).
+ * resources/js/layouts/workspace-layout.tsx mirrors every case.
  *
  * The inquiry details page has no permission of its own. It hangs off whichever
  * list the user reads their inquiries on, the way the stepper does, so it is
@@ -283,6 +285,51 @@ enum Permission: string
      * page goes offline everywhere. Saved showcases keep it. The admin's alone.
      */
     case ShowcasesArchive = 'showcases.archive';
+
+    /**
+     * Adding from the Products pages: a stone or a piece of furniture (its
+     * details, thumbnail, gallery and, for a stone, its sizes), or an item
+     * of a list products are built from (a stone type, size, thickness,
+     * finish, edge profile, furniture type, application or care tip). An
+     * action permission: it guards the endpoints and the Add buttons, not a
+     * page; `products.view` opens the pages. The admin's alone.
+     */
+    case ProductsCreate = 'products.create';
+
+    /**
+     * Changing a product or a list item from the Products pages, its images
+     * included, and turning one on or off. The admin's alone.
+     */
+    case ProductsUpdate = 'products.update';
+
+    /**
+     * Archiving a product or a list item from the Products pages. An
+     * archived product leaves the pages and its page goes offline
+     * everywhere; a list item can be archived only once nothing on Regray
+     * uses it. Past inquiries keep both. The admin's alone.
+     */
+    case ProductsArchive = 'products.archive';
+
+    /**
+     * Adding a service or a service type from the Services page: what the
+     * Inquire page offers, with what it includes, its stone types and the
+     * questions it asks. An action permission: it guards the endpoints and
+     * the Add buttons, not a page. The admin's alone.
+     */
+    case ServicesCreate = 'services.create';
+
+    /**
+     * Changing a service or a service type from the Services page, and whether
+     * it is offered on the Inquire page. The admin's alone.
+     */
+    case ServicesUpdate = 'services.update';
+
+    /**
+     * Archiving a service or a service type from the Services page: it leaves
+     * the page and is no longer offered. Sent inquiries keep it. A type is
+     * archived only once none of its services is left. The admin's alone.
+     */
+    case ServicesArchive = 'services.archive';
 
     /**
      * The `can:` middleware string that guards a route with this permission.

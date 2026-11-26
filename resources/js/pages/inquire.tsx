@@ -553,6 +553,7 @@ const InquireFlow = ({
         stones: stonePage,
         stoneTypes,
         stoneFilters,
+        furniture: furniturePrefill = null,
     } = usePage<InquirePageProps>().props;
     /** Which stones a change of service, a restore or an edit took off, said on step 2. */
     const [stoneNotice, setStoneNotice] = useState<string | null>(null);
@@ -765,44 +766,16 @@ const InquireFlow = ({
          */
         if (edit !== null) {
             /*
-             * A stone the inquiry has whose type its service no longer takes is
-             * taken off here, with the notice, rather than refused on save.
+             * The inquiry's own stones stay, even one whose type its service no
+             * longer takes or that has left the catalogue since: the server
+             * keeps them while the inquiry keeps its service. Choosing another
+             * service takes off the ones it does not offer (chooseService).
              */
-            const removed: string[] = [];
-            const projects = toEditFormProjects(edit.projects, (address) =>
-                addressFromPayload(address as unknown as PhAddressPayload),
-            ).map((project) => {
-                const misfits = new Set(
-                    catalog
-                        .stonesNotOfferedFor(
-                            project.stones.map(({ stoneId }) => stoneId),
-                            project.serviceId,
-                        )
-                        .map((stone) => {
-                            removed.push(stone.name);
-
-                            return stone.slug;
-                        }),
-                );
-
-                return {
-                    ...project,
-                    stones: project.stones.filter(
-                        ({ stoneId }) => !misfits.has(stoneId),
-                    ),
-                };
+            reset({
+                projects: toEditFormProjects(edit.projects, (address) =>
+                    addressFromPayload(address as unknown as PhAddressPayload),
+                ),
             });
-
-            reset({ projects });
-
-            if (removed.length > 0) {
-                setStoneNotice(
-                    removedStonesNotice(
-                        [...new Set(removed)],
-                        serviceName(projects[0]?.serviceId ?? ''),
-                    ),
-                );
-            }
 
             return;
         }
@@ -1320,6 +1293,89 @@ const InquireFlow = ({
             setStoneNotice(null);
         }
     };
+
+    /*
+     * Opened from a furniture page's Inquire: the piece's brand, service and
+     * table answers go into the draft once it has been restored, unless the
+     * reader is already part way through one (a service picked), which is
+     * theirs to finish. Once, and the piece leaves the URL so a refresh
+     * doesn't pick it again.
+     */
+    const furniturePrefilled = useRef(false);
+
+    useEffect(() => {
+        if (
+            furniturePrefilled.current ||
+            !isRestored ||
+            edit !== null ||
+            furniturePrefill === null
+        ) {
+            return;
+        }
+
+        furniturePrefilled.current = true;
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('furniture');
+        window.history.replaceState(window.history.state, '', url);
+
+        const service = findService(
+            catalog.serviceTypes,
+            furniturePrefill.service,
+        );
+
+        if (
+            service === undefined ||
+            getDraftValues('serviceId') !== '' ||
+            editingProjectId !== null
+        ) {
+            return;
+        }
+
+        const brandKnown = catalog.brands.some(
+            ({ id }) => id === furniturePrefill.brand,
+        );
+
+        if (
+            brandKnown &&
+            getDraftValues('brands').length === 0 &&
+            !getDraftValues('brandNoPreference')
+        ) {
+            setDraftValue('brands', [furniturePrefill.brand], {
+                shouldDirty: true,
+            });
+        }
+
+        setDraftValue('serviceTypeId', furniturePrefill.serviceType, {
+            shouldDirty: true,
+        });
+        chooseService(furniturePrefill.service);
+        setDraftValue(
+            'answers',
+            { ...getDraftValues('answers'), ...furniturePrefill.answers },
+            { shouldDirty: true },
+        );
+
+        const draft = getDraftValues();
+
+        setStep(BRAND_STEP);
+        setShownQuestions(
+            furthestQuestion({
+                ...draft,
+                requiresStones: requiresStones(draft.serviceId),
+            }),
+        );
+    }, [
+        isRestored,
+        edit,
+        furniturePrefill,
+        catalog,
+        editingProjectId,
+        getDraftValues,
+        setDraftValue,
+        chooseService,
+        requiresStones,
+    ]);
 
     const setStones = (ids: string[]) => {
         setDraftValue('stoneIds', ids, {

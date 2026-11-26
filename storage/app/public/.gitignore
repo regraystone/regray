@@ -20,3 +20,9 @@
 # committed and served straight from storage/app/public/furniture/.
 !furniture/
 !furniture/**
+
+# The pictures of the Inquire page's table shapes and base designs are
+# content, not runtime uploads, so they are committed and served straight
+# from storage/app/public/question-choices/.
+!question-choices/
+!question-choices/**

@@ -38,6 +38,8 @@ return [
         // archiving brands, images included.
         'brand-save' => (int) env('RATE_LIMIT_BRAND_SAVE', 20),
         'showcase-save' => (int) env('RATE_LIMIT_SHOWCASE_SAVE', 20),
+        'product-save' => (int) env('RATE_LIMIT_PRODUCT_SAVE', 30),
+        'service-save' => (int) env('RATE_LIMIT_SERVICE_SAVE', 20),
 
         // GET api/ph/*: the address picker's searches, debounced as the reader types.
         'ph-address-search' => (int) env('RATE_LIMIT_PH_ADDRESS_SEARCH', 120),

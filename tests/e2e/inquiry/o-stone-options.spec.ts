@@ -10,7 +10,8 @@ import {
 } from '../support/fixtures';
 import {
     CATALOG,
-    FURNITURE_SERVICES,
+    AREA_FURNITURE_SERVICES,
+    SMALL_FURNITURE_SLUGS,
     REVIEW,
     SLAB_SIZE,
     THICKNESS,
@@ -403,14 +404,14 @@ test('59 · Countertop and Backsplash asks a fascia, yes or no, and needs it', a
     );
 });
 
-test('60 · every furniture service asks "Project area (sqm)", and needs it', async ({
+test('60 · the larger furniture asks "Project area (sqm)" and needs it; a small piece never asks it', async ({
     actors,
 }) => {
     // Several walks through the form, against a one-request-at-a-time server.
     test.slow();
     const { page } = await actors.open('client');
 
-    for (const service of FURNITURE_SERVICES) {
+    for (const service of AREA_FURNITURE_SERVICES) {
         await freshInquire(page);
         await walkToRequirements(page, {
             serviceType: CATALOG.furnitureType,
@@ -445,13 +446,7 @@ test('60 · every furniture service asks "Project area (sqm)", and needs it', as
         'Project area (sqm)3.75',
     );
 
-    for (const serviceId of [
-        'center-tables',
-        'side-tables',
-        'dining-tables',
-        'pedestal',
-        'other-customized-furniture',
-    ]) {
+    for (const serviceId of ['dining-tables', 'other-customized-furniture']) {
         artisan('cache:clear');
         const answer = await postAsUser(page, '/dashboard/quote/inquire', {
             projects: [
@@ -472,6 +467,31 @@ test('60 · every furniture service asks "Project area (sqm)", and needs it', as
         expect(answer.status, serviceId).toBe(422);
         expect(Object.keys(answer.json?.errors ?? {}), serviceId).toContain(
             'projects.0.answers.area_sqm',
+        );
+    }
+
+    // A small piece is measured by its size: an area is refused.
+    for (const serviceId of SMALL_FURNITURE_SLUGS) {
+        artisan('cache:clear');
+        const answer = await postAsUser(page, '/dashboard/quote/inquire', {
+            projects: [
+                projectPayload({
+                    serviceId,
+                    stones: [
+                        {
+                            stoneId: 'arabescato-white',
+                            edge: CATALOG.edges[0],
+                            finish: CATALOG.finishes[0],
+                        },
+                    ],
+                    answers: { area_sqm: '0.5', size: '60 x 60 cm' },
+                }),
+            ],
+        });
+
+        expect(answer.status, serviceId).toBe(422);
+        expect(Object.keys(answer.json?.errors ?? {}), serviceId).toContain(
+            'projects.0.answers',
         );
     }
 });

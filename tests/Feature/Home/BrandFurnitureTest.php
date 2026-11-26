@@ -63,7 +63,7 @@ test('a brand profile shows its website, and lists no showcases', function (): v
         ->assertInertia(fn (Assert $page) => $page
             ->component('brand-profile')
             ->where('brand.data.slug', 'regray-stone')
-            ->where('brand.data.websiteUrl', 'https://regraystone.com/')
+            ->missing('brand.data.websiteUrl')
             ->where('brand.data.thumbnail', '/storage/brands/9c2e5a1f8b4d7c3e6a9f2c5e8a1d4b7f.png')
             ->missing('brand.data.showcases')
             ->missing('brand.data.projects')
@@ -86,7 +86,7 @@ test('a furniture profile shows its furniture type', function (): void {
             ->component('furniture-profile')
             ->where('furniture.data.slug', 'alora')
             ->where('furniture.data.name', 'Alora')
-            ->where('furniture.data.furnitureType', ['slug' => 'dining-tables', 'name' => 'Dining Tables'])
+            ->where('furniture.data.furnitureType', ['slug' => 'center-side-tables', 'name' => 'Center & Side Tables'])
         );
 
     $this->actingAs(User::factory()->role(Role::Client)->create())

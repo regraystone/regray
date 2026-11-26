@@ -123,7 +123,7 @@ describe('stone rows', function (): void {
     {
         $rows = [];
 
-        foreach (Stone::query()->active()->limit(3)->pluck('slug') as $slug) {
+        foreach (Stone::query()->offeredFor(inquiryService('slab-supply-and-installation'))->orderBy('id')->limit(3)->pluck('slug') as $slug) {
             foreach (EdgeProfile::query()->pluck('name') as $edge) {
                 $rows[] = ['stoneId' => $slug, 'quantity' => 1, 'slabSize' => '160 x 320 cm', 'thickness' => '20 mm', 'edge' => $edge, 'finish' => Finish::query()->value('name')];
             }
@@ -133,11 +133,26 @@ describe('stone rows', function (): void {
     }
 
     it('accepts 20 rows', function (): void {
-        postInquiry($this, [inquiryProjectInput(['stones' => distinctStoneRows(20)])])->assertSessionHasNoErrors();
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'slab-supply-and-installation', 'stones' => distinctStoneRows(20)])])->assertSessionHasNoErrors();
     });
 
     it('refuses 21 rows', function (): void {
-        postInquiry($this, [inquiryProjectInput(['stones' => distinctStoneRows(21)])])->assertSessionHasErrors('projects.0.stones');
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'slab-supply-and-installation', 'stones' => distinctStoneRows(21)])])->assertSessionHasErrors('projects.0.stones');
+    });
+
+    it('takes a Slab Supply Only row without an edge profile, as slabs supplied alone may come uncut', function (): void {
+        $row = inquiryProjectInput()['stones'][0];
+        unset($row['edge']);
+
+        postInquiry($this, [inquiryProjectInput(['stones' => [$row]])])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->sole()->stones()->sole()->edge_profile_id)->toBeNull();
+
+        $installed = inquiryProjectInput(['serviceId' => 'slab-supply-and-installation'])['stones'][0];
+        unset($installed['edge']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'slab-supply-and-installation', 'stones' => [$installed]])])
+            ->assertSessionHasErrors('projects.0.stones.0.edge');
     });
 
     it('accepts the same stone with another finish', function (): void {
@@ -146,6 +161,20 @@ describe('stone rows', function (): void {
 
         postInquiry($this, [inquiryProjectInput(['stones' => [$row, [...$row, 'finish' => $other]]])])->assertSessionHasNoErrors();
     });
+
+    it('refuses an archived finish or edge profile, still switched on, as no longer offered', function (string $answer, string $model): void {
+        // A service that asks for both.
+        $row = inquiryProjectInput(['serviceId' => 'slab-supply-and-installation'])['stones'][0];
+        // Archived from its Products page while a client had the Inquire page open.
+        $model::query()->where('name', $row[$answer])->firstOrFail()->delete();
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'slab-supply-and-installation', 'stones' => [$row]])])
+            ->assertSessionHasErrors("projects.0.stones.0.{$answer}");
+        expect(Inquiry::query()->count())->toBe(0);
+    })->with([
+        'finish' => ['finish', Finish::class],
+        'edge profile' => ['edge', EdgeProfile::class],
+    ]);
 
     it('saves a slab size and thickness as numbers and a unit, read whatever their case and spacing', function (string $size, string $thickness, array $stored, array $labels): void {
         $row = inquiryProjectInput()['stones'][0];
@@ -365,9 +394,9 @@ describe('stones and services', function (): void {
     });
 
     it('refuses a service made from no stone type, which is not offered', function (): void {
-        Service::query()->where('slug', 'pedestal')->firstOrFail()->stoneTypes()->detach();
+        Service::query()->where('slug', 'other-customized-furniture')->firstOrFail()->stoneTypes()->detach();
 
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal', 'stoneAdvice' => true, 'stones' => []])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'other-customized-furniture', 'stoneAdvice' => true, 'stones' => []])])
             ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
     });
 });
@@ -452,7 +481,7 @@ describe('the questions a service asks', function (): void {
 
         postInquiry($this, [inquiryProjectInput([
             'serviceId' => 'dining-tables',
-            'answers' => ['area_sqm' => '3.75', 'seaters' => '7', 'table_base' => 'steel'],
+            'answers' => ['table_shape' => 'round', 'area_sqm' => '3.75', 'seaters' => '7', 'table_base_design_dining' => 'clover-v1', 'table_base' => 'steel'],
         ])])->assertSessionHasNoErrors();
 
         $answers = DB::table('inquiry_detail_answers')
@@ -469,12 +498,14 @@ describe('the questions a service asks', function (): void {
             ['slug' => 'waterfall_effect', 'text_value' => null, 'number_value' => null, 'option' => null, 'boolean_value' => true],
             ['slug' => 'area_sqm', 'text_value' => null, 'number_value' => '3.75', 'option' => null, 'boolean_value' => null],
             ['slug' => 'seaters', 'text_value' => null, 'number_value' => '7.00', 'option' => null, 'boolean_value' => null],
+            ['slug' => 'table_shape', 'text_value' => null, 'number_value' => null, 'option' => 'round', 'boolean_value' => null],
+            ['slug' => 'table_base_design_dining', 'text_value' => null, 'number_value' => null, 'option' => 'clover-v1', 'boolean_value' => null],
             ['slug' => 'table_base', 'text_value' => null, 'number_value' => null, 'option' => 'steel', 'boolean_value' => null],
         ]);
     });
 
     it('takes a free entry where the question allows one, checked only by its type', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal', 'answers' => ['area_sqm' => '0.5', 'size' => '75 x 75 cm']])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'other-customized-furniture', 'answers' => ['area_sqm' => '2', 'size' => '75 x 75 cm']])])
             ->assertSessionHasNoErrors();
 
         postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => ['seaters' => 'many', 'table_base' => 'wood']])])
@@ -490,6 +521,8 @@ describe('the questions a service asks', function (): void {
         expect(Inquiry::query()->count())->toBe(0);
     })->with([
         'a table base not listed' => [['service' => 'dining-tables', 'answers' => ['area_sqm' => '3', 'seaters' => '6', 'table_base' => 'marble']], 'table_base', 'Choose the table base from the list.'],
+        // C-legs are a side table's base, not a dining table's.
+        'a base design of another table' => [['service' => 'dining-tables', 'answers' => ['table_shape' => 'round', 'area_sqm' => '3', 'seaters' => '6', 'table_base_design_dining' => 'c-legs-v1', 'table_base' => 'wood']], 'table_base_design_dining', 'Choose the dining table base design from the list.'],
         'a fascia that is not yes or no' => [['service' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => 'maybe']], 'fascia', 'Choose yes or no.'],
         'a waterfall effect that is not yes or no' => [['service' => 'kitchen-islands', 'answers' => ['area_sqm' => '4', 'waterfall_effect' => 'maybe']], 'waterfall_effect', 'Choose yes or no.'],
     ]);
@@ -507,7 +540,7 @@ describe('the questions a service asks', function (): void {
             ->and($fascia->displayValue())->toBe('Yes');
     });
 
-    it('asks every furniture service for the project area, and stores it as a number', function (string $service): void {
+    it('asks the larger furniture for the project area, and stores it as a number', function (string $service): void {
         $answers = inquiryAnswers($service);
         unset($answers['area_sqm']);
 
@@ -521,7 +554,14 @@ describe('the questions a service asks', function (): void {
 
         expect($area->number_value)->toBe('3.75')
             ->and($area->displayValue())->toBe('3.75');
-    })->with(['center-tables', 'side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture']);
+    })->with(['dining-tables', 'other-customized-furniture']);
+
+    it('asks a small piece for its size alone, not its area in square metres', function (string $service): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => $service, 'answers' => [...inquiryAnswers($service), 'area_sqm' => '0.5']])])
+            ->assertSessionHasErrors(['projects.0.answers' => 'This service does not ask that.']);
+
+        expect(Inquiry::query()->count())->toBe(0);
+    })->with(['center-tables', 'side-tables']);
 
     it('refuses an answer to a question the service does not ask', function (): void {
         postInquiry($this, [inquiryProjectInput(['answers' => ['size' => '60 x 60 cm']])])
@@ -529,10 +569,12 @@ describe('the questions a service asks', function (): void {
     });
 
     it('takes "Same as stone" only for a project with a stone row', function (): void {
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'stones' => [], 'stoneAdvice' => true, 'answers' => ['area_sqm' => '3', 'seaters' => '6', 'table_base' => 'same-as-stone']])])
+        $answers = [...inquiryAnswers('dining-tables'), 'table_base' => 'same-as-stone'];
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'stones' => [], 'stoneAdvice' => true, 'answers' => $answers])])
             ->assertSessionHasErrors(['projects.0.answers.table_base' => 'Same as stone needs a stone. Choose another table base.']);
 
-        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => ['area_sqm' => '3', 'seaters' => '6', 'table_base' => 'same-as-stone']])])
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => $answers])])
             ->assertSessionHasNoErrors();
     });
 
@@ -551,5 +593,72 @@ describe('the questions a service asks', function (): void {
             ->and($inquiry->stones()->count())->toBe(0)
             ->and($inquiry->stone_advice_requested)->toBeFalse()
             ->and($inquiry->detailAnswers()->count())->toBe(0);
+    });
+});
+
+describe('the table questions asked with pictures', function (): void {
+    it('asks a center, side or dining table its shape and its own table\'s base design', function (string $service, string $base, string $name): void {
+        $answers = inquiryAnswers($service);
+        unset($answers['table_shape'], $answers[$base]);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => $service, 'answers' => $answers])])
+            ->assertSessionHasErrors([
+                'projects.0.answers.table_shape' => 'Choose the table shape.',
+                "projects.0.answers.{$base}" => "Choose the {$name}.",
+            ]);
+    })->with([
+        ['center-tables', 'table_base_design_center', 'center table base design'],
+        ['side-tables', 'table_base_design_side', 'side table base design'],
+        ['dining-tables', 'table_base_design_dining', 'dining table base design'],
+    ]);
+
+    it('wants a custom choice described, and keeps the description with it', function (): void {
+        $answers = [...inquiryAnswers('center-tables'), 'table_shape' => 'custom-shape', 'size' => 'About two metres across'];
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'center-tables', 'answers' => $answers])])
+            ->assertSessionHasErrors(['projects.0.answers.table_shape' => 'Describe your custom shape.']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'center-tables', 'answers' => $answers, 'customAnswers' => ['table_shape' => str_repeat('a', 256)]])])
+            ->assertSessionHasErrors(['projects.0.answers.table_shape' => 'Keep the description to 255 characters or fewer.']);
+
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'center-tables', 'answers' => $answers, 'customAnswers' => ['table_shape' => ' An L-shaped top ']])])
+            ->assertSessionHasNoErrors();
+
+        $shape = Inquiry::query()->sole()->detailAnswers()->with(['detailField', 'option'])
+            ->whereHas('detailField', fn ($field) => $field->where('slug', 'table_shape'))->sole();
+
+        expect($shape->option?->slug)->toBe('custom-shape')
+            ->and($shape->text_value)->toBe('An L-shaped top')
+            ->and($shape->displayValue())->toBe('Custom Shape: An L-shaped top');
+    });
+
+    it('keeps no description for a choice that is not custom', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'center-tables', 'answers' => inquiryAnswers('center-tables'), 'customAnswers' => ['table_shape' => 'Ignored']])])
+            ->assertSessionHasNoErrors();
+
+        $shape = Inquiry::query()->sole()->detailAnswers()->whereHas('detailField', fn ($field) => $field->where('slug', 'table_shape'))->sole();
+
+        expect($shape->text_value)->toBeNull();
+    });
+
+    it('asks a round table its diameter, a rectangular one width x length, and an organic one in the client\'s words', function (string $shape, string $size, ?string $problem): void {
+        $response = postInquiry($this, [inquiryProjectInput(['serviceId' => 'side-tables', 'answers' => [...inquiryAnswers('side-tables'), 'table_shape' => $shape, 'size' => $size]])]);
+
+        $problem === null
+            ? $response->assertSessionHasNoErrors()
+            : $response->assertSessionHasErrors(['projects.0.answers.size' => $problem]);
+    })->with([
+        'a round table by its diameter' => ['round', 'Ø 60 cm', null],
+        'a round table by width x length' => ['round', '60 x 60 cm', 'Enter the diameter and a unit, like Ø 120 cm.'],
+        'a round table of no size' => ['round', 'Ø 0 cm', 'Enter a diameter greater than 0.'],
+        'a rectangular table by width x length' => ['rectangular', '120 x 60 cm', null],
+        'a rectangular table in words' => ['rectangular', 'Quite long', 'Enter the size as width x length and a unit, like 120 x 80 cm.'],
+        'an organic table in words' => ['organic', 'About a metre, kidney-shaped', null],
+        'not sure yet, in words' => ['not-sure', 'Small', null],
+    ]);
+
+    it('takes "Not sure yet, advise me" for the shape and the base', function (): void {
+        postInquiry($this, [inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'table_shape' => 'not-sure', 'table_base_design_dining' => 'not-sure']])])
+            ->assertSessionHasNoErrors();
     });
 });
