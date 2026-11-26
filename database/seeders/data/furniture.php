@@ -4,15 +4,22 @@
  * The furniture on the home page, in its order there. `thumbnail_path` is where
  * the photograph lives on the public disk: committed at
  * storage/app/public/<thumbnail_path> locally, like the stone and project
- * photographs, and uploaded to the bucket by hand on AWS.
+ * photographs, and put in the bucket on AWS with
+ * scripts/upload-catalog-images.sh.
  *
  * A piece's other photographs go in an optional `images` list of paths,
  * kept the same way: its page shows the thumbnail large and, with them, every
  * photo below it to pick from.
+ *
+ * A table's `table_shape` and `table_base_design` are its own choices, by
+ * slug (data/detail_fields.php: Table shape, and the base design question of
+ * its table service), which its Inquire button picks.
  */
 return [
     [
         'slug' => 'alora',
+        'table_shape' => 'rounded-rectangle',
+        'table_base_design' => 'sphere-accent-pedestal',
         'name' => 'Alora',
         'furniture_type' => 'Center & Side Tables',
         'description' => 'A sophisticated center table featuring natural stone surfacing and refined craftsmanship, designed to anchor modern living spaces.',
@@ -20,6 +27,8 @@ return [
     ],
     [
         'slug' => 'arte-di-casa',
+        'table_shape' => 'oval',
+        'table_base_design' => 'x-base-v1',
         'name' => 'Arte Di Casa',
         'furniture_type' => 'Dining Tables',
         'description' => 'An exquisite dining table crafted with premium natural stone and robust foundational support, combining luxury and durability for memorable gatherings.',
@@ -27,6 +36,8 @@ return [
     ],
     [
         'slug' => 'calma',
+        'table_shape' => 'square',
+        'table_base_design' => 'half-moon',
         'name' => 'Calma',
         'furniture_type' => 'Center & Side Tables',
         'description' => 'Clean lines and organic stone textures define the Calma center table, offering understated elegance and functional surface area.',
@@ -34,6 +45,8 @@ return [
     ],
     [
         'slug' => 'casa',
+        'table_shape' => 'rounded-rectangle',
+        'table_base_design' => 'diamond',
         'name' => 'Casa',
         'furniture_type' => 'Dining Tables',
         'description' => 'Designed for contemporary homes, the Casa dining table showcases the stunning natural veining of fine stone paired with architectural bases.',
@@ -41,6 +54,8 @@ return [
     ],
     [
         'slug' => 'linea',
+        'table_shape' => 'rectangular',
+        'table_base_design' => 'close-cage',
         'name' => 'Linea',
         'furniture_type' => 'Dining Tables',
         'description' => 'The Linea dining table presents a sleek silhouette with refined stone finishes, bringing sculptural presence to any dining interior.',
@@ -48,6 +63,8 @@ return [
     ],
     [
         'slug' => 'morena',
+        'table_shape' => 'rounded-rectangle',
+        'table_base_design' => 'clover-v2',
         'name' => 'Morena',
         'furniture_type' => 'Dining Tables',
         'description' => 'A statement dining piece featuring bold stone slab surfaces and master fabrication, built to host grand occasions.',

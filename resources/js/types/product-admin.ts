@@ -29,6 +29,9 @@ export type ProductRow = {
     sizes: ProductSize[];
     /** A piece of furniture's; null for a stone. */
     description: string | null;
+    /** A table's own shape and base design, which its Inquire button picks; null for none or a stone. */
+    tableShape: ProductOption | null;
+    tableBaseDesign: ProductOption | null;
     updatedAt: string;
     /** Its page while it is shown, or null. */
     publicUrl: string | null;
@@ -37,6 +40,11 @@ export type ProductRow = {
 };
 
 export type ProductOption = { id: number; name: string };
+
+/** The furniture columns a table's own shape and base design are kept in. */
+export type TableChoiceColumn =
+    | 'table_shape_option_id'
+    | 'table_base_design_option_id';
 
 export type ProductLimits = {
     thumbnailMaxKb: number;
@@ -64,6 +72,14 @@ export type ProductsPageProps = {
         furnitureTypes: ProductOption[];
         sizes: { id: number; label: string }[];
         thicknesses: { id: number; label: string }[];
+        /**
+         * The shapes and base designs a table of each furniture type may be
+         * given, by type id; a type that asks neither is absent.
+         */
+        tableChoices: Record<
+            string,
+            Partial<Record<TableChoiceColumn, ProductOption[]>>
+        >;
     };
     /** The names Regray keeps for its own pages; no product may take one. */
     reservedSlugs: string[];

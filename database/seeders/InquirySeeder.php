@@ -749,11 +749,16 @@ class InquirySeeder extends Seeder
      * required question left unanswered and an answer to one the service does
      * not ask.
      *
-     * @param  array<string, string|int|float|bool>  $answers  By question slug; a closed option by its slug.
+     * @param  array<string, string|int|float|bool|array<string, string>>  $answers  By question slug; a closed option by its slug; `custom` holds a custom choice's description by slug.
      */
     private function seedAnswers(Inquiry $inquiry, Service $service, string $reference, array $answers): void
     {
         $questions = $service->detailFields->filter(fn (DetailField $field): bool => $field->scope === DetailFieldScope::Project)->keyBy('slug');
+        // A custom choice's description, by question slug, beside the answers.
+        /** @var array<string, string> $custom */
+        $custom = $answers['custom'] ?? [];
+        /** @var array<string, string|int|float|bool> $answers */
+        $answers = array_diff_key($answers, ['custom' => true]);
 
         foreach (array_diff(array_keys($answers), $questions->keys()->all()) as $slug) {
             throw new RuntimeException("{$reference}: {$service->slug} does not ask {$slug}.");
@@ -768,7 +773,7 @@ class InquirySeeder extends Seeder
                 continue;
             }
 
-            $inquiry->detailAnswers()->create($field->answerAttributes($answers[$slug]));
+            $inquiry->detailAnswers()->create($field->answerAttributes($answers[$slug], $custom[$slug] ?? null));
         }
     }
 

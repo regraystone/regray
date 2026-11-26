@@ -20,6 +20,7 @@ use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\Conversation;
 use App\Models\DetailField;
+use App\Models\DetailFieldOption;
 use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Inquiry;
@@ -141,8 +142,8 @@ function unofferedStoneSlug(string $service): string
  */
 function inquiryService(string $slug): Service
 {
-    return Service::query()->with('detailFields.options')->where('slug', $slug)->first()
-        ?? Service::query()->with('detailFields.options')->where('slug', 'slab-supply-only')->firstOrFail();
+    return Service::query()->with('detailFields.options.services')->where('slug', $slug)->first()
+        ?? Service::query()->with('detailFields.options.services')->where('slug', 'slab-supply-only')->firstOrFail();
 }
 
 /**
@@ -179,12 +180,17 @@ function inquiryStoneRow(string $service = 'slab-supply-only', array $overrides 
  */
 function inquiryAnswers(string $service): array
 {
-    return inquiryService($service)->detailFields
+    $offered = inquiryService($service);
+
+    return $offered->detailFields
         ->filter(fn (DetailField $field): bool => $field->scope === DetailFieldScope::Project)
         ->mapWithKeys(fn (DetailField $field): array => [$field->slug => match ($field->answer_type) {
             DetailAnswerType::Number => '12.5',
-            DetailAnswerType::Text => 'Custom size',
-            DetailAnswerType::Choice => $field->closedOptions()->firstWhere('links_to_stone', false)->slug,
+            // Width x length, as the first table shape (Rectangular) asks it.
+            DetailAnswerType::Text => $field->slug === DetailField::SIZE ? '120 x 80 cm' : 'Custom size',
+            // The first ordinary choice offered for the service: no "Same as stone", custom or advise me.
+            DetailAnswerType::Choice => $field->closedOptions($offered->id)
+                ->first(fn (DetailFieldOption $option): bool => ! $option->links_to_stone && ! $option->is_custom && ! $option->is_advisory)->slug,
             DetailAnswerType::Boolean => true,
         }])
         ->all();

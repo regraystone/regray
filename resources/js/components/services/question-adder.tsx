@@ -1,4 +1,3 @@
-import { Link } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { index as serviceListIndex } from '@/routes/dashboard/services/lists';
 import type { QuestionOption } from '@/types/service-admin';
 
 /** A question the service asks, chosen from the Questions page's list. */
@@ -21,24 +19,30 @@ export type AddedQuestion = {
 
 /**
  * "Ask another question": choose one from the Questions page's list. A new
- * question is written there, under Services, not here.
+ * question is written on the Questions page: "Add a new question" goes there
+ * with the form kept, and comes back with it asked (lib/admin-handoff).
  */
 const QuestionAdder = ({
     available,
     onAdd,
+    onAddNew,
 }: {
     /** The list's questions the service doesn't ask yet. */
     available: QuestionOption[];
     onAdd: (question: AddedQuestion) => void;
+    /** Keep the form and write a new question on the Questions page. */
+    onAddNew: () => void;
 }) => {
     const [chosen, setChosen] = useState('');
-    const questionsLink = (
-        <Link
-            href={serviceListIndex.url('questions')}
+    const addNew = (
+        <button
+            type="button"
+            onClick={onAddNew}
             className="font-bold text-foreground underline underline-offset-4"
+            data-testid="service-add-new-question"
         >
-            Questions page
-        </Link>
+            Add a new question
+        </button>
     );
 
     return (
@@ -99,13 +103,13 @@ const QuestionAdder = ({
                         </Button>
                     </div>
                     <p className="text-xs text-secondary-foreground">
-                        Not on the list? Add it on the {questionsLink}.
+                        Not on the list? {addNew}. You come back here with it
+                        asked.
                     </p>
                 </>
             ) : (
                 <p className="text-sm text-secondary-foreground">
-                    It already asks every question on the list. Add a new one on
-                    the {questionsLink}.
+                    It already asks every question on the list. {addNew}.
                 </p>
             )}
         </div>

@@ -1,6 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { Layers, Pencil, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Detail, Section } from '@/components/admin-drawer-parts';
 import ConfirmDialog from '@/components/confirm-dialog';
@@ -15,7 +15,12 @@ import { useDataTableQuery } from '@/components/data-table/use-data-table-query'
 import EmptyState from '@/components/empty-state';
 import FormDrawer from '@/components/form-drawer';
 import PageHeader from '@/components/page-header';
-import ServiceForm, { SERVICE_PROPS } from '@/components/services/service-form';
+import ServiceForm, {
+    SERVICE_HANDOFF_KEY,
+    SERVICE_PROPS,
+    type ServiceValues,
+} from '@/components/services/service-form';
+import { takeHandoff } from '@/lib/admin-handoff';
 import StatusBadge from '@/components/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -67,6 +72,29 @@ const Services = () => {
     const [drawer, setDrawer] = useState<Drawer | null>(null);
     const [archiving, setArchiving] = useState<ServiceRow | null>(null);
     const [processing, setProcessing] = useState(false);
+    const [restored, setRestored] = useState<{
+        values: ServiceValues;
+        picked: number | null;
+    } | null>(null);
+
+    // Back from writing a new question on the Questions page: the form as it was left.
+    useEffect(() => {
+        const returned = takeHandoff<ServiceValues, ServiceRow>(
+            SERVICE_HANDOFF_KEY,
+        );
+
+        if (returned === null) {
+            return;
+        }
+
+        const { handoff, picked } = returned;
+        setRestored({ values: handoff.values, picked });
+        setDrawer(
+            handoff.item === null
+                ? { mode: 'add' }
+                : { mode: 'edit', service: handoff.item },
+        );
+    }, []);
 
     const typeOf = (service: ServiceRow): ServiceTypeOption | undefined =>
         serviceTypes.find((type) => type.id === service.serviceTypeId);
@@ -301,12 +329,16 @@ const Services = () => {
             <ServiceForm
                 open={drawer?.mode === 'add' || editing !== null}
                 service={editing}
+                restored={restored}
                 defaultTypeId={drawer?.mode === 'add' ? defaultTypeId : null}
                 serviceTypes={serviceTypes}
                 stoneTypes={stoneTypes}
                 questions={questions}
                 limits={limits}
-                onClose={() => setDrawer(null)}
+                onClose={() => {
+                    setDrawer(null);
+                    setRestored(null);
+                }}
             />
 
             <ConfirmDialog

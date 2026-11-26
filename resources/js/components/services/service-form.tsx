@@ -30,7 +30,9 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { leaveToAdd } from '@/lib/admin-handoff';
 import { FULFILLMENT_OPTIONS, questionHint } from '@/lib/service-admin';
+import { index as serviceListIndex } from '@/routes/dashboard/services/lists';
 import {
     store as storeService,
     update as updateService,
@@ -44,7 +46,10 @@ import type {
 
 export const SERVICE_PROPS = ['services', 'filters'];
 
-type ServiceValues = {
+/** Where the form is kept while a new question is written (lib/admin-handoff). */
+export const SERVICE_HANDOFF_KEY = 'services';
+
+export type ServiceValues = {
     name: string;
     service_type_id: string;
     description: string;
@@ -211,6 +216,7 @@ const serviceSchema = (limits: ServiceLimits, questions: QuestionOption[]) =>
 const ServiceForm = ({
     open,
     service,
+    restored,
     defaultTypeId,
     serviceTypes,
     stoneTypes,
@@ -221,6 +227,11 @@ const ServiceForm = ({
     open: boolean;
     /** The service being edited, or null to add one. */
     service: ServiceRow | null;
+    /**
+     * The form as it was left to add a question on the Questions page, with
+     * that question's id once added (lib/admin-handoff).
+     */
+    restored?: { values: ServiceValues; picked: number | null } | null;
     /** The type a new service starts under. */
     defaultTypeId: number | null;
     serviceTypes: ServiceTypeOption[];
@@ -254,10 +265,44 @@ const ServiceForm = ({
     });
 
     useEffect(() => {
-        if (open) {
-            reset(service ? fromRow(service) : emptyValues(defaultTypeId));
+        if (!open) {
+            return;
         }
+
+        if (!restored) {
+            reset(service ? fromRow(service) : emptyValues(defaultTypeId));
+
+            return;
+        }
+
+        // Back from the Questions page: as it was, asking the new question too.
+        const added = questions.find(
+            (question) => question.id === restored.picked,
+        );
+        const values = restored.values;
+
+        reset(
+            added && !values.questions.some((asked) => asked.id === added.id)
+                ? {
+                      ...values,
+                      questions: [
+                          ...values.questions,
+                          { id: added.id, name: added.name, required: true },
+                      ],
+                  }
+                : values,
+        );
+        // Only on opening: the restored form is filled in once.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, service, defaultTypeId, reset]);
+
+    /** Keep the form and write a new question on the Questions page. */
+    const addNewQuestion = () =>
+        leaveToAdd(
+            SERVICE_HANDOFF_KEY,
+            { item: service, values: form.getValues() },
+            serviceListIndex.url('questions'),
+        );
 
     const questionById = (id: number) =>
         questions.find((question) => question.id === id);
@@ -744,6 +789,7 @@ const ServiceForm = ({
                         key={open ? 'open' : 'closed'}
                         available={addable}
                         onAdd={(question) => chosen.append(question)}
+                        onAddNew={addNewQuestion}
                     />
                 </Section>
 

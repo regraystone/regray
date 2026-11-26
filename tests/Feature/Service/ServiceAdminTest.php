@@ -3,6 +3,7 @@
 use App\Enums\AuditEvent;
 use App\Enums\Role;
 use App\Models\AuditLog;
+use App\Models\Choice;
 use App\Models\DetailField;
 use App\Models\Inquiry;
 use App\Models\Service;
@@ -38,7 +39,7 @@ function offeredServiceSlugs(): array
 
 describe('the page', function (): void {
     it('lists every service but the archived, by type then display order, with what the forms offer', function (): void {
-        Service::query()->where('slug', 'pedestal')->update(['is_active' => false, 'archived_at' => now()]);
+        Service::query()->where('slug', 'other-customized-furniture')->update(['is_active' => false, 'archived_at' => now()]);
         Service::query()->where('slug', 'flooring')->update(['is_active' => false]);
         $live = Service::query()->notArchived()->count();
         $first = Service::query()->where('service_type_id', $this->natural->id)->orderBy('sort_order')->orderBy('name')->first();
@@ -63,7 +64,7 @@ describe('the page', function (): void {
         $this->actingAs($this->admin)
             ->get(route('services.index', ['page' => 2]))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('services.data', fn ($services): bool => collect($services)->doesntContain('slug', 'pedestal')));
+                ->where('services.data', fn ($services): bool => collect($services)->doesntContain('slug', 'other-customized-furniture')));
     });
 
     it('searches by name or description and filters by type and status', function (): void {
@@ -242,12 +243,18 @@ describe('adding and changing a service', function (): void {
 });
 
 describe('choosing questions', function (): void {
-    it('asks a question added on the Questions page, in its place, and a client can answer it', function (): void {
+    it('asks a question added on the Questions page from choices added on the Choices page, in its place, and a client can answer it', function (): void {
         Storage::fake(config('inquiry.disk'));
         $area = DetailField::query()->where('slug', 'area_sqm')->value('id');
 
+        foreach (['Single bowl', 'Double bowl'] as $name) {
+            $this->actingAs($this->admin)
+                ->post(route('dashboard.services.lists.store', 'choices'), ['name' => $name, 'kind' => 'choice', 'is_active' => '1'])
+                ->assertSessionHasNoErrors();
+        }
+
         $this->actingAs($this->admin)
-            ->post(route('dashboard.services.lists.store', 'questions'), ['name' => 'Sink cut-out', 'answer_type' => 'choice', 'choices' => ['Single bowl', 'Double bowl']])
+            ->post(route('dashboard.services.lists.store', 'questions'), ['name' => 'Sink cut-out', 'answer_type' => 'choice', 'choices' => Choice::query()->whereIn('name', ['Single bowl', 'Double bowl'])->orderBy('id')->pluck('id')->all()])
             ->assertSessionHasNoErrors();
 
         $field = DetailField::query()->where('name', 'Sink cut-out')->sole();
@@ -313,7 +320,7 @@ describe('archiving', function (): void {
 
         $this->actingAs($this->admin)
             ->post(route('dashboard.services.lists.archive', ['service-types', $furniture->id]))
-            ->assertSessionHasErrors(['archive' => 'Custom Stone Furniture can\'t be archived. Move or archive its 5 services first.']);
+            ->assertSessionHasErrors(['archive' => 'Custom Stone Furniture can\'t be archived. Move or archive its 4 services first.']);
 
         expect($furniture->refresh()->archived_at)->toBeNull();
 

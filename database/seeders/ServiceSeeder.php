@@ -63,5 +63,8 @@ class ServiceSeeder extends Seeder
         }
 
         Service::query()->whereNotIn('slug', $listed)->update(['is_active' => false]);
+
+        // The choices offered for only some services, now that they exist.
+        app(ChoiceSeeder::class)->linkServices();
     }
 }

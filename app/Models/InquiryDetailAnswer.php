@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * One project-scope answer of an inquiry, to one question its service asked.
  * Only the column matching the question's answer type is set: `text_value`,
- * `number_value`, `option_id` (a closed option) or `boolean_value`.
+ * `number_value`, `option_id` (a closed option) or `boolean_value`; a custom
+ * choice ("Custom shape") also keeps the client's description of it in
+ * `text_value`.
  *
  * @property int $inquiry_id
  * @property int $detail_field_id
@@ -53,17 +55,33 @@ class InquiryDetailAnswer extends Model
     /**
      * The answer as a reader is shown it: a number without trailing zeros, an
      * option by its name, yes or no. "Same as stone" reads as `$stoneName`, the
-     * stone it means, when there is one. Expects the question and the option
-     * loaded.
+     * stone it means, when there is one; a custom choice reads with the
+     * client's description, "Custom shape: an L-shaped top". Expects the
+     * question and the option loaded.
      */
     public function displayValue(?string $stoneName = null): string
     {
         return match ($this->detailField->answer_type) {
             DetailAnswerType::Text => (string) $this->text_value,
             DetailAnswerType::Number => str_contains((string) $this->number_value, '.') ? rtrim(rtrim((string) $this->number_value, '0'), '.') : (string) $this->number_value,
-            DetailAnswerType::Choice => $this->option?->links_to_stone && $stoneName !== null ? $stoneName : (string) $this->option?->name,
+            DetailAnswerType::Choice => match (true) {
+                $this->option?->links_to_stone && $stoneName !== null => $stoneName,
+                $this->customText() !== null => "{$this->option?->name}: {$this->customText()}",
+                default => (string) $this->option?->name,
+            },
             DetailAnswerType::Boolean => $this->boolean_value ? 'Yes' : 'No',
         };
+    }
+
+    /**
+     * The client's description of a custom choice ("an L-shaped top"), or
+     * null for any other answer. Expects the question loaded.
+     */
+    public function customText(): ?string
+    {
+        return $this->detailField->answer_type === DetailAnswerType::Choice && $this->option_id !== null && filled($this->text_value)
+            ? $this->text_value
+            : null;
     }
 
     /** @return BelongsTo<Inquiry, $this> */

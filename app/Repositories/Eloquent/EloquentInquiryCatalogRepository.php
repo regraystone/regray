@@ -37,7 +37,8 @@ class EloquentInquiryCatalogRepository implements InquiryCatalogRepositoryInterf
                 ->orderBy('sort_order')
                 ->orderBy('id'),
                 'services.features',
-                'services.detailFields.options',
+                // With the services each choice is offered for, so a question lists only its service's.
+                'services.detailFields.options.services:services.id',
                 // The ones switched on, in the order the stone types are listed everywhere else.
                 'services.stoneTypes' => fn (Relation $types) => $types->getQuery()
                     ->select(['stone_types.id', 'stone_types.slug'])

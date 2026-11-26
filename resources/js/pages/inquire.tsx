@@ -553,6 +553,7 @@ const InquireFlow = ({
         stones: stonePage,
         stoneTypes,
         stoneFilters,
+        furniture: furniturePrefill = null,
     } = usePage<InquirePageProps>().props;
     /** Which stones a change of service, a restore or an edit took off, said on step 2. */
     const [stoneNotice, setStoneNotice] = useState<string | null>(null);
@@ -1292,6 +1293,89 @@ const InquireFlow = ({
             setStoneNotice(null);
         }
     };
+
+    /*
+     * Opened from a furniture page's Inquire: the piece's brand, service and
+     * table answers go into the draft once it has been restored, unless the
+     * reader is already part way through one (a service picked), which is
+     * theirs to finish. Once, and the piece leaves the URL so a refresh
+     * doesn't pick it again.
+     */
+    const furniturePrefilled = useRef(false);
+
+    useEffect(() => {
+        if (
+            furniturePrefilled.current ||
+            !isRestored ||
+            edit !== null ||
+            furniturePrefill === null
+        ) {
+            return;
+        }
+
+        furniturePrefilled.current = true;
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('furniture');
+        window.history.replaceState(window.history.state, '', url);
+
+        const service = findService(
+            catalog.serviceTypes,
+            furniturePrefill.service,
+        );
+
+        if (
+            service === undefined ||
+            getDraftValues('serviceId') !== '' ||
+            editingProjectId !== null
+        ) {
+            return;
+        }
+
+        const brandKnown = catalog.brands.some(
+            ({ id }) => id === furniturePrefill.brand,
+        );
+
+        if (
+            brandKnown &&
+            getDraftValues('brands').length === 0 &&
+            !getDraftValues('brandNoPreference')
+        ) {
+            setDraftValue('brands', [furniturePrefill.brand], {
+                shouldDirty: true,
+            });
+        }
+
+        setDraftValue('serviceTypeId', furniturePrefill.serviceType, {
+            shouldDirty: true,
+        });
+        chooseService(furniturePrefill.service);
+        setDraftValue(
+            'answers',
+            { ...getDraftValues('answers'), ...furniturePrefill.answers },
+            { shouldDirty: true },
+        );
+
+        const draft = getDraftValues();
+
+        setStep(BRAND_STEP);
+        setShownQuestions(
+            furthestQuestion({
+                ...draft,
+                requiresStones: requiresStones(draft.serviceId),
+            }),
+        );
+    }, [
+        isRestored,
+        edit,
+        furniturePrefill,
+        catalog,
+        editingProjectId,
+        getDraftValues,
+        setDraftValue,
+        chooseService,
+        requiresStones,
+    ]);
 
     const setStones = (ids: string[]) => {
         setDraftValue('stoneIds', ids, {

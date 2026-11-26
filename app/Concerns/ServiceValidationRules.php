@@ -36,7 +36,8 @@ trait ServiceValidationRules
 
     public const QUESTION_NAME_MAX = 100;
 
-    public const CHOICES_MAX = 10;
+    // Table base design lists every base a center, side or dining table may have, with Custom and Not sure.
+    public const CHOICES_MAX = 20;
 
     public const CHOICE_MAX = 150;
 

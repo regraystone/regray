@@ -29,11 +29,15 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon|null $deleted_at Archived (the soft delete) from the Products page.
+ * @property int|null $table_shape_option_id A table's own shape, which its Inquire button picks.
+ * @property int|null $table_base_design_option_id A table's own base design, likewise.
  * @property-read Brand $brand
+ * @property-read DetailFieldOption|null $tableShape
+ * @property-read DetailFieldOption|null $tableBaseDesign
  * @property-read FurnitureType $furnitureType
  * @property-read Collection<int, FurnitureImage> $images
  */
-#[Fillable(['brand_id', 'slug', 'name', 'description', 'thumbnail_path', 'furniture_type_id', 'is_active', 'sort_order'])]
+#[Fillable(['brand_id', 'slug', 'name', 'description', 'thumbnail_path', 'furniture_type_id', 'table_shape_option_id', 'table_base_design_option_id', 'is_active', 'sort_order'])]
 class Furniture extends Model
 {
     /** @use HasFactory<FurnitureFactory> */
@@ -80,6 +84,18 @@ class Furniture extends Model
     {
         $query->where($query->qualifyColumn('is_active'), true)
             ->whereIn($query->qualifyColumn('brand_id'), Brand::query()->notArchived()->select('id'));
+    }
+
+    /** @return BelongsTo<DetailFieldOption, $this> */
+    public function tableShape(): BelongsTo
+    {
+        return $this->belongsTo(DetailFieldOption::class, 'table_shape_option_id');
+    }
+
+    /** @return BelongsTo<DetailFieldOption, $this> */
+    public function tableBaseDesign(): BelongsTo
+    {
+        return $this->belongsTo(DetailFieldOption::class, 'table_base_design_option_id');
     }
 
     /** @return BelongsTo<FurnitureType, $this> */

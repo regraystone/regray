@@ -37,7 +37,7 @@ class FurnitureAdminService
     ) {}
 
     /**
-     * @param  array{brand_id: int, furniture_type_id: int, name: string, slug: string, description: string|null, is_active: bool}  $data
+     * @param  array{brand_id: int, furniture_type_id: int, name: string, slug: string, description: string|null, table_shape_option_id: int|null, table_base_design_option_id: int|null, is_active: bool}  $data
      * @param  list<array{id: int|null, file: UploadedFile|null}>  $gallery
      */
     public function create(array $data, ?UploadedFile $thumbnail, array $gallery, User $by, ?string $ipAddress, ?string $userAgent): Furniture
@@ -65,7 +65,7 @@ class FurnitureAdminService
      * Change a piece. A thumbnail sent replaces the current one; none sent
      * keeps it. The gallery becomes `$gallery`, in its order.
      *
-     * @param  array{brand_id: int, furniture_type_id: int, name: string, slug: string, description: string|null, is_active: bool}  $data
+     * @param  array{brand_id: int, furniture_type_id: int, name: string, slug: string, description: string|null, table_shape_option_id: int|null, table_base_design_option_id: int|null, is_active: bool}  $data
      * @param  list<array{id: int|null, file: UploadedFile|null}>  $gallery
      */
     public function update(Furniture $piece, array $data, ?UploadedFile $thumbnail, array $gallery, User $by, ?string $ipAddress, ?string $userAgent): Furniture
@@ -165,6 +165,8 @@ class FurnitureAdminService
             'name' => $piece->name,
             'slug' => $piece->slug,
             'description' => $piece->description,
+            'table_shape_option_id' => $piece->table_shape_option_id,
+            'table_base_design_option_id' => $piece->table_base_design_option_id,
             'thumbnail_path' => $piece->thumbnail_path,
             'gallery' => $piece->images()->pluck('path')->all(),
             'is_active' => $piece->is_active,

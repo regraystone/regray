@@ -45,6 +45,7 @@ use App\Repositories\Contracts\ProductAdminRepositoryInterface;
 use App\Repositories\Contracts\ServiceRepositoryInterface;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Services\FurnitureCustomizationService;
 use App\Services\InquiryStatusRules;
 use App\Services\SalesReportService;
 use App\Services\ScheduleService;
@@ -206,7 +207,7 @@ class ViewController extends Controller
      * super-admin every open lead. A client's `leads` is null: they send their
      * own.
      */
-    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses, WalkInInquiryService $walkIns): Response
+    public function inquire(Request $request, ListInquiryOptionsAction $listInquiryOptions, ListInquiryStonesAction $listInquiryStones, LeadRepositoryInterface $leads, ClientAddressRepositoryInterface $addresses, WalkInInquiryService $walkIns, FurnitureCustomizationService $customization): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -222,6 +223,8 @@ class ViewController extends Controller
             'lead' => $pickable?->firstWhere('reference', $request->query('lead'))?->reference,
             // Who a walk-in's inquiry may be given to: null for sales, who owns what it opens, and for a client.
             'walkInOwners' => $pickable === null ? null : $walkIns->ownerOptions($user)?->map(fn (User $owner): array => ['id' => $owner->id, 'name' => $owner->name])->values()->all(),
+            // From a furniture page's Inquire: the piece's brand, service and table answers, picked for a draft not yet begun.
+            'furniture' => fn (): ?array => $customization->inquiryPrefill(is_string($request->query('furniture')) ? $request->query('furniture') : null),
         ]);
     }
 

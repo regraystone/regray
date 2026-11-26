@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $description What the Inquire page says of it once it is picked.
  * @property bool $is_advisory
  * @property bool $is_active
  * @property int $sort_order
@@ -20,7 +21,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, StoneType> $stoneTypes
  * @property Carbon|null $deleted_at Archived (the soft delete) from its Products page.
  */
-#[Fillable(['name', 'is_advisory', 'is_active', 'sort_order'])]
+#[Fillable(['name', 'description', 'is_advisory', 'is_active', 'sort_order'])]
 class Finish extends Model
 {
     use SoftDeletes;

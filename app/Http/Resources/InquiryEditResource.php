@@ -86,9 +86,13 @@ class InquiryEditResource extends JsonResource
                 'edge' => $row->edgeProfile?->name,
                 'finish' => $row->finish?->name,
             ])->all()),
-            // An object even when empty, as the page's form holds it.
+            // An object even when empty, as the page's form holds it. A custom
+            // choice's description rides beside it, under "{slug}:custom".
             'answers' => (object) $this->detailAnswers
-                ->mapWithKeys(fn (InquiryDetailAnswer $answer): array => [$answer->detailField->slug => $answer->formValue()])
+                ->mapWithKeys(fn (InquiryDetailAnswer $answer): array => [
+                    $answer->detailField->slug => $answer->formValue(),
+                    ...($answer->customText() === null ? [] : [$answer->detailField->slug.InquiryDetailFieldResource::CUSTOM_SUFFIX => $answer->customText()]),
+                ])
                 ->all(),
             'brands' => array_values($this->brands->map(fn (Brand $brand): string => $brand->slug)->all()),
             // As the Brand question lists them, so one archived since still shows and can be kept.
@@ -115,7 +119,7 @@ class InquiryEditResource extends JsonResource
     /**
      * The listed answers it already has, by question slug, each once.
      *
-     * @return array<string, list<array{value: string, label: string, isAdvisory?: bool, linksToStone?: bool}>>
+     * @return array<string, list<array<string, mixed>>>
      */
     private function heldChoices(): array
     {
@@ -140,14 +144,14 @@ class InquiryEditResource extends JsonResource
             $slug = $answer->detailField->slug;
 
             if ($answer->option !== null) {
-                $add($slug, ['value' => $answer->option->slug, 'label' => $answer->option->name, 'linksToStone' => $answer->option->links_to_stone]);
+                $add($slug, InquiryDetailFieldResource::choice($answer->option));
             } elseif (in_array($answer->detailField->answer_type, [DetailAnswerType::Text, DetailAnswerType::Number], true) && $answer->formValue() !== null) {
                 $value = (string) $answer->formValue();
                 $add($slug, ['value' => $value, 'label' => $value]);
             }
         }
 
-        /** @var array<string, list<array{value: string, label: string, isAdvisory?: bool, linksToStone?: bool}>> $held */
+        /** @var array<string, list<array<string, mixed>>> $held */
         return $held;
     }
 }

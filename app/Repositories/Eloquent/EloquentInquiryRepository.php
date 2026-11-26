@@ -344,7 +344,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'service.serviceType',
                 'service.features',
                 'service.stoneTypes:stone_types.id,stone_types.slug',
-                'service.detailFields.options',
+                'service.detailFields.options.services:services.id',
                 'detailAnswers.detailField',
                 'detailAnswers.option',
                 'brands:id,slug,name,logo_path,sort_order',

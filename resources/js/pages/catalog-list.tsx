@@ -31,6 +31,12 @@ import {
     PNG,
     WEBP,
 } from '@/lib/image-upload';
+import {
+    addRequest,
+    leaveToAdd,
+    returnWithout,
+    takeHandoff,
+} from '@/lib/admin-handoff';
 import { SLUG_PATTERN, slugify } from '@/lib/slug';
 import * as productListRoutes from '@/routes/dashboard/products/lists';
 import * as serviceListRoutes from '@/routes/dashboard/services/lists';
@@ -263,6 +269,11 @@ const CatalogListPage = () => {
     const [slugEdited, setSlugEdited] = useState(false);
     const adding = useRef(true);
     const fixed = useRef<readonly string[]>([]);
+    // A form brought back from another page (lib/admin-handoff), filled in once its drawer opens.
+    const restored = useRef<Values | null>(null);
+    // Opened to add something for another page's form: where to go back to.
+    const [back, setBack] = useState<string | null>(null);
+    const handoffKey = `catalog:${list.slug}`;
     const listRoutes = ROUTES[list.section];
     const words = list.statusWords;
 
@@ -287,18 +298,58 @@ const CatalogListPage = () => {
     const watched = useWatch({ control });
 
     useEffect(() => {
+        const kept = restored.current;
+        restored.current = null;
+
         if (drawer?.mode === 'edit') {
             adding.current = false;
             fixed.current = drawer.item.fixed;
             setSlugEdited(true);
-            reset(fromItem(list.fields, drawer.item));
+            reset(kept ?? fromItem(list.fields, drawer.item));
         } else if (drawer?.mode === 'add') {
             adding.current = true;
             fixed.current = [];
-            setSlugEdited(false);
-            reset(emptyValues(list.fields));
+            setSlugEdited(kept !== null);
+            reset(kept ?? emptyValues(list.fields));
         }
     }, [drawer, list.fields, reset]);
+
+    /*
+     * Opened from another page: back from adding what this page's form needed
+     * (its values return, with the new item picked), or sent here to add one
+     * (the Add drawer opens, and saving goes back with it).
+     */
+    useEffect(() => {
+        const request = addRequest();
+        setBack(request?.back ?? null);
+        const returned = takeHandoff<Values, CatalogItem>(handoffKey);
+
+        if (returned !== null) {
+            const { handoff, picked } = returned;
+            const values = { ...emptyValues(list.fields), ...handoff.values };
+            const linked = list.fields.find((field) => field.addLink);
+
+            if (picked !== null && linked !== undefined) {
+                const current = Array.isArray(values[linked.name])
+                    ? (values[linked.name] as number[])
+                    : [];
+                values[linked.name] = current.includes(picked)
+                    ? current
+                    : [...current, picked];
+            }
+
+            restored.current = values;
+            setDrawer(
+                handoff.item === null
+                    ? { mode: 'add' }
+                    : { mode: 'edit', item: handoff.item },
+            );
+        } else if (request?.open && props.canCreate) {
+            setDrawer({ mode: 'add' });
+        }
+        // Once, on opening the page.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // While adding, the slug follows the name until it is typed by hand.
     useEffect(() => {
@@ -307,7 +358,33 @@ const CatalogListPage = () => {
         }
     }, [hasSlug, drawer, slugEdited, name, setValue]);
 
-    const close = () => setDrawer(null);
+    const close = () => {
+        setDrawer(null);
+
+        // Sent here to add one and closed without it: back to the form that asked.
+        if (back !== null && drawer?.mode === 'add') {
+            returnWithout(back);
+        }
+    };
+
+    /** Keep the form and add what its field needs on that field's page. */
+    const leaveFor = (field: CatalogField) => {
+        if (!field.addLink) {
+            return;
+        }
+
+        const values = Object.fromEntries(
+            Object.entries(form.getValues()).filter(
+                ([, value]) => !(value instanceof File),
+            ),
+        );
+
+        leaveToAdd(
+            handoffKey,
+            { item: editing, values },
+            ROUTES[list.section].index.url(field.addLink.list),
+        );
+    };
     const message = (field: string) => {
         const error = errors[field];
 
@@ -360,16 +437,22 @@ const CatalogListPage = () => {
             }
         }
 
+        // Added for another page's form: saving goes back there, the whole page.
+        const returning = back !== null && editing === null;
         const options = {
-            only: ONLY,
-            preserveScroll: true,
-            preserveState: true,
+            ...(returning ? {} : { only: ONLY }),
+            preserveScroll: !returning,
+            preserveState: !returning,
             forceFormData: hasImage,
             onStart: () => setProcessing(true),
             onFinish: () => setProcessing(false),
-            onSuccess: close,
+            onSuccess: () => setDrawer(null),
             onError: showErrors,
         };
+
+        if (returning) {
+            payload.back = back;
+        }
 
         if (editing) {
             router.post(
@@ -670,6 +753,23 @@ const CatalogListPage = () => {
                                                 describedBy={describedBy}
                                                 invalid={invalid}
                                             />
+                                            {field.addLink ? (
+                                                <p className="mt-2 text-xs text-secondary-foreground">
+                                                    Not on the list?{' '}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            leaveFor(field)
+                                                        }
+                                                        className="font-bold text-foreground underline underline-offset-4"
+                                                        data-testid={`catalog-${field.name}-add-link`}
+                                                    >
+                                                        {field.addLink.label}
+                                                    </button>
+                                                    . You come back here with it
+                                                    picked.
+                                                </p>
+                                            ) : null}
                                         </div>
                                     )}
                                 />

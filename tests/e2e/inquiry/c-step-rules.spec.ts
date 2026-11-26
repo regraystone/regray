@@ -119,7 +119,6 @@ test('11 · What do you need: a type, then its services, then what the service i
         'Center Tables',
         'Side Tables',
         'Dining Tables',
-        'Pedestal',
         'Other Customized Furniture',
     ]);
     await page.keyboard.press('Escape');

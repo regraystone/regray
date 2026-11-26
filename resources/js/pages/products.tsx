@@ -59,8 +59,10 @@ import * as stoneRoutes from '@/routes/dashboard/products/stones';
 import type {
     ProductKind,
     ProductLimits,
+    ProductOption,
     ProductRow,
     ProductsPageProps,
+    TableChoiceColumn,
 } from '@/types/product-admin';
 
 const ONLY = ['products', 'filters'];
@@ -108,9 +110,21 @@ type ProductValues = {
     types: number[];
     sizes: SizeRow[];
     description: string;
+    /** A table's own shape and base design, by option id, or NO_CHOICE. */
+    table_shape_option_id: string;
+    table_base_design_option_id: string;
     thumbnail: File | null;
     gallery: GalleryRow[];
 };
+
+/** A table's shape or base design left unset (a select can't hold ''). */
+const NO_CHOICE = 'none';
+
+/** The two table questions a piece can answer for its Inquire button, as the drawer labels them. */
+const TABLE_CHOICES: { column: TableChoiceColumn; label: string }[] = [
+    { column: 'table_shape_option_id', label: 'Table shape' },
+    { column: 'table_base_design_option_id', label: 'Table base design' },
+];
 
 const emptyValues = (kind: ProductKind): ProductValues => ({
     brand_id: '',
@@ -123,6 +137,8 @@ const emptyValues = (kind: ProductKind): ProductValues => ({
     types: [],
     sizes: kind === 'stone' ? [{ size_id: '', thickness_id: '' }] : [],
     description: '',
+    table_shape_option_id: NO_CHOICE,
+    table_base_design_option_id: NO_CHOICE,
     thumbnail: null,
     gallery: [],
 });
@@ -141,6 +157,12 @@ const fromRow = (row: ProductRow): ProductValues => ({
         thickness_id: String(size.thicknessId),
     })),
     description: row.description ?? '',
+    table_shape_option_id: row.tableShape
+        ? String(row.tableShape.id)
+        : NO_CHOICE,
+    table_base_design_option_id: row.tableBaseDesign
+        ? String(row.tableBaseDesign.id)
+        : NO_CHOICE,
     thumbnail: null,
     gallery: row.gallery.map((photo) => ({
         photo_id: photo.id,
@@ -203,6 +225,8 @@ const productSchema = (
                     limits.descriptionMax,
                     `Keep the description to ${limits.descriptionMax.toLocaleString('en-PH')} characters.`,
                 ),
+            table_shape_option_id: z.string(),
+            table_base_design_option_id: z.string(),
             thumbnail: imageFileSchema(
                 IMAGE_TYPES,
                 limits.thumbnailMaxKb,
@@ -376,6 +400,7 @@ const Products = () => {
         handleSubmit,
         setError,
         setValue,
+        getValues,
         reset,
         control,
         formState,
@@ -384,10 +409,13 @@ const Products = () => {
     const sizes = useFieldArray({ control, name: 'sizes' });
     const galleryRows = useWatch({ control, name: 'gallery' }) ?? [];
     const sizeRows = useWatch({ control, name: 'sizes' }) ?? [];
-    const [name, slug, brandId] = useWatch({
+    const [name, slug, brandId, typeId] = useWatch({
         control,
-        name: ['name', 'slug', 'brand_id'],
+        name: ['name', 'slug', 'brand_id', 'type_id'],
     });
+    // The shapes and base designs a table of the chosen type may be given.
+    const tableChoices: Partial<Record<TableChoiceColumn, ProductOption[]>> =
+        isStone ? {} : (options.tableChoices[typeId ?? ''] ?? {});
 
     // The form starts from the product being edited, or empty to add one.
     useEffect(() => {
@@ -410,6 +438,31 @@ const Products = () => {
             });
         }
     }, [adding, slugEdited, name, setValue, formState.touchedFields.slug]);
+
+    /** A new type; a shape or base it doesn't offer (nor the piece already has) goes. */
+    const chooseType = (value: string) => {
+        setValue('type_id', value, { shouldValidate: true, shouldDirty: true });
+
+        const offered = isStone ? {} : (options.tableChoices[value] ?? {});
+
+        for (const { column } of TABLE_CHOICES) {
+            const current = getValues(column);
+            const held =
+                column === 'table_shape_option_id'
+                    ? editing?.tableShape
+                    : editing?.tableBaseDesign;
+            const kept =
+                current === NO_CHOICE ||
+                String(held?.id) === current ||
+                (offered[column] ?? []).some(
+                    ({ id }) => String(id) === current,
+                );
+
+            if (!kept) {
+                setValue(column, NO_CHOICE);
+            }
+        }
+    };
 
     const close = () => setDrawer(null);
 
@@ -488,6 +541,15 @@ const Products = () => {
                   ...shared,
                   furniture_type_id: values.type_id,
                   description: values.description,
+                  // Only what the type offers is sent; '' is none.
+                  ...Object.fromEntries(
+                      TABLE_CHOICES.map(({ column }) => [
+                          column,
+                          tableChoices[column] && values[column] !== NO_CHOICE
+                              ? values[column]
+                              : '',
+                      ]),
+                  ),
               };
         const requestOptions = {
             only: ONLY,
@@ -556,6 +618,26 @@ const Products = () => {
             label: editing.type.name,
         });
     }
+    // A table question's choices, plus the one a piece being edited has, even once no longer offered.
+    const tableChoiceOptions = (column: TableChoiceColumn) => {
+        const held =
+            column === 'table_shape_option_id'
+                ? editing?.tableShape
+                : editing?.tableBaseDesign;
+        const offered = tableChoices[column] ?? [];
+        const listed =
+            held && !offered.some(({ id }) => id === held.id)
+                ? [...offered, held]
+                : offered;
+
+        return [
+            { value: NO_CHOICE, label: 'None' },
+            ...listed.map((choice) => ({
+                value: String(choice.id),
+                label: choice.name,
+            })),
+        ];
+    };
     const sizeOptions = [
         ...options.sizes.map((size) => ({
             value: String(size.id),
@@ -873,7 +955,7 @@ const Products = () => {
                                         <ChoiceSelect
                                             id="product-type"
                                             value={field.value}
-                                            onChange={field.onChange}
+                                            onChange={chooseType}
                                             onBlur={field.onBlur}
                                             options={typeOptions}
                                             placeholder="Choose a type"
@@ -884,6 +966,39 @@ const Products = () => {
                                 />
                             )}
                         </FormField>
+
+                        {TABLE_CHOICES.filter(
+                            ({ column }) => tableChoices[column] !== undefined,
+                        ).map(({ column, label }) => (
+                            <FormField
+                                key={column}
+                                id={`product-${column}`}
+                                label={label}
+                                error={formState.errors[column]?.message}
+                                hint="Picked for the client when they inquire from its page. Optional."
+                            >
+                                {({ describedBy, invalid }) => (
+                                    <Controller
+                                        control={control}
+                                        name={column}
+                                        render={({ field }) => (
+                                            <ChoiceSelect
+                                                id={`product-${column}`}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                onBlur={field.onBlur}
+                                                options={tableChoiceOptions(
+                                                    column,
+                                                )}
+                                                placeholder="None"
+                                                describedBy={describedBy}
+                                                invalid={invalid}
+                                            />
+                                        )}
+                                    />
+                                )}
+                            </FormField>
+                        ))}
 
                         {isStone ? (
                             <>

@@ -4,6 +4,9 @@ import FileUpload from '@/components/file-upload';
 import FormField, { fieldMessage } from '@/components/form-field';
 import InquiryAddressField from '@/components/inquiry-address-field';
 import InquiryDetailField from '@/components/inquiry-detail-field';
+import InquiryPictureChoice, {
+    CustomChoiceDescription,
+} from '@/components/inquiry-picture-choice';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,11 +21,16 @@ import { NOTES_MAX } from '@/data/inquiries';
 import {
     DELIVERY_METHODS,
     PICKUP,
+    SIZE_FIELD,
+    TABLE_SHAPE_FIELD,
     addressLabel,
     asksDeliveryMethod,
+    customAnswerKey,
     findService,
     needsAddress,
+    pickedChoice,
     projectFields,
+    sizeKindFor,
     type ServiceField,
 } from '@/lib/inquiry-flow';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
@@ -154,12 +162,54 @@ const InquiryProjectDetails = ({
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
     const serviceId = useWatch({ control, name: 'serviceId' });
+    const answers = useWatch({ control, name: 'answers' });
     const service = findService(serviceTypes, serviceId);
     const questions = projectFields(service);
     const requiredQuestions = questions.filter(({ required }) => required);
     const optionalQuestions = questions.filter(({ required }) => !required);
+    // A table's size is asked the way its shape asks it: a diameter, or width x length.
+    const sizeKind = sizeKindFor(service, answers ?? {});
 
-    /** One of the service's project questions, answered once for the project. */
+    /**
+     * A new table shape that asks the size another way leaves the size
+     * unanswered: "120 x 80 cm" is no round table's diameter.
+     */
+    const answerShape = (next: string) => {
+        if (
+            sizeKindFor(service, { ...answers, [TABLE_SHAPE_FIELD]: next }) !==
+            sizeKind
+        ) {
+            setValue(`answers.${SIZE_FIELD}`, '', { shouldDirty: true });
+            clearErrors(`answers.${SIZE_FIELD}`);
+        }
+    };
+
+    /** A custom choice's description, kept beside its answer. */
+    const customDescription = (field: ServiceField) => (
+        <Controller
+            control={control}
+            name={`answers.${customAnswerKey(field.slug)}`}
+            defaultValue=""
+            render={({ field: described }) => (
+                <CustomChoiceDescription
+                    id={id(`${field.slug.replaceAll('_', '-')}-custom`)}
+                    choice={pickedChoice(field, answers?.[field.slug])!}
+                    value={described.value ?? ''}
+                    onChange={described.onChange}
+                    onBlur={described.onBlur}
+                    error={fieldMessage(
+                        errors.answers?.[customAnswerKey(field.slug)],
+                    )}
+                />
+            )}
+        />
+    );
+
+    /**
+     * One of the service's project questions, answered once for the project:
+     * picture cards across the whole width for a question with pictures, its
+     * dropdown or entry otherwise. A custom choice opens a box to describe it.
+     */
     const question = (field: ServiceField) => (
         <Controller
             key={field.slug}
@@ -167,17 +217,70 @@ const InquiryProjectDetails = ({
             name={`answers.${field.slug}`}
             // Unanswered is `''`, as every answer starts, never undefined.
             defaultValue=""
-            render={({ field: answer }) => (
-                <InquiryDetailField
-                    id={id(field.slug.replaceAll('_', '-'))}
-                    field={field}
-                    value={answer.value ?? ''}
-                    onChange={answer.onChange}
-                    onBlur={answer.onBlur}
-                    fieldRef={answer.ref}
-                    error={fieldMessage(errors.answers?.[field.slug])}
-                />
-            )}
+            render={({ field: answer }) => {
+                const onChange = (next: string) => {
+                    answer.onChange(next);
+
+                    if (field.slug === TABLE_SHAPE_FIELD) {
+                        answerShape(next);
+                    }
+                };
+
+                if (field.answerType === 'choice' && field.pictures === true) {
+                    return (
+                        <div className="md:col-span-2">
+                            <Controller
+                                control={control}
+                                name={`answers.${customAnswerKey(field.slug)}`}
+                                defaultValue=""
+                                render={({ field: described }) => (
+                                    <InquiryPictureChoice
+                                        id={id(field.slug.replaceAll('_', '-'))}
+                                        field={field}
+                                        value={answer.value ?? ''}
+                                        onChange={onChange}
+                                        onBlur={answer.onBlur}
+                                        fieldRef={answer.ref}
+                                        error={fieldMessage(
+                                            errors.answers?.[field.slug],
+                                        )}
+                                        customValue={described.value ?? ''}
+                                        onCustomChange={described.onChange}
+                                        onCustomBlur={described.onBlur}
+                                        customError={fieldMessage(
+                                            errors.answers?.[
+                                                customAnswerKey(field.slug)
+                                            ],
+                                        )}
+                                    />
+                                )}
+                            />
+                        </div>
+                    );
+                }
+
+                const asksSize = field.slug === SIZE_FIELD;
+
+                return (
+                    <div>
+                        <InquiryDetailField
+                            // Remounted when the shape asks the size another way.
+                            key={asksSize ? (sizeKind ?? 'free') : undefined}
+                            id={id(field.slug.replaceAll('_', '-'))}
+                            field={field}
+                            value={answer.value ?? ''}
+                            onChange={onChange}
+                            onBlur={answer.onBlur}
+                            fieldRef={answer.ref}
+                            error={fieldMessage(errors.answers?.[field.slug])}
+                            sizeKind={asksSize ? sizeKind : null}
+                        />
+                        {pickedChoice(field, answer.value)?.isCustom === true
+                            ? customDescription(field)
+                            : null}
+                    </div>
+                );
+            }}
         />
     );
 

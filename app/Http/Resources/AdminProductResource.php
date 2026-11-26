@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\Gate;
  * stone's `sizes` are its variants in their order, a size and a thickness
  * each (a `sizeId` of null is "no set size"); its
  * `types` are the other types it is listed under. `gallery` is the photos
- * besides the thumbnail. `actions` is what this reader may do, from the
+ * besides the thumbnail. A table's `tableShape` and `tableBaseDesign` are its
+ * own (null for a stone, or none set). `actions` is what this reader may do, from the
  * permission each route checks; `publicUrl` is its page while it is shown.
  *
  * Expects what ProductAdminRepositoryInterface::paginate() loads.
@@ -70,7 +71,7 @@ class AdminProductResource extends JsonResource
         ];
     }
 
-    /** @return array{origin: string, sizeNote: string|null, types: list<array{id: int, name: string}>, sizes: list<array{sizeId: int|null, thicknessId: int}>, description: null} */
+    /** @return array{origin: string, sizeNote: string|null, types: list<array{id: int, name: string}>, sizes: list<array{sizeId: int|null, thicknessId: int}>, description: null, tableShape: null, tableBaseDesign: null} */
     private static function stone(Stone $stone): array
     {
         $sizes = $stone->variants->map(fn (StoneVariant $variant): array => ['sizeId' => $variant->size_id, 'thicknessId' => $variant->thickness_id]);
@@ -83,10 +84,12 @@ class AdminProductResource extends JsonResource
                 ->map(fn (StoneType $type): array => ['id' => $type->id, 'name' => $type->name])->all()),
             'sizes' => array_values($sizes->all()),
             'description' => null,
+            'tableShape' => null,
+            'tableBaseDesign' => null,
         ];
     }
 
-    /** @return array{origin: null, sizeNote: null, types: list<never>, sizes: list<never>, description: string|null} */
+    /** @return array{origin: null, sizeNote: null, types: list<never>, sizes: list<never>, description: string|null, tableShape: array{id: int, name: string}|null, tableBaseDesign: array{id: int, name: string}|null} */
     private static function furniture(Furniture $piece): array
     {
         return [
@@ -95,6 +98,8 @@ class AdminProductResource extends JsonResource
             'types' => [],
             'sizes' => [],
             'description' => $piece->description,
+            'tableShape' => $piece->tableShape === null ? null : ['id' => $piece->tableShape->id, 'name' => $piece->tableShape->name],
+            'tableBaseDesign' => $piece->tableBaseDesign === null ? null : ['id' => $piece->tableBaseDesign->id, 'name' => $piece->tableBaseDesign->name],
         ];
     }
 }

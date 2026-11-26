@@ -19,6 +19,7 @@ use App\Repositories\Eloquent\EloquentInquiryRepository;
 use App\Services\InquiryStatusRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Support\SessionKey;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -123,6 +124,35 @@ describe('the edit page', function (): void {
                 ->where('projects.0.stones.0.edge', EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'))
                 ->missing('projects.0.landmark')
                 ->missing('projects.0.areaSqm'));
+    });
+
+    it('fills a custom choice with its description beside it, and keeps a pictured choice taken off its list', function (): void {
+        $inquiry = sentInquiry($this, [inquiryProjectInput([
+            'serviceId' => 'center-tables',
+            'answers' => [...inquiryAnswers('center-tables'), 'table_shape' => 'custom-shape', 'size' => 'About 2 m', 'table_base_design_center' => 'u-base'],
+            'customAnswers' => ['table_shape' => 'An L-shaped top'],
+        ])]);
+        DB::table('detail_field_options')->where('slug', 'u-base')->update(['archived_at' => now(), 'is_active' => false]);
+
+        $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('projects.0.answers.table_shape', 'custom-shape')
+                ->where('projects.0.answers.table_shape:custom', 'An L-shaped top')
+                ->where('projects.0.answers.table_base_design_center', 'u-base')
+                ->where('projects.0.heldChoices.table_base_design_center.0.value', 'u-base')
+                ->where('projects.0.heldChoices.table_base_design_center.0.image', '/storage/question-choices/f0f2b8e6a82e4d9b9424537c84935f04.jpg'));
+
+        // Sent back unchanged, the archived base stands.
+        $this->actingAs($this->client)
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
+                'serviceId' => 'center-tables',
+                'answers' => [...inquiryAnswers('center-tables'), 'table_shape' => 'custom-shape', 'size' => 'About 2 m', 'table_base_design_center' => 'u-base'],
+                'customAnswers' => ['table_shape' => 'An L-shaped top, wider'],
+            ])]])
+            ->assertSessionHasNoErrors();
+
+        expect($inquiry->detailAnswers()->with(['detailField', 'option'])->get()->map->displayValue()->all())
+            ->toContain('Custom Shape: An L-shaped top, wider', 'U-Base');
     });
 
     it('sends the listed answers and brands it already has, so the edit shows them though taken off their lists', function (): void {
@@ -386,12 +416,12 @@ describe('saving the edit', function (): void {
     });
 
     it('opens the edit on the stones and stone types of the inquiry\'s service', function (): void {
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'pedestal'])]);
-        $storage = Service::query()->where('slug', 'pedestal')->firstOrFail();
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['serviceId' => 'other-customized-furniture'])]);
+        $storage = Service::query()->where('slug', 'other-customized-furniture')->firstOrFail();
 
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('stoneFilters.service', 'pedestal')
+                ->where('stoneFilters.service', 'other-customized-furniture')
                 ->where('stoneTypes', fn ($types) => collect($types)->pluck('value')->sort()->values()->all() === $storage->stoneTypes->pluck('slug')->sort()->values()->all())
                 ->where('stones.data', fn ($stones) => collect($stones)->every(fn ($stone) => in_array($stone['type']['slug'], $storage->stoneTypes->pluck('slug')->all(), true))));
     });

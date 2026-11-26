@@ -125,7 +125,10 @@ const FurnitureProfile = ({
             brand: brand.slug,
             furniture: slug,
         });
-    const quoteUrl = isSignedIn ? (inquireRoute?.url() ?? null) : login.url();
+    // The Inquire page picks this piece's brand, service, shape and base design.
+    const quoteUrl = isSignedIn
+        ? (inquireRoute?.url({ query: { furniture: furniture.slug } }) ?? null)
+        : login.url();
     const visitUrl = isSignedIn ? book.url() : `${showroom.url()}#book`;
     const typeName = furniture.furnitureType.name;
 

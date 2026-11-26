@@ -1,16 +1,24 @@
 <?php
 
 use App\Enums\DetailAnswerType;
+use App\Models\Choice;
 use App\Models\DetailField;
+use App\Models\DetailFieldOption;
+use App\Models\EdgeProfile;
+use App\Models\Finish;
+use App\Models\Furniture;
 use App\Models\FurnitureType;
 use App\Models\Service;
 use App\Models\ServiceFeature;
 use App\Models\StoneType;
+use Database\Seeders\ChoiceSeeder;
 use Database\Seeders\DetailFieldSeeder;
+use Database\Seeders\EdgeProfileSeeder;
 use Database\Seeders\FurnitureTypeSeeder;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\ServiceStoneTypeSeeder;
 use Database\Seeders\StoneSeeder;
+use Database\Seeders\TableQuestionsSeeder;
 use Illuminate\Support\Facades\DB;
 
 /*
@@ -46,10 +54,10 @@ it('asks each service its own questions, in order', function (): void {
         'kitchen-islands' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'waterfall_effect'],
         'lavatories' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
         // A small piece is measured by its size, not in square metres.
-        'center-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
-        'side-tables' => ['size', 'edge_profile (stone)', 'finish (stone)'],
-        'dining-tables' => ['area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)', 'table_base'],
-        'pedestal' => ['size', 'edge_profile (stone)', 'finish (stone)'],
+        // A table is asked first what it picks by picture (its shape, which says how its size is asked, and its own table's base design), then its base material's list.
+        'center-tables' => ['table_shape', 'table_base_design_center', 'table_base', 'size', 'edge_profile (stone)', 'finish (stone)'],
+        'side-tables' => ['table_shape', 'table_base_design_side', 'table_base', 'size', 'edge_profile (stone)', 'finish (stone)'],
+        'dining-tables' => ['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)'],
         'other-customized-furniture' => ['area_sqm', 'size', 'finish (stone)'],
     ])
         ->and(Service::query()->where('requires_stones', false)->pluck('slug')->all())->toBe(['installation-only'])
@@ -93,7 +101,6 @@ it('links each stone type to the services it is offered for, and none to Install
         'center-tables' => $tables,
         'side-tables' => $tables,
         'dining-tables' => $tables,
-        'pedestal' => ['marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'],
         'other-customized-furniture' => $tables,
     ]);
 });
@@ -104,7 +111,7 @@ it('changes nothing when the seeders run again, and retires what is no longer li
     ]);
     FurnitureType::factory()->create(['slug' => 'seating', 'name' => 'Seating']);
     $counts = fn (): array => array_map(fn (string $table): int => DB::table($table)->count(), [
-        'services', 'service_features', 'service_detail_fields', 'detail_fields', 'detail_field_options', 'service_stone_type', 'furniture_types',
+        'services', 'service_features', 'service_detail_fields', 'detail_fields', 'detail_field_options', 'choices', 'choice_service', 'service_stone_type', 'furniture_types',
     ]);
     $before = $counts();
 
@@ -115,4 +122,105 @@ it('changes nothing when the seeders run again, and retires what is no longer li
         ->and(FurnitureType::query()->where('is_active', true)->orderBy('sort_order')->pluck('slug')->all())
         ->toBe(['center-side-tables', 'dining-tables', 'pedestal', 'other-customized-furniture'])
         ->and(FurnitureType::query()->where('slug', 'seating')->value('is_active'))->toBeFalse();
+});
+
+it('brings a database from before the table questions up to them, keeping what its admins changed', function (): void {
+    $this->seed(EdgeProfileSeeder::class);
+    // As it was: no shape or per-table base designs, no descriptions; and an admin's own changes.
+    $tableFields = DetailField::query()->where('slug', 'table_shape')->orWhere('slug', 'like', 'table\_base\_design\_%')->pluck('id');
+    DB::table('service_detail_fields')->whereIn('detail_field_id', $tableFields)->delete();
+    DetailField::query()->whereIn('id', $tableFields)->delete();
+    // Table base was asked of dining tables alone, last.
+    $material = DetailField::query()->where('slug', 'table_base')->value('id');
+    DB::table('service_detail_fields')->where('detail_field_id', $material)->delete();
+    DB::table('service_detail_fields')->insert(['service_id' => Service::query()->where('slug', 'dining-tables')->value('id'), 'detail_field_id' => $material, 'sort_order' => 99, 'is_required' => true]);
+    foreach (Service::query()->whereIn('slug', ['center-tables', 'side-tables', 'dining-tables'])->pluck('id') as $serviceId) {
+        $asked = DB::table('service_detail_fields')->where('service_id', $serviceId)->orderBy('sort_order')->pluck('detail_field_id');
+        foreach ($asked as $sort => $fieldId) {
+            DB::table('service_detail_fields')->where('service_id', $serviceId)->where('detail_field_id', $fieldId)->update(['sort_order' => $sort]);
+        }
+    }
+    EdgeProfile::query()->update(['description' => null]);
+    Finish::query()->update(['description' => null]);
+    EdgeProfile::query()->where('name', 'Straight Edge')->update(['description' => 'Our own words', 'sort_order' => 40]);
+    DB::table('service_detail_fields')
+        ->where('service_id', Service::query()->where('slug', 'side-tables')->value('id'))
+        ->where('detail_field_id', DetailField::query()->where('slug', 'size')->value('id'))
+        ->update(['is_required' => false]);
+
+    $this->seed(TableQuestionsSeeder::class);
+    $once = askedQuestions();
+    $this->seed(TableQuestionsSeeder::class);
+
+    expect($once['center-tables'])->toBe(['table_shape', 'table_base_design_center', 'table_base', 'size', 'edge_profile (stone)', 'finish (stone)'])
+        ->and($once['side-tables'])->toBe(['table_shape', 'table_base_design_side', 'table_base', 'size (optional)', 'edge_profile (stone)', 'finish (stone)'])
+        // Dining tables' Table base, asked last, moves up beside the base design.
+        ->and($once['dining-tables'])->toBe(['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
+        ->and(askedQuestions())->toBe($once)
+        ->and(DetailField::query()->where('slug', 'table_base')->value('name'))->toBe('Table base')
+        ->and(DetailFieldOption::query()->whereHas('detailField', fn ($query) => $query->where('slug', 'table_base_design_side'))->orderBy('sort_order')->pluck('slug')->all())
+        ->toBe(['c-legs-v1', 'c-legs-v2', 'cylindrical-pedestal', 'hourglass-v2', 'custom-design', 'not-sure'])
+        ->and(EdgeProfile::query()->where('name', 'Straight Edge')->first()?->only(['description', 'sort_order']))->toBe(['description' => 'Our own words', 'sort_order' => 40])
+        ->and(EdgeProfile::query()->whereNull('description')->count())->toBe(0)
+        ->and(Finish::query()->where('name', 'Polished')->value('description'))->not->toBeNull();
+});
+
+it('retires the single base design question the tables shared, and the Pedestal service', function (): void {
+    $type = Service::query()->where('slug', 'dining-tables')->value('service_type_id');
+    $pedestal = Service::query()->create(['service_type_id' => $type, 'slug' => 'pedestal', 'name' => 'Pedestal', 'description' => 'Old', 'sort_order' => 9, 'is_active' => true]);
+    $shared = DetailField::query()->create(['slug' => 'table_base_design', 'name' => 'Table base design', 'scope' => 'project', 'answer_type' => 'choice', 'allows_custom' => false, 'sort_order' => 50]);
+    $trestle = $shared->options()->create(['slug' => 'trestle', 'name' => 'Trestle', 'sort_order' => 0, 'is_active' => true, 'is_suggestion' => false, 'links_to_stone' => false]);
+    $dining = Service::query()->where('slug', 'dining-tables')->firstOrFail();
+    $dining->detailFields()->attach($shared->id, ['sort_order' => 1, 'is_required' => true]);
+    $piece = Furniture::factory()->create(['table_base_design_option_id' => $trestle->id]);
+
+    $this->seed(TableQuestionsSeeder::class);
+
+    expect($shared->refresh()->archived_at)->not->toBeNull()
+        ->and(DB::table('service_detail_fields')->where('detail_field_id', $shared->id)->exists())->toBeFalse()
+        ->and($piece->refresh()->table_base_design_option_id)->toBeNull()
+        ->and($pedestal->refresh()->is_active)->toBeFalse()
+        ->and(askedQuestions()['dining-tables'])->toBe(['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)']);
+});
+
+it('moves a choice off its first seeded picture, keeping one uploaded on the Choices page', function (): void {
+    $choice = fn (string $slug): Choice => Choice::query()->where('slug', $slug)->sole();
+    $seeded = $choice('round')->thumbnail_path;
+    $choice('round')->update(['thumbnail_path' => '/images/inquiry/table-shapes/round.jpg']);
+    $choice('oval')->update(['thumbnail_path' => 'question-choices/0b3f5d0e-uploaded.jpg']);
+
+    $this->seed(TableQuestionsSeeder::class);
+
+    expect($choice('round')->thumbnail_path)->toBe($seeded)
+        ->and($choice('oval')->thumbnail_path)->toBe('question-choices/0b3f5d0e-uploaded.jpg')
+        // The question's option follows its choice.
+        ->and(DetailFieldOption::query()->where('choice_id', $choice('round')->id)->value('thumbnail_path'))->toBe($seeded);
+});
+
+it('seeds one library of choices, which the table questions share', function (): void {
+    $advise = Choice::query()->where('slug', 'not-sure')->sole();
+    $listing = fn (Choice $choice): array => DetailFieldOption::query()->where('choice_id', $choice->id)->join('detail_fields', 'detail_fields.id', '=', 'detail_field_options.detail_field_id')->orderBy('detail_fields.sort_order')->pluck('detail_fields.slug')->all();
+
+    expect(Choice::query()->count())->toBe(count(ChoiceSeeder::data()))
+        ->and($listing($advise))->toBe(['table_shape', 'table_base_design_center', 'table_base_design_side', 'table_base_design_dining'])
+        ->and($listing(Choice::query()->where('slug', 'custom-design')->sole()))->toBe(['table_base_design_center', 'table_base_design_side', 'table_base_design_dining'])
+        // Every list question's option is a library choice's, and reads as it does.
+        ->and(DetailFieldOption::query()->where('is_suggestion', false)->whereNull('choice_id')->count())->toBe(0)
+        ->and(DetailFieldOption::query()->where('choice_id', $advise->id)->pluck('description')->unique()->all())->toBe([$advise->description]);
+});
+
+it('keeps each seeded choice\'s picture in storage, under a random name, in a folder the bucket upload sends', function (): void {
+    $committed = [];
+    preg_match_all('#^!([A-Za-z0-9_-]+)/$#m', (string) file_get_contents(storage_path('app/public/.gitignore')), $committed);
+    $images = collect(ChoiceSeeder::data())->pluck('image')->filter()->values();
+
+    expect($images)->not->toBeEmpty();
+
+    foreach ($images as $path) {
+        expect($path)->toMatch('#^question-choices/[0-9a-f]{32}\.jpg$#')
+            ->and(storage_path('app/public/'.$path))->toBeFile()
+            ->and($committed[1])->toContain(explode('/', $path)[0]);
+    }
+
+    expect(Choice::query()->whereNotNull('thumbnail_path')->pluck('thumbnail_path')->sort()->values()->all())->toBe($images->sort()->values()->all());
 });

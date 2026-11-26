@@ -408,11 +408,7 @@ export const AREA_FURNITURE_SERVICES = [
 ] as const;
 
 /** The small pieces, measured by their size alone, never in square metres. */
-export const SMALL_FURNITURE_SLUGS = [
-    'center-tables',
-    'side-tables',
-    'pedestal',
-] as const;
+export const SMALL_FURNITURE_SLUGS = ['center-tables', 'side-tables'] as const;
 
 /** Whether the project's service asks the project area: it shows under Other details. */
 const asksArea = async (page: Page): Promise<boolean> =>
