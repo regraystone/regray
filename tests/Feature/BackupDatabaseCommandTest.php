@@ -50,6 +50,58 @@ test('it streams a successful database dump to the private disk and removes the 
     });
 });
 
+test('it prunes dumps older than the retention window and keeps the rest', function () {
+    $this->travelTo(now()->setDate(2026, 10, 14)->setTime(0, 0, 0));
+    config(['backup.retention_days' => 30]);
+    $disk = Storage::fake(config('filesystems.private_disk'));
+
+    // One well inside the window, one on its last day, one past it, and a
+    // stray file whose name is not a dated dump.
+    $disk->put('backups/2026-10-01_000000.dump', 'recent');
+    $disk->put('backups/2026-09-14_000000.dump', 'edge');
+    $disk->put('backups/2026-09-13_235959.dump', 'stale');
+    $disk->put('backups/notes.txt', 'keep me');
+
+    Process::preventStrayProcesses();
+    Process::fake(function (PendingProcess $process): ProcessResult {
+        $path = $process->command[array_search('--file', $process->command, true) + 1];
+        file_put_contents($path, 'fresh dump');
+
+        return Process::result();
+    });
+
+    $this->artisan('app:backup-database')
+        ->expectsOutput('Database backup stored at backups/2026-10-14_000000.dump')
+        ->expectsOutput('Pruned old backup backups/2026-09-13_235959.dump')
+        ->assertSuccessful();
+
+    $disk->assertExists('backups/2026-10-14_000000.dump');
+    $disk->assertExists('backups/2026-10-01_000000.dump');
+    $disk->assertExists('backups/2026-09-14_000000.dump');
+    $disk->assertExists('backups/notes.txt');
+    $disk->assertMissing('backups/2026-09-13_235959.dump');
+});
+
+test('it keeps every dump when retention is zero', function () {
+    $this->travelTo(now()->setDate(2026, 10, 14)->setTime(0, 0, 0));
+    config(['backup.retention_days' => 0]);
+    $disk = Storage::fake(config('filesystems.private_disk'));
+    $disk->put('backups/2020-01-01_000000.dump', 'ancient');
+
+    Process::preventStrayProcesses();
+    Process::fake(function (PendingProcess $process): ProcessResult {
+        $path = $process->command[array_search('--file', $process->command, true) + 1];
+        file_put_contents($path, 'fresh dump');
+
+        return Process::result();
+    });
+
+    $this->artisan('app:backup-database')->assertSuccessful();
+
+    $disk->assertExists('backups/2020-01-01_000000.dump');
+    $disk->assertExists('backups/2026-10-14_000000.dump');
+});
+
 test('it logs failed or invalid dumps without storing a backup and removes the temporary file', function (int $exitCode, ?string $contents, string $error) {
     $disk = Storage::fake(config('filesystems.private_disk'));
     Log::spy();

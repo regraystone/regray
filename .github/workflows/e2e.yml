@@ -1,0 +1,98 @@
+name: e2e
+
+# Browser end-to-end tests (Playwright). The suite's global setup creates and
+# seeds a dedicated `regray-e2e` database and starts the app, Reverb and a queue
+# worker against it, so this job only has to provide Postgres, a built frontend
+# and a browser. It runs the inquiry suite (`npm run e2e`); the message suite
+# can be added once this is proven green.
+#
+# This reports status but is not wired to block merges. Add it to the branch's
+# required checks once it has run green a few times.
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # The suite's global setup creates this database itself; naming it here
+      # keeps every stray app:* call pointed away from any real database.
+      DB_DATABASE: regray-e2e
+      E2E_APP_ENV: local
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: regray-e2e
+          POSTGRES_USER: root
+          # Matches the local server and .env.example: `root`, no password.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U root -d regray-e2e"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.5'
+          extensions: pgsql, pdo_pgsql
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Setup Application
+        run: |
+          composer install --no-interaction --prefer-dist
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          php artisan key:generate --no-interaction
+          php artisan config:clear --no-interaction
+          php artisan wayfinder:generate --no-interaction
+          npm ci
+          npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run e2e
+
+      - name: Upload Playwright artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results
+          retention-days: 7

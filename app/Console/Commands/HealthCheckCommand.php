@@ -105,10 +105,11 @@ class HealthCheckCommand extends Command
             blank(config('app.key')) ? 'APP_KEY is missing' : null,
             str_starts_with((string) config('app.url'), 'https://') ? null : 'APP_URL is not https',
             blank(config('sentry.dsn')) ? 'Sentry has no DSN' : null,
+            config('session.secure') === true ? null : 'SESSION_SECURE_COOKIE is not true',
         ]);
 
         if ($problems === []) {
-            return ['OK', 'production, debug off, https'];
+            return ['OK', 'production, debug off, https, secure cookie'];
         }
 
         return [app()->isProduction() ? 'FAIL' : 'WARN', implode('; ', $problems)];
@@ -201,7 +202,7 @@ class HealthCheckCommand extends Command
             usleep(250_000);
         } while (microtime(true) < $deadline);
 
-        return ['FAIL', "no worker ran the probe job within {$this->option('wait')}s: is the worker container up?"];
+        return ['FAIL', 'no worker ran the probe job within '.(int) $this->option('wait').'s: is the worker container up?'];
     }
 
     /**
@@ -233,7 +234,9 @@ class HealthCheckCommand extends Command
     {
         $since = CarbonImmutable::now()->subDay();
 
-        $recent = collect(app('queue.failer')->all())
+        /** @var list<stdClass> $failedJobs */
+        $failedJobs = app('queue.failer')->all();
+        $recent = collect($failedJobs)
             ->filter(fn (stdClass $job): bool => CarbonImmutable::parse($job->failed_at)->isAfter($since))
             ->count();
 
@@ -283,7 +286,8 @@ class HealthCheckCommand extends Command
         $transport->stop();
 
         $detail = 'signed in to '.config("mail.mailers.{$mailer}.host");
-        $address = $this->option('mail');
+        $mailOption = $this->option('mail');
+        $address = is_string($mailOption) ? $mailOption : '';
 
         if (blank($address)) {
             return ['OK', $detail];
