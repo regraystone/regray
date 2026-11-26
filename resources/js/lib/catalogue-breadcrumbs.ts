@@ -7,8 +7,9 @@ type BrandedRecord = {
 
 /**
  * The workspace header's trail on a brand, stone or furniture page:
- * Regray / Dashboard / Home / Brand / Product. Null on any other page, or when
- * the payload has nothing to name. Guests see no breadcrumbs.
+ * Regray / Dashboard / Home / Brand / Product, or Brand / Company profile on
+ * a brand's Company profile. Null on any other page, or when the payload has
+ * nothing to name. Guests see no breadcrumbs.
  */
 export const catalogueCrumbs = ({
     component,
@@ -33,6 +34,17 @@ export const catalogueCrumbs = ({
 
         return brand
             ? trail({ label: brand.name, href: brandHref(brand.slug) })
+            : null;
+    }
+
+    if (component === 'brand-company-profile') {
+        const brand = (props.brand as NamedRecord | undefined)?.data;
+
+        return brand
+            ? trail(
+                  { label: brand.name, href: brandHref(brand.slug) },
+                  { label: 'Company profile' },
+              )
             : null;
     }
 

@@ -18,7 +18,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class BrandProfileResource extends JsonResource
 {
     /**
-     * @return array{slug: string, name: string, tagline: string|null, description: string|null, logo: string, thumbnail: string|null, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>}
+     * @return array{slug: string, name: string, tagline: string|null, description: string|null, logo: string, thumbnail: string|null, hasCompanyProfile: bool, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -29,6 +29,7 @@ class BrandProfileResource extends JsonResource
             'description' => $this->description,
             'logo' => ShowcaseCardResource::resolveThumbnailUrl($this->logo_path),
             'thumbnail' => $this->thumbnail_path === null ? null : ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
+            'hasCompanyProfile' => $this->hasCompanyProfile(),
             ...$this->details(),
         ];
     }

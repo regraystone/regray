@@ -1,3 +1,4 @@
+import { backTarget } from '@/lib/back-target';
 import { catalogueCrumbs, type Crumb } from '@/lib/catalogue-breadcrumbs';
 import { profileCrumbs } from '@/lib/profile-breadcrumbs';
 import { Link, router, usePage } from '@inertiajs/react';
@@ -5,6 +6,7 @@ import {
     BarChart3,
     Calendar,
     ChevronDown,
+    ChevronLeft,
     CircleUserRound,
     FileText,
     Folder,
@@ -59,6 +61,7 @@ import {
     index as dashboardBrandsIndex,
     show as dashboardBrandShow,
 } from '@/routes/dashboard/brands';
+import { dashboard } from '@/routes';
 import { index as homeIndex } from '@/routes/home';
 import { index as leadsIndex } from '@/routes/leads';
 import {
@@ -820,6 +823,14 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             });
     }
 
+    const backHref = backTarget({
+        component: page.component,
+        url: effectiveUrl,
+        crumbs,
+        landingUrls: [homeIndex.url(), overviewIndex.url()],
+        landing: dashboard.url(),
+    });
+
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Desktop sidebar (lg and up) */}
@@ -1028,6 +1039,21 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         key={url}
                         className="page-enter motion-reduce:animate-none"
                     >
+                        {/* Phones and tablets have no breadcrumbs, so each page but a landing one opens with Back. */}
+                        {backHref ? (
+                            <Link
+                                href={backHref}
+                                className="-mt-2 mb-4 inline-flex min-h-11 items-center gap-1 pr-3 text-[0.8125rem] font-semibold tracking-[0.08em] uppercase transition-opacity hover:opacity-70 sm:-mt-4 lg:hidden"
+                                data-testid="mobile-back"
+                            >
+                                <ChevronLeft
+                                    aria-hidden
+                                    strokeWidth={1.5}
+                                    className="size-5"
+                                />
+                                Back
+                            </Link>
+                        ) : null}
                         {children}
                     </div>
                 </main>

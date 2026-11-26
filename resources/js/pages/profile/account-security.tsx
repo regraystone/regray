@@ -29,6 +29,12 @@ type PageProps = {
     auth: Auth;
 };
 
+/** A client's company, optional; staff have no profile to keep one. */
+type Company = {
+    editable: boolean;
+    value: string | null;
+};
+
 type EmailPreferences = {
     marketingEmails: boolean;
     /** When the user agreed to the terms at sign-up; null for an account made otherwise. */
@@ -39,6 +45,7 @@ type EmailPreferences = {
 
 export default function AccountSecurity({
     mustVerifyEmail,
+    company,
     status,
     emailPreferences,
     google,
@@ -46,6 +53,7 @@ export default function AccountSecurity({
     accountDeletion,
 }: {
     mustVerifyEmail: boolean;
+    company: Company;
     status?: string;
     emailPreferences: EmailPreferences;
     google: GoogleConnection;
@@ -95,7 +103,9 @@ export default function AccountSecurity({
                         <CardHeader className="px-4 sm:px-6">
                             <CardTitle>Profile</CardTitle>
                             <CardDescription>
-                                Update your name and email address
+                                {company.editable
+                                    ? 'Update your name, email address and company'
+                                    : 'Update your name and email address'}
                             </CardDescription>
                         </CardHeader>
 
@@ -132,6 +142,26 @@ export default function AccountSecurity({
                                             placeholder="Email address"
                                             error={errors.email}
                                         />
+
+                                        {company.editable ? (
+                                            <Field
+                                                id="company"
+                                                label="Company name"
+                                                name="company"
+                                                defaultValue={
+                                                    company.value ?? ''
+                                                }
+                                                maxLength={150}
+                                                autoComplete="organization"
+                                                placeholder="Your company's name"
+                                                hint={
+                                                    <span className="text-xs text-secondary-foreground">
+                                                        Optional
+                                                    </span>
+                                                }
+                                                error={errors.company}
+                                            />
+                                        ) : null}
 
                                         {mustVerifyEmail &&
                                             auth.user.email_verified_at ===

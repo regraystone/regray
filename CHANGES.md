@@ -13,6 +13,33 @@ Center and side tables now ask **Number of seaters**, required, after their size
 - **The client's global chat is the Regray Sales Team**: its name in the inbox, the thread's title, a reply from the team before anyone has taken it, and "Message the Regray Sales Team any time." (`SUPPORT_NAME`, `SUPPORT_TEAM_NAME`).
 - **Tests**: `Inquiry/InquiryFormRulesTest` (the date's fewest days and two years, no Table base, a free entry's own answer and notes), `Service/InquiryFormAdminTest` (the service form's lines, suggested answers and own answer), `Database/ServiceCatalogSeedTest` (the new order; `InquiryFormSeeder` on an older database, Table base archived), `tests/js/inquiry-form-rules.test.mjs`, and `Message/SupportThreadTest` and the e2e specs for the new wording, the own answers' names (Custom size, Custom thickness, Custom area, Custom number), no furniture area and no Table base. `Quote/QuoteEditTest` dates now fall next year, within the two years.
 
+# A client can give their company name on Edit profile
+
+So the team can see which company a client buys for. Optional. Nothing to deploy: the column (`user_profiles.company`, 150 characters, nullable) was already there, and the Profile hub already showed it under the phone; nothing could fill it in yet.
+
+- **Company name** on Edit profile (Account & Security, `pages/profile/account-security.tsx`), under Name and Email, marked Optional, for clients only (`company.editable`): staff have no profile to keep one.
+- **Saved** by `UpdateClientCompanyAction` from `ProfileController::update()` (`ProfileUpdateRequest`: `nullable|string|max:150`, "A company name can be 150 characters at most."): on the client's profile; a client with none yet gets one with the company alone, its phone and address blank, as `LeadService::updateClientPhone()` opens one with a phone alone. A blank company clears it and opens no profile. A staff member's save keeps none.
+- **Tests:** `Settings/ProfileCompanyTest` (saved and shown on the Profile hub, changed and cleared keeping the phone, a blank one opens no profile, the length, the field for clients only, nothing kept for staff).
+
+# Discover shows About, Showroom and Careers; a project page has no Materials section; Back on phones and tablets
+
+From Sir Mark's comments. Nothing to deploy.
+
+- **Discover** (`menuItems()` in `components/public/public-links.ts`, on a laptop and in the phone menu) shows only **About Regray Design Group**, **Showroom** and **Careers**. Our story, Mission & vision, The Regray Group and Partnerships are kept in the menu's data, marked `hidden`, and left out by `menuRows()`; the About page's sections are unchanged. The links lose their → arrows; Showroom alone carries an icon, the menu's own chevron (`chevron` on `MenuLink`, drawn by `LinkMark` in `public-header.tsx`). A link to another site would still show ↗.
+- **A project's page** (`pages/showcase-profile.tsx`, opened from News, Home or a saved stone) no longer ends with the Materials section of stone cards. The Materials line among its facts (beside Location and Year) stays.
+- **Back on phones and tablets, signed in** (`workspace-layout.tsx`, below 1024px, where the header has no breadcrumbs): every page opens with **‹ Back**, to the page one level up (`lib/back-target.ts`): the nearest earlier crumb with a link (a stone goes to its brand, a brand or its Company profile to Home or the brand), or the landing page (`/dashboard`, which sends each role to its own) when there is none, as on Saved, Quote or Profile. It goes up the trail rather than back through the browser's history, which could lead out of Regray when a page was opened from a link. It is not shown on the landing pages (Home, Overview) or on pages with their own way back: a project's Return, an inquiry's Back to inquiries, and Inbox.
+- **One way back on a brand's page, signed in:** the "← Brands / Regray Stone" trail on the brand's photo, and "← Regray Stone / Company profile" on its Company profile, are gone for anyone signed in, as Back (on a phone or tablet) and the header's trail (on a laptop) already lead back. Guests keep them ("← Our brands"), as they have no Back.
+- **Tests:** `tests/js/back-target.test.mjs` (where Back goes, and where it is not shown).
+
+# Regray Stone has a Company profile page
+
+From Sir Mark's comment on Regray Stone's page. Nothing to deploy.
+
+- **A Company profile button** in About Regray Stone, under its description and before the collection, opens the page (`/brands/regray-stone/company-profile`, and `/dashboard/brands/regray-stone/company-profile` signed in, behind `home.view` like the brand page). Only a brand listed in `Brand::COMPANY_PROFILES` has the page and the button (`hasCompanyProfile` on `BrandProfileResource`); any other brand's address is not found. At the moment that is Regray Stone alone, as only its story and mission are written.
+- **The page** (`pages/brand-company-profile.tsx`, `BrandController::companyProfile()`): the brand's photo with its logo, "Company profile" and its tagline; Who we are (its description and its facts from the admin's Brands page); its figures (1,000+ spaces installed, established 2022, then its active stones and furniture and its finished projects, counted, each left out at zero); Our story; What we do (sourcing, fabrication, installation, and what it makes from the Brands page); its mission and vision; Our work (its six latest published showcases made with its stones, each opening its page, and See all on News); and Visit us (the showroom's address, hours, phones and email, its social links, Book a visit, Request a quote and See the collection). Signed in, the header reads Regray / Dashboard / Home / Regray Stone / Company profile.
+- **Regray Stone's words are written once** (`components/public/regray-stone-story.ts`): the story, the mission and vision, the year and the spaces installed, read by the About page and the Company profile.
+- **Tests:** `Brand/BrandCompanyProfileTest` (the counts and the projects, both doors, not found for another brand, the button only on Regray Stone), `WorkspacePagesTest` (the two routes and their permission), and the breadcrumb in `tests/js/brand-collection.test.mjs`.
+
 # Services: a library of choices, picked by questions, and forms that add what they need
 
 Admins now build a service's questions from the bottom up without leaving the form they are in: **choices** first, then a **question** picks its choices, then a **service** picks its questions. **Deploy, local and production: one migration (`2026_11_26_000001_create_choice_library`), before `TableQuestionsSeeder`; nothing else to seed. Rebuild the front end.**

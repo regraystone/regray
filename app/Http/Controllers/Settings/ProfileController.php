@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Actions\Profile\ProfileSummaryAction;
+use App\Actions\Profile\UpdateClientCompanyAction;
 use App\Enums\SocialProvider;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
@@ -52,7 +53,8 @@ class ProfileController extends Controller
      * Show the user's Account & Security page.
      *
      * The name, email, security and delete-account settings, which is what the
-     * old /profile page showed and what it still shows.
+     * old /profile page showed and what it still shows, and for a client the
+     * company they gave (optional; staff have no profile to keep one).
      */
     public function edit(Request $request, AccountDeletionService $accountDeletion): Response
     {
@@ -61,6 +63,10 @@ class ProfileController extends Controller
 
         return Inertia::render('profile/account-security', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'company' => [
+                'editable' => $request->user()->isClient(),
+                'value' => $request->user()->profile?->company,
+            ],
             'status' => $request->session()->get('status'),
             'google' => [
                 'available' => SocialProvider::Google->isConfigured(),
@@ -80,17 +86,20 @@ class ProfileController extends Controller
     }
 
     /**
-     * Update the user's profile information.
+     * Update the user's profile information: their name and email, and a
+     * client's company (UpdateClientCompanyAction).
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, UpdateClientCompanyAction $updateCompany): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $request->user()->fill($request->safe()->only(['name', 'email']));
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
         }
 
         $request->user()->save();
+
+        $updateCompany->execute($request->user(), $request->validated('company'));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile updated.')]);
 

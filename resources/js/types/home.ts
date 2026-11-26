@@ -70,6 +70,8 @@ export type BrandSocial = { platform: SocialPlatform; url: string };
 export type BrandProfile = BrandCardData & {
     description: string | null;
     thumbnail: string | null;
+    /** Whether it has a Company profile page (only Regray Stone, for now). */
+    hasCompanyProfile: boolean;
     /** Set on the admin's Brands page, in the order they show. */
     facts: BrandFact[];
     /** What the brand makes, such as "Kitchens". */
@@ -139,6 +141,15 @@ export type BrandProduct =
 export type BrandOffer = {
     stones: number;
     furniture: number;
+};
+
+/** A brand's Company profile page (BrandController::companyProfile()). */
+export type BrandCompanyProfileProps = {
+    brand: { data: BrandProfile };
+    /** Its active products and its published finished projects, counted. */
+    counts: { stones: number; furniture: number; showcases: number };
+    /** Its latest finished projects. */
+    showcases: LandingShowcase[];
 };
 
 export type BrandPageProps = {
