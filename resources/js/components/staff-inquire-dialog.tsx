@@ -1,4 +1,3 @@
-import { Building2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -11,8 +10,6 @@ import {
     STAFF_INQUIRE_OPTIONS,
     type StaffInquireKind,
 } from '@/lib/staff-inquire';
-
-const ICONS = { platform: UserRound, direct: Building2 } as const;
 
 /**
  * What staff are asked when they press Inquire: does the client have a Regray
@@ -40,8 +37,6 @@ const StaffInquireDialog = ({
             </DialogHeader>
             <div className="grid gap-2 sm:grid-cols-2">
                 {STAFF_INQUIRE_OPTIONS.map((option) => {
-                    const Icon = ICONS[option.kind];
-
                     return (
                         <Button
                             key={option.kind}
@@ -51,8 +46,7 @@ const StaffInquireDialog = ({
                             className="flex h-auto flex-col items-start gap-1.5 rounded-md p-4 text-left whitespace-normal normal-case"
                             data-staff-inquire-kind={option.kind}
                         >
-                            <span className="flex items-center gap-2 text-sm font-bold">
-                                <Icon aria-hidden className="size-4" />
+                            <span className="text-sm font-bold">
                                 {option.label}
                             </span>
                             <span className="text-xs font-normal tracking-normal text-secondary-foreground">

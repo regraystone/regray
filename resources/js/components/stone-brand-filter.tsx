@@ -45,7 +45,7 @@ const StoneBrandFilter = ({
                 <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-between rounded-none bg-background font-normal sm:w-52"
+                    className="h-11 w-full justify-between rounded-none bg-background font-normal lg:w-52"
                     aria-label={`Filter by brand: ${label}`}
                     data-testid="stone-brand-filter"
                 >

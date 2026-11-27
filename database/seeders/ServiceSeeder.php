@@ -11,9 +11,12 @@ use RuntimeException;
 
 /**
  * The services of data/services.php, each with how it reaches the client
- * (`fulfillment`), its features and the questions it asks (`service_detail_fields`). Run again, it updates them in place and
+ * (`fulfillment`), the lines under its delivery method and date and the
+ * fewest days ahead it can be asked for, its features and the questions it asks (`service_detail_fields`). Run again, it updates them in place and
  * replaces their features and questions. A service no longer listed is made
- * inactive rather than deleted, since sent inquiries reference it.
+ * inactive rather than deleted, since sent inquiries reference it. An
+ * application (`is_application`) is a service row too, offered under the
+ * services that ask one (`has_applications`).
  */
 class ServiceSeeder extends Seeder
 {
@@ -22,7 +25,7 @@ class ServiceSeeder extends Seeder
         // A service needs its type and its questions, so this still works when it is run alone.
         $this->call([ServiceTypeSeeder::class, DetailFieldSeeder::class]);
 
-        /** @var list<array{slug: string, services: list<array{slug: string, name: string, description: string, requires_stones: bool, fulfillment: string, features: list<string>, fields: array<string, bool>}>}> $types */
+        /** @var list<array{slug: string, services: list<array{slug: string, name: string, description: string, requires_stones: bool, fulfillment: string, has_applications?: bool, is_application?: bool, delivery_note?: string, schedule_note?: string, lead_days?: int, features: list<string>, fields: array<string, bool>}>}> $types */
         $types = require database_path('seeders/data/services.php');
         $fieldIds = DetailField::query()->pluck('id', 'slug');
         $listed = [];
@@ -37,7 +40,12 @@ class ServiceSeeder extends Seeder
                     'description' => $data['description'],
                     'requires_stones' => $data['requires_stones'],
                     'fulfillment' => Fulfillment::from($data['fulfillment']),
+                    'delivery_note' => $data['delivery_note'] ?? null,
+                    'schedule_note' => $data['schedule_note'] ?? null,
+                    'lead_days' => $data['lead_days'] ?? null,
                     'sort_order' => $sort,
+                    'has_applications' => $data['has_applications'] ?? false,
+                    'is_application' => $data['is_application'] ?? false,
                     'is_active' => true,
                 ]);
 

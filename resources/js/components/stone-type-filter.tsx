@@ -13,17 +13,17 @@ type StoneTypeFilterProps = {
     onChange: (value: string) => void;
 };
 
-/** From `md` up: a dropdown, after the Saved, All and Best Seller tabs. */
+/** From `lg` (a laptop) up: a dropdown, after the Saved, All and Best Seller tabs. */
 export const StoneTypeSelect = ({
     options,
     value,
     onChange,
 }: StoneTypeFilterProps) => (
-    <div className="hidden w-52 shrink-0 md:block">
+    <div className="hidden w-52 shrink-0 lg:block">
         <Select value={value} onValueChange={onChange}>
             <SelectTrigger
                 aria-label="Filter by stone type"
-                className="w-full rounded-none bg-background"
+                className="w-full rounded-none bg-background data-[size=default]:h-11"
                 data-testid="stone-type-select"
             >
                 <SelectValue />
@@ -44,7 +44,7 @@ export const StoneTypeSelect = ({
 );
 
 /**
- * Below `md`: a divider under the tabs, then a row of pills that scrolls sideways.
+ * Below `lg` (a phone or a tablet): a divider under the tabs, then a row of pills that scrolls sideways.
  * The row takes focus, so a keyboard can scroll it with the arrow keys.
  */
 export const StoneTypePills = ({
@@ -52,7 +52,7 @@ export const StoneTypePills = ({
     value,
     onChange,
 }: StoneTypeFilterProps) => (
-    <div className="md:hidden">
+    <div className="lg:hidden">
         <div aria-hidden className="my-3 h-px bg-sidebar-border" />
         <div
             role="group"

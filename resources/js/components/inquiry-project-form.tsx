@@ -4,7 +4,7 @@
     useFormContext,
     useWatch,
 } from 'react-hook-form';
-import { Copy, Minus, Plus, Trash2 } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { fieldMessage } from '@/components/form-field';
 import InquiryDetailField from '@/components/inquiry-detail-field';
@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import {
     asksQuantity,
-    findService,
+    findProjectService,
     questionForStone,
     stoneFieldKey,
     thicknessAfterSizeChange,
@@ -388,7 +388,6 @@ const StoneSpecRow = ({
                         }
                         className="h-9 cursor-pointer px-2 text-xs"
                     >
-                        <Copy aria-hidden className="size-4" />
                         Add it again with another finish
                     </Button>
 
@@ -401,7 +400,6 @@ const StoneSpecRow = ({
                             aria-label={`Remove this ${stone.name} row`}
                             className="h-9 cursor-pointer px-2 text-xs"
                         >
-                            <Trash2 aria-hidden className="size-4" />
                             Remove
                         </Button>
                     ) : null}
@@ -471,7 +469,9 @@ const InquiryProjectForm = ({
     const { stones, serviceTypes } = useInquiryCatalog();
     const rows = watch('stones');
     const serviceId = useWatch({ control, name: 'serviceId' });
-    const service = findService(serviceTypes, serviceId);
+    const applicationId = useWatch({ control, name: 'applicationId' });
+    // The stone questions are the service's, with or without an application.
+    const service = findProjectService(serviceTypes, serviceId, applicationId);
     const questions = stoneFields(service);
     const countsPieces = asksQuantity(service);
     const stoneAdvice = useWatch({ control, name: 'stoneAdvice' });

@@ -199,10 +199,11 @@ it('emails the client a confirmation of their own inquiry, whatever their email 
 
 it('lists each stone with its slab size and thickness, and the project\'s answers, in the confirmation', function (): void {
     Notification::fake();
+    stoneComesIn(inquiryStoneRow('slab-supply-only')['stoneId'], ['0.75 in']);
 
     $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5 x 10 ft', 'thickness' => '0.75 in'])]])]))
         ->assertSessionHasNoErrors();
-    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'area_sqm' => '3.75']])]))
+    $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'dining-tables', 'answers' => [...inquiryAnswers('dining-tables'), 'seaters' => '6']])]))
         ->assertSessionHasNoErrors();
     $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['serviceId' => 'countertop-backsplash', 'answers' => ['area_sqm' => '4', 'fascia' => '1']])]))
         ->assertSessionHasNoErrors();
@@ -210,7 +211,7 @@ it('lists each stone with its slab size and thickness, and the project\'s answer
     $bodies = Inquiry::query()->orderBy('id')->get()->map(fn (Inquiry $inquiry): string => (string) (new InquiryReceivedNotification($inquiry))->toMail($this->client)->render())->all();
 
     expect($bodies[0])->toContain('Stones: '.Inquiry::query()->orderBy('id')->first()->stones()->sole()->stone->name.' (5 x 10 ft, 0.75 in)')
-        ->and($bodies[1])->toContain('Project area (sqm): 3.75')
+        ->and($bodies[1])->toContain('Number of seaters: 6')
         ->and($bodies[2])->toContain('Project area (sqm): 4', 'Fascia: Yes');
 });
 

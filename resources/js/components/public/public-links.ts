@@ -103,19 +103,27 @@ export type MenuLink = {
     href: string;
     external?: boolean;
     children?: MenuLink[];
+    /** Kept for later, but not shown in the menu. */
+    hidden?: boolean;
+    /** Drawn with the menu's chevron after its label; other links have no icon. */
+    chevron?: boolean;
 };
 
-/** A panel's links as the rows the menu draws, each child after its parent, one level in. */
+/**
+ * A panel's links as the rows the menu draws, each child after its parent,
+ * one level in. A hidden link is left out, with its children.
+ */
 export const menuRows = (
     links: MenuLink[],
 ): Array<MenuLink & { depth: 0 | 1 }> =>
-    links.flatMap((link) => [
-        { ...link, depth: 0 as const },
-        ...(link.children ?? []).map((child) => ({
-            ...child,
-            depth: 1 as const,
-        })),
-    ]);
+    links
+        .filter((link) => !link.hidden)
+        .flatMap((link) => [
+            { ...link, depth: 0 as const },
+            ...(link.children ?? [])
+                .filter((child) => !child.hidden)
+                .map((child) => ({ ...child, depth: 1 as const })),
+        ]);
 
 /** A tab that opens a panel: what it holds, its main link, its links and a photo. */
 export type MenuPanel = {
@@ -150,21 +158,36 @@ export const menuItems = (): MenuItem[] => [
         description:
             'Who we are, our showroom in Makati, and how to work with us.',
         links: [
+            // Only About, Showroom and Careers are shown, as Sir Mark asked;
+            // the About page's other sections stay here, hidden, for later.
             {
                 label: 'About Regray Design Group',
                 href: about.url(),
                 children: [
-                    { label: 'Our story', href: `${about.url()}#story` },
+                    {
+                        label: 'Our story',
+                        href: `${about.url()}#story`,
+                        hidden: true,
+                    },
                     {
                         label: 'Mission & vision',
                         href: `${about.url()}#vision`,
+                        hidden: true,
                     },
-                    { label: 'The Regray Group', href: `${about.url()}#group` },
+                    {
+                        label: 'The Regray Group',
+                        href: `${about.url()}#group`,
+                        hidden: true,
+                    },
                 ],
             },
             // One page holds the showroom: its photos, where it is and booking a visit.
-            { label: 'Showroom', href: showroom.url() },
-            { label: 'Partnerships', href: `${about.url()}#partnerships` },
+            { label: 'Showroom', href: showroom.url(), chevron: true },
+            {
+                label: 'Partnerships',
+                href: `${about.url()}#partnerships`,
+                hidden: true,
+            },
             { label: 'Careers', href: `${about.url()}#careers` },
         ],
         image: '/images/regray-slabs.jpg',

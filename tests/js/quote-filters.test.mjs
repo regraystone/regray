@@ -38,6 +38,17 @@ describe('buildQuoteQuery', () => {
         );
     });
 
+    it('carries a tab other than All', () => {
+        assert.deepEqual(
+            buildQuoteQuery({ ...QUOTE_DEFAULT_FILTERS, tab: 'quoted' }),
+            { tab: 'quoted' },
+        );
+        assert.deepEqual(
+            buildQuoteQuery({ ...QUOTE_DEFAULT_FILTERS, tab: 'all' }),
+            {},
+        );
+    });
+
     it('carries a sort other than newest', () => {
         assert.deepEqual(
             buildQuoteQuery({ ...QUOTE_DEFAULT_FILTERS, sort: 'oldest' }),

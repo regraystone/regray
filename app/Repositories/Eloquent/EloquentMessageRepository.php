@@ -25,13 +25,16 @@ class EloquentMessageRepository implements MessageRepositoryInterface
      */
     private const DISPLAY_RELATIONS = [
         'sender:id,name',
+        // A client sender's photo, shown beside their messages (User::avatarUrl()).
+        'sender.profile:user_id,avatar_path',
         'attachments:id,message_id,original_name,mime_type,size_bytes',
         'systemUser:id,name',
         'replyTo:id,conversation_id,sender_id,type,body,deleted_at',
         'replyTo.sender:id,name',
         // client_id and created_by: what InquiryPolicy::view() reads to show the card's status now.
-        'inquiry:id,reference,client_id,created_by,lead_id,marketing_status,name,address_city_name,service_id,stone_advice_requested,sales_status,payment_status,process_status',
+        'inquiry:id,reference,client_id,created_by,lead_id,marketing_status,name,address_city_name,service_id,application_id,stone_advice_requested,sales_status,payment_status,process_status',
         'inquiry.service:id,slug,name',
+        'inquiry.application:id,slug,name',
         'inquiry.stones:id,inquiry_id,stone_id,sort_order',
         'inquiry.stones.stone:id,slug,name,thumbnail_path',
         'inquiry.files:id,inquiry_id,document_type,deleted_at',

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Settings\ClientAddressController;
 use App\Http\Controllers\Settings\EmailPreferencesController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\ProfilePhotoController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Auth\Middleware\RequirePassword;
@@ -27,6 +28,15 @@ Route::middleware(['auth', Permission::ProfileView->middleware()])->prefix('dash
     Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
 
     Route::get('profile/settings', [ProfileController::class, 'settings'])->name('profile.settings');
+
+    /*
+     * A client's profile photo, set and removed from the avatar on the Profile
+     * page (ProfilePhotoRequest refuses staff, who have no profile to keep one).
+     */
+    Route::middleware('throttle:6,1')->group(function () {
+        Route::post('profile/photo', [ProfilePhotoController::class, 'update'])->name('profile.photo.update');
+        Route::delete('profile/photo', [ProfilePhotoController::class, 'destroy'])->name('profile.photo.destroy');
+    });
 
     /*
      * The client's own address book. Two guards: `profile.view` admits the

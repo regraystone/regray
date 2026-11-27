@@ -1,6 +1,7 @@
 <?php
 
 use App\Data\PhAddress;
+use App\Data\ThicknessMeasurement;
 use App\Enums\ClientKind;
 use App\Enums\ConversationMemberRole;
 use App\Enums\ConversationType;
@@ -34,6 +35,7 @@ use App\Models\Showcase;
 use App\Models\ShowcaseCategory;
 use App\Models\Stone;
 use App\Models\StoneType;
+use App\Models\Thickness;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Repositories\Contracts\ConversationMemberRepositoryInterface;
@@ -155,20 +157,65 @@ function inquiryService(string $slug): Service
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
-function inquiryStoneRow(string $service = 'slab-supply-only', array $overrides = []): array
+function inquiryStoneRow(string $service = 'slab-supply-only', array $overrides = [], ?string $offeredBy = null): array
 {
+    // An application's stone is asked what Slab Supply and Installation asks, from the application's stones.
+    if (Service::query()->where('slug', $service)->where('is_application', true)->exists()) {
+        $offeredBy ??= $service;
+        $service = 'slab-supply-and-installation';
+    }
+
     $asked = inquiryService($service)->detailFields->keyBy('slug');
-    $offered = Stone::query()->offeredFor(inquiryService($service))->orderBy('id')->value('slug');
+    // An application's own stones, where the project names one.
+    $offered = Stone::query()->offeredFor(inquiryService($offeredBy ?? $service))->orderBy('id')->value('slug');
+    $stoneId = $overrides['stoneId'] ?? $offered ?? Stone::query()->active()->orderBy('id')->value('slug');
 
     return [
-        'stoneId' => $offered ?? Stone::query()->active()->orderBy('id')->value('slug'),
+        'stoneId' => $stoneId,
         ...$asked->has(DetailField::QUANTITY) ? ['quantity' => 4] : [],
         ...$asked->has(DetailField::SLAB_SIZE) ? ['slabSize' => '160 x 320 cm'] : [],
-        ...$asked->has(DetailField::THICKNESS) ? ['thickness' => '20 mm'] : [],
+        // Picked from the list: one the stone comes in, 20 mm where it does, or Regray's advice.
+        ...$asked->has(DetailField::THICKNESS) ? ['thickness' => inquiryThickness($stoneId)] : [],
         ...$asked->has(DetailField::EDGE_PROFILE) ? ['edge' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name')] : [],
         ...$asked->has(DetailField::FINISH) ? ['finish' => Finish::query()->where('is_active', true)->orderBy('sort_order')->value('name')] : [],
         ...$overrides,
     ];
+}
+
+/**
+ * Give the stone slabs in these thicknesses (labels, "20 mm"), with no size,
+ * so a test can pick them from its list.
+ *
+ * @param  list<string>  $labels
+ */
+function stoneComesIn(string $stoneSlug, array $labels): void
+{
+    $stone = Stone::query()->where('slug', $stoneSlug)->firstOrFail();
+
+    foreach ($labels as $label) {
+        $measurement = ThicknessMeasurement::parse($label) ?? throw new RuntimeException("{$label} is not a thickness.");
+        $thickness = Thickness::query()->firstOrCreate(
+            ['value' => $measurement->value, 'unit' => $measurement->unit],
+            ['sort_order' => $measurement->unit->position()],
+        );
+
+        $stone->variants()->firstOrCreate(['size_id' => null, 'thickness_id' => $thickness->id], ['sort_order' => 99]);
+    }
+}
+
+/**
+ * A thickness the stone comes in, as the thickness list sends it: 20 mm when
+ * it is one, its first otherwise, "To be advised by Regray" with none listed.
+ */
+function inquiryThickness(?string $stoneSlug): string
+{
+    $thicknesses = Stone::query()->withTrashed()->where('slug', $stoneSlug)->first()?->thicknesses ?? collect();
+
+    if ($thicknesses->isEmpty()) {
+        return DetailField::THICKNESS_ADVICE;
+    }
+
+    return $thicknesses->firstWhere('key', '20-mm')?->label ?? $thicknesses->first()->label;
 }
 
 /**
@@ -202,19 +249,40 @@ function inquiryAnswers(string $service): array
  * stone row it takes (none for a service that asks for no stones) and its
  * answers.
  *
+ * An application named as the service (`'serviceId' => 'flooring'`) is sent
+ * as the page sends it: under Slab Supply and Installation (or the service
+ * given as `underService`), with the application's stones and project
+ * answers and the service's stone answers.
+ *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function inquiryProjectInput(array $overrides = []): array
 {
     $service = $overrides['serviceId'] ?? 'slab-supply-only';
-    $stones = $overrides['stones'] ?? (inquiryService($service)->requires_stones ? [inquiryStoneRow($service)] : []);
+    $application = null;
+
+    if (Service::query()->where('slug', $service)->where('is_application', true)->exists()) {
+        $application = $service;
+        $service = $overrides['underService'] ?? 'slab-supply-and-installation';
+        unset($overrides['serviceId']);
+    }
+
+    unset($overrides['underService']);
+
+    // A service that asks an application gets the first, Countertop and Backsplash, unless one is given.
+    if ($application === null && ! array_key_exists('applicationId', $overrides) && inquiryService($service)->has_applications) {
+        $application = 'countertop-backsplash';
+    }
+
+    $stones = $overrides['stones'] ?? (inquiryService($service)->requires_stones ? [inquiryStoneRow($service, [], $application)] : []);
 
     return [
         'name' => 'Kitchen counters',
         'serviceId' => $service,
+        ...$application === null ? [] : ['applicationId' => $application],
         'stones' => $stones,
-        'answers' => inquiryAnswers($service),
+        'answers' => inquiryAnswers($application ?? $service),
         'brandNoPreference' => '1',
         // Asked only of a service that is delivered or picked up.
         ...(inquiryService($service)->fulfillment->asksDeliveryMethod() ? ['deliveryMethod' => 'delivery'] : []),
@@ -442,7 +510,9 @@ function makeInquiry(User $client, array $project = [], array $attributes = []):
             : (isset($attributes['lead'], $statuses['sales_status']) ? LeadStatus::Won : null),
         'marketing_status_changed_at' => $marketing === null ? null : now(),
         'name' => $project['name'] ?? 'Project '.$sequence,
-        'service_id' => ($service = inquiryService($project['service'] ?? 'slab-supply-only'))->id,
+        // An application (Flooring…) is held under Slab Supply and Installation, as the form sends it.
+        'service_id' => ($service = inquiryService(($named = inquiryService($project['service'] ?? 'slab-supply-only'))->is_application ? 'slab-supply-and-installation' : $named->slug))->id,
+        'application_id' => $named->is_application ? $named->id : null,
         'brand_no_preference' => true,
         'delivery_method' => $service->fulfillment->asksDeliveryMethod() ? 'delivery' : null,
         ...testAddress()->toColumns(Inquiry::ADDRESS_PREFIX),
@@ -754,7 +824,7 @@ function makeShowcaseCategory(string $name, array $attributes = []): ShowcaseCat
 
 /**
  * The All services page's Add form, filled in for a new installed service
- * under Natural Stone & Applications.
+ * under Natural Stone & Installation.
  *
  * @return array<string, mixed>
  */

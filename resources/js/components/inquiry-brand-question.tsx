@@ -24,7 +24,7 @@ export const INQUIRY_BRANDS_ID = 'inquiry-brands';
  * not a rule: every service stays on offer, and the stones are not limited by
  * it (the stones' own Brand filter is separate).
  *
- * The logos sit on black, so they compare evenly. A brand with no active
+ * The logos sit on navy, so they compare evenly. A brand with no active
  * stone or furniture yet (`available` false) says Unavailable beside its name
  * and cannot be picked; one a saved draft already holds can still be taken
  * off. No preference spans the row under the brands.
@@ -58,7 +58,7 @@ const InquiryBrandQuestion = () => {
     };
 
     /*
-     * A brand's card: its logo on black, its name under it, and a tick in the
+     * A brand's card: its logo on navy, its name under it, and a tick in the
      * corner, filled once picked, when the card also takes a black frame. An
      * unavailable brand is dimmed, says so beside its name, and only answers a
      * tap to take off a pick a saved draft held.
@@ -103,10 +103,10 @@ const InquiryBrandQuestion = () => {
             <span
                 aria-hidden
                 className={cn(
-                    'flex items-center justify-center bg-black px-5 py-4',
+                    'flex items-center justify-center bg-navy px-5 py-4',
                     // No preference spans the row, so a lower panel keeps it from looming.
                     wide ? 'h-16' : 'h-24',
-                    // Every panel stays black for comparison; only an unavailable logo dims.
+                    // Every panel stays navy for comparison; only an unavailable logo dims.
                     !available && '[&>*]:opacity-35',
                 )}
             >

@@ -1,22 +1,24 @@
+import { backTarget } from '@/lib/back-target';
+import { messageUsPlacement } from '@/lib/message-us';
 import { catalogueCrumbs, type Crumb } from '@/lib/catalogue-breadcrumbs';
 import { profileCrumbs } from '@/lib/profile-breadcrumbs';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart3,
+    Bookmark,
     Calendar,
     ChevronDown,
+    ChevronLeft,
     CircleUserRound,
     FileText,
     Folder,
-    Handshake,
-    Heart,
     Home,
     LayoutDashboard,
     LogOut,
-    Menu,
     MessageCircle,
     Package,
     Target,
+    User,
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
@@ -24,7 +26,7 @@ import {
     Users,
     Wrench,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { createLucideIcon, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Logo from '@/components/logo';
 import {
@@ -33,8 +35,9 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import LogoutDialog from '@/components/logout-dialog';
+import { Button } from '@/components/ui/button';
 import NotificationBell from '@/components/notification-bell';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -59,6 +62,7 @@ import {
     index as dashboardBrandsIndex,
     show as dashboardBrandShow,
 } from '@/routes/dashboard/brands';
+import { dashboard } from '@/routes';
 import { index as homeIndex } from '@/routes/home';
 import { index as leadsIndex } from '@/routes/leads';
 import {
@@ -160,6 +164,16 @@ export const permissions = {
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
 
+/** Quote's icon in the menu: a page with two lines of writing, as Sir Mark's design draws it. */
+const QuotePage = createLucideIcon('quote-page', [
+    [
+        'rect',
+        { x: '5', y: '3.5', width: '14', height: '17', rx: '3.5', key: 'page' },
+    ],
+    ['path', { d: 'M9 10.5h6', key: 'first-line' }],
+    ['path', { d: 'M9 14.5h4', key: 'second-line' }],
+]);
+
 type NavItem = {
     slug: string;
     label: string;
@@ -233,7 +247,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 slug: 'saved',
                 label: 'Saved',
                 href: savedIndex.url(),
-                icon: Heart,
+                icon: Bookmark,
                 permission: permissions.savedView,
             },
         ],
@@ -252,7 +266,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 slug: 'quote',
                 label: 'Quote',
                 href: quoteIndex.url(),
-                icon: Handshake,
+                icon: QuotePage,
                 permission: permissions.quotationsView,
             },
             {
@@ -329,7 +343,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 slug: 'profile',
                 label: 'Profile',
                 href: showProfile.url(),
-                icon: CircleUserRound,
+                icon: User,
                 permission: permissions.profileView,
                 matchPrefix: showProfile.url(),
             },
@@ -820,6 +834,20 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             });
     }
 
+    const backHref = backTarget({
+        component: page.component,
+        url: effectiveUrl,
+        crumbs,
+        landingUrls: [homeIndex.url(), overviewIndex.url()],
+        landing: dashboard.url(),
+    });
+
+    const messageUsAt = messageUsPlacement({
+        component: page.component,
+        roles: page.props.auth.roles ?? [],
+        canMessage,
+    });
+
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Desktop sidebar (lg and up) */}
@@ -937,12 +965,19 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                                     aria-label={`Account, ${initials}`}
                                 >
                                     <Avatar className="h-9 w-9 border border-border sm:size-9">
+                                        {page.props.auth.avatar ? (
+                                            <AvatarImage
+                                                src={page.props.auth.avatar}
+                                                alt=""
+                                                className="object-cover"
+                                            />
+                                        ) : null}
                                         <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
                                             {initials}
                                         </AvatarFallback>
                                     </Avatar>
                                     <ChevronDown
-                                        className="hidden size-4 text-secondary-foreground transition-transform duration-300 ease-in-out group-data-[state=open]:rotate-180 sm:block"
+                                        className="size-4 text-secondary-foreground transition-transform duration-300 ease-in-out group-data-[state=open]:rotate-180"
                                         aria-hidden
                                     />
                                 </button>
@@ -1008,7 +1043,14 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             aria-label="Open navigation"
                             aria-expanded={drawerOpen}
                         >
-                            <Menu className="size-5" />
+                            {/* Two lines, the lower one shorter, as Sir Mark's design draws the menu. */}
+                            <span
+                                aria-hidden
+                                className="flex w-6 flex-col items-end gap-1.5"
+                            >
+                                <span className="h-0.5 w-6 rounded-full bg-current" />
+                                <span className="h-0.5 w-4 rounded-full bg-current" />
+                            </span>
                         </button>
                     </div>
                 </header>
@@ -1028,10 +1070,38 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                         key={url}
                         className="page-enter motion-reduce:animate-none"
                     >
+                        {/* Phones and tablets have no breadcrumbs, so each page but a landing one opens with Back. */}
+                        {backHref ? (
+                            <Link
+                                href={backHref}
+                                className="-mt-2 mb-4 inline-flex min-h-11 items-center gap-1 pr-3 text-[0.8125rem] font-semibold tracking-[0.08em] uppercase transition-opacity hover:opacity-70 sm:-mt-4 lg:hidden"
+                                data-testid="mobile-back"
+                            >
+                                <ChevronLeft
+                                    aria-hidden
+                                    strokeWidth={1.5}
+                                    className="size-5"
+                                />
+                                Back
+                            </Link>
+                        ) : null}
                         {children}
                     </div>
                 </main>
             </div>
+
+            {/* A client's way to the team from any page but Inbox, above any bar the page pins to the bottom. */}
+            {messageUsAt !== null ? (
+                <Button
+                    asChild
+                    size="lg"
+                    className={`fixed right-[max(1rem,env(safe-area-inset-right,0px))] z-30 shadow-lg ${messageUsAt}`}
+                >
+                    <Link href={inboxIndex.url()} data-testid="message-us">
+                        Message us
+                    </Link>
+                </Button>
+            ) : null}
 
             {/* Drawer backdrop */}
             <div

@@ -61,7 +61,8 @@ class InquiryCardResource extends JsonResource
             // The one service it asks for, as on the Quote page's card (ClientInquiryService).
             'service' => $inquiry->service === null ? null : [
                 'id' => $inquiry->service->slug,
-                'name' => $inquiry->service->name,
+                // With its application: "Slab Supply and Installation · Flooring".
+                'name' => (string) $inquiry->serviceLabel(),
             ],
             'announcedStatus' => (string) $this->announced_status,
             // Null for a stage that had not started when the card was posted.

@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Check, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import {
     type ReactNode,
     useCallback,
@@ -86,6 +86,10 @@ import {
     clampRestoredStep,
     deadlineLocks,
     findService,
+    findProjectService,
+    asksApplication,
+    serviceLabel,
+    stoneServiceId,
     fulfillmentAfterServiceChange,
     HELD_ADDRESS,
     INQUIRY_STEP_LABELS,
@@ -268,7 +272,8 @@ const sendInquiryRequest = (
     new Promise((resolve) => {
         const body = buildInquiryFormData(values, {
             withProjectIds: method === 'patch',
-            serviceFor: (serviceId) => findService(serviceTypes, serviceId),
+            serviceFor: (serviceId, applicationId) =>
+                findProjectService(serviceTypes, serviceId, applicationId),
             addressSource,
         });
 
@@ -500,19 +505,34 @@ const InquireFlow = ({
 }) => {
     const catalog = useInquiryCatalog();
     const addressSource: AddressSource = addresses === null ? 'picker' : 'book';
+    // An edit may keep the date it already has, however soon it now is.
+    const heldNeededBy = edit?.projects[0]?.neededBy ?? null;
     const { inquirySchema, projectDraftSchema } = useMemo(
-        () => createInquirySchemas(catalog, addressSource),
-        [catalog, addressSource],
+        () => createInquirySchemas(catalog, addressSource, heldNeededBy),
+        [catalog, addressSource, heldNeededBy],
     );
     const ownStoreUrl = useInquireStoreUrl();
     const inquireStoreUrl = target === null ? ownStoreUrl : target.storeUrl;
 
-    /** A service's name, for the notices about stones it does not offer. */
+    /** A service's name (or an application's), for the notices about stones it does not offer. */
     const serviceName = useCallback(
         (serviceId: string): string =>
-            catalog.serviceTypes
-                .flatMap(({ services }) => services)
-                .find(({ id }) => id === serviceId)?.name ?? '',
+            findService(catalog.serviceTypes, serviceId)?.name ?? '',
+        [catalog],
+    );
+
+    /** Whether the service asks an application and the draft has none of its own picked. */
+    const applicationMissing = useCallback(
+        (serviceId: string, applicationId: string): boolean => {
+            const service = findService(catalog.serviceTypes, serviceId);
+
+            return (
+                asksApplication(service) &&
+                !(service?.applications ?? []).some(
+                    ({ id }) => id === applicationId,
+                )
+            );
+        },
         [catalog],
     );
 
@@ -599,6 +619,8 @@ const InquireFlow = ({
      * carries its own site, date and files, so most of what the whole-form check
      * has to say is about one of them rather than about the request as a whole.
      */
+    /** The committed project the reader asked to remove, until they confirm. */
+    const [removeTarget, setRemoveTarget] = useState<string | null>(null);
     const [projectMessages, setProjectMessages] = useState<
         Record<string, string>
     >({});
@@ -814,6 +836,10 @@ const InquireFlow = ({
             const progress = {
                 ...stored.draft,
                 requiresStones: requiresStones(stored.draft.serviceId),
+                applicationMissing: applicationMissing(
+                    stored.draft.serviceId,
+                    stored.draft.applicationId,
+                ),
             };
 
             setStep(
@@ -858,7 +884,16 @@ const InquireFlow = ({
          * offers comes back missing, and goes the way a stone no longer sold does.
          */
         const draftService =
-            stored.draft.serviceId || stored.projects[0]?.serviceId || '';
+            stoneServiceId(
+                stored.draft.serviceId,
+                stored.draft.applicationId,
+            ) ||
+            (stored.projects[0] === undefined
+                ? ''
+                : stoneServiceId(
+                      stored.projects[0].serviceId,
+                      stored.projects[0].applicationId,
+                  ));
 
         setIsResolvingDraft(true);
         router.reload({
@@ -994,7 +1029,11 @@ const InquireFlow = ({
     const loadStones = (query: Omit<StoneQuery, 'service'>) => {
         clearSearchTimer();
 
-        const service = getDraftValues('serviceId');
+        // An application's own stones, when the service asks one.
+        const service = stoneServiceId(
+            getDraftValues('serviceId'),
+            getDraftValues('applicationId'),
+        );
         const url = new URL(window.location.href);
 
         requestedServiceRef.current = service;
@@ -1132,6 +1171,11 @@ const InquireFlow = ({
      * search and the type started again; the tab is kept.
      */
     const draftServiceId = watchDraft('serviceId');
+    const draftApplicationId = watchDraft('applicationId');
+    const draftStoneServiceId = stoneServiceId(
+        draftServiceId,
+        draftApplicationId,
+    );
     const hasWatchedServiceRef = useRef(false);
 
     useEffect(() => {
@@ -1145,16 +1189,16 @@ const InquireFlow = ({
             return;
         }
 
-        if (draftServiceId === requestedServiceRef.current) {
+        if (draftStoneServiceId === requestedServiceRef.current) {
             return;
         }
 
         setSearch('');
         setStoneType(ALL_STONE_TYPES);
         loadStones({ tab: filter, stoneType: ALL_STONE_TYPES, search: '' });
-        // Only a change of service asks again; the filters ask for themselves.
+        // Only a change of service or application asks again; the filters ask for themselves.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [draftServiceId]);
+    }, [draftStoneServiceId]);
 
     /*
      * A new Brand answer: the filter keeps only the brands still allowed, the
@@ -1228,7 +1272,8 @@ const InquireFlow = ({
     const chooseServiceType = (serviceTypeId: string) => {
         setDraftValue('serviceTypeId', serviceTypeId, { shouldDirty: true });
         setDraftValue('serviceId', '', { shouldDirty: true });
-        draftMethods.clearErrors('serviceId');
+        setDraftValue('applicationId', '', { shouldDirty: true });
+        draftMethods.clearErrors(['serviceId', 'applicationId']);
     };
 
     /**
@@ -1258,6 +1303,9 @@ const InquireFlow = ({
         );
 
         setDraftValue('serviceId', serviceId, { shouldDirty: true });
+        // Each service offers its own applications, so the one picked goes.
+        setDraftValue('applicationId', '', { shouldDirty: true });
+        draftMethods.clearErrors('applicationId');
         // What no longer applies to the new service goes: a method it does not ask.
         setDraftValue('deliveryMethod', fulfillment.deliveryMethod, {
             shouldDirty: true,
@@ -1292,6 +1340,46 @@ const InquireFlow = ({
         } else {
             setStoneNotice(null);
         }
+    };
+
+    /**
+     * The application a service with an installation is for. Each is made
+     * from its own stone types, so the picked stones it does not offer come
+     * off, said on the stones question, and its stones are asked for (the
+     * effect on `draftStoneServiceId` above).
+     */
+    const chooseApplication = (applicationId: string) => {
+        setDraftValue('applicationId', applicationId, { shouldDirty: true });
+        draftMethods.clearErrors('applicationId');
+
+        if (!requiresStones(getDraftValues('serviceId'))) {
+            return;
+        }
+
+        const misfits = catalog.stonesNotOfferedFor(
+            getDraftValues('stoneIds'),
+            applicationId,
+        );
+
+        if (misfits.length === 0) {
+            setStoneNotice(null);
+
+            return;
+        }
+
+        const gone = new Set(misfits.map(({ slug }) => slug));
+
+        setDraftValue(
+            'stoneIds',
+            getDraftValues('stoneIds').filter((id) => !gone.has(id)),
+            { shouldDirty: true },
+        );
+        setStoneNotice(
+            removedStonesNotice(
+                misfits.map(({ name }) => name),
+                serviceName(applicationId),
+            ),
+        );
     };
 
     /*
@@ -1440,7 +1528,14 @@ const InquireFlow = ({
         const takesStones = requiresStones(draft.serviceId);
         const problem = questionProblem(
             question,
-            { ...draft, requiresStones: takesStones },
+            {
+                ...draft,
+                requiresStones: takesStones,
+                applicationMissing: applicationMissing(
+                    draft.serviceId,
+                    draft.applicationId,
+                ),
+            },
             offeredServiceIds,
         );
 
@@ -1457,7 +1552,7 @@ const InquireFlow = ({
             question === BRAND_STEP
                 ? 'brands'
                 : question === SERVICE_STEP
-                  ? 'serviceId'
+                  ? ['serviceId', 'applicationId']
                   : 'stoneIds',
         );
         revealQuestion(nextQuestion(question, takesStones));
@@ -1501,6 +1596,51 @@ const InquireFlow = ({
     };
 
     /**
+     * Another project on the same inquiry, from Review. It keeps the brands
+     * the last one chose, which are most often the same, and opens at what is
+     * needed; the brand question stays open above it to change.
+     */
+    const startProject = () => {
+        const last = getValues('projects').at(-1);
+
+        clearDraft();
+
+        if (last !== undefined) {
+            setDraftValue('brands', [...last.brands]);
+            setDraftValue('brandNoPreference', last.brandNoPreference);
+        }
+
+        setStep(BRAND_STEP);
+        setShownQuestions(SERVICE_STEP);
+    };
+
+    /**
+     * Take a project out, once the reader has said which one. Review keeps
+     * its place, since it has its own way to add another.
+     */
+    const confirmRemoveProject = () => {
+        if (removeTarget === null) {
+            return;
+        }
+
+        setValue(
+            'projects',
+            getValues('projects').filter(
+                (project) => project.id !== removeTarget,
+            ),
+            { shouldDirty: true },
+        );
+
+        setProjectMessages((messages) =>
+            Object.fromEntries(
+                Object.entries(messages).filter(([id]) => id !== removeTarget),
+            ),
+        );
+
+        setRemoveTarget(null);
+    };
+
+    /**
      * One committed project, reopened in the requirements step, or at
      * `startAt` when an edit opens it from the beginning.
      *
@@ -1525,6 +1665,7 @@ const InquireFlow = ({
             name: project.name,
             serviceTypeId: project.serviceTypeId,
             serviceId: project.serviceId,
+            applicationId: project.applicationId,
             stoneAdvice: project.stoneAdvice,
             // Once each: a stone added again with another finish has two rows.
             stoneIds: [
@@ -1615,12 +1756,16 @@ const InquireFlow = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [draftStoneIds, draftStoneAdvice]);
 
-    /** What a project is called unless the reader names it on Review: its service. */
-    const projectNameFor = (serviceId: string): string =>
+    /**
+     * What a project is called unless the reader names it on Review: its
+     * service, with its application ("Slab Supply and Installation · Flooring").
+     */
+    const projectNameFor = (serviceId: string, applicationId: string): string =>
         autoProjectName(
-            catalog.serviceTypes
-                .flatMap(({ services }) => services)
-                .find(({ id }) => id === serviceId)?.name ?? '',
+            serviceLabel(
+                findService(catalog.serviceTypes, serviceId),
+                applicationId,
+            ),
             PROJECT_NAME_MAX,
         );
 
@@ -1635,13 +1780,17 @@ const InquireFlow = ({
         );
         const hasOwnName =
             reopened !== undefined &&
-            reopened.name !== projectNameFor(reopened.serviceId);
+            reopened.name !==
+                projectNameFor(reopened.serviceId, reopened.applicationId);
 
         setDraftValue(
             'name',
             hasOwnName
                 ? reopened.name
-                : projectNameFor(getDraftValues('serviceId')),
+                : projectNameFor(
+                      getDraftValues('serviceId'),
+                      getDraftValues('applicationId'),
+                  ),
         );
     };
 
@@ -1679,7 +1828,10 @@ const InquireFlow = ({
                 if (errors.brands !== undefined) {
                     showQuestion(BRAND_STEP);
                     document.getElementById(INQUIRY_BRANDS_ID)?.focus();
-                } else if (errors.serviceId !== undefined) {
+                } else if (
+                    errors.serviceId !== undefined ||
+                    errors.applicationId !== undefined
+                ) {
                     showQuestion(SERVICE_STEP);
                 } else if (errors.stoneIds !== undefined) {
                     showQuestion(STONES_STEP);
@@ -2065,10 +2217,17 @@ const InquireFlow = ({
               1;
 
     /*
-     * Only when coming back from Review, where Cancel returns to. An edit of a
-     * sent inquiry starts here instead, and has its own way back at the top.
+     * Only when coming back from Review, where Cancel returns to: changing a
+     * project, or adding another. An edit of a sent inquiry starts here
+     * instead, and has its own way back at the top.
      */
-    const showDraftBanner = edit === null && editingProjectNumber > 0;
+    const showDraftBanner =
+        edit === null && (editingProjectNumber > 0 || projects.length > 0);
+
+    const removeProjectNumber =
+        removeTarget === null
+            ? 0
+            : projects.findIndex((project) => project.id === removeTarget) + 1;
 
     /*
      * The questions this draft is asked, in order, all on the first step. A
@@ -2146,7 +2305,6 @@ const InquireFlow = ({
                                     <Button asChild variant="outline">
                                         {/* Back to the list the edit was started from. */}
                                         <Link href={edit.back.url}>
-                                            <ArrowLeft aria-hidden />
                                             {edit.back.label}
                                         </Link>
                                     </Button>
@@ -2162,6 +2320,13 @@ const InquireFlow = ({
                         {step === REVIEW_STEP ? (
                             <InquiryReview
                                 onEditProject={openProject}
+                                // A sent inquiry is one project: an edit neither adds nor removes one.
+                                onAddProject={
+                                    edit === null ? startProject : undefined
+                                }
+                                onRemoveProject={
+                                    edit === null ? setRemoveTarget : undefined
+                                }
                                 sectionMessages={sectionMessages}
                                 projectMessages={projectMessages}
                                 validationErrors={validationAlertErrors}
@@ -2186,7 +2351,13 @@ const InquireFlow = ({
                             <FormProvider {...draftMethods}>
                                 {showDraftBanner ? (
                                     <ProjectBanner
-                                        label="Changing your request"
+                                        label={
+                                            editingProjectNumber > 0
+                                                ? projects.length > 1
+                                                    ? `Changing project ${editingProjectNumber}`
+                                                    : 'Changing your request'
+                                                : `Adding project ${projects.length + 1}`
+                                        }
                                         onCancel={cancelExcursion}
                                     />
                                 ) : null}
@@ -2218,6 +2389,7 @@ const InquireFlow = ({
                                         <InquiryServiceQuestion
                                             onServiceType={chooseServiceType}
                                             onService={chooseService}
+                                            onApplication={chooseApplication}
                                         />
                                         {shownQuestions === SERVICE_STEP ? (
                                             <NextBar
@@ -2263,16 +2435,21 @@ const InquireFlow = ({
                                                 aria-pressed={draftStoneAdvice}
                                                 className="h-10 w-full shrink-0 rounded-none border-foreground text-xs font-semibold tracking-[0.08em] uppercase sm:w-auto"
                                             >
-                                                {draftStoneAdvice ? (
-                                                    <Check aria-hidden />
-                                                ) : null}
                                                 Help me choose
                                             </Button>
                                         </div>
 
                                         <div className="mb-6 border-y border-border py-3.5">
-                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                                <div className="relative w-full sm:max-w-xs">
+                                            {/*
+                                             * On a phone and a tablet, stacked: the search, the
+                                             * three tabs, the brand list, then the types as
+                                             * pills. From a laptop, one row that wraps rather
+                                             * than squeezes: the search takes the room left,
+                                             * the tabs and the brand and type lists keep their
+                                             * width, all one height.
+                                             */}
+                                            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+                                                <div className="relative w-full lg:w-auto lg:min-w-56 lg:flex-1">
                                                     <Search
                                                         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
                                                         aria-hidden
@@ -2288,7 +2465,7 @@ const InquireFlow = ({
                                                         }
                                                         placeholder="Search stones"
                                                         aria-label="Search stones"
-                                                        className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                                                        className="h-11 rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
                                                     />
                                                     {search ? (
                                                         <button
@@ -2308,7 +2485,7 @@ const InquireFlow = ({
                                                 </div>
 
                                                 <div
-                                                    className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap sm:flex"
+                                                    className="grid shrink-0 grid-cols-3 gap-2 lg:flex lg:items-center lg:gap-1.5 lg:whitespace-nowrap"
                                                     role="tablist"
                                                     aria-label="Filter stones"
                                                 >
@@ -2330,7 +2507,7 @@ const InquireFlow = ({
                                                                         tab.value,
                                                                     )
                                                                 }
-                                                                className={`h-11 cursor-pointer border px-3.5 text-[0.8125rem] tracking-[0.04em] uppercase transition-colors ${
+                                                                className={`h-11 cursor-pointer border px-2 text-[0.8125rem] tracking-[0.04em] whitespace-nowrap uppercase transition-colors lg:px-3.5 ${
                                                                     isActive
                                                                         ? 'border-foreground bg-foreground text-background'
                                                                         : 'border-border bg-background text-foreground hover:border-foreground'
@@ -2338,43 +2515,6 @@ const InquireFlow = ({
                                                             >
                                                                 {tab.label}
                                                             </button>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                <div
-                                                    className="flex items-center gap-2.5 sm:hidden"
-                                                    role="tablist"
-                                                    aria-label="Filter stones"
-                                                >
-                                                    {stoneTabs.map((tab) => {
-                                                        const isActive =
-                                                            filter ===
-                                                            tab.value;
-
-                                                        return (
-                                                            <Button
-                                                                key={tab.value}
-                                                                type="button"
-                                                                role="tab"
-                                                                aria-selected={
-                                                                    isActive
-                                                                }
-                                                                variant={
-                                                                    isActive
-                                                                        ? 'default'
-                                                                        : 'secondary'
-                                                                }
-                                                                size="sm"
-                                                                className="px-3 py-1.5"
-                                                                onClick={() =>
-                                                                    changeTab(
-                                                                        tab.value,
-                                                                    )
-                                                                }
-                                                            >
-                                                                {tab.label}
-                                                            </Button>
                                                         );
                                                     })}
                                                 </div>
@@ -2627,6 +2767,21 @@ const InquireFlow = ({
                     }
                     confirmLabel="OK"
                     onConfirm={() => setLostAttachments(0)}
+                />
+
+                <ConfirmDialog
+                    open={removeTarget !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setRemoveTarget(null);
+                        }
+                    }}
+                    title={`Remove project ${removeProjectNumber}?`}
+                    description="Its stones and answers will be taken off this inquiry. The other projects stay."
+                    confirmLabel="Remove project"
+                    cancelLabel="Keep project"
+                    destructive
+                    onConfirm={confirmRemoveProject}
                 />
             </InquiryAddressContext.Provider>
         </FormProvider>

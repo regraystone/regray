@@ -485,6 +485,8 @@ class ViewController extends Controller
             'canCreate' => $request->user()?->can(Permission::ServicesCreate->value) ?? false,
             'limits' => [
                 'descriptionMax' => StoreServiceRequest::DESCRIPTION_MAX,
+                'noteMax' => StoreServiceRequest::NOTE_MAX,
+                'leadDaysMax' => StoreServiceRequest::LEAD_DAYS_MAX,
                 'featuresMax' => StoreServiceRequest::FEATURES_MAX,
                 'featureMax' => StoreServiceRequest::FEATURE_MAX,
             ],

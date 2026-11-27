@@ -46,6 +46,7 @@ void createInertiaApp({
             case name === 'landing':
             case name === 'stone-profile':
             case name === 'brand-profile':
+            case name === 'brand-company-profile':
             case name === 'furniture-profile':
             case name === 'showcase-profile':
                 return SiteLayout;

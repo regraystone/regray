@@ -7,9 +7,9 @@ import {
     renameProject,
 } from '../support/inquiry-flow';
 
-/* D. An inquiry is one project. */
+/* D. A sending holds up to five projects, each its own inquiry. */
 
-test('18 · Review offers no second project, and the server refuses one', async ({
+test('18 · Review adds and removes a project, and the server refuses a sixth', async ({
     actors,
 }) => {
     const { page } = await actors.open('client');
@@ -17,18 +17,20 @@ test('18 · Review offers no second project, and the server refuses one', async 
     await openInquire(page);
     await addStoneProject(page);
 
-    await expect(
-        page.getByRole('button', { name: /Add (a|another) project/ }),
-    ).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
+    const addProject = page.getByRole('button', {
+        name: 'Add another project',
+    });
+    await expect(addProject).toBeVisible();
+    // With one project there is nothing to number, and nothing left to remove it for.
+    await expect(page.getByText('Project 1', { exact: true })).toHaveCount(0);
 
     const response = await postAsUser(page, '/dashboard/quote/inquire', {
-        projects: [projectPayload(), projectPayload()],
+        projects: Array.from({ length: 6 }, () => projectPayload()),
     });
 
     expect(response.status).toBe(422);
     expect(response.json?.errors?.projects).toEqual([
-        'An inquiry can only have one project.',
+        'Send up to 5 projects at a time.',
     ]);
 });
 

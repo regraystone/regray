@@ -30,7 +30,7 @@ class MessageResource extends JsonResource
 {
     public const SNIPPET_LENGTH = 120;
 
-    public const SUPPORT_TEAM_NAME = 'Regray';
+    public const SUPPORT_TEAM_NAME = 'Regray Sales Team';
 
     /** What a reply quotes when the message it answers is files only. */
     public const ATTACHMENT_SNIPPET = 'Attachment';
@@ -62,6 +62,8 @@ class MessageResource extends JsonResource
             'sender' => $this->sender === null ? null : [
                 'id' => $this->sender->id,
                 'name' => $this->senderName($this->resource),
+                // A client's profile photo, where the page loaded it (MessageRepository); staff have none yet.
+                'avatar' => $this->sender->relationLoaded('profile') ? $this->sender->avatarUrl() : null,
             ],
             'replyTo' => $this->replyTo === null ? null : [
                 'id' => $this->replyTo->id,

@@ -11,14 +11,13 @@ import { expect } from './fixtures';
  * location is a combobox, and what the service asks of each stone sits on its
  * row (Slab Supply Only: a slab size, thickness, edge and finish, each a
  * dropdown). The slab size lists the row's stone's own sizes and the
- * thickness the ones that size is cut in, each with Other, which opens a
- * measurement of one's own: Width, Length and a unit for a size
+ * thickness the ones that size is cut in, each with Custom size or Custom
+ * thickness, which opens a measurement of one's own: Width, Length and a unit for a size
  * (`-width`, `-length`, `-unit`), a value and a unit for a thickness
  * (`-value`, `-unit`). The service's own questions sit under Other details,
  * with the optional ones, the files and the notes always on show under the
- * required ones; Dining Tables and Other Customized Furniture ask the project
- * area there (the small pieces ask only their size), and Countertop and
- * Backsplash asks fascia.
+ * required ones; no furniture service asks the project area, and Countertop
+ * and Backsplash asks fascia and the area.
  *
  * The names below are the catalogue that DatabaseSeeder writes. Both stones are
  * offered for Slab Supply Only and for Dining Tables: a granite and a marble.
@@ -32,7 +31,7 @@ import { expect } from './fixtures';
  */
 
 export const CATALOG = {
-    serviceType: 'Natural Stone & Applications',
+    serviceType: 'Natural Stone & Installation',
     service: 'Slab Supply Only',
     serviceSlug: 'slab-supply-only',
     furnitureType: 'Custom Stone Furniture',
@@ -294,7 +293,7 @@ export const fillThicknesses = async (
     thickness: string = THICKNESS,
 ): Promise<void> => fillUnanswered(page, 'requirements-thickness-', thickness);
 
-/** A slab size of the reader's own, through Other: its width, length and unit. */
+/** A slab size of the reader's own, through Custom size: its width, length and unit. */
 export const typeSlabSize = async (
     page: Page,
     index: number,
@@ -304,13 +303,13 @@ export const typeSlabSize = async (
 ): Promise<void> => {
     const id = `requirements-slab-size-${index}`;
 
-    await chooseInSelect(page, id, 'Other');
+    await chooseInSelect(page, id, 'Custom size');
     await page.locator(`#${id}-width`).fill(width);
     await page.locator(`#${id}-length`).fill(length);
     await chooseInSelect(page, `${id}-unit`, unit);
 };
 
-/** A thickness of the reader's own, through Other: its value and unit. */
+/** A thickness of the reader's own, through Custom thickness: its value and unit. */
 export const typeThickness = async (
     page: Page,
     index: number,
@@ -319,16 +318,23 @@ export const typeThickness = async (
 ): Promise<void> => {
     const id = `requirements-thickness-${index}`;
 
-    await chooseInSelect(page, id, 'Other');
+    await chooseInSelect(page, id, 'Custom thickness');
     await page.locator(`#${id}-value`).fill(value);
     await chooseInSelect(page, `${id}-unit`, unit);
 };
 
 /**
  * Answer one of the service's own questions under Other details, by the slug
- * in its id (`seaters`, `table-base`, `area-sqm`): pick `answer` from its
+ * in its id (`seaters`, `fascia`, `area-sqm`): pick `answer` from its
  * list, and through Other when it is a value of one's own.
  */
+/** What a question's own answer reads, by the slug in its id (its `customLabel`). */
+const OWN_ANSWER_LABELS: Record<string, string> = {
+    'area-sqm': 'Custom area',
+    seaters: 'Custom number',
+    size: 'Custom size',
+};
+
 export const answerQuestion = async (
     page: Page,
     slug: string,
@@ -343,7 +349,7 @@ export const answerQuestion = async (
         return;
     }
 
-    await chooseInSelect(page, id, 'Other');
+    await chooseInSelect(page, id, OWN_ANSWER_LABELS[slug] ?? 'Other');
     await page.locator(`#${id}-custom`).fill(answer);
 };
 
@@ -401,18 +407,13 @@ export const walkToRequirements = async (
     await fillThicknesses(page);
 };
 
-/** The furniture services that ask the project area. */
-export const AREA_FURNITURE_SERVICES = [
-    'Dining Tables',
-    'Other Customized Furniture',
+/** The furniture services, measured by their size and seaters, never in square metres. */
+export const FURNITURE_SLUGS = [
+    'center-tables',
+    'side-tables',
+    'dining-tables',
+    'other-customized-furniture',
 ] as const;
-
-/** The small pieces, measured by their size alone, never in square metres. */
-export const SMALL_FURNITURE_SLUGS = ['center-tables', 'side-tables'] as const;
-
-/** Whether the project's service asks the project area: it shows under Other details. */
-const asksArea = async (page: Page): Promise<boolean> =>
-    (await page.locator('#requirements-area-sqm-1').count()) > 0;
 
 /**
  * A project of stone from the first question to Review. It is named automatically,
@@ -436,15 +437,6 @@ export const addStoneProject = async (
     await answerDeadline(page);
 
     const questions = answers.questions ?? {};
-
-    // A furniture walk answers the project area unless the caller does.
-    if (
-        !('area-sqm' in questions) &&
-        answers.serviceType === CATALOG.furnitureType &&
-        (await asksArea(page))
-    ) {
-        await answerQuestion(page, 'area-sqm', '2');
-    }
 
     for (const [slug, answer] of Object.entries(questions)) {
         await answerQuestion(page, slug, answer);
@@ -480,7 +472,7 @@ export const requestQuoteButton = (page: Page): Locator =>
 export const sendAndReadReference = async (page: Page): Promise<string> => {
     await requestQuoteButton(page).click();
     await expect(
-        page.getByRole('heading', { name: 'Quote requested' }),
+        page.getByRole('heading', { name: "We've received your order" }),
     ).toBeVisible();
     const reference = await page
         .getByRole('dialog')

@@ -31,6 +31,7 @@ class QuoteController extends Controller
             'filters' => [
                 'search' => $filters->search ?? '',
                 'status' => $filters->status->value ?? 'all',
+                'tab' => $filters->tab->value ?? 'all',
                 'sort' => $filters->sort,
             ],
             'statusOptions' => Inertia::once(fn (): array => ['all', ...InquiryStatusGroup::values()]),

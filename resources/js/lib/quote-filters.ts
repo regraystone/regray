@@ -8,14 +8,29 @@
 
 export type QuoteSort = 'newest' | 'oldest';
 
+/**
+ * The Quotations page's tabs (App\Enums\QuoteTab): where an inquiry stands for
+ * the client. `all` lists every one, cancelled included.
+ */
+export type QuoteTab = 'all' | 'pending' | 'quoted' | 'accepted';
+
+export const QUOTE_TABS: ReadonlyArray<{ value: QuoteTab; label: string }> = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'quoted', label: 'Quoted' },
+    { value: 'accepted', label: 'Accepted' },
+];
+
 export type QuoteFilters = {
     search: string;
     sort: QuoteSort;
+    tab: QuoteTab;
 };
 
 export const QUOTE_DEFAULT_FILTERS: QuoteFilters = {
     search: '',
     sort: 'newest',
+    tab: 'all',
 };
 
 /**
@@ -35,6 +50,13 @@ export const buildQuoteQuery = (
 
     if (filters.sort !== QUOTE_DEFAULT_FILTERS.sort) {
         query.sort = filters.sort;
+    }
+
+    // A filter set made before the tabs has none: that is All.
+    const tab = filters.tab ?? QUOTE_DEFAULT_FILTERS.tab;
+
+    if (tab !== QUOTE_DEFAULT_FILTERS.tab) {
+        query.tab = tab;
     }
 
     return query;

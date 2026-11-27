@@ -39,7 +39,8 @@ describe('a card', function (): void {
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
         expect(collect($card['stones'])->pluck('slug')->all())->toBe([$b, $a])
-            ->and(collect($card['services'])->pluck('id')->all())->toBe(['countertop-backsplash'])
+            ->and(collect($card['services'])->pluck('id')->all())->toBe(['slab-supply-and-installation'])
+            ->and(collect($card['services'])->pluck('name')->all())->toBe(['Slab Supply and Installation · Countertop and Backsplash'])
             ->and($card['title'])->toBe('Kitchen')
             ->and($card)->not->toHaveKey('projectCount')
             ->and($card['actions']['cancel'])->toBe(['visible' => true, 'enabled' => true]);
@@ -110,7 +111,7 @@ describe('a card', function (): void {
 
         $response->assertInertia(fn ($page) => $page
             ->has('inquiries.data.0', fn ($card) => $card
-                ->hasAll(['reference', 'status', 'paymentStatus', 'createdAt', 'title', 'actions'])
+                ->hasAll(['reference', 'status', 'stage', 'paymentStatus', 'createdAt', 'title', 'actions'])
                 ->has('stones.0', fn ($stone) => $stone->hasAll(['slug', 'name', 'thumbnail']))
                 ->has('services.0', fn ($service) => $service->hasAll(['id', 'name'])))
             ->etc());
@@ -173,6 +174,35 @@ describe('status and sort', function (): void {
         'cancelled' => ['cancelled', ['INQ-F6', 'INQ-F7']],
     ]);
 
+    it('lists by the Quotations tabs, a cancelled one under All only, and gives each card its tab', function (string $tab, array $expected): void {
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-T1', 'status' => InquiryStatus::Pending]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-T2', 'status' => InquiryStatus::SiteVisited]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-T3', 'status' => InquiryStatus::Quoted]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-T4', 'status' => InquiryStatus::Production, 'payment_status' => PaymentStatus::Partial]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-T5', 'status' => InquiryStatus::Closed]);
+        makeInquiry($this->client, attributes: ['reference' => 'INQ-T6', 'status' => InquiryStatus::Cancelled]);
+
+        $response = $this->actingAs($this->client)->get(route('quote.index', ['tab' => $tab]));
+        $cards = collect($response->viewData('page')['props']['inquiries']['data']);
+
+        expect($cards->pluck('reference')->all())->toEqualCanonicalizing($expected)
+            ->and($response->viewData('page')['props']['filters']['tab'])->toBe($tab)
+            ->and($cards->pluck('stage')->unique()->values()->all())->toBe($tab === 'all' ? $cards->pluck('stage')->unique()->values()->all() : [$tab]);
+    })->with([
+        'all' => ['all', ['INQ-T1', 'INQ-T2', 'INQ-T3', 'INQ-T4', 'INQ-T5', 'INQ-T6']],
+        'pending' => ['pending', ['INQ-T1', 'INQ-T2']],
+        'quoted' => ['quoted', ['INQ-T3']],
+        'accepted' => ['accepted', ['INQ-T4', 'INQ-T5']],
+    ]);
+
+    it('gives a cancelled inquiry no tab', function (): void {
+        makeInquiry($this->client, attributes: ['status' => InquiryStatus::Cancelled]);
+
+        $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
+
+        expect($card['stage'])->toBeNull();
+    });
+
     it('sorts newest first by default and oldest first on request, id breaking ties', function (): void {
         makeInquiry($this->client, attributes: ['reference' => 'INQ-O1', 'created_at' => now()->subDays(3)]);
         makeInquiry($this->client, attributes: ['reference' => 'INQ-O2', 'created_at' => now()->subDay()]);
@@ -207,6 +237,8 @@ describe('bad query values', function (): void {
         foreach ([
             ['status' => 'bogus'],
             ['status' => 'negotiation'],
+            ['tab' => 'bogus'],
+            ['tab' => 'cancelled'],
             ['sort' => 'sideways'],
             ['page' => 0],
             ['page' => -4],
@@ -216,7 +248,7 @@ describe('bad query values', function (): void {
         ] as $query) {
             $response = $this->actingAs($this->client)->get(route('quote.index', $query))->assertOk();
 
-            expect($response->viewData('page')['props']['filters'])->toBe(['search' => '', 'status' => 'all', 'sort' => 'newest'])
+            expect($response->viewData('page')['props']['filters'])->toBe(['search' => '', 'status' => 'all', 'tab' => 'all', 'sort' => 'newest'])
                 ->and(listedReferences($response))->toBe(['INQ-D1']);
         }
     });

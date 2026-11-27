@@ -64,8 +64,10 @@ test('6 · a pickup asks for no address, and sends @layout', async ({
     const reference = await sendAndReadReference(page);
 
     await expect(
-        page.getByRole('dialog', { name: 'Quote requested' }),
-    ).toContainText(`We've received your request for ${CATALOG.service}.`);
+        page.getByRole('dialog', { name: "We've received your order" }),
+    ).toContainText(
+        `Our team will get back to you about ${CATALOG.service} within 1 to 3 days, or sooner.`,
+    );
     await shot(page, name('5-result'), testInfo);
 
     expect(
@@ -107,10 +109,7 @@ test('7 · two stones under one furniture service send with its own questions, a
     });
     await chooseLocation(page, 'Makati');
     await answerDeadline(page);
-    // Every furniture service asks the project area first.
-    await answerQuestion(page, 'area-sqm', '2.5', { own: true });
     await answerQuestion(page, 'seaters', '7', { own: true });
-    await answerQuestion(page, 'table-base', 'Same as stone');
     await shot(page, name('3-details'), testInfo);
     await page.getByRole('button', { name: 'Continue to review' }).click();
 
@@ -121,9 +120,8 @@ test('7 · two stones under one furniture service send with its own questions, a
     await expect(
         page.getByText(`Edge profile: ${CATALOG.edges[0]}`),
     ).toBeVisible();
-    // "Same as stone" reads as the first stone's name.
     await expect(page.getByTestId('review-answers')).toContainText(
-        `Project area (sqm)2.5Number of seaters7Table base${CATALOG.stones[0]}`,
+        'Number of seaters7',
     );
     await expect(page.getByTestId('review-service')).toContainText(
         CATALOG.furnitureType,
@@ -137,8 +135,10 @@ test('7 · two stones under one furniture service send with its own questions, a
     const reference = await sendAndReadReference(page);
 
     await expect(
-        page.getByRole('dialog', { name: 'Quote requested' }),
-    ).toContainText("We've received your request for Kitchen and island.");
+        page.getByRole('dialog', { name: "We've received your order" }),
+    ).toContainText(
+        'Our team will get back to you about Kitchen and island within 1 to 3 days, or sooner.',
+    );
     await shot(page, name('5-result'), testInfo);
 
     expect(
@@ -151,9 +151,7 @@ test('7 · two stones under one furniture service send with its own questions, a
             `App\\Models\\Inquiry::query()->with('detailAnswers.detailField', 'detailAnswers.option')->where('reference', '${reference}')->first()->detailAnswers->mapWithKeys(fn ($answer) => [$answer->detailField->slug => $answer->option?->slug ?? $answer->number_value])`,
         ),
     ).toEqual({
-        area_sqm: '2.50',
         seaters: '7.00',
-        table_base: 'same-as-stone',
     });
     expect(
         php<string[]>(

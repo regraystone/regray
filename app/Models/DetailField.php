@@ -36,11 +36,13 @@ use InvalidArgumentException;
  * @property DetailFieldScope $scope
  * @property DetailAnswerType $answer_type
  * @property bool $allows_custom Whether a value besides the listed options is accepted.
+ * @property string|null $custom_label What a free entry's Other reads ("Custom size"); none reads Other.
+ * @property string|null $custom_hint The line under the box Other opens.
  * @property int $sort_order
  * @property Carbon|null $archived_at
  * @property-read Collection<int, DetailFieldOption> $options
  */
-#[Fillable(['slug', 'name', 'scope', 'answer_type', 'allows_custom', 'sort_order'])]
+#[Fillable(['slug', 'name', 'scope', 'answer_type', 'allows_custom', 'custom_label', 'custom_hint', 'sort_order'])]
 class DetailField extends Model
 {
     public const QUANTITY = 'quantity';
@@ -48,6 +50,13 @@ class DetailField extends Model
     public const SLAB_SIZE = 'slab_size';
 
     public const THICKNESS = 'thickness';
+
+    /**
+     * The thickness a stone row answers when its stone lists none: Regray
+     * confirms it in the quote. Stored as no thickness. inquiry-flow.ts holds
+     * the same words (THICKNESS_ADVICE).
+     */
+    public const THICKNESS_ADVICE = 'To be advised by Regray';
 
     public const EDGE_PROFILE = 'edge_profile';
 
@@ -197,6 +206,56 @@ class DetailField extends Model
 
         $choices->each(fn (Choice $choice) => $choice->mirror());
         $this->unsetRelation('options');
+    }
+
+    /**
+     * Make its suggestions (the sample values beside a free entry) these, in
+     * this order, each a value and an optional note ("approx. 0.6 sqm", kept
+     * as its description). One of the same value, ignoring case, keeps its
+     * row; a new one gets a slug the question doesn't use yet; one left out
+     * is switched off. Its closed options are left as they are.
+     *
+     * @param  list<array{name: string, note: string|null}>  $suggestions
+     */
+    public function writeSuggestions(array $suggestions): void
+    {
+        /** @var Collection<int, DetailFieldOption> $existing */
+        $existing = DetailFieldOption::query()->where('detail_field_id', $this->id)->get();
+        $slugs = $existing->pluck('slug')->all();
+        $kept = [];
+
+        foreach ($suggestions as $index => $suggestion) {
+            $option = $existing->first(fn (DetailFieldOption $option): bool => $option->is_suggestion && mb_strtolower($option->name) === mb_strtolower($suggestion['name']));
+
+            if ($option === null) {
+                $base = Str::limit(Str::slug($suggestion['name']), 96, '') ?: 'answer';
+                $slug = $base;
+
+                for ($number = 2; in_array($slug, $slugs, true); $number++) {
+                    $slug = "{$base}-{$number}";
+                }
+
+                $slugs[] = $slug;
+                $option = new DetailFieldOption(['detail_field_id' => $this->id, 'slug' => $slug, 'is_suggestion' => true, 'links_to_stone' => false]);
+            }
+
+            $option->forceFill(['name' => $suggestion['name'], 'description' => $suggestion['note'], 'sort_order' => $index, 'is_active' => true])->save();
+            $kept[] = $option->id;
+        }
+
+        DetailFieldOption::query()
+            ->where('detail_field_id', $this->id)
+            ->where('is_suggestion', true)
+            ->whereNotIn('id', $kept)
+            ->update(['is_active' => false]);
+
+        $this->unsetRelation('options');
+    }
+
+    /** Whether it takes a free entry, a written answer or a number, which may list suggestions. */
+    public function takesFreeEntry(): bool
+    {
+        return in_array($this->answer_type, [DetailAnswerType::Text, DetailAnswerType::Number], true);
     }
 
     /** Whether its answers are the rows of `edge_profiles` or `finishes`, by name. */

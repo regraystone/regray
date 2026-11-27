@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Brand;
 use App\Models\Showcase;
 use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,6 +22,14 @@ class ShowcaseService
     public function latestPublished(int $limit): Collection
     {
         return $this->showcaseRepository->latestPublished($limit);
+    }
+
+    /**
+     * @return array{latest: Collection<int, Showcase>, count: int}
+     */
+    public function latestPublishedForBrand(Brand $brand, int $limit): array
+    {
+        return $this->showcaseRepository->latestPublishedForBrand($brand, $limit);
     }
 
     /** Keep a missing published showcase a domain lookup failure; the HTTP handler renders its 404. */

@@ -28,7 +28,8 @@ return [
     */
 
     'limits' => [
-        'projects' => 1,
+        // Each project is written as its own inquiry, quoted on its own.
+        'projects' => 5,
         'stone_rows' => 20,
         'quantity_min' => 1,
         'quantity_max' => 9999,

@@ -8,10 +8,15 @@ import {
 import SocialIcon, { SOCIAL_LABELS } from '@/components/social-icon';
 import { useInquireRoute } from '@/hooks/use-inquire-route';
 import { login } from '@/routes';
-import { show as brandsShow } from '@/routes/brands';
+import {
+    companyProfile as brandsCompanyProfile,
+    show as brandsShow,
+} from '@/routes/brands';
 import { brands as brandsPage } from '@/routes/company';
-import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
-import { index as homeIndex } from '@/routes/home';
+import {
+    companyProfile as dashboardBrandCompanyProfile,
+    show as dashboardBrandShow,
+} from '@/routes/dashboard/brands';
 import type { BrandPageProps, LandingBrand } from '@/types/home';
 
 /** A small spaced label. */
@@ -99,12 +104,13 @@ const BrandProfile = () => {
         isSignedIn
             ? dashboardBrandShow.url({ brand: slug })
             : brandsShow.url({ brand: slug });
-    // Signed in, the brands are listed on Home (the admin's Brands page is
-    // for managing them, and a client cannot open it).
-    const allBrandsHref = isSignedIn
-        ? `${homeIndex.url()}#brands`
-        : brandsPage.url();
     const quoteUrl = isSignedIn ? (inquireRoute?.url() ?? null) : login.url();
+    const companyProfileUrl = brand.hasCompanyProfile
+        ? (isSignedIn
+              ? dashboardBrandCompanyProfile
+              : brandsCompanyProfile
+          ).url({ brand: brand.slug })
+        : null;
 
     // The page's own frame, for the bands that run edge to edge.
     const bleed = isSignedIn
@@ -158,23 +164,26 @@ const BrandProfile = () => {
                         aria-hidden
                         className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0.25)_0%,rgb(0_0_0/0)_30%,rgb(0_0_0/0)_45%,rgb(0_0_0/0.6)_100%)]"
                     />
-                    <nav
-                        aria-label="Breadcrumb"
-                        className="absolute top-[clamp(1.25rem,2.5vw,2.25rem)] left-[clamp(1.25rem,3vw,3rem)] text-xs tracking-[0.08em] uppercase"
-                    >
-                        <ol className="flex flex-wrap gap-2">
-                            <li>
-                                <Link
-                                    href={allBrandsHref}
-                                    className="hover:underline"
-                                >
-                                    ← {isSignedIn ? 'Brands' : 'Our brands'}
-                                </Link>
-                            </li>
-                            <li aria-hidden>/</li>
-                            <li aria-current="page">{brand.name}</li>
-                        </ol>
-                    </nav>
+                    {/* Signed in, the header's trail (or Back on a phone) leads back instead. */}
+                    {isSignedIn ? null : (
+                        <nav
+                            aria-label="Breadcrumb"
+                            className="absolute top-[clamp(1.25rem,2.5vw,2.25rem)] left-[clamp(1.25rem,3vw,3rem)] text-xs tracking-[0.08em] uppercase"
+                        >
+                            <ol className="flex flex-wrap gap-2">
+                                <li>
+                                    <Link
+                                        href={brandsPage.url()}
+                                        className="hover:underline"
+                                    >
+                                        ← Our brands
+                                    </Link>
+                                </li>
+                                <li aria-hidden>/</li>
+                                <li aria-current="page">{brand.name}</li>
+                            </ol>
+                        </nav>
+                    )}
                     <div className="absolute inset-x-[clamp(1.25rem,3vw,3rem)] bottom-[clamp(1.75rem,4vw,3.5rem)] flex flex-wrap items-end justify-between gap-6">
                         <div className="flex max-w-180 flex-col gap-4.5">
                             <h1 className="leading-none [--logo:1.1] sm:[--logo:1.5]">
@@ -263,6 +272,15 @@ const BrandProfile = () => {
                     <p className="font-display text-[clamp(1.5rem,2.3vw,2.25rem)] leading-[1.3] font-light text-pretty">
                         {brand.description ?? brand.tagline}
                     </p>
+                    {companyProfileUrl ? (
+                        <Link
+                            href={companyProfileUrl}
+                            className="mt-2 inline-flex min-h-12.5 items-center gap-3 self-start border border-foreground px-6 text-[0.8125rem] font-semibold tracking-[0.08em] uppercase transition-colors hover:bg-foreground hover:text-background"
+                        >
+                            Company profile
+                            <span aria-hidden>→</span>
+                        </Link>
+                    ) : null}
                 </div>
                 <dl className="self-start border-t border-foreground">
                     {facts.map((fact) => (
@@ -296,7 +314,7 @@ const BrandProfile = () => {
                         id="brand-others"
                         className="text-[0.8125rem] font-semibold tracking-[0.14em] uppercase"
                     >
-                        More from the Regray Group
+                        More from Regray Design Group
                     </h2>
                     {/* Rows wrap and centre, so a short last row (one or two logos) sits in the middle. */}
                     <ul className="flex w-full max-w-275 flex-wrap items-center justify-center gap-x-8 gap-y-10 [--other:0.6] sm:[--other:0.8]">

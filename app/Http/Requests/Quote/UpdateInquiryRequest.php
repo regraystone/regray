@@ -9,6 +9,7 @@ use App\Models\Inquiry;
 use App\Models\InquiryStone;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\ScheduleService;
 use Closure;
 use Illuminate\Validation\Validator;
 
@@ -48,6 +49,8 @@ class UpdateInquiryRequest extends StoreInquiryRequest
     {
         return [
             ...parent::rules(),
+            // A sent inquiry is one project: a new one adds the others.
+            'projects' => ['required', 'array', 'size:1'],
             'projects.*.id' => ['required', 'integer', 'distinct'],
             'projects.*.keepFileIds' => ['nullable', 'array'],
             'projects.*.keepFileIds.*' => ['integer', 'distinct'],
@@ -128,6 +131,14 @@ class UpdateInquiryRequest extends StoreInquiryRequest
     }
 
     /** @return list<string> */
+    protected function heldApplicationSlugs(): array
+    {
+        $slug = $this->heldInquiry()?->application?->slug;
+
+        return $slug === null ? [] : [$slug];
+    }
+
+    /** @return list<string> */
     protected function heldStoneSlugs(): array
     {
         return array_values(array_unique($this->heldInquiry()?->stones
@@ -140,6 +151,12 @@ class UpdateInquiryRequest extends StoreInquiryRequest
     protected function heldBrandSlugs(): array
     {
         return array_values($this->heldInquiry()?->brands->pluck('slug')->all() ?? []);
+    }
+
+    /** The date the inquiry already has, in the showroom's time zone. */
+    protected function heldDeadline(): ?string
+    {
+        return $this->editedInquiry()?->loadMissing('schedule')->schedule?->arrival_at->setTimezone(ScheduleService::timezone())->toDateString();
     }
 
     /** @return array<string, list<string>> */

@@ -128,6 +128,19 @@ class Brand extends Model
     public const DETAILS = ['facts', 'makes', 'socials'];
 
     /**
+     * The brands with a Company profile page, by slug. Its words (the story,
+     * the mission and vision) are written for the brand, so a brand is added
+     * here only once it has them.
+     */
+    public const COMPANY_PROFILES = ['regray-stone'];
+
+    /** Whether the brand has a Company profile page. */
+    public function hasCompanyProfile(): bool
+    {
+        return in_array($this->slug, self::COMPANY_PROFILES, true);
+    }
+
+    /**
      * Its facts, what it makes and its social links as plain lists, in its
      * page's order: what the pages and the audit log read. Expects them loaded
      * (DETAILS).

@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { InquiryFileRow } from '@/components/inquiry-file-row';
+import PersonAvatar from '@/components/person-avatar';
 import { formatDate } from '@/lib/format-date';
 import { formatPeso } from '@/lib/format-money';
 import { StatusBadge } from '@/components/inquiry-status-badge';
@@ -59,7 +60,8 @@ type ResolvedProject = {
     brandNoPreference: boolean;
     serviceType: string | null;
     service: string | null;
-    /** False for a service that asks for no stones. */
+    /** What a service with an installation is for (Flooring…), null for none. */
+    application: string | null;
     requiresStones: boolean;
     stones: ResolvedStone[];
     /** The project-scope answers, labelled and worded by the server; a picture choice with its picture. */
@@ -198,6 +200,44 @@ const DatedRow = ({
 );
 
 /**
+ * The client account the inquiry came from, for staff: their profile photo
+ * (or initials), their name and the company they gave on their profile.
+ */
+const ClientAccountCard = ({
+    client,
+}: {
+    client: NonNullable<QuoteInquiryDetails['clientAccount']>;
+}) => (
+    <section
+        aria-labelledby="inquiry-client-title"
+        className="overflow-hidden rounded-md border border-sidebar-border bg-background"
+        data-testid="inquiry-client-account"
+    >
+        <h2
+            id="inquiry-client-title"
+            className="px-4 py-3 text-sm font-bold tracking-[0.08em] uppercase sm:px-5"
+        >
+            Client
+        </h2>
+        <div className="flex items-center gap-3 border-t border-sidebar-border px-4 py-4 sm:px-5">
+            <PersonAvatar
+                name={client.name}
+                photo={client.avatar}
+                className="size-12"
+            />
+            <div className="min-w-0">
+                <p className="text-sm font-bold break-words">{client.name}</p>
+                {client.company ? (
+                    <p className="text-xs break-words text-secondary-foreground">
+                        {client.company}
+                    </p>
+                ) : null}
+            </div>
+        </div>
+    </section>
+);
+
+/**
  * Who on the team is handling the inquiry, and as what, in the order the
  * server sends them. Only the assignment as it stood when the page loaded: a
  * reassignment shows on the next visit. Nobody yet is normal for a new
@@ -224,15 +264,21 @@ const AssignedStaffCard = ({ staff }: { staff: AssignedStaffMember[] }) => (
                 <ul className="divide-y divide-dashed divide-sidebar-border">
                     {staff.map((member, index) => (
                         // Names are not unique; the server's order is the identity.
-                        <li key={`${index}-${member.name}`} className="py-3">
-                            <p className="text-sm font-bold break-words">
-                                {member.name}
-                            </p>
-                            {member.roleLabel !== null ? (
-                                <p className="text-xs text-secondary-foreground">
-                                    {member.roleLabel}
+                        <li
+                            key={`${index}-${member.name}`}
+                            className="flex items-center gap-3 py-3"
+                        >
+                            <PersonAvatar name={member.name} />
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold break-words">
+                                    {member.name}
                                 </p>
-                            ) : null}
+                                {member.roleLabel !== null ? (
+                                    <p className="text-xs text-secondary-foreground">
+                                        {member.roleLabel}
+                                    </p>
+                                ) : null}
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -527,7 +573,8 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
     const neededBy = formatNeededBy(project.requirements);
 
     const footer = [
-        project.service,
+        [project.service, project.application].filter(Boolean).join(' · ') ||
+            null,
         stoneTypes === 0
             ? null
             : `${pieces === null ? '' : `${pieces} ${pieces === 1 ? 'piece' : 'pieces'} of `}${stoneTypes} ${
@@ -663,6 +710,12 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                             label="Service"
                             value={project.service ?? undefined}
                         />
+                        {project.application === null ? null : (
+                            <SummaryRow
+                                label="Application"
+                                value={project.application}
+                            />
+                        )}
                     </dl>
                 </section>
 
@@ -772,6 +825,7 @@ const InquiryDetails = () => {
         brandNoPreference: inquiry.project.brandNoPreference,
         serviceType: inquiry.project.serviceType,
         service: inquiry.project.service,
+        application: inquiry.project.application ?? null,
         requiresStones: inquiry.project.requiresStones,
         stones: inquiry.project.stones,
         answers: inquiry.project.answers,
@@ -897,6 +951,9 @@ const InquiryDetails = () => {
                             reference={inquiry.reference}
                             walkIn={inquiry.walkIn}
                         />
+                    ) : null}
+                    {inquiry.clientAccount ? (
+                        <ClientAccountCard client={inquiry.clientAccount} />
                     ) : null}
                     <AssignedStaffCard staff={inquiry.assignedStaff} />
                     <ActivityLogCard

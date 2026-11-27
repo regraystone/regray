@@ -56,7 +56,7 @@ it('gives a newly registered client one Regray Team thread', function (): void {
     $client->markEmailAsVerified();
 
     expect(Conversation::query()->where('support_client_id', $client->id)->count())->toBe(1)
-        ->and(listedConversationNames($client))->toBe(['Regray']);
+        ->and(listedConversationNames($client))->toBe(['Regray Sales Team']);
 });
 
 it('creates the Regray Team thread once, however often it is asked for', function (): void {
@@ -135,7 +135,7 @@ it('shows staff each client\'s thread under the client\'s name and initials, and
 
     $clientRow = $rowsFor($rafael)[0];
 
-    expect($clientRow['name'])->toBe('Regray')
+    expect($clientRow['name'])->toBe('Regray Sales Team')
         ->and($clientRow['avatar'])->toBe(EloquentConversationRepository::SUPPORT_AVATAR);
 });
 
@@ -240,7 +240,7 @@ it('shows the client "Regray" for staff messages while nobody handles the thread
     $thread->forceFill(['assigned_to' => null, 'assigned_at' => null])->save();
 
     $this->actingAs($client)->getJson(route('inbox.thread', $thread))
-        ->assertJsonPath('messages.1.sender.name', 'Regray')
+        ->assertJsonPath('messages.1.sender.name', 'Regray Sales Team')
         ->assertJsonPath('conversation.supportClient', null);
 });
 

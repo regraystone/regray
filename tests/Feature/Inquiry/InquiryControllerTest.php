@@ -65,8 +65,11 @@ it('sends the Inquire page its options', function (): void {
             ->component('inquire')
             ->has('serviceTypes', 2)
             ->where('serviceTypes.0.id', 'natural-stone-applications')
-            ->where('serviceTypes.0.name', 'Natural Stone & Applications')
-            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'slab-supply-and-installation', 'installation-only', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories'])
+            ->where('serviceTypes.0.name', 'Natural Stone & Installation')
+            // The applications are asked under the services with an installation, not listed beside them.
+            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'slab-supply-and-installation', 'installation-only'])
+            ->where('serviceTypes.0.services.1.applications', fn ($applications) => collect($applications)->pluck('id')->all() === ['countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories'])
+            ->where('serviceTypes.0.services.2.hasApplications', true)
             ->where('serviceTypes.1.id', 'custom-stone-furniture')
             ->where('serviceTypes.1.services', fn ($services) => collect($services)->pluck('id')->all() === ['center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'])
             ->where('serviceTypes.0.services.0', [
@@ -77,45 +80,48 @@ it('sends the Inquire page its options', function (): void {
                 'stoneTypes' => $slabSupplyTypes,
                 'requiresStones' => true,
                 'fulfillment' => 'delivery_or_pickup',
+                // Slabs supplied alone come in no ready-made or custom piece, so no delivery time is said.
+                'deliveryNote' => null,
+                'scheduleNote' => null,
+                // None: any day from today.
+                'leadDays' => 0,
                 'fields' => [
                     [
-                        'slug' => 'quantity', 'label' => 'How many pieces?', 'scope' => 'stone', 'answerType' => 'number', 'required' => true, 'allowsCustom' => true, 'pictures' => false,
+                        'slug' => 'quantity', 'label' => 'How many pieces?', 'scope' => 'stone', 'answerType' => 'number', 'required' => true, 'allowsCustom' => true, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => [],
                         'suggestions' => [],
                     ],
                     [
                         // The stone row lists its own stone's slabs: the question has none.
-                        'slug' => 'slab_size', 'label' => 'Slab size', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'pictures' => false,
+                        'slug' => 'slab_size', 'label' => 'Slab size', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'customLabel' => 'Custom size', 'customHint' => 'Enter the width and length you need.', 'pictures' => false,
                         'options' => [],
                         'suggestions' => [],
                     ],
                     [
-                        'slug' => 'thickness', 'label' => 'Thickness', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'pictures' => false,
+                        // Picked from the stone's own thicknesses: no entry of the reader's own.
+                        'slug' => 'thickness', 'label' => 'Thickness', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => false, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => [],
                         'suggestions' => [],
                     ],
                     [
                         // Slabs supplied alone may come uncut.
-                        'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => false, 'allowsCustom' => false, 'pictures' => false,
+                        'slug' => 'edge_profile', 'label' => 'Edge profile', 'scope' => 'stone', 'answerType' => 'choice', 'required' => false, 'allowsCustom' => false, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->get()
                             ->map(fn (EdgeProfile $edge): array => ['value' => $edge->name, 'label' => $edge->name, 'isAdvisory' => $edge->is_advisory, 'description' => $edge->description])->all(),
                         'suggestions' => [],
                     ],
                     [
-                        'slug' => 'finish', 'label' => 'Finish', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false, 'pictures' => false,
+                        'slug' => 'finish', 'label' => 'Finish', 'scope' => 'stone', 'answerType' => 'choice', 'required' => true, 'allowsCustom' => false, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => Finish::query()->where('is_active', true)->orderBy('sort_order')->get()
                             ->map(fn (Finish $finish): array => ['value' => $finish->name, 'label' => $finish->name, 'isAdvisory' => $finish->is_advisory, 'description' => $finish->description])->all(),
                         'suggestions' => [],
                     ],
                 ],
+                // Supplied alone, it asks no application.
+                'hasApplications' => false,
+                'applications' => [],
             ])
-            ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile', 'finish']
-                && collect($fields)->firstWhere('slug', 'table_base')['options'] === [
-                    ['value' => 'wood', 'label' => 'Wood', 'linksToStone' => false, 'isCustom' => false, 'isAdvisory' => false, 'description' => null, 'image' => null, 'sizeKind' => null],
-                    ['value' => 'steel', 'label' => 'Steel', 'linksToStone' => false, 'isCustom' => false, 'isAdvisory' => false, 'description' => null, 'image' => null, 'sizeKind' => null],
-                    ['value' => 'same-as-stone', 'label' => 'Same as stone', 'linksToStone' => true, 'isCustom' => false, 'isAdvisory' => false, 'description' => null, 'image' => null, 'sizeKind' => null],
-                ]
-                && collect($fields)->firstWhere('slug', 'table_base')['pictures'] === false
+            ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['table_shape', 'table_base_design_dining', 'seaters', 'edge_profile', 'finish']
                 // Asked with pictures, a dining table its own base design question, listing only dining bases.
                 && collect($fields)->firstWhere('slug', 'table_shape')['pictures'] === true
                 && collect($fields)->firstWhere('slug', 'table_base_design_dining')['pictures'] === true

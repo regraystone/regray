@@ -1,5 +1,4 @@
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, MessageCircle, RotateCcw } from 'lucide-react';
 import Countdown from '@/components/countdown';
 import ResultDialog from '@/components/result-dialog';
 import { Button } from '@/components/ui/button';
@@ -60,12 +59,15 @@ const InquiryResult = ({
         result?.status === 'success'
             ? {
                   status: 'success' as const,
-                  title: 'Quote requested',
+                  title: "We've received your order",
                   description: (
                       <>
-                          We&apos;ve received your request for {result.title}.
+                          Thank you. Our team will get back to you about{' '}
+                          {result.title} within 1 to 3 days, or sooner.
                           <span className="mt-1 block">
-                              Your reference is{' '}
+                              {result.reference.includes(',')
+                                  ? 'Your references are'
+                                  : 'Your reference is'}{' '}
                               <span className="font-bold text-foreground">
                                   {result.reference}
                               </span>
@@ -88,7 +90,6 @@ const InquiryResult = ({
                                           query: { conversation: 'support' },
                                       })}
                                   >
-                                      <MessageCircle aria-hidden />
                                       Message us
                                   </Link>
                               </Button>
@@ -136,10 +137,7 @@ const InquiryResult = ({
                                               Sending...
                                           </>
                                       ) : (
-                                          <>
-                                              <RotateCcw aria-hidden />
-                                              {retryLabel(retryIn)}
-                                          </>
+                                          retryLabel(retryIn)
                                       )}
                                   </Button>
                               )}
@@ -150,7 +148,6 @@ const InquiryResult = ({
                               onClick={onClose}
                               disabled={submitting}
                           >
-                              <ArrowLeft aria-hidden />
                               Back to review
                           </Button>
                       </>

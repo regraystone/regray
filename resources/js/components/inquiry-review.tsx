@@ -1,4 +1,4 @@
-import { ChevronDown, FileText, Pencil, Sparkles } from 'lucide-react';
+import { ChevronDown, FileText, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import AlertError from '@/components/alert-error';
@@ -24,7 +24,9 @@ import {
     asksQuantity,
     projectFields,
     reviewActions,
+    serviceLabel,
     STONE_ADVICE_LABEL,
+    withApplication,
     normalizedStoneAnswer,
     stoneFieldKey,
     stoneFields,
@@ -34,6 +36,7 @@ import {
     type ServiceField,
 } from '@/lib/inquiry-flow';
 import {
+    MAX_PROJECTS,
     REQUIREMENTS_STEP,
     SERVICE_STEP,
     STONES_STEP,
@@ -193,7 +196,6 @@ const EditSection = ({
         disabled={locked}
         className="rounded-none text-xs font-semibold tracking-[0.08em] uppercase hover:border-foreground"
     >
-        <Pencil aria-hidden />
         {label}
     </Button>
 );
@@ -261,10 +263,16 @@ const ReviewProjectCard = ({
     message,
     locked,
     onEdit,
+    onRemove,
+    showNumber,
     addressLine,
 }: {
     index: number;
     project: ReviewProject;
+    /** Ask to take the project off the inquiry; none where it can't be (an edit). */
+    onRemove?: () => void;
+    /** Whether the card says which project it is: only when there are several. */
+    showNumber: boolean;
     /** The project's address as one line, or null for none (a pickup). */
     addressLine: string | null;
     stones: Array<
@@ -299,9 +307,14 @@ const ReviewProjectCard = ({
     const serviceType = catalog.serviceTypes.find(
         ({ id }) => id === project.serviceTypeId,
     );
-    const service = serviceType?.services.find(
+    const chosenService = serviceType?.services.find(
         ({ id }) => id === project.serviceId,
     );
+    const application = chosenService?.applications?.find(
+        ({ id }) => id === project.applicationId,
+    );
+    // Asked as its application asks it, where it has one.
+    const service = withApplication(chosenService, project.applicationId);
     const chosenStones = [
         ...new Map(stones.map((row) => [row.stoneId, row.stone])).values(),
     ];
@@ -345,7 +358,7 @@ const ReviewProjectCard = ({
         `${count} ${count === 1 ? one : many}`;
 
     const footer = [
-        service?.name,
+        serviceLabel(chosenService, project.applicationId),
         stoneTypes === 0
             ? undefined
             : countsPieces
@@ -421,6 +434,11 @@ const ReviewProjectCard = ({
             <Collapsible open={open} onOpenChange={setOpen}>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-4 sm:px-5">
                     <h3 className="min-w-0 flex-1">
+                        {showNumber ? (
+                            <span className="block text-xs font-semibold tracking-[0.12em] text-secondary-foreground uppercase">
+                                Project {index + 1}
+                            </span>
+                        ) : null}
                         <span className="block font-display text-[clamp(1.25rem,2vw,1.625rem)] leading-snug font-light break-words">
                             {project.name}
                         </span>
@@ -448,6 +466,20 @@ const ReviewProjectCard = ({
                     ) : null}
 
                     <div className="flex shrink-0 items-center gap-2">
+                        {onRemove === undefined ? null : (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={onRemove}
+                                disabled={locked}
+                                aria-label={`Remove ${project.name}`}
+                                className="text-secondary-foreground"
+                            >
+                                <Trash2 aria-hidden />
+                                Remove
+                            </Button>
+                        )}
                         <CollapsibleTrigger
                             aria-label={`${open ? 'Collapse' : 'Expand'} ${project.name}`}
                             className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-secondary-foreground transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -530,6 +562,12 @@ const ReviewProjectCard = ({
                                         label="Service"
                                         value={service?.name ?? ''}
                                     />
+                                    {application === undefined ? null : (
+                                        <SummaryRow
+                                            label="Application"
+                                            value={application.name}
+                                        />
+                                    )}
                                 </dl>
                             </section>
 
@@ -694,8 +732,10 @@ const ReviewProjectCard = ({
 type InquiryReviewProps = {
     /** Reopen one project at a question, the details unless it says, prefilled. */
     onEditProject: (id: string, step?: number) => void;
-    /** Ask the page to confirm before a project goes. */
-    /** Start a blank project and go back to the services list. */
+    /** Ask the page to confirm before a project goes; none where none may (an edit). */
+    onRemoveProject?: (id: string) => void;
+    /** Start another project on the same inquiry; none where none may (an edit). */
+    onAddProject?: () => void;
     /**
      * One complaint about the request as a whole — no projects at all, or too many
      * — keyed by the step that owns the fields it is about. Separate from
@@ -737,6 +777,8 @@ type InquiryReviewProps = {
  */
 const InquiryReview = ({
     onEditProject,
+    onRemoveProject,
+    onAddProject,
     sectionMessages,
     projectMessages,
     validationErrors,
@@ -849,10 +891,39 @@ const InquiryReview = ({
                             message={projectMessages[project.id]}
                             locked={locked}
                             onEdit={(step) => onEditProject(project.id, step)}
+                            onRemove={
+                                onRemoveProject === undefined
+                                    ? undefined
+                                    : () => onRemoveProject(project.id)
+                            }
+                            showNumber={projects.length > 1}
                             addressLine={addressLineFor(project)}
                         />
                     ))
                 )}
+
+                {/*
+                 * Each project is sent as its own inquiry and quoted on its own,
+                 * so a supply and an installation can go together.
+                 */}
+                {onAddProject !== undefined &&
+                projects.length < MAX_PROJECTS ? (
+                    <div className="flex flex-col items-start gap-1.5">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onAddProject}
+                            disabled={locked}
+                        >
+                            <Plus aria-hidden />
+                            Add another project
+                        </Button>
+                        <p className="text-xs text-secondary-foreground">
+                            Up to {MAX_PROJECTS} projects, each quoted on its
+                            own.
+                        </p>
+                    </div>
+                ) : null}
             </div>
 
             {/*

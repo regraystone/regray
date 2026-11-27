@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Showcase;
 use App\Models\ShowcaseCategory;
-use App\Models\Stone;
 use Illuminate\Database\Seeder;
 
 class ShowcaseSeeder extends Seeder
@@ -33,14 +32,13 @@ class ShowcaseSeeder extends Seeder
                 );
             }
 
-            $showcase->stones()->syncWithoutDetaching(
-                Stone::query()->whereIn('slug', $showcaseData['stone_slugs'])->pluck('id'),
-            );
-
             foreach ($showcaseData['category_slugs'] as $categorySlug) {
                 $category = ShowcaseCategory::where('slug', $categorySlug)->firstOrFail();
                 $showcase->categories()->syncWithoutDetaching($category->id);
             }
         }
+
+        // The stones each one used, exactly as the data lists them.
+        $this->call(ShowcaseStonesSeeder::class);
     }
 }

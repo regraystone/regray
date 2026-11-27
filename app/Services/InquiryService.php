@@ -36,8 +36,8 @@ use RuntimeException;
 /**
  * @phpstan-type StoneInput array{stone_id: int, edge_profile_id: ?int, finish_id: ?int, quantity: ?int, slab_width: ?string, slab_length: ?string, slab_unit: ?SizeUnit, thickness: ?string, thickness_unit: ?ThicknessUnit}
  * @phpstan-type AnswerInput array{detail_field_id: int, text_value: ?string, number_value: ?string, option_id: ?int, boolean_value: ?bool}
- * @phpstan-type ProjectInput array{name: string, service_id: int, brand_ids: list<int>, brand_no_preference: bool, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: ?DeliveryMethod, address: ?PhAddress, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
- * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, brand_ids: list<int>, brand_no_preference: bool, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: ?DeliveryMethod, address: ?PhAddress, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
+ * @phpstan-type ProjectInput array{name: string, service_id: int, application_id?: ?int, brand_ids: list<int>, brand_no_preference: bool, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: ?DeliveryMethod, address: ?PhAddress, deadline_date: string, notes: ?string, stone_advice_requested?: bool, files: list<UploadedFile>}
+ * @phpstan-type ProjectUpdateInput array{id: int, name: string, service_id: int, application_id?: ?int, brand_ids: list<int>, brand_no_preference: bool, stones: list<StoneInput>, answers: list<AnswerInput>, delivery_method: ?DeliveryMethod, address: ?PhAddress, deadline_date: string, notes: ?string, stone_advice_requested?: bool, keep_file_ids: list<int>, files: list<UploadedFile>}
  * @phpstan-type RemovedFile array{disk: string, path: string}
  */
 class InquiryService
@@ -343,6 +343,7 @@ class InquiryService
         return [
             'name' => $project['name'],
             'service_id' => $project['service_id'],
+            'application_id' => $project['application_id'] ?? null,
             'brand_no_preference' => $project['brand_no_preference'],
             'delivery_method' => $project['delivery_method'],
             ...($project['address']?->toColumns(Inquiry::ADDRESS_PREFIX) ?? PhAddress::emptyColumns(Inquiry::ADDRESS_PREFIX)),
@@ -403,6 +404,7 @@ class InquiryService
         return [
             'name' => $inquiry->name,
             'service_id' => $inquiry->service_id,
+            'application_id' => $inquiry->application_id,
             'brand_no_preference' => $inquiry->brand_no_preference,
             'brand_ids' => $inquiry->brands()->pluck('brands.id')->sort()->values()->all(),
             'delivery_method' => $inquiry->delivery_method?->value,
