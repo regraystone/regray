@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Data\StaffVisibility;
 use App\Enums\BookedByType;
 use App\Enums\Role;
+use App\Enums\ScheduleKind;
 use App\Enums\ScheduleStatus;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -22,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $booked_by
  * @property BookedByType $booked_by_type
  * @property int|null $inquiry_id
+ * @property ScheduleKind|null $kind What a booking is for; null for an inquiry's own target date.
+ * @property int|null $order_id The accepted inquiry an installation or a delivery is for.
  * @property string $title
  * @property Carbon $arrival_at
  * @property ScheduleStatus $status
@@ -64,6 +67,7 @@ class Schedule extends Model
     {
         return [
             'booked_by_type' => BookedByType::class,
+            'kind' => ScheduleKind::class,
             'status' => ScheduleStatus::class,
             'arrival_at' => 'datetime',
             'approved_at' => 'datetime',
@@ -289,6 +293,12 @@ class Schedule extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'client_id');
+    }
+
+    /** @return BelongsTo<Inquiry, $this> The accepted inquiry an installation or a delivery is for. */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Inquiry::class, 'order_id');
     }
 
     /** @return BelongsTo<Client, $this> The client record: a walk-in's, or an inquiry visit's client. */

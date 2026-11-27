@@ -13,6 +13,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Enums\ScheduleKind;
 use App\Enums\ScheduleStatus;
 use App\Models\Conversation;
 use App\Models\Inquiry;
@@ -163,8 +164,10 @@ class OverviewRepository implements OverviewRepositoryInterface
 
     public function visitsAttended(User $rep, OverviewRange $range): int
     {
+        // Showroom visits only: not an installation, a delivery or an inquiry's target date.
         return Schedule::query()
             ->visibleTo($rep)
+            ->where('kind', ScheduleKind::ShowroomVisit->value)
             ->where('status', ScheduleStatus::Served->value)
             ->whereBetween('arrival_at', [$range->from, $range->to])
             ->count();

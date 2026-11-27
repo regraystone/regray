@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatFullDate, formatTime, formatWeekday } from '@/lib/date';
 import type { ScheduleItem } from '@/lib/schedule';
+import { SCHEDULE_KIND_LABELS } from '@/lib/schedule-kinds';
 
 const formatMonth = new Intl.DateTimeFormat(undefined, { month: 'short' });
 
@@ -89,6 +90,9 @@ const UpcomingList = ({
                                 {item.title}
                             </span>
                             <span className="block truncate text-xs text-secondary-foreground tabular-nums">
+                                {item.kind
+                                    ? `${SCHEDULE_KIND_LABELS[item.kind]} · `
+                                    : ''}
                                 {formatWeekday.format(item.arrival)} ·{' '}
                                 {formatTime.format(item.arrival)}
                             </span>

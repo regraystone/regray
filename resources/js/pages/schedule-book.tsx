@@ -7,6 +7,7 @@ import BookingClientPicker, {
     type BookingClient,
 } from '@/components/schedule/booking-client-picker';
 import SalesPicker from '@/components/schedule/sales-picker';
+import ScheduleKindPicker from '@/components/schedule/schedule-kind-picker';
 import Countdown from '@/components/countdown';
 import PageHeading from '@/components/page-heading';
 import FormField from '@/components/form-field';
@@ -32,7 +33,19 @@ import {
 } from '@/routes/profile';
 import { usePermissions } from '@/hooks/use-permissions';
 import { formatFullDate, dayKey } from '@/lib/date';
-import { staffBookingSchema, updateScheduleSchema } from '@/lib/booking-schema';
+import {
+    clientBookingSchema,
+    staffBookingSchema,
+    updateScheduleSchema,
+} from '@/lib/booking-schema';
+import {
+    isForOrder,
+    kindLine,
+    ordersFor,
+    SCHEDULE_KIND_LABELS,
+    type SchedulableOrder,
+    type ScheduleKind,
+} from '@/lib/schedule-kinds';
 import { sendScheduleChange } from '@/lib/schedule-changes';
 import { update as updateSchedule } from '@/routes/schedule';
 import type { AssignableSales } from '@/lib/schedule-sales-api';
@@ -45,8 +58,10 @@ import type { z } from 'zod';
 /*
  * One form for booking and updating: a client's booking has no client or
  * sales member to choose, so `clientId` and `salesId` are only checked (and
- * sent) when marketing books; updating
- * keeps the client and asks for the reason for the change instead. See
+ * sent) when marketing books; a client says what they are booking (`kind`)
+ * and, for an installation or a delivery, which order (`orderReference`)
+ * instead of its purpose. Updating keeps the client, the kind and the order,
+ * and asks for the reason for the change instead. See `clientBookingSchema`,
  * `staffBookingSchema` and `updateScheduleSchema`.
  */
 type BookingFormValues = Omit<
@@ -57,6 +72,8 @@ type BookingFormValues = Omit<
     clientId: number | null;
     salesId: number | null;
     reason: string;
+    kind: ScheduleKind;
+    orderReference: string;
 };
 
 /** The appointment being updated, as ViewController::scheduleEdit() sends it. */
@@ -71,6 +88,10 @@ type UpdatingSchedule = {
     status: string;
     /** Whose it is: staff readers only. */
     clientName: string | null;
+    /** What it is: null for an inquiry's own date. */
+    kind: ScheduleKind | null;
+    /** The order an installation or a delivery is for. */
+    orderReference: string | null;
 };
 
 type BookingResult =
@@ -81,11 +102,15 @@ type BookingResult =
           clientName: string | null;
           salesName: string | null;
           isWalkIn: boolean;
+          kind: ScheduleKind;
+          orderReference: string;
       }
     | { status: 'error'; message?: string; retryAt?: number | null }
     | null;
 
 const BOOKING_FIELDS: Array<keyof BookingFormValues> = [
+    'kind',
+    'orderReference',
     'clientId',
     'salesId',
     'date',
@@ -129,7 +154,11 @@ const sendBooking = (
             {
                 date: dayKey(values.date),
                 arrivalTime: values.arrivalTime,
-                purpose: values.purpose,
+                // Staff book showroom visits only; the server ignores a kind they send.
+                kind: values.kind,
+                ...(isForOrder(values.kind)
+                    ? { orderReference: values.orderReference }
+                    : { purpose: values.purpose }),
                 notes: values.notes ?? '',
                 // A walk-in is a client record (`directClientId`), not an account.
                 ...(client === null
@@ -209,16 +238,24 @@ const sendUpdate = async (
  * member already has an appointment then. A client books for themselves, and
  * theirs waits for marketing to assign it.
  *
+ * A client first says what they would like to schedule: a showroom visit, or
+ * the installation or the delivery of one of their accepted orders (`orders`,
+ * each with the kinds it may still take). An order's booking goes to the
+ * sales member handling it.
+ *
  * With `schedule`, the page updates that appointment instead: the same fields,
- * filled in with it, the client kept, and the reason for the change asked.
+ * filled in with it, the client, kind and order kept, and the reason for the
+ * change asked.
  */
 const Page = ({
     studioNow,
     earliestBookableDate,
+    orders = [],
     schedule = null,
 }: {
     studioNow: StudioNow;
     earliestBookableDate: string;
+    orders?: SchedulableOrder[];
     schedule?: UpdatingSchedule | null;
 }) => {
     const isUpdate = schedule !== null;
@@ -249,7 +286,7 @@ const Page = ({
                 ? updateScheduleSchema
                 : isStaff
                   ? staffBookingSchema
-                  : staffBookingSchema.omit({ clientId: true, salesId: true }),
+                  : clientBookingSchema,
         ) as any,
         mode: 'onTouched',
         reValidateMode: 'onChange',
@@ -261,13 +298,27 @@ const Page = ({
             clientId: null,
             salesId: null,
             reason: '',
+            kind: schedule?.kind ?? 'showroom_visit',
+            orderReference: schedule?.orderReference ?? '',
         },
     });
 
-    const { handleSubmit, setValue, setError, watch, reset, formState } =
-        methods;
+    const {
+        handleSubmit,
+        setValue,
+        setError,
+        clearErrors,
+        watch,
+        reset,
+        formState,
+    } = methods;
     const date = watch('date');
     const arrivalTime = watch('arrivalTime');
+    const kind = watch('kind');
+    const orderReference = watch('orderReference');
+    const isOrderBooking = isForOrder(kind);
+    const kindOrders = ordersFor(orders, kind);
+    const isChoosingKind = !isStaff && !isUpdate;
 
     const isDisabled = (day: Date): boolean =>
         openSlotsOn(dayKey(day), studioNow, earliestBookableDate).length === 0;
@@ -353,6 +404,8 @@ const Page = ({
             clientName: client?.name ?? null,
             salesName: sales?.name ?? null,
             isWalkIn: client?.kind === 'walkIn',
+            kind: values.kind,
+            orderReference: values.orderReference,
         });
     };
 
@@ -393,12 +446,84 @@ const Page = ({
               : 'Change the day, time or details, and say why.'
         : isStaff
           ? 'Choose the client and the sales member who confirms it, then the day and time.'
-          : 'Pick a day and tell us when to expect you';
+          : 'Choose a showroom visit, an installation or a delivery, then the day and time.';
 
     return (
         <div className="w-full">
             <Head title={heading} />
             <PageHeading title={heading} description={description} />
+
+            {/* What is booked comes first, before the day: on a phone the calendar would otherwise come before it. */}
+            {isChoosingKind ? (
+                <div className="mt-6 space-y-6">
+                    <ScheduleKindPicker
+                        value={kind}
+                        available={{
+                            showroom_visit: true,
+                            installation:
+                                ordersFor(orders, 'installation').length > 0,
+                            delivery: ordersFor(orders, 'delivery').length > 0,
+                        }}
+                        onChange={(chosen) => {
+                            setValue('kind', chosen, {
+                                shouldDirty: true,
+                            });
+                            // An order picked for one kind may not take the other.
+                            setValue('orderReference', '', {
+                                shouldDirty: true,
+                            });
+                            clearErrors(['orderReference', 'purpose']);
+                        }}
+                    />
+
+                    {isOrderBooking ? (
+                        <div className="lg:w-[calc(50%-1rem)]">
+                            <FormField
+                                id="orderReference"
+                                label="Which order?"
+                                hint={
+                                    kind === 'installation'
+                                        ? 'Your accepted orders with an installation'
+                                        : 'Your accepted orders for delivery'
+                                }
+                                error={formState.errors.orderReference?.message}
+                            >
+                                {({ describedBy, invalid }) => (
+                                    <Select
+                                        onValueChange={(v) =>
+                                            setValue('orderReference', v, {
+                                                shouldValidate: true,
+                                            })
+                                        }
+                                        value={orderReference}
+                                    >
+                                        <SelectTrigger
+                                            id="orderReference"
+                                            className="w-full rounded-none"
+                                            aria-invalid={invalid}
+                                            aria-describedby={describedBy}
+                                        >
+                                            <SelectValue placeholder="Choose an order" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {kindOrders.map((order) => (
+                                                <SelectItem
+                                                    key={order.reference}
+                                                    value={order.reference}
+                                                    className="rounded-none"
+                                                >
+                                                    {order.reference} ·{' '}
+                                                    {order.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </FormField>
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-8">
                 <div className="order-2 space-y-6 lg:order-1">
@@ -414,6 +539,20 @@ const Page = ({
                                     </p>
                                     <p className="mt-1 text-sm font-bold">
                                         {schedule.clientName}
+                                    </p>
+                                </div>
+                            ) : null}
+
+                            {isUpdate && isOrderBooking ? (
+                                <div data-testid="updating-order">
+                                    <p className="text-sm font-medium text-foreground">
+                                        {SCHEDULE_KIND_LABELS[kind]}
+                                    </p>
+                                    <p className="mt-1 text-sm font-bold">
+                                        {kindLine(
+                                            kind,
+                                            schedule.orderReference,
+                                        )}
                                     </p>
                                 </div>
                             ) : null}
@@ -475,7 +614,13 @@ const Page = ({
 
                             <FormField
                                 id="arrivalTime"
-                                label="Expected arrival time"
+                                label={
+                                    kind === 'installation'
+                                        ? 'When should our team arrive?'
+                                        : kind === 'delivery'
+                                          ? 'When should we deliver?'
+                                          : 'Expected arrival time'
+                                }
                                 hint="Open 10:00 AM – 6:00 PM"
                                 error={formState.errors.arrivalTime?.message}
                             >
@@ -514,22 +659,25 @@ const Page = ({
                                 )}
                             </FormField>
 
-                            <FormField
-                                id="purpose"
-                                label="Purpose"
-                                error={formState.errors.purpose?.message}
-                            >
-                                {({ describedBy, invalid }) => (
-                                    <Input
-                                        id="purpose"
-                                        {...methods.register('purpose')}
-                                        className="rounded-none"
-                                        placeholder="e.g. Meet about a countertop project"
-                                        aria-invalid={invalid}
-                                        aria-describedby={describedBy}
-                                    />
-                                )}
-                            </FormField>
+                            {/* An installation or a delivery says what it is through its order. */}
+                            {isOrderBooking ? null : (
+                                <FormField
+                                    id="purpose"
+                                    label="Purpose"
+                                    error={formState.errors.purpose?.message}
+                                >
+                                    {({ describedBy, invalid }) => (
+                                        <Input
+                                            id="purpose"
+                                            {...methods.register('purpose')}
+                                            className="rounded-none"
+                                            placeholder="e.g. Meet about a countertop project"
+                                            aria-invalid={invalid}
+                                            aria-describedby={describedBy}
+                                        />
+                                    )}
+                                </FormField>
+                            )}
 
                             <FormField
                                 id="notes"
@@ -542,7 +690,13 @@ const Page = ({
                                         {...methods.register('notes')}
                                         rows={4}
                                         className="rounded-none"
-                                        placeholder="Any details we should know"
+                                        placeholder={
+                                            kind === 'installation'
+                                                ? 'e.g. Parking, building rules or who will be there'
+                                                : kind === 'delivery'
+                                                  ? 'e.g. Parking, floor and lift, or who will receive it'
+                                                  : 'Any details we should know'
+                                        }
                                         aria-invalid={invalid}
                                         aria-describedby={describedBy}
                                     />
@@ -627,7 +781,9 @@ const Page = ({
                                   ? 'Appointment updated'
                                   : isStaff
                                     ? 'Appointment booked'
-                                    : 'Appointment requested',
+                                    : isForOrder(result.kind)
+                                      ? `${SCHEDULE_KIND_LABELS[result.kind]} requested`
+                                      : 'Appointment requested',
                               description: isUpdate ? (
                                   <>
                                       It is now on{' '}
@@ -645,6 +801,17 @@ const Page = ({
                                       {result.isWalkIn
                                           ? 'a direct client has no Regray account, so let them know yourself once it is confirmed.'
                                           : 'the client is told in their Regray chat once it is confirmed.'}
+                                  </>
+                              ) : isForOrder(result.kind) ? (
+                                  <>
+                                      You asked for the{' '}
+                                      {SCHEDULE_KIND_LABELS[
+                                          result.kind
+                                      ].toLowerCase()}{' '}
+                                      of {result.orderReference} on{' '}
+                                      {formatFullDate.format(result.date)} at{' '}
+                                      {slotLabel(result.arrivalTime)}. Our sales
+                                      team will confirm it in your Regray chat.
                                   </>
                               ) : (
                                   <>

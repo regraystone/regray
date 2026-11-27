@@ -11,6 +11,7 @@ import {
 import type { ScheduleItem, ScheduleWalkIn } from '@/lib/schedule';
 import { CONTACT_KIND_LABELS } from '@/lib/staff-inquire';
 import { formatFullDate, formatTime } from '@/lib/date';
+import { SCHEDULE_KIND_LABELS } from '@/lib/schedule-kinds';
 
 /** A link that calls or writes to a walk-in's contact, where one fits. */
 const contactHref = (
@@ -106,6 +107,34 @@ const EventDialog = ({
                                     {formatTime.format(item.arrival)}
                                 </dd>
                             </div>
+
+                            {item.kind ? (
+                                <div
+                                    className="flex items-baseline justify-between gap-4 px-4 py-3"
+                                    data-testid="schedule-kind"
+                                >
+                                    <dt className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                                        Type
+                                    </dt>
+                                    <dd className="text-right text-sm font-bold">
+                                        {SCHEDULE_KIND_LABELS[item.kind]}
+                                    </dd>
+                                </div>
+                            ) : null}
+
+                            {item.orderReference ? (
+                                <div
+                                    className="flex items-baseline justify-between gap-4 px-4 py-3"
+                                    data-testid="schedule-order"
+                                >
+                                    <dt className="text-[0.68rem] font-bold tracking-[0.16em] text-secondary-foreground uppercase">
+                                        Order
+                                    </dt>
+                                    <dd className="text-right text-sm font-bold tabular-nums">
+                                        {item.orderReference}
+                                    </dd>
+                                </div>
+                            ) : null}
 
                             {item.inquiryReference ? (
                                 <div className="flex items-baseline justify-between gap-4 px-4 py-3">

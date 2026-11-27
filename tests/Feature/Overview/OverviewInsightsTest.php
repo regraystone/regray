@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Enums\ScheduleKind;
 use App\Enums\ScheduleStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryStatusHistory;
@@ -31,8 +32,9 @@ use Illuminate\Support\Facades\DB;
  * - `lost`: in in October, flooring, rejected on 12 Nov.
  * - `old`: won in August (30,000), 10,000 paid: owed for over 90 days.
  *
- * And visits: one attended on 2 Nov (its client then won on the 5th), one
- * expired, one cancelled.
+ * And showroom visits: one attended on 2 Nov (its client then won on the 5th),
+ * one expired, one cancelled. The target dates of `sold` and `late` are not
+ * visits, nor is an installation booked for `sold`.
  */
 
 beforeEach(function (): void {
@@ -72,6 +74,7 @@ beforeEach(function (): void {
     insightVisit($client, ScheduleStatus::Served, $at('2026-11-02 09:00'));
     insightVisit($client, ScheduleStatus::Expired, $at('2026-11-06 09:00'));
     insightVisit($client, ScheduleStatus::Cancelled, $at('2026-11-07 09:00'));
+    (new Schedule)->forceFill(['order_id' => $sold->id, 'kind' => ScheduleKind::Installation, 'client_id' => $client->id, 'booked_by' => $client->id, 'booked_by_type' => BookedByType::Client, 'title' => 'Installation', 'arrival_at' => $at('2026-11-15 09:00')->utc(), 'status' => ScheduleStatus::Served])->save();
 });
 
 function insightDeal(User $client, array $attributes, array $columns = [], string $service = 'slab-supply-only'): Inquiry
@@ -97,6 +100,8 @@ function insightVisit(User $client, ScheduleStatus $status, CarbonImmutable $at,
     (new Schedule)->forceFill([
         'client_id' => $inquiry === null ? $client->id : null,
         'inquiry_id' => $inquiry?->id,
+        // An inquiry's own target date has no kind; a booking is a showroom visit.
+        'kind' => $inquiry === null ? ScheduleKind::ShowroomVisit : null,
         'booked_by' => $client->id,
         'booked_by_type' => BookedByType::Client,
         'title' => 'Showroom visit',
@@ -156,7 +161,7 @@ it('reads the quotes behind the deals won', function (): void {
 });
 
 it('counts how visits went and which led to a win', function (): void {
-    expect(insightFigures(insightsOf($this->owner, 'team')['visits']))->toBe(['attended' => 2, 'rate' => 50, 'missed' => 2, 'ledToWin' => 1]);
+    expect(insightFigures(insightsOf($this->owner, 'team')['visits']))->toBe(['attended' => 1, 'rate' => 33, 'missed' => 2, 'ledToWin' => 1]);
 });
 
 it('ages what is still owed by how long ago it was won', function (): void {

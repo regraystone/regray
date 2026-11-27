@@ -7,6 +7,7 @@ use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SalesStatus;
+use App\Enums\ScheduleKind;
 use App\Enums\ScheduleStatus;
 use App\Models\Inquiry;
 use App\Models\Lead;
@@ -257,7 +258,9 @@ class OverviewInsightsRepository implements OverviewInsightsRepositoryInterface
             .' or (schedules.client_id is not null and won_inquiry.client_id = schedules.client_id)'
             .' or (schedules.client_record_id is not null and won_inquiry.client_record_id = schedules.client_record_id)))';
 
+        // Showroom visits only: not an installation, a delivery or an inquiry's target date.
         $row = Schedule::query()
+            ->where('kind', ScheduleKind::ShowroomVisit->value)
             ->when($reader !== null, fn (Builder $visits) => $visits->visibleTo($reader))
             ->whereBetween('arrival_at', [$range->from, min($range->to, $now)])
             ->selectRaw('count(*) filter (where status = ?) as attended', [ScheduleStatus::Served->value])

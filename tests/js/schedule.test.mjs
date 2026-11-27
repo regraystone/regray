@@ -33,6 +33,8 @@ const can = {
     noShow: false,
 };
 const rest = {
+    kind: 'delivery',
+    orderReference: 'INQ-2',
     bookedByType: 'staff',
     bookedByName: 'Sam',
     clientName: 'Rafa',

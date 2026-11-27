@@ -797,7 +797,8 @@ class OverviewService
             'title' => $visit->clientRecord->full_name ?? $visit->client->name ?? $visit->title,
             'detail' => $visit->title,
             'at' => self::iso($visit->arrival_at),
-            'atLabel' => 'Visit',
+            // "Visit", or what else was booked: "Installation", "Delivery".
+            'atLabel' => $visit->kind?->isForOrder() ? $visit->kind->label() : 'Visit',
             'url' => route('schedule.index'),
         ];
     }

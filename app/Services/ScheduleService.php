@@ -3,19 +3,24 @@
 namespace App\Services;
 
 use App\Enums\BookedByType;
+use App\Enums\InquiryStatus;
+use App\Enums\QuoteTab;
 use App\Enums\Role;
 use App\Enums\ScheduleAction;
+use App\Enums\ScheduleKind;
 use App\Enums\ScheduleStatus;
 use App\Models\Client;
 use App\Models\Inquiry;
 use App\Models\Schedule;
 use App\Models\User;
+use App\Repositories\Contracts\InquiryRepositoryInterface;
 use App\Repositories\Contracts\ScheduleRepositoryInterface;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Str;
 
 /**
  * Reads and writes schedules.
@@ -36,6 +41,7 @@ class ScheduleService
 
     public function __construct(
         public readonly ScheduleRepositoryInterface $scheduleRepository,
+        public readonly InquiryRepositoryInterface $inquiryRepository,
     ) {}
 
     /**
@@ -104,11 +110,143 @@ class ScheduleService
             'booked_by' => $client->id,
             'booked_by_type' => BookedByType::Client,
             'inquiry_id' => null,
+            'kind' => ScheduleKind::ShowroomVisit,
             'title' => $purpose,
             'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
             'status' => ScheduleStatus::Pending,
             'notes' => $notes,
         ]);
+    }
+
+    /**
+     * A client's installation or delivery (`$kind`) for one of their accepted
+     * orders, from the Book an appointment page.
+     *
+     * Theirs and booked by them. It goes straight to the sales member handling
+     * the order (orderSales()), awaiting their confirmation, with no marketing
+     * step; an order no sales member handles yet waits for marketing to
+     * assign it, as a showroom visit does. Its title says what it is and for
+     * which project. `$arrivalAt` is read in the studio's zone and stored in
+     * the app's.
+     */
+    public function createForOrder(User $client, Inquiry $order, ScheduleKind $kind, CarbonImmutable $arrivalAt, ?string $notes): Schedule
+    {
+        $sales = $this->orderSales($order);
+
+        return $this->scheduleRepository->create([
+            'client_id' => $client->id,
+            'booked_by' => $client->id,
+            'booked_by_type' => BookedByType::Client,
+            'inquiry_id' => null,
+            'kind' => $kind,
+            'order_id' => $order->id,
+            // Kept within the purpose's 80 characters, which an update checks again.
+            'title' => Str::limit("{$kind->label()}: {$order->name}", 79, '…'),
+            'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
+            'status' => $sales === null ? ScheduleStatus::Pending : ScheduleStatus::AwaitingSales,
+            'notes' => $notes,
+            'assigned_to' => $sales?->id,
+            'assigned_at' => $sales === null ? null : Date::now(),
+        ]);
+    }
+
+    /**
+     * The sales member who confirms an order's installation or delivery: the
+     * first assigned to it who is still in sales, or null.
+     */
+    public function orderSales(Inquiry $order): ?User
+    {
+        return User::query()
+            ->role(Role::Sales->value)
+            ->join('inquiry_handlers', 'inquiry_handlers.user_id', '=', 'users.id')
+            ->where('inquiry_handlers.inquiry_id', $order->id)
+            ->orderBy('inquiry_handlers.assigned_at')
+            ->orderBy('users.id')
+            ->select('users.*')
+            ->get()
+            ->first(fn (User $user): bool => self::isAssignableSales($user));
+    }
+
+    /**
+     * The statuses an order is at when the client may book its installation
+     * or delivery: won by sales and paid, which starts it at order received,
+     * through every logistics stage (the Quotations page's Accepted tab),
+     * until it is closed. A won order with no payment yet waits.
+     *
+     * @return list<InquiryStatus>
+     */
+    public static function orderStatuses(): array
+    {
+        return array_values(array_filter(
+            QuoteTab::Accepted->statuses(),
+            fn (InquiryStatus $status): bool => $status !== InquiryStatus::Closed,
+        ));
+    }
+
+    /**
+     * The client's accepted orders the Book an appointment page offers, each
+     * with the kinds it may still be booked for: an installation for a service
+     * the team installs, a delivery for one they chose to have delivered, and
+     * neither while one of that kind is still open. An order with neither left
+     * is not listed.
+     *
+     * @return list<array{reference: string, name: string, service: string|null, kinds: list<string>}>
+     */
+    public function ordersToSchedule(User $client): array
+    {
+        $orders = [];
+
+        foreach ($this->inquiryRepository->ordersForScheduling($client, ...self::orderStatuses()) as $order) {
+            $kinds = array_values(array_filter(
+                [ScheduleKind::Installation, ScheduleKind::Delivery],
+                fn (ScheduleKind $kind): bool => $order->takes($kind)
+                    && ! $order->orderSchedules->contains(fn (Schedule $schedule): bool => $schedule->kind === $kind),
+            ));
+
+            if ($kinds !== []) {
+                $orders[] = [
+                    'reference' => $order->reference,
+                    'name' => $order->name,
+                    'service' => $order->service?->name,
+                    'kinds' => array_map(fn (ScheduleKind $kind): string => $kind->value, $kinds),
+                ];
+            }
+        }
+
+        return $orders;
+    }
+
+    /**
+     * Why the client may not book `$kind` for their order `$order` (null when
+     * it is none of their accepted orders), or null when they may: it must
+     * take that kind and have none of it open already.
+     */
+    public function orderRefusal(?Inquiry $order, ScheduleKind $kind): ?string
+    {
+        if ($order === null) {
+            return 'Choose one of your accepted orders';
+        }
+
+        if (! $order->takes($kind)) {
+            return $kind === ScheduleKind::Installation
+                ? 'This order has no installation. Choose another order.'
+                : 'This order is not for delivery. Choose another order.';
+        }
+
+        $alreadyBooked = $order->orderSchedules()
+            ->where('kind', $kind->value)
+            ->whereIn('status', ScheduleStatus::open())
+            ->exists();
+
+        return $alreadyBooked
+            ? 'This order already has '.($kind === ScheduleKind::Installation ? 'an installation' : 'a delivery').' booked. You can change it from your schedule.'
+            : null;
+    }
+
+    /** The client's accepted order `$reference`, with its service, or null. */
+    public function findOrder(User $client, string $reference): ?Inquiry
+    {
+        return $this->inquiryRepository->findOrderForScheduling($client, $reference, ...self::orderStatuses());
     }
 
     /**
@@ -127,6 +265,7 @@ class ScheduleService
             'booked_by' => $staff->id,
             'booked_by_type' => BookedByType::Staff,
             'inquiry_id' => null,
+            'kind' => ScheduleKind::ShowroomVisit,
             'title' => $purpose,
             'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
             'status' => ScheduleStatus::AwaitingSales,

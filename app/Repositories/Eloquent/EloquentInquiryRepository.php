@@ -12,6 +12,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\Role;
 use App\Enums\SalesStatus;
+use App\Enums\ScheduleStatus;
 use App\Models\Inquiry;
 use App\Models\InquiryFile;
 use App\Models\InquiryHandler;
@@ -212,6 +213,32 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
             ->paginate($perPage, page: $filters->page);
+    }
+
+    public function ordersForScheduling(User $client, InquiryStatus ...$statuses): Collection
+    {
+        return Inquiry::query()
+            ->whereBelongsTo($client, 'client')
+            ->whereDisplayStatus(...$statuses)
+            ->with([
+                'service:id,name,fulfillment',
+                'orderSchedules' => fn ($query) => $query
+                    ->select(['id', 'order_id', 'kind', 'status'])
+                    ->whereIn('status', ScheduleStatus::open()),
+            ])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    public function findOrderForScheduling(User $client, string $reference, InquiryStatus ...$statuses): ?Inquiry
+    {
+        return Inquiry::query()
+            ->whereBelongsTo($client, 'client')
+            ->where('reference', $reference)
+            ->whereDisplayStatus(...$statuses)
+            ->with('service:id,name,fulfillment')
+            ->first();
     }
 
     public function distinctStonesFor(array $inquiryIds): Collection

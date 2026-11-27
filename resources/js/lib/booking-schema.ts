@@ -53,6 +53,44 @@ export const bookingFieldsSchema = z.object({
 /** A client booking for themselves. */
 export const bookingSchema = bookingFieldsSchema;
 
+/** Same as StoreBookingRequest::ORDER_MESSAGE. */
+export const ORDER_REQUIRED = 'Choose one of your accepted orders';
+
+/**
+ * A client booking from the Schedule page: a showroom visit asks its purpose,
+ * an installation or a delivery the order it is for instead, as the order says
+ * what it is (StoreBookingRequest's `kind` and `orderReference`).
+ */
+export const clientBookingSchema = bookingFieldsSchema
+    .extend({
+        kind: z.enum(['showroom_visit', 'installation', 'delivery']),
+        orderReference: z.string(),
+        purpose: z.string(),
+    })
+    .superRefine((values, context) => {
+        if (values.kind === 'showroom_visit') {
+            const purpose = purposeSchema.safeParse(values.purpose);
+
+            if (!purpose.success) {
+                context.addIssue({
+                    code: 'custom',
+                    path: ['purpose'],
+                    message: purpose.error.issues[0].message,
+                });
+            }
+
+            return;
+        }
+
+        if (values.orderReference.trim() === '') {
+            context.addIssue({
+                code: 'custom',
+                path: ['orderReference'],
+                message: ORDER_REQUIRED,
+            });
+        }
+    });
+
 /** Same as AssignScheduleRequest::SALES_MESSAGE. */
 export const SALES_REQUIRED =
     'Choose a sales member to confirm this appointment';
