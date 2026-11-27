@@ -1,4 +1,4 @@
-import { Download, Eye, FileText, Image as ImageIcon } from 'lucide-react';
+import { FileText, Image as ImageIcon } from 'lucide-react';
 import { useState } from 'react';
 import { formatSize } from '@/components/file-upload';
 import { Button } from '@/components/ui/button';
@@ -116,14 +116,8 @@ export const InquiryFileRow = ({
                             aria-label={`Preview ${file.name}`}
                             title={isOpening ? OPENING : 'Preview'}
                         >
-                            {isOpening ? (
-                                <Spinner aria-hidden />
-                            ) : (
-                                <Eye aria-hidden />
-                            )}
-                            <span className="hidden @md:inline">
-                                {isOpening ? OPENING : 'Preview'}
-                            </span>
+                            {isOpening ? <Spinner aria-hidden /> : null}
+                            {isOpening ? OPENING : 'Preview'}
                         </Button>
                     ) : null}
                     <Button
@@ -138,8 +132,7 @@ export const InquiryFileRow = ({
                             aria-label={`Download ${file.name}`}
                             title="Download"
                         >
-                            <Download aria-hidden />
-                            <span className="hidden @md:inline">Download</span>
+                            Download
                         </a>
                     </Button>
                 </div>

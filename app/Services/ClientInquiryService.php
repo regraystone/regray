@@ -55,7 +55,8 @@ class ClientInquiryService
                 ])->all()),
             services: $inquiry->service === null ? [] : [[
                 'id' => $inquiry->service->slug,
-                'name' => $inquiry->service->name,
+                // With its application: "Slab Supply and Installation · Flooring".
+                'name' => (string) $inquiry->serviceLabel(),
             ]],
             actions: $this->inquiryActions->for($inquiry),
         ));

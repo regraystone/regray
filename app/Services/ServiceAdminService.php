@@ -45,7 +45,7 @@ class ServiceAdminService
     ) {}
 
     /**
-     * @param  array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}  $data
+     * @param  array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, delivery_note: string|null, schedule_note: string|null, lead_days: int|null, is_application: bool, has_applications: bool, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}  $data
      */
     public function create(array $data, User $by, ?string $ipAddress, ?string $userAgent): Service
     {
@@ -62,7 +62,7 @@ class ServiceAdminService
     }
 
     /**
-     * @param  array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}  $data
+     * @param  array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, delivery_note: string|null, schedule_note: string|null, lead_days: int|null, is_application: bool, has_applications: bool, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}  $data
      */
     public function update(Service $service, array $data, User $by, ?string $ipAddress, ?string $userAgent): Service
     {
@@ -175,7 +175,12 @@ class ServiceAdminService
             'service_type_id' => $service->service_type_id,
             'description' => $service->description,
             'requires_stones' => $service->requires_stones,
+            'is_application' => $service->is_application,
+            'has_applications' => $service->has_applications,
             'fulfillment' => $service->fulfillment->value,
+            'delivery_note' => $service->delivery_note,
+            'schedule_note' => $service->schedule_note,
+            'lead_days' => $service->lead_days,
             'features' => $service->features->pluck('text')->all(),
             'stone_type_ids' => $service->stoneTypes->pluck('id')->sort()->values()->all(),
             'questions' => $service->detailFields->map(fn ($field): array => [

@@ -54,19 +54,21 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class InquiryEditResource extends JsonResource
 {
     /**
-     * @return array{id: int, name: string, serviceTypeId: string|null, serviceId: string|null, heldServiceType: array{id: string, name: string, services: array<int, mixed>}|null, heldStones: array<int, mixed>, heldChoices: object, heldBrands: array<int, mixed>, stoneAdviceRequested: bool, stones: list<array{stoneId: string, quantity: int|null, slabSize: string|null, thickness: string|null, edge: string|null, finish: string|null}>, answers: object, brands: list<string>, brandNoPreference: bool, deliveryMethod: string|null, address: PhAddressPayload|null, notes: string|null, neededBy: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
+     * @return array{id: int, name: string, serviceTypeId: string|null, serviceId: string|null, applicationId: string|null, heldServiceType: array{id: string, name: string, services: array<int, mixed>}|null, heldStones: array<int, mixed>, heldChoices: object, heldBrands: array<int, mixed>, stoneAdviceRequested: bool, stones: list<array{stoneId: string, quantity: int|null, slabSize: string|null, thickness: string|null, edge: string|null, finish: string|null}>, answers: object, brands: list<string>, brandNoPreference: bool, deliveryMethod: string|null, address: PhAddressPayload|null, notes: string|null, neededBy: string|null, deadlineLocked: bool, deadlineLockedReason: string|null, attachments: list<array{id: int, name: string, sizeBytes: int, mimeType: string, status: string}>}
      */
     public function toArray(Request $request): array
     {
         $schedule = $this->schedule;
         $arrivalAt = $schedule?->arrival_at->setTimezone(ScheduleService::timezone());
         $lockedReason = $schedule === null ? null : app(ScheduleService::class)->deadlineLockedReason($schedule);
+        $asksThickness = $this->service?->detailFields->contains('slug', DetailField::THICKNESS) ?? false;
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'serviceTypeId' => $this->service?->serviceType->slug,
             'serviceId' => $this->service?->slug,
+            'applicationId' => $this->application?->slug,
             'heldServiceType' => $this->service === null ? null : [
                 'id' => $this->service->serviceType->slug,
                 'name' => $this->service->serviceType->name,
@@ -82,7 +84,8 @@ class InquiryEditResource extends JsonResource
                 'quantity' => $row->quantity,
                 // As the form sends them back: "160 x 320 cm", "20 mm".
                 'slabSize' => $row->slabSizeLabel(),
-                'thickness' => $row->thicknessLabel(),
+                // None stored where the service asks one: Regray's advice, as the form picked it.
+                'thickness' => $row->thicknessLabel() ?? ($asksThickness ? DetailField::THICKNESS_ADVICE : null),
                 'edge' => $row->edgeProfile?->name,
                 'finish' => $row->finish?->name,
             ])->all()),

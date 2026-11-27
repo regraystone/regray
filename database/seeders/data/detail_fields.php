@@ -10,17 +10,21 @@
  * ones. Edge profile and finish list the active rows of their own tables, so
  * they have no `options` here. Slab size and thickness have none either: each
  * stone row lists the sizes and thicknesses its own stone comes in
- * (`size_stone`, `stone_thickness`), and Other takes any width x length or
- * thickness with its unit. Waterfall effect and fascia are yes or no.
+ * (`size_stone`, `stone_thickness`). A slab size's Other takes any width x
+ * length with its unit; a thickness has no Other, and a stone with none
+ * lists "To be advised by Regray". Waterfall effect and fascia are yes or no.
  *
  * `suggestions` are sample values shown beside a free entry, each `[slug,
- * name]`, and never checked against. A list question's `choices` are the
+ * name]` or `[slug, name, note]`, and never checked against: the client's
+ * answer is the name, and the list reads "name – note" ("2 – approx. 0.6
+ * sqm"). `custom_label` is what the entry that opens the free entry reads
+ * (none: Other), and `custom_hint` the line under the box it opens. A list question's `choices` are the
  * slugs of the library choices it lists (data/choices.php), in its order:
  * the client picks one, and "Same as stone" is the library's `stone` kind.
  * The Choices page under Services edits a choice; the Questions page picks a
  * question's choices.
  *
- * @var list<array{slug: string, name: string, scope: string, answer_type: string, allows_custom: bool, suggestions?: list<array{0: string, 1: string}>, choices?: list<string>}>
+ * @var list<array{slug: string, name: string, scope: string, answer_type: string, allows_custom: bool, custom_label?: string, custom_hint?: string, suggestions?: list<array{0: string, 1: string, 2?: string}>, choices?: list<string>}>
  */
 return [
     [
@@ -36,13 +40,16 @@ return [
         'scope' => 'stone',
         'answer_type' => 'text',
         'allows_custom' => true,
+        'custom_label' => 'Custom size',
+        'custom_hint' => 'Enter the width and length you need.',
     ],
     [
         'slug' => 'thickness',
         'name' => 'Thickness',
         'scope' => 'stone',
         'answer_type' => 'text',
-        'allows_custom' => true,
+        // Picked from the stone's own; a stone with none is left to Regray to advise.
+        'allows_custom' => false,
     ],
     [
         'slug' => 'edge_profile',
@@ -64,6 +71,8 @@ return [
         'scope' => 'project',
         'answer_type' => 'number',
         'allows_custom' => true,
+        'custom_label' => 'Custom area',
+        'custom_hint' => 'Enter your project area in square metres.',
         'suggestions' => [
             ['1', '1'],
             ['2', '2'],
@@ -77,6 +86,8 @@ return [
         'scope' => 'project',
         'answer_type' => 'text',
         'allows_custom' => true,
+        'custom_label' => 'Custom size',
+        'custom_hint' => 'Enter your desired size.',
         'suggestions' => [
             ['60x60', '60 x 60 cm'],
             ['80x80', '80 x 80 cm'],
@@ -91,13 +102,13 @@ return [
         'scope' => 'project',
         'answer_type' => 'number',
         'allows_custom' => true,
+        'custom_label' => 'Custom number',
+        'custom_hint' => 'Enter how many seats you need.',
         'suggestions' => [
-            ['2', '2'],
-            ['4', '4'],
-            ['6', '6'],
-            ['8', '8'],
-            ['10', '10'],
-            ['12', '12'],
+            // 6, 8 and 12 for now, with about how big a table top seats them; any other through Custom number.
+            ['6', '6', 'approx. 1.6 sqm'],
+            ['8', '8', 'approx. 2.2 sqm'],
+            ['12', '12', 'approx. 3.3 sqm'],
         ],
     ],
     [
@@ -165,19 +176,6 @@ return [
             'hourglass-v1',
             'custom-design',
             'not-sure',
-        ],
-    ],
-    [
-        // The base's material; its design is the table service's own base design question.
-        'slug' => 'table_base',
-        'name' => 'Table base',
-        'scope' => 'project',
-        'answer_type' => 'choice',
-        'allows_custom' => false,
-        'choices' => [
-            'wood',
-            'steel',
-            'same-as-stone',
         ],
     ],
     [

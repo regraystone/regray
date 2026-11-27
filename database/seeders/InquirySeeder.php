@@ -598,7 +598,12 @@ class InquirySeeder extends Seeder
         $project = $inquiryData['project'];
         $createdAt = Carbon::parse($inquiryData['created_at']);
         $service = Service::query()->with('detailFields.options')->where('slug', $project['service'])->firstOrFail();
-        $asked = $service->detailFields->keyBy('slug');
+        // An application (Flooring…) is sent under Slab Supply and Installation: each stone is asked what that
+        // asks, and the project what the application asks.
+        $stoneService = $service->is_application
+            ? Service::query()->with('detailFields')->where('slug', 'slab-supply-and-installation')->firstOrFail()
+            : $service;
+        $asked = $stoneService->detailFields->keyBy('slug');
 
         $inquiry = Inquiry::query()->forceCreate([
             'reference' => $inquiryData['reference'],
@@ -610,7 +615,9 @@ class InquirySeeder extends Seeder
             'marketing_status' => $final['marketing'],
             'marketing_status_changed_at' => $this->time($final['marketing_at']),
             'name' => $project['name'],
-            'service_id' => $service->id,
+            // An application (Flooring…) is asked under Slab Supply and Installation; its own questions still apply.
+            'service_id' => $stoneService->id,
+            'application_id' => $service->is_application ? $service->id : null,
             ...$this->fulfillment($inquiryData['reference'], $project, $service),
             'notes' => $project['notes'],
             'sales_status' => $final['sales'],
@@ -645,6 +652,11 @@ class InquirySeeder extends Seeder
                 ->orderBy('sort_order')->orderBy('id')->firstOrFail();
 
             // Only the answers its service asks for, as the Inquire page sends them.
+            // The data for an application's rows predates the slab questions: one standard slab, 20 mm.
+            if ($service->is_application) {
+                $stoneSelection += ['quantity' => 1, 'slab_size' => [160, 320, 'cm'], 'thickness' => [20, 'mm']];
+            }
+
             $inquiry->stones()->create([
                 'stone_id' => $stone->id,
                 'edge_profile_id' => $asked->has(DetailField::EDGE_PROFILE) ? EdgeProfile::where('name', $stoneSelection['edge'])->firstOrFail()->id : null,

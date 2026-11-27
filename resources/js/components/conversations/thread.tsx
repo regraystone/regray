@@ -49,7 +49,7 @@ import type {
     Realtime,
 } from '@/types/message';
 
-export const SUPPORT_EMPTY_TEXT = 'Message Regray any time.';
+export const SUPPORT_EMPTY_TEXT = 'Message the Regray Sales Team any time.';
 
 type ThreadProps = {
     conversationId: number;

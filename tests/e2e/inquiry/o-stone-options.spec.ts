@@ -10,8 +10,7 @@ import {
 } from '../support/fixtures';
 import {
     CATALOG,
-    AREA_FURNITURE_SERVICES,
-    SMALL_FURNITURE_SLUGS,
+    FURNITURE_SLUGS,
     REVIEW,
     SLAB_SIZE,
     THICKNESS,
@@ -113,26 +112,26 @@ test("54 · on Slab Supply Only, each row lists only its stone's sizes, and thic
 
     expect(await listedOptions(page, sizeId(0))).toEqual([
         ...COSMIC_SIZES,
-        'Other',
+        'Custom size',
     ]);
     expect(await listedOptions(page, sizeId(1))).toEqual([
         ...ARABESCATO_SIZES,
-        'Other',
+        'Custom size',
     ]);
     // With no size chosen yet, every thickness of the stone.
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         ...COSMIC_THICKNESSES,
-        'Other',
+        'Custom thickness',
     ]);
     expect(await listedOptions(page, thicknessId(1))).toEqual([
         ...ARABESCATO_THICKNESSES,
-        'Other',
+        'Custom thickness',
     ]);
 
     await chooseInSelect(page, sizeId(1), '120 x 240 cm');
     expect(await listedOptions(page, thicknessId(1))).toEqual([
         '18 mm',
-        'Other',
+        'Custom thickness',
     ]);
 });
 
@@ -267,11 +266,11 @@ test('57 · Slab Supply and Installation lists the same slabs and sends a thickn
 
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         ...COSMIC_THICKNESSES,
-        'Other',
+        'Custom thickness',
     ]);
     expect(await listedOptions(page, sizeId(1))).toEqual([
         ...ARABESCATO_SIZES,
-        'Other',
+        'Custom size',
     ]);
 
     await fillSlabSizes(page);
@@ -327,7 +326,7 @@ test('58 · services that do not ask a thickness show none and refuse one', asyn
                         finish: CATALOG.finishes[0],
                     },
                 ],
-                answers: { area_sqm: '2', seaters: '6', table_base: 'wood' },
+                answers: { seaters: '6' },
             }),
         ],
     });
@@ -404,49 +403,23 @@ test('59 · Countertop and Backsplash asks a fascia, yes or no, and needs it', a
     );
 });
 
-test('60 · the larger furniture asks "Project area (sqm)" and needs it; a small piece never asks it', async ({
+test('60 · no furniture service asks "Project area (sqm)", and a posted area is refused', async ({
     actors,
 }) => {
     // Several walks through the form, against a one-request-at-a-time server.
     test.slow();
     const { page } = await actors.open('client');
 
-    for (const service of AREA_FURNITURE_SERVICES) {
-        await freshInquire(page);
-        await walkToRequirements(page, {
-            serviceType: CATALOG.furnitureType,
-            service,
-            stones: [CATALOG.stones[1]],
-        });
-        await expect(
-            page.locator('label[for="requirements-area-sqm-1"]'),
-        ).toContainText('Project area (sqm) *');
+    await freshInquire(page);
+    await walkToRequirements(page, {
+        serviceType: CATALOG.furnitureType,
+        service: CATALOG.furniture,
+        stones: [CATALOG.stones[1]],
+    });
+    await expect(page.locator('#requirements-area-sqm-1')).toHaveCount(0);
 
-        await continueToReview(page).click();
-        await expect(page.locator('#requirements-area-sqm-1-error')).toHaveText(
-            'Enter the project area (sqm).',
-        );
-        await expectStep(page, 3);
-    }
-
-    // On the last one, a value of one's own through Other.
-    await chooseLocation(page, 'Makati');
-    await answerDeadline(page);
-    await answerQuestion(page, 'area-sqm', '3.75', { own: true });
-    await answerQuestion(page, 'size', '60 x 60 cm');
-    await continueToReview(page).click();
-    await expectStep(page, REVIEW);
-
-    const reference = await sendAndReadReference(page);
-
-    expect(storedAnswer(reference, 'area_sqm')?.number_value).toBe('3.75');
-
-    await page.goto(`/dashboard/quote/${reference}`);
-    await expect(page.getByTestId('project-answers')).toContainText(
-        'Project area (sqm)3.75',
-    );
-
-    for (const serviceId of ['dining-tables', 'other-customized-furniture']) {
+    // Furniture is measured by its size and seaters: an area is refused.
+    for (const serviceId of FURNITURE_SLUGS) {
         artisan('cache:clear');
         const answer = await postAsUser(page, '/dashboard/quote/inquire', {
             projects: [
@@ -459,32 +432,7 @@ test('60 · the larger furniture asks "Project area (sqm)" and needs it; a small
                             finish: CATALOG.finishes[0],
                         },
                     ],
-                    answers: {},
-                }),
-            ],
-        });
-
-        expect(answer.status, serviceId).toBe(422);
-        expect(Object.keys(answer.json?.errors ?? {}), serviceId).toContain(
-            'projects.0.answers.area_sqm',
-        );
-    }
-
-    // A small piece is measured by its size: an area is refused.
-    for (const serviceId of SMALL_FURNITURE_SLUGS) {
-        artisan('cache:clear');
-        const answer = await postAsUser(page, '/dashboard/quote/inquire', {
-            projects: [
-                projectPayload({
-                    serviceId,
-                    stones: [
-                        {
-                            stoneId: 'arabescato-white',
-                            edge: CATALOG.edges[0],
-                            finish: CATALOG.finishes[0],
-                        },
-                    ],
-                    answers: { area_sqm: '0.5', size: '60 x 60 cm' },
+                    answers: { area_sqm: '0.5' },
                 }),
             ],
         });
@@ -523,7 +471,9 @@ test('61 · the edit page keeps a listed and a custom size and thickness, and ch
     await expectStep(page, 3);
     // The listed size reads back as picked; the custom thickness as its parts.
     await expect(page.locator(`#${sizeId(0)}`)).toContainText(SLAB_SIZE);
-    await expect(page.locator(`#${thicknessId(0)}`)).toContainText('Other');
+    await expect(page.locator(`#${thicknessId(0)}`)).toContainText(
+        'Custom thickness',
+    );
     await expect(page.locator(`#${thicknessId(0)}-value`)).toHaveValue('25');
     await expect(page.locator(`#${thicknessId(0)}-unit`)).toContainText('mm');
 
@@ -578,27 +528,6 @@ test('61 · the edit page keeps a listed and a custom size and thickness, and ch
     await expect(page).toHaveURL(new RegExp(`/quote/${countertop}$`));
     await expect(page.getByTestId('project-answers')).toContainText('FasciaNo');
     expect(storedAnswer(countertop, 'fascia')?.boolean_value).toBe(false);
-
-    // A furniture project's area.
-    await freshInquire(page);
-    await addStoneProject(page, {
-        serviceType: CATALOG.furnitureType,
-        service: CATALOG.furniture,
-        rows: [{ edge: CATALOG.edges[0], finish: CATALOG.finishes[0] }],
-        questions: { seaters: '6', 'table-base': 'Wood' },
-    });
-    const table = await sendAndReadReference(page);
-
-    expect(storedAnswer(table, 'area_sqm')?.number_value).toBe('2.00');
-
-    await page.goto(`/dashboard/quote/${table}/edit`);
-    await expectStep(page, 3);
-    await answerQuestion(page, 'area-sqm', '10');
-    await continueToReview(page).click();
-    await expectStep(page, REVIEW);
-    await page.getByRole('button', { name: 'Save changes' }).click();
-    await expect(page).toHaveURL(new RegExp(`/quote/${table}$`));
-    expect(storedAnswer(table, 'area_sqm')?.number_value).toBe('10.00');
 });
 
 test('62 · a draft keeps a listed and a custom size and thickness, fascia and area across a reload', async ({
@@ -808,7 +737,7 @@ test('66 · a Crazy Cut row offers no set size, only Other with how big the piec
     await pickStone(page, crazyCut.name);
     await pressNext(page, 2);
 
-    expect(await listedOptions(page, sizeId(0))).toEqual(['Other']);
+    expect(await listedOptions(page, sizeId(0))).toEqual(['Custom size']);
     await expect(page.locator(`#${sizeId(0)}-hint`)).toHaveText(
         'Diameter 15–40 cm',
     );
@@ -816,7 +745,7 @@ test('66 · a Crazy Cut row offers no set size, only Other with how big the piec
         '2 cm',
         '3 cm',
         '4 cm',
-        'Other',
+        'Custom thickness',
     ]);
 });
 
@@ -834,20 +763,20 @@ test('67 · the thickness follows the size on Cosmic Black, across a reload and 
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         '20 mm',
         '0.75 in',
-        'Other',
+        'Custom thickness',
     ]);
 
     await chooseInSelect(page, sizeId(0), '60 x 120 cm');
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         '20 mm',
-        'Other',
+        'Custom thickness',
     ]);
 
     await chooseInSelect(page, sizeId(0), '160 x 320 cm');
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         '20 mm',
         '0.75 in',
-        'Other',
+        'Custom thickness',
     ]);
 
     // A listed thickness the new size is not cut in is cleared, and needed again.
@@ -880,7 +809,7 @@ test('67 · the thickness follows the size on Cosmic Black, across a reload and 
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         '20 mm',
         '0.75 in',
-        'Other',
+        'Custom thickness',
     ]);
 
     // Back on 60 x 120 cm, and the narrowed list survives a reload.
@@ -891,7 +820,7 @@ test('67 · the thickness follows the size on Cosmic Black, across a reload and 
     await expect(page.locator(`#${sizeId(0)}`)).toContainText('60 x 120 cm');
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         '20 mm',
-        'Other',
+        'Custom thickness',
     ]);
 
     await continueToReview(page).click();
@@ -903,7 +832,7 @@ test('67 · the thickness follows the size on Cosmic Black, across a reload and 
     await expect(page.locator(`#${thicknessId(0)}`)).toContainText('20 mm');
     expect(await listedOptions(page, thicknessId(0))).toEqual([
         '20 mm',
-        'Other',
+        'Custom thickness',
     ]);
 });
 

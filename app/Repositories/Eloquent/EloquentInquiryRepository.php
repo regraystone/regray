@@ -207,7 +207,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                         ->orWhereHas('stones.stone', fn (Builder $stone) => $stone->where('name', 'ILIKE', $pattern));
                 });
             })
-            ->with('service:id,slug,name')
+            ->with(['service:id,slug,name', 'application:id,slug,name'])
             ->withJobOrderFlag()
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
@@ -346,6 +346,11 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
                 'service.features',
                 'service.stoneTypes:stone_types.id,stone_types.slug',
                 'service.detailFields.options.services:services.id',
+                // The edit page lists them as the service's third dropdown (InquiryServiceResource).
+                'service.applications.features',
+                'service.applications.stoneTypes:stone_types.id,stone_types.slug',
+                'service.applications.detailFields.options.services:services.id',
+                'application.detailFields',
                 'detailAnswers.detailField',
                 'detailAnswers.option',
                 'brands:id,slug,name,logo_path,sort_order',

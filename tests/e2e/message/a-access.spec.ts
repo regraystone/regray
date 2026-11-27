@@ -10,10 +10,12 @@ test('1 · a client with no inquiry sees "Regray" first, empty, with the empty-s
     await page.goto('/dashboard/inbox');
 
     const names = page.getByTestId('conversation-name');
-    await expect(names.first()).toHaveText('Regray');
+    await expect(names.first()).toHaveText('Regray Sales Team');
 
     await page.getByTestId('conversation-row').first().click();
-    await expect(page.getByTestId('thread-title')).toHaveText('Regray');
+    await expect(page.getByTestId('thread-title')).toHaveText(
+        'Regray Sales Team',
+    );
     await expect(page.getByTestId('thread-empty')).toBeVisible();
     await expect(page.getByTestId('thread-empty')).not.toBeEmpty();
     await expect(page.getByTestId('message-bubble')).toHaveCount(0);

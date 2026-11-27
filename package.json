@@ -10,6 +10,7 @@
         "check:fix": "vp check --fix",
         "types:check": "tsc --noEmit",
         "test": "node --test \"tests/js/*.test.mjs\"",
+        "test:core": "node --test tests/js/assignment.test.mjs tests/js/booking-schema.test.mjs tests/js/booking-slots.test.mjs tests/js/inquiry-flow.test.mjs tests/js/inquiry-form-rules.test.mjs tests/js/inquiry-measurements.test.mjs tests/js/inquiry-request.test.mjs tests/js/inquiry-statuses.test.mjs tests/js/quote-actions.test.mjs tests/js/rate-limit.test.mjs",
         "e2e": "playwright test tests/e2e/inquiry"
     },
     "dependencies": {

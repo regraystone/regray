@@ -96,9 +96,10 @@ describe('the seeded inquiries', function (): void {
     });
 
     it('answer what their service asks and nothing else, on the stone rows and for the project', function (): void {
-        foreach ($this->inquiries->load(['service.detailFields', 'stones', 'detailAnswers.detailField']) as $inquiry) {
+        foreach ($this->inquiries->load(['service.detailFields', 'application.detailFields', 'stones', 'detailAnswers.detailField']) as $inquiry) {
             $asked = $inquiry->service->detailFields->keyBy('slug');
-            $required = $asked->filter(fn ($field): bool => $field->scope === DetailFieldScope::Project && $field->isRequiredByService())->keys()->sort()->values()->all();
+            // The project's own questions are its application's, where it has one.
+            $required = ($inquiry->application?->detailFields->keyBy('slug') ?? $asked)->filter(fn ($field): bool => $field->scope === DetailFieldScope::Project && $field->isRequiredByService())->keys()->sort()->values()->all();
             $answered = $inquiry->detailAnswers->map(fn ($answer): string => $answer->detailField->slug)->sort()->values()->all();
 
             expect($answered)->toBe($required, $inquiry->reference);

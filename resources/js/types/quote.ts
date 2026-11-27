@@ -146,6 +146,8 @@ export type QuoteInquiryDetails = {
         brandNoPreference: boolean;
         serviceType: string | null;
         service: string | null;
+        /** What a service with an installation is for (Flooring…), null for none. */
+        application?: string | null;
         /** False for a service that asks for no stones, which has no Stones section. */
         requiresStones: boolean;
         stones: Array<{

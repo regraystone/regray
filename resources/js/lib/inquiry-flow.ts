@@ -228,6 +228,9 @@ export const nextQuestion = (
         ? REQUIREMENTS_STEP
         : Math.min(step + 1, REVIEW_STEP);
 
+/** What a service that asks an application says with none picked; StoreInquiryRequest says the same. */
+export const APPLICATION_MISSING = 'Choose the application.';
+
 /** The answers that decide how far the questions go. */
 export type DraftProgress = {
     /** Unknown counts as answered, for a draft saved before the brand question. */
@@ -238,6 +241,8 @@ export type DraftProgress = {
     stoneAdvice?: boolean;
     /** False when the chosen service asks for no stones; unknown counts as true. */
     requiresStones?: boolean;
+    /** True while the service asks an application and none is picked yet. */
+    applicationMissing?: boolean;
 };
 
 /** Whether the brand question is answered: a brand, or No preference. */
@@ -256,7 +261,7 @@ const brandAnswered = (draft: DraftProgress): boolean =>
 export const furthestQuestion = (draft: DraftProgress): number =>
     !brandAnswered(draft)
         ? BRAND_STEP
-        : draft.serviceId === ''
+        : draft.serviceId === '' || draft.applicationMissing === true
           ? SERVICE_STEP
           : draft.requiresStones === false ||
               draft.stoneIds.length > 0 ||
@@ -272,7 +277,10 @@ export const questionProblem = (
     question: number,
     draft: DraftProgress,
     offeredServiceIds: ReadonlySet<string>,
-): { field: 'brands' | 'serviceId' | 'stoneIds'; message: string } | null => {
+): {
+    field: 'brands' | 'serviceId' | 'applicationId' | 'stoneIds';
+    message: string;
+} | null => {
     if (question === BRAND_STEP && !brandAnswered(draft)) {
         return {
             field: 'brands',
@@ -282,6 +290,10 @@ export const questionProblem = (
 
     if (question === SERVICE_STEP && !offeredServiceIds.has(draft.serviceId)) {
         return { field: 'serviceId', message: 'Choose what you need.' };
+    }
+
+    if (question === SERVICE_STEP && draft.applicationMissing === true) {
+        return { field: 'applicationId', message: APPLICATION_MISSING };
     }
 
     if (
@@ -340,6 +352,13 @@ export const clampRestoredStep = (
 
 export const STONE_ADVICE_LABEL = 'Stone to be recommended by Regray';
 
+/**
+ * The one thickness a stone row lists when its stone comes in none listed:
+ * Regray confirms it in the quote. The server stores it as no thickness
+ * (DetailField::THICKNESS_ADVICE holds the same words).
+ */
+export const THICKNESS_ADVICE = 'To be advised by Regray';
+
 /** How a table shape asks the size: a round table's diameter, or width x length. */
 export type SizeKind = 'diameter' | 'width_length';
 
@@ -375,6 +394,10 @@ export type ServiceField = {
     answerType: 'text' | 'number' | 'choice' | 'boolean';
     required: boolean;
     allowsCustom: boolean;
+    /** What the entry that opens the free entry reads ("Custom size"); none reads Other. */
+    customLabel?: string | null;
+    /** The line under the box that entry opens ("Enter your desired size."). */
+    customHint?: string | null;
     /** Asked with picture cards rather than a dropdown: its choices have pictures. */
     pictures?: boolean;
     options: ServiceFieldChoice[];
@@ -470,7 +493,70 @@ export type ServiceOption = {
     stoneTypes: string[];
     requiresStones: boolean;
     fulfillment: Fulfillment;
+    /** The line under "How would you like to get it?". */
+    deliveryNote?: string | null;
+    /** The line under "When do you need it?". */
+    scheduleNote?: string | null;
+    /** The fewest days from today its date may be; 0 is today. */
+    leadDays?: number;
     fields: ServiceField[];
+    /**
+     * Whether it asks which application (a sub-item: Countertop and
+     * Backsplash, Flooring…) the work is for, and the ones it offers. Only
+     * the services with an installation do.
+     */
+    hasApplications?: boolean;
+    applications?: ServiceOption[];
+};
+
+/** How far ahead a project's date may be, in years; StoreInquiryRequest holds the same. */
+export const DEADLINE_YEARS_MAX = 2;
+
+/**
+ * A `YYYY-MM-DD` day this many days later, by the calendar (no time of day,
+ * so no time zone can move it).
+ */
+export const addDaysIso = (iso: string, days: number): string => {
+    const [year, month, day] = iso.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + days));
+
+    return date.toISOString().slice(0, 10);
+};
+
+/** The furthest day a project's date may be, from today. */
+export const latestNeededBy = (today: string): string =>
+    today.replace(/^\d{4}/, (year) =>
+        String(Number(year) + DEADLINE_YEARS_MAX),
+    );
+
+/** What a date sooner than a service's lead time is told, as StoreInquiryRequest says it. */
+export const leadTimeMessage = (days: number): string =>
+    `Choose a date at least ${days} ${days === 1 ? 'day' : 'days'} from today.`;
+
+/**
+ * Why a project's date is refused for its service, or null: sooner than
+ * its lead time (`leadDays` from today), or further than DEADLINE_YEARS_MAX
+ * ahead. The date an edit already has (`held`) may stay however soon.
+ */
+export const neededByProblem = (
+    date: string,
+    service: Pick<ServiceOption, 'leadDays'> | undefined,
+    today: string,
+    held: string | null = null,
+): string | null => {
+    if (date === '' || date === held) {
+        return null;
+    }
+
+    const lead = service?.leadDays ?? 0;
+
+    if (lead > 0 && date < addDaysIso(today, lead)) {
+        return leadTimeMessage(lead);
+    }
+
+    return date > latestNeededBy(today)
+        ? `Choose a date within the next ${DEADLINE_YEARS_MAX} years.`
+        : null;
 };
 
 /**
@@ -549,14 +635,94 @@ export const projectFields = (
 ): ServiceField[] =>
     (service?.fields ?? []).filter((field) => field.scope === 'project');
 
-/** The service of this id, under whichever type offers it. */
-export const findService = <Service extends { id: string }>(
+/**
+ * The service of this id, under whichever type offers it, or an application
+ * of one (a sub-item is a service too, offered under the services that ask
+ * it).
+ */
+export const findService = <
+    Service extends { id: string; applications?: Service[] },
+>(
     serviceTypes: ReadonlyArray<{ services: Service[] }>,
     serviceId: string,
 ): Service | undefined =>
-    serviceTypes
-        .flatMap(({ services }) => services)
-        .find(({ id }) => id === serviceId);
+    serviceId === ''
+        ? undefined
+        : serviceTypes
+              .flatMap(({ services }) => services)
+              .flatMap((service) => [service, ...(service.applications ?? [])])
+              .find(({ id }) => id === serviceId);
+
+/** Whether a service asks which application the work is for. */
+export const asksApplication = (
+    service:
+        | Pick<ServiceOption, 'hasApplications' | 'applications'>
+        | undefined,
+): boolean =>
+    service?.hasApplications === true &&
+    (service.applications ?? []).length > 0;
+
+/**
+ * The service as a project with this application asks it: each stone is
+ * asked what the service asks of a stone (pieces, slab size, thickness, edge,
+ * finish), the project what the application asks (the area, a fascia, a
+ * waterfall), and the stones offered are the application's own types. With
+ * no application picked, or a service that asks none, the service as it is.
+ * StoreInquiryRequest asks the same.
+ */
+export const withApplication = (
+    service: ServiceOption | undefined,
+    applicationId: string,
+): ServiceOption | undefined => {
+    const application = asksApplication(service)
+        ? service?.applications?.find(({ id }) => id === applicationId)
+        : undefined;
+
+    if (service === undefined || application === undefined) {
+        return service;
+    }
+
+    return {
+        ...service,
+        stoneTypes:
+            application.stoneTypes.length > 0
+                ? application.stoneTypes
+                : service.stoneTypes,
+        fields: [
+            ...service.fields.filter(({ scope }) => scope === 'stone'),
+            ...application.fields.filter(({ scope }) => scope === 'project'),
+        ],
+    };
+};
+
+/** The service a project is asked by: its service, with its application if it has one. */
+export const findProjectService = (
+    serviceTypes: ReadonlyArray<{ services: ServiceOption[] }>,
+    serviceId: string,
+    applicationId: string,
+): ServiceOption | undefined =>
+    withApplication(findService(serviceTypes, serviceId), applicationId);
+
+/**
+ * The service whose stones a project picks from: its application when it
+ * has one, since each application is made from its own stone types.
+ */
+export const stoneServiceId = (
+    serviceId: string,
+    applicationId: string,
+): string => (applicationId === '' ? serviceId : applicationId);
+
+/** "Slab Supply and Installation · Flooring", or the service alone. */
+export const serviceLabel = (
+    service: Pick<ServiceOption, 'name' | 'applications'> | undefined,
+    applicationId: string,
+): string => {
+    const application = service?.applications?.find(
+        ({ id }) => id === applicationId,
+    );
+
+    return [service?.name, application?.name].filter(Boolean).join(' · ');
+};
 
 /** What a yes or no question is answered with on the page. */
 export const YES = 'yes';
@@ -866,8 +1032,11 @@ export const thicknessAfterSizeChange = (
 /**
  * The question as one stone row asks it: a slab size lists that row's
  * stone's own sizes, a thickness the ones its chosen size is cut in
- * (thicknessOptionsFor), and either lists none for a stone with none, which
- * leaves only Other; every other question is as the service sent it.
+ * (thicknessOptionsFor); every other question is as the service sent it.
+ *
+ * A slab size with none listed leaves only Other. A thickness that takes no
+ * entry of one's own (`allowsCustom` false) and has none listed offers
+ * THICKNESS_ADVICE alone, so the row is still answered from a list.
  */
 export const questionForStone = (
     field: ServiceField,
@@ -880,12 +1049,24 @@ export const questionForStone = (
         return field;
     }
 
+    if (kind === 'size') {
+        return { ...field, suggestions: stone?.sizes ?? [] };
+    }
+
+    const listed = thicknessOptionsFor(stone, row.slabSize);
+
     return {
         ...field,
         suggestions:
-            kind === 'size'
-                ? (stone?.sizes ?? [])
-                : thicknessOptionsFor(stone, row.slabSize),
+            listed.length === 0 && !field.allowsCustom
+                ? [
+                      {
+                          value: THICKNESS_ADVICE,
+                          label: THICKNESS_ADVICE,
+                          isAdvisory: true,
+                      },
+                  ]
+                : listed,
     };
 };
 
@@ -914,6 +1095,11 @@ export const answerProblem = (
     }
 
     const kind = measurementKind(field);
+
+    // Regray's advice stands for a thickness; the server checks it is the stone's only answer.
+    if (kind === 'thickness' && value === THICKNESS_ADVICE) {
+        return null;
+    }
 
     if (kind !== null) {
         return measurementProblem(kind, value);
@@ -1032,7 +1218,10 @@ export const CUSTOM_STONE_FURNITURE = 'custom-stone-furniture';
 export const serviceChoiceLabel = (serviceTypeId: string): string =>
     serviceTypeId === CUSTOM_STONE_FURNITURE
         ? 'Which furniture?'
-        : 'Which application?';
+        : 'Which service?';
+
+/** What the third dropdown asks, under a service with an installation. */
+export const APPLICATION_CHOICE_LABEL = 'Which application?';
 
 /* ------------------------------------------------------------------ */
 /* Finding a stone                                                      */
@@ -1219,6 +1408,8 @@ export type CommitDraft = {
     name: string;
     serviceTypeId: string;
     serviceId: string;
+    /** The application (sub-item) a service with an installation asks; '' for none. */
+    applicationId: string;
     stoneIds: string[];
     /** The reader asked Regray to recommend a stone instead of choosing one. */
     stoneAdvice: boolean;
@@ -1252,6 +1443,7 @@ export const buildCommittedProject = <T extends CommitDraft>(
         name: draft.name,
         serviceTypeId: draft.serviceTypeId,
         serviceId: draft.serviceId,
+        applicationId: draft.applicationId,
         stoneAdvice: draft.stoneAdvice,
         stones: draft.stones.map((row) => ({ ...row })),
         answers: { ...draft.answers },
@@ -1286,6 +1478,8 @@ export type RequestProject = {
     id?: string;
     name: string;
     serviceId: string;
+    /** The application a service with an installation asks; '' or absent for none. */
+    applicationId?: string;
     stoneAdvice: boolean;
     stones: StoneRow[];
     answers: Record<string, string>;
@@ -1307,7 +1501,10 @@ export type RequestProject = {
  *
  * Only what the project's service asks is sent (`fieldsFor`): a stone row's
  * answers to its stone-scope questions, and the project answers to the rest,
- * a yes or no as 1 or 0. A service that asks for no stones sends no stones and
+ * a yes or no as 1 or 0. A project with an application sends it as
+ * `projects[i][applicationId]`, and its answers are the application's
+ * (serviceFor gives the service as withApplication asks it). A service that
+ * asks for no stones sends no stones and
  * no Help me choose. What the reader typed for a question the service no
  * longer asks stays on the page but is not sent, since the server refuses it.
  *
@@ -1331,7 +1528,11 @@ export const buildInquiryFormData = (
         addressSource = 'book',
     }: {
         withProjectIds?: boolean;
-        serviceFor: (serviceId: string) =>
+        /** The service as the project is asked it, with its application (withApplication). */
+        serviceFor: (
+            serviceId: string,
+            applicationId: string,
+        ) =>
             | (Pick<ServiceOption, 'fields' | 'requiresStones'> & {
                   fulfillment?: Fulfillment;
               })
@@ -1343,7 +1544,8 @@ export const buildInquiryFormData = (
 
     values.projects.forEach((project, i) => {
         const field = (name: string): string => `projects[${i}][${name}]`;
-        const service = serviceFor(project.serviceId);
+        const applicationId = project.applicationId ?? '';
+        const service = serviceFor(project.serviceId, applicationId);
         const takesStones = service?.requiresStones !== false;
 
         if (withProjectIds && project.id !== undefined) {
@@ -1352,6 +1554,11 @@ export const buildInquiryFormData = (
 
         body.append(field('name'), project.name);
         body.append(field('serviceId'), project.serviceId);
+
+        if (applicationId !== '') {
+            body.append(field('applicationId'), applicationId);
+        }
+
         body.append(
             field('stoneAdvice'),
             takesStones && project.stoneAdvice ? '1' : '0',
@@ -1631,6 +1838,8 @@ export type InquiryEditProject = {
     name: string;
     serviceTypeId: string | null;
     serviceId: string | null;
+    /** The application (sub-item) it is for, null for none. */
+    applicationId?: string | null;
     /** The service it already has, which may no longer be offered to new inquiries. */
     heldServiceType: ServiceTypeOption | null;
     /**
@@ -1690,6 +1899,7 @@ export type EditFormProject = {
     name: string;
     serviceTypeId: string;
     serviceId: string;
+    applicationId: string;
     stoneAdvice: boolean;
     stones: StoneRow[];
     answers: Record<string, string>;
@@ -1744,6 +1954,7 @@ export const toEditFormProjects = (
         name: project.name,
         serviceTypeId: project.serviceTypeId ?? '',
         serviceId: project.serviceId ?? '',
+        applicationId: project.applicationId ?? '',
         stoneAdvice: project.stoneAdviceRequested,
         stones: project.stones.map((row) => ({
             stoneId: row.stoneId,

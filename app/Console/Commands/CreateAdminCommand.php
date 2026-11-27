@@ -47,7 +47,11 @@ class CreateAdminCommand extends Command
         }
 
         try {
-            $user = $this->action->execute($name, $email, $password);
+            $user = $this->action->execute(
+                is_string($name) ? $name : '',
+                is_string($email) ? $email : '',
+                is_string($password) ? $password : '',
+            );
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
 

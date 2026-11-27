@@ -55,9 +55,15 @@ export type ServiceValues = {
     description: string;
     features: { text: string }[];
     requires_stones: boolean;
+    is_application: boolean;
+    has_applications: boolean;
     stone_type_ids: number[];
     /** A Fulfillment, or '' until one is chosen. */
     fulfillment: string;
+    delivery_note: string;
+    schedule_note: string;
+    /** Days, as typed; '' is none. */
+    lead_days: string;
     /** Chosen from the Questions page's list, in the order asked. */
     questions: AddedQuestion[];
     is_active: boolean;
@@ -70,8 +76,13 @@ const emptyValues = (typeId: number | null): ServiceValues => ({
     description: '',
     features: [],
     requires_stones: true,
+    is_application: false,
+    has_applications: false,
     stone_type_ids: [],
     fulfillment: '',
+    delivery_note: '',
+    schedule_note: '',
+    lead_days: '',
     questions: [],
     is_active: true,
     sort_order: '0',
@@ -83,8 +94,13 @@ const fromRow = (service: ServiceRow): ServiceValues => ({
     description: service.description,
     features: service.features.map((text) => ({ text })),
     requires_stones: service.requiresStones,
+    is_application: service.isApplication,
+    has_applications: service.hasApplications,
     stone_type_ids: service.stoneTypes.map((type) => type.id),
     fulfillment: service.fulfillment,
+    delivery_note: service.deliveryNote ?? '',
+    schedule_note: service.scheduleNote ?? '',
+    lead_days: service.leadDays === null ? '' : String(service.leadDays),
     questions: service.questions.map(({ id, name, required }) => ({
         id,
         name,
@@ -136,10 +152,35 @@ const serviceSchema = (limits: ServiceLimits, questions: QuestionOption[]) =>
                     `A service can list ${limits.featuresMax} things it includes at most.`,
                 ),
             requires_stones: z.boolean(),
+            is_application: z.boolean(),
+            has_applications: z.boolean(),
             stone_type_ids: z.array(z.number()),
             fulfillment: z
                 .string()
                 .min(1, 'Choose how the work reaches the client.'),
+            delivery_note: z
+                .string()
+                .trim()
+                .max(
+                    limits.noteMax,
+                    `The delivery line can be ${limits.noteMax} characters at most.`,
+                ),
+            schedule_note: z
+                .string()
+                .trim()
+                .max(
+                    limits.noteMax,
+                    `The date line can be ${limits.noteMax} characters at most.`,
+                ),
+            lead_days: z
+                .string()
+                .trim()
+                .regex(/^\d{0,3}$/, 'Enter a whole number of days.')
+                .refine(
+                    (value) =>
+                        value === '' || Number(value) <= limits.leadDaysMax,
+                    `Enter ${limits.leadDaysMax} days or fewer.`,
+                ),
             questions: z.array(
                 z.object({
                     id: z.number(),
@@ -259,9 +300,9 @@ const ServiceForm = ({
         name: 'questions',
         keyName: 'key',
     });
-    const [description, requiresStones] = useWatch({
+    const [description, requiresStones, fulfillment] = useWatch({
         control,
-        name: ['description', 'requires_stones'],
+        name: ['description', 'requires_stones', 'fulfillment'],
     });
 
     useEffect(() => {
@@ -352,8 +393,22 @@ const ServiceForm = ({
             description: values.description,
             features: values.features.map((feature) => feature.text),
             requires_stones: values.requires_stones,
+            is_application: values.is_application,
+            // An application is asked under a service; it has none of its own.
+            has_applications: values.is_application
+                ? false
+                : values.has_applications,
             stone_type_ids: values.requires_stones ? values.stone_type_ids : [],
             fulfillment: values.fulfillment,
+            delivery_note:
+                values.fulfillment === 'installed'
+                    ? ''
+                    : values.delivery_note.trim(),
+            schedule_note: values.schedule_note.trim(),
+            lead_days:
+                values.lead_days.trim() === ''
+                    ? null
+                    : Number(values.lead_days),
             questions: values.questions.map((question) => ({
                 id: question.id,
                 required: question.required,
@@ -582,6 +637,71 @@ const ServiceForm = ({
                     ) : null}
                 </Section>
 
+                <Section title="Applications" as="fieldset">
+                    <Controller
+                        control={control}
+                        name="has_applications"
+                        render={({ field }) => (
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <label
+                                        htmlFor="service-has-applications"
+                                        className="text-sm font-bold"
+                                    >
+                                        Asks the application
+                                    </label>
+                                    <p
+                                        id="service-has-applications-hint"
+                                        className="mt-1 text-sm text-secondary-foreground"
+                                    >
+                                        The client also says what the work is
+                                        for, from this type&rsquo;s
+                                        applications, like Slab Supply and
+                                        Installation.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="service-has-applications"
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    aria-describedby="service-has-applications-hint"
+                                />
+                            </div>
+                        )}
+                    />
+                    <Controller
+                        control={control}
+                        name="is_application"
+                        render={({ field }) => (
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <label
+                                        htmlFor="service-is-application"
+                                        className="text-sm font-bold"
+                                    >
+                                        Is an application
+                                    </label>
+                                    <p
+                                        id="service-is-application-hint"
+                                        className="mt-1 text-sm text-secondary-foreground"
+                                    >
+                                        Listed under the services that ask the
+                                        application, like Flooring, rather than
+                                        as a service of its own. Its questions
+                                        about the project are asked there.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="service-is-application"
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    aria-describedby="service-is-application-hint"
+                                />
+                            </div>
+                        )}
+                    />
+                </Section>
+
                 <Section title="Stones" as="fieldset">
                     <Controller
                         control={control}
@@ -702,6 +822,68 @@ const ServiceForm = ({
                             {formState.errors.fulfillment.message}
                         </p>
                     ) : null}
+                    {fulfillment !== 'installed' ? (
+                        <FormField
+                            id="service-delivery-note"
+                            label="Delivery line"
+                            error={formState.errors.delivery_note?.message}
+                            hint="Shown under the delivery method on the Inquire page once Delivery is picked, such as how long a delivery takes."
+                        >
+                            {({ describedBy, invalid }) => (
+                                <Textarea
+                                    id="service-delivery-note"
+                                    rows={3}
+                                    maxLength={limits.noteMax}
+                                    className="mt-2 rounded-none"
+                                    aria-describedby={describedBy}
+                                    aria-invalid={invalid}
+                                    {...register('delivery_note')}
+                                />
+                            )}
+                        </FormField>
+                    ) : null}
+                </Section>
+
+                <Section title="When it can be ready" as="fieldset">
+                    <FormField
+                        id="service-schedule-note"
+                        label="Date line"
+                        error={formState.errors.schedule_note?.message}
+                        hint="Shown under the date on the Inquire page, such as how long a ready-made piece or a custom design takes."
+                    >
+                        {({ describedBy, invalid }) => (
+                            <Textarea
+                                id="service-schedule-note"
+                                rows={3}
+                                maxLength={limits.noteMax}
+                                className="mt-2 rounded-none"
+                                aria-describedby={describedBy}
+                                aria-invalid={invalid}
+                                {...register('schedule_note')}
+                            />
+                        )}
+                    </FormField>
+                    <FormField
+                        id="service-lead-days"
+                        label="Fewest days ahead"
+                        error={formState.errors.lead_days?.message}
+                        hint="The soonest date a client may ask for, in days from today. Left empty or 0, any date from today."
+                    >
+                        {({ describedBy, invalid }) => (
+                            <Input
+                                id="service-lead-days"
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                max={limits.leadDaysMax}
+                                step={1}
+                                className="mt-2 w-32 rounded-none"
+                                aria-describedby={describedBy}
+                                aria-invalid={invalid}
+                                {...register('lead_days')}
+                            />
+                        )}
+                    </FormField>
                 </Section>
 
                 <Section title="Questions" as="fieldset">

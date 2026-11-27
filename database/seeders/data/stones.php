@@ -65,7 +65,7 @@ return [
             'origin' => 'South Africa',
             'thicknesses' => [[20, 'mm'], [30, 'mm'], [2, 'cm']],
             'sizes' => [[60, 120, 'cm'], [160, 320, 'cm'], [180, 300, 'cm']],
-            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories', 'center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'],
+            'services' => ['slab-supply-only', 'slab-supply-and-installation', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories'],
         ],
         [
             'slug' => 'onyx',

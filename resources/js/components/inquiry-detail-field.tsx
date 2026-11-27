@@ -28,6 +28,9 @@ import {
 /** The entry of a suggestion list that opens the free input. */
 const OTHER = '__other__';
 
+/** What that entry reads when its question names it nothing else (`customLabel`). */
+const OTHER_LABEL = 'Other';
+
 const SELECT_CLASS = 'w-full rounded-none text-base data-[size=default]:h-11';
 
 /** The parts of a measurement typed under Other, before they are one value. */
@@ -244,7 +247,8 @@ const MeasurementEntry = ({
  * hands in the question with them as its suggestions), and its Other is a
  * measurement of one's own (MeasurementEntry) rather than free text. Its list
  * is drawn even when the stone has none to offer, as Other alone, so every
- * row answers it the same way.
+ * row answers it the same way. A thickness takes no Other (`allowsCustom`
+ * false): a stone with none lists "To be advised by Regray" alone.
  *
  * A table's size follows its table shape (`sizeKind`): a round table is
  * asked its diameter alone, a rectangular one width x length (its
@@ -254,6 +258,10 @@ const MeasurementEntry = ({
  *
  * A list's picked choice says what it is (`description`) under the list, as
  * a service's description sits under the service picked.
+ *
+ * The entry that opens the free input reads the question's own words
+ * (`customLabel`, "Custom size"; none: Other), and the question's line
+ * (`customHint`, "Enter your desired size.") sits under the input it opens.
  *
  * The value is the form's plain string (`''` while unanswered), so the same
  * control serves a stone row's answer and a project answer. Whether the free
@@ -301,8 +309,10 @@ const InquiryDetailField = ({
         (field.suggestions.length > 0 || (kind !== null && field.allowsCustom));
     const picked =
         field.answerType === 'choice' ? pickedChoice(field, value) : undefined;
+    // A question that takes nothing of one's own (a thickness) never opens the entry.
     const [isCustom, setIsCustom] = useState(
         () =>
+            field.allowsCustom &&
             hasSuggestions &&
             value !== '' &&
             !field.suggestions.some((option) => option.value === value),
@@ -510,7 +520,10 @@ const InquiryDetailField = ({
                                 choose(next);
                             },
                             field.allowsCustom
-                                ? { value: OTHER, label: 'Other' }
+                                ? {
+                                      value: OTHER,
+                                      label: field.customLabel || OTHER_LABEL,
+                                  }
                                 : undefined,
                         )}
                         {isCustom
@@ -518,6 +531,16 @@ const InquiryDetailField = ({
                                 ? freeInput(accessibility)
                                 : measurementEntry(accessibility)
                             : null}
+                        {isCustom && field.customHint ? (
+                            <p
+                                className={`text-sm leading-normal text-secondary-foreground${
+                                    kind === null ? ' col-span-2' : ''
+                                }`}
+                                data-testid="custom-hint"
+                            >
+                                {field.customHint}
+                            </p>
+                        ) : null}
                     </div>
                 );
             }}

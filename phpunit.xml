@@ -3,6 +3,7 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
+         defaultTestSuite="Unit,Feature"
 >
     <testsuites>
         <testsuite name="Unit">
@@ -10,6 +11,49 @@
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+        </testsuite>
+        <!--
+            Core: the tests CI runs on every pull request and before a deploy
+            (`composer ci:check`). Sign-in, permissions, the inquiry, quote,
+            schedule and messaging flows, the schema, and the ops commands.
+            Everything else still runs locally with `php artisan test` or
+            `composer ci:full`. Not part of the default run, so nothing runs twice.
+        -->
+        <testsuite name="Core">
+            <directory>tests/Unit</directory>
+            <file>tests/Feature/Account/AccountSignInTest.php</file>
+            <file>tests/Feature/Account/AccountStatusTest.php</file>
+            <file>tests/Feature/Account/PasswordChangeTest.php</file>
+            <file>tests/Feature/Auth/GoogleSignInTest.php</file>
+            <file>tests/Feature/Auth/RegistrationConsentTest.php</file>
+            <file>tests/Feature/BackupDatabaseCommandTest.php</file>
+            <file>tests/Feature/Database/SchemaTest.php</file>
+            <file>tests/Feature/HealthCheckCommandTest.php</file>
+            <file>tests/Feature/Inquiry/CreateInquiryActionTest.php</file>
+            <file>tests/Feature/Inquiry/CreateInquiryEndToEndTest.php</file>
+            <file>tests/Feature/Inquiry/InquiryControllerTest.php</file>
+            <file>tests/Feature/Inquiry/InquiryFulfillmentTest.php</file>
+            <file>tests/Feature/Inquiry/InquiryVisibilityTest.php</file>
+            <file>tests/Feature/Inquiry/StoreInquiryRequestTest.php</file>
+            <file>tests/Feature/Inquiry/WalkInOwnershipTest.php</file>
+            <file>tests/Feature/Message/BroadcastChannelsTest.php</file>
+            <file>tests/Feature/Message/ConversationPolicyTest.php</file>
+            <file>tests/Feature/Message/MessageAttachmentsTest.php</file>
+            <file>tests/Feature/Message/RealtimeAccessTest.php</file>
+            <file>tests/Feature/PermissionMatrixTest.php</file>
+            <file>tests/Feature/ProxyTest.php</file>
+            <file>tests/Feature/Quote/InquiryFileTest.php</file>
+            <file>tests/Feature/Quote/QuoteActionsTest.php</file>
+            <file>tests/Feature/Quote/QuoteCancelTest.php</file>
+            <file>tests/Feature/Quote/QuoteEditTest.php</file>
+            <file>tests/Feature/RateLimitsTest.php</file>
+            <file>tests/Feature/Schedule/BookingStoreTest.php</file>
+            <file>tests/Feature/Schedule/ScheduleChangeTest.php</file>
+            <file>tests/Feature/Schedule/ScheduleVisibilityTest.php</file>
+            <file>tests/Feature/ScheduleTest.php</file>
+            <file>tests/Feature/Settings/AccountDeletionTest.php</file>
+            <file>tests/Feature/Settings/SecurityTest.php</file>
+            <file>tests/Feature/SuperAdminAccessTest.php</file>
         </testsuite>
     </testsuites>
     <source>

@@ -15,6 +15,7 @@ use Database\Seeders\ChoiceSeeder;
 use Database\Seeders\DetailFieldSeeder;
 use Database\Seeders\EdgeProfileSeeder;
 use Database\Seeders\FurnitureTypeSeeder;
+use Database\Seeders\InquiryFormSeeder;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\ServiceStoneTypeSeeder;
 use Database\Seeders\StoneSeeder;
@@ -54,11 +55,12 @@ it('asks each service its own questions, in order', function (): void {
         'kitchen-islands' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'waterfall_effect'],
         'lavatories' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
         // A small piece is measured by its size, not in square metres.
-        // A table is asked first what it picks by picture (its shape, which says how its size is asked, and its own table's base design), then its base material's list.
-        'center-tables' => ['table_shape', 'table_base_design_center', 'table_base', 'size', 'edge_profile (stone)', 'finish (stone)'],
-        'side-tables' => ['table_shape', 'table_base_design_side', 'table_base', 'size', 'edge_profile (stone)', 'finish (stone)'],
-        'dining-tables' => ['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)'],
-        'other-customized-furniture' => ['area_sqm', 'size', 'finish (stone)'],
+        // A table is asked first its shape (which says how its size is asked), then its own table's base design; no base material.
+        // Its seaters list the table sizes they need; furniture is not measured in square metres.
+        'center-tables' => ['table_shape', 'table_base_design_center', 'size', 'seaters', 'edge_profile (stone)', 'finish (stone)'],
+        'side-tables' => ['table_shape', 'table_base_design_side', 'size', 'seaters', 'edge_profile (stone)', 'finish (stone)'],
+        'dining-tables' => ['table_shape', 'table_base_design_dining', 'seaters', 'edge_profile (stone)', 'finish (stone)'],
+        'other-customized-furniture' => ['size', 'finish (stone)'],
     ])
         ->and(Service::query()->where('requires_stones', false)->pluck('slug')->all())->toBe(['installation-only'])
         ->and(DetailField::query()->where('slug', 'area_sqm')->value('name'))->toBe('Project area (sqm)')
@@ -85,7 +87,9 @@ it('links each stone type to the services it is offered for, and none to Install
     $all = StoneType::query()->pluck('slug')->sort()->values()->all();
     $countertop = ['granite', 'marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite'];
     // Travertine is too porous for a kitchen, but makes bathroom tops and tables.
-    $tables = ['granite', 'marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'];
+    $lavatories = ['granite', 'marble', 'monumental', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'];
+    // Monumental is for surfaces, not furniture.
+    $tables = ['granite', 'marble', 'onyx', 'patagonia-quartzite', 'quartzite', 'travertine'];
 
     expect($links)->toBe([
         'slab-supply-only' => $all,
@@ -97,7 +101,7 @@ it('links each stone type to the services it is offered for, and none to Install
         'flooring' => ['cobblestone', 'crazy-cut', 'granite', 'marble', 'monumental', 'quartzite', 'travertine'],
         'staircase' => ['granite', 'marble', 'monumental', 'quartzite', 'travertine'],
         'kitchen-islands' => $countertop,
-        'lavatories' => $tables,
+        'lavatories' => $lavatories,
         'center-tables' => $tables,
         'side-tables' => $tables,
         'dining-tables' => $tables,
@@ -130,10 +134,6 @@ it('brings a database from before the table questions up to them, keeping what i
     $tableFields = DetailField::query()->where('slug', 'table_shape')->orWhere('slug', 'like', 'table\_base\_design\_%')->pluck('id');
     DB::table('service_detail_fields')->whereIn('detail_field_id', $tableFields)->delete();
     DetailField::query()->whereIn('id', $tableFields)->delete();
-    // Table base was asked of dining tables alone, last.
-    $material = DetailField::query()->where('slug', 'table_base')->value('id');
-    DB::table('service_detail_fields')->where('detail_field_id', $material)->delete();
-    DB::table('service_detail_fields')->insert(['service_id' => Service::query()->where('slug', 'dining-tables')->value('id'), 'detail_field_id' => $material, 'sort_order' => 99, 'is_required' => true]);
     foreach (Service::query()->whereIn('slug', ['center-tables', 'side-tables', 'dining-tables'])->pluck('id') as $serviceId) {
         $asked = DB::table('service_detail_fields')->where('service_id', $serviceId)->orderBy('sort_order')->pluck('detail_field_id');
         foreach ($asked as $sort => $fieldId) {
@@ -152,12 +152,10 @@ it('brings a database from before the table questions up to them, keeping what i
     $once = askedQuestions();
     $this->seed(TableQuestionsSeeder::class);
 
-    expect($once['center-tables'])->toBe(['table_shape', 'table_base_design_center', 'table_base', 'size', 'edge_profile (stone)', 'finish (stone)'])
-        ->and($once['side-tables'])->toBe(['table_shape', 'table_base_design_side', 'table_base', 'size (optional)', 'edge_profile (stone)', 'finish (stone)'])
-        // Dining tables' Table base, asked last, moves up beside the base design.
-        ->and($once['dining-tables'])->toBe(['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
+    expect($once['center-tables'])->toBe(['table_shape', 'table_base_design_center', 'size', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
+        ->and($once['side-tables'])->toBe(['table_shape', 'table_base_design_side', 'size (optional)', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
+        ->and($once['dining-tables'])->toBe(['table_shape', 'table_base_design_dining', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
         ->and(askedQuestions())->toBe($once)
-        ->and(DetailField::query()->where('slug', 'table_base')->value('name'))->toBe('Table base')
         ->and(DetailFieldOption::query()->whereHas('detailField', fn ($query) => $query->where('slug', 'table_base_design_side'))->orderBy('sort_order')->pluck('slug')->all())
         ->toBe(['c-legs-v1', 'c-legs-v2', 'cylindrical-pedestal', 'hourglass-v2', 'custom-design', 'not-sure'])
         ->and(EdgeProfile::query()->where('name', 'Straight Edge')->first()?->only(['description', 'sort_order']))->toBe(['description' => 'Our own words', 'sort_order' => 40])
@@ -180,7 +178,7 @@ it('retires the single base design question the tables shared, and the Pedestal 
         ->and(DB::table('service_detail_fields')->where('detail_field_id', $shared->id)->exists())->toBeFalse()
         ->and($piece->refresh()->table_base_design_option_id)->toBeNull()
         ->and($pedestal->refresh()->is_active)->toBeFalse()
-        ->and(askedQuestions()['dining-tables'])->toBe(['table_shape', 'table_base_design_dining', 'table_base', 'area_sqm', 'seaters', 'edge_profile (stone)', 'finish (stone)']);
+        ->and(askedQuestions()['dining-tables'])->toBe(['table_shape', 'table_base_design_dining', 'seaters', 'edge_profile (stone)', 'finish (stone)']);
 });
 
 it('moves a choice off its first seeded picture, keeping one uploaded on the Choices page', function (): void {
@@ -223,4 +221,77 @@ it('keeps each seeded choice\'s picture in storage, under a random name, in a fo
     }
 
     expect(Choice::query()->whereNotNull('thumbnail_path')->pluck('thumbnail_path')->sort()->values()->all())->toBe($images->sort()->values()->all());
+});
+
+it('names a free entry\'s own answer, notes each seaters\' table size, and asks no base material', function (): void {
+    $seaters = DetailField::query()->where('slug', 'seaters')->sole();
+    $notes = fn (string $slug): ?array => Service::query()->where('slug', $slug)->first(['delivery_note', 'schedule_note', 'lead_days'])?->only(['delivery_note', 'schedule_note', 'lead_days']);
+
+    expect(DetailField::query()->where('slug', 'size')->first(['custom_label', 'custom_hint'])?->only(['custom_label', 'custom_hint']))
+        ->toBe(['custom_label' => 'Custom size', 'custom_hint' => 'Enter your desired size.'])
+        // 6, 8 and 12 for now, each with its table size.
+        ->and($seaters->suggestions()->map(fn (DetailFieldOption $option): string => "{$option->name} – {$option->description}")->all())->toBe(['6 – approx. 1.6 sqm', '8 – approx. 2.2 sqm', '12 – approx. 3.3 sqm'])
+        // A table's base design is a plain list: no Table base question, nor its Wood and Steel.
+        ->and(DetailField::query()->where('slug', 'table_base')->exists())->toBeFalse()
+        ->and(Choice::query()->whereIn('slug', ['wood', 'steel'])->exists())->toBeFalse()
+        ->and($notes('dining-tables')['lead_days'])->toBe(5)
+        // How long a delivery takes, and nothing under the date, which would say the same.
+        ->and($notes('dining-tables')['delivery_note'])->toBe('Ready-made pieces are delivered within 5 to 7 days. Custom designs take longer; we will confirm the timeline in your quotation.')
+        ->and($notes('dining-tables')['schedule_note'])->toBeNull()
+        ->and($notes('slab-supply-only')['delivery_note'])->toBeNull()
+        // An installed service asks no delivery method, nor a date ahead.
+        ->and($notes('flooring'))->toBe(['delivery_note' => null, 'schedule_note' => null, 'lead_days' => null]);
+});
+
+it('brings a database from before the notes and seaters up to them, without Table base, keeping what its admins changed', function (): void {
+    $id = fn (string $slug): int => DetailField::query()->where('slug', $slug)->value('id');
+    $service = fn (string $slug): Service => Service::query()->where('slug', $slug)->sole();
+    // As it was: no own-answer names or notes; center and side tables without seaters; furniture asked its area; tables asked Table base (Wood, Steel).
+    DetailField::query()->update(['custom_label' => null, 'custom_hint' => null]);
+    DetailField::query()->where('slug', 'thickness')->update(['custom_label' => 'Your own thickness']);
+    DetailFieldOption::query()->where('is_suggestion', true)->update(['description' => null]);
+    Service::query()->update(['delivery_note' => null, 'schedule_note' => null, 'lead_days' => null]);
+    $service('side-tables')->update(['lead_days' => 10]);
+    foreach (['center-tables', 'side-tables'] as $slug) {
+        $service($slug)->detailFields()->detach($id('seaters'));
+    }
+    foreach (['dining-tables', 'other-customized-furniture'] as $slug) {
+        $service($slug)->detailFields()->attach($id('area_sqm'), ['sort_order' => 50, 'is_required' => true]);
+    }
+    $material = DetailField::query()->create(['slug' => 'table_base', 'name' => 'Table base', 'scope' => 'project', 'answer_type' => DetailAnswerType::Choice, 'allows_custom' => false, 'sort_order' => 60]);
+    $materials = collect(['wood' => 'Wood', 'steel' => 'Steel'])->map(fn (string $name, string $slug): int => Choice::query()->create(['slug' => $slug, 'name' => $name, 'is_active' => true, 'sort_order' => 90])->id);
+    $material->writeChoices($materials->values()->all());
+    foreach (['center-tables', 'side-tables', 'dining-tables'] as $slug) {
+        $service($slug)->detailFields()->attach($material->id, ['sort_order' => 1, 'is_required' => true]);
+    }
+    StoneType::query()->where('slug', 'monumental')->sole()->services()->attach($service('dining-tables')->id);
+    // Seaters suggested 2 and 6 only, without their sizes.
+    DetailField::query()->where('slug', 'seaters')->sole()->writeSuggestions([['name' => '2', 'note' => null], ['name' => '6', 'note' => null]]);
+    // Rectangular still on its old seeded picture; Oval on one an admin uploaded.
+    Choice::query()->where('slug', 'rectangular')->sole()->update(['thumbnail_path' => 'question-choices/1437d2234a87aa3364c4d7cb1755daea.jpg']);
+    Choice::query()->where('slug', 'oval')->sole()->update(['thumbnail_path' => 'question-choices/0b3f5d0e-uploaded.jpg']);
+
+    $this->seed(InquiryFormSeeder::class);
+    $once = askedQuestions();
+    $this->seed(InquiryFormSeeder::class);
+
+    expect($once['center-tables'])->toBe(['table_shape', 'table_base_design_center', 'size', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
+        ->and($once['side-tables'])->toBe(['table_shape', 'table_base_design_side', 'size', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
+        ->and($once['dining-tables'])->toBe(['table_shape', 'table_base_design_dining', 'seaters', 'edge_profile (stone)', 'finish (stone)'])
+        ->and($once['other-customized-furniture'])->toBe(['size', 'finish (stone)'])
+        ->and(askedQuestions())->toBe($once)
+        // Archived, not deleted, so a sent inquiry's Table base still reads.
+        ->and($material->fresh()->archived_at)->not->toBeNull()
+        ->and(Choice::query()->whereIn('slug', ['wood', 'steel'])->whereNull('archived_at')->exists())->toBeFalse()
+        ->and(Choice::query()->whereIn('slug', ['wood', 'steel'])->count())->toBe(2)
+        ->and(DetailField::query()->where('slug', 'size')->value('custom_label'))->toBe('Custom size')
+        ->and(DetailField::query()->where('slug', 'thickness')->value('custom_label'))->toBe('Your own thickness')
+        ->and(DetailField::query()->where('slug', 'seaters')->sole()->suggestions()->map(fn (DetailFieldOption $option): string => "{$option->name} – {$option->description}")->all())->toBe(['6 – approx. 1.6 sqm', '8 – approx. 2.2 sqm', '12 – approx. 3.3 sqm'])
+        ->and(Choice::query()->where('slug', 'rectangular')->value('thumbnail_path'))->toBe('question-choices/11a89a838eee51dc81bce3d3a356fef4.jpg')
+        ->and(DetailFieldOption::query()->whereHas('detailField', fn ($query) => $query->where('slug', 'table_shape'))->where('slug', 'rectangular')->value('thumbnail_path'))->toBe('question-choices/11a89a838eee51dc81bce3d3a356fef4.jpg')
+        ->and(Choice::query()->where('slug', 'oval')->value('thumbnail_path'))->toBe('question-choices/0b3f5d0e-uploaded.jpg')
+        ->and($service('dining-tables')->lead_days)->toBe(5)
+        ->and($service('side-tables')->lead_days)->toBe(10)
+        ->and($service('dining-tables')->stoneTypes()->where('slug', 'monumental')->exists())->toBeFalse()
+        ->and($service('flooring')->stoneTypes()->where('slug', 'monumental')->exists())->toBeTrue();
 });

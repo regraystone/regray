@@ -30,7 +30,7 @@ class MessageResource extends JsonResource
 {
     public const SNIPPET_LENGTH = 120;
 
-    public const SUPPORT_TEAM_NAME = 'Regray';
+    public const SUPPORT_TEAM_NAME = 'Regray Sales Team';
 
     /** What a reply quotes when the message it answers is files only. */
     public const ATTACHMENT_SNIPPET = 'Attachment';

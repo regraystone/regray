@@ -1,5 +1,4 @@
 import { router } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import DirectClientForm from '@/components/direct-client-form';
 import EmptyState from '@/components/empty-state';
@@ -91,7 +90,6 @@ const StaffInquireStart = ({
 
 const BackButton = ({ onClick }: { onClick: () => void }) => (
     <Button type="button" variant="outline" onClick={onClick}>
-        <ArrowLeft aria-hidden />
         Back
     </Button>
 );
@@ -184,7 +182,6 @@ const PlatformStart = ({
                                         {item.email}
                                     </span>
                                 </span>
-                                <ArrowRight aria-hidden />
                             </Button>
                         </li>
                     ))}
@@ -257,7 +254,6 @@ const DirectStart = ({
                                     <span className="block truncate font-semibold">
                                         {owner.name}
                                     </span>
-                                    <ArrowRight aria-hidden />
                                 </Button>
                             </li>
                         ))}

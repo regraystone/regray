@@ -111,7 +111,9 @@ const isOffered = (
 ): boolean =>
     !fixed.includes(field.name) &&
     (field.showWhen === undefined ||
-        values[field.showWhen.field] === field.showWhen.equals);
+        (field.showWhen.in !== undefined
+            ? field.showWhen.in.includes(String(values[field.showWhen.field]))
+            : values[field.showWhen.field] === field.showWhen.equals));
 
 /**
  * The drawer's rules, built from the list's fields: what is required, how

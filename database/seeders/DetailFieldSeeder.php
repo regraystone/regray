@@ -16,7 +16,10 @@ use RuntimeException;
  * longer listed is taken off its question (DetailField::writeChoices()),
  * rather than deleted, since sent answers may reference it.
  *
- * @phpstan-type FieldData array{slug: string, name: string, scope: string, answer_type: string, allows_custom: bool, suggestions?: list<array{0: string, 1: string}>, choices?: list<string>}
+ * A suggestion's note ("approx. 0.6 sqm") is kept as its description, and
+ * the list reads it after the value.
+ *
+ * @phpstan-type FieldData array{slug: string, name: string, scope: string, answer_type: string, allows_custom: bool, custom_label?: string, custom_hint?: string, suggestions?: list<array{0: string, 1: string, 2?: string}>, choices?: list<string>}
  */
 class DetailFieldSeeder extends Seeder
 {
@@ -31,6 +34,8 @@ class DetailFieldSeeder extends Seeder
                 'scope' => $data['scope'],
                 'answer_type' => $data['answer_type'],
                 'allows_custom' => $data['allows_custom'],
+                'custom_label' => $data['custom_label'] ?? null,
+                'custom_hint' => $data['custom_hint'] ?? null,
                 'sort_order' => $sort,
             ]);
 
@@ -39,6 +44,7 @@ class DetailFieldSeeder extends Seeder
             foreach ($suggestions as $optionSort => $option) {
                 DetailFieldOption::query()->updateOrCreate(['detail_field_id' => $field->id, 'slug' => $option[0]], [
                     'name' => $option[1],
+                    'description' => $option[2] ?? null,
                     'sort_order' => $optionSort,
                     'is_active' => true,
                     'is_suggestion' => true,

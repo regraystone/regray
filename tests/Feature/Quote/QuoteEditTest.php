@@ -30,6 +30,12 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
+/** A day of next year (a time too, "05-06 10:00"), within the two years a date may be. */
+function inquiryNextYear(string $day): string
+{
+    return now('Asia/Manila')->addYear()->year.'-'.$day;
+}
+
 /**
  * An inquiry sent the way the Inquire page sends it, so it has its schedule
  * and stored files. One project, so one inquiry.
@@ -119,8 +125,10 @@ describe('the edit page', function (): void {
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('projects.0.answers', ['area_sqm' => 6.5, 'waterfall_effect' => false])
-                ->where('projects.0.stones.0.slabSize', null)
-                ->where('projects.0.stones.0.thickness', null)
+                ->where('projects.0.applicationId', 'kitchen-islands')
+                // Each stone is asked what Slab Supply and Installation asks.
+                ->where('projects.0.stones.0.slabSize', '160 x 320 cm')
+                ->where('projects.0.stones.0.thickness', inquiryThickness($inquiry->stones()->sole()->stone->slug))
                 ->where('projects.0.stones.0.edge', EdgeProfile::query()->where('is_active', true)->orderBy('sort_order')->value('name'))
                 ->missing('projects.0.landmark')
                 ->missing('projects.0.areaSqm'));
@@ -171,6 +179,7 @@ describe('the edit page', function (): void {
     });
 
     it('fills a slab row with its size and thickness as the labels the form holds, and the stone\'s slabs on its card', function (): void {
+        stoneComesIn(inquiryStoneRow('slab-supply-only')['stoneId'], ['0.75 in']);
         $inquiry = sentInquiry($this, [inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5X10FT', 'thickness' => '0.75 IN'])]])]);
 
         $this->actingAs($this->client)->get(route('quote.edit', $inquiry->reference))
@@ -219,6 +228,7 @@ describe('saving the edit', function (): void {
     it('changes a slab row\'s size and thickness in place, with no second row', function (): void {
         $inquiry = sentInquiry($this, [inquiryProjectInput()]);
         $row = inquiryStoneRow('slab-supply-only');
+        stoneComesIn($row['stoneId'], ['0.75 in']);
 
         $this->actingAs($this->client)
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['stones' => [[...$row, 'slabSize' => '1.6 x 3.2 m', 'thickness' => '0.75 in']]])]])
@@ -242,7 +252,7 @@ describe('saving the edit', function (): void {
                 'serviceId' => 'countertop-backsplash',
                 'answers' => ['area_sqm' => '20', 'fascia' => '0'],
                 'addressId' => (string) saveTestAddress($this->client, 'Site', 'Kapitolyo')->id,
-                'neededBy' => '2030-05-06',
+                'neededBy' => inquiryNextYear('05-06'),
             ])]])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('quote.show', $inquiry->reference))
@@ -253,15 +263,15 @@ describe('saving the edit', function (): void {
 
         expect($inquiry->name)->toBe('Kitchen and island')
             ->and($inquiry->address_city_name)->toBe('City of Pasig')
-            ->and($inquiry->service->slug)->toBe('countertop-backsplash')
-            // The new service asks no slab size, thickness or pieces, so the row holds none of them.
-            ->and($inquiry->stones()->sole()->quantity)->toBeNull()
-            ->and($inquiry->stones()->sole()->slabSizeLabel())->toBeNull()
-            ->and($inquiry->stones()->sole()->thicknessLabel())->toBeNull()
+            ->and($inquiry->service->slug)->toBe('slab-supply-and-installation')
+            ->and($inquiry->application->slug)->toBe('countertop-backsplash')
+            // Each stone is asked what Slab Supply and Installation asks.
+            ->and($inquiry->stones()->sole()->quantity)->toBe(4)
+            ->and($inquiry->stones()->sole()->slabSizeLabel())->toBe('160 x 320 cm')
             ->and($inquiry->detailAnswers()->orderBy('detail_field_id')->pluck('number_value')->filter()->values()->all())->toBe(['20.00'])
             ->and($inquiry->detailAnswers()->whereNotNull('boolean_value')->sole()->boolean_value)->toBeFalse()
             ->and($inquiry->stones()->sole()->stone->slug)->toBe($otherStone)
-            ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-05-06 10:00', 'Asia/Manila')))->toBeTrue()
+            ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse(inquiryNextYear('05-06 10:00'), 'Asia/Manila')))->toBeTrue()
             ->and($inquiry->schedule->title)->toBe('Kitchen and island')
             ->and($inquiry->schedule->notes)->toBe("Inquiry {$inquiry->reference} · Kitchen and island · City of Pasig")
             ->and($inquiry->status)->toBe(InquiryStatus::Pending)
@@ -289,10 +299,14 @@ describe('saving the edit', function (): void {
             ->assertSessionHasNoErrors();
 
         $flooring = Service::query()->where('slug', 'flooring')->value('id');
+        $installed = Service::query()->where('slug', 'slab-supply-and-installation')->value('id');
 
-        expect($inquiry->fresh()->service_id)->toBe($flooring)
+        expect($inquiry->fresh()->service_id)->toBe($installed)
+            ->and($inquiry->fresh()->application_id)->toBe($flooring)
             ->and(AuditLog::query()->sole()->old_values['service_id'])->toBe($before)
-            ->and(AuditLog::query()->sole()->new_values['service_id'])->toBe($flooring);
+            ->and(AuditLog::query()->sole()->old_values['application_id'])->toBeNull()
+            ->and(AuditLog::query()->sole()->new_values['service_id'])->toBe($installed)
+            ->and(AuditLog::query()->sole()->new_values['application_id'])->toBe($flooring);
     });
 
     it('keeps the inquiry\'s own stone while it keeps its service, though the service no longer takes its type', function (): void {
@@ -452,7 +466,7 @@ describe('saving the edit', function (): void {
             ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, [
                 'serviceId' => 'countertop-backsplash',
             ])]])
-            ->assertSessionHasErrors(['projects.0.serviceId' => 'That choice is no longer available.']);
+            ->assertSessionHasErrors(['projects.0.applicationId' => 'That application is no longer available.']);
     });
 
     it('moves an inquiry to pickup and back, a delivery needing a saved address again', function (): void {
@@ -483,29 +497,29 @@ describe('saving the edit', function (): void {
     });
 
     it('moves its confirmed visit with the due date, and refuses to move one already served while saving the rest', function (): void {
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-05-06'])]);
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => inquiryNextYear('05-06')])]);
 
         // An inquiry's visit is confirmed from the start, and still moves with its inquiry.
         expect($inquiry->schedule->status)->toBe(ScheduleStatus::Confirmed);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-07'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => inquiryNextYear('05-07')])]])
             ->assertSessionHasNoErrors();
 
-        expect($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse('2030-05-07 10:00', 'Asia/Manila')))->toBeTrue();
+        expect($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse(inquiryNextYear('05-07 10:00'), 'Asia/Manila')))->toBeTrue();
 
         $inquiry->schedule->forceFill(['status' => ScheduleStatus::Served])->save();
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-08'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => inquiryNextYear('05-08')])]])
             ->assertSessionHasErrors('projects.0.neededBy');
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-07', 'notes' => 'Back door'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => inquiryNextYear('05-07'), 'notes' => 'Back door'])]])
             ->assertSessionHasNoErrors();
 
         expect($inquiry->fresh()->notes)->toBe('Back door')
-            ->and($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse('2030-05-07 10:00', 'Asia/Manila')))->toBeTrue();
+            ->and($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse(inquiryNextYear('05-07 10:00'), 'Asia/Manila')))->toBeTrue();
     });
 
     it('refuses the id of another inquiry, and more than the one project', function (): void {
@@ -619,7 +633,8 @@ describe('staff editing', function (): void {
             ->patch(route('inquiry.update', $inquiry->reference), ['projects' => [projectEdit($inquiry, ['serviceId' => 'staircase', 'keepFileIds' => []])]])
             ->assertSessionHasNoErrors();
 
-        expect($inquiry->fresh()->service->slug)->toBe('staircase')
+        expect($inquiry->fresh()->service->slug)->toBe('slab-supply-and-installation')
+            ->and($inquiry->fresh()->application->slug)->toBe('staircase')
             ->and($inquiry->files()->pluck('id')->all())->toBe([$file->id])
             ->and(Storage::disk(config('inquiry.disk'))->exists($file->path))->toBeTrue();
 

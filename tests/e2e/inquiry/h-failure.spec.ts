@@ -100,7 +100,7 @@ test('32 · Send pressed twice quickly saves exactly one inquiry', async ({
     });
 
     await expect(
-        page.getByRole('heading', { name: 'Quote requested' }),
+        page.getByRole('heading', { name: "We've received your order" }),
     ).toBeVisible();
     expect(posts()).toBe(1);
     expect(inquiryCount(clientAId)).toBe(before + 1);
@@ -135,7 +135,7 @@ test('33 · the Send button is disabled while the request is in flight', async (
 
     release();
     await expect(
-        page.getByRole('heading', { name: 'Quote requested' }),
+        page.getByRole('heading', { name: "We've received your order" }),
     ).toBeVisible();
     await page.unroute(isStore, hold);
 });

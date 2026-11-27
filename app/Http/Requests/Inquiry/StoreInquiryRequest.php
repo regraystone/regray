@@ -17,7 +17,9 @@ use App\Models\EdgeProfile;
 use App\Models\Finish;
 use App\Models\Service;
 use App\Models\Stone;
+use App\Models\Thickness;
 use App\Rules\MeasurementRule;
+use App\Services\ScheduleService;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Http\FormRequest;
@@ -81,6 +83,12 @@ class StoreInquiryRequest extends FormRequest
     /** The longest free text an answer's `text_value` holds. */
     private const TEXT_MAX = 255;
 
+    /** How far ahead a project's date may be, in years: further is taken for a typo. */
+    public const DEADLINE_YEARS_MAX = 2;
+
+    /** What a service with an installation says with no application; inquiry-flow.ts says the same. */
+    public const APPLICATION_MISSING = 'Choose the application.';
+
     /** @var Collection<string, Service>|null */
     private ?Collection $services = null;
 
@@ -105,7 +113,10 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.name' => ['required', 'string', 'max:'.$limits['name']],
 
             // Whether it is still offered is after()'s, since an edit may keep its own.
-            'projects.*.serviceId' => ['required', 'string', Rule::exists('services', 'slug')],
+            // An application (Flooring…) is asked under a service, not as one.
+            'projects.*.serviceId' => ['required', 'string', Rule::exists('services', 'slug')->where('is_application', false)],
+            // The application a service with an installation asks; whether it is asked is after()'s.
+            'projects.*.applicationId' => ['nullable', 'string', Rule::exists('services', 'slug')->where('is_application', true)],
 
             'projects.*.stoneAdvice' => ['nullable', 'boolean'],
             'projects.*.stones' => ['nullable', 'array', 'max:'.$limits['stone_rows']],
@@ -141,7 +152,7 @@ class StoreInquiryRequest extends FormRequest
                     'projects.*.addressId' => ['prohibited'],
                     'projects.*.keepAddress' => ['prohibited'],
                 ],
-            'projects.*.neededBy' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'projects.*.neededBy' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today', 'before_or_equal:'.now(ScheduleService::timezone())->addYears(self::DEADLINE_YEARS_MAX)->toDateString()],
             'projects.*.notes' => ['nullable', 'string', 'max:'.$limits['notes']],
 
             'projects.*.attachments' => ['nullable', 'array', 'max:'.$limits['files']],
@@ -156,7 +167,7 @@ class StoreInquiryRequest extends FormRequest
             $service = $this->serviceOf($project);
 
             if ($service !== null) {
-                $rules = [...$rules, ...$this->serviceRules("projects.{$index}", $service)];
+                $rules = [...$rules, ...$this->serviceRules("projects.{$index}", $service, $this->projectServiceOf($project))];
             }
         }
 
@@ -170,11 +181,12 @@ class StoreInquiryRequest extends FormRequest
         $messages = [
             'projects.required' => 'Add at least one project.',
             'projects.min' => 'Add at least one project.',
-            'projects.max' => 'An inquiry can only have one project.',
+            'projects.max' => 'Send up to '.$limits['projects'].' projects at a time.',
             'projects.*.name.required' => 'Give this project a name.',
             'projects.*.name.max' => "Keep the project name to {$limits['name']} characters or fewer.",
             'projects.*.serviceId.required' => 'Choose what you need.',
             'projects.*.serviceId.exists' => 'That choice is no longer available.',
+            'projects.*.applicationId.exists' => 'That application is no longer available.',
             'projects.*.stones.max' => "A project can have up to {$limits['stone_rows']} stone rows.",
             'projects.*.stones.prohibited' => 'This service needs no stones.',
             'projects.*.stones.*.stoneId.exists' => 'That stone is no longer available.',
@@ -195,6 +207,8 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.address.prohibited' => 'Choose one of your saved addresses.',
             ...$this->phAddressMessages('projects.*.address'),
             'projects.*.neededBy.after_or_equal' => 'Target deadline cannot be in the past.',
+            'projects.*.neededBy.before_or_equal' => 'Choose a date within the next '.self::DEADLINE_YEARS_MAX.' years.',
+            'projects.*.neededBy.date_format' => 'Choose a date from the calendar.',
             'projects.*.notes.max' => "Keep the notes to {$limits['notes']} characters or fewer.",
             'projects.*.attachments.max' => "You can attach up to {$limits['files']} files.",
             'projects.*.attachments.*.mimes' => 'Attachments must be PDF, PNG, JPG or JPEG.',
@@ -252,18 +266,24 @@ class StoreInquiryRequest extends FormRequest
                 $shownStones = $this->shownStoneSlugsFor($projects);
                 $stoneTypeIds = $this->stoneTypeIdsFor($projects);
                 $stoneBrands = $this->stoneBrandSlugsFor($projects);
+                $stoneThicknesses = $this->stoneThicknessKeysFor($projects);
 
                 foreach ($projects as $index => $project) {
                     /** @var Service $service */
                     $service = $this->serviceOf($project);
+                    $application = $this->applicationOf($project);
                     $asksForAdvice = filter_var($project['stoneAdvice'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
                     if (! $service->isOffered() && ! in_array($service->slug, $held, true)) {
                         $validator->errors()->add("projects.{$index}.serviceId", 'That choice is no longer available.');
                     }
 
+                    $this->checkApplication($validator, $index, $project, $service, $application);
+
                     // A new stone's type has to be switched on; an inactive one is off the Inquire page.
-                    $linked = $service->stoneTypes->where('is_active', true)->modelKeys();
+                    // An application is made from its own types, where it lists any.
+                    $madeFrom = $application !== null && $application->stoneTypes->isNotEmpty() ? $application : $service;
+                    $linked = $madeFrom->stoneTypes->where('is_active', true)->modelKeys();
                     // The stones it already has stay while it keeps its service, whatever has changed since.
                     $keepsService = in_array($service->slug, $held, true);
                     // The Brand answer keeps the stones to those brands; No preference keeps none out.
@@ -283,9 +303,13 @@ class StoreInquiryRequest extends FormRequest
                         }
                     }
 
+                    $this->checkThicknesses($validator, $index, $project, $service, $keepsService ? $heldStones : [], $stoneThicknesses);
+
                     if (empty($project['neededBy'])) {
                         $validator->errors()->add("projects.{$index}.neededBy", 'Say when this is needed.');
                     }
+
+                    $this->checkLeadTime($validator, $index, $project, $service);
 
                     $this->checkBrands($validator, $index, $project);
                     $this->checkFulfillment($validator, $index, $project, $service);
@@ -298,7 +322,7 @@ class StoreInquiryRequest extends FormRequest
                         $validator->errors()->add("projects.{$index}.stones", 'Select at least one stone.');
                     }
 
-                    foreach ($this->projectQuestions($service) as $field) {
+                    foreach ($this->projectQuestions($application ?? $service) as $field) {
                         $option = $field->closedOptions()->firstWhere('slug', $project['answers'][$field->slug] ?? null);
 
                         if ($option?->links_to_stone && empty($project['stones'])) {
@@ -306,11 +330,99 @@ class StoreInquiryRequest extends FormRequest
                         }
                     }
 
-                    $this->checkCustomAnswers($validator, $index, $project, $service);
-                    $this->checkSizeByShape($validator, $index, $project, $service);
+                    $this->checkCustomAnswers($validator, $index, $project, $application ?? $service);
+                    $this->checkSizeByShape($validator, $index, $project, $application ?? $service);
                 }
             },
         ];
+    }
+
+    /**
+     * A service with an installation (`has_applications`) names one of its
+     * type's applications, offered unless the inquiry being edited already
+     * has it (heldApplicationSlugs()); any other service names none.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkApplication(Validator $validator, int $index, array $project, Service $service, ?Service $application): void
+    {
+        $sent = filled($project['applicationId'] ?? null);
+
+        if (! $service->asksApplication()) {
+            if ($sent) {
+                $validator->errors()->add("projects.{$index}.applicationId", 'This service has no applications to choose.');
+            }
+
+            return;
+        }
+
+        if ($application === null) {
+            $validator->errors()->add("projects.{$index}.applicationId", $sent ? 'That application is not offered for this service.' : self::APPLICATION_MISSING);
+
+            return;
+        }
+
+        if (! $application->isOffered() && ! in_array($application->slug, $this->heldApplicationSlugs(), true)) {
+            $validator->errors()->add("projects.{$index}.applicationId", 'That application is no longer available.');
+        }
+    }
+
+    /**
+     * A thickness is picked from the ones the row's stone comes in, unless the
+     * question takes one of the client's own (`allows_custom`). A stone that
+     * lists none takes Regray's advice instead (DetailField::THICKNESS_ADVICE),
+     * and only then. A stone an edit keeps (`$heldStones`) keeps whatever
+     * thickness it had.
+     *
+     * @param  array<string, mixed>  $project
+     * @param  list<string>  $heldStones
+     * @param  array<string, list<string>>  $stoneThicknesses
+     */
+    private function checkThicknesses(Validator $validator, int $index, array $project, Service $service, array $heldStones, array $stoneThicknesses): void
+    {
+        $field = $service->detailFields->firstWhere('slug', DetailField::THICKNESS);
+
+        if ($field === null || $field->allows_custom) {
+            return;
+        }
+
+        foreach ($project['stones'] ?? [] as $row => $stone) {
+            $written = $stone['thickness'] ?? null;
+
+            if (! is_string($written) || $written === '' || in_array($stone['stoneId'], $heldStones, true)) {
+                continue;
+            }
+
+            $listed = $stoneThicknesses[$stone['stoneId']] ?? [];
+            $fits = $written === DetailField::THICKNESS_ADVICE
+                ? $listed === []
+                : in_array(ThicknessMeasurement::parse($written)?->key(), $listed, true);
+
+            if (! $fits) {
+                $validator->errors()->add("projects.{$index}.stones.{$row}.thickness", 'Choose the thickness from the list.');
+            }
+        }
+    }
+
+    /**
+     * The thicknesses each stone the projects name comes in, as keys ("20-mm").
+     *
+     * @param  array<int, array<string, mixed>>  $projects
+     * @return array<string, list<string>>
+     */
+    private function stoneThicknessKeysFor(array $projects): array
+    {
+        $slugs = [];
+
+        foreach ($projects as $project) {
+            foreach ($project['stones'] ?? [] as $stone) {
+                $slugs[] = $stone['stoneId'];
+            }
+        }
+
+        return Stone::query()->withTrashed()->whereIn('slug', array_unique($slugs))->with('thicknesses')->get()
+            ->mapWithKeys(fn (Stone $stone): array => [$stone->slug => array_values($stone->thicknesses->map(fn (Thickness $thickness): string => $thickness->key)->all())])
+            ->all();
     }
 
     /**
@@ -373,6 +485,34 @@ class StoreInquiryRequest extends FormRequest
         if ($problem !== null) {
             $validator->errors()->add("projects.{$index}.answers.".DetailField::SIZE, $problem);
         }
+    }
+
+    /**
+     * A service that takes time to make (`lead_days`) can't be asked for
+     * sooner: the date is at least that many days from today, in the
+     * showroom's time zone. An edit may keep the date it already has
+     * (heldDeadline()).
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function checkLeadTime(Validator $validator, int $index, array $project, Service $service): void
+    {
+        $date = $project['neededBy'] ?? null;
+        $lead = (int) $service->lead_days;
+
+        if (! is_string($date) || $date === '' || $lead === 0 || $date === $this->heldDeadline()) {
+            return;
+        }
+
+        if ($date < now(ScheduleService::timezone())->addDays($lead)->toDateString()) {
+            $validator->errors()->add("projects.{$index}.neededBy", self::leadTimeMessage($lead));
+        }
+    }
+
+    /** What the page says of a date sooner than a service's lead time; inquiry-flow.ts words it the same. */
+    public static function leadTimeMessage(int $days): string
+    {
+        return 'Choose a date at least '.$days.' '.($days === 1 ? 'day' : 'days').' from today.';
     }
 
     /**
@@ -515,6 +655,17 @@ class StoreInquiryRequest extends FormRequest
     }
 
     /**
+     * The applications a project may keep although they are no longer
+     * offered: an edit's own. A new inquiry has none.
+     *
+     * @return list<string>
+     */
+    protected function heldApplicationSlugs(): array
+    {
+        return [];
+    }
+
+    /**
      * The stones a project may keep although they are no longer offered: an
      * edit's own, while it keeps its service. A new inquiry has none.
      *
@@ -534,6 +685,15 @@ class StoreInquiryRequest extends FormRequest
     protected function heldBrandSlugs(): array
     {
         return [];
+    }
+
+    /**
+     * The date a project may keep although it is now sooner than its
+     * service's lead time: an edit's own (`Y-m-d`). A new inquiry has none.
+     */
+    protected function heldDeadline(): ?string
+    {
+        return null;
     }
 
     /**
@@ -570,18 +730,61 @@ class StoreInquiryRequest extends FormRequest
      */
     private function serviceOf(array $project): ?Service
     {
-        $this->services ??= Service::query()
-            ->with(['serviceType', 'stoneTypes:stone_types.id,stone_types.is_active', 'detailFields.options.services:services.id'])
-            ->whereIn('slug', array_values(array_unique(array_filter(
-                array_column($this->projectsInput(), 'serviceId'),
-                'is_string',
-            ))))
-            ->get()
-            ->keyBy('slug');
-
         $slug = $project['serviceId'] ?? null;
 
-        return is_string($slug) ? $this->services->get($slug) : null;
+        return is_string($slug) ? $this->namedServices()->get($slug) : null;
+    }
+
+    /**
+     * The application a project names, when its service asks one and it is
+     * one of that service's type's: null otherwise (after() says why).
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function applicationOf(array $project): ?Service
+    {
+        $service = $this->serviceOf($project);
+        $slug = $project['applicationId'] ?? null;
+
+        if ($service === null || ! $service->has_applications || ! is_string($slug)) {
+            return null;
+        }
+
+        $application = $this->namedServices()->get($slug);
+
+        return $application !== null && $application->is_application && $application->service_type_id === $service->service_type_id
+            ? $application
+            : null;
+    }
+
+    /**
+     * The service a project's own questions are asked by: its application,
+     * where it names one, or its service. Each stone is still asked what the
+     * service asks of a stone (serviceRules()).
+     *
+     * @param  array<string, mixed>  $project
+     */
+    private function projectServiceOf(array $project): ?Service
+    {
+        return $this->applicationOf($project) ?? $this->serviceOf($project);
+    }
+
+    /**
+     * Every service and application the projects name, by slug, with what
+     * their rules need, read once.
+     *
+     * @return Collection<string, Service>
+     */
+    private function namedServices(): Collection
+    {
+        return $this->services ??= Service::query()
+            ->with(['serviceType', 'applications', 'stoneTypes:stone_types.id,stone_types.is_active', 'detailFields.options.services:services.id'])
+            ->whereIn('slug', array_values(array_unique(array_filter([
+                ...array_column($this->projectsInput(), 'serviceId'),
+                ...array_column($this->projectsInput(), 'applicationId'),
+            ], 'is_string'))))
+            ->get()
+            ->keyBy('slug');
     }
 
     /**
@@ -612,10 +815,12 @@ class StoreInquiryRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    private function serviceRules(string $prefix, Service $service): array
+    private function serviceRules(string $prefix, Service $service, ?Service $projectService = null): array
     {
         $rules = [];
         $asked = $service->detailFields->keyBy('slug');
+        // The project's own questions: its application's, where it names one.
+        $projectService ??= $service;
 
         if (! $service->requires_stones) {
             $rules["{$prefix}.stones"] = ['prohibited'];
@@ -629,14 +834,14 @@ class StoreInquiryRequest extends FormRequest
                 : [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field, $service)];
         }
 
-        $questions = $this->projectQuestions($service);
+        $questions = $this->projectQuestions($projectService);
 
         $rules["{$prefix}.answers"] = $questions->isEmpty()
             ? ['prohibited']
             : ['nullable', 'array:'.$questions->pluck('slug')->implode(',')];
 
         foreach ($questions as $field) {
-            $rules["{$prefix}.answers.{$field->slug}"] = [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field, $service)];
+            $rules["{$prefix}.answers.{$field->slug}"] = [$field->isRequiredByService() ? 'required' : 'nullable', ...$this->answerRules($field, $projectService)];
         }
 
         return $rules;
@@ -660,8 +865,17 @@ class StoreInquiryRequest extends FormRequest
             return ['integer', 'min:'.$limits['quantity_min'], 'max:'.$limits['quantity_max']];
         }
 
+        if ($field->slug === DetailField::THICKNESS) {
+            // A thickness, or Regray's advice for a stone that lists none (checkThicknesses()).
+            return ['string', function (string $attribute, mixed $value, Closure $fail): void {
+                if ($value !== DetailField::THICKNESS_ADVICE) {
+                    MeasurementRule::thickness()->validate($attribute, $value, $fail);
+                }
+            }];
+        }
+
         if ($field->isMeasurement()) {
-            return ['string', $field->slug === DetailField::SLAB_SIZE ? MeasurementRule::slabSize() : MeasurementRule::thickness()];
+            return ['string', MeasurementRule::slabSize()];
         }
 
         $held = $this->heldAnswers()[$field->slug] ?? [];
@@ -811,6 +1025,7 @@ class StoreInquiryRequest extends FormRequest
         foreach ($projects as $index => $project) {
             /** @var Service $service */
             $service = $this->serviceOf($project);
+            $application = $this->applicationOf($project);
             $asked = $service->detailFields->keyBy('slug');
             $deliveryMethod = $service->fulfillment->asksDeliveryMethod() ? DeliveryMethod::from($project['deliveryMethod']) : null;
             $noPreference = filter_var($project['brandNoPreference'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -844,7 +1059,7 @@ class StoreInquiryRequest extends FormRequest
 
             $answers = [];
 
-            foreach ($this->projectQuestions($service) as $field) {
+            foreach ($this->projectQuestions($application ?? $service) as $field) {
                 $value = $project['answers'][$field->slug] ?? null;
 
                 if ($value !== null && $value !== '') {
@@ -864,6 +1079,7 @@ class StoreInquiryRequest extends FormRequest
             $input[] = [
                 'name' => $project['name'],
                 'service_id' => $service->id,
+                'application_id' => $application?->id,
                 'stones' => array_values($stones),
                 'answers' => $answers,
                 'brand_ids' => $noPreference ? [] : array_values(array_map(fn (string $slug): int => $brandIds[$slug], $project['brands'] ?? [])),

@@ -19,14 +19,17 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { NOTES_MAX } from '@/data/inquiries';
 import {
+    DELIVERY,
     DELIVERY_METHODS,
     PICKUP,
     SIZE_FIELD,
     TABLE_SHAPE_FIELD,
+    addDaysIso,
     addressLabel,
     asksDeliveryMethod,
     customAnswerKey,
-    findService,
+    findProjectService,
+    latestNeededBy,
     needsAddress,
     pickedChoice,
     projectFields,
@@ -39,6 +42,24 @@ import {
     type InquiryDraftInput,
     type InquiryDraftValues,
 } from '@/lib/inquiry-schema';
+
+/**
+ * A line the service's admin wrote under one of its controls (its delivery
+ * fee, how long it takes), which the control is described by.
+ */
+const ServiceNote = ({ id, children }: { id: string; children: string }) => (
+    <p
+        id={id}
+        className="mt-2 text-sm leading-normal text-secondary-foreground"
+        data-testid="service-note"
+    >
+        {children}
+    </p>
+);
+
+/** Joined `aria-describedby` ids, or undefined for none. */
+const describedByIds = (...ids: (string | undefined | null)[]) =>
+    ids.filter(Boolean).join(' ') || undefined;
 
 /** The id the page scrolls to when the delivery method is unanswered. */
 export const INQUIRY_DELIVERY_METHOD_ID = 'inquiry-delivery-method';
@@ -162,8 +183,10 @@ const InquiryProjectDetails = ({
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
     const serviceId = useWatch({ control, name: 'serviceId' });
+    const applicationId = useWatch({ control, name: 'applicationId' });
     const answers = useWatch({ control, name: 'answers' });
-    const service = findService(serviceTypes, serviceId);
+    // The project questions are the application's, where the service asks one.
+    const service = findProjectService(serviceTypes, serviceId, applicationId);
     const questions = projectFields(service);
     const requiredQuestions = questions.filter(({ required }) => required);
     const optionalQuestions = questions.filter(({ required }) => !required);
@@ -318,6 +341,12 @@ const InquiryProjectDetails = ({
     };
 
     const today = todayIsoDate();
+    // A service that takes time to make can't be asked for sooner (`leadDays`).
+    const earliest = addDaysIso(today, service?.leadDays ?? 0);
+    const scheduleNote = service?.scheduleNote ?? null;
+    // How long a delivery takes: said only once Delivery is picked, never for a pickup.
+    const deliveryNote =
+        deliveryMethod === DELIVERY ? (service?.deliveryNote ?? null) : null;
 
     const attachmentErrors = attachmentMessages(errors.attachments);
 
@@ -358,16 +387,29 @@ const InquiryProjectDetails = ({
                         error={errors.neededBy?.message}
                     >
                         {(accessibility) => (
-                            <Input
-                                id={id('needed-by')}
-                                type="date"
-                                min={today}
-                                {...register('neededBy')}
-                                onClick={openPickerOnClick}
-                                aria-describedby={accessibility.describedBy}
-                                aria-invalid={accessibility.invalid}
-                                className="rounded-none [&::-webkit-calendar-picker-indicator]:hidden"
-                            />
+                            <>
+                                <Input
+                                    id={id('needed-by')}
+                                    type="date"
+                                    min={earliest}
+                                    max={latestNeededBy(today)}
+                                    {...register('neededBy')}
+                                    onClick={openPickerOnClick}
+                                    aria-describedby={describedByIds(
+                                        accessibility.describedBy,
+                                        scheduleNote
+                                            ? id('needed-by-note')
+                                            : null,
+                                    )}
+                                    aria-invalid={accessibility.invalid}
+                                    className="rounded-none [&::-webkit-calendar-picker-indicator]:hidden"
+                                />
+                                {scheduleNote ? (
+                                    <ServiceNote id={id('needed-by-note')}>
+                                        {scheduleNote}
+                                    </ServiceNote>
+                                ) : null}
+                            </>
                         )}
                     </FormField>
                 )}
@@ -380,30 +422,42 @@ const InquiryProjectDetails = ({
                         error={fieldMessage(errors.deliveryMethod)}
                     >
                         {(accessibility) => (
-                            <Select
-                                value={deliveryMethod}
-                                onValueChange={chooseDeliveryMethod}
-                            >
-                                <SelectTrigger
-                                    id={INQUIRY_DELIVERY_METHOD_ID}
-                                    aria-describedby={accessibility.describedBy}
-                                    aria-invalid={accessibility.invalid}
-                                    className="w-full rounded-none text-base data-[size=default]:h-11"
+                            <>
+                                <Select
+                                    value={deliveryMethod}
+                                    onValueChange={chooseDeliveryMethod}
                                 >
-                                    <SelectValue placeholder="Choose one" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {DELIVERY_METHODS.map((option) => (
-                                        <SelectItem
-                                            key={option.value}
-                                            value={option.value}
-                                            className="rounded-none"
-                                        >
-                                            {option.title}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                    <SelectTrigger
+                                        id={INQUIRY_DELIVERY_METHOD_ID}
+                                        aria-describedby={describedByIds(
+                                            accessibility.describedBy,
+                                            deliveryNote
+                                                ? id('delivery-note')
+                                                : null,
+                                        )}
+                                        aria-invalid={accessibility.invalid}
+                                        className="w-full rounded-none text-base data-[size=default]:h-11"
+                                    >
+                                        <SelectValue placeholder="Choose one" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {DELIVERY_METHODS.map((option) => (
+                                            <SelectItem
+                                                key={option.value}
+                                                value={option.value}
+                                                className="rounded-none"
+                                            >
+                                                {option.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {deliveryNote ? (
+                                    <ServiceNote id={id('delivery-note')}>
+                                        {deliveryNote}
+                                    </ServiceNote>
+                                ) : null}
+                            </>
                         )}
                     </FormField>
                 ) : null}
