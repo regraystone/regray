@@ -19,6 +19,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { NOTES_MAX } from '@/data/inquiries';
 import {
+    DELIVERY,
     DELIVERY_METHODS,
     PICKUP,
     SIZE_FIELD,
@@ -27,7 +28,7 @@ import {
     addressLabel,
     asksDeliveryMethod,
     customAnswerKey,
-    findService,
+    findProjectService,
     latestNeededBy,
     needsAddress,
     pickedChoice,
@@ -182,8 +183,10 @@ const InquiryProjectDetails = ({
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
     const serviceId = useWatch({ control, name: 'serviceId' });
+    const applicationId = useWatch({ control, name: 'applicationId' });
     const answers = useWatch({ control, name: 'answers' });
-    const service = findService(serviceTypes, serviceId);
+    // The project questions are the application's, where the service asks one.
+    const service = findProjectService(serviceTypes, serviceId, applicationId);
     const questions = projectFields(service);
     const requiredQuestions = questions.filter(({ required }) => required);
     const optionalQuestions = questions.filter(({ required }) => !required);
@@ -341,7 +344,9 @@ const InquiryProjectDetails = ({
     // A service that takes time to make can't be asked for sooner (`leadDays`).
     const earliest = addDaysIso(today, service?.leadDays ?? 0);
     const scheduleNote = service?.scheduleNote ?? null;
-    const deliveryNote = service?.deliveryNote ?? null;
+    // How long a delivery takes: said only once Delivery is picked, never for a pickup.
+    const deliveryNote =
+        deliveryMethod === DELIVERY ? (service?.deliveryNote ?? null) : null;
 
     const attachmentErrors = attachmentMessages(errors.attachments);
 

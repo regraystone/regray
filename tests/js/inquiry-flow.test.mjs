@@ -108,10 +108,10 @@ describe('moving between the questions', () => {
 });
 
 describe('the second dropdown', () => {
-    it('asks which application, or which furniture for custom furniture', () => {
+    it('asks which service, or which furniture for custom furniture', () => {
         assert.equal(
             serviceChoiceLabel('natural-stone-applications'),
-            'Which application?',
+            'Which service?',
         );
         assert.equal(
             serviceChoiceLabel('custom-stone-furniture'),

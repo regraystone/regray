@@ -65,8 +65,11 @@ it('sends the Inquire page its options', function (): void {
             ->component('inquire')
             ->has('serviceTypes', 2)
             ->where('serviceTypes.0.id', 'natural-stone-applications')
-            ->where('serviceTypes.0.name', 'Natural Stone & Applications')
-            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'slab-supply-and-installation', 'installation-only', 'countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories'])
+            ->where('serviceTypes.0.name', 'Natural Stone & Installation')
+            // The applications are asked under the services with an installation, not listed beside them.
+            ->where('serviceTypes.0.services', fn ($services) => collect($services)->pluck('id')->all() === ['slab-supply-only', 'slab-supply-and-installation', 'installation-only'])
+            ->where('serviceTypes.0.services.1.applications', fn ($applications) => collect($applications)->pluck('id')->all() === ['countertop-backsplash', 'wall-cladding', 'flooring', 'staircase', 'kitchen-islands', 'lavatories'])
+            ->where('serviceTypes.0.services.2.hasApplications', true)
             ->where('serviceTypes.1.id', 'custom-stone-furniture')
             ->where('serviceTypes.1.services', fn ($services) => collect($services)->pluck('id')->all() === ['center-tables', 'side-tables', 'dining-tables', 'other-customized-furniture'])
             ->where('serviceTypes.0.services.0', [
@@ -77,7 +80,8 @@ it('sends the Inquire page its options', function (): void {
                 'stoneTypes' => $slabSupplyTypes,
                 'requiresStones' => true,
                 'fulfillment' => 'delivery_or_pickup',
-                'deliveryNote' => 'Delivery within Metro Manila is charged at a standard flat rate. For addresses outside Metro Manila, the fee depends on the location and is included in your quotation.',
+                // Slabs supplied alone come in no ready-made or custom piece, so no delivery time is said.
+                'deliveryNote' => null,
                 'scheduleNote' => null,
                 // None: any day from today.
                 'leadDays' => 0,
@@ -94,7 +98,8 @@ it('sends the Inquire page its options', function (): void {
                         'suggestions' => [],
                     ],
                     [
-                        'slug' => 'thickness', 'label' => 'Thickness', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => true, 'customLabel' => 'Custom thickness', 'customHint' => 'Enter the thickness you need.', 'pictures' => false,
+                        // Picked from the stone's own thicknesses: no entry of the reader's own.
+                        'slug' => 'thickness', 'label' => 'Thickness', 'scope' => 'stone', 'answerType' => 'text', 'required' => true, 'allowsCustom' => false, 'customLabel' => null, 'customHint' => null, 'pictures' => false,
                         'options' => [],
                         'suggestions' => [],
                     ],
@@ -112,6 +117,9 @@ it('sends the Inquire page its options', function (): void {
                         'suggestions' => [],
                     ],
                 ],
+                // Supplied alone, it asks no application.
+                'hasApplications' => false,
+                'applications' => [],
             ])
             ->where('serviceTypes.1.services.2.fields', fn ($fields) => collect($fields)->pluck('slug')->all() === ['table_shape', 'table_base_design_dining', 'seaters', 'edge_profile', 'finish']
                 // Asked with pictures, a dining table its own base design question, listing only dining bases.

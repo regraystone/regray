@@ -46,7 +46,8 @@ describe('the date', function (): void {
     });
 
     it('follows the fewest days the service form sets', function (): void {
-        Service::query()->where('slug', 'countertop-backsplash')->update(['lead_days' => 1]);
+        // The service's own, not its application's: Countertop and Backsplash is sent under Slab Supply and Installation.
+        Service::query()->where('slug', 'slab-supply-and-installation')->update(['lead_days' => 1]);
 
         sendFormInquiry($this, ['serviceId' => 'countertop-backsplash', 'neededBy' => now('Asia/Manila')->toDateString()])
             ->assertSessionHasErrors(['projects.0.neededBy' => 'Choose a date at least 1 day from today.']);
@@ -57,12 +58,14 @@ describe('the date', function (): void {
             ->assertSessionHasErrors(['projects.0.neededBy' => 'Choose a date within the next 2 years.']);
     });
 
-    it('sends each service\'s date and delivery lines and its fewest days to the Inquire page', function (): void {
+    it('sends each service\'s delivery line, how long a delivery takes, and its fewest days to the Inquire page', function (): void {
         $this->actingAs($this->client)->get(route('quote.inquire'))
             ->assertInertia(fn ($page) => $page->where('serviceTypes.1.services.2.id', 'dining-tables')
                 ->where('serviceTypes.1.services.2.leadDays', 5)
-                ->where('serviceTypes.1.services.2.scheduleNote', fn (?string $note): bool => str_contains((string) $note, '5 to 7 days'))
-                ->where('serviceTypes.1.services.2.deliveryNote', fn (?string $note): bool => str_contains((string) $note, 'Metro Manila')));
+                // The date says nothing: how long it takes is the delivery line's.
+                ->where('serviceTypes.1.services.2.scheduleNote', null)
+                ->where('serviceTypes.1.services.2.deliveryNote', 'Ready-made pieces are delivered within 5 to 7 days. Custom designs take longer; we will confirm the timeline in your quotation.')
+                ->where('serviceTypes.0.services.0.deliveryNote', null));
     });
 });
 

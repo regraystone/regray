@@ -247,7 +247,8 @@ const MeasurementEntry = ({
  * hands in the question with them as its suggestions), and its Other is a
  * measurement of one's own (MeasurementEntry) rather than free text. Its list
  * is drawn even when the stone has none to offer, as Other alone, so every
- * row answers it the same way.
+ * row answers it the same way. A thickness takes no Other (`allowsCustom`
+ * false): a stone with none lists "To be advised by Regray" alone.
  *
  * A table's size follows its table shape (`sizeKind`): a round table is
  * asked its diameter alone, a rectangular one width x length (its
@@ -308,8 +309,10 @@ const InquiryDetailField = ({
         (field.suggestions.length > 0 || (kind !== null && field.allowsCustom));
     const picked =
         field.answerType === 'choice' ? pickedChoice(field, value) : undefined;
+    // A question that takes nothing of one's own (a thickness) never opens the entry.
     const [isCustom, setIsCustom] = useState(
         () =>
+            field.allowsCustom &&
             hasSuggestions &&
             value !== '' &&
             !field.suggestions.some((option) => option.value === value),

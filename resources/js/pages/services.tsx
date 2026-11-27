@@ -262,7 +262,7 @@ const Services = () => {
             {serviceTypes.length === 0 ? (
                 <EmptyState
                     title="No service types yet"
-                    description="Add a service type first, such as Natural Stone & Applications, then the services under it."
+                    description="Add a service type first, such as Natural Stone & Installation, then the services under it."
                     action={
                         <Button asChild variant="outline">
                             <Link href={serviceListIndex.url('service-types')}>
@@ -458,6 +458,13 @@ const ServiceDetails = ({
                                       .join(', ')
                                 : 'Needs stones, but no stone type is chosen'
                             : 'Needs none'}
+                    </Detail>
+                    <Detail label="Applications">
+                        {service.isApplication
+                            ? 'Is an application, asked under a service'
+                            : service.hasApplications
+                              ? 'Asks which application'
+                              : 'None'}
                     </Detail>
                     <Detail label="Inquiries">
                         {service.inquiriesCount === 1

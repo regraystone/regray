@@ -109,8 +109,9 @@ it('shows the last 12 months, the owing inquiries largest first, and contract va
         ->toBe([[$this->flooring->reference, '30000.00', '70000.00'], [$this->staircase->reference, '15000.00', '35000.00']])
         ->and($page['balances'][0]['url'])->toBe(route('inquiry.show', $this->flooring->reference))
         ->and($page['byService'])->toBe([
-            ['service' => 'Wall Cladding', 'count' => 1, 'total' => '200000.00'],
-            ['service' => 'Flooring', 'count' => 1, 'total' => '100000.00'],
+            // Each application on its own line, under the service it was sent with.
+            ['service' => 'Slab Supply and Installation · Wall Cladding', 'count' => 1, 'total' => '200000.00'],
+            ['service' => 'Slab Supply and Installation · Flooring', 'count' => 1, 'total' => '100000.00'],
         ])
         ->and(collect($page['byPaymentStatus'])->firstWhere('status', 'partial'))
         ->toBe(['status' => 'partial', 'label' => 'Partially paid', 'count' => 1, 'total' => '100000.00'])

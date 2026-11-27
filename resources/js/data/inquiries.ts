@@ -125,7 +125,7 @@ export type InquiryStoneSelection = {
 /**
  * One inquiry, which is one project: the stones, the services wanted for them,
  * how each is cut, where and when it has to happen, and the statuses it has
- * reached. A client who wants another project opens another inquiry.
+ * reached. A request with several projects is sent as one inquiry each.
  *
  * `services` are names rather than ids: the inquiry list puts them straight
  * onto badges and never looks them up. The inquiry form works in ids, because

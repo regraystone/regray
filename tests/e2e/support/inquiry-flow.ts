@@ -31,7 +31,7 @@ import { expect } from './fixtures';
  */
 
 export const CATALOG = {
-    serviceType: 'Natural Stone & Applications',
+    serviceType: 'Natural Stone & Installation',
     service: 'Slab Supply Only',
     serviceSlug: 'slab-supply-only',
     furnitureType: 'Custom Stone Furniture',

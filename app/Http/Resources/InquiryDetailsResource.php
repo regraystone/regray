@@ -340,6 +340,7 @@ class InquiryDetailsResource extends JsonResource
             'name' => $this->name,
             'serviceType' => $this->service?->serviceType->name,
             'service' => $this->service?->name,
+            'application' => $this->application?->name,
             'requiresStones' => $this->service === null || $this->service->requires_stones,
             'stoneAdviceRequested' => $this->stone_advice_requested,
             'stones' => $this->stones->map(fn (InquiryStone $row): array => [
@@ -355,7 +356,8 @@ class InquiryDetailsResource extends JsonResource
                 'details' => array_values($stoneQuestions
                     ->map(fn (DetailField $field): array => ['label' => $field->name, 'value' => match ($field->slug) {
                         DetailField::SLAB_SIZE => $row->slabSizeLabel(),
-                        DetailField::THICKNESS => $row->thicknessLabel(),
+                        // None stored where the stone listed none: Regray advises it.
+                        DetailField::THICKNESS => $row->thicknessLabel() ?? DetailField::THICKNESS_ADVICE,
                         DetailField::EDGE_PROFILE => $row->edgeProfile?->name,
                         DetailField::FINISH => $row->finish?->name,
                         default => null,

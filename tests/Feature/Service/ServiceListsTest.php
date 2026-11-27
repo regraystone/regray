@@ -75,7 +75,7 @@ describe('the pages', function (): void {
                 ->where('list.statusWords.on', 'Visible')
                 ->where('list.statusWords.off', 'Hidden')
                 ->has('items.data', 2)
-                ->where('items.data.0.name', 'Natural Stone & Applications')
+                ->where('items.data.0.name', 'Natural Stone & Installation')
                 ->where('items.data.0.cells.services', '9 services')
                 ->where('items.data.0.actions', ['edit', 'archive'])
                 ->where('canCreate', true));

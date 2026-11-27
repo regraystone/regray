@@ -103,7 +103,8 @@ class InquiryController extends Controller
 
         Inertia::flash('inquiry', [
             'status' => 'success',
-            'title' => $input['projects'][0]['name'],
+            // One project by its name; several, by how many, each with its own reference.
+            'title' => count($inquiries) === 1 ? $input['projects'][0]['name'] : 'your '.count($inquiries).' projects',
             'reference' => implode(', ', array_map(fn (Inquiry $inquiry): string => $inquiry->reference, $inquiries)),
         ]);
 

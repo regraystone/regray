@@ -12,24 +12,27 @@
  * the stones (slugs of data/detail_fields.php), in the order they are asked,
  * each with whether it has to be answered.
  *
+ * `has_applications` makes a service ask which application the work is for
+ * (a third dropdown), from its type's services marked `is_application`. An
+ * application is offered only there, not as a service of its own: its
+ * project questions (area, fascia…) and stone types are asked in place of
+ * the service's, and each stone is still asked what the service asks.
+ *
  * `delivery_note` is the line under "How would you like to get it?",
  * `schedule_note` the line under "When do you need it?", and `lead_days` the
  * fewest days from today the client may ask for it (none: today). All three
  * are the service form's to change.
  *
- * @var list<array{slug: string, name: string, services: list<array{slug: string, name: string, description: string, requires_stones: bool, fulfillment: 'delivery_or_pickup'|'installed', delivery_note?: string, schedule_note?: string, lead_days?: int, features: list<string>, fields: array<string, bool>}>}>
+ * @var list<array{slug: string, name: string, services: list<array{slug: string, name: string, description: string, requires_stones: bool, fulfillment: 'delivery_or_pickup'|'installed', has_applications?: bool, is_application?: bool, delivery_note?: string, schedule_note?: string, lead_days?: int, features: list<string>, fields: array<string, bool>}>}>
  */
 
-// Within Metro Manila and outside it; the amounts are the service form's to fill in.
-$deliveryNote = 'Delivery within Metro Manila is charged at a standard flat rate. For addresses outside Metro Manila, the fee depends on the location and is included in your quotation.';
-
-// A ready-made piece, and one designed for the client.
-$furnitureSchedule = 'Ready-made pieces are delivered within 5 to 7 days. Custom designs take longer; we will confirm the timeline in your quotation.';
+// How long a delivery takes: a ready-made piece, and one made for the client. Shown only once Delivery is picked.
+$deliveryNote = 'Ready-made pieces are delivered within 5 to 7 days. Custom designs take longer; we will confirm the timeline in your quotation.';
 
 return [
     [
         'slug' => 'natural-stone-applications',
-        'name' => 'Natural Stone & Applications',
+        'name' => 'Natural Stone & Installation',
         'services' => [
             [
                 'slug' => 'slab-supply-only',
@@ -37,13 +40,13 @@ return [
                 'description' => 'Premium natural stone slabs supplied for your project.',
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
-                'delivery_note' => $deliveryNote,
                 'features' => ['Every stone type Regray carries', 'Sourcing based on your project requirements', 'Nationwide supply'],
                 // Slabs supplied alone may come uncut: the edge is asked, not required.
                 'fields' => ['quantity' => true, 'slab_size' => true, 'thickness' => true, 'edge_profile' => false, 'finish' => true],
             ],
             [
                 'slug' => 'slab-supply-and-installation',
+                'has_applications' => true,
                 'name' => 'Slab Supply and Installation',
                 'description' => 'Premium natural stone slabs supplied and installed for your project.',
                 'requires_stones' => true,
@@ -53,6 +56,7 @@ return [
             ],
             [
                 'slug' => 'installation-only',
+                'has_applications' => true,
                 'name' => 'Installation Only',
                 'description' => 'Natural stone installation for your project.',
                 'requires_stones' => false,
@@ -62,6 +66,7 @@ return [
             ],
             [
                 'slug' => 'countertop-backsplash',
+                'is_application' => true,
                 'name' => 'Countertop and Backsplash',
                 'description' => 'Natural stone countertops cut and finished to your dimensions.',
                 'requires_stones' => true,
@@ -71,6 +76,7 @@ return [
             ],
             [
                 'slug' => 'wall-cladding',
+                'is_application' => true,
                 'name' => 'Wall Cladding',
                 'description' => 'Natural stone cladding for accent and feature walls.',
                 'requires_stones' => true,
@@ -80,6 +86,7 @@ return [
             ],
             [
                 'slug' => 'flooring',
+                'is_application' => true,
                 'name' => 'Flooring',
                 'description' => 'Natural stone flooring for your project.',
                 'requires_stones' => true,
@@ -89,6 +96,7 @@ return [
             ],
             [
                 'slug' => 'staircase',
+                'is_application' => true,
                 'name' => 'Staircase',
                 'description' => 'Natural stone staircases, from treads to finished edges.',
                 'requires_stones' => true,
@@ -98,6 +106,7 @@ return [
             ],
             [
                 'slug' => 'kitchen-islands',
+                'is_application' => true,
                 'name' => 'Kitchen Islands',
                 'description' => 'Natural stone kitchen islands cut and finished to your dimensions.',
                 'requires_stones' => true,
@@ -107,6 +116,7 @@ return [
             ],
             [
                 'slug' => 'lavatories',
+                'is_application' => true,
                 'name' => 'Lavatories',
                 'description' => 'Natural stone lavatory and vanity tops for your bathrooms.',
                 'requires_stones' => true,
@@ -127,7 +137,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Center and coffee tables', 'Made to order to your specifications'],
                 'fields' => ['table_shape' => true, 'table_base_design_center' => true, 'size' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true],
@@ -139,7 +148,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Side and end tables', 'Made to order to your specifications'],
                 'fields' => ['table_shape' => true, 'table_base_design_side' => true, 'size' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true],
@@ -151,7 +159,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Dining tables for 2 to 12 seaters', 'A base in wood, steel or the same stone', 'Made to order to your specifications'],
                 'fields' => ['table_shape' => true, 'table_base_design_dining' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true],
@@ -163,7 +170,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Custom dimensions and designs', 'Made to order to your specifications'],
                 'fields' => ['size' => true, 'finish' => true],

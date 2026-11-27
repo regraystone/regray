@@ -64,7 +64,7 @@ test('29 · a quantity of 10000 and an edge not in the catalogue are refused wit
     expect(inquiryCount(clientAId)).toBe(before);
 });
 
-test('30 · a request with a second project is refused by the server', async ({
+test('30 · a request with a sixth project is refused by the server', async ({
     actors,
 }) => {
     const { clientAId } = inquiryFixtures();
@@ -73,14 +73,14 @@ test('30 · a request with a second project is refused by the server', async ({
     const before = inquiryCount(clientAId);
 
     const response = await postAsUser(page, '/dashboard/quote/inquire', {
-        projects: Array.from({ length: 2 }, (_, index) =>
+        projects: Array.from({ length: 6 }, (_, index) =>
             projectPayload({ name: `Project ${index + 1}` }),
         ),
     });
 
     expect(response.status).toBe(422);
     expect(response.json?.errors).toEqual({
-        projects: ['An inquiry can only have one project.'],
+        projects: ['Send up to 5 projects at a time.'],
     });
     expect(inquiryCount(clientAId)).toBe(before);
 });

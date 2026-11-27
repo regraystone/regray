@@ -60,22 +60,23 @@ it('opens the signed-in client\'s own inquiry as one flat project with its statu
         ->and($inquiry['processStatus'])->toBeNull()
         ->and($inquiry)->not->toHaveKeys(['projects', 'statusHistory'])
         ->and($inquiry['project']['name'])->toBe('Kitchen')
-        ->and($inquiry['project']['service'])->toBe('Countertop and Backsplash');
+        ->and($inquiry['project']['service'])->toBe('Slab Supply and Installation')
+        ->and($inquiry['project']['application'])->toBe('Countertop and Backsplash');
 
     $project = $inquiry['project'];
 
     expect(array_column($project['stones'], 'id'))->toBe($this->slugs)
         ->and($project['stones'][0])->toMatchArray([
-            // Only the slab services ask how many pieces.
-            'quantity' => null,
-            'slabSize' => null,
-            'thickness' => null,
-            // Only a row asked for a thickness has a slab to compare.
-            'isStandardSlab' => null,
+            // An application's stones are asked what Slab Supply and Installation asks.
+            'quantity' => 1,
+            'slabSize' => '160 x 320 cm',
+            'thickness' => '20 mm',
             'edge' => EdgeProfile::query()->value('name'),
             'finish' => Finish::query()->value('name'),
-            // Only what its service asks, labelled, in the service's order.
+            // Only what its service asks, labelled, in the service's order; the pieces have their own column.
             'details' => [
+                ['label' => 'Slab size', 'value' => '160 x 320 cm'],
+                ['label' => 'Thickness', 'value' => '20 mm'],
                 ['label' => 'Edge profile', 'value' => EdgeProfile::query()->value('name')],
                 ['label' => 'Finish', 'value' => Finish::query()->value('name')],
             ],
@@ -231,8 +232,9 @@ it('shows the service type and the service, and no work per stone', function ():
     $project = $this->actingAs($this->client)->get(route('quote.show', 'INQ-D1'))
         ->viewData('page')['props']['inquiry']['project'];
 
-    expect($project['serviceType'])->toBe('Natural Stone & Applications')
-        ->and($project['service'])->toBe('Countertop and Backsplash')
+    expect($project['serviceType'])->toBe('Natural Stone & Installation')
+        ->and($project['service'])->toBe('Slab Supply and Installation')
+        ->and($project['application'])->toBe('Countertop and Backsplash')
         ->and($project)->not->toHaveKeys(['services', 'unassignedWork'])
         ->and($project['stones'][0])->not->toHaveKey('work');
 });
@@ -260,5 +262,6 @@ it('shows a slab row\'s size and thickness, and whether they are one of the ston
     'a listed slab, written another way' => ['160X320 CM', '20MM', true],
     'a listed size in a thickness it is not cut in' => ['160 x 320 cm', '30 mm', false],
     'a size of its own' => ['150 x 300 cm', '20 mm', false],
-    'a thickness of its own' => ['60 x 120 cm', '25 mm', false],
+    // Thickness is picked from the stone's list: 2 cm is one, but 60 x 120 cm is not cut in it.
+    'a listed thickness the size is not cut in' => ['60 x 120 cm', '2 cm', false],
 ]);
