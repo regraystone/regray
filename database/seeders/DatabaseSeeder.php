@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
 
         $this->call(BrandSeeder::class);
         $this->call(StoneSeeder::class);
+        // Stones added after the first catalogue: Warrior and Green Crystal, from Brazil.
+        $this->call(BrazilStonesSeeder::class);
         $this->call(EdgeProfileSeeder::class);
         $this->call(ShowcaseCategorySeeder::class);
         $this->call(ServiceTypeSeeder::class);

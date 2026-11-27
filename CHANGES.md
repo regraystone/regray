@@ -22,6 +22,16 @@ From Sir Mark's comments of 27 November. Nothing to deploy.
 - **The public pages' floating button invites a guest to the platform:** **Start your project**, opening Sign up (was Message us, which sent a guest to log in). Someone signed in on a public page still gets Message us.
 - **Tests:** `tests/js/message-us.test.mjs` (where Message us shows, and where it sits higher).
 
+# Two new stones from Brazil, and each project lists the stones it used
+
+Regray Stone's catalogue gains **Warrior**, a Patagonia Quartzite, and **Green Crystal**, a Marble, both from Brazil. **Deploy, production: commit the two thumbnails, send them to the bucket (`AWS_PUBLIC_BUCKET=… bash scripts/upload-catalog-images.sh`; `--dry-run` first lists them), then `php artisan db:seed --class=BrazilStonesSeeder --force`. Locally: `php artisan db:seed --class=BrazilStonesSeeder`.** A fresh `migrate:fresh --seed` gets them from DatabaseSeeder.
+
+- **`BrazilStonesSeeder`** adds each stone once, listed after every stone already there: Warrior in 160 x 320 cm and 200 x 320 cm, each in 20 mm and 30 mm; Green Crystal in 120 x 240 cm and 160 x 320 cm, each in 18 mm and 20 mm. A stone already there is left alone, so an edit on its Products page stays.
+- **Like the rest of its type**: its applications, finishes and care tips are its type's, and the Inquire page offers it under its type's services.
+- **Thumbnails** (`storage/app/public/stones/b4da4b80ebb8a8e30fccce7564dbfa1f.png`, Warrior; `cb4097f6ca038f2ca2751c277fd7e51b.png`, Green Crystal) are the supplied photos cut to the catalogue's 470 x 765 PNG, with random names like the others.
+- **Projects list the stones they used**: Belo Medical Group, Star White (marble) and Royal White III (onyx); Ayala Land, Avocado Green III (quartzite); Recidencia Del Hamor, Green Crystal (marble); Lazy Suzy Restaurant, Royal White III (onyx); Ginza One, Warrior (Patagonia quartzite); Restaurant Idalia, Pardo Brown I (onyx). `ShowcaseStonesSeeder` sets them exactly as data/showcases.php lists them, so a stone listed before comes off, and corrects the three overviews that named the wrong stone types if they are still as first seeded. ShowcaseSeeder runs it; on production run `php artisan db:seed --class=ShowcaseStonesSeeder --force` (it runs BrazilStonesSeeder first).
+- **Tests**: `Database/BrazilStonesSeedTest`; `Home/ShowcaseShowTest` checks each project's stones and the correction of a database in use.
+
 # Inquire: Natural Stone's three services with an application, up to five projects, thickness from the list, navy brand cards
 
 **Natural Stone & Installation** (renamed from Natural Stone & Applications) offers three services: **Slab Supply Only**, **Slab Supply and Installation** and **Installation Only**. The two with an installation then ask **Which application?**: Countertop and Backsplash, Wall Cladding, Flooring, Staircase, Kitchen Islands or Lavatories. **Deploy, local and production: three migrations (`2026_11_27_000002_make_thickness_select_only`, `2026_11_27_000003_add_service_applications`, `2026_11_27_000004_delivery_note_says_how_long`). Rebuild the front end.** Nothing to seed: the migrations make the change on a database in use, and a fresh `migrate:fresh --seed` gets it from the usual seeders.
