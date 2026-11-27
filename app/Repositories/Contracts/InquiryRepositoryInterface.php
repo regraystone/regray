@@ -4,6 +4,7 @@ namespace App\Repositories\Contracts;
 
 use App\Data\InquiryListFilters;
 use App\Enums\DocumentType;
+use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusTrack;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
@@ -115,6 +116,21 @@ interface InquiryRepositoryInterface
      * @return LengthAwarePaginator<int, Inquiry>
      */
     public function paginateForClient(User $client, InquiryListFilters $filters, ?string $escapedSearch, int $perPage): LengthAwarePaginator;
+
+    /**
+     * This client's own inquiries at one of `$statuses` (their display
+     * status), newest first, with their service and their open installations
+     * and deliveries: the orders the Schedule page may book for.
+     *
+     * @return Collection<int, Inquiry>
+     */
+    public function ordersForScheduling(User $client, InquiryStatus ...$statuses): Collection;
+
+    /**
+     * This client's own inquiry by its reference when it is at one of
+     * `$statuses`, with its service, or null.
+     */
+    public function findOrderForScheduling(User $client, string $reference, InquiryStatus ...$statuses): ?Inquiry;
 
     /**
      * The distinct stones of each inquiry, in the order each was first picked, in

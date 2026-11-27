@@ -3,6 +3,7 @@
 namespace App\Repositories\Contracts;
 
 use App\Enums\BookedByType;
+use App\Enums\ScheduleKind;
 use App\Enums\ScheduleStatus;
 use App\Models\Inquiry;
 use App\Models\Schedule;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 interface ScheduleRepositoryInterface
 {
     /**
-     * @param  array{client_id: ?int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string, approved_by?: ?int, approved_at?: ?CarbonInterface, assigned_to?: ?int, assigned_by?: ?int, assigned_at?: ?CarbonInterface}  $attributes
+     * @param  array{client_id: ?int, booked_by: ?int, booked_by_type: BookedByType, inquiry_id: ?int, kind?: ?ScheduleKind, order_id?: ?int, title: string, arrival_at: CarbonInterface, status: ScheduleStatus, notes: ?string, approved_by?: ?int, approved_at?: ?CarbonInterface, assigned_to?: ?int, assigned_by?: ?int, assigned_at?: ?CarbonInterface}  $attributes
      */
     public function create(array $attributes): Schedule;
 

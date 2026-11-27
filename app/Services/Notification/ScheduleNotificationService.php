@@ -53,6 +53,12 @@ class ScheduleNotificationService
         $name = $this->clientName($schedule);
         $date = $this->date($schedule->arrival_at);
 
+        if ($schedule->booked_by_type === BookedByType::Client && $account !== null && $schedule->order_id !== null) {
+            $this->bookedForOrder($schedule, $account, $name, $date);
+
+            return;
+        }
+
         if ($schedule->booked_by_type === BookedByType::Client && $account !== null) {
             $this->send([$account], $schedule, "Your appointment request for {$date} has been sent.");
             $this->send($this->watchers($schedule)->except([$account->id]), $schedule, "{$name} has booked an appointment for {$date}. Assign it to sales to confirm.");
@@ -155,6 +161,34 @@ class ScheduleNotificationService
         $declined = $schedule->declined_at === null ? '' : ' since it was declined';
 
         $this->send($marketers, $schedule, "Reminder: the appointment with {$this->clientName($schedule)} on {$this->date($schedule->arrival_at)} has had no sales member{$declined}. Assign it to sales to confirm.");
+    }
+
+    /**
+     * A client's installation or delivery for an order: they are told it was
+     * sent, the order's sales member asked to confirm it, and the rest of the
+     * team told; with no sales member on the order, marketing is asked to
+     * assign it, as for a showroom visit.
+     */
+    private function bookedForOrder(Schedule $schedule, User $account, string $name, string $date): void
+    {
+        $schedule->loadMissing('order:id,reference');
+        $what = strtolower($schedule->kind?->label() ?? 'appointment');
+        $reference = $schedule->order->reference ?? 'their order';
+        $sales = $this->assignee($schedule);
+
+        $this->send([$account], $schedule, "Your {$what} request for {$reference} on {$date} has been sent.");
+
+        if ($sales !== null) {
+            $this->send([$sales], $schedule, "{$name} has asked for the {$what} of {$reference} on {$date}. Confirm or decline it.");
+        }
+
+        $this->send(
+            $this->watchers($schedule)->except(array_filter([$account->id, $sales?->id])),
+            $schedule,
+            $sales === null
+                ? "{$name} has asked for the {$what} of {$reference} on {$date}. Assign it to sales to confirm."
+                : "{$name} has asked for the {$what} of {$reference} on {$date}.",
+        );
     }
 
     /** Assigned to a sales member: they are asked to confirm it, and the other marketers handling it told. */
