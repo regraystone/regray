@@ -127,9 +127,9 @@ class ConversationResource extends JsonResource
     /**
      * A client sees their Regray Team thread with the Regray logo. Staff see
      * each client's thread as that client, under the client's name and with
-     * no picture, so the page draws the client's own initials and every
-     * client's thread is told apart at a glance rather than all wearing the
-     * same logo.
+     * the client's profile photo, or with none, so the page draws the
+     * client's own initials and every client's thread is told apart at a
+     * glance rather than all wearing the same logo.
      */
     private function avatar(bool $viewerIsClient): ?string
     {
@@ -137,7 +137,13 @@ class ConversationResource extends JsonResource
             return $this->avatar_path;
         }
 
-        return $viewerIsClient ? EloquentConversationRepository::SUPPORT_AVATAR : null;
+        if ($viewerIsClient) {
+            return EloquentConversationRepository::SUPPORT_AVATAR;
+        }
+
+        $client = $this->relationLoaded('supportClient') ? $this->supportClient : null;
+
+        return $client !== null && $client->relationLoaded('profile') ? $client->avatarUrl() : null;
     }
 
     private function displayName(bool $isOwnSupport): string

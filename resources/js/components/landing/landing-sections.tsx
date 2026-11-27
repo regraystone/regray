@@ -34,14 +34,14 @@ const zoom =
     'transition-transform duration-1600 ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.02] motion-reduce:transition-none';
 
 /**
- * 01. The full-screen opening: the Regray Group and its line over the photo,
+ * 01. The full-screen opening: Regray Design Group and its line over the photo,
  * and the arrow down to Discover. The photo is a wall-cladding project Regray
  * did (backlit stone either side of a travertine fireplace), not a generated
  * one.
  */
 export function LandingHero() {
     return (
-        <section aria-label="The Regray Group" className={frame}>
+        <section aria-label="Regray Design Group" className={frame}>
             <div className="relative h-[calc(100svh-8.5rem)] min-h-115 overflow-hidden rounded-md bg-[#d8d4cd] text-white">
                 <img
                     src="/images/regray-wall-cladding.jpg"
@@ -55,7 +55,7 @@ export function LandingHero() {
                     className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0)_30%,rgb(0_0_0/0.72)_100%),linear-gradient(90deg,rgb(0_0_0/0.35)_0%,rgb(0_0_0/0)_60%)]"
                 />
                 <div className="absolute inset-x-[clamp(1.25rem,4vw,4rem)] bottom-[clamp(1.75rem,5vw,4rem)] flex max-w-205 flex-col gap-3.5">
-                    <p className={label}>The Regray Group</p>
+                    <p className={label}>Regray Design Group</p>
                     <h1 className="font-display text-[clamp(2rem,4vw,3.75rem)] leading-[1.08] font-light tracking-[-0.005em] text-balance">
                         Natural stone, kitchens and interiors for your home.
                     </h1>

@@ -314,7 +314,7 @@ const BrandProfile = () => {
                         id="brand-others"
                         className="text-[0.8125rem] font-semibold tracking-[0.14em] uppercase"
                     >
-                        More from the Regray Group
+                        More from Regray Design Group
                     </h2>
                     {/* Rows wrap and centre, so a short last row (one or two logos) sits in the middle. */}
                     <ul className="flex w-full max-w-275 flex-wrap items-center justify-center gap-x-8 gap-y-10 [--other:0.6] sm:[--other:0.8]">

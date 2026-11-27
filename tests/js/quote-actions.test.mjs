@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
     CARD_BUTTON_ORDER,
     buildCardActions,
+    mainButtonLabel,
 } from '../../resources/js/lib/quote-actions.ts';
 
 /*
@@ -146,5 +147,14 @@ describe('buildCardActions', () => {
             buttons.map((b) => b.key),
             ['view', 'cancel'],
         );
+    });
+});
+
+describe("the card's main button", () => {
+    it('is named for where the inquiry stands', () => {
+        assert.equal(mainButtonLabel('pending'), 'View details');
+        assert.equal(mainButtonLabel('quoted'), 'View quotation');
+        assert.equal(mainButtonLabel('accepted'), 'View order');
+        assert.equal(mainButtonLabel(null), 'View details');
     });
 });

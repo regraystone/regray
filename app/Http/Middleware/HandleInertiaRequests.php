@@ -72,6 +72,8 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'permissions' => $user?->getAllPermissions()->pluck('name')->values()->all() ?? [],
                 'roles' => $user?->getRoleNames()->values()->all() ?? [],
+                // Their profile photo, standing in for their initials in the header and the Profile page.
+                'avatar' => $user?->avatarUrl(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'savedStoneSlugs' => $savedStoneSlugs,

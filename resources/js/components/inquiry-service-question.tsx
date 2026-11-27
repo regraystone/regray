@@ -12,7 +12,8 @@ const SERVICE_INFO_ID = 'inquiry-service-info';
 
 /**
  * The first question: a service type, then one of its services, then what that
- * service includes. The second dropdown and the panel wait for the choice before
+ * service includes, and, for a service the team installs, that installation
+ * comes at an extra cost. The second dropdown and the panel wait for the choice before
  * them. The page owns the writes, because changing the type clears the service.
  */
 const InquiryServiceQuestion = ({
@@ -93,6 +94,18 @@ const InquiryServiceQuestion = ({
                             </li>
                         ))}
                     </ul>
+                    {/* Every service the team installs says so, from its own setting, so no wording has to be kept in step. */}
+                    {service.fulfillment === 'installed' ? (
+                        <p
+                            className="mt-1 border-t border-border pt-3 text-sm leading-normal"
+                            data-testid="installation-cost-note"
+                        >
+                            <span className="font-semibold">
+                                Installation comes at an extra cost.
+                            </span>{' '}
+                            Our team will include it in your quotation.
+                        </p>
+                    ) : null}
                 </div>
             )}
         </div>

@@ -64,7 +64,7 @@ class InquiryDetailsResource extends JsonResource
     }
 
     /**
-     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string, url: string, previewable: bool, uploadedAt: string, format: string}>}>, assignedStaff: list<array{name: string, roleLabel: string|null}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null, walkIn: array<string, mixed>|null}
+     * @return array{reference: string, status: string, salesStatus: string|null, paymentStatus: string|null, processStatus: string|null, createdAt: string, contractTotal: string|null, history: list<array{track: string, status: string, at: string}>, payments: list<array{id: string, kind: string, amount: string, currentBalance: string|null, remainingBalance: string|null, at: string}>, documents: list<array{id: string, status: string|null, revision: int|null, at: string, files: list<array{id: string, type: string, name: string, sizeBytes: int, mimeType: string, url: string, previewable: bool, uploadedAt: string, format: string}>}>, assignedStaff: list<array{name: string, roleLabel: string|null}>, project: array<string, mixed>, conversation: array{id: int, name: string}|null, walkIn: array<string, mixed>|null, clientAccount: array{name: string, company: string|null, avatar: string|null}|null}
      */
     public function toArray(Request $request): array
     {
@@ -90,6 +90,30 @@ class InquiryDetailsResource extends JsonResource
             'actions' => (new InquiryActions)->for($this->resource),
             'conversation' => $this->conversationLink,
             'walkIn' => $this->walkIn($viewer),
+            'clientAccount' => $this->clientAccount($viewer),
+        ];
+    }
+
+    /**
+     * The client account an inquiry was sent from, for the staff who read it:
+     * their name, the company they gave on their profile, and their profile
+     * photo (or null, for their initials). Null for the client themselves,
+     * and for a walk-in's inquiry (walkIn() tells that one).
+     *
+     * @return array{name: string, company: string|null, avatar: string|null}|null
+     */
+    private function clientAccount(User $viewer): ?array
+    {
+        if ($viewer->isClient() || $this->client_id === null || $this->owner_user_id !== null) {
+            return null;
+        }
+
+        $client = $this->resource->loadMissing('client.profile')->client;
+
+        return $client === null ? null : [
+            'name' => $client->name,
+            'company' => $client->profile?->company,
+            'avatar' => $client->avatarUrl(),
         ];
     }
 

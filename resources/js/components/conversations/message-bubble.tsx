@@ -13,9 +13,10 @@ import {
     PendingAttachments,
 } from '@/components/conversations/message-attachments';
 import Countdown from '@/components/countdown';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useInitials } from '@/hooks/use-initials';
+import { formatTime } from '@/lib/date';
 import {
     LONG_PRESS_DELAY_MS,
     LONG_PRESS_IDLE,
@@ -171,6 +172,13 @@ const MessageBubble = ({
                 <div className="size-8 shrink-0">
                     {showAvatar && message?.sender ? (
                         <Avatar className="size-8 border border-border">
+                            {message.sender.avatar ? (
+                                <AvatarImage
+                                    src={message.sender.avatar}
+                                    alt=""
+                                    className="object-cover"
+                                />
+                            ) : null}
                             <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
                                 {getInitials(message.sender.name)}
                             </AvatarFallback>
@@ -270,16 +278,29 @@ const MessageBubble = ({
                                 {body}
                             </span>
                         )}
-                    </div>
 
-                    {message?.isEdited && !removed ? (
-                        <span
-                            className="mt-0.5 block text-[0.7rem] text-secondary-foreground"
-                            data-testid="edited-label"
-                        >
-                            Edited
-                        </span>
-                    ) : null}
+                        {/* Its time inside the bubble, bottom right, as Viber shows it; a message still sending says so below instead. */}
+                        {message ? (
+                            <span
+                                className={cn(
+                                    'mt-1 flex items-center justify-end gap-1.5 text-[0.6875rem] leading-none whitespace-nowrap text-secondary-foreground not-italic',
+                                    hasPhotos && 'px-2 pb-1',
+                                )}
+                            >
+                                {message.isEdited && !removed ? (
+                                    <span data-testid="edited-label">
+                                        Edited
+                                    </span>
+                                ) : null}
+                                <time
+                                    dateTime={createdAt}
+                                    data-testid="message-time"
+                                >
+                                    {formatTime.format(new Date(createdAt))}
+                                </time>
+                            </span>
+                        ) : null}
+                    </div>
                 </div>
 
                 {pending ? (

@@ -15,6 +15,11 @@ export type QuoteInquiry = {
     reference: string;
     /** The display status: the one status shown for the inquiry. */
     status: InquiryStatus;
+    /**
+     * The Quotations tab it is under (App\Enums\QuoteTab), which colours its
+     * status and names its main button; null when cancelled or being refunded.
+     */
+    stage: 'pending' | 'quoted' | 'accepted' | null;
     /** Null until accounting's stage starts, when the client approves the quotation. */
     paymentStatus: PaymentStatus | null;
     createdAt: string;
@@ -120,6 +125,16 @@ export type QuoteInquiryDetails = {
      * may not), and whether they may decide it. Null on a client's inquiry.
      */
     walkIn?: WalkInDetails | null;
+    /**
+     * The client account it was sent from, for staff: their name, the company
+     * they gave and their profile photo (null for initials). Null for the
+     * client themselves and on a walk-in's inquiry.
+     */
+    clientAccount?: {
+        name: string;
+        company: string | null;
+        avatar: string | null;
+    } | null;
     /** Which buttons the page shows, and which can be pressed. */
     actions: QuoteActions;
     /** The one project the inquiry is. */
