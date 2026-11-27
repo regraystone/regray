@@ -285,6 +285,9 @@ test('guards every route with exactly these permissions', function () {
         'profile.settings' => $p(Permission::ProfileView),
         'profile.edit' => $p(Permission::ProfileView),
         'profile.update' => $p(Permission::ProfileView),
+        // A client's photo; ProfilePhotoRequest refuses staff on top of this.
+        'profile.photo.update' => $p(Permission::ProfileView),
+        'profile.photo.destroy' => $p(Permission::ProfileView),
         'email-preferences.update' => $p(Permission::ProfileView),
         'social.google.connect' => $p(Permission::ProfileView),
         'social.google.disconnect' => $p(Permission::ProfileView),

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { HubRow, HubSection } from '@/components/hub-rows';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import ProfilePhoto from '@/components/profile-photo';
 import { useInitials } from '@/hooks/use-initials';
 import { usePermissions } from '@/hooks/use-permissions';
 import { permissions } from '@/layouts/workspace-layout';
@@ -122,7 +122,8 @@ const ActivityCard = ({
 /**
  * Your account.
  *
- * "My Profile", then who is signed in (their initials, name, email, the phone
+ * "My Profile", then who is signed in (their photo, which a client may add,
+ * change or remove, or their initials; their name, email, the phone
  * and company they gave and, for staff, their role) with Edit profile, beside
  * Loyalty & Rewards (coming soon). Below, the doors in labelled groups:
  * Account; Activity, three cards in order (Quotations with how many are open,
@@ -144,7 +145,7 @@ const Profile = ({ summary }: { summary: ProfileSummary }) => {
     const { can } = usePermissions();
     const getInitials = useInitials();
     const { auth, savedStoneSlugs, savedFurnitureSlugs } = usePage<{
-        auth: { user: User; roles: string[] };
+        auth: { user: User; roles: string[]; avatar: string | null };
         savedStoneSlugs: string[];
         savedFurnitureSlugs: string[];
     }>().props;
@@ -188,11 +189,11 @@ const Profile = ({ summary }: { summary: ProfileSummary }) => {
                         aria-label="Your account"
                         className="flex min-w-0 items-center gap-5"
                     >
-                        <Avatar className="size-20 shrink-0 sm:size-22">
-                            <AvatarFallback className="bg-primary text-2xl font-normal text-primary-foreground">
-                                {getInitials(user.name) || 'R'}
-                            </AvatarFallback>
-                        </Avatar>
+                        <ProfilePhoto
+                            photo={auth.avatar}
+                            initials={getInitials(user.name) || 'R'}
+                            editable={auth.roles.includes('client')}
+                        />
                         <div className="min-w-0 space-y-1">
                             <div className="flex flex-wrap items-center gap-2">
                                 <p className="truncate font-display text-xl font-normal sm:text-[1.375rem]">

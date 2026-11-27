@@ -3,6 +3,7 @@
 namespace App\Data;
 
 use App\Enums\InquiryStatusGroup;
+use App\Enums\QuoteTab;
 
 final readonly class InquiryListFilters
 {
@@ -16,5 +17,7 @@ final readonly class InquiryListFilters
         public ?InquiryStatusGroup $status = null,
         public string $sort = self::SORT_NEWEST,
         public int $page = 1,
+        /** The Quotations page's tab (Pending, Quoted, Accepted); null is All. */
+        public ?QuoteTab $tab = null,
     ) {}
 }

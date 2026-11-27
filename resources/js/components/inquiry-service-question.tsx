@@ -18,9 +18,10 @@ const SERVICE_INFO_ID = 'inquiry-service-info';
  * The first question: a service type, then one of its services, then what that
  * service includes. A service with an installation (Slab Supply and
  * Installation, Installation Only) then asks a third: which application the
- * work is for (Countertop and Backsplash, Flooring…). Each dropdown and the
- * panel wait for the choice before them. The page owns the writes, because
- * changing the type clears the service, and the service its application.
+ * work is for (Countertop and Backsplash, Flooring…), and says installation
+ * comes at an extra cost. Each dropdown and the panel wait for the choice
+ * before them. The page owns the writes, because changing the type clears
+ * the service, and the service its application.
  */
 const InquiryServiceQuestion = ({
     onServiceType,
@@ -134,6 +135,18 @@ const InquiryServiceQuestion = ({
                             </p>
                         </div>
                     )}
+                    {/* Every service the team installs says so, from its own setting, so no wording has to be kept in step. */}
+                    {service.fulfillment === 'installed' ? (
+                        <p
+                            className="mt-1 border-t border-border pt-3 text-sm leading-normal"
+                            data-testid="installation-cost-note"
+                        >
+                            <span className="font-semibold">
+                                Installation comes at an extra cost.
+                            </span>{' '}
+                            Our team will include it in your quotation.
+                        </p>
+                    ) : null}
                 </div>
             )}
         </div>

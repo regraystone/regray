@@ -2440,8 +2440,16 @@ const InquireFlow = ({
                                         </div>
 
                                         <div className="mb-6 border-y border-border py-3.5">
-                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                                <div className="relative w-full sm:max-w-xs">
+                                            {/*
+                                             * On a phone and a tablet, stacked: the search, the
+                                             * three tabs, the brand list, then the types as
+                                             * pills. From a laptop, one row that wraps rather
+                                             * than squeezes: the search takes the room left,
+                                             * the tabs and the brand and type lists keep their
+                                             * width, all one height.
+                                             */}
+                                            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+                                                <div className="relative w-full lg:w-auto lg:min-w-56 lg:flex-1">
                                                     <Search
                                                         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-foreground"
                                                         aria-hidden
@@ -2457,7 +2465,7 @@ const InquireFlow = ({
                                                         }
                                                         placeholder="Search stones"
                                                         aria-label="Search stones"
-                                                        className="rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
+                                                        className="h-11 rounded-none pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
                                                     />
                                                     {search ? (
                                                         <button
@@ -2477,7 +2485,7 @@ const InquireFlow = ({
                                                 </div>
 
                                                 <div
-                                                    className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap sm:flex"
+                                                    className="grid shrink-0 grid-cols-3 gap-2 lg:flex lg:items-center lg:gap-1.5 lg:whitespace-nowrap"
                                                     role="tablist"
                                                     aria-label="Filter stones"
                                                 >
@@ -2499,7 +2507,7 @@ const InquireFlow = ({
                                                                         tab.value,
                                                                     )
                                                                 }
-                                                                className={`h-11 cursor-pointer border px-3.5 text-[0.8125rem] tracking-[0.04em] uppercase transition-colors ${
+                                                                className={`h-11 cursor-pointer border px-2 text-[0.8125rem] tracking-[0.04em] whitespace-nowrap uppercase transition-colors lg:px-3.5 ${
                                                                     isActive
                                                                         ? 'border-foreground bg-foreground text-background'
                                                                         : 'border-border bg-background text-foreground hover:border-foreground'
@@ -2507,43 +2515,6 @@ const InquireFlow = ({
                                                             >
                                                                 {tab.label}
                                                             </button>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                <div
-                                                    className="flex items-center gap-2.5 sm:hidden"
-                                                    role="tablist"
-                                                    aria-label="Filter stones"
-                                                >
-                                                    {stoneTabs.map((tab) => {
-                                                        const isActive =
-                                                            filter ===
-                                                            tab.value;
-
-                                                        return (
-                                                            <Button
-                                                                key={tab.value}
-                                                                type="button"
-                                                                role="tab"
-                                                                aria-selected={
-                                                                    isActive
-                                                                }
-                                                                variant={
-                                                                    isActive
-                                                                        ? 'default'
-                                                                        : 'secondary'
-                                                                }
-                                                                size="sm"
-                                                                className="px-3 py-1.5"
-                                                                onClick={() =>
-                                                                    changeTab(
-                                                                        tab.value,
-                                                                    )
-                                                                }
-                                                            >
-                                                                {tab.label}
-                                                            </Button>
                                                         );
                                                     })}
                                                 </div>

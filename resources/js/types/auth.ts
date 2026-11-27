@@ -14,4 +14,6 @@ export type Auth = {
     user: User;
     permissions: string[];
     roles: string[];
+    /** The user's profile photo URL, or null to show their initials. */
+    avatar: string | null;
 };

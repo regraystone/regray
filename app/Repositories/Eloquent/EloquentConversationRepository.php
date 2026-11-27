@@ -205,6 +205,8 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
             ->selectRaw('('.self::UNREAD_SQL.') AS unread_count', [$user->id, $user->id, $user->id])
             ->with([
                 'supportClient:id,name',
+                // The client's photo, which staff see their thread under.
+                'supportClient.profile:user_id,avatar_path',
                 'assignee:id,name',
                 'members' => fn ($members) => $members
                     ->whereIn('role', [ConversationMemberRole::Member->value, ConversationMemberRole::Admin->value])

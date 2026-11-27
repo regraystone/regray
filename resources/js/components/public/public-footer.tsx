@@ -19,7 +19,7 @@ const linkClass =
     'text-[0.9375rem] font-medium tracking-[0.04em] uppercase transition-opacity hover:opacity-70';
 
 /**
- * The public pages' black footer, kept short. On a phone it is one centred
+ * The public pages' dark blue footer (the site's navy), kept short. On a phone it is one centred
  * column: the wordmark, the main pages and the copyright, then the showroom's
  * address, hours and how to reach the team. From a tablet up it spreads out:
  * the wordmark and the showroom on the left, the pages in two columns on the
@@ -30,7 +30,7 @@ const linkClass =
  */
 export default function PublicFooter() {
     return (
-        <footer className="bg-black px-5 pt-[clamp(4.5rem,9vw,7.5rem)] pb-28 text-white sm:px-8">
+        <footer className="border-t border-white/10 bg-navy px-5 pt-[clamp(4.5rem,9vw,7.5rem)] pb-28 text-white sm:px-8">
             <div className="flex flex-col items-center gap-[clamp(3rem,6vw,4.5rem)] text-center md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-x-16 md:gap-y-14 md:text-left lg:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)] lg:gap-x-[clamp(4rem,7vw,8rem)]">
                 <Link
                     href={home()}
@@ -63,7 +63,7 @@ export default function PublicFooter() {
 
                 <address className="mt-[clamp(1rem,2vw,2rem)] flex flex-col gap-2 self-stretch text-left text-[0.9375rem] leading-relaxed text-white/85 not-italic md:col-start-1 md:row-start-2 md:mt-0 md:self-auto lg:col-start-3 lg:row-start-1">
                     <span className="text-[0.9375rem] font-semibold tracking-[0.04em] text-white uppercase">
-                        Regray Stone & Furniture
+                        Regray Design Group
                     </span>
                     <span>{SHOWROOM.address}</span>
                     <span>{SHOWROOM.hours}</span>

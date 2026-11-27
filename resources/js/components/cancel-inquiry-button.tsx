@@ -1,60 +1,49 @@
 import { router } from '@inertiajs/react';
-import { useState, type ComponentProps } from 'react';
+import { useState } from 'react';
 import ConfirmDialog from '@/components/confirm-dialog';
-import { Button } from '@/components/ui/button';
 import { cancel as quoteCancel } from '@/routes/quote';
 
-/** A client's Cancel button on an inquiry, which asks before it cancels. */
-const CancelInquiryButton = ({
+/**
+ * The question asked before a client cancels an inquiry, opened from a card's
+ * ⋯ menu on the Quotations page. Cancelling cannot be undone, so it says so,
+ * and the safe choice (keep it) is the one that closes the dialog.
+ */
+const CancelInquiryDialog = ({
     reference,
-    label,
-    variant,
-    className,
+    open,
+    onOpenChange,
 }: {
     reference: string;
-    label: string;
-    variant: ComponentProps<typeof Button>['variant'];
-    className?: string;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
 }) => {
-    const [isAsking, setIsAsking] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
 
     return (
-        <>
-            <Button
-                type="button"
-                variant={variant}
-                className={className}
-                onClick={() => setIsAsking(true)}
-            >
-                {label}
-            </Button>
-
-            <ConfirmDialog
-                open={isAsking}
-                onOpenChange={setIsAsking}
-                title="Cancel this inquiry?"
-                description={`We will stop working on ${reference}. You can't undo this, but you can send a new inquiry at any time.`}
-                confirmLabel="Cancel inquiry"
-                cancelLabel="Keep inquiry"
-                destructive
-                processing={isCancelling}
-                onConfirm={() => {
-                    setIsCancelling(true);
-                    router.patch(
-                        quoteCancel.url({ reference }),
-                        {},
-                        {
-                            onFinish: () => {
-                                setIsCancelling(false);
-                                setIsAsking(false);
-                            },
+        <ConfirmDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            title="Cancel this inquiry?"
+            description={`We will stop working on ${reference}. You can't undo this, but you can send a new inquiry at any time.`}
+            confirmLabel="Cancel inquiry"
+            cancelLabel="Keep inquiry"
+            destructive
+            processing={isCancelling}
+            onConfirm={() => {
+                setIsCancelling(true);
+                router.patch(
+                    quoteCancel.url({ reference }),
+                    {},
+                    {
+                        onFinish: () => {
+                            setIsCancelling(false);
+                            onOpenChange(false);
                         },
-                    );
-                }}
-            />
-        </>
+                    },
+                );
+            }}
+        />
     );
 };
 
-export default CancelInquiryButton;
+export default CancelInquiryDialog;

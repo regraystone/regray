@@ -197,6 +197,7 @@ class EloquentInquiryRepository implements InquiryRepositoryInterface
         return Inquiry::query()
             ->whereBelongsTo($client, 'client')
             ->when($filters->status !== null, fn (Builder $query) => $query->inStatusGroup($filters->status))
+            ->when($filters->tab !== null, fn (Builder $query) => $query->whereDisplayStatus(...$filters->tab->statuses()))
             ->when($escapedSearch !== null, function (Builder $query) use ($escapedSearch): void {
                 $pattern = "%{$escapedSearch}%";
 

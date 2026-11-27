@@ -43,6 +43,20 @@ const BUTTONS: Record<
     invoice: { label: 'Get invoice', variant: 'outline' },
 };
 
+/**
+ * The card's main button, named for where the inquiry stands (its Quotations
+ * tab, `stage`): its details before a quotation, the quotation once one is
+ * waiting, the order once it is accepted. Each opens the same details page.
+ */
+export const mainButtonLabel = (
+    stage: 'pending' | 'quoted' | 'accepted' | null,
+): string =>
+    stage === 'quoted'
+        ? 'View quotation'
+        : stage === 'accepted'
+          ? 'View order'
+          : 'View details';
+
 /** The buttons to draw, in order: only the actions that can be pressed. */
 export const buildCardActions = (actions: QuoteActions): CardButton[] =>
     CARD_BUTTON_ORDER.flatMap((key) => {

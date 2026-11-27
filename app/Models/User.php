@@ -7,6 +7,7 @@ use App\Enums\ConsentType;
 use App\Enums\InquiryStatus;
 use App\Enums\Permission;
 use App\Enums\Role;
+use App\Http\Resources\ShowcaseCardResource;
 use App\Notifications\QueuedResetPassword;
 use App\Notifications\QueuedVerifyEmail;
 use Database\Factories\UserFactory;
@@ -123,6 +124,19 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isClient(): bool
     {
         return $this->hasRole(Role::Client->value);
+    }
+
+    /**
+     * The photo the user chose for their profile, as a URL, or null for none:
+     * a client's, from their profile. Staff have no profile, so none yet.
+     * Wherever the user is shown (the header, their messages, an inquiry's
+     * details) it stands in for their initials.
+     */
+    public function avatarUrl(): ?string
+    {
+        $path = $this->profile?->avatar_path;
+
+        return $path === null || $path === '' ? null : ShowcaseCardResource::resolveThumbnailUrl($path);
     }
 
     /**

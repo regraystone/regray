@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Data\ClientInquiryCard;
+use App\Enums\QuoteTab;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,13 +16,15 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ClientInquiryResource extends JsonResource
 {
     /**
-     * @return array{reference: string, status: string, paymentStatus: string|null, createdAt: string, title: string, stones: list<array{slug: string, name: string, thumbnail: string}>, services: list<array{id: string, name: string}>, actions: array<string, array{visible: bool, enabled: bool, reason?: string}>}
+     * @return array{reference: string, status: string, stage: string|null, paymentStatus: string|null, createdAt: string, title: string, stones: list<array{slug: string, name: string, thumbnail: string}>, services: list<array{id: string, name: string}>, actions: array<string, array{visible: bool, enabled: bool, reason?: string}>}
      */
     public function toArray(Request $request): array
     {
         return [
             'reference' => $this->reference,
             'status' => $this->status->value,
+            // The Quotations tab it is under (QuoteTab), which colours its status and names its main button; null under All only.
+            'stage' => QuoteTab::forStatus($this->status)?->value,
             'paymentStatus' => $this->paymentStatus?->value,
             'createdAt' => $this->createdAt->toIso8601String(),
             'title' => $this->title,

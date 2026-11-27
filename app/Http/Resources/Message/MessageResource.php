@@ -62,6 +62,8 @@ class MessageResource extends JsonResource
             'sender' => $this->sender === null ? null : [
                 'id' => $this->sender->id,
                 'name' => $this->senderName($this->resource),
+                // A client's profile photo, where the page loaded it (MessageRepository); staff have none yet.
+                'avatar' => $this->sender->relationLoaded('profile') ? $this->sender->avatarUrl() : null,
             ],
             'replyTo' => $this->replyTo === null ? null : [
                 'id' => $this->replyTo->id,

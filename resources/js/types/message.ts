@@ -137,7 +137,8 @@ export type ChatMessage = {
     isEdited: boolean;
     createdAt: string;
     clientKey: string | null;
-    sender: { id: number; name: string } | null;
+    /** `avatar`: a client sender's profile photo, or null to show initials. */
+    sender: { id: number; name: string; avatar?: string | null } | null;
     replyTo: {
         id: number;
         senderName: string | null;

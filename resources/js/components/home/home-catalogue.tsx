@@ -1,10 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
-import { usePermissions } from '@/hooks/use-permissions';
-import { login } from '@/routes';
 import { show as brandsShow } from '@/routes/brands';
 import { show as dashboardBrandShow } from '@/routes/dashboard/brands';
-import { index as inboxIndex } from '@/routes/inbox';
 import type { BrandCardData, HomePageProps } from '@/types/home';
 
 const hero = '/images/regray-hero.jpg';
@@ -121,9 +117,7 @@ const Brands = ({ brands }: { brands: BrandCardData[] }) =>
     );
 
 export default function HomeCatalogue() {
-    const permissions = usePermissions();
     const pageProps = usePage<HomePageProps>().props;
-    const canMessage = permissions.can('messages.view');
 
     return (
         <div className="w-full">
@@ -144,16 +138,6 @@ export default function HomeCatalogue() {
 
                 <Brands brands={pageProps.brands ?? []} />
             </section>
-
-            <Button
-                asChild
-                size="lg"
-                className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-40 shadow-lg"
-            >
-                <Link href={canMessage ? inboxIndex.url() : login.url()}>
-                    Message us
-                </Link>
-            </Button>
         </div>
     );
 }
