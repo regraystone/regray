@@ -827,7 +827,7 @@ const ServiceForm = ({
                             id="service-delivery-note"
                             label="Delivery line"
                             error={formState.errors.delivery_note?.message}
-                            hint="Shown under the delivery method on the Inquire page, such as the delivery fee within Metro Manila and outside it."
+                            hint="Shown under the delivery method on the Inquire page once Delivery is picked, such as how long a delivery takes."
                         >
                             {({ describedBy, invalid }) => (
                                 <Textarea

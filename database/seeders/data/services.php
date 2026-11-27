@@ -26,11 +26,8 @@
  * @var list<array{slug: string, name: string, services: list<array{slug: string, name: string, description: string, requires_stones: bool, fulfillment: 'delivery_or_pickup'|'installed', has_applications?: bool, is_application?: bool, delivery_note?: string, schedule_note?: string, lead_days?: int, features: list<string>, fields: array<string, bool>}>}>
  */
 
-// Within Metro Manila and outside it; the amounts are the service form's to fill in.
-$deliveryNote = 'Delivery within Metro Manila is charged at a standard flat rate. For addresses outside Metro Manila, the fee depends on the location and is included in your quotation.';
-
-// A ready-made piece, and one designed for the client.
-$furnitureSchedule = 'Ready-made pieces are delivered within 5 to 7 days. Custom designs take longer; we will confirm the timeline in your quotation.';
+// How long a delivery takes: a ready-made piece, and one made for the client. Shown only once Delivery is picked.
+$deliveryNote = 'Ready-made pieces are delivered within 5 to 7 days. Custom designs take longer; we will confirm the timeline in your quotation.';
 
 return [
     [
@@ -43,7 +40,6 @@ return [
                 'description' => 'Premium natural stone slabs supplied for your project.',
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
-                'delivery_note' => $deliveryNote,
                 'features' => ['Every stone type Regray carries', 'Sourcing based on your project requirements', 'Nationwide supply'],
                 // Slabs supplied alone may come uncut: the edge is asked, not required.
                 'fields' => ['quantity' => true, 'slab_size' => true, 'thickness' => true, 'edge_profile' => false, 'finish' => true],
@@ -141,7 +137,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Center and coffee tables', 'Made to order to your specifications'],
                 'fields' => ['table_shape' => true, 'table_base_design_center' => true, 'size' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true],
@@ -153,7 +148,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Side and end tables', 'Made to order to your specifications'],
                 'fields' => ['table_shape' => true, 'table_base_design_side' => true, 'size' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true],
@@ -165,7 +159,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Dining tables for 2 to 12 seaters', 'A base in wood, steel or the same stone', 'Made to order to your specifications'],
                 'fields' => ['table_shape' => true, 'table_base_design_dining' => true, 'seaters' => true, 'edge_profile' => true, 'finish' => true],
@@ -177,7 +170,6 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'delivery_or_pickup',
                 'delivery_note' => $deliveryNote,
-                'schedule_note' => $furnitureSchedule,
                 'lead_days' => 5,
                 'features' => ['Custom dimensions and designs', 'Made to order to your specifications'],
                 'fields' => ['size' => true, 'finish' => true],

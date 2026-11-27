@@ -235,7 +235,10 @@ it('names a free entry\'s own answer, notes each seaters\' table size, and asks 
         ->and(DetailField::query()->where('slug', 'table_base')->exists())->toBeFalse()
         ->and(Choice::query()->whereIn('slug', ['wood', 'steel'])->exists())->toBeFalse()
         ->and($notes('dining-tables')['lead_days'])->toBe(5)
-        ->and($notes('dining-tables')['delivery_note'])->toContain('Metro Manila')
+        // How long a delivery takes, and nothing under the date, which would say the same.
+        ->and($notes('dining-tables')['delivery_note'])->toBe('Ready-made pieces are delivered within 5 to 7 days. Custom designs take longer; we will confirm the timeline in your quotation.')
+        ->and($notes('dining-tables')['schedule_note'])->toBeNull()
+        ->and($notes('slab-supply-only')['delivery_note'])->toBeNull()
         // An installed service asks no delivery method, nor a date ahead.
         ->and($notes('flooring'))->toBe(['delivery_note' => null, 'schedule_note' => null, 'lead_days' => null]);
 });

@@ -80,7 +80,8 @@ it('sends the Inquire page its options', function (): void {
                 'stoneTypes' => $slabSupplyTypes,
                 'requiresStones' => true,
                 'fulfillment' => 'delivery_or_pickup',
-                'deliveryNote' => 'Delivery within Metro Manila is charged at a standard flat rate. For addresses outside Metro Manila, the fee depends on the location and is included in your quotation.',
+                // Slabs supplied alone come in no ready-made or custom piece, so no delivery time is said.
+                'deliveryNote' => null,
                 'scheduleNote' => null,
                 // None: any day from today.
                 'leadDays' => 0,

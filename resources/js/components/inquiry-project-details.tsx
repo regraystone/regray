@@ -19,6 +19,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { NOTES_MAX } from '@/data/inquiries';
 import {
+    DELIVERY,
     DELIVERY_METHODS,
     PICKUP,
     SIZE_FIELD,
@@ -343,7 +344,9 @@ const InquiryProjectDetails = ({
     // A service that takes time to make can't be asked for sooner (`leadDays`).
     const earliest = addDaysIso(today, service?.leadDays ?? 0);
     const scheduleNote = service?.scheduleNote ?? null;
-    const deliveryNote = service?.deliveryNote ?? null;
+    // How long a delivery takes: said only once Delivery is picked, never for a pickup.
+    const deliveryNote =
+        deliveryMethod === DELIVERY ? (service?.deliveryNote ?? null) : null;
 
     const attachmentErrors = attachmentMessages(errors.attachments);
 
