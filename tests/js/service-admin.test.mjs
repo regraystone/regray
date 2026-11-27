@@ -31,6 +31,8 @@ describe('notOfferedReason', () => {
         isActive: true,
         isOffered: false,
         requiresStones: true,
+        isApplication: false,
+        hasApplications: false,
         stoneTypes: [],
     };
 

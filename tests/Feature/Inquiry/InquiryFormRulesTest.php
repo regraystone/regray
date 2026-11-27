@@ -46,7 +46,8 @@ describe('the date', function (): void {
     });
 
     it('follows the fewest days the service form sets', function (): void {
-        Service::query()->where('slug', 'countertop-backsplash')->update(['lead_days' => 1]);
+        // The service's own, not its application's: Countertop and Backsplash is sent under Slab Supply and Installation.
+        Service::query()->where('slug', 'slab-supply-and-installation')->update(['lead_days' => 1]);
 
         sendFormInquiry($this, ['serviceId' => 'countertop-backsplash', 'neededBy' => now('Asia/Manila')->toDateString()])
             ->assertSessionHasErrors(['projects.0.neededBy' => 'Choose a date at least 1 day from today.']);

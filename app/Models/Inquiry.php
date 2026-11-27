@@ -27,8 +27,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * One inquiry, which is one project: a client who wants another project opens
- * another inquiry. It belongs to its client's lead, which holds marketing's
+ * One inquiry, which is one project. A request may send several projects
+ * (config inquiry.limits.projects), and each is written as its own inquiry. It belongs to its client's lead, which holds marketing's
  * status. A role's status exists only once its stage has started.
  *
  * @property int $id
@@ -42,6 +42,7 @@ use Illuminate\Support\Facades\DB;
  * @property Carbon|null $marketing_status_changed_at
  * @property string $name
  * @property int|null $service_id What the client asked for.
+ * @property int|null $application_id The application its service asks (Flooring…), null for none.
  * @property bool $brand_no_preference The client chose No preference for brands.
  * @property DeliveryMethod|null $delivery_method Null for an installed service, which asks for none.
  * @property string|null $address_region_code
@@ -77,7 +78,7 @@ use Illuminate\Support\Facades\DB;
  */
 #[Fillable([
     'reference', 'client_id', 'client_record_id', 'lead_id', 'created_by', 'owner_user_id', 'marketing_status', 'marketing_status_changed_at',
-    'name', 'service_id', 'brand_no_preference', 'delivery_method', 'notes', 'stone_advice_requested',
+    'name', 'service_id', 'application_id', 'brand_no_preference', 'delivery_method', 'notes', 'stone_advice_requested',
     'address_region_code', 'address_region_name', 'address_province_code', 'address_province_name', 'address_city_code', 'address_city_name',
     'address_barangay_code', 'address_barangay_name', 'address_postal_code', 'address_lat', 'address_lng',
     'sales_status', 'sales_status_changed_at',
@@ -366,6 +367,32 @@ class Inquiry extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    /**
+     * The application its service asks (Countertop and Backsplash, Flooring…),
+     * itself a service row.
+     *
+     * @return BelongsTo<Service, $this>
+     */
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(Service::class, 'application_id');
+    }
+
+    /**
+     * What it is for, in one line: "Slab Supply and Installation · Flooring",
+     * or the service alone. Null with no service.
+     */
+    public function serviceLabel(): ?string
+    {
+        if ($this->service === null) {
+            return null;
+        }
+
+        return $this->application === null
+            ? $this->service->name
+            : "{$this->service->name} · {$this->application->name}";
     }
 
     /** @return HasMany<InquiryStone, $this> */

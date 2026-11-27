@@ -39,7 +39,8 @@ describe('a card', function (): void {
         $card = $this->actingAs($this->client)->get(route('quote.index'))->viewData('page')['props']['inquiries']['data'][0];
 
         expect(collect($card['stones'])->pluck('slug')->all())->toBe([$b, $a])
-            ->and(collect($card['services'])->pluck('id')->all())->toBe(['countertop-backsplash'])
+            ->and(collect($card['services'])->pluck('id')->all())->toBe(['slab-supply-and-installation'])
+            ->and(collect($card['services'])->pluck('name')->all())->toBe(['Slab Supply and Installation · Countertop and Backsplash'])
             ->and($card['title'])->toBe('Kitchen')
             ->and($card)->not->toHaveKey('projectCount')
             ->and($card['actions']['cancel'])->toBe(['visible' => true, 'enabled' => true]);

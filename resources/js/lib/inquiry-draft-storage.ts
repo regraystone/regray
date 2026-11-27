@@ -153,6 +153,8 @@ const storedProjectSchema = z.object({
     name: z.string(),
     serviceTypeId: z.string().catch(''),
     serviceId: z.string().catch(''),
+    // Absent from a draft saved before services asked an application.
+    applicationId: z.string().catch(''),
     stoneAdvice: z.boolean().catch(false),
     stones: z.array(storedStoneSchema),
     answers: storedAnswersSchema,
@@ -165,6 +167,8 @@ const storedDraftSchema = z.object({
     name: z.string(),
     serviceTypeId: z.string().catch(''),
     serviceId: z.string().catch(''),
+    // Absent from a draft saved before services asked an application.
+    applicationId: z.string().catch(''),
     stoneAdvice: z.boolean().catch(false),
     stoneIds: z.array(z.string()),
     stones: z.array(storedStoneSchema),
@@ -216,19 +220,28 @@ const sanitize = (
 
     // A service survives only under its own type, and a type while it is offered.
     const knownService = <
-        T extends { serviceTypeId: string; serviceId: string },
+        T extends {
+            serviceTypeId: string;
+            serviceId: string;
+            applicationId: string;
+        },
     >(
         entry: T,
     ): T => {
         const type = catalog.serviceTypes.find(
             ({ id }) => id === entry.serviceTypeId,
         );
+        const service = type?.services.find(({ id }) => id === entry.serviceId);
 
         return {
             ...entry,
             serviceTypeId: type === undefined ? '' : entry.serviceTypeId,
-            serviceId: type?.services.some(({ id }) => id === entry.serviceId)
-                ? entry.serviceId
+            serviceId: service === undefined ? '' : entry.serviceId,
+            // An application survives only under the service that offers it.
+            applicationId: service?.applications?.some(
+                ({ id }) => id === entry.applicationId,
+            )
+                ? entry.applicationId
                 : '',
         };
     };

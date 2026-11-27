@@ -42,7 +42,8 @@ const payload = (overrides = {}) => ({
     id: 42,
     name: 'Kitchen counters',
     serviceTypeId: 'natural-stone-applications',
-    serviceId: 'kitchen-islands',
+    serviceId: 'slab-supply-and-installation',
+    applicationId: 'kitchen-islands',
     heldServiceType: null,
     heldStones: [],
     stoneAdviceRequested: false,
@@ -84,7 +85,8 @@ describe('toEditFormProjects', () => {
                 id: '42',
                 name: 'Kitchen counters',
                 serviceTypeId: 'natural-stone-applications',
-                serviceId: 'kitchen-islands',
+                serviceId: 'slab-supply-and-installation',
+                applicationId: 'kitchen-islands',
                 stoneAdvice: false,
                 stones: [
                     {
@@ -125,7 +127,8 @@ describe('toEditFormProjects', () => {
             toPicked,
         );
 
-        assert.equal(project.serviceId, 'kitchen-islands');
+        assert.equal(project.serviceId, 'slab-supply-and-installation');
+        assert.equal(project.applicationId, 'kitchen-islands');
         assert.equal(project.stoneAdvice, true);
     });
 

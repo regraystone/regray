@@ -33,7 +33,13 @@ export const createInquiryCatalog = (
         withHeldServices(props),
         props.projects ?? [],
     );
-    const services = serviceTypes.flatMap((type) => type.services);
+    // With their applications, which are services too: each offers its own stones.
+    const services = serviceTypes.flatMap((type) =>
+        type.services.flatMap((service) => [
+            service,
+            ...(service.applications ?? []),
+        ]),
+    );
 
     return {
         // An edited inquiry's own brands stay listed, though archived since:

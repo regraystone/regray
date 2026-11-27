@@ -98,10 +98,12 @@ class SalesReportRepository implements SalesReportRepositoryInterface
     {
         $rows = $this->wonIn($user, $from, $to)
             ->join('services', 'services.id', '=', 'inquiries.service_id')
-            ->groupBy('services.name')
-            ->selectRaw('services.name as service, count(*) as count, '.sprintf(self::SUM, 'inquiries.contract_total').' as total')
+            // Each application on its own line: "Slab Supply and Installation · Flooring".
+            ->leftJoin('services as applications', 'applications.id', '=', 'inquiries.application_id')
+            ->groupByRaw("concat_ws(' · ', services.name, applications.name)")
+            ->selectRaw("concat_ws(' · ', services.name, applications.name) as service, count(*) as count, ".sprintf(self::SUM, 'inquiries.contract_total').' as total')
             ->orderByDesc('total')
-            ->orderBy('services.name')
+            ->orderBy('service')
             ->toBase()
             ->get();
 
@@ -167,7 +169,7 @@ class SalesReportRepository implements SalesReportRepositoryInterface
             ->selectRaw('coalesce(paid.paid_net, 0)::numeric(14,2) as paid_net')
             ->selectRaw('(inquiries.contract_total - coalesce(paid.paid_net, 0))::numeric(14,2) as balance')
             ->selectRaw('paid.last_payment_at')
-            ->with(['clientRecord:id,full_name', 'client:id,name', 'service:id,name'])
+            ->with(['clientRecord:id,full_name', 'client:id,name', 'service:id,name', 'application:id,name'])
             ->orderByDesc('balance')
             ->orderBy('inquiries.id')
             ->limit($limit)

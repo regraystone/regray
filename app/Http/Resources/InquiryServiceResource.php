@@ -18,12 +18,19 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * is the line under its delivery method, `scheduleNote` the line under its
  * date, and `leadDays` the fewest days from today its date may be (0: today).
  *
+ * A service with an installation asks which application (`hasApplications`)
+ * and lists them (`applications`), each in this same shape: a project then
+ * asks each stone the service's questions and the project the
+ * application's, from the application's stone types (withApplication in
+ * inquiry-flow.ts). The catalogue hands them in (InquiryServiceTypeResource);
+ * a held service (an edit) reads its type's.
+ *
  * @mixin Service
  */
 class InquiryServiceResource extends JsonResource
 {
     /**
-     * @return array{id: string, name: string, description: string, features: list<string>, stoneTypes: list<string>, requiresStones: bool, fulfillment: string, deliveryNote: string|null, scheduleNote: string|null, leadDays: int, fields: array<int, mixed>}
+     * @return array{id: string, name: string, description: string, features: list<string>, stoneTypes: list<string>, requiresStones: bool, fulfillment: string, deliveryNote: string|null, scheduleNote: string|null, leadDays: int, fields: array<int, mixed>, hasApplications: bool, applications: array<int, mixed>}
      */
     public function toArray(Request $request): array
     {
@@ -39,6 +46,10 @@ class InquiryServiceResource extends JsonResource
             'scheduleNote' => $this->schedule_note,
             'leadDays' => (int) $this->lead_days,
             'fields' => InquiryDetailFieldResource::collection($this->detailFields)->resolve($request),
+            'hasApplications' => $this->has_applications,
+            'applications' => $this->has_applications
+                ? InquiryServiceResource::collection($this->applications)->resolve($request)
+                : [],
         ];
     }
 }

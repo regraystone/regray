@@ -40,6 +40,7 @@ class InquiryReceivedNotification extends Notification implements ShouldQueue
     {
         $inquiry = $this->inquiry->loadMissing([
             'service:id,name',
+            'application:id,name',
             'schedule:id,inquiry_id,arrival_at',
             'stones' => fn ($query) => $query->orderBy('sort_order')->with('stone:id,name'),
             'detailAnswers.detailField',
@@ -78,7 +79,7 @@ class InquiryReceivedNotification extends Notification implements ShouldQueue
         $lines = [];
 
         if ($inquiry->service !== null) {
-            $lines[] = "Service: {$inquiry->service->name}";
+            $lines[] = 'Service: '.$inquiry->serviceLabel();
         }
 
         $stones = $inquiry->stones

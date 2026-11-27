@@ -26,6 +26,10 @@ export type ServiceRow = {
     serviceTypeId: number;
     description: string;
     requiresStones: boolean;
+    /** Offered under the services that ask one (Flooring…), not as a service of its own. */
+    isApplication: boolean;
+    /** Asks which application, from its type's applications. */
+    hasApplications: boolean;
     fulfillment: Fulfillment;
     /** The line under "How would you like to get it?" on the Inquire page. */
     deliveryNote: string | null;

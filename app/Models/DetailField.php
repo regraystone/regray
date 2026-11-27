@@ -51,6 +51,13 @@ class DetailField extends Model
 
     public const THICKNESS = 'thickness';
 
+    /**
+     * The thickness a stone row answers when its stone lists none: Regray
+     * confirms it in the quote. Stored as no thickness. inquiry-flow.ts holds
+     * the same words (THICKNESS_ADVICE).
+     */
+    public const THICKNESS_ADVICE = 'To be advised by Regray';
+
     public const EDGE_PROFILE = 'edge_profile';
 
     public const FINISH = 'finish';

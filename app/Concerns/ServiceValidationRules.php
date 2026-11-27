@@ -76,6 +76,9 @@ trait ServiceValidationRules
             'questions.*' => ['array:id,required'],
             'questions.*.id' => ['required', 'integer', 'distinct', Rule::exists('detail_fields', 'id')->whereNull('archived_at')],
             'questions.*.required' => ['required', 'boolean'],
+            // An application (Flooring…) is asked under a service that has applications, so it cannot have its own.
+            'is_application' => ['sometimes', 'boolean'],
+            'has_applications' => ['sometimes', 'boolean', 'declined_if:is_application,true,1'],
             'is_active' => ['required', 'boolean'],
             'sort_order' => ['required', 'integer', 'min:0', 'max:32767'],
         ];
@@ -162,7 +165,7 @@ trait ServiceValidationRules
      * The service's fields, in the shape ServiceAdminService writes. A service
      * that needs no stones keeps no stone types.
      *
-     * @return array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, delivery_note: string|null, schedule_note: string|null, lead_days: int|null, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}
+     * @return array{name: string, service_type_id: int, description: string, requires_stones: bool, fulfillment: Fulfillment, delivery_note: string|null, schedule_note: string|null, lead_days: int|null, is_application: bool, has_applications: bool, is_active: bool, sort_order: int, features: list<string>, stone_type_ids: list<int>, questions: list<array{id: int, required: bool}>}
      */
     public function serviceData(): array
     {
@@ -178,6 +181,9 @@ trait ServiceValidationRules
             'delivery_note' => filled($this->validated('delivery_note')) && $this->validated('fulfillment') !== Fulfillment::Installed->value ? (string) $this->validated('delivery_note') : null,
             'schedule_note' => filled($this->validated('schedule_note')) ? (string) $this->validated('schedule_note') : null,
             'lead_days' => filled($this->validated('lead_days')) && (int) $this->validated('lead_days') > 0 ? (int) $this->validated('lead_days') : null,
+            // Left out, a service keeps what it is.
+            'is_application' => $this->boolean('is_application', $this->service()->is_application ?? false),
+            'has_applications' => $this->boolean('has_applications', $this->service()->has_applications ?? false),
             'is_active' => $this->boolean('is_active'),
             'sort_order' => (int) $this->validated('sort_order'),
             'features' => array_values(array_map(fn (mixed $feature): string => (string) $feature, $this->validated('features') ?? [])),

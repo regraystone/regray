@@ -19,6 +19,9 @@ import {
     customAnswerKey,
     customAnswerProblem,
     findService,
+    withApplication,
+    asksApplication,
+    APPLICATION_MISSING,
     fulfillmentProblems,
     furnitureSizeProblem,
     linkedToStoneProblem,
@@ -87,10 +90,11 @@ export const STAFF_DOCUMENT_TYPES: AcceptedFileTypes = {
 };
 
 /**
- * How many projects one inquiry may hold. A client who wants another project
- * sends another inquiry. The backend holds the same number in config/inquiry.php.
+ * How many projects one request may send. Each is written as its own inquiry
+ * and quoted on its own, so a supply and an installation can go together.
+ * The backend holds the same number in config/inquiry.php.
  */
-export const MAX_PROJECTS = 1;
+export const MAX_PROJECTS = 5;
 
 /**
  * How many pieces of one stone a project may ask for.
@@ -486,6 +490,7 @@ export const createInquirySchemas = (
     const refineAnswers = (
         answers: {
             serviceId: string;
+            applicationId: string;
             stoneAdvice: boolean;
             stoneIds: string[];
             stones: ({ stoneId: string; quantity: number } & Record<
@@ -503,7 +508,12 @@ export const createInquirySchemas = (
         stonesField: string,
         ctx: z.RefinementCtx,
     ): void => {
-        const service = findService(catalog.serviceTypes, answers.serviceId);
+        // The service as this project is asked it: its application's questions, if it has one.
+        const chosenService = findService(
+            catalog.serviceTypes,
+            answers.serviceId,
+        );
+        const service = withApplication(chosenService, answers.applicationId);
         const takesStones = service?.requiresStones !== false;
 
         if (!serviceIds.has(answers.serviceId)) {
@@ -511,6 +521,19 @@ export const createInquirySchemas = (
                 code: 'custom',
                 path: ['serviceId'],
                 message: 'Choose what you need.',
+            });
+        }
+
+        const applications = chosenService?.applications ?? [];
+
+        if (
+            asksApplication(chosenService) &&
+            !applications.some(({ id }) => id === answers.applicationId)
+        ) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['applicationId'],
+                message: APPLICATION_MISSING,
             });
         }
 
@@ -654,6 +677,8 @@ export const createInquirySchemas = (
             name: projectNameSchema,
             serviceTypeId: z.string(),
             serviceId: z.string(),
+            // The application a service with an installation asks; '' for none.
+            applicationId: z.string(),
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
             ...projectDetailsShape,
@@ -688,6 +713,8 @@ export const createInquirySchemas = (
             name: projectNameSchema,
             serviceTypeId: z.string(),
             serviceId: z.string(),
+            // The application a service with an installation asks; '' for none.
+            applicationId: z.string(),
             stoneAdvice: z.boolean(),
             stones: projectStonesSchema,
             ...projectDetailsShape,
@@ -705,7 +732,7 @@ export const createInquirySchemas = (
             .array(projectSchema)
             .min(1, { error: NEEDS_A_PROJECT })
             .max(MAX_PROJECTS, {
-                error: 'An inquiry can only have one project.',
+                error: `Send up to ${MAX_PROJECTS} projects at a time.`,
             }),
     });
 
@@ -761,6 +788,7 @@ export const draftDefaults = {
     name: '',
     serviceTypeId: '',
     serviceId: '',
+    applicationId: '',
     stoneAdvice: false,
     stoneIds: [],
     stones: [],

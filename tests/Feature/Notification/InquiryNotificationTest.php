@@ -199,6 +199,7 @@ it('emails the client a confirmation of their own inquiry, whatever their email 
 
 it('lists each stone with its slab size and thickness, and the project\'s answers, in the confirmation', function (): void {
     Notification::fake();
+    stoneComesIn(inquiryStoneRow('slab-supply-only')['stoneId'], ['0.75 in']);
 
     $this->actingAs($this->client)->post(route('quote.inquire.store'), clientInquiryInput([inquiryProjectInput(['stones' => [inquiryStoneRow('slab-supply-only', ['slabSize' => '5 x 10 ft', 'thickness' => '0.75 in'])]])]))
         ->assertSessionHasNoErrors();

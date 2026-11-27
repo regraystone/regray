@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useInquiryCatalog } from '@/hooks/use-inquiry-catalog';
 import {
     asksQuantity,
-    findService,
+    findProjectService,
     questionForStone,
     stoneFieldKey,
     thicknessAfterSizeChange,
@@ -469,7 +469,9 @@ const InquiryProjectForm = ({
     const { stones, serviceTypes } = useInquiryCatalog();
     const rows = watch('stones');
     const serviceId = useWatch({ control, name: 'serviceId' });
-    const service = findService(serviceTypes, serviceId);
+    const applicationId = useWatch({ control, name: 'applicationId' });
+    // The stone questions are the service's, with or without an application.
+    const service = findProjectService(serviceTypes, serviceId, applicationId);
     const questions = stoneFields(service);
     const countsPieces = asksQuantity(service);
     const stoneAdvice = useWatch({ control, name: 'stoneAdvice' });

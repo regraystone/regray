@@ -65,7 +65,9 @@ const InquiryResult = ({
                           Thank you. Our team will get back to you about{' '}
                           {result.title} within 1 to 3 days, or sooner.
                           <span className="mt-1 block">
-                              Your reference is{' '}
+                              {result.reference.includes(',')
+                                  ? 'Your references are'
+                                  : 'Your reference is'}{' '}
                               <span className="font-bold text-foreground">
                                   {result.reference}
                               </span>

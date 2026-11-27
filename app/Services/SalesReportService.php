@@ -75,7 +75,7 @@ class SalesReportService
                 ->map(fn (Inquiry $inquiry): array => [
                     'reference' => $inquiry->reference,
                     'client' => self::clientName($inquiry),
-                    'service' => $inquiry->service->name ?? '—',
+                    'service' => $inquiry->serviceLabel() ?? '—',
                     'contractTotal' => (string) $inquiry->contract_total,
                     'paid' => (string) $inquiry->getAttribute('paid_net'),
                     'balance' => (string) $inquiry->getAttribute('balance'),

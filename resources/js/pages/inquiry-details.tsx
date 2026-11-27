@@ -59,7 +59,8 @@ type ResolvedProject = {
     brandNoPreference: boolean;
     serviceType: string | null;
     service: string | null;
-    /** False for a service that asks for no stones. */
+    /** What a service with an installation is for (Flooring…), null for none. */
+    application: string | null;
     requiresStones: boolean;
     stones: ResolvedStone[];
     /** The project-scope answers, labelled and worded by the server; a picture choice with its picture. */
@@ -527,7 +528,8 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
     const neededBy = formatNeededBy(project.requirements);
 
     const footer = [
-        project.service,
+        [project.service, project.application].filter(Boolean).join(' · ') ||
+            null,
         stoneTypes === 0
             ? null
             : `${pieces === null ? '' : `${pieces} ${pieces === 1 ? 'piece' : 'pieces'} of `}${stoneTypes} ${
@@ -663,6 +665,12 @@ const ProjectSection = ({ project }: { project: ResolvedProject }) => {
                             label="Service"
                             value={project.service ?? undefined}
                         />
+                        {project.application === null ? null : (
+                            <SummaryRow
+                                label="Application"
+                                value={project.application}
+                            />
+                        )}
                     </dl>
                 </section>
 
@@ -772,6 +780,7 @@ const InquiryDetails = () => {
         brandNoPreference: inquiry.project.brandNoPreference,
         serviceType: inquiry.project.serviceType,
         service: inquiry.project.service,
+        application: inquiry.project.application ?? null,
         requiresStones: inquiry.project.requiresStones,
         stones: inquiry.project.stones,
         answers: inquiry.project.answers,

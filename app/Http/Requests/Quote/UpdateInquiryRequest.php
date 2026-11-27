@@ -49,6 +49,8 @@ class UpdateInquiryRequest extends StoreInquiryRequest
     {
         return [
             ...parent::rules(),
+            // A sent inquiry is one project: a new one adds the others.
+            'projects' => ['required', 'array', 'size:1'],
             'projects.*.id' => ['required', 'integer', 'distinct'],
             'projects.*.keepFileIds' => ['nullable', 'array'],
             'projects.*.keepFileIds.*' => ['integer', 'distinct'],
@@ -126,6 +128,14 @@ class UpdateInquiryRequest extends StoreInquiryRequest
                 ->when($editor->isClient(), fn ($own) => $own->where('client_id', $editor->id), fn ($visible) => $visible->visibleTo($editor)))
             ->pluck('slug')
             ->all());
+    }
+
+    /** @return list<string> */
+    protected function heldApplicationSlugs(): array
+    {
+        $slug = $this->heldInquiry()?->application?->slug;
+
+        return $slug === null ? [] : [$slug];
     }
 
     /** @return list<string> */

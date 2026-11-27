@@ -10,8 +10,9 @@
  * ones. Edge profile and finish list the active rows of their own tables, so
  * they have no `options` here. Slab size and thickness have none either: each
  * stone row lists the sizes and thicknesses its own stone comes in
- * (`size_stone`, `stone_thickness`), and Other takes any width x length or
- * thickness with its unit. Waterfall effect and fascia are yes or no.
+ * (`size_stone`, `stone_thickness`). A slab size's Other takes any width x
+ * length with its unit; a thickness has no Other, and a stone with none
+ * lists "To be advised by Regray". Waterfall effect and fascia are yes or no.
  *
  * `suggestions` are sample values shown beside a free entry, each `[slug,
  * name]` or `[slug, name, note]`, and never checked against: the client's
@@ -47,9 +48,8 @@ return [
         'name' => 'Thickness',
         'scope' => 'stone',
         'answer_type' => 'text',
-        'allows_custom' => true,
-        'custom_label' => 'Custom thickness',
-        'custom_hint' => 'Enter the thickness you need.',
+        // Picked from the stone's own; a stone with none is left to Regray to advise.
+        'allows_custom' => false,
     ],
     [
         'slug' => 'edge_profile',

@@ -27,7 +27,7 @@ import {
     addressLabel,
     asksDeliveryMethod,
     customAnswerKey,
-    findService,
+    findProjectService,
     latestNeededBy,
     needsAddress,
     pickedChoice,
@@ -182,8 +182,10 @@ const InquiryProjectDetails = ({
     } = useFormContext<InquiryDraftInput, unknown, InquiryDraftValues>();
 
     const serviceId = useWatch({ control, name: 'serviceId' });
+    const applicationId = useWatch({ control, name: 'applicationId' });
     const answers = useWatch({ control, name: 'answers' });
-    const service = findService(serviceTypes, serviceId);
+    // The project questions are the application's, where the service asks one.
+    const service = findProjectService(serviceTypes, serviceId, applicationId);
     const questions = projectFields(service);
     const requiredQuestions = questions.filter(({ required }) => required);
     const optionalQuestions = questions.filter(({ required }) => !required);
