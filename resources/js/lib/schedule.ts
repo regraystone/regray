@@ -1,3 +1,4 @@
+import type { ScheduleKind } from './schedule-kinds';
 import type { ContactKind } from './staff-inquire';
 /*
  * The Schedule page's data: what the server sends, the items the page draws,
@@ -41,6 +42,10 @@ export type ScheduleData = {
     notes: string | null;
     /** Set when the visit was created by sending an inquiry. */
     inquiryReference: string | null;
+    /** What was booked: null for an inquiry's own date. */
+    kind: ScheduleKind | null;
+    /** The order an installation or a delivery is for. */
+    orderReference: string | null;
     bookedByType: 'client' | 'staff';
     /** The staff member who booked it, when staff did. */
     bookedByName: string | null;
@@ -67,6 +72,8 @@ export type ScheduleItem = {
     status: ScheduleStatus;
     notes: string | null;
     inquiryReference: string | null;
+    kind: ScheduleKind | null;
+    orderReference: string | null;
     bookedByType: 'client' | 'staff';
     bookedByName: string | null;
     clientName: string | null;
@@ -99,6 +106,8 @@ export const toScheduleItem = (data: ScheduleData): ScheduleItem => ({
     status: data.status,
     notes: data.notes,
     inquiryReference: data.inquiryReference,
+    kind: data.kind ?? null,
+    orderReference: data.orderReference ?? null,
     bookedByType: data.bookedByType,
     bookedByName: data.bookedByName,
     clientName: data.clientName,

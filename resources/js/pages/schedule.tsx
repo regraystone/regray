@@ -366,7 +366,11 @@ const Schedule = () => {
         <div className="w-full min-w-0">
             <PageHeading
                 title="Schedule"
-                description="Your appointments"
+                description={
+                    isClient
+                        ? 'Your showroom visits, installations and deliveries'
+                        : 'Your appointments'
+                }
                 action={bookButton()}
             />
 

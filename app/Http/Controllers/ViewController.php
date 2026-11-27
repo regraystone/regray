@@ -356,6 +356,8 @@ class ViewController extends Controller
                 'notes' => $schedule->notes,
                 'status' => $schedule->status->for($viewer)->value,
                 'clientName' => $viewer->isClient() ? null : $schedule->clientName(),
+                'kind' => $schedule->kind?->value,
+                'orderReference' => $schedule->order()->value('reference'),
             ],
         ]);
     }
@@ -364,13 +366,18 @@ class ViewController extends Controller
      * The studio's date and time now, so the page decides which days and slots
      * are already past by Manila's clock rather than the browser's.
      */
-    public function scheduleBook(Request $request): Response
+    public function scheduleBook(Request $request, ScheduleService $scheduleService): Response
     {
         $now = Date::now(ScheduleService::timezone());
 
+        /** @var User $viewer */
+        $viewer = $request->user();
+
         return Inertia::render('schedule-book', [
             'studioNow' => ['date' => $now->toDateString(), 'time' => $now->format('H:i')],
-            'earliestBookableDate' => ScheduleService::earliestBookableDate($request->user())->toDateString(),
+            'earliestBookableDate' => ScheduleService::earliestBookableDate($viewer)->toDateString(),
+            // A client's accepted orders they may book an installation or a delivery for; staff book showroom visits only.
+            'orders' => $viewer->isClient() ? $scheduleService->ordersToSchedule($viewer) : [],
         ]);
     }
 

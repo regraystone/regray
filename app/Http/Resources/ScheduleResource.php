@@ -49,6 +49,8 @@ class ScheduleResource extends JsonResource
             'status' => $this->status->for($viewer)->value,
             'notes' => $this->notes,
             'inquiryReference' => $this->inquiry?->reference,
+            'kind' => $this->kind?->value,
+            'orderReference' => $this->order?->reference,
             'bookedByType' => $this->booked_by_type->value,
             'bookedByName' => $this->booked_by_type === BookedByType::Staff ? $this->bookedBy?->name : null,
             'clientName' => $isStaffReader ? $this->clientName() : null,
