@@ -6,6 +6,9 @@ name: tests
 # only a passing commit is deployed.
 #
 # A pull request that changes only Markdown or docs/ starts no run.
+#
+# It runs the core tests only (`composer ci:check`: the `Core` suite in
+# phpunit.xml and `npm run test:core`). The full suite is `composer ci:full`.
 on:
   workflow_call:
   pull_request:

@@ -69,7 +69,7 @@
         "lint:check": [
             "pint --parallel --test"
         ],
-        "ci:check": [
+        "ci:full": [
             "Composer\\Config::disableProcessTimeout",
             "npm run check",
             "npm run types:check",
@@ -78,6 +78,16 @@
             "@lint:check",
             "@types:check",
             "@php artisan test --parallel --processes=4"
+        ],
+        "ci:check": [
+            "Composer\\Config::disableProcessTimeout",
+            "npm run check",
+            "npm run types:check",
+            "npm run test:core",
+            "@php artisan config:clear --ansi",
+            "@lint:check",
+            "@types:check",
+            "@php artisan test --parallel --processes=4 --testsuite=Core"
         ],
         "types:check": [
             "phpstan analyse"

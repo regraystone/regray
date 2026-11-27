@@ -55,11 +55,15 @@ it on `127.0.0.1:5432`.
 
 ## Tests and checks
 
-`composer ci:check` is the full gate CI runs — frontend lint and type-check, the
-JS unit tests, Pint, PHPStan, and the PHP test suite:
+`composer ci:check` is the gate CI runs — frontend lint and type-check, Pint,
+PHPStan, and the core tests: the `Core` PHP suite in `phpunit.xml` (sign-in,
+permissions, inquiries, quotes, schedules, messaging access, the schema, ops
+commands) and the JS tests in `npm run test:core`. `composer ci:full` runs the
+same checks with every test, which is worth doing before a large change:
 
 ```sh
 docker compose --env-file .env.docker exec app composer ci:check
+docker compose --env-file .env.docker exec app composer ci:full
 ```
 
 Individual pieces:
@@ -75,10 +79,10 @@ npm test               # JS unit tests
 
 ### Browser end-to-end tests
 
-Playwright drives the inquiry and inbox flows. The suite's setup creates and
-seeds its own `regray-e2e` database and starts the app, Reverb and a queue
-worker against it, so it must run with `APP_ENV=local` (or `testing`) and an
-uncached config.
+Playwright drives the inquiry and inbox flows. These run locally only, not in
+CI. The suite's setup creates and seeds its own `regray-e2e` database and
+starts the app, Reverb and a queue worker against it, so it must run with
+`APP_ENV=local` (or `testing`) and an uncached config.
 
 ```sh
 php artisan config:clear
