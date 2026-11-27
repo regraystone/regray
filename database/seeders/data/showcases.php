@@ -10,9 +10,9 @@ return [
             'name' => 'Recidencia Del Hamor',
             'completed_year' => 2025,
             'location' => 'Casiguran, Sorsogon',
-            'overview' => 'Recidencia Del Hamor is a commercial spaces showcase in Casiguran, Sorsogon, completed in 2025. The showcase features marble and quartzite, with wall accents that bring out the natural veining and character of each stone. Explore the stones used in this showcase below.',
+            'overview' => 'Recidencia Del Hamor is a commercial spaces showcase in Casiguran, Sorsogon, completed in 2025. The showcase features marble, with wall accents that bring out the natural veining and character of the stone. Explore the stone used in this showcase below.',
             'thumbnail_path' => 'projects/9c2e5a1f8b4d7c3e6a9f2c5e8a1d4b7f.jpg',
-            'stone_slugs' => ['calacatta', 'taj-mahal-polished'],
+            'stone_slugs' => ['green-crystal'],
             'category_slugs' => ['commercial-spaces', 'wall-accents'],
             'images' => [
                 'projects/2b9e5c3f1a8d6e4c9b2f5a8c3d7e1a6b.jpg',
@@ -25,9 +25,9 @@ return [
             'name' => 'Belo Medical Group',
             'completed_year' => 2026,
             'location' => 'Proscenium Rockwell, Makati City',
-            'overview' => "Belo Medical Group is one of the Philippines' most established names in medical aesthetics, known for its expertise in advanced cosmetic dermatology and plastic surgery. With more than three decades of practice and a growing network of clinics nationwide, the brand combines clinical precision, innovation, and refined patient care to deliver a highly sophisticated approach to modern aesthetics. Completed in 2026 at Proscenium Rockwell, Makati City, this commercial space features marble wall accents.",
+            'overview' => "Belo Medical Group is one of the Philippines' most established names in medical aesthetics, known for its expertise in advanced cosmetic dermatology and plastic surgery. With more than three decades of practice and a growing network of clinics nationwide, the brand combines clinical precision, innovation, and refined patient care to deliver a highly sophisticated approach to modern aesthetics. Completed in 2026 at Proscenium Rockwell, Makati City, this commercial space features marble and onyx wall accents.",
             'thumbnail_path' => 'projects/3e7b1c4f9a6d2e8c5f1a3b7e9c2d5f8a.png',
-            'stone_slugs' => ['calacatta-viola-i', 'arabescato-white'],
+            'stone_slugs' => ['star-white', 'royal-white-iii'],
             'category_slugs' => ['commercial-spaces', 'wall-accents'],
             'images' => [
                 'projects/5a2f8c1e4b7d9f3c6e8a1d4f7b0e3c6a.png',
@@ -42,7 +42,7 @@ return [
             'location' => 'Ayala Land Tower 1, Makati City',
             'overview' => 'Ayala Land is a commercial spaces showcase at Ayala Land Tower 1 in Makati City, completed in 2025. The showcase features quartzite, a durable natural stone well suited to commercial settings. Explore the stone used in this showcase below.',
             'thumbnail_path' => 'projects/6c9a2e5f1b8d3c7a4e0f1b8c5d9e2a7f.jpg',
-            'stone_slugs' => ['mont-blanc'],
+            'stone_slugs' => ['avocado-green-iii'],
             'category_slugs' => ['commercial-spaces'],
             'images' => [
                 'projects/2f5c8e1a9b3d6f4c7e0a1d8b5c2e9a3f.png',
@@ -55,9 +55,9 @@ return [
             'name' => 'Ginza One',
             'completed_year' => 2024,
             'location' => 'Chino Roces Ext., Makati City',
-            'overview' => 'Ginza One is a commercial spaces showcase on Chino Roces Ext., Makati City, completed in 2024. The showcase spans wall accents as well as countertops & backsplash, and features patagonia quartzite and onyx. Explore the stones used in this showcase below.',
+            'overview' => 'Ginza One is a commercial spaces showcase on Chino Roces Ext., Makati City, completed in 2024. The showcase spans wall accents as well as countertops & backsplash, and features patagonia quartzite. Explore the stone used in this showcase below.',
             'thumbnail_path' => 'projects/1a5d7e3c6f8b2a4f9c1e5d8a3b6f0e9c.jpg',
-            'stone_slugs' => ['glacier-white', 'arancia'],
+            'stone_slugs' => ['warrior'],
             'category_slugs' => ['commercial-spaces', 'wall-accents', 'countertops-backsplash'],
             'images' => [
                 'projects/9f2a6c1e4d8b5f3a7c0e1d9b2f6e8c5a.jpg',
@@ -72,7 +72,7 @@ return [
             'location' => 'Valero St., Makati City',
             'overview' => 'Restaurant Idalia is a commercial spaces showcase on Valero St., Makati City, completed in 2025. The showcase features onyx wall accents, a natural stone prized for its dramatic veining and translucent quality. Explore the stone used in this showcase below.',
             'thumbnail_path' => 'projects/2d9e4c1f8a5b6f3e7c0a1d9b4e2f6c8a.jpg',
-            'stone_slugs' => ['golden-pearl-onyx'],
+            'stone_slugs' => ['pardo-brown-i'],
             'category_slugs' => ['commercial-spaces', 'wall-accents'],
             'images' => [
                 'projects/7a2f5c9e1b6d3f8c4e0a1d7b5f2c9e6a.jpg',
