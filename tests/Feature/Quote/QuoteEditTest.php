@@ -30,6 +30,12 @@ beforeEach(function (): void {
     $this->client = inquiryClient();
 });
 
+/** A day of next year (a time too, "05-06 10:00"), within the two years a date may be. */
+function inquiryNextYear(string $day): string
+{
+    return now('Asia/Manila')->addYear()->year.'-'.$day;
+}
+
 /**
  * An inquiry sent the way the Inquire page sends it, so it has its schedule
  * and stored files. One project, so one inquiry.
@@ -242,7 +248,7 @@ describe('saving the edit', function (): void {
                 'serviceId' => 'countertop-backsplash',
                 'answers' => ['area_sqm' => '20', 'fascia' => '0'],
                 'addressId' => (string) saveTestAddress($this->client, 'Site', 'Kapitolyo')->id,
-                'neededBy' => '2030-05-06',
+                'neededBy' => inquiryNextYear('05-06'),
             ])]])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('quote.show', $inquiry->reference))
@@ -261,7 +267,7 @@ describe('saving the edit', function (): void {
             ->and($inquiry->detailAnswers()->orderBy('detail_field_id')->pluck('number_value')->filter()->values()->all())->toBe(['20.00'])
             ->and($inquiry->detailAnswers()->whereNotNull('boolean_value')->sole()->boolean_value)->toBeFalse()
             ->and($inquiry->stones()->sole()->stone->slug)->toBe($otherStone)
-            ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse('2030-05-06 10:00', 'Asia/Manila')))->toBeTrue()
+            ->and($inquiry->schedule->arrival_at->equalTo(CarbonImmutable::parse(inquiryNextYear('05-06 10:00'), 'Asia/Manila')))->toBeTrue()
             ->and($inquiry->schedule->title)->toBe('Kitchen and island')
             ->and($inquiry->schedule->notes)->toBe("Inquiry {$inquiry->reference} · Kitchen and island · City of Pasig")
             ->and($inquiry->status)->toBe(InquiryStatus::Pending)
@@ -483,29 +489,29 @@ describe('saving the edit', function (): void {
     });
 
     it('moves its confirmed visit with the due date, and refuses to move one already served while saving the rest', function (): void {
-        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-05-06'])]);
+        $inquiry = sentInquiry($this, [inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => inquiryNextYear('05-06')])]);
 
         // An inquiry's visit is confirmed from the start, and still moves with its inquiry.
         expect($inquiry->schedule->status)->toBe(ScheduleStatus::Confirmed);
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-07'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => inquiryNextYear('05-07')])]])
             ->assertSessionHasNoErrors();
 
-        expect($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse('2030-05-07 10:00', 'Asia/Manila')))->toBeTrue();
+        expect($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse(inquiryNextYear('05-07 10:00'), 'Asia/Manila')))->toBeTrue();
 
         $inquiry->schedule->forceFill(['status' => ScheduleStatus::Served])->save();
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-08'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => inquiryNextYear('05-08')])]])
             ->assertSessionHasErrors('projects.0.neededBy');
 
         $this->actingAs($this->client)
-            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => '2030-05-07', 'notes' => 'Back door'])]])
+            ->patch(route('quote.update', $inquiry->reference), ['projects' => [clientProjectEdit($inquiry, ['neededBy' => inquiryNextYear('05-07'), 'notes' => 'Back door'])]])
             ->assertSessionHasNoErrors();
 
         expect($inquiry->fresh()->notes)->toBe('Back door')
-            ->and($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse('2030-05-07 10:00', 'Asia/Manila')))->toBeTrue();
+            ->and($inquiry->schedule->fresh()->arrival_at->equalTo(CarbonImmutable::parse(inquiryNextYear('05-07 10:00'), 'Asia/Manila')))->toBeTrue();
     });
 
     it('refuses the id of another inquiry, and more than the one project', function (): void {

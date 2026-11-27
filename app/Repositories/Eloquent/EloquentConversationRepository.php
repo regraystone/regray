@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 class EloquentConversationRepository implements ConversationRepositoryInterface
 {
-    public const SUPPORT_NAME = 'Regray';
+    public const SUPPORT_NAME = 'Regray Sales Team';
 
     public const SUPPORT_AVATAR = '/images/regray_icon.png';
 

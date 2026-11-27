@@ -19,6 +19,8 @@ beforeEach(function (): void {
 it('gives each inquiry sent one confirmed schedule, at 10:00', function (): void {
     // Home (Makati) is the default; the survey goes to the Pasig site.
     defaultTestAddress($this->client);
+    // The dates are within the two years a date may be ahead of today.
+    $this->travelTo(CarbonImmutable::parse('2029-06-01 09:00', 'Asia/Manila'));
 
     foreach ([
         inquiryProjectInput(['name' => 'Kitchen', 'neededBy' => '2030-03-04']),

@@ -1,4 +1,4 @@
-import { MapPin, Settings2 } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { createContext, useContext } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import AddressPicker from '@/components/address/address-picker';
@@ -172,7 +172,6 @@ const InquiryAddressField = ({
                         onClick={context.onManageAddresses}
                         data-test="inquiry-manage-addresses"
                     >
-                        <Settings2 aria-hidden className="size-4" />
                         Manage addresses
                     </Button>
                 ) : null}

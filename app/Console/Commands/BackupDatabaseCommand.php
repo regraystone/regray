@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -55,13 +56,16 @@ class BackupDatabaseCommand extends Command
                 throw new RuntimeException('Unable to open the database dump file.');
             }
 
+            $disk = Storage::disk(config('filesystems.private_disk'));
             $path = 'backups/'.now()->format('Y-m-d_His').'.dump';
 
-            if (! Storage::disk(config('filesystems.private_disk'))->writeStream($path, $stream)) {
+            if (! $disk->writeStream($path, $stream)) {
                 throw new RuntimeException('Unable to store the database dump on the private disk.');
             }
 
             $this->info('Database backup stored at '.$path);
+
+            $this->pruneOldBackups($disk);
 
             return self::SUCCESS;
         } catch (Throwable $exception) {
@@ -78,6 +82,39 @@ class BackupDatabaseCommand extends Command
             if (is_string($temporaryPath) && is_file($temporaryPath)) {
                 unlink($temporaryPath);
             }
+        }
+    }
+
+    /**
+     * Delete dumps older than the retention window, read from each file's own
+     * timestamped name rather than the disk's mtime (S3 does not promise one).
+     * A failure here is logged but never fails the backup that just succeeded.
+     */
+    private function pruneOldBackups(Filesystem $disk): void
+    {
+        $retentionDays = (int) config('backup.retention_days', 30);
+
+        if ($retentionDays <= 0) {
+            return;
+        }
+
+        try {
+            $cutoff = now()->subDays($retentionDays)->getTimestamp();
+
+            foreach ($disk->files('backups') as $path) {
+                if (preg_match('#(\d{4}-\d{2}-\d{2}_\d{6})\.dump$#', $path, $matches) !== 1) {
+                    continue;
+                }
+
+                $takenAt = \DateTimeImmutable::createFromFormat('Y-m-d_His', $matches[1]);
+
+                if ($takenAt !== false && $takenAt->getTimestamp() < $cutoff) {
+                    $disk->delete($path);
+                    $this->info('Pruned old backup '.$path);
+                }
+            }
+        } catch (Throwable $exception) {
+            Log::warning('Could not prune old database backups: '.$exception->getMessage());
         }
     }
 }

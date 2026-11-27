@@ -217,7 +217,7 @@ test('36 · keyboard only: choose the service, pick a stone, fill the details an
     await tabTo(page, (t) => t.name === 'Send my request', 'Send my request');
     await page.keyboard.press('Enter');
     await expect(
-        page.getByRole('heading', { name: 'Quote requested' }),
+        page.getByRole('heading', { name: "We've received your order" }),
     ).toBeVisible();
 });
 

@@ -31,6 +31,14 @@ use Illuminate\Validation\Validator;
  * not in the library yet is added there: the field links to the Choices
  * page, which brings the admin back with it picked (`addLink`).
  *
+ * A written or number question may list suggested answers for the client to
+ * pick from, each with an optional note after a bar ("2 | approx. 0.6 sqm"
+ * reads "2 – approx. 0.6 sqm", and the answer stays 2), and says what the
+ * entry for the client's own answer reads ("Custom size"; none: Other) and
+ * the line under the box it opens. A stone question's sizes and thicknesses
+ * are its stone's own, so it lists no suggestions; How many pieces is typed
+ * in, so it has no own answer to name either.
+ *
  * Archiving sets `archived_at`, once no service asks it; a stone question is
  * never archived. The row stays, as sent inquiries' answers reference it.
  *
@@ -48,6 +56,26 @@ class QuestionList extends CatalogListDefinition
 
     /** detail_fields.slug's length. */
     private const SLUG_MAX = 50;
+
+    /** Shown for a question that takes a free entry, a written answer or a number. */
+    private const FREE_ENTRY = ['field' => 'answer_type', 'in' => [DetailAnswerType::Text->value, DetailAnswerType::Number->value]];
+
+    /** The most suggested answers a question lists. */
+    private const SUGGESTIONS_MAX = 20;
+
+    /** A suggestion's length, its value and its note together. */
+    private const SUGGESTION_MAX = 150;
+
+    /** A suggestion's value, as detail_field_options.name holds it. */
+    private const SUGGESTION_VALUE_MAX = 100;
+
+    /** detail_fields.custom_label's and custom_hint's lengths. */
+    private const CUSTOM_LABEL_MAX = 50;
+
+    private const CUSTOM_HINT_MAX = 150;
+
+    /** What parts a suggestion's value from its note. */
+    private const NOTE_BAR = '|';
 
     public function title(): string
     {
@@ -118,6 +146,17 @@ class QuestionList extends CatalogListDefinition
                 'addLink' => ['list' => 'choices', 'label' => 'Add a new choice'],
                 'showWhen' => ['field' => 'answer_type', 'equals' => DetailAnswerType::Choice->value],
             ],
+            [
+                'name' => 'suggestions',
+                'label' => 'Suggested answers',
+                'type' => 'tags',
+                'maxItems' => self::SUGGESTIONS_MAX,
+                'maxLength' => self::SUGGESTION_MAX,
+                'hint' => 'Listed for the client to pick from, in this order, beside their own answer. Add a note after a bar: "2 | approx. 0.6 sqm" reads "2 – approx. 0.6 sqm", and the answer stays 2.',
+                'showWhen' => self::FREE_ENTRY,
+            ],
+            ['name' => 'custom_label', 'label' => 'Own answer reads', 'type' => 'text', 'maxLength' => self::CUSTOM_LABEL_MAX, 'hint' => 'The list\'s entry for the client\'s own answer, such as Custom size. Left empty, it reads Other.', 'showWhen' => self::FREE_ENTRY],
+            ['name' => 'custom_hint', 'label' => 'Line under the own answer', 'type' => 'text', 'maxLength' => self::CUSTOM_HINT_MAX, 'hint' => 'Shown under the box the client types their own answer in, such as Enter your desired size.', 'showWhen' => self::FREE_ENTRY],
         ];
     }
 
@@ -132,6 +171,10 @@ class QuestionList extends CatalogListDefinition
             'name' => ['required', 'string', 'max:'.StoreServiceRequest::QUESTION_NAME_MAX, $this->uniqueIgnoringCase('name', $item, self::say('Another question, maybe an archived one, already reads that way.'))],
             ...($item === null ? ['answer_type' => ['required', Rule::enum(DetailAnswerType::class)], ...$choices] : []),
             ...($item?->hasOwnChoices() ? $choices : []),
+            'suggestions' => ['nullable', 'array', 'max:'.self::SUGGESTIONS_MAX],
+            'suggestions.*' => ['required', 'string', 'max:'.self::SUGGESTION_MAX, 'distinct:ignore_case'],
+            'custom_label' => ['nullable', 'string', 'max:'.self::CUSTOM_LABEL_MAX],
+            'custom_hint' => ['nullable', 'string', 'max:'.self::CUSTOM_HINT_MAX],
         ];
     }
 
@@ -147,14 +190,38 @@ class QuestionList extends CatalogListDefinition
             'choices.*.integer' => __('Choose the choices from the list.'),
             'choices.*.exists' => __('One of those choices is no longer in the library. Remove it.'),
             'choices.*.distinct' => __('That choice is already listed.'),
+            'suggestions.max' => __('A question can list :max suggested answers at most.'),
+            'suggestions.*.required' => __('Remove the empty answer.'),
+            'suggestions.*.max' => __('Each suggested answer can be :max characters at most.'),
+            'suggestions.*.distinct' => __('That answer is already listed.'),
+            'custom_label.max' => __('Keep it to :max characters or fewer.'),
+            'custom_hint.max' => __('Keep it to :max characters or fewer.'),
         ];
     }
 
-    /** A list question takes at least two choices, with one custom and one "advise me" at most. */
+    /**
+     * A list question takes at least two choices, with one custom and one
+     * "advise me" at most. A number question's suggested answers are
+     * numbers, and every suggested answer has a value before its note.
+     */
     public function after(): \Closure
     {
         return function (Validator $validator, ?Model $item): void {
             $data = $validator->getData();
+            $type = $item instanceof DetailField ? $item->answer_type->value : ($data['answer_type'] ?? null);
+
+            if (is_array($data['suggestions'] ?? null) && ! $validator->errors()->has('suggestions.*')) {
+                foreach (self::suggestions($data['suggestions']) as $index => $suggestion) {
+                    if ($suggestion['name'] === '') {
+                        $validator->errors()->add("suggestions.{$index}", self::say('Write the answer before the bar.'));
+                    } elseif (mb_strlen($suggestion['name']) > self::SUGGESTION_VALUE_MAX) {
+                        $validator->errors()->add("suggestions.{$index}", self::say('An answer can be :max characters at most, before its note.', ['max' => (string) self::SUGGESTION_VALUE_MAX]));
+                    } elseif ($type === DetailAnswerType::Number->value && (! is_numeric($suggestion['name']) || (float) $suggestion['name'] <= 0)) {
+                        $validator->errors()->add("suggestions.{$index}", self::say('A number question\'s answers are numbers above 0, such as 4.'));
+                    }
+                }
+            }
+
             $isList = $item instanceof DetailField
                 ? $item->hasOwnChoices()
                 : ($data['answer_type'] ?? null) === DetailAnswerType::Choice->value;
@@ -214,8 +281,25 @@ class QuestionList extends CatalogListDefinition
                 'asked' => $item->scope === DetailFieldScope::Stone ? self::say('On each stone') : self::say('Once for the project'),
                 'services' => self::count((int) $item->getAttribute('services_count'), 'service', 'services'),
             ],
-            'values' => ['name' => $item->name, 'answer_type' => $item->answer_type->value, 'choices' => self::choiceIds($item)],
-            'fixed' => $item->hasOwnChoices() ? ['answer_type'] : ['answer_type', 'choices'],
+            'values' => [
+                'name' => $item->name,
+                'answer_type' => $item->answer_type->value,
+                'choices' => self::choiceIds($item),
+                'suggestions' => array_values($item->suggestions()->map(fn (DetailFieldOption $option): string => filled($option->description)
+                    ? $option->name.' '.self::NOTE_BAR.' '.$option->description
+                    : $option->name)->all()),
+                'custom_label' => (string) $item->custom_label,
+                'custom_hint' => (string) $item->custom_hint,
+            ],
+            'fixed' => array_values(array_filter([
+                'answer_type',
+                $item->hasOwnChoices() ? null : 'choices',
+                // A stone row lists its own stone's sizes and thicknesses.
+                $item->scope === DetailFieldScope::Stone && $item->takesFreeEntry() ? 'suggestions' : null,
+                // How many pieces is only typed in.
+                $item->slug === DetailField::QUANTITY ? 'custom_label' : null,
+                $item->slug === DetailField::QUANTITY ? 'custom_hint' : null,
+            ])),
         ];
     }
 
@@ -234,6 +318,13 @@ class QuestionList extends CatalogListDefinition
                 'sort_order' => ((int) DetailField::query()->max('sort_order')) + 1,
             ]);
         }
+
+        if ($item->takesFreeEntry() && $item->slug !== DetailField::QUANTITY) {
+            $item->fill([
+                'custom_label' => filled($data['custom_label'] ?? null) ? (string) $data['custom_label'] : null,
+                'custom_hint' => filled($data['custom_hint'] ?? null) ? (string) $data['custom_hint'] : null,
+            ]);
+        }
     }
 
     public function sync(Model $item, array $data): void
@@ -241,6 +332,26 @@ class QuestionList extends CatalogListDefinition
         if ($item->hasOwnChoices() && is_array($data['choices'] ?? null)) {
             $item->writeChoices(array_values(array_map(intval(...), $data['choices'])));
         }
+
+        if ($item->takesFreeEntry() && $item->scope === DetailFieldScope::Project && is_array($data['suggestions'] ?? null)) {
+            $item->writeSuggestions(self::suggestions($data['suggestions']));
+        }
+    }
+
+    /**
+     * The suggested answers as typed, each split at its first bar into its
+     * value and its note.
+     *
+     * @param  array<int|string, mixed>  $typed
+     * @return list<array{name: string, note: string|null}>
+     */
+    private static function suggestions(array $typed): array
+    {
+        return array_values(array_map(function (mixed $line): array {
+            [$name, $note] = array_pad(explode(self::NOTE_BAR, (string) $line, 2), 2, '');
+
+            return ['name' => trim($name), 'note' => trim($note) === '' ? null : trim($note)];
+        }, $typed));
     }
 
     public function usage(Model $item): ?string
@@ -262,6 +373,9 @@ class QuestionList extends CatalogListDefinition
             'scope' => $item->scope->value,
             'answer_type' => $item->answer_type->value,
             'choices' => self::choices($item),
+            'suggestions' => array_values($item->suggestions()->map(fn (DetailFieldOption $option): array => ['name' => $option->name, 'note' => $option->description])->all()),
+            'custom_label' => $item->custom_label,
+            'custom_hint' => $item->custom_hint,
             'archived_at' => $item->archived_at?->toIso8601String(),
         ];
     }

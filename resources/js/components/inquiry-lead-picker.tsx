@@ -1,4 +1,3 @@
-import { ArrowRight } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import EmptyState from '@/components/empty-state';
 import { LeadTallyBadges } from '@/components/lead-status-badge';
@@ -90,7 +89,6 @@ const InquiryLeadPicker = ({
                                     </span>
                                     <span className="flex shrink-0 items-center gap-2">
                                         <LeadTallyBadges tally={lead.tally} />
-                                        <ArrowRight aria-hidden />
                                     </span>
                                 </Button>
                             </li>

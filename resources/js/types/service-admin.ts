@@ -27,6 +27,12 @@ export type ServiceRow = {
     description: string;
     requiresStones: boolean;
     fulfillment: Fulfillment;
+    /** The line under "How would you like to get it?" on the Inquire page. */
+    deliveryNote: string | null;
+    /** The line under "When do you need it?" on the Inquire page. */
+    scheduleNote: string | null;
+    /** The fewest days from today a client may ask for it; null is today. */
+    leadDays: number | null;
     /** Visible on the Inquire page, as the admin set it. */
     isActive: boolean;
     /** Whether the Inquire page offers it now: visible, its type visible, and made from a stone type when it needs stones. */
@@ -63,6 +69,10 @@ export type QuestionOption = {
 
 export type ServiceLimits = {
     descriptionMax: number;
+    /** The delivery and date lines' length. */
+    noteMax: number;
+    /** The most days ahead a service may hold its date to. */
+    leadDaysMax: number;
     featuresMax: number;
     featureMax: number;
 };

@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Check, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import {
     type ReactNode,
     useCallback,
@@ -500,9 +500,11 @@ const InquireFlow = ({
 }) => {
     const catalog = useInquiryCatalog();
     const addressSource: AddressSource = addresses === null ? 'picker' : 'book';
+    // An edit may keep the date it already has, however soon it now is.
+    const heldNeededBy = edit?.projects[0]?.neededBy ?? null;
     const { inquirySchema, projectDraftSchema } = useMemo(
-        () => createInquirySchemas(catalog, addressSource),
-        [catalog, addressSource],
+        () => createInquirySchemas(catalog, addressSource, heldNeededBy),
+        [catalog, addressSource, heldNeededBy],
     );
     const ownStoreUrl = useInquireStoreUrl();
     const inquireStoreUrl = target === null ? ownStoreUrl : target.storeUrl;
@@ -2146,7 +2148,6 @@ const InquireFlow = ({
                                     <Button asChild variant="outline">
                                         {/* Back to the list the edit was started from. */}
                                         <Link href={edit.back.url}>
-                                            <ArrowLeft aria-hidden />
                                             {edit.back.label}
                                         </Link>
                                     </Button>
@@ -2263,9 +2264,6 @@ const InquireFlow = ({
                                                 aria-pressed={draftStoneAdvice}
                                                 className="h-10 w-full shrink-0 rounded-none border-foreground text-xs font-semibold tracking-[0.08em] uppercase sm:w-auto"
                                             >
-                                                {draftStoneAdvice ? (
-                                                    <Check aria-hidden />
-                                                ) : null}
                                                 Help me choose
                                             </Button>
                                         </div>

@@ -1,4 +1,4 @@
-import { ChevronDown, FileText, Pencil, Sparkles } from 'lucide-react';
+import { ChevronDown, FileText, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import AlertError from '@/components/alert-error';
@@ -193,7 +193,6 @@ const EditSection = ({
         disabled={locked}
         className="rounded-none text-xs font-semibold tracking-[0.08em] uppercase hover:border-foreground"
     >
-        <Pencil aria-hidden />
         {label}
     </Button>
 );

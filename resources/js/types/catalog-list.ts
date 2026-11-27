@@ -24,8 +24,8 @@ export type CatalogField = {
     step?: string;
     /** A select's choices by value; a multiselect's by id. */
     options?: { value?: string; id?: number; label: string }[];
-    /** Shown only while another field has this value. */
-    showWhen?: { field: string; equals: string };
+    /** Shown only while another field has this value, or one of these. */
+    showWhen?: { field: string; equals?: string; in?: string[] };
     /**
      * A multiselect whose items are added on another list's page: a link
      * there, which brings the admin back with the new one picked.

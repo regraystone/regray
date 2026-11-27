@@ -9,6 +9,7 @@ use App\Models\Inquiry;
 use App\Models\InquiryStone;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\ScheduleService;
 use Closure;
 use Illuminate\Validation\Validator;
 
@@ -140,6 +141,12 @@ class UpdateInquiryRequest extends StoreInquiryRequest
     protected function heldBrandSlugs(): array
     {
         return array_values($this->heldInquiry()?->brands->pluck('slug')->all() ?? []);
+    }
+
+    /** The date the inquiry already has, in the showroom's time zone. */
+    protected function heldDeadline(): ?string
+    {
+        return $this->editedInquiry()?->loadMissing('schedule')->schedule?->arrival_at->setTimezone(ScheduleService::timezone())->toDateString();
     }
 
     /** @return array<string, list<string>> */
