@@ -43,7 +43,7 @@ return [
     [
         'slug' => 'cucine',
         'name' => 'Cucine Lube',
-        'logo_path' => 'brands/4e8f2a6c1d9b5f3a7c0e1b8d4f6a9c2e.png',
+        'logo_path' => 'brands/8702753096d645a22f5832cfb9c887c3.png',
         'thumbnail_path' => 'brands/7a2f5c9e1b6d3f8c4e0a1d7b5f2c9e6a.jpg',
         'website_url' => 'https://www.cucinelube.it/',
         'tagline' => 'Italian kitchens from Treia, founded in 1967, sold in 76 countries.',
