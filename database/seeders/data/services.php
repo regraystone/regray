@@ -82,7 +82,8 @@ return [
                 'requires_stones' => true,
                 'fulfillment' => 'installed',
                 'features' => ['Accent and feature walls', 'Nationwide installation'],
-                'fields' => ['area_sqm' => true, 'finish' => true],
+                // Bookmatch is asked, not required: none picked is none wanted.
+                'fields' => ['area_sqm' => true, 'finish' => true, 'bookmatch' => false],
             ],
             [
                 'slug' => 'flooring',

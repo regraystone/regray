@@ -27,7 +27,6 @@ import {
     type AddressValue,
 } from '@/lib/ph-address';
 import { cn } from '@/lib/utils';
-import { show as showProfile } from '@/routes/profile';
 import type { SavedAddress } from '@/types/inquiry';
 
 type PageProps = {
@@ -171,24 +170,22 @@ export default function Addresses({
             <h1 className="sr-only">Addresses</h1>
 
             <div className="mx-auto w-full max-w-3xl">
+                {/*
+                 * One way back. On a phone or tablet it is the page's Back, which
+                 * returns to the request when opened from Inquire (`returnTo`) and
+                 * to Profile otherwise; a laptop has the breadcrumbs instead, so
+                 * only the way back to the request is drawn there.
+                 */}
                 {returnTo !== null ? (
                     <Link
                         href={returnTo}
-                        className="mb-5 inline-flex items-center gap-2 text-sm text-secondary-foreground transition-opacity hover:opacity-70"
+                        className="mb-5 hidden items-center gap-2 text-sm text-secondary-foreground transition-opacity hover:opacity-70 lg:inline-flex"
                         data-test="addresses-back-to-inquiry"
                     >
                         <ArrowLeft className="size-4" aria-hidden />
                         Back to your request
                     </Link>
-                ) : (
-                    <Link
-                        href={showProfile.url()}
-                        className="mb-5 inline-flex items-center gap-2 text-sm text-secondary-foreground transition-opacity hover:opacity-70 sm:hidden"
-                    >
-                        <ArrowLeft className="size-4" aria-hidden />
-                        Back to profile
-                    </Link>
-                )}
+                ) : null}
 
                 <div className="space-y-6">
                     <div className="flex flex-wrap items-start justify-between gap-4">

@@ -134,7 +134,8 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.customAnswers.*' => ['nullable', 'string'],
 
             'projects.*.brands' => ['nullable', 'array', 'max:'.self::BRANDS_MAX],
-            'projects.*.brands.*' => ['string', 'distinct', Rule::exists('brands', 'slug')->where(fn ($brands) => $brands
+            // No `distinct` here: across `projects.*` it would compare every project's brands, so two products with the same brand would be refused. brandsChosenOnce() checks each project on its own.
+            'projects.*.brands.*' => ['string', Rule::exists('brands', 'slug')->where(fn ($brands) => $brands
                 ->where(fn ($shown) => $shown->where('is_active', true)->whereNull('archived_at'))
                 ->orWhereIn('slug', $this->heldBrandSlugs()))],
             'projects.*.brandNoPreference' => ['nullable', 'boolean'],
@@ -199,7 +200,6 @@ class StoreInquiryRequest extends FormRequest
             'projects.*.answers.prohibited' => 'This service does not ask that.',
             'projects.*.brands.max' => 'Choose fewer brands.',
             'projects.*.brands.*.exists' => 'That brand is no longer available.',
-            'projects.*.brands.*.distinct' => 'That brand is already chosen.',
             'projects.*.deliveryMethod.Illuminate\Validation\Rules\Enum' => 'Choose how you would like to get it.',
             'projects.*.addressId.integer' => 'Choose one of your saved addresses.',
             'projects.*.addressId.prohibited' => 'Enter the address with the address picker.',
@@ -230,6 +230,26 @@ class StoreInquiryRequest extends FormRequest
     }
 
     /**
+     * Each project names a brand at most once. Products in one request may
+     * share a brand: two Regray Stone products are two projects, not a
+     * repeat.
+     *
+     * @return Closure(Validator): void
+     */
+    private function brandsChosenOnce(): Closure
+    {
+        return function (Validator $validator): void {
+            foreach ((array) $this->input('projects', []) as $index => $project) {
+                $brands = is_array($project) && is_array($project['brands'] ?? null) ? $project['brands'] : [];
+
+                if (count($brands) !== count(array_unique($brands, SORT_REGULAR))) {
+                    $validator->errors()->add("projects.{$index}.brands", 'That brand is already chosen.');
+                }
+            }
+        };
+    }
+
+    /**
      * The rules that depend on what the project is for.
      *
      * A project needs a stone, or a stone left to Regray to recommend, unless
@@ -255,6 +275,7 @@ class StoreInquiryRequest extends FormRequest
     public function after(): array
     {
         return [
+            $this->brandsChosenOnce(),
             function (Validator $validator): void {
                 if ($validator->errors()->isNotEmpty()) {
                     return;

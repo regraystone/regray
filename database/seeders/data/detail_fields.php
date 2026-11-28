@@ -192,4 +192,18 @@ return [
         'answer_type' => 'boolean',
         'allows_custom' => false,
     ],
+    [
+        // Whether a wall's slabs mirror each other's veins, and how; a custom layout is described.
+        'slug' => 'bookmatch',
+        'name' => 'Bookmatch',
+        'scope' => 'project',
+        'answer_type' => 'choice',
+        'allows_custom' => false,
+        'choices' => [
+            'no-bookmatch',
+            'bookmatch-vertical',
+            'bookmatch-horizontal',
+            'bookmatch-custom',
+        ],
+    ],
 ];

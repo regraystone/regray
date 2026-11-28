@@ -20,6 +20,7 @@ import {
     projectAddressLine,
     type InquiryAddressContextValue,
 } from '@/components/inquiry-address-field';
+import InquiryOneQuote from '@/components/inquiry-one-quote';
 import InquiryBrandQuestion, {
     INQUIRY_BRANDS_ID,
 } from '@/components/inquiry-brand-question';
@@ -2359,6 +2360,22 @@ const InquireFlow = ({
                                                 : `Adding project ${projects.length + 1}`
                                         }
                                         onCancel={cancelExcursion}
+                                    />
+                                ) : null}
+
+                                {/*
+                                 * Clients did not know one request can hold several products, so
+                                 * every product opens with the quote it is part of. An edit of a
+                                 * sent inquiry is one product, so it has none.
+                                 */}
+                                {edit === null ? (
+                                    <InquiryOneQuote
+                                        projects={projects}
+                                        current={
+                                            editingProjectNumber > 0
+                                                ? editingProjectNumber
+                                                : projects.length + 1
+                                        }
                                     />
                                 ) : null}
 

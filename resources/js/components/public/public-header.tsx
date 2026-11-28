@@ -337,9 +337,11 @@ export default function PublicHeader() {
                             <p className="text-[0.9375rem] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
                                 {current.label}
                             </p>
-                            <p className="font-display text-[clamp(1.375rem,1.8vw,1.75rem)] leading-snug font-light text-pretty">
-                                {current.description}
-                            </p>
+                            {current.description ? (
+                                <p className="font-display text-[clamp(1.375rem,1.8vw,1.75rem)] leading-snug font-light text-pretty">
+                                    {current.description}
+                                </p>
+                            ) : null}
                             {current.cta ? (
                                 <MenuAnchor
                                     link={current.cta}
@@ -519,9 +521,11 @@ export default function PublicHeader() {
                                     </span>
                                 </span>
                             </button>
-                            <p className="mt-5 text-[1.0625rem] leading-normal text-muted-foreground">
-                                {subSection.description}
-                            </p>
+                            {subSection.description ? (
+                                <p className="mt-5 text-[1.0625rem] leading-normal text-muted-foreground">
+                                    {subSection.description}
+                                </p>
+                            ) : null}
                             {/* The section's main link, under its line as on a laptop; its list holds only its links. */}
                             {subSection.cta ? (
                                 <MenuAnchor
@@ -531,10 +535,17 @@ export default function PublicHeader() {
                                 >
                                     {subSection.cta.label}
                                 </MenuAnchor>
-                            ) : (
+                            ) : subSection.description ? (
                                 <span className="mb-4" />
-                            )}
-                            <ul className="flex flex-col border-t border-border">
+                            ) : null}
+                            {/* With no line above it, the list starts right under the back button's own rule. */}
+                            <ul
+                                className={`flex flex-col ${
+                                    subSection.description || subSection.cta
+                                        ? 'border-t border-border'
+                                        : ''
+                                }`}
+                            >
                                 {menuRows(subSection.links)
                                     .filter(
                                         (link) =>

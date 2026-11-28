@@ -117,6 +117,22 @@ describe('projects', function (): void {
         expect(Inquiry::query()->orderBy('id')->pluck('name')->all())->toBe(['Supply', 'Floors', 'Fit-out', 'Counters', 'Stairs']);
     });
 
+    it('takes the same brand on two products, and refuses it twice in one', function (): void {
+        $regray = ['brandNoPreference' => null, 'brands' => ['regray-stone']];
+
+        postInquiry($this, [
+            inquiryProjectInput(['name' => 'Supply', ...$regray]),
+            inquiryProjectInput(['name' => 'Floors', 'serviceId' => 'flooring', ...$regray]),
+        ])->assertSessionHasNoErrors();
+
+        expect(Inquiry::query()->count())->toBe(2);
+
+        postInquiry($this, [inquiryProjectInput(['brandNoPreference' => null, 'brands' => ['regray-stone', 'regray-stone']])])
+            ->assertSessionHasErrors(['projects.0.brands' => 'That brand is already chosen.']);
+
+        expect(Inquiry::query()->count())->toBe(2);
+    });
+
     it('refuses a sixth project', function (): void {
         postInquiry($this, array_fill(0, 6, inquiryProjectInput()))
             ->assertSessionHasErrors(['projects' => 'Send up to 5 projects at a time.']);
@@ -652,6 +668,31 @@ describe('the table questions asked with pictures', function (): void {
         expect($shape->option?->slug)->toBe('custom-shape')
             ->and($shape->text_value)->toBe('An L-shaped top')
             ->and($shape->displayValue())->toBe('Custom Shape: An L-shaped top');
+    });
+
+    it('asks wall cladding whether it is bookmatched, and wants a custom layout described', function (): void {
+        $wall = fn (array $answers, array $custom = []): array => inquiryProjectInput([
+            'serviceId' => 'wall-cladding',
+            'answers' => ['area_sqm' => '12', ...$answers],
+            'customAnswers' => $custom,
+        ]);
+
+        postInquiry($this, [$wall(['bookmatch' => 'diagonal'])])
+            ->assertSessionHasErrors(['projects.0.answers.bookmatch' => 'Choose the bookmatch from the list.']);
+
+        postInquiry($this, [$wall(['bookmatch' => 'bookmatch-custom'])])
+            ->assertSessionHasErrors(['projects.0.answers.bookmatch' => 'Describe your custom layout.']);
+
+        // Not required: none picked is none wanted.
+        postInquiry($this, [$wall([])])->assertSessionHasNoErrors();
+        postInquiry($this, [$wall(['bookmatch' => 'bookmatch-custom'], ['bookmatch' => 'Veins meeting at the corner'])])
+            ->assertSessionHasNoErrors();
+
+        $bookmatch = Inquiry::query()->latest('id')->first()->detailAnswers()->with(['detailField', 'option'])
+            ->whereHas('detailField', fn ($field) => $field->where('slug', 'bookmatch'))->sole();
+
+        expect($bookmatch->displayValue())->toBe('Custom layout: Veins meeting at the corner')
+            ->and(Inquiry::query()->oldest('id')->first()->detailAnswers()->whereHas('detailField', fn ($field) => $field->where('slug', 'bookmatch'))->exists())->toBeFalse();
     });
 
     it('keeps no description for a choice that is not custom', function (): void {

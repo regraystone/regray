@@ -80,7 +80,8 @@ const InquiryDraftPrompt = ({
                             : `A draft was saved on ${savedOn}. Continue where you left off, or start a new inquiry.`}
                     </DialogDescription>
                 </DialogHeader>
-                <DialogFooter>
+                {/* Side by side on every screen, each label on one line, as Sir Mark asked. */}
+                <DialogFooter className="flex-row gap-3 sm:gap-3 [&_button]:flex-1 [&_button]:px-3 [&_button]:whitespace-nowrap sm:[&_button]:flex-none sm:[&_button]:px-5">
                     <Button
                         type="button"
                         variant="outline"
