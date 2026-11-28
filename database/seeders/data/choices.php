@@ -75,4 +75,13 @@ return [
     ['slug' => 'hourglass-v1', 'name' => 'Hourglass V1', 'image' => 'question-choices/eba8e1c79fe4a8ee70b56e18894f3ebd.jpg',
         'description' => 'Curved panels that pinch at the middle, on a round foot. A pedestal for a round dining top.'],
     ['slug' => 'same-as-stone', 'name' => 'Same as stone', 'kind' => 'stone'],
+    // Bookmatch, asked by Wall Cladding: whether its slabs mirror each other's veins, and how.
+    ['slug' => 'no-bookmatch', 'name' => 'No bookmatch',
+        'description' => 'The slabs are laid one after another, each with its own natural veining.'],
+    ['slug' => 'bookmatch-vertical', 'name' => 'Vertical',
+        'description' => 'Two slabs from the same block, opened like a book side by side, so the veins mirror each other. Depends on matching slabs in stock and on your wall.'],
+    ['slug' => 'bookmatch-horizontal', 'name' => 'Horizontal',
+        'description' => 'Two slabs from the same block, one above the other, so the veins mirror each other. Depends on matching slabs in stock and on your wall.'],
+    ['slug' => 'bookmatch-custom', 'name' => 'Custom layout', 'kind' => 'custom',
+        'description' => 'Have a layout in mind? Describe it and we will work it out with you. Depends on matching slabs in stock and on your wall.'],
 ];

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Inquiry\ListInquiryOptionsAction;
 use App\Actions\Inquiry\ListInquiryStonesAction;
 use App\Actions\Schedule\ListSchedulesAction;
+use App\Data\OverviewRange;
 use App\Data\Product\ProductListFilters;
 use App\Enums\InquiryStatus;
 use App\Enums\LeadStatus;
@@ -47,6 +48,7 @@ use App\Repositories\Contracts\ShowcaseRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\FurnitureCustomizationService;
 use App\Services\InquiryStatusRules;
+use App\Services\OverviewService;
 use App\Services\SalesReportService;
 use App\Services\ScheduleService;
 use App\Services\WalkInInquiryService;
@@ -64,9 +66,34 @@ use Inertia\Response;
 
 class ViewController extends Controller
 {
-    public function overview(Request $request): Response
+    /**
+     * The Overview: a summary of the reader's own work, by role
+     * (OverviewService), over `?from=` to `?to=` (OverviewRange: the first of
+     * this month to today by default).
+     *
+     * The admin may open any staff member's with `?as=` (their id); anyone
+     * else asking for another person's is refused.
+     */
+    public function overview(Request $request, OverviewService $overview): Response
     {
-        return Inertia::render('overview');
+        /** @var User $viewer */
+        $viewer = $request->user();
+        $subject = $viewer;
+
+        if ($request->filled('as')) {
+            abort_unless($viewer->hasRole(Role::superAdmin()->value), 403);
+            $subject = User::query()->find((int) $request->query('as'));
+            abort_if($subject === null || ! $overview->canViewAs($subject), 404);
+        }
+
+        $range = OverviewRange::fromQuery($request->query('from'), $request->query('to'), CarbonImmutable::now(), ScheduleService::timezone());
+
+        return Inertia::render('overview', [
+            ...$overview->overview($viewer, $subject, $range, CarbonImmutable::now()),
+            'viewingAs' => $subject->is($viewer) ? null : $subject->id,
+            // The last day To may be, on the studio's clock.
+            'today' => CarbonImmutable::now(ScheduleService::timezone())->toDateString(),
+        ]);
     }
 
     public function saved(Request $request): Response
@@ -356,6 +383,8 @@ class ViewController extends Controller
                 'notes' => $schedule->notes,
                 'status' => $schedule->status->for($viewer)->value,
                 'clientName' => $viewer->isClient() ? null : $schedule->clientName(),
+                'kind' => $schedule->kind?->value,
+                'orderReference' => $schedule->order()->value('reference'),
             ],
         ]);
     }
@@ -364,13 +393,18 @@ class ViewController extends Controller
      * The studio's date and time now, so the page decides which days and slots
      * are already past by Manila's clock rather than the browser's.
      */
-    public function scheduleBook(Request $request): Response
+    public function scheduleBook(Request $request, ScheduleService $scheduleService): Response
     {
         $now = Date::now(ScheduleService::timezone());
 
+        /** @var User $viewer */
+        $viewer = $request->user();
+
         return Inertia::render('schedule-book', [
             'studioNow' => ['date' => $now->toDateString(), 'time' => $now->format('H:i')],
-            'earliestBookableDate' => ScheduleService::earliestBookableDate($request->user())->toDateString(),
+            'earliestBookableDate' => ScheduleService::earliestBookableDate($viewer)->toDateString(),
+            // A client's accepted orders they may book an installation or a delivery for; staff book showroom visits only.
+            'orders' => $viewer->isClient() ? $scheduleService->ordersToSchedule($viewer) : [],
         ]);
     }
 

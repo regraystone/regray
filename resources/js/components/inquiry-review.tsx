@@ -875,6 +875,34 @@ const InquiryReview = ({
                     </p>
                 ) : null}
 
+                {/*
+                 * First on Review, so a phone shows it without scrolling: the way to
+                 * put the next product in this quote (the top of Inquire says one
+                 * request can hold several).
+                 */}
+                {onAddProject !== undefined &&
+                projects.length < MAX_PROJECTS ? (
+                    <div
+                        className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:gap-4"
+                        data-testid="add-more-to-quote"
+                    >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onAddProject}
+                            disabled={locked}
+                            className="w-full shrink-0 sm:w-auto"
+                        >
+                            <Plus aria-hidden />
+                            Add another product
+                        </Button>
+                        <p className="text-xs text-secondary-foreground">
+                            Up to {MAX_PROJECTS} products, sent together in one
+                            request.
+                        </p>
+                    </div>
+                ) : null}
+
                 {projects.length === 0 ? (
                     <div className="border border-border bg-background p-4 sm:p-5">
                         <p className="text-sm text-secondary-foreground">
@@ -901,29 +929,6 @@ const InquiryReview = ({
                         />
                     ))
                 )}
-
-                {/*
-                 * Each project is sent as its own inquiry and quoted on its own,
-                 * so a supply and an installation can go together.
-                 */}
-                {onAddProject !== undefined &&
-                projects.length < MAX_PROJECTS ? (
-                    <div className="flex flex-col items-start gap-1.5">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onAddProject}
-                            disabled={locked}
-                        >
-                            <Plus aria-hidden />
-                            Add another project
-                        </Button>
-                        <p className="text-xs text-secondary-foreground">
-                            Up to {MAX_PROJECTS} projects, each quoted on its
-                            own.
-                        </p>
-                    </div>
-                ) : null}
             </div>
 
             {/*

@@ -7,12 +7,14 @@ use App\Data\StaffVisibility;
 use App\Enums\ConversationType;
 use App\Enums\DeliveryMethod;
 use App\Enums\DocumentType;
+use App\Enums\Fulfillment;
 use App\Enums\InquiryStatus;
 use App\Enums\InquiryStatusGroup;
 use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProcessStatus;
 use App\Enums\SalesStatus;
+use App\Enums\ScheduleKind;
 use App\Services\InquiryStatusCalculator;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -444,6 +446,20 @@ class Inquiry extends Model
     }
 
     /**
+     * Whether the client may book `$kind` for it, its service aside from its
+     * status: an installation for a service the team installs, a delivery for
+     * one they chose to have delivered. Reads the service, so load it first.
+     */
+    public function takes(ScheduleKind $kind): bool
+    {
+        return match ($kind) {
+            ScheduleKind::Installation => $this->service?->fulfillment === Fulfillment::Installed,
+            ScheduleKind::Delivery => $this->delivery_method === DeliveryMethod::Delivery,
+            ScheduleKind::ShowroomVisit => false,
+        };
+    }
+
+    /**
      * How the work reaches the client, as every page and email words it:
      * "Pickup", "Delivery to {address}", or "Installation at {address}" for a
      * service with no delivery method to choose.
@@ -499,5 +515,11 @@ class Inquiry extends Model
     public function schedules(): HasMany
     {
         return $this->hasMany(Schedule::class);
+    }
+
+    /** @return HasMany<Schedule, $this> The installations and deliveries booked for it as an order. */
+    public function orderSchedules(): HasMany
+    {
+        return $this->hasMany(Schedule::class, 'order_id');
     }
 }

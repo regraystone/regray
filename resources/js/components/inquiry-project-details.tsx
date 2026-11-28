@@ -57,6 +57,9 @@ const ServiceNote = ({ id, children }: { id: string; children: string }) => (
     </p>
 );
 
+/** What a delivery costs, said once Delivery is picked: six words, as Sir Mark asked. */
+const DELIVERY_FEE_NOTE = 'Delivery fee depends on your location.';
+
 /** Joined `aria-describedby` ids, or undefined for none. */
 const describedByIds = (...ids: (string | undefined | null)[]) =>
     ids.filter(Boolean).join(' ') || undefined;
@@ -347,6 +350,7 @@ const InquiryProjectDetails = ({
     // How long a delivery takes: said only once Delivery is picked, never for a pickup.
     const deliveryNote =
         deliveryMethod === DELIVERY ? (service?.deliveryNote ?? null) : null;
+    const isDelivery = deliveryMethod === DELIVERY;
 
     const attachmentErrors = attachmentMessages(errors.attachments);
 
@@ -431,6 +435,9 @@ const InquiryProjectDetails = ({
                                         id={INQUIRY_DELIVERY_METHOD_ID}
                                         aria-describedby={describedByIds(
                                             accessibility.describedBy,
+                                            isDelivery
+                                                ? id('delivery-fee-note')
+                                                : null,
                                             deliveryNote
                                                 ? id('delivery-note')
                                                 : null,
@@ -452,6 +459,16 @@ const InquiryProjectDetails = ({
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {/* Every delivery costs extra, by where it goes: said for each, not kept per service. */}
+                                {isDelivery ? (
+                                    <p
+                                        id={id('delivery-fee-note')}
+                                        className="mt-2 text-sm leading-normal font-semibold"
+                                        data-testid="delivery-fee-note"
+                                    >
+                                        {DELIVERY_FEE_NOTE}
+                                    </p>
+                                ) : null}
                                 {deliveryNote ? (
                                     <ServiceNote id={id('delivery-note')}>
                                         {deliveryNote}

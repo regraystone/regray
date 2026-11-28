@@ -7,9 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * A brand's page: who it is, its facts, what it makes and its social links
- * (set on the admin's Brands page). Its own website stays on the admin's page
- * and is not shown here: clients buy through Regray.
+ * A brand's page: who it is, its facts, what it makes, its social links and
+ * its own website (set on the admin's Brands page), which its page links to
+ * beside the social icons, as Sir Mark asked.
  *
  * Expects Brand::DETAILS loaded (BrandController::show()).
  *
@@ -18,7 +18,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class BrandProfileResource extends JsonResource
 {
     /**
-     * @return array{slug: string, name: string, tagline: string|null, description: string|null, logo: string, thumbnail: string|null, hasCompanyProfile: bool, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>}
+     * @return array{slug: string, name: string, tagline: string|null, description: string|null, logo: string, thumbnail: string|null, hasCompanyProfile: bool, websiteUrl: string|null, facts: list<array{label: string, value: string}>, makes: list<string>, socials: list<array{platform: string, url: string}>}
      */
     public function toArray(Request $request): array
     {
@@ -30,6 +30,7 @@ class BrandProfileResource extends JsonResource
             'logo' => ShowcaseCardResource::resolveThumbnailUrl($this->logo_path),
             'thumbnail' => $this->thumbnail_path === null ? null : ShowcaseCardResource::resolveThumbnailUrl($this->thumbnail_path),
             'hasCompanyProfile' => $this->hasCompanyProfile(),
+            'websiteUrl' => $this->website_url,
             ...$this->details(),
         ];
     }

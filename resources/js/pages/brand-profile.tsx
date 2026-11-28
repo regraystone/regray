@@ -1,4 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
+import { Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import BrandCollection from '@/components/home/brand-collection';
 import {
@@ -216,6 +217,19 @@ const BrandProfile = () => {
                                     <SocialIcon platform={social.platform} />
                                 </a>
                             ))}
+                            {brand.websiteUrl ? (
+                                <a
+                                    href={brand.websiteUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={`${brand.name}'s website (opens in a new tab)`}
+                                    className={`${lightButton} px-5`}
+                                    data-testid="brand-website"
+                                >
+                                    <Globe aria-hidden className="size-4" />
+                                    Website
+                                </a>
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -278,7 +292,6 @@ const BrandProfile = () => {
                             className="mt-2 inline-flex min-h-12.5 items-center gap-3 self-start border border-foreground px-6 text-[0.8125rem] font-semibold tracking-[0.08em] uppercase transition-colors hover:bg-foreground hover:text-background"
                         >
                             Company profile
-                            <span aria-hidden>→</span>
                         </Link>
                     ) : null}
                 </div>

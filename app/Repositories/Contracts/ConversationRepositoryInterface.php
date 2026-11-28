@@ -40,6 +40,14 @@ interface ConversationRepositoryInterface
     public function unreadTotalFor(User $user, bool $includeSupportPool, bool $includeAllSupport): int;
 
     /**
+     * The user's group chats with messages they have not read, newest first,
+     * each with `unread_count` and `last_activity_at`.
+     *
+     * @return Collection<int, Conversation>
+     */
+    public function unreadGroupsFor(User $user, int $limit): Collection;
+
+    /**
      * The same row a page would hold, for one conversation.
      */
     public function findSummaryForUser(User $user, int $conversationId): ?Conversation;

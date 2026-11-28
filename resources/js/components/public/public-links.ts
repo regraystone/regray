@@ -129,7 +129,8 @@ export const menuRows = (
 export type MenuPanel = {
     kind: 'panel';
     label: string;
-    description: string;
+    /** A line about the section; Discover has none, as Sir Mark asked. */
+    description?: string;
     /** The panel's main link, under its line; left out when its list already starts with it. */
     cta?: MenuLink;
     links: MenuLink[];
@@ -155,13 +156,11 @@ export const menuItems = (): MenuItem[] => [
     {
         kind: 'panel',
         label: 'Discover',
-        description:
-            'Who we are, our showroom in Makati, and how to work with us.',
         links: [
             // Only About, Showroom and Careers are shown, as Sir Mark asked;
             // the About page's other sections stay here, hidden, for later.
             {
-                label: 'About Regray Design Group',
+                label: 'About Us',
                 href: about.url(),
                 children: [
                     {

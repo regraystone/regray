@@ -53,7 +53,8 @@ class ScheduleChangeService
     {
         return $this->change($schedule, ScheduleAction::Update, $by, $ipAddress, $userAgent, function (Schedule $locked) use ($by, $purpose, $arrivalAt, $notes, $reason): array {
             $attributes = [
-                'title' => $purpose,
+                // An installation's or a delivery's title names its order, so it keeps it.
+                'title' => $locked->kind?->isForOrder() === true ? $locked->title : $purpose,
                 'arrival_at' => $arrivalAt->setTimezone(config('app.timezone')),
                 'notes' => $notes,
                 'change_reason' => $reason,

@@ -72,6 +72,8 @@ export type BrandProfile = BrandCardData & {
     thumbnail: string | null;
     /** Whether it has a Company profile page (only Regray Stone, for now). */
     hasCompanyProfile: boolean;
+    /** The brand's own website, set on the admin's Brands page; null when it has none. */
+    websiteUrl: string | null;
     /** Set on the admin's Brands page, in the order they show. */
     facts: BrandFact[];
     /** What the brand makes, such as "Kitchens". */

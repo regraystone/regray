@@ -6,6 +6,7 @@ use App\Actions\Schedule\BookScheduleAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Schedule\StoreBookingRequest;
 use App\Models\Client;
+use App\Models\Inquiry;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -38,6 +39,10 @@ class BookingController extends Controller
                 /** @var User $sales after() refused a request naming no sales member. */
                 $sales = $request->sales();
                 $this->bookSchedule->executeForStaff($user, $client, $sales, $request->purpose(), $request->arrivalAt(), $request->notes());
+            } elseif ($request->kind()->isForOrder()) {
+                /** @var Inquiry $order after() refused a request naming none of the client's accepted orders. */
+                $order = $request->order();
+                $this->bookSchedule->executeForOrder($user, $order, $request->kind(), $request->arrivalAt(), $request->notes());
             } else {
                 $this->bookSchedule->execute($user, $request->purpose(), $request->arrivalAt(), $request->notes());
             }
