@@ -27,7 +27,7 @@ class ProfileController extends Controller
      * sidebar decides what to hide. The summary adds the reader's phone and
      * company and the figures beside the doors (ProfileSummaryAction).
      *
-     * Placeholder doors (Transaction History, Warranties, Loyalty & Rewards and
+     * Placeholder doors (Payment, Warranties, Loyalty & Rewards and
      * Report a Bug) are UI stubs that display a "coming soon" toast when clicked.
      */
     public function show(Request $request, ProfileSummaryAction $summary): Response

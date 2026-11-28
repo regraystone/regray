@@ -45,6 +45,17 @@ class EloquentConversationRepository implements ConversationRepositoryInterface
             ->sum('unread_count');
     }
 
+    public function unreadGroupsFor(User $user, int $limit): Collection
+    {
+        return $this->listQuery($user, false, false)
+            ->where('conversations.type', ConversationType::Group->value)
+            ->whereRaw('('.self::UNREAD_SQL.') > 0', [$user->id, $user->id, $user->id])
+            ->with('inquiry:id,reference')
+            ->orderByDesc('last_activity_at')
+            ->limit($limit)
+            ->get();
+    }
+
     public function paginateForUser(
         User $user,
         ConversationListFilters $filters,

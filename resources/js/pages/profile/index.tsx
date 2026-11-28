@@ -127,7 +127,7 @@ const ActivityCard = ({
  * and company they gave and, for staff, their role) with Edit profile, beside
  * Loyalty & Rewards (coming soon). Below, the doors in labelled groups:
  * Account; Activity, three cards in order (Quotations with how many are open,
- * Transaction History and Warranties); Schedule & Locations; Saved &
+ * Payment and Warranties); Schedule & Locations; Saved &
  * Preferences; Feedback. A door, and a group left empty, is drawn only for a
  * reader who may open it, from the shared `auth.permissions` prop as in the
  * sidebar.
@@ -138,7 +138,7 @@ const ActivityCard = ({
  * Which of the two a role gets is a permission question — `profile-schedule.view`
  * against `schedule.view` — so nothing here names a role.
  *
- * Placeholder doors (Loyalty & Rewards, Transaction History, Warranties and
+ * Placeholder doors (Loyalty & Rewards, Payment, Warranties and
  * Report a Bug) are marked Soon and display a "coming soon" toast when used.
  */
 const Profile = ({ summary }: { summary: ProfileSummary }) => {
@@ -294,11 +294,11 @@ const Profile = ({ summary }: { summary: ProfileSummary }) => {
                             ) : null}
                             <ActivityCard
                                 icon={ReceiptText}
-                                title="Transaction History"
+                                title="Payment"
                                 pill="Soon"
-                                description="Your payments and refunds in one place."
-                                action="View transactions"
-                                dataTest="profile-transactions-button"
+                                description="Payments and refunds on your quotations, with their receipts and status."
+                                action="View payments"
+                                dataTest="profile-payment-button"
                             />
                             <ActivityCard
                                 icon={ShieldCheck}
