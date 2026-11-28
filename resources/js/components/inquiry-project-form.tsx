@@ -473,6 +473,12 @@ const InquiryProjectForm = ({
     // The stone questions are the service's, with or without an application.
     const service = findProjectService(serviceTypes, serviceId, applicationId);
     const questions = stoneFields(service);
+    // A slab's size or thickness is asked, so the note on what decides them is said.
+    const asksSlab = questions.some(
+        (field) =>
+            stoneFieldKey(field) === 'slabSize' ||
+            stoneFieldKey(field) === 'thickness',
+    );
     const countsPieces = asksQuantity(service);
     const stoneAdvice = useWatch({ control, name: 'stoneAdvice' });
 
@@ -583,6 +589,17 @@ const InquiryProjectForm = ({
             <>
                 {rows.length > 0 ? (
                     <>
+                        {/* Said before the rows, so it is read before a size or thickness is picked. */}
+                        {asksSlab ? (
+                            <p
+                                className="mb-4 border-l-2 border-foreground bg-muted px-4 py-3 text-sm leading-normal"
+                                data-testid="slab-availability-note"
+                            >
+                                Some slab sizes and thicknesses depend on the
+                                slabs we have in stock. Our team will confirm
+                                them with you.
+                            </p>
+                        ) : null}
                         <ul className="divide-y divide-sidebar-border">
                             {fields.map((field, index) => {
                                 const stoneId = rows[index]?.stoneId;

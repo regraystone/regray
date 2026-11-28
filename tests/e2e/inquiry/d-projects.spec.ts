@@ -18,7 +18,7 @@ test('18 · Review adds and removes a project, and the server refuses a sixth', 
     await addStoneProject(page);
 
     const addProject = page.getByRole('button', {
-        name: 'Add another project',
+        name: 'Add another product',
     });
     await expect(addProject).toBeVisible();
     // With one project there is nothing to number, and nothing left to remove it for.

@@ -15,7 +15,8 @@ import {
     Home,
     LayoutDashboard,
     LogOut,
-    MessageCircle,
+    Menu,
+    MessageCircleMore,
     Package,
     Target,
     User,
@@ -294,7 +295,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
                 slug: 'inbox',
                 label: 'Inbox',
                 href: inboxIndex.url(),
-                icon: MessageCircle,
+                icon: MessageCircleMore,
                 permission: permissions.messagesView,
             },
             {
@@ -834,13 +835,18 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
             });
     }
 
-    const backHref = backTarget({
-        component: page.component,
-        url: effectiveUrl,
-        crumbs,
-        landingUrls: [homeIndex.url(), overviewIndex.url()],
-        landing: dashboard.url(),
-    });
+    // A page opened from somewhere it should return to (Addresses from Inquire) names it as `returnTo`.
+    const returnTo = (page.props as { returnTo?: unknown }).returnTo;
+    const backHref =
+        typeof returnTo === 'string' && returnTo !== ''
+            ? returnTo
+            : backTarget({
+                  component: page.component,
+                  url: effectiveUrl,
+                  crumbs,
+                  landingUrls: [homeIndex.url(), overviewIndex.url()],
+                  landing: dashboard.url(),
+              });
 
     const messageUsAt = messageUsPlacement({
         component: page.component,
@@ -1043,14 +1049,8 @@ const WorkspaceLayout = ({ children }: { children: ReactNode }) => {
                             aria-label="Open navigation"
                             aria-expanded={drawerOpen}
                         >
-                            {/* Two lines, the lower one shorter, as Sir Mark's design draws the menu. */}
-                            <span
-                                aria-hidden
-                                className="flex w-6 flex-col items-end gap-1.5"
-                            >
-                                <span className="h-0.5 w-6 rounded-full bg-current" />
-                                <span className="h-0.5 w-4 rounded-full bg-current" />
-                            </span>
+                            {/* The three-line menu, as Sir Mark asked for it back. */}
+                            <Menu aria-hidden className="size-6" />
                         </button>
                     </div>
                 </header>

@@ -15,11 +15,20 @@ describe('the floating Message us button on the platform', () => {
         }
     });
 
-    it('is not shown on Inbox', () => {
-        assert.equal(
-            messageUsPlacement({ ...client, component: 'inbox' }),
-            null,
-        );
+    it("is not shown on Inbox, a stone's or a piece's page, Quotations or Inquire", () => {
+        for (const component of [
+            'inbox',
+            'stone-profile',
+            'furniture-profile',
+            'quote',
+            'inquire',
+        ]) {
+            assert.equal(
+                messageUsPlacement({ ...client, component }),
+                null,
+                component,
+            );
+        }
     });
 
     it('is not shown to staff, nor to a client who may not message', () => {
@@ -42,13 +51,7 @@ describe('the floating Message us button on the platform', () => {
     });
 
     it('sits higher on a page that pins its own bar to the bottom', () => {
-        for (const component of [
-            'saved',
-            'inquire',
-            'quote',
-            'stone-profile',
-            'furniture-profile',
-        ]) {
+        for (const component of ['saved']) {
             assert.notEqual(
                 messageUsPlacement({ ...client, component }),
                 'bottom-[max(1rem,env(safe-area-inset-bottom,0px))]',

@@ -48,7 +48,8 @@ it('asks each service its own questions, in order', function (): void {
         'slab-supply-and-installation' => ['quantity (stone)', 'slab_size (stone)', 'thickness (stone)', 'edge_profile (stone)', 'finish (stone)'],
         'installation-only' => [],
         'countertop-backsplash' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)', 'fascia'],
-        'wall-cladding' => ['area_sqm', 'finish (stone)'],
+        // A wall may be bookmatched, if the client wants it.
+        'wall-cladding' => ['area_sqm', 'finish (stone)', 'bookmatch (optional)'],
         'flooring' => ['area_sqm', 'finish (stone)'],
         // A step's front edge (its nosing) is profiled.
         'staircase' => ['area_sqm', 'edge_profile (stone)', 'finish (stone)'],
